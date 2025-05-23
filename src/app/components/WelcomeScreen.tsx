@@ -63,7 +63,7 @@ const WelcomeScreen: React.FC = () => {
               width: '100%'
             }}
           >
-            Connect with new friends by bumping phones
+            Less typing. More connecting.
           </p>
         </div>
         
@@ -95,7 +95,7 @@ const WelcomeScreen: React.FC = () => {
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
           >
-            Get Started
+            Start Nekt'ing
           </Link>
         </div>
       </div>
