@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 
 const WelcomeScreen: React.FC = () => {
@@ -19,7 +19,7 @@ const WelcomeScreen: React.FC = () => {
     <div 
       style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         height: '100vh',
         width: '100vw',
@@ -29,8 +29,7 @@ const WelcomeScreen: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        padding: 0,
-        margin: 0
+        paddingTop: '10vh' // Position elements higher on the screen
       }}
     >
       <div
@@ -39,11 +38,9 @@ const WelcomeScreen: React.FC = () => {
           maxWidth: '320px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards',
-          // Offset to adjust for visual balance (logo appears visually larger than button)
-          marginBottom: '20px'
+          animation: 'fadeIn 0.3s ease-out forwards'
         }}
       >
         <h1 
@@ -51,7 +48,7 @@ const WelcomeScreen: React.FC = () => {
             color: 'var(--primary)',
             fontSize: '48px',
             fontWeight: 'bold',
-            marginBottom: '8px', // Reduced from 16px to 8px
+            marginBottom: '8px',
             textAlign: 'center',
             width: '100%'
           }}
@@ -61,7 +58,7 @@ const WelcomeScreen: React.FC = () => {
         <p 
           style={{ 
             fontSize: '24px', 
-            marginBottom: '50px', // Increased from 40px to 50px
+            marginBottom: '50px',
             textAlign: 'center',
             width: '100%'
           }}
