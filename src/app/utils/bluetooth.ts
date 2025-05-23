@@ -1,5 +1,44 @@
 'use client';
 
+// Define inline Web Bluetooth API interfaces to avoid TypeScript errors
+interface BluetoothRemoteGATTCharacteristic {
+  service: BluetoothRemoteGATTService;
+  uuid: string;
+  properties: any;
+  value?: DataView;
+  startNotifications(): Promise<BluetoothRemoteGATTCharacteristic>;
+  stopNotifications(): Promise<BluetoothRemoteGATTCharacteristic>;
+  readValue(): Promise<DataView>;
+  writeValue(value: BufferSource): Promise<void>;
+  addEventListener(type: string, listener: EventListener): void;
+  removeEventListener(type: string, listener: EventListener): void;
+}
+
+interface BluetoothRemoteGATTService {
+  device: BluetoothDevice;
+  uuid: string;
+  isPrimary: boolean;
+  getCharacteristic(characteristic: string): Promise<BluetoothRemoteGATTCharacteristic>;
+  getCharacteristics(characteristic?: string): Promise<BluetoothRemoteGATTCharacteristic[]>;
+}
+
+interface BluetoothRemoteGATTServer {
+  device: BluetoothDevice;
+  connected: boolean;
+  connect(): Promise<BluetoothRemoteGATTServer>;
+  disconnect(): void;
+  getPrimaryService(service: string): Promise<BluetoothRemoteGATTService>;
+  getPrimaryServices(service?: string): Promise<BluetoothRemoteGATTService[]>;
+}
+
+interface BluetoothDevice {
+  id: string;
+  name?: string;
+  gatt?: BluetoothRemoteGATTServer;
+  addEventListener(type: string, listener: EventListener): void;
+  removeEventListener(type: string, listener: EventListener): void;
+}
+
 // Define the shape of a contact exchange
 export interface ContactExchange {
   userId: string;
@@ -65,7 +104,9 @@ export class BluetoothConnector {
       if (!this.device) return false;
       
       // Connect to the GATT server
-      this.server = await this.device.gatt?.connect();
+      if (this.device.gatt) {
+        this.server = await this.device.gatt.connect();
+      }
       
       if (!this.server) return false;
       
@@ -80,7 +121,10 @@ export class BluetoothConnector {
       
       // Listen for notifications
       characteristic.addEventListener('characteristicvaluechanged', (event) => {
-        const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
+        // Use a type assertion with unknown intermediate step to avoid TypeScript errors
+        const target = event.target as unknown;
+        const characteristic = target as BluetoothRemoteGATTCharacteristic;
+        const value = characteristic.value;
         if (value) {
           const decoder = new TextDecoder('utf-8');
           const data = decoder.decode(value);
