@@ -1,20 +1,16 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// Get the origin for redirect URLs - use EXACTLY what's in Google Console
-const origin = process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3000";
+// CRITICAL: Use EXACTLY the origins/redirects from Google Console
+// No dynamic calculation - we have direct evidence of what works
+const GOOGLE_REDIRECT_URI = "https://nekt.us/api/auth/callback/google";
+process.env.NEXTAUTH_URL = "https://nekt.us";
 
-// This must match EXACTLY what's in your Google Cloud Console
-const redirectUri = `${origin}/api/auth/callback/google`;
-
-// Set the full base URL for NextAuth
-process.env.NEXTAUTH_URL = origin;
-
-// Detailed logging for debugging
-console.log('NextAuth Configuration:');
-console.log('Environment:', process.env.NODE_ENV);
-console.log('Origin:', origin);
-console.log('Redirect URI:', redirectUri);
+// Print exact config for debugging
+console.log('NextAuth Config:');
+console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+console.log('- GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
+console.log('- NEXTAUTH_SECRET length:', process.env.NEXTAUTH_SECRET ? process.env.NEXTAUTH_SECRET.length : 0);
 
 // Configure NextAuth handler
 const handler = NextAuth({
@@ -27,12 +23,12 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
+          redirect_uri: GOOGLE_REDIRECT_URI,
           prompt: "consent",
           access_type: "offline",
           response_type: "code"
         }
       },
-      // Important: Override the profile URL to get the profile picture
       profile(profile) {
         return {
           id: profile.sub,
@@ -56,21 +52,14 @@ const handler = NextAuth({
       }
       return token;
     },
-    // Improved redirect handler with error logging
+    // Simplified redirect handler - always go to setup page
     async redirect({ url, baseUrl }) {
       console.log('Redirect called:');
       console.log('- URL:', url);
       console.log('- Base URL:', baseUrl);
       
-      // Check for error parameters in the URL
-      if (url.includes('error=')) {
-        console.error('Auth error detected in redirect URL:', url);
-        // Still redirect to setup page but with error parameter preserved
-        return url;
-      }
-      
-      // Always redirect to setup page after successful auth
-      return `${origin}/setup`;
+      // Always use exact URL
+      return 'https://nekt.us/setup';
     }
   },
   pages: {
