@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '../context/UserContext';
+import { useUser, SocialProfile } from '../context/UserContext';
 
 // Standard button style shared across the application
 const standardButtonStyle = {
@@ -23,16 +23,20 @@ const standardButtonStyle = {
   marginTop: '10px'
 };
 
-// List of social networks to include
+// List of social networks to include with proper typing
 const SOCIAL_NETWORKS = [
   { id: 'email', label: 'Email', type: 'email', placeholder: 'your@email.com' },
-  { id: 'facebook', label: 'Facebook', type: 'text', placeholder: 'username' },
-  { id: 'instagram', label: 'Instagram', type: 'text', placeholder: '@username' },
-  { id: 'whatsapp', label: 'WhatsApp', type: 'tel', placeholder: 'phone number' },
-  { id: 'snapchat', label: 'Snapchat', type: 'text', placeholder: 'username' },
-  { id: 'linkedin', label: 'LinkedIn', type: 'text', placeholder: 'username or URL' },
-  { id: 'telegram', label: 'Telegram', type: 'text', placeholder: '@username' },
+  { id: 'facebook' as const, label: 'Facebook', type: 'text', placeholder: 'username' },
+  { id: 'instagram' as const, label: 'Instagram', type: 'text', placeholder: '@username' },
+  { id: 'whatsapp' as const, label: 'WhatsApp', type: 'tel', placeholder: 'phone number' },
+  { id: 'snapchat' as const, label: 'Snapchat', type: 'text', placeholder: 'username' },
+  { id: 'linkedin' as const, label: 'LinkedIn', type: 'text', placeholder: 'username or URL' },
+  { id: 'telegram' as const, label: 'Telegram', type: 'text', placeholder: '@username' },
+  { id: 'twitter' as const, label: 'Twitter', type: 'text', placeholder: '@username' },
 ];
+
+// Valid platform types from the SocialProfile interface
+type ValidPlatform = SocialProfile['platform'];
 
 const SocialProfileInputs: React.FC = () => {
   const router = useRouter();
@@ -50,6 +54,7 @@ const SocialProfileInputs: React.FC = () => {
     snapchat: '',
     linkedin: '',
     telegram: '',
+    twitter: '',
   });
 
   // Auto-focus the email field on initial render
@@ -93,20 +98,30 @@ const SocialProfileInputs: React.FC = () => {
 
   // Handle submission
   const handleSubmit = () => {
-    // Create social profiles array from inputs
-    const socialProfiles = Object.entries(socialInputs)
-      .filter(([id, value]) => value.trim() !== '') // Only include non-empty values
-      .map(([id, value]) => ({
-        platform: id === 'email' ? 'email' : id, // Handle email specially
-        username: value.trim(),
-        shareEnabled: true // Default to sharing
-      }));
+    // Create social profiles array with proper typing
+    const socialProfiles: SocialProfile[] = [];
+    
+    // Handle each social platform
+    Object.entries(socialInputs)
+      .filter(([id, value]) => value.trim() !== '' && id !== 'email') // Only include non-empty values and exclude email
+      .forEach(([id, value]) => {
+        // Ensure id is a valid platform type
+        if (id === 'facebook' || id === 'instagram' || id === 'twitter' || 
+            id === 'linkedin' || id === 'snapchat' || id === 'whatsapp' || 
+            id === 'telegram') {
+          socialProfiles.push({
+            platform: id,
+            username: value.trim(),
+            shareEnabled: true
+          });
+        }
+      });
     
     // Update user data with social profiles
     setUserData(prev => ({
       ...prev,
       email: socialInputs.email, // Store email separately
-      socialProfiles: socialProfiles.filter(p => p.platform !== 'email') // Remove email from social profiles
+      socialProfiles: socialProfiles
     }));
     
     // Save data and navigate to profile page
