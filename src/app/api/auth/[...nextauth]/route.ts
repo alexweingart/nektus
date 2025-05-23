@@ -1,13 +1,17 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// Get the origin for redirect URLs
-const origin = process.env.NEXTAUTH_URL || (process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3002");
+// Get the origin for redirect URLs - use EXACTLY what's in Google Console
+const origin = process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3000";
 
-// Logs for debugging
-console.log('NextAuth Origin:', origin);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+// Force the exact redirect URI that matches Google Console settings
+const redirectUri = `${origin}/api/auth/callback/google`;
+
+// Detailed logging for debugging
+console.log('NextAuth Configuration:');
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Origin:', origin);
+console.log('Redirect URI:', redirectUri);
 
 // Configure NextAuth handler
 const handler = NextAuth({
@@ -21,11 +25,11 @@ const handler = NextAuth({
         params: {
           prompt: "consent",
           access_type: "offline",
-          response_type: "code"
+          response_type: "code",
+          // Force the exact redirect URI
+          redirect_uri: redirectUri
         }
-      },
-      // Force exact callback URLs that match Google Console configuration
-      checks: ['pkce', 'state']
+      }
     }),
   ],
   callbacks: {
@@ -41,27 +45,14 @@ const handler = NextAuth({
       }
       return token;
     },
-    // Add a redirect callback to properly handle redirects
+    // Simplified redirect handler
     async redirect({ url, baseUrl }) {
-      console.log('Redirect called with URL:', url);
-      console.log('Base URL:', baseUrl);
+      console.log('Redirect called:');
+      console.log('- URL:', url);
+      console.log('- Base URL:', baseUrl);
       
-      // Handle relative URLs (convert to absolute)
-      if (url.startsWith('/')) {
-        const redirectUrl = `${baseUrl}${url}`;
-        console.log('Converted to:', redirectUrl);
-        return redirectUrl;
-      }
-      
-      // Allow redirects to the same site
-      if (url.startsWith(baseUrl)) {
-        console.log('Same site redirect:', url);
-        return url;
-      }
-      
-      // Default to setup page
-      console.log('Defaulting to setup page');
-      return `${baseUrl}/setup`;
+      // Always redirect to setup page after auth
+      return `${origin}/setup`;
     }
   },
   pages: {

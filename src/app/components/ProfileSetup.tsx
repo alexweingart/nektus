@@ -147,17 +147,10 @@ const ProfileSetup: React.FC = () => {
   useEffect(() => {
     // Only run once on component mount
     const origin = window.location.origin;
+    console.log('Client-side Environment:');
     console.log('Current URL:', window.location.href);
     console.log('Origin:', origin);
     console.log('Expected callback URL:', `${origin}/api/auth/callback/google`);
-    console.log('Absolute callback URL:', `https://nekt.us/api/auth/callback/google`);
-    
-    // Log more information to help debug
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Running in development mode');
-    } else {
-      console.log('Running in production mode');
-    }
   }, []);
   
   // Properly handle Google Sign-in with NextAuth
@@ -166,9 +159,10 @@ const ProfileSetup: React.FC = () => {
     setIsSigningIn(true);
     
     try {
-      // Use the signIn function from NextAuth with absolute callback URL
+      // Use simplified signIn call for Google authentication
       signIn('google', {
-        callbackUrl: '/setup'
+        callbackUrl: '/setup',
+        redirect: true
       });
       
       // Set a timeout to reset state if sign-in doesn't complete
