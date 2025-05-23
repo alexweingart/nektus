@@ -17,7 +17,7 @@ const standardButtonStyle = {
   boxShadow: 'var(--shadow-md)',
   transition: 'all 0.2s ease-in-out',
   textDecoration: 'none',
-  textAlign: 'center',
+  textAlign: 'center' as const, // Type assertion to fix TypeScript error
   border: 'none',
   cursor: 'pointer',
   marginTop: '10px'
@@ -214,7 +214,23 @@ const SocialProfileInputs: React.FC = () => {
         
         <button
           onClick={handleSubmit}
-          style={standardButtonStyle}
+          style={{
+            display: 'block',
+            width: '100%',
+            backgroundColor: 'var(--primary)',
+            color: 'white',
+            fontSize: '22px',
+            fontWeight: '500',
+            padding: '16px 24px',
+            borderRadius: '100px',
+            boxShadow: 'var(--shadow-md)',
+            transition: 'all 0.2s ease-in-out',
+            textDecoration: 'none',
+            textAlign: 'center',
+            border: 'none',
+            cursor: 'pointer',
+            marginTop: '10px'
+          }}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--primary-dark)';
             e.currentTarget.style.transform = 'translateY(-2px)';

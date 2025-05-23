@@ -112,7 +112,7 @@ const SetupProfile: React.FC = () => {
     boxShadow: 'var(--shadow-md)',
     transition: 'all 0.2s ease-in-out',
     textDecoration: 'none',
-    textAlign: 'center',
+    textAlign: 'center' as const, // Type assertion to fix TypeScript error
     border: 'none',
     cursor: phoneNumber.length === 10 ? 'pointer' : 'not-allowed',
     marginTop: '10px'
