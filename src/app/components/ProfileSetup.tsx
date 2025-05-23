@@ -143,18 +143,13 @@ const ProfileSetup: React.FC = () => {
     }
   }, [status, session]);
   
-  // Properly configured Google Sign-in
+  // Basic Google Sign-in implementation
   const handleGoogleSignIn = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    // Use standard NextAuth signIn function with minimal options
-    signIn('google', { callbackUrl: '/setup' });
-    
-    // Reset loading state after 10 seconds if no response
-    setTimeout(() => {
-      setIsSigningIn(false);
-    }, 10000);
+    // Call Google sign-in with no options - absolute simplicity
+    signIn('google');
   };
   
   // Handle phone number changes
