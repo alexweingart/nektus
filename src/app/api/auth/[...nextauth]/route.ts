@@ -2,6 +2,15 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { NextAuthOptions, User, Account, Profile } from "next-auth";
 
+// CRITICAL: Set the correct NEXTAUTH_URL for all environments
+process.env.NEXTAUTH_URL = "https://nekt.us";
+
+// Logging for better debugging
+console.log('AUTH CONFIG ENVIRONMENT:');
+console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+console.log('- Has GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('- Has GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
+
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -9,6 +18,8 @@ const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // Ensure GOOGLE_CLIENT_SECRET is set
       authorization: {
         params: {
+          // CRITICAL: Force exact redirect_uri to match Google Cloud Console
+          redirect_uri: "https://nekt.us/api/auth/callback/google",
           prompt: "select_account", // Consistently prompt for account selection
           access_type: "offline",    // Request offline access for refresh tokens if needed
           response_type: "code",     // Standard OAuth 2.0 flow
@@ -71,13 +82,10 @@ const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      // Default redirect to setup page for safety if the URL is external or invalid
-      return `${baseUrl}/setup`;
+    async redirect() {
+      // Override all redirect logic to ensure consistent behavior
+      // For a mobile contact exchange app, we always want users to land on the setup page
+      return "https://nekt.us/setup";
     },
   },
   // Log important authentication events
