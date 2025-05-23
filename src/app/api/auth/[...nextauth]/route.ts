@@ -45,24 +45,30 @@ const authOptions: NextAuthOptions = {
       // This callback is called when a JWT is created (i.e. on sign in)
       // or when a session is accessed (i.e. on /api/auth/session).
       if (account && user) { // `account` and `user` are only passed on sign-in
-        token.accessToken = account.access_token;
-        token.id_token = account.id_token; // Store the ID token if needed
-        token.userId = user.id; // Persist the user ID from the user object (or profile.sub)
-        token.email = user.email;
-        token.name = user.name;
-        token.picture = user.image;
+        // Add proper type casting for all properties
+        token.accessToken = account.access_token as string;
+        token.id_token = account.id_token as string; 
+        token.userId = user.id as string; 
+        token.email = user.email as string;
+        token.name = user.name as string;
+        token.picture = user.image as string;
       }
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
       // This callback is called whenever a session is checked.
       // Send properties to the client, like an access_token and user ID from the token.
-      session.accessToken = token.accessToken;
-      session.id_token = token.id_token;
-      session.user.id = token.userId;
-      session.user.email = token.email;
-      session.user.name = token.name;
-      session.user.picture = token.picture;
+      // Add proper type casting for all custom properties
+      session.accessToken = token.accessToken as string;
+      session.id_token = token.id_token as string;
+      
+      // Ensure user object exists
+      if (session.user) {
+        session.user.id = token.userId as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
+        session.user.picture = token.picture as string;
+      }
       return session;
     },
     async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {

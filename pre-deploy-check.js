@@ -40,12 +40,28 @@ try {
   }
   
   // Check for potential type issues in auth configuration
-  if (authContent.includes('token.accessToken = account.access_token;') ||
-      authContent.includes('token.id = profile.sub;') ||
-      authContent.includes('session.accessToken = token.accessToken;')) {
-    console.error('❌ Potential TypeScript errors in auth callbacks!');
-    console.error('   Properties like access_token, sub, and custom session properties');
-    console.error('   need proper type casting (as string, as any, etc.)');
+  // Match assignment patterns without type assertions
+  const typeCastingPatterns = [
+    { pattern: /token\.[\w]+ = (?!.*as string).*(?:account|profile|user)\.[\w]+;/g, description: 'JWT token properties' },
+    { pattern: /session(?:\.user)?\.[\w]+ = (?!.*as string).*token\.[\w]+;/g, description: 'Session properties' },
+    { pattern: /session\.[\w]+ = token\.[\w]+;/g, description: 'Custom session properties' },
+  ];
+  
+  let missingTypeCasts = false;
+  for (const { pattern, description } of typeCastingPatterns) {
+    if (pattern.test(authContent)) {
+      if (!missingTypeCasts) {
+        console.error('❌ Potential TypeScript errors in auth callbacks!');
+        missingTypeCasts = true;
+      }
+      console.error(`   Missing type casting for ${description}. Add 'as string' or 'as any' as needed.`);
+    }
+  }
+  
+  if (missingTypeCasts) {
+    console.error('   Example: "token.accessToken = account.access_token as string;"');
+    console.error('   Example: "session.user.id = token.userId as string;"');
+    console.error('   Example: "(session as any).customProperty = token.customProperty as string;"');
     process.exit(1);
   }
   
