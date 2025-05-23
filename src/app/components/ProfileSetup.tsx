@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useUser, SocialProfile } from '../context/UserContext';
 import { useRouter } from 'next/navigation';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
 // Button styles
 const primaryButtonStyle = {
@@ -120,20 +121,27 @@ const ProfileSetup: React.FC = () => {
     }
   }, [step]);
   
-  // Simulate Google Sign-in (this would be a real OAuth flow in production)
-  const handleGoogleSignIn = () => {
-    // Simulate loading time
-    setTimeout(() => {
-      // Mock Google user data
+  // Use NextAuth session
+  const { data: session, status } = useSession();
+  
+  // Check if user is already authenticated with Google
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      // User is signed in with Google, get data from session
       setGoogleUser({
-        name: 'Alex Weingart',
-        email: 'alex@example.com',
-        picture: 'https://ui-avatars.com/api/?name=Alex+Weingart&background=0D8ABC&color=fff'
+        name: session.user.name || 'User',
+        email: session.user.email || '',
+        picture: session.user.image || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
       });
       
       // Proceed to phone number step
       setStep(2);
-    }, 1000);
+    }
+  }, [status, session]);
+  
+  // Start Google OAuth flow
+  const handleGoogleSignIn = () => {
+    signIn('google', { callbackUrl: '/setup' });
   };
   
   // Handle phone number changes
@@ -147,15 +155,11 @@ const ProfileSetup: React.FC = () => {
   const handleContinueToSocial = () => {
     if (phoneNumber.length === 10) {
       // Save phone number and related platforms
-      const updatedUserData = {
-        ...userData,
-        phone: phoneNumber,
-        socialProfiles: []
-      };
+      const socialProfiles: SocialProfile[] = [];
       
       // Add WhatsApp if enabled
       if (usePhoneForWhatsapp) {
-        updatedUserData.socialProfiles.push({
+        socialProfiles.push({
           platform: 'whatsapp',
           username: phoneNumber,
           shareEnabled: true
@@ -164,14 +168,20 @@ const ProfileSetup: React.FC = () => {
       
       // Add Telegram if enabled
       if (usePhoneForTelegram) {
-        updatedUserData.socialProfiles.push({
+        socialProfiles.push({
           platform: 'telegram',
           username: phoneNumber,
           shareEnabled: true
         });
       }
       
-      setUserData(updatedUserData);
+      // Update user data
+      setUserData({
+        ...userData,
+        phone: phoneNumber,
+        socialProfiles
+      });
+      
       setStep(3);
     }
   };
@@ -393,6 +403,7 @@ const ProfileSetup: React.FC = () => {
             <button
               onClick={handleGoogleSignIn}
               style={googleButtonStyle}
+              disabled={status === 'loading'}
             >
               <Image 
                 src="/icons/google.svg" 
@@ -401,8 +412,14 @@ const ProfileSetup: React.FC = () => {
                 height={24}
                 style={{ marginRight: '16px' }}
               />
-              Sign in with Google
+              {status === 'loading' ? 'Loading...' : 'Sign in with Google'}
             </button>
+            
+            {status === 'authenticated' && (
+              <p style={{ marginTop: '12px', fontSize: '14px', textAlign: 'center' }}>
+                Redirecting to profile setup...
+              </p>
+            )}
           </>
         )}
         
