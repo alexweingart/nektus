@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 const WelcomeScreen: React.FC = () => {
@@ -28,7 +28,9 @@ const WelcomeScreen: React.FC = () => {
         top: 0,
         left: 0,
         right: 0,
-        bottom: 0
+        bottom: 0,
+        padding: 0,
+        margin: 0
       }}
     >
       <div
@@ -39,7 +41,9 @@ const WelcomeScreen: React.FC = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards'
+          animation: 'fadeIn 0.3s ease-out forwards',
+          // Offset to adjust for visual balance (logo appears visually larger than button)
+          marginBottom: '20px'
         }}
       >
         <h1 
@@ -47,7 +51,7 @@ const WelcomeScreen: React.FC = () => {
             color: 'var(--primary)',
             fontSize: '48px',
             fontWeight: 'bold',
-            marginBottom: '16px',
+            marginBottom: '8px', // Reduced from 16px to 8px
             textAlign: 'center',
             width: '100%'
           }}
@@ -57,7 +61,7 @@ const WelcomeScreen: React.FC = () => {
         <p 
           style={{ 
             fontSize: '24px', 
-            marginBottom: '40px',
+            marginBottom: '50px', // Increased from 40px to 50px
             textAlign: 'center',
             width: '100%'
           }}
