@@ -143,38 +143,13 @@ const ProfileSetup: React.FC = () => {
     }
   }, [status, session]);
   
-  // Log redirect information for debugging
-  useEffect(() => {
-    // Only run once on component mount
-    const origin = window.location.origin;
-    console.log('Client-side Environment:');
-    console.log('Current URL:', window.location.href);
-    console.log('Origin:', origin);
-    console.log('Expected callback URL:', `${origin}/api/auth/callback/google`);
-  }, []);
-  
-  // Properly handle Google Sign-in with NextAuth
+  // Properly handle Google Sign-in with NextAuth - simplified for reliability
   const handleGoogleSignIn = () => {
     // Show loading state in button
     setIsSigningIn(true);
     
-    try {
-      // Use simplified signIn call for Google authentication
-      signIn('google', {
-        callbackUrl: '/setup',
-        redirect: true
-      });
-      
-      // Set a timeout to reset state if sign-in doesn't complete
-      setTimeout(() => {
-        if (status !== 'authenticated') {
-          setIsSigningIn(false);
-        }
-      }, 10000); // 10 second timeout
-    } catch (error) {
-      console.error('Error during sign in:', error);
-      setIsSigningIn(false);
-    }
+    // Basic Google sign-in with minimal options
+    signIn('google');
   };
   
   // Handle phone number changes
