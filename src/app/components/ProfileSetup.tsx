@@ -1,412 +1,222 @@
-'use client';
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 import Image from 'next/image';
-import { useUser, SocialProfile } from '../context/UserContext';
-import { useRouter } from 'next/navigation';
-import { signIn, signOut, useSession } from 'next-auth/react';
 
-// Button styles
-const primaryButtonStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  backgroundColor: 'var(--primary)',
-  color: 'white',
-  fontSize: '22px',
-  fontWeight: '500',
-  padding: '16px 24px',
-  borderRadius: '100px',
-  boxShadow: 'var(--shadow-md)',
-  transition: 'all 0.2s ease-in-out',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
-  border: 'none',
-  cursor: 'pointer',
-  marginTop: '16px'
+type GoogleUser = {
+  name: string;
+  email: string;
+  picture: string;
 };
 
-const googleButtonStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  backgroundColor: 'white',
-  color: '#333',
-  fontSize: '22px',
-  fontWeight: '500',
-  padding: '16px 24px',
-  borderRadius: '100px',
-  boxShadow: 'var(--shadow-md)',
-  transition: 'all 0.2s ease-in-out',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
-  border: '1px solid #ddd',
-  cursor: 'pointer',
-  marginTop: '16px'
+type SocialProfile = {
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
+  username: string;
+  shareEnabled: boolean;
 };
 
-// Supported social platforms
-const SOCIAL_PLATFORMS: Array<{
-  id: SocialProfile['platform'];
-  label: string;
-  icon: string;
-  prefix: string;
-}> = [
-  { id: 'facebook', label: 'Facebook', icon: '/icons/facebook.svg', prefix: '' },
-  { id: 'instagram', label: 'Instagram', icon: '/icons/instagram.svg', prefix: '@' },
-  { id: 'linkedin', label: 'LinkedIn', icon: '/icons/linkedin.svg', prefix: '' },
-  { id: 'twitter', label: 'Twitter', icon: '/icons/twitter.svg', prefix: '@' },
-  { id: 'snapchat', label: 'Snapchat', icon: '/icons/snapchat.svg', prefix: '' },
-];
-
-// Phone-based platforms
-const PHONE_PLATFORMS = [
-  { id: 'whatsapp' as const, label: 'WhatsApp', icon: '/icons/whatsapp.svg' },
-  { id: 'telegram' as const, label: 'Telegram', icon: '/icons/telegram.svg' },
-];
-
-const ProfileSetup: React.FC = () => {
-  const router = useRouter();
-  const { userData, setUserData, saveUserData } = useUser();
-  
-  // Setup steps
-  // 1: Initial Google Sign-in
-  // 2: Phone Number + WhatsApp/Telegram
-  // 3: Social Handles
-  const [step, setStep] = useState(1);
-  
-  // User information state
-  const [googleUser, setGoogleUser] = useState<{name: string, email: string, picture: string} | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const [universalHandle, setUniversalHandle] = useState('');
-  const [platformHandles, setPlatformHandles] = useState<Record<string, string>>({});
-  
-  // Phone settings
-  const [usePhoneForWhatsapp, setUsePhoneForWhatsapp] = useState(true);
-  const [usePhoneForTelegram, setUsePhoneForTelegram] = useState(false);
-  
-  // Refs
-  const phoneInputRef = useRef<HTMLInputElement>(null);
-  const handleInputRef = useRef<HTMLInputElement>(null);
-  
-  // Set up blinking cursor effect for phone input
-  useEffect(() => {
-    if (step === 2) {
-      const interval = setInterval(() => {
-        setCursorPosition(prev => prev === 0 ? 1 : 0);
-      }, 500);
-      
-      // Focus phone input
-      if (phoneInputRef.current) {
-        phoneInputRef.current.focus();
-        
-        // Delayed focus for mobile
-        setTimeout(() => {
-          if (phoneInputRef.current) {
-            phoneInputRef.current.focus();
-            phoneInputRef.current.click();
-          }
-        }, 100);
-      }
-      
-      return () => clearInterval(interval);
-    }
-    
-    // Focus handle input for step 3
-    if (step === 3 && handleInputRef.current) {
-      handleInputRef.current.focus();
-    }
-  }, [step]);
-  
-  // Use NextAuth session
+export default function ProfileSetup() {
   const { data: session, status } = useSession();
+  const [step, setStep] = useState(1);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  
-  // Check if user is already authenticated with Google
+  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+  const [phone, setPhone] = useState('');
+  const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
+  const [currentPlatform, setCurrentPlatform] = useState<SocialProfile['platform']>('instagram');
+  const [currentUsername, setCurrentUsername] = useState('');
+  const [formattedPhone, setFormattedPhone] = useState('');
+
+  // Styles for various components
+  const googleButtonStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    padding: '12px 20px',
+    backgroundColor: 'white',
+    color: '#444',
+    border: '1px solid #ddd',
+    borderRadius: '100px',
+    fontSize: '16px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'background-color 0.3s',
+  };
+
+  const containerStyle = {
+    maxWidth: '480px',
+    margin: '0 auto',
+    padding: '24px',
+    color: 'var(--text)',
+  };
+
+  const headerStyle = {
+    fontSize: '32px',
+    fontWeight: 'bold',
+    marginBottom: '48px',
+    color: 'var(--primary)',
+    textAlign: 'center' as const,
+  };
+
+  const cardStyle = {
+    backgroundColor: 'var(--card-bg)',
+    borderRadius: '16px',
+    padding: '32px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+    marginBottom: '24px',
+  };
+
+  const inputStyle = {
+    display: 'block',
+    width: '100%',
+    padding: '12px 16px',
+    marginBottom: '24px',
+    borderRadius: '8px',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--input-bg)',
+    color: 'var(--text)',
+    fontSize: '16px',
+  };
+
+  const buttonStyle = {
+    display: 'block',
+    width: '100%',
+    padding: '14px 20px',
+    backgroundColor: 'var(--primary)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '100px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'background-color 0.3s',
+  };
+
+  const stepIndicatorStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '32px',
+  };
+
+  const stepDotStyle = {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    margin: '0 6px',
+    backgroundColor: 'var(--border)',
+  };
+
+  const activeStepDotStyle = {
+    ...stepDotStyle,
+    backgroundColor: 'var(--primary)',
+    transform: 'scale(1.2)',
+  };
+
+  // Handle session changes
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      // User is signed in with Google, get data from session
+    if (status === 'authenticated' && session.user) {
+      // User is signed in with Google, extract the profile data
       setGoogleUser({
-        name: session.user.name || 'User',
+        name: session.user.name || '',
         email: session.user.email || '',
-        picture: session.user.image || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
+        picture: session.user.image || '',
       });
       
-      // Proceed to phone number step
+      // Advance to the next step
       setStep(2);
-      setIsSigningIn(false);
-    } else if (status === 'unauthenticated') {
       setIsSigningIn(false);
     }
   }, [status, session]);
   
-  // Basic Google Sign-in implementation
+  // Google Sign-in handler with direct configuration to match Google Console settings
   const handleGoogleSignIn = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    // Call Google sign-in with no options - absolute simplicity
-    signIn('google');
+    try {
+      // Clear any potential error state
+      console.log("Initiating Google sign-in");
+      
+      // Use minimal signIn call - the configuration in [...nextauth]/route.ts 
+      // handles the exact redirect URI matching
+      signIn('google');
+    } catch (error) {
+      console.error("Error during sign in:", error);
+      setIsSigningIn(false);
+    }
   };
   
   // Handle phone number changes
-  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow only numbers and limit to 10 digits
-    const value = e.target.value.replace(/\D/g, '').substring(0, 10);
-    setPhoneNumber(value);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value.replace(/\D/g, '');
+    setPhone(input);
+    
+    // Format phone number as (XXX) XXX-XXXX
+    if (input.length > 0) {
+      const areaCode = input.substring(0, 3);
+      const middle = input.substring(3, 6);
+      const last = input.substring(6, 10);
+      
+      if (input.length <= 3) {
+        setFormattedPhone(`(${areaCode}`);
+      } else if (input.length <= 6) {
+        setFormattedPhone(`(${areaCode}) ${middle}`);
+      } else {
+        setFormattedPhone(`(${areaCode}) ${middle}-${last}`);
+      }
+    } else {
+      setFormattedPhone('');
+    }
   };
   
-  // Proceed to social handles step
-  const handleContinueToSocial = () => {
-    if (phoneNumber.length === 10) {
-      // Save phone number and related platforms
-      const socialProfiles: SocialProfile[] = [];
-      
-      // Add WhatsApp if enabled
-      if (usePhoneForWhatsapp) {
-        socialProfiles.push({
-          platform: 'whatsapp',
-          username: phoneNumber,
-          shareEnabled: true
-        });
-      }
-      
-      // Add Telegram if enabled
-      if (usePhoneForTelegram) {
-        socialProfiles.push({
-          platform: 'telegram',
-          username: phoneNumber,
-          shareEnabled: true
-        });
-      }
-      
-      // Update user data
-      setUserData({
-        ...userData,
-        phone: phoneNumber,
-        socialProfiles
-      });
-      
+  // Handle proceeding to social profiles
+  const handlePhoneSubmit = () => {
+    if (phone.length >= 10) {
       setStep(3);
     }
   };
   
-  // Handle universal handle change
-  const handleUniversalHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\s/g, '');
-    setUniversalHandle(value);
-    
-    // Update all platform handles
-    const updatedHandles: Record<string, string> = {};
-    SOCIAL_PLATFORMS.forEach(platform => {
-      updatedHandles[platform.id] = value;
-    });
-    setPlatformHandles(updatedHandles);
-  };
-  
-  // Handle individual platform handle change
-  const handlePlatformHandleChange = (platform: string, value: string) => {
-    setPlatformHandles(prev => ({
-      ...prev,
-      [platform]: value
-    }));
-  };
-  
-  // Complete profile setup
-  const handleCompleteSetup = () => {
-    // Create social profiles from existing and new ones
-    const socialProfiles = [...userData.socialProfiles];
-    
-    // Add social platform profiles
-    Object.entries(platformHandles).forEach(([platform, handle]) => {
-      if (handle.trim() !== '') {
-        // Ensure platform is a valid SocialProfile platform
-        const validPlatform = platform as SocialProfile['platform'];
-        socialProfiles.push({
-          platform: validPlatform,
-          username: handle.trim(),
-          shareEnabled: true
-        });
-      }
-    });
-    
-    // Save all user data
-    setUserData({
-      ...userData,
-      name: googleUser?.name || '',
-      email: googleUser?.email || '',
-      socialProfiles
-    });
-    
-    // Save data and navigate to profile
-    saveUserData();
-    router.push('/profile');
-  };
-  
-  // Render the underlines for phone number digits
-  const renderUnderlines = () => {
-    const underlines = [];
-    for (let i = 0; i < 10; i++) {
-      const digit = phoneNumber[i] || '';
-      const isFirstEmpty = phoneNumber.length === i;
-      const showCursor = isFirstEmpty && cursorPosition === 1;
-      
-      underlines.push(
-        <div key={i} style={{ 
-          width: '24px', 
-          display: 'inline-block',
-          marginRight: i === 2 || i === 5 ? '8px' : '4px',
-          textAlign: 'center',
-          position: 'relative'
-        }}>
-          <div style={{ 
-            fontSize: '24px', 
-            fontWeight: 'bold',
-            height: '36px',
-            lineHeight: '36px'
-          }}>
-            {digit}
-            {showCursor && (
-              <span 
-                style={{
-                  position: 'absolute',
-                  width: '2px',
-                  height: '24px',
-                  backgroundColor: 'var(--primary)',
-                  top: '6px',
-                  left: '50%',
-                  transform: 'translateX(-50%)'
-                }}
-              ></span>
-            )}
-          </div>
-          <div style={{ 
-            height: '2px', 
-            backgroundColor: digit ? 'var(--primary)' : 'var(--card-border)',
-            width: '100%' 
-          }}></div>
-        </div>
-      );
+  // Handle adding a social profile
+  const handleAddSocialProfile = () => {
+    if (currentUsername) {
+      setSocialProfiles([
+        ...socialProfiles,
+        {
+          platform: currentPlatform,
+          username: currentUsername,
+          shareEnabled: true,
+        },
+      ]);
+      setCurrentUsername('');
     }
-    return underlines;
   };
   
-  // Render platform handles with icons
-  const renderSocialPlatforms = () => {
-    return SOCIAL_PLATFORMS.map(platform => (
-      <div 
-        key={platform.id}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px',
-          borderRadius: '12px',
-          backgroundColor: 'var(--card-bg)',
-          marginBottom: '12px',
-          boxShadow: 'var(--shadow-sm)',
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <div 
-          style={{ 
-            width: '32px', 
-            height: '32px', 
-            marginRight: '12px',
-            position: 'relative'
-          }}
-        >
-          <Image 
-            src={platform.icon} 
-            alt={platform.label} 
-            width={32} 
-            height={32}
-          />
-        </div>
-        
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
-            {platform.label}
-          </div>
-          
-          <input
-            type="text"
-            value={platformHandles[platform.id] || ''}
-            onChange={(e) => handlePlatformHandleChange(platform.id, e.target.value)}
-            placeholder={`${platform.label} username`}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '16px',
-              border: '1px solid var(--card-border)',
-              borderRadius: '6px',
-              outline: 'none'
-            }}
-          />
-        </div>
-      </div>
-    ));
+  // Handle completing the profile setup
+  const handleCompleteSetup = () => {
+    console.log('Profile setup complete:', {
+      user: googleUser,
+      phone,
+      socialProfiles,
+    });
+    
+    // In a real app, you would save this data to a database
+    // and redirect the user to the next step
+    alert('Profile setup complete! You can now close this setup.');
   };
   
   return (
-    <div 
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        height: '100vh',
-        width: '100vw',
-        overflow: 'auto',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingTop: '6vh',
-        paddingBottom: '6vh',
-        paddingLeft: '16px',
-        paddingRight: '16px'
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '400px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards'
-        }}
-      >
-        {/* Step 1: Google Sign-In */}
-        {step === 1 && (
-          <>
-            <h1 
-              style={{ 
-                color: 'var(--primary)',
-                fontSize: '32px',
-                fontWeight: 'bold',
-                marginBottom: '24px',
-                textAlign: 'center',
-                width: '100%'
-              }}
-            >
-              Create Your Profile
-            </h1>
-            
-            <p
-              style={{
-                fontSize: '18px',
-                marginBottom: '32px',
-                textAlign: 'center',
-                color: 'var(--foreground)'
-              }}
-            >
-              Sign in with Google to get started
-            </p>
+    <div style={containerStyle}>
+      <h1 style={headerStyle}>Create Your Profile</h1>
+      
+      <div style={stepIndicatorStyle}>
+        <div style={step === 1 ? activeStepDotStyle : stepDotStyle}></div>
+        <div style={step === 2 ? activeStepDotStyle : stepDotStyle}></div>
+        <div style={step === 3 ? activeStepDotStyle : stepDotStyle}></div>
+      </div>
+      
+      {step === 1 && (
+        <>
+          <div style={cardStyle}>
+            <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Sign in with Google to get started</h2>
             
             <button
               onClick={handleGoogleSignIn}
@@ -455,297 +265,169 @@ const ProfileSetup: React.FC = () => {
             <p style={{ marginTop: '20px', fontSize: '14px', color: 'var(--secondary-dark)', textAlign: 'center' }}>
               Google account required for Nekt.Us
             </p>
-          </>
-        )}
-        
-        {/* Step 2: Phone Number + WhatsApp/Telegram */}
-        {step === 2 && (
-          <>
-            <h1 
-              style={{ 
-                color: 'var(--primary)',
-                fontSize: '28px',
-                fontWeight: 'bold',
-                marginBottom: '16px',
-                textAlign: 'center',
-                width: '100%'
-              }}
-            >
-              Enter Your Phone Number
-            </h1>
-            
-            {googleUser && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginBottom: '24px',
-                  backgroundColor: 'var(--card-bg)',
-                  padding: '12px',
-                  borderRadius: '12px',
-                  width: '100%'
-                }}
-              >
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    overflow: 'hidden',
-                    marginRight: '12px'
-                  }}
-                >
-                  <img 
-                    src={googleUser.picture} 
-                    alt={googleUser.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>{googleUser.name}</div>
-                  <div style={{ fontSize: '14px', color: 'var(--secondary-dark)' }}>{googleUser.email}</div>
-                </div>
-              </div>
-            )}
-            
-            <div style={{ 
-              width: '100%', 
-              marginBottom: '32px',
-              display: 'flex',
-              justifyContent: 'center',
-              position: 'relative'
-            }}>
-              <input
-                ref={phoneInputRef}
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={phoneNumber}
-                onChange={handlePhoneNumberChange}
-                aria-label="Phone Number"
-                autoFocus={true}
-                style={{
-                  opacity: 0,
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  fontSize: '24px',
-                  cursor: 'default'
-                }}
-              />
-              
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center',
-                width: '100%',
-                userSelect: 'none'
-              }}>
-                {renderUnderlines()}
-              </div>
+          </div>
+        </>
+      )}
+      
+      {step === 2 && googleUser && (
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+            <Image 
+              src={googleUser.picture} 
+              alt={googleUser.name} 
+              width={60} 
+              height={60}
+              style={{ borderRadius: '50%', marginRight: '16px' }}
+            />
+            <div>
+              <h2 style={{ margin: '0 0 4px 0' }}>{googleUser.name}</h2>
+              <p style={{ margin: 0, color: 'var(--secondary)', fontSize: '14px' }}>{googleUser.email}</p>
             </div>
-            
-            <div
-              style={{
-                width: '100%',
-                marginBottom: '24px'
-              }}
+          </div>
+          
+          <h3 style={{ marginBottom: '16px' }}>Enter your phone number</h3>
+          <input
+            type="tel"
+            value={formattedPhone}
+            onChange={handlePhoneChange}
+            placeholder="(555) 555-5555"
+            style={inputStyle}
+            maxLength={14}
+          />
+          
+          <button 
+            onClick={handlePhoneSubmit}
+            style={{
+              ...buttonStyle,
+              opacity: phone.length < 10 ? 0.7 : 1,
+              cursor: phone.length < 10 ? 'not-allowed' : 'pointer',
+            }}
+            disabled={phone.length < 10}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+      
+      {step === 3 && googleUser && (
+        <div style={cardStyle}>
+          <h3 style={{ marginBottom: '24px' }}>Add your social profiles</h3>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', marginBottom: '8px' }}>Platform</label>
+            <select
+              value={currentPlatform}
+              onChange={(e) => setCurrentPlatform(e.target.value as SocialProfile['platform'])}
+              style={inputStyle}
             >
-              <div style={{ fontWeight: '500', marginBottom: '12px' }}>
-                Also use this number for:
-              </div>
-              
-              {PHONE_PLATFORMS.map(platform => (
+              <option value="instagram">Instagram</option>
+              <option value="twitter">Twitter</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="facebook">Facebook</option>
+              <option value="snapchat">Snapchat</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+            </select>
+            
+            <label style={{ display: 'block', marginBottom: '8px' }}>Username</label>
+            <div style={{ display: 'flex', marginBottom: '16px' }}>
+              <input
+                type="text"
+                value={currentUsername}
+                onChange={(e) => setCurrentUsername(e.target.value)}
+                placeholder={`Your ${currentPlatform} username`}
+                style={{ ...inputStyle, marginBottom: 0, borderRadius: '8px 0 0 8px' }}
+              />
+              <button
+                onClick={handleAddSocialProfile}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0 8px 8px 0',
+                  cursor: currentUsername ? 'pointer' : 'not-allowed',
+                  opacity: currentUsername ? 1 : 0.7,
+                }}
+                disabled={!currentUsername}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+          
+          {socialProfiles.length > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <h4 style={{ marginBottom: '12px' }}>Your profiles:</h4>
+              {socialProfiles.map((profile, index) => (
                 <div 
-                  key={platform.id}
+                  key={index}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     padding: '12px',
+                    backgroundColor: 'var(--input-bg)',
+                    borderRadius: '8px',
                     marginBottom: '8px',
-                    backgroundColor: 'var(--card-bg)',
-                    borderRadius: '8px'
                   }}
                 >
-                  <div
-                    style={{ 
-                      width: '32px', 
-                      height: '32px', 
-                      marginRight: '12px',
-                      position: 'relative'
+                  <div>
+                    <strong style={{ textTransform: 'capitalize' }}>{profile.platform}:</strong> {profile.username}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updatedProfiles = [...socialProfiles];
+                      updatedProfiles.splice(index, 1);
+                      setSocialProfiles(updatedProfiles);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--danger)',
+                      cursor: 'pointer',
                     }}
                   >
-                    <Image 
-                      src={platform.icon} 
-                      alt={platform.label} 
-                      width={32} 
-                      height={32}
-                    />
-                  </div>
-                  
-                  <div style={{ flex: 1 }}>
-                    {platform.label}
-                  </div>
-                  
-                  <div>
-                    <label className="switch">
-                      <input 
-                        type="checkbox" 
-                        checked={platform.id === 'whatsapp' ? usePhoneForWhatsapp : usePhoneForTelegram}
-                        onChange={() => {
-                          if (platform.id === 'whatsapp') {
-                            setUsePhoneForWhatsapp(prev => !prev);
-                          } else {
-                            setUsePhoneForTelegram(prev => !prev);
-                          }
-                        }}
-                        style={{ 
-                          height: '0',
-                          width: '0',
-                          visibility: 'hidden'
-                        }}
-                      />
-                      <span 
-                        style={{
-                          position: 'relative',
-                          display: 'inline-block',
-                          width: '48px',
-                          height: '24px',
-                          backgroundColor: platform.id === 'whatsapp' 
-                            ? (usePhoneForWhatsapp ? 'var(--primary)' : '#ccc')
-                            : (usePhoneForTelegram ? 'var(--primary)' : '#ccc'),
-                          borderRadius: '24px',
-                          transition: 'all 0.3s',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: 'absolute',
-                            content: '""',
-                            height: '20px',
-                            width: '20px',
-                            left: platform.id === 'whatsapp' 
-                              ? (usePhoneForWhatsapp ? '25px' : '2px')
-                              : (usePhoneForTelegram ? '25px' : '2px'),
-                            bottom: '2px',
-                            backgroundColor: 'white',
-                            borderRadius: '50%',
-                            transition: 'all 0.3s'
-                          }}
-                        ></span>
-                      </span>
-                    </label>
-                  </div>
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
-            
-            <button
-              onClick={handleContinueToSocial}
-              disabled={phoneNumber.length !== 10}
-              style={{
-                ...primaryButtonStyle,
-                backgroundColor: phoneNumber.length === 10 ? 'var(--primary)' : 'var(--card-border)',
-                cursor: phoneNumber.length === 10 ? 'pointer' : 'not-allowed'
-              }}
-            >
-              Continue
-            </button>
-          </>
-        )}
+          )}
+          
+          <button 
+            onClick={handleCompleteSetup}
+            style={buttonStyle}
+          >
+            Complete Setup
+          </button>
+        </div>
+      )}
+      
+      <style jsx global>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         
-        {/* Step 3: Social Handles */}
-        {step === 3 && (
-          <>
-            <h1 
-              style={{ 
-                color: 'var(--primary)',
-                fontSize: '28px',
-                fontWeight: 'bold',
-                marginBottom: '16px',
-                textAlign: 'center',
-                width: '100%'
-              }}
-            >
-              Your Social Profiles
-            </h1>
-            
-            <div
-              style={{
-                width: '100%',
-                marginBottom: '24px',
-                padding: '16px',
-                backgroundColor: 'var(--card-bg)',
-                borderRadius: '12px'
-              }}
-            >
-              <label
-                htmlFor="universal-handle"
-                style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  color: 'var(--foreground)'
-                }}
-              >
-                Universal Handle
-              </label>
-              
-              <input
-                id="universal-handle"
-                ref={handleInputRef}
-                type="text"
-                value={universalHandle}
-                onChange={handleUniversalHandleChange}
-                placeholder="e.g., alexweingart"
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  fontSize: '16px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--card-border)',
-                  backgroundColor: 'white',
-                  color: 'var(--foreground)',
-                  outline: 'none'
-                }}
-              />
-              
-              <p style={{ fontSize: '14px', color: 'var(--secondary-dark)', marginTop: '8px' }}>
-                We'll use this for all your social profiles
-              </p>
-            </div>
-            
-            <div style={{ width: '100%', marginBottom: '24px' }}>
-              <div style={{ fontWeight: '500', marginBottom: '12px' }}>
-                Your Profiles
-              </div>
-              
-              {renderSocialPlatforms()}
-            </div>
-            
-            <button
-              onClick={handleCompleteSetup}
-              style={primaryButtonStyle}
-            >
-              Complete Setup
-            </button>
-            
-            <p style={{ 
-              marginTop: '12px', 
-              fontSize: '14px', 
-              color: 'var(--secondary-dark)',
-              textAlign: 'center'
-            }}>
-              All profiles are optional. You can edit them later.
-            </p>
-          </>
-        )}
-      </div>
+        :root {
+          --primary: #4caf50;
+          --secondary: #666666;
+          --secondary-dark: #888888;
+          --text: #333333;
+          --card-bg: #ffffff;
+          --border: #dddddd;
+          --input-bg: #f5f5f5;
+          --danger: #e53935;
+        }
+        
+        body {
+          background-color: #f0f2f5;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          margin: 0;
+          padding: 0;
+        }
+      `}</style>
     </div>
   );
-};
-
-export default ProfileSetup;
+}
