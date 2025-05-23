@@ -27,7 +27,8 @@ if (!googleProviderOptions.clientId || !googleProviderOptions.clientSecret) {
 }
 
 // Complete NextAuth configuration
-export const authOptions: NextAuthOptions = {
+// Do NOT export this - Next.js route files can only export route handlers
+const authOptions: NextAuthOptions = {
   providers: [GoogleProvider(googleProviderOptions)],
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
