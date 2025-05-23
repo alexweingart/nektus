@@ -3,6 +3,19 @@ import GoogleProvider from "next-auth/providers/google";
 
 // Configure NextAuth handler
 const handler = NextAuth({
+  // Force URLs to be absolute to match Google OAuth configuration
+  useSecureCookies: process.env.NODE_ENV === "production",
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

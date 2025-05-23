@@ -141,7 +141,11 @@ const ProfileSetup: React.FC = () => {
   
   // Start Google OAuth flow
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/setup' });
+    // Specify the exact callbackUrl that matches what's registered in Google Console
+    signIn('google', { 
+      callbackUrl: '/setup',
+      redirect: true
+    });
   };
   
   // Handle phone number changes
