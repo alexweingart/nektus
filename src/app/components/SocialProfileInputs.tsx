@@ -42,8 +42,8 @@ const SocialProfileInputs: React.FC = () => {
   const router = useRouter();
   const { userData, setUserData, saveUserData } = useUser();
   
-  // Create refs for each input field
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Create refs for each input field - fix the array type
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   
   // Initialize state for all social inputs
   const [socialInputs, setSocialInputs] = useState<Record<string, string>>({
@@ -57,6 +57,12 @@ const SocialProfileInputs: React.FC = () => {
     twitter: '',
   });
 
+  // Set up the refs array once on mount
+  useEffect(() => {
+    // Initialize the array with the correct length
+    inputRefs.current = Array(SOCIAL_NETWORKS.length).fill(null);
+  }, []);
+
   // Auto-focus the email field on initial render
   useEffect(() => {
     if (inputRefs.current[0]) {
@@ -65,13 +71,19 @@ const SocialProfileInputs: React.FC = () => {
       
       // Delayed focus as backup
       setTimeout(() => {
-        inputRefs.current[0]?.focus();
-        
-        // Additional click for stubborn mobile browsers
-        inputRefs.current[0]?.click();
+        if (inputRefs.current[0]) {
+          inputRefs.current[0].focus();
+          // Additional click for stubborn mobile browsers
+          inputRefs.current[0].click();
+        }
       }, 100);
     }
   }, []);
+
+  // Create a proper ref callback that doesn't return anything
+  const setInputRef = (index: number) => (el: HTMLInputElement | null) => {
+    inputRefs.current[index] = el;
+  };
 
   // Handle input changes
   const handleInputChange = (id: string, value: string) => {
@@ -204,7 +216,7 @@ const SocialProfileInputs: React.FC = () => {
                 {network.label}
               </label>
               <input
-                ref={el => inputRefs.current[index] = el}
+                ref={setInputRef(index)}
                 id={network.id}
                 type={network.type}
                 value={socialInputs[network.id]}
