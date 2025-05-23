@@ -33,6 +33,37 @@ const SetupProfile: React.FC = () => {
     }
   };
 
+  // Render the underlines for phone number digits
+  const renderUnderlines = () => {
+    const underlines = [];
+    for (let i = 0; i < 10; i++) {
+      const digit = phoneNumber[i] || '';
+      underlines.push(
+        <div key={i} style={{ 
+          width: '24px', 
+          display: 'inline-block',
+          marginRight: i === 2 || i === 5 ? '8px' : '4px',
+          textAlign: 'center'
+        }}>
+          <div style={{ 
+            fontSize: '24px', 
+            fontWeight: 'bold',
+            height: '36px',
+            lineHeight: '36px'
+          }}>
+            {digit}
+          </div>
+          <div style={{ 
+            height: '2px', 
+            backgroundColor: digit ? 'var(--primary)' : 'var(--card-border)',
+            width: '100%' 
+          }}></div>
+        </div>
+      );
+    }
+    return underlines;
+  };
+
   return (
     <div 
       style={{
@@ -70,10 +101,16 @@ const SetupProfile: React.FC = () => {
             width: '100%'
           }}
         >
-          Create Your Profile
+          Enter Your Phone Number
         </h1>
         
-        <div style={{ width: '100%', marginBottom: '50px' }}>
+        <div style={{ 
+          width: '100%', 
+          marginBottom: '50px',
+          display: 'flex',
+          justifyContent: 'center',
+          position: 'relative'
+        }}>
           <input
             ref={phoneInputRef}
             type="tel"
@@ -81,21 +118,27 @@ const SetupProfile: React.FC = () => {
             pattern="[0-9]*"
             value={phoneNumber}
             onChange={handlePhoneNumberChange}
-            placeholder="Phone Number"
+            aria-label="Phone Number"
             style={{
+              opacity: 0,
+              position: 'absolute',
+              top: 0,
+              left: 0,
               width: '100%',
+              height: '100%',
               fontSize: '24px',
-              letterSpacing: '8px', 
-              textAlign: 'center',
-              padding: '12px',
-              border: 'none',
-              borderBottom: '2px solid var(--primary)',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              borderRadius: '0',
-              boxShadow: 'none'
+              cursor: 'default'
             }}
           />
+          
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center',
+            width: '100%',
+            userSelect: 'none'
+          }}>
+            {renderUnderlines()}
+          </div>
         </div>
         
         <button
