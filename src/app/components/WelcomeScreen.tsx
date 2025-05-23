@@ -42,13 +42,13 @@ const WelcomeScreen: React.FC = () => {
           animation: 'fadeIn 0.3s ease-out forwards'
         }}
       >
-        <div style={{ marginBottom: '64px' }}>
+        <div style={{ marginBottom: '40px' }}>
           <h1 
             style={{ 
               color: 'var(--primary)',
               fontSize: '48px',
               fontWeight: 'bold',
-              marginBottom: '32px',
+              marginBottom: '16px',
               textAlign: 'center',
               width: '100%'
             }}
@@ -58,7 +58,7 @@ const WelcomeScreen: React.FC = () => {
           <p 
             style={{ 
               fontSize: '24px', 
-              marginBottom: '64px',
+              marginBottom: '40px',
               textAlign: 'center',
               width: '100%'
             }}
