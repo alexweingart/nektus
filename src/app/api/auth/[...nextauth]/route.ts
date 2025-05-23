@@ -4,8 +4,11 @@ import GoogleProvider from "next-auth/providers/google";
 // Get the origin for redirect URLs - use EXACTLY what's in Google Console
 const origin = process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3000";
 
-// Force the exact redirect URI that matches Google Console settings
+// This must match EXACTLY what's in your Google Cloud Console
 const redirectUri = `${origin}/api/auth/callback/google`;
+
+// Set the full base URL for NextAuth
+process.env.NEXTAUTH_URL = origin;
 
 // Detailed logging for debugging
 console.log('NextAuth Configuration:');
@@ -26,9 +29,16 @@ const handler = NextAuth({
         params: {
           prompt: "consent",
           access_type: "offline",
-          response_type: "code",
-          // Force the exact redirect URI
-          redirect_uri: redirectUri
+          response_type: "code"
+        }
+      },
+      // Important: Override the profile URL to get the profile picture
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
         }
       }
     }),
