@@ -2,51 +2,70 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { NextAuthOptions } from "next-auth";
 
-// DO NOT use dynamic base URLs - this is a common source of problems
-// Instead, we'll use static, hardcoded values that exactly match Google Console
+// Based on network logs, we need to focus on callback handling
 const AUTH_OPTIONS: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      // Keep authorization parameters minimal
       authorization: {
-        // Google OAuth needs exact URI matching - the key insight from research
         params: {
-          // DO NOT build this URL dynamically
-          redirect_uri: "https://nekt.us/api/auth/callback/google",
-          // These params are recommended in multiple GitHub issues
           prompt: "select_account",
-          access_type: "offline",
-          response_type: "code"
         }
       }
     }),
   ],
-  // Use a fixed, hardcoded secret
-  secret: "nektus-app-contact-exchange-secret-key",
+  // Use environment variable with fallback
+  secret: process.env.NEXTAUTH_SECRET || "nektus-app-contact-exchange-secret-key",
   
-  // Simplified configuration
+  // Session configuration
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   
-  // Redirect to setup page
+  // Custom pages
   pages: {
     signIn: '/setup',
     error: '/setup',
   },
   
-  // Minimal callbacks - the more we add, the more places things can break
+  // Debug to see detailed logs in Vercel
+  debug: true,
+  
+  // We need proper callbacks to handle the Google OAuth flow
   callbacks: {
+    // JWT callback is critical for processing Google's response
+    async jwt({ token, account }) {
+      // Initial sign-in: account contains OAuth tokens
+      if (account) {
+        // Fix TypeScript error with proper type assertion
+        token.accessToken = account.access_token as string;
+      }
+      return token;
+    },
+    
+    // Session callback to make token data available to client
+    async session({ session, token }) {
+      // Add token info to session
+      if (session.user) {
+        // Fix TypeScript error with proper type assertion
+        session.user.id = token.sub as string;
+        // Type assertion needed for custom properties
+        (session as any).accessToken = token.accessToken as string;
+      }
+      return session;
+    },
+    
+    // Simple redirect callback
     async redirect() {
-      // Always go to setup page
       return "/setup";
     }
   }
 };
 
-// Create handler with the fixed options
+// Create handler with the options
 const handler = NextAuth(AUTH_OPTIONS);
 
 // Export the API route handlers
