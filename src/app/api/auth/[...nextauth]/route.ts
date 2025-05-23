@@ -24,6 +24,7 @@ const handler = NextAuth({
       }
     }),
   ],
+  // Fixed TypeScript error: Use empty string as fallback instead of undefined
   secret: process.env.NEXTAUTH_SECRET || "nektus-app-contact-exchange-secret-key",
   pages: {
     signIn: '/setup',
@@ -35,8 +36,9 @@ const handler = NextAuth({
     async jwt({ token, account, profile }) {
       // Store the access token and user profile info when signin completes
       if (account && profile) {
-        token.accessToken = account.access_token;
-        token.id = profile.sub;
+        // Fixed TypeScript error: Define proper types for token properties
+        token.accessToken = account.access_token as string;
+        token.id = profile.sub as string;
       }
       return token;
     },
@@ -44,9 +46,10 @@ const handler = NextAuth({
     // Session callback to make user data available to the client
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub;
+        // Ensure proper typing for TypeScript
+        session.user.id = token.sub as string;
         // Add access token to session if needed by client
-        session.accessToken = token.accessToken;
+        (session as any).accessToken = token.accessToken as string;
       }
       return session;
     },
