@@ -148,8 +148,13 @@ const ProfileSetup: React.FC = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    // Use direct URL instead of signIn helper function
-    window.location.href = 'https://nekt.us/api/auth/signin/google?callbackUrl=https%3A%2F%2Fnekt.us%2Fsetup';
+    // Use standard NextAuth signIn function with minimal options
+    signIn('google', { callbackUrl: '/setup' });
+    
+    // Reset loading state after 10 seconds if no response
+    setTimeout(() => {
+      setIsSigningIn(false);
+    }, 10000);
   };
   
   // Handle phone number changes

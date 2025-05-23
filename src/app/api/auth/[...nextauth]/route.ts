@@ -2,29 +2,41 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { NextAuthOptions } from "next-auth";
 
-// Force specific URLS for OAuth that match Google Console exactly
-const NEXTAUTH_URL = "https://nekt.us";
-const CALLBACK_URL = "https://nekt.us/api/auth/callback/google";
+// Set default environment values if not provided
+if (!process.env.NEXTAUTH_URL) {
+  // Use correct URL based on environment
+  if (process.env.NODE_ENV === 'production') {
+    process.env.NEXTAUTH_URL = 'https://nekt.us';
+  } else {
+    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+  }
+}
 
-// Store the provider settings in a separate object for clarity
+// Ensure we have a secret
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn('WARNING: NEXTAUTH_SECRET not set, using fallback for development');
+  process.env.NEXTAUTH_SECRET = 'nektus-fallback-secret-key-for-development-only';
+}
+
+// Simple Google provider configuration
 const googleProviderOptions = {
   clientId: process.env.GOOGLE_CLIENT_ID || "",
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  // Keep OAuth options minimal for maximum compatibility
   authorization: {
     params: {
-      // The critical parameters for Google OAuth:
-      prompt: "select_account", // Force account selection each time
-      access_type: "online", // We only need online access
-      response_type: "code",
+      prompt: "select_account", // Force account selection
+      access_type: "online",
     },
   },
 };
 
-// Ensure we have valid provider settings
-if (!googleProviderOptions.clientId || !googleProviderOptions.clientSecret) {
-  console.error("CRITICAL ERROR: Missing Google OAuth credentials.");
-  // In production, we'd want to handle this more gracefully
-}
+// Log important configuration values for debugging
+console.log('NextAuth Config:');
+console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- Has GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('- Has GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
 
 // Complete NextAuth configuration
 // Do NOT export this - Next.js route files can only export route handlers
@@ -56,19 +68,15 @@ const authOptions: NextAuthOptions = {
       return session;
     },
     
-    // Ensure we always redirect to the correct page
+    // Simple redirect callback that always goes to setup page
     async redirect({ url, baseUrl }) {
       console.log("Redirect callback", { url, baseUrl });
-      // If URL is relative, make it absolute
-      if (url.startsWith("/")) {
-        return `${NEXTAUTH_URL}${url}`;
-      }
-      // If URL is already absolute but safe, use it
-      if (url.startsWith(NEXTAUTH_URL)) {
-        return url;
-      }
-      // Default to setup page
-      return `${NEXTAUTH_URL}/setup`;
+      
+      // Get the base URL from environment or fallback to baseUrl parameter
+      const base = process.env.NEXTAUTH_URL || baseUrl;
+      
+      // Always redirect to setup page
+      return `${base}/setup`;
     },
   },
 };
