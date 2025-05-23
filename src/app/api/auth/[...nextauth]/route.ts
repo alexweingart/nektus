@@ -2,6 +2,10 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 // Configure NextAuth handler
+// Log environment variables for debugging (values not exposed to client)
+console.log('NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const handler = NextAuth({
   // Force URLs to be absolute to match Google OAuth configuration
   useSecureCookies: process.env.NODE_ENV === "production",

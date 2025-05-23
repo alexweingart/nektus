@@ -139,13 +139,14 @@ const ProfileSetup: React.FC = () => {
     }
   }, [status, session]);
   
-  // Start Google OAuth flow
+  // Start Google OAuth flow with simplified approach
   const handleGoogleSignIn = () => {
-    // Specify the exact callbackUrl that matches what's registered in Google Console
-    signIn('google', { 
-      callbackUrl: '/setup',
-      redirect: true
-    });
+    // Use window.location to determine the base URL for the callback
+    const baseUrl = window.location.origin;
+    console.log('Current origin:', baseUrl);
+    
+    // Redirect to Google directly (as a temporary workaround)
+    window.location.href = `/api/auth/signin/google?callbackUrl=${encodeURIComponent('/setup')}`;
   };
   
   // Handle phone number changes
