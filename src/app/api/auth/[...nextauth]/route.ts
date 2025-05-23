@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import type { NextAuthOptions } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
+// Configure NextAuth handler
+const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/setup', // Custom sign-in page
   },
   debug: process.env.NODE_ENV === "development",
-};
+});
 
-const handler = NextAuth(authOptions);
+// Export the API route handlers
 export { handler as GET, handler as POST };
