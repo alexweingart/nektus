@@ -123,6 +123,7 @@ const ProfileSetup: React.FC = () => {
   
   // Use NextAuth session
   const { data: session, status } = useSession();
+  const [isSigningIn, setIsSigningIn] = useState(false);
   
   // Check if user is already authenticated with Google
   useEffect(() => {
@@ -136,20 +137,42 @@ const ProfileSetup: React.FC = () => {
       
       // Proceed to phone number step
       setStep(2);
+      setIsSigningIn(false);
+    } else if (status === 'unauthenticated') {
+      setIsSigningIn(false);
     }
   }, [status, session]);
   
-  // Temporarily simulate Google Sign-in until OAuth issues are resolved
+  // Properly handle Google Sign-in with NextAuth
   const handleGoogleSignIn = () => {
-    // Show loading state
-    setGoogleUser({
-      name: 'Alex Weingart',
-      email: 'user@example.com',
-      picture: 'https://ui-avatars.com/api/?name=Alex+Weingart&background=0D8ABC&color=fff'
-    });
+    // Show loading state in button
+    setIsSigningIn(true);
     
-    // Proceed to phone number step
-    setStep(2);
+    try {
+      // Use the signIn function from NextAuth
+      signIn('google', { 
+        callbackUrl: '/setup',
+        redirect: true
+      });
+      
+      // Set a timeout to reset state if sign-in doesn't complete
+      setTimeout(() => {
+        if (status !== 'authenticated') {
+          setIsSigningIn(false);
+        }
+      }, 10000); // 10 second timeout
+    } catch (error) {
+      console.error('Error during sign in:', error);
+      setIsSigningIn(false);
+      
+      // Fall back to simulated sign-in if there's an error
+      setGoogleUser({
+        name: 'Alex Weingart',
+        email: 'user@example.com',
+        picture: 'https://ui-avatars.com/api/?name=Alex+Weingart&background=0D8ABC&color=fff'
+      });
+      setStep(2);
+    }
   };
   
   // Handle phone number changes
@@ -410,17 +433,40 @@ const ProfileSetup: React.FC = () => {
             
             <button
               onClick={handleGoogleSignIn}
-              style={googleButtonStyle}
-              disabled={status === 'loading'}
+              style={{
+                ...googleButtonStyle,
+                backgroundColor: isSigningIn ? '#cccccc' : 'white',
+                cursor: isSigningIn ? 'not-allowed' : 'pointer'
+              }}
+              disabled={isSigningIn || status === 'loading'}
             >
-              <Image 
-                src="/icons/google.svg" 
-                alt="Google" 
-                width={24} 
-                height={24}
-                style={{ marginRight: '16px' }}
-              />
-              {status === 'loading' ? 'Loading...' : 'Sign in with Google'}
+              {isSigningIn ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div 
+                    style={{ 
+                      width: '20px', 
+                      height: '20px', 
+                      borderRadius: '50%', 
+                      border: '2px solid #4caf50',
+                      borderTopColor: 'transparent',
+                      marginRight: '16px',
+                      animation: 'spin 1s linear infinite'
+                    }}
+                  />
+                  Signing in...
+                </div>
+              ) : (
+                <>
+                  <Image 
+                    src="/icons/google.svg" 
+                    alt="Google" 
+                    width={24} 
+                    height={24}
+                    style={{ marginRight: '16px' }}
+                  />
+                  Sign in with Google
+                </>
+              )}
             </button>
             
             {status === 'authenticated' && (

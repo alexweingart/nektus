@@ -1,25 +1,13 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// Configure NextAuth handler
-// Log environment variables for debugging (values not exposed to client)
-console.log('NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
+// Get the origin for redirect URLs
+const origin = process.env.NEXTAUTH_URL || (process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3002");
 
+// Configure NextAuth handler
 const handler = NextAuth({
-  // Force URLs to be absolute to match Google OAuth configuration
-  useSecureCookies: process.env.NODE_ENV === "production",
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-  },
+  debug: true, // Enable debug logs for both development and production
+  
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -45,12 +33,21 @@ const handler = NextAuth({
         token.accessToken = account.access_token;
       }
       return token;
+    },
+    // Add a redirect callback to properly handle redirects
+    async redirect({ url, baseUrl }) {
+      // Allow redirects to the same site
+      if (url.startsWith(baseUrl) || url.startsWith('/')) {
+        return url;
+      }
+      // Default to homepage
+      return baseUrl;
     }
   },
   pages: {
     signIn: '/setup', // Custom sign-in page
-  },
-  debug: process.env.NODE_ENV === "development",
+    error: '/setup', // Show errors on the setup page
+  }
 });
 
 // Export the API route handlers
