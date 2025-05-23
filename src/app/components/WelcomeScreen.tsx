@@ -5,30 +5,66 @@ import Link from 'next/link';
 
 const WelcomeScreen: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-sm mx-auto text-center animate-fade-in">
-        <div className="mb-16">
+    <div 
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        padding: '24px',
+        textAlign: 'center'
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '320px',
+          margin: '0 auto',
+          animation: 'fadeIn 0.3s ease-out forwards'
+        }}
+      >
+        <div style={{ marginBottom: '64px' }}>
           <h1 
-            className="text-5xl sm:text-6xl font-bold mb-8" 
-            style={{ color: 'var(--primary)' }}
+            style={{ 
+              color: 'var(--primary)',
+              fontSize: '48px',
+              fontWeight: 'bold',
+              marginBottom: '32px',
+              textAlign: 'center',
+              width: '100%'
+            }}
           >
             Nekt.Us
           </h1>
-          <p className="text-xl sm:text-2xl mb-16">
+          <p 
+            style={{ 
+              fontSize: '24px', 
+              marginBottom: '64px',
+              textAlign: 'center',
+              width: '100%'
+            }}
+          >
             Connect with new friends by bumping phones
           </p>
         </div>
         
-        <div className="flex justify-center w-full">
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
           <Link 
-            href="/setup" 
-            className="inline-block text-center no-underline text-xl sm:text-2xl font-medium py-5 px-10 w-full mx-auto"
+            href="/setup"
             style={{
+              display: 'block',
+              width: '100%',
               backgroundColor: 'var(--primary)',
               color: 'white',
-              borderRadius: '9999px',
+              fontSize: '26px',
+              fontWeight: '500',
+              padding: '20px 24px',
+              borderRadius: '100px',
               boxShadow: 'var(--shadow-md)',
-              transition: 'all 0.2s ease-in-out'
+              transition: 'all 0.2s ease-in-out',
+              textDecoration: 'none',
+              textAlign: 'center'
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--primary-dark)';
