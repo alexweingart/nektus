@@ -4,6 +4,11 @@ import GoogleProvider from "next-auth/providers/google";
 // Get the origin for redirect URLs
 const origin = process.env.NEXTAUTH_URL || (process.env.NODE_ENV === "production" ? "https://nekt.us" : "http://localhost:3002");
 
+// Logs for debugging
+console.log('NextAuth Origin:', origin);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+
 // Configure NextAuth handler
 const handler = NextAuth({
   debug: true, // Enable debug logs for both development and production
@@ -18,7 +23,9 @@ const handler = NextAuth({
           access_type: "offline",
           response_type: "code"
         }
-      }
+      },
+      // Force exact callback URLs that match Google Console configuration
+      checks: ['pkce', 'state']
     }),
   ],
   callbacks: {
@@ -36,12 +43,25 @@ const handler = NextAuth({
     },
     // Add a redirect callback to properly handle redirects
     async redirect({ url, baseUrl }) {
+      console.log('Redirect called with URL:', url);
+      console.log('Base URL:', baseUrl);
+      
+      // Handle relative URLs (convert to absolute)
+      if (url.startsWith('/')) {
+        const redirectUrl = `${baseUrl}${url}`;
+        console.log('Converted to:', redirectUrl);
+        return redirectUrl;
+      }
+      
       // Allow redirects to the same site
-      if (url.startsWith(baseUrl) || url.startsWith('/')) {
+      if (url.startsWith(baseUrl)) {
+        console.log('Same site redirect:', url);
         return url;
       }
-      // Default to homepage
-      return baseUrl;
+      
+      // Default to setup page
+      console.log('Defaulting to setup page');
+      return `${baseUrl}/setup`;
     }
   },
   pages: {
