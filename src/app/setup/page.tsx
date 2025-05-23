@@ -1,7 +1,8 @@
 'use client';
 
-import SetupProfile from '../components/SetupProfile';
+import React from 'react';
+import ProfileSetup from '../components/ProfileSetup';
 
 export default function SetupPage() {
-  return <SetupProfile />;
+  return <ProfileSetup />;
 }
