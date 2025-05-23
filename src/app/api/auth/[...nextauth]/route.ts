@@ -38,10 +38,10 @@ const AUTH_OPTIONS: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   
-  // Custom pages
+  // Hardcoded pages - absolute URLs
   pages: {
-    signIn: '/setup',
-    error: '/setup',
+    signIn: 'https://nekt.us/setup',
+    error: 'https://nekt.us/setup',
   },
   
   // Debug to see detailed logs in Vercel
@@ -71,9 +71,10 @@ const AUTH_OPTIONS: NextAuthOptions = {
       return session;
     },
     
-    // Simple redirect callback
+    // Hardcoded redirect callback
     async redirect() {
-      return "/setup";
+      // Always use the absolute URL for reliable mobile redirection
+      return "https://nekt.us/setup";
     }
   }
 };
