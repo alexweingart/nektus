@@ -139,14 +139,17 @@ const ProfileSetup: React.FC = () => {
     }
   }, [status, session]);
   
-  // Start Google OAuth flow with simplified approach
+  // Temporarily simulate Google Sign-in until OAuth issues are resolved
   const handleGoogleSignIn = () => {
-    // Use window.location to determine the base URL for the callback
-    const baseUrl = window.location.origin;
-    console.log('Current origin:', baseUrl);
+    // Show loading state
+    setGoogleUser({
+      name: 'Alex Weingart',
+      email: 'user@example.com',
+      picture: 'https://ui-avatars.com/api/?name=Alex+Weingart&background=0D8ABC&color=fff'
+    });
     
-    // Redirect to Google directly (as a temporary workaround)
-    window.location.href = `/api/auth/signin/google?callbackUrl=${encodeURIComponent('/setup')}`;
+    // Proceed to phone number step
+    setStep(2);
   };
   
   // Handle phone number changes
