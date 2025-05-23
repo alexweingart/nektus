@@ -476,6 +476,35 @@ const ProfileSetup: React.FC = () => {
                 Redirecting to profile setup...
               </p>
             )}
+            
+            {/* Add a fallback option */}
+            <div style={{ marginTop: '20px', width: '100%', textAlign: 'center' }}>
+              <div style={{ margin: '16px 0', color: 'var(--secondary-dark)', fontSize: '14px' }}>or</div>
+              <button
+                onClick={() => {
+                  // Fallback method: Create a guest profile
+                  setGoogleUser({
+                    name: 'Guest User',
+                    email: '',
+                    picture: 'https://ui-avatars.com/api/?name=Guest+User&background=0D8ABC&color=fff'
+                  });
+                  setStep(2);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px 20px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--primary)',
+                  border: '1px solid var(--primary)',
+                  borderRadius: '100px',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Continue as Guest
+              </button>
+            </div>
           </>
         )}
         

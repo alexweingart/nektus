@@ -16,6 +16,7 @@ console.log('Redirect URI:', redirectUri);
 // Configure NextAuth handler
 const handler = NextAuth({
   debug: true, // Enable debug logs for both development and production
+  secret: process.env.NEXTAUTH_SECRET, // Ensure the secret is used for JWT encryption
   
   providers: [
     GoogleProvider({
@@ -45,19 +46,39 @@ const handler = NextAuth({
       }
       return token;
     },
-    // Simplified redirect handler
+    // Improved redirect handler with error logging
     async redirect({ url, baseUrl }) {
       console.log('Redirect called:');
       console.log('- URL:', url);
       console.log('- Base URL:', baseUrl);
       
-      // Always redirect to setup page after auth
+      // Check for error parameters in the URL
+      if (url.includes('error=')) {
+        console.error('Auth error detected in redirect URL:', url);
+        // Still redirect to setup page but with error parameter preserved
+        return url;
+      }
+      
+      // Always redirect to setup page after successful auth
       return `${origin}/setup`;
     }
   },
   pages: {
     signIn: '/setup', // Custom sign-in page
     error: '/setup', // Show errors on the setup page
+  },
+  
+  // Enhanced error handling
+  logger: {
+    error(code, metadata) {
+      console.error('NextAuth Error:', code, metadata);
+    },
+    warn(code) {
+      console.warn('NextAuth Warning:', code);
+    },
+    debug(code, metadata) {
+      console.log('NextAuth Debug:', code, metadata);
+    }
   }
 });
 
