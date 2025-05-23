@@ -6,16 +6,30 @@ import GoogleProvider from "next-auth/providers/google";
 const GOOGLE_REDIRECT_URI = "https://nekt.us/api/auth/callback/google";
 process.env.NEXTAUTH_URL = "https://nekt.us";
 
+// Ensure the secret is properly set and non-empty
+if (!process.env.NEXTAUTH_SECRET || process.env.NEXTAUTH_SECRET.length < 10) {
+  console.error('WARNING: NEXTAUTH_SECRET is missing or too short!');
+  // Set a fallback secret for development to prevent errors
+  if (process.env.NODE_ENV !== 'production') {
+    process.env.NEXTAUTH_SECRET = 'dev_secret_do_not_use_in_production_nektus_app_key';
+  }
+}
+
 // Print exact config for debugging
 console.log('NextAuth Config:');
 console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
 console.log('- GOOGLE_REDIRECT_URI:', GOOGLE_REDIRECT_URI);
-console.log('- NEXTAUTH_SECRET length:', process.env.NEXTAUTH_SECRET ? process.env.NEXTAUTH_SECRET.length : 0);
+console.log('- NEXTAUTH_SECRET set:', !!process.env.NEXTAUTH_SECRET);
+console.log('- NODE_ENV:', process.env.NODE_ENV);
 
 // Configure NextAuth handler
 const handler = NextAuth({
   debug: true, // Enable debug logs for both development and production
   secret: process.env.NEXTAUTH_SECRET, // Ensure the secret is used for JWT encryption
+  session: {
+    strategy: 'jwt', // Use JWT for session management
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   
   providers: [
     GoogleProvider({
@@ -40,15 +54,23 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
+    async session({ session, token, user }) {
+      // Add token data to session
       if (session.user) {
         session.user.id = token.sub as string;
+        session.accessToken = token.accessToken as string;
       }
       return session;
     },
-    async jwt({ token, account }) {
-      if (account) {
+    async jwt({ token, account, profile, user }) {
+      // Initial sign in
+      if (account && profile) {
         token.accessToken = account.access_token;
+        token.id = profile.sub; // Google profile uses 'sub' for ID
+        token.name = profile.name;
+        token.email = profile.email;
+        // Handle profile picture (Google provides it as 'picture')
+        token.picture = (profile as any).picture || user?.image;
       }
       return token;
     },
