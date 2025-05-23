@@ -127,24 +127,18 @@ export default function ProfileSetup() {
     }
   }, [status, session]);
   
-  // Google Sign-in handler - mobile-optimized with extra reliability measures
+  // Reliable Google Sign-in handler for mobile contact exchange app
   const handleGoogleSignIn = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    // This specific approach addresses both redirect and callback issues
-    // Explicitly use the same redirect URI configuration as on the server
-    signIn('google', {
-      // No redirect parameter - let the server handle this entirely
-      callbackUrl: '/setup'
-    });
+    // Simple sign-in call - let NextAuth handle all the complexity
+    signIn('google', { callbackUrl: '/setup' });
     
-    // Reset sign-in state after timeout to prevent UI getting stuck
+    // Reset loading state after timeout to avoid stuck UI
     setTimeout(() => {
-      if (isSigningIn) {
-        setIsSigningIn(false);
-      }
-    }, 15000); // 15 seconds should be plenty for the OAuth flow
+      if (isSigningIn) setIsSigningIn(false);
+    }, 20000); // 20 seconds is plenty for the OAuth flow
   };
   
   // Handle phone number changes

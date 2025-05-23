@@ -1,86 +1,91 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, User, Account, Profile } from "next-auth";
 
-// Based on network logs, we need to focus on callback handling
-const AUTH_OPTIONS: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      // Keep authorization parameters minimal
+      clientId: process.env.GOOGLE_CLIENT_ID!, // Ensure GOOGLE_CLIENT_ID is set
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // Ensure GOOGLE_CLIENT_SECRET is set
       authorization: {
         params: {
-          prompt: "select_account",
-        }
-      }
+          prompt: "select_account", // Consistently prompt for account selection
+          access_type: "offline",    // Request offline access for refresh tokens if needed
+          response_type: "code",     // Standard OAuth 2.0 flow
+          scope: "openid email profile", // Request standard OpenID Connect scopes
+        },
+      },
     }),
   ],
-  // Use environment variable with fallback
-  secret: process.env.NEXTAUTH_SECRET || "nektus-app-contact-exchange-secret-key",
-  
-  // Configure cookie options for better mobile compatibility
+  secret: process.env.NEXTAUTH_SECRET, // Ensure NEXTAUTH_SECRET is set in your environment
+  session: {
+    strategy: "jwt", // Use JSON Web Tokens for session management
+    maxAge: 30 * 24 * 60 * 60, // Sessions expire after 30 days
+  },
+  // Use default cookie names and secure options. `sameSite: "lax"` is default.
+  // Explicitly setting for clarity, especially for production (secure: true)
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: "none", // Critical for cross-site authentication
+        sameSite: "lax", // "lax" is generally recommended for security and compatibility
         path: "/",
-        secure: true,
+        secure: process.env.NODE_ENV === 'production', // Cookies should be secure in production
       },
     },
+    // Add other necessary cookies if customized, otherwise defaults are fine
   },
-  
-  // Session configuration
-  session: { 
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  
-  // Hardcoded pages - absolute URLs
   pages: {
-    signIn: 'https://nekt.us/setup',
-    error: 'https://nekt.us/setup',
+    signIn: "/setup", // Use relative paths for sign-in page
+    error: "/setup",  // Redirect to /setup for errors; error messages can be handled there
   },
-  
-  // Debug to see detailed logs in Vercel
-  debug: true,
-  
-  // We need proper callbacks to handle the Google OAuth flow
   callbacks: {
-    // JWT callback is critical for processing Google's response
-    async jwt({ token, account }) {
-      // Initial sign-in: account contains OAuth tokens
-      if (account) {
-        // Fix TypeScript error with proper type assertion
-        token.accessToken = account.access_token as string;
+    async jwt({ token, user, account, profile }: { token: any; user?: User; account?: Account | null; profile?: Profile }) {
+      // This callback is called when a JWT is created (i.e. on sign in)
+      // or when a session is accessed (i.e. on /api/auth/session).
+      if (account && user) { // `account` and `user` are only passed on sign-in
+        token.accessToken = account.access_token;
+        token.id_token = account.id_token; // Store the ID token if needed
+        token.userId = user.id; // Persist the user ID from the user object (or profile.sub)
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
       }
       return token;
     },
-    
-    // Session callback to make token data available to client
-    async session({ session, token }) {
-      // Add token info to session
-      if (session.user) {
-        // Fix TypeScript error with proper type assertion
-        session.user.id = token.sub as string;
-        // Type assertion needed for custom properties
-        (session as any).accessToken = token.accessToken as string;
-      }
+    async session({ session, token }: { session: any; token: any }) {
+      // This callback is called whenever a session is checked.
+      // Send properties to the client, like an access_token and user ID from the token.
+      session.accessToken = token.accessToken;
+      session.id_token = token.id_token;
+      session.user.id = token.userId;
+      session.user.email = token.email;
+      session.user.name = token.name;
+      session.user.picture = token.picture;
       return session;
     },
-    
-    // Hardcoded redirect callback
-    async redirect() {
-      // Always use the absolute URL for reliable mobile redirection
-      return "https://nekt.us/setup";
-    }
-  }
+    async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      // Default redirect to setup page for safety if the URL is external or invalid
+      return `${baseUrl}/setup`;
+    },
+  },
+  // Log important authentication events
+  events: {
+    async signIn({ user }) {
+      console.log(`SIGN_IN_EVENT: User ${user.id} signed in`);
+    },
+    async signOut() {
+      console.log(`SIGN_OUT_EVENT: User signed out`);
+    },
+  },
+  debug: process.env.NODE_ENV === "development", // Enable debug logs only in development
 };
 
-// Create handler with the options
-const handler = NextAuth(AUTH_OPTIONS);
+const handler = NextAuth(authOptions);
 
-// Export the API route handlers
 export { handler as GET, handler as POST };
