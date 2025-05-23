@@ -143,13 +143,13 @@ const ProfileSetup: React.FC = () => {
     }
   }, [status, session]);
   
-  // Properly handle Google Sign-in with NextAuth - simplified for reliability
+  // Properly configured Google Sign-in
   const handleGoogleSignIn = () => {
-    // Show loading state in button
+    // Show loading state
     setIsSigningIn(true);
     
-    // Basic Google sign-in with minimal options
-    signIn('google');
+    // Use direct URL instead of signIn helper function
+    window.location.href = 'https://nekt.us/api/auth/signin/google?callbackUrl=https%3A%2F%2Fnekt.us%2Fsetup';
   };
   
   // Handle phone number changes
