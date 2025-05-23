@@ -127,22 +127,13 @@ export default function ProfileSetup() {
     }
   }, [status, session]);
   
-  // Google Sign-in handler with direct configuration to match Google Console settings
+  // Basic Google Sign-in handler - minimal to avoid introducing issues
   const handleGoogleSignIn = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    try {
-      // Clear any potential error state
-      console.log("Initiating Google sign-in");
-      
-      // Use minimal signIn call - the configuration in [...nextauth]/route.ts 
-      // handles the exact redirect URI matching
-      signIn('google');
-    } catch (error) {
-      console.error("Error during sign in:", error);
-      setIsSigningIn(false);
-    }
+    // Most reliable approach based on research: absolute minimal configuration
+    signIn('google');
   };
   
   // Handle phone number changes

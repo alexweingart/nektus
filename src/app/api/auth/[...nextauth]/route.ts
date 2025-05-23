@@ -1,65 +1,53 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { NextAuthOptions } from "next-auth";
 
-// Determine the correct base URL based on environment
-const BASE_URL = process.env.NODE_ENV === "production" 
-  ? "https://nekt.us" 
-  : "http://localhost:3000";
-
-// Log the environment and base URL for debugging
-console.log("Environment:", process.env.NODE_ENV);
-console.log("BASE_URL:", BASE_URL);
-
-// Configure NextAuth to match the exact redirect URIs in Google Cloud Console
-const handler = NextAuth({
+// DO NOT use dynamic base URLs - this is a common source of problems
+// Instead, we'll use static, hardcoded values that exactly match Google Console
+const AUTH_OPTIONS: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       authorization: {
+        // Google OAuth needs exact URI matching - the key insight from research
         params: {
-          // Force the exact redirect URI to match Google Cloud Console
-          redirect_uri: `${BASE_URL}/api/auth/callback/google`
+          // DO NOT build this URL dynamically
+          redirect_uri: "https://nekt.us/api/auth/callback/google",
+          // These params are recommended in multiple GitHub issues
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
         }
       }
     }),
   ],
-  // Fixed TypeScript error: Use empty string as fallback instead of undefined
-  secret: process.env.NEXTAUTH_SECRET || "nektus-app-contact-exchange-secret-key",
+  // Use a fixed, hardcoded secret
+  secret: "nektus-app-contact-exchange-secret-key",
+  
+  // Simplified configuration
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  
+  // Redirect to setup page
   pages: {
     signIn: '/setup',
     error: '/setup',
   },
-  // Add proper callbacks to handle complete sign-in flow
+  
+  // Minimal callbacks - the more we add, the more places things can break
   callbacks: {
-    // JWT callback to store user information from Google
-    async jwt({ token, account, profile }) {
-      // Store the access token and user profile info when signin completes
-      if (account && profile) {
-        // Fixed TypeScript error: Define proper types for token properties
-        token.accessToken = account.access_token as string;
-        token.id = profile.sub as string;
-      }
-      return token;
-    },
-    
-    // Session callback to make user data available to the client
-    async session({ session, token }) {
-      if (session.user) {
-        // Ensure proper typing for TypeScript
-        session.user.id = token.sub as string;
-        // Add access token to session if needed by client
-        (session as any).accessToken = token.accessToken as string;
-      }
-      return session;
-    },
-    
-    // Simple redirect callback that always goes to setup page
     async redirect() {
+      // Always go to setup page
       return "/setup";
     }
-  },
-});
+  }
+};
+
+// Create handler with the fixed options
+const handler = NextAuth(AUTH_OPTIONS);
 
 // Export the API route handlers
 export { handler as GET, handler as POST };
