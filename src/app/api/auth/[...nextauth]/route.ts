@@ -2,45 +2,37 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { NextAuthOptions } from "next-auth";
 
-// IMPORTANT: Use hardcoded values to fix BOTH redirect and callback issues
-
-// Fixed values for production and development
-const PRODUCTION_URL = "https://nekt.us";
-const DEVELOPMENT_URL = "http://localhost:3000";
-
-// MUST exactly match what's in Google Cloud Console
-const CALLBACK_URI_PRODUCTION = "https://nekt.us/api/auth/callback/google";
-const CALLBACK_URI_DEVELOPMENT = "http://localhost:3000/api/auth/callback/google";
-
-// Use production values only - development will be handled via Google Console config
-const BASE_URL = PRODUCTION_URL;
-const CALLBACK_URI = CALLBACK_URI_PRODUCTION;
-
-// Log critical values for debugging
-console.log("NextAuth Configuration:");
-console.log(`- BASE_URL: ${BASE_URL}`);
-console.log(`- CALLBACK_URI: ${CALLBACK_URI}`);
-console.log(`- Environment: ${process.env.NODE_ENV}`);
-
+// Based on network logs, we need to focus on callback handling
 const AUTH_OPTIONS: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      // Keep authorization parameters minimal
       authorization: {
         params: {
-          // CRITICAL: Force exact redirect URI matching with Google Console
-          redirect_uri: CALLBACK_URI,
-          // Only select_account is needed - minimal parameters for stability
           prompt: "select_account",
         }
       }
     }),
   ],
-  // Use a fixed secret for consistent behavior
-  secret: "nektus-app-contact-exchange-secret-key",
+  // Use environment variable with fallback
+  secret: process.env.NEXTAUTH_SECRET || "nektus-app-contact-exchange-secret-key",
   
-  // Session configuration for JWT handling
+  // Configure cookie options for better mobile compatibility
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "none", // Critical for cross-site authentication
+        path: "/",
+        secure: true,
+      },
+    },
+  },
+  
+  // Session configuration
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -52,38 +44,42 @@ const AUTH_OPTIONS: NextAuthOptions = {
     error: '/setup',
   },
   
-  // Debug for detailed logs
+  // Debug to see detailed logs in Vercel
   debug: true,
   
-  // Handle both parts of the OAuth flow
+  // We need proper callbacks to handle the Google OAuth flow
   callbacks: {
-    // JWT callback for processing tokens from Google
+    // JWT callback is critical for processing Google's response
     async jwt({ token, account }) {
+      // Initial sign-in: account contains OAuth tokens
       if (account) {
+        // Fix TypeScript error with proper type assertion
         token.accessToken = account.access_token as string;
       }
       return token;
     },
     
-    // Session callback to pass data to client
+    // Session callback to make token data available to client
     async session({ session, token }) {
+      // Add token info to session
       if (session.user) {
+        // Fix TypeScript error with proper type assertion
         session.user.id = token.sub as string;
+        // Type assertion needed for custom properties
         (session as any).accessToken = token.accessToken as string;
       }
       return session;
     },
     
-    // CRITICAL: Force redirect to setup page
+    // Simple redirect callback
     async redirect() {
-      // Always go to setup page
       return "/setup";
     }
   }
 };
 
-// Create handler
+// Create handler with the options
 const handler = NextAuth(AUTH_OPTIONS);
 
-// Export handlers
+// Export the API route handlers
 export { handler as GET, handler as POST };
