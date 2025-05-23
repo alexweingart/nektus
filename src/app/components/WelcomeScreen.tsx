@@ -3,6 +3,25 @@
 import React from 'react';
 import Link from 'next/link';
 
+// Standard button style shared across the application
+const standardButtonStyle = {
+  display: 'block',
+  width: '100%',
+  backgroundColor: 'var(--primary)',
+  color: 'white',
+  fontSize: '22px',
+  fontWeight: '500',
+  padding: '16px 24px',
+  borderRadius: '100px',
+  boxShadow: 'var(--shadow-md)',
+  transition: 'all 0.2s ease-in-out',
+  textDecoration: 'none',
+  textAlign: 'center',
+  border: 'none',
+  cursor: 'pointer',
+  marginTop: '10px'
+};
+
 const WelcomeScreen: React.FC = () => {
   // Add a CSS rule to the document to prevent scrollbar on body
   React.useEffect(() => {
@@ -68,20 +87,7 @@ const WelcomeScreen: React.FC = () => {
         
         <Link 
           href="/setup"
-          style={{
-            display: 'block',
-            width: '100%',
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            fontSize: '26px',
-            fontWeight: '500',
-            padding: '20px 24px',
-            borderRadius: '100px',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'all 0.2s ease-in-out',
-            textDecoration: 'none',
-            textAlign: 'center'
-          }}
+          style={standardButtonStyle}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--primary-dark)';
             e.currentTarget.style.transform = 'translateY(-2px)';

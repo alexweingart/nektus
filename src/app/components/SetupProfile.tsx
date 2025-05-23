@@ -13,15 +13,23 @@ const SetupProfile: React.FC = () => {
 
   // Focus the phone input field when component mounts
   useEffect(() => {
+    // Use multiple approaches to ensure keyboard appears on mobile
     if (phoneInputRef.current) {
+      // Immediate focus
+      phoneInputRef.current.focus();
+      
+      // Delayed focus as backup
       setTimeout(() => {
         phoneInputRef.current?.focus();
+        
+        // Additional click for stubborn mobile browsers
+        phoneInputRef.current?.click();
       }, 100);
     }
 
     // Set up blinking cursor effect
     const interval = setInterval(() => {
-      setCursorPosition(prev => !prev ? 1 : 0);
+      setCursorPosition(prev => prev === 0 ? 1 : 0);
     }, 500);
 
     return () => clearInterval(interval);
@@ -38,8 +46,8 @@ const SetupProfile: React.FC = () => {
       // Save phone number to context
       setUserData(prev => ({ ...prev, phone: phoneNumber }));
       
-      // Navigate to the next step (we'll implement this later)
-      router.push('/profile');
+      // Navigate to the social profiles page
+      router.push('/social');
     }
   };
 
@@ -48,7 +56,8 @@ const SetupProfile: React.FC = () => {
     const underlines = [];
     for (let i = 0; i < 10; i++) {
       const digit = phoneNumber[i] || '';
-      const isFirstEmpty = phoneNumber.length === i && cursorPosition;
+      const isFirstEmpty = phoneNumber.length === i;
+      const showCursor = isFirstEmpty && cursorPosition === 1;
       
       underlines.push(
         <div key={i} style={{ 
@@ -65,7 +74,7 @@ const SetupProfile: React.FC = () => {
             lineHeight: '36px'
           }}>
             {digit}
-            {isFirstEmpty && (
+            {showCursor && (
               <span 
                 style={{
                   position: 'absolute',
@@ -88,6 +97,25 @@ const SetupProfile: React.FC = () => {
       );
     }
     return underlines;
+  };
+
+  // Standard button style for consistency
+  const buttonStyle = {
+    display: 'block',
+    width: '100%',
+    backgroundColor: phoneNumber.length === 10 ? 'var(--primary)' : 'var(--card-border)',
+    color: 'white',
+    fontSize: '22px',
+    fontWeight: '500',
+    padding: '16px 24px',
+    borderRadius: '100px',
+    boxShadow: 'var(--shadow-md)',
+    transition: 'all 0.2s ease-in-out',
+    textDecoration: 'none',
+    textAlign: 'center',
+    border: 'none',
+    cursor: phoneNumber.length === 10 ? 'pointer' : 'not-allowed',
+    marginTop: '10px'
   };
 
   return (
@@ -172,22 +200,7 @@ const SetupProfile: React.FC = () => {
         <button
           onClick={handleSubmit}
           disabled={phoneNumber.length !== 10}
-          style={{
-            display: 'block',
-            width: '100%',
-            backgroundColor: phoneNumber.length === 10 ? 'var(--primary)' : 'var(--card-border)',
-            color: 'white',
-            fontSize: '26px',
-            fontWeight: '500',
-            padding: '16px 24px', // Slightly reduced padding
-            borderRadius: '100px',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'all 0.2s ease-in-out',
-            textDecoration: 'none',
-            textAlign: 'center',
-            border: 'none',
-            cursor: phoneNumber.length === 10 ? 'pointer' : 'not-allowed'
-          }}
+          style={buttonStyle}
           onMouseOver={(e) => {
             if (phoneNumber.length === 10) {
               e.currentTarget.style.backgroundColor = 'var(--primary-dark)';

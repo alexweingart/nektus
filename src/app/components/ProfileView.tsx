@@ -4,6 +4,25 @@ import React from 'react';
 import { useUser } from '../context/UserContext';
 import Link from 'next/link';
 
+// Standard button style shared across the application
+const standardButtonStyle = {
+  display: 'block',
+  width: '100%',
+  backgroundColor: 'var(--primary)',
+  color: 'white',
+  fontSize: '22px',
+  fontWeight: '500',
+  padding: '16px 24px',
+  borderRadius: '100px',
+  boxShadow: 'var(--shadow-md)',
+  transition: 'all 0.2s ease-in-out',
+  textDecoration: 'none',
+  textAlign: 'center',
+  border: 'none',
+  cursor: 'pointer',
+  marginTop: '10px'
+};
+
 const ProfileView: React.FC = () => {
   const { userData } = useUser();
 
@@ -127,21 +146,7 @@ const ProfileView: React.FC = () => {
         
         <Link 
           href="/connect"
-          style={{
-            display: 'block',
-            width: '100%',
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            fontSize: '22px',
-            fontWeight: '500',
-            padding: '16px 24px',
-            borderRadius: '100px',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'all 0.2s ease-in-out',
-            textDecoration: 'none',
-            textAlign: 'center',
-            marginBottom: '12px'
-          }}
+          style={standardButtonStyle}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--primary-dark)';
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -162,7 +167,8 @@ const ProfileView: React.FC = () => {
             fontSize: '16px',
             color: 'var(--primary)',
             textDecoration: 'none',
-            padding: '8px'
+            padding: '8px',
+            marginTop: '12px'
           }}
         >
           Edit Profile

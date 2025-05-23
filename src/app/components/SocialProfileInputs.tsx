@@ -4,6 +4,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 
+// Standard button style shared across the application
+const standardButtonStyle = {
+  display: 'block',
+  width: '100%',
+  backgroundColor: 'var(--primary)',
+  color: 'white',
+  fontSize: '22px',
+  fontWeight: '500',
+  padding: '16px 24px',
+  borderRadius: '100px',
+  boxShadow: 'var(--shadow-md)',
+  transition: 'all 0.2s ease-in-out',
+  textDecoration: 'none',
+  textAlign: 'center',
+  border: 'none',
+  cursor: 'pointer',
+  marginTop: '10px'
+};
+
 // List of social networks to include
 const SOCIAL_NETWORKS = [
   { id: 'email', label: 'Email', type: 'email', placeholder: 'your@email.com' },
@@ -36,8 +55,15 @@ const SocialProfileInputs: React.FC = () => {
   // Auto-focus the email field on initial render
   useEffect(() => {
     if (inputRefs.current[0]) {
+      // Immediate focus
+      inputRefs.current[0].focus();
+      
+      // Delayed focus as backup
       setTimeout(() => {
         inputRefs.current[0]?.focus();
+        
+        // Additional click for stubborn mobile browsers
+        inputRefs.current[0]?.click();
       }, 100);
     }
   }, []);
@@ -188,23 +214,7 @@ const SocialProfileInputs: React.FC = () => {
         
         <button
           onClick={handleSubmit}
-          style={{
-            display: 'block',
-            width: '100%',
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            fontSize: '22px',
-            fontWeight: '500',
-            padding: '16px 24px',
-            borderRadius: '100px',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'all 0.2s ease-in-out',
-            textDecoration: 'none',
-            textAlign: 'center',
-            border: 'none',
-            cursor: 'pointer',
-            marginBottom: '16px'
-          }}
+          style={standardButtonStyle}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--primary-dark)';
             e.currentTarget.style.transform = 'translateY(-2px)';
