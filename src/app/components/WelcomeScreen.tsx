@@ -11,9 +11,15 @@ const WelcomeScreen: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '100vh',
-        padding: '24px',
-        textAlign: 'center'
+        height: '100vh', // Use exact height instead of minHeight
+        padding: '0',    // Remove padding to avoid affecting centering
+        textAlign: 'center',
+        position: 'fixed', // Fixed position to ensure it takes full viewport
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'auto'  // Allow scrolling if needed
       }}
     >
       <div
