@@ -4,6 +4,17 @@ import React from 'react';
 import Link from 'next/link';
 
 const WelcomeScreen: React.FC = () => {
+  // Add a CSS rule to the document to prevent scrollbar on body
+  React.useEffect(() => {
+    // Add styling to prevent scroll
+    document.body.style.overflow = 'hidden';
+    
+    // Cleanup function to restore scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+  
   return (
     <div 
       style={{
@@ -11,15 +22,16 @@ const WelcomeScreen: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '100vh', // Use exact height instead of minHeight
-        padding: '0',    // Remove padding to avoid affecting centering
+        height: '100vh',
+        width: '100vw',
+        padding: '0',
+        margin: '0',
         textAlign: 'center',
-        position: 'fixed', // Fixed position to ensure it takes full viewport
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'auto'  // Allow scrolling if needed
+        overflow: 'hidden', // Prevent scrollbars
+        position: 'absolute', // Use absolute instead of fixed
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)' // Perfect centering technique
       }}
     >
       <div
