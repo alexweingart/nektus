@@ -13,13 +13,15 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // Ensure GOOGLE_CLIENT_SECRET is set
       authorization: {
         params: {
-          prompt: "select_account", // Consistently prompt for account selection
+          // Always force account selection to prevent automatic sign-in with the last account
+          prompt: "select_account",
           access_type: "offline",    // Request offline access for refresh tokens if needed
           response_type: "code",     // Standard OAuth 2.0 flow
           scope: "openid email profile", // Request standard OpenID Connect scopes
         },
       },
     }),
+    // No additional providers - this is a Google-only application
   ],
   secret: process.env.NEXTAUTH_SECRET, // Ensure NEXTAUTH_SECRET is set in your environment
   session: {

@@ -18,15 +18,10 @@ import {
 } from 'react-icons/fa';
 import { MdEdit } from 'react-icons/md';
 import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/ProfileContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CustomPhoneInput } from '@/components/ui/phone-input';
-import { SocialIcon, SocialPlatform } from '@/components/ui/social-icon';
 
 // Extended social profile type with additional properties for UI state
 type SocialProfile = Omit<ProfileSocialProfile, 'platform'> & {
-  platform: SocialPlatform;
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'email' | 'phone';
   confirmed?: boolean;
   autoFilled?: boolean;
 };
@@ -49,7 +44,7 @@ export default function ProfileSetup() {
   const [formattedPhone, setFormattedPhone] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
-  const [editingSocial, setEditingSocial] = useState<SocialPlatform | null>(null);
+  const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
@@ -57,7 +52,7 @@ export default function ProfileSetup() {
   const extractedUsernameRef = React.useRef<string>('');
 
   // Memoized platform order
-  const platformOrder = useMemo<SocialPlatform[]>(() => 
+  const platformOrder = useMemo<SocialProfile['platform'][]>(() => 
     ['email', 'phone', 'facebook', 'instagram', 'twitter', 'snapchat', 'linkedin', 'whatsapp', 'telegram'], 
   []);
 
@@ -76,12 +71,12 @@ export default function ProfileSetup() {
         confirmed: true
       }]);
     }
-  }, [session, status]);
+  }, []); // Empty dependency array - run only once on mount
   
   // Load profile data and initialize social profiles
   useEffect(() => {
     if (!isLoading) {
-      const initializeProfiles = async () => {
+      const loadAndInitialize = async () => {
         try {
           // Start with current profiles (including email which is already confirmed)
           const updatedProfiles = [...socialProfiles];
@@ -113,43 +108,41 @@ export default function ProfileSetup() {
               // Format the phone number for display
               let formatted = '';
               if (digits.length > 0) {
-                formatted = `(${digits.slice(0, 3)}`;
+                formatted = '(' + digits.substring(0, 3) + ') ';
                 if (digits.length > 3) {
-                  formatted += `) ${digits.slice(3, 6)}`;
-                }
-                if (digits.length > 6) {
-                  formatted += `-${digits.slice(6, 10)}`;
+                  formatted += digits.substring(3, 6);
+                  if (digits.length > 6) {
+                    formatted += '-' + digits.substring(6, 10);
+                  }
                 }
               }
               setFormattedPhone(formatted);
             }
             
+            // Update social profiles from saved data
             if (profile.socialProfiles && profile.socialProfiles.length > 0) {
-              // Merge existing profiles with our initialized ones
-              profile.socialProfiles.forEach(existingProfile => {
-                const index = updatedProfiles.findIndex(p => p.platform === existingProfile.platform);
-                if (index >= 0) {
-                  updatedProfiles[index] = {
-                    ...existingProfile,
-                    confirmed: existingProfile.filled
-                  } as SocialProfile;
-                } else {
-                  updatedProfiles.push({
-                    ...existingProfile,
-                    confirmed: existingProfile.filled
-                  } as SocialProfile);
+              profile.socialProfiles.forEach(savedProfile => {
+                const existingIndex = updatedProfiles.findIndex(p => p.platform === savedProfile.platform);
+                if (existingIndex !== -1) {
+                  updatedProfiles[existingIndex] = {
+                    ...updatedProfiles[existingIndex],
+                    ...savedProfile,
+                    filled: true,
+                    confirmed: true
+                  };
                 }
               });
             }
           }
           
+          // Update the state with the updated profiles
           setSocialProfiles(updatedProfiles);
         } catch (error) {
-          console.error('Error initializing profile:', error);
+          console.error('Error loading profile data:', error);
         }
       };
       
-      initializeProfiles();
+      loadAndInitialize();
     }
   }, [isLoading, profile, platformOrder, socialProfiles]);
   
@@ -163,20 +156,21 @@ export default function ProfileSetup() {
 
   // Handle phone number change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    // Strip non-digits
-    const digits = input.replace(/\D/g, '');
+    // Extract digits only
+    const digits = e.target.value.replace(/\D/g, '');
+    
+    // Store raw digits for saving
     setPhone(digits);
     
-    // Format for display
+    // Format the display value
     let formatted = '';
     if (digits.length > 0) {
-      formatted = `(${digits.slice(0, 3)}`;
+      formatted = '(' + digits.substring(0, 3) + ') ';
       if (digits.length > 3) {
-        formatted += `) ${digits.slice(3, 6)}`;
-      }
-      if (digits.length > 6) {
-        formatted += `-${digits.slice(6, 10)}`;
+        formatted += digits.substring(3, 6);
+        if (digits.length > 6) {
+          formatted += '-' + digits.substring(6, 10);
+        }
       }
     }
     setFormattedPhone(formatted);
@@ -184,109 +178,89 @@ export default function ProfileSetup() {
   
   // Update profiles with phone number
   const updateProfilesWithPhone = (phoneNumber: string) => {
-    if (phoneNumber.length >= 10) {
-      // Make a copy of profiles to update
-      const updatedProfiles = [...socialProfiles];
+    // Update the 'phone' platform profile with the phone number
+    setSocialProfiles(prev => {
+      const updated = [...prev];
+      const phoneIndex = updated.findIndex(p => p.platform === 'phone');
       
-      // First confirm the phone number profile
-      const phoneIndex = updatedProfiles.findIndex(p => p.platform === 'phone');
-      if (phoneIndex >= 0) {
-        updatedProfiles[phoneIndex] = {
-          ...updatedProfiles[phoneIndex],
+      if (phoneIndex !== -1) {
+        updated[phoneIndex] = {
+          ...updated[phoneIndex],
           username: phoneNumber,
           filled: true,
-          confirmed: true,
-          autoFilled: false
+          confirmed: true
         };
       } else {
-        updatedProfiles.push({
+        updated.push({
           platform: 'phone',
           username: phoneNumber,
           shareEnabled: true,
           filled: true,
-          confirmed: true,
-          autoFilled: false
+          confirmed: true
         });
       }
       
-      // Auto-fill all other profiles with light green
-      ['whatsapp', 'telegram', 'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'].forEach(platform => {
-        const index = updatedProfiles.findIndex(p => p.platform === platform as SocialPlatform);
-        let value = extractedUsernameRef.current;
-        
-        // For messaging platforms, use phone number
-        if (platform === 'whatsapp' || platform === 'telegram') {
-          value = phoneNumber;
-        }
-        
-        if (index >= 0) {
-          // Only auto-fill if not already confirmed
-          if (!updatedProfiles[index].confirmed) {
-            updatedProfiles[index] = {
-              ...updatedProfiles[index],
-              username: value,
-              filled: true,
-              autoFilled: true
-            };
-          }
-        } else {
-          updatedProfiles.push({
-            platform: platform as SocialPlatform,
-            username: value,
-            shareEnabled: true,
-            filled: true,
-            autoFilled: true
-          });
-        }
-      });
+      // Also update WhatsApp with the same number if it's not already set
+      const whatsappIndex = updated.findIndex(p => p.platform === 'whatsapp');
+      if (whatsappIndex !== -1 && (!updated[whatsappIndex].username || !updated[whatsappIndex].filled)) {
+        updated[whatsappIndex] = {
+          ...updated[whatsappIndex],
+          username: phoneNumber,
+          filled: true,
+          autoFilled: true // Mark as auto-filled for visual indication
+        };
+      }
       
-      setSocialProfiles(updatedProfiles);
-    }
+      return updated;
+    });
   };
   
   // Handle editing social profile
-  const handleEditSocial = (platform: SocialPlatform) => {
+  const handleEditSocial = (platform: SocialProfile['platform']) => {
     const profile = socialProfiles.find(p => p.platform === platform);
-    setEditingSocial(platform);
     setSocialEditValue(profile?.username || '');
+    setEditingSocial(platform);
   };
   
   // Save edited social profile
   const handleSaveSocialEdit = () => {
-    if (editingSocial) {
-      const updatedProfiles = socialProfiles.map(profile => {
-        if (profile.platform === editingSocial) {
-          return { 
-            ...profile, 
-            username: socialEditValue, 
-            filled: !!socialEditValue,
-            confirmed: !!socialEditValue,
-            autoFilled: false
-          };
-        }
-        return profile;
-      });
+    if (!editingSocial) return;
+    
+    setSocialProfiles(prev => {
+      const updated = [...prev];
+      const index = updated.findIndex(p => p.platform === editingSocial);
       
-      setSocialProfiles(updatedProfiles);
-      setEditingSocial(null);
-      setSocialEditValue('');
-    }
+      if (index !== -1) {
+        updated[index] = {
+          ...updated[index],
+          username: socialEditValue,
+          filled: !!socialEditValue,
+          confirmed: !!socialEditValue,
+          autoFilled: false // Reset auto-filled flag once manually edited
+        };
+      }
+      
+      return updated;
+    });
+    
+    setEditingSocial(null);
+    setSocialEditValue('');
   };
   
   // Handle key press in input fields
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault();
       if (editingSocial) {
         handleSaveSocialEdit();
       } else {
+        // Focus the next input or save
         handleSave();
       }
     }
   };
   
   // Get the URL prefix for a social platform
-  const getSocialPrefix = (platform: SocialPlatform) => {
+  const getSocialPrefix = (platform: SocialProfile['platform']) => {
     switch (platform) {
       case 'facebook':
         return 'facebook.com/';
@@ -342,37 +316,29 @@ export default function ProfileSetup() {
     }
   };
 
-  // Get icon status based on profile state
-  const getIconStatus = (profile?: SocialProfile) => {
-    if (!profile) return 'empty';
-    if (profile.confirmed) return 'confirmed';
-    if (profile.autoFilled) return 'autofilled';
-    return 'empty';
-  };
-
   // If no session, return null (redirect is handled by useSession)
   if (!session && status !== 'loading') {
     return null;
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white dark:bg-card shadow-md rounded-xl">
+    <div className="space-y-6">
       {/* Profile Photo and Name */}
-      <div className="text-center mb-8">
+      <div className="flex flex-col items-center py-5 rounded-xl bg-card">
         {session?.user?.image ? (
-          <div className="w-28 h-28 mx-auto mb-4 rounded-full overflow-hidden shadow-md">
+          <div className="w-24 h-24 mb-4 rounded-full overflow-hidden border-2 border-primary shadow-md">
             <img 
               src={session.user.image} 
-              alt={session.user?.name || 'Profile'} 
+              alt={session?.user?.name || 'Profile'} 
               className="w-full h-full object-cover"
             />
           </div>
         ) : (
-          <div className="w-28 h-28 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+          <div className="w-24 h-24 mb-4 rounded-full bg-muted flex items-center justify-center border-2 border-primary shadow-md">
             <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className="text-2xl font-semibold">{session?.user?.name}</h2>
+        <h2 className="text-xl font-bold">{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}
@@ -380,8 +346,8 @@ export default function ProfileSetup() {
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
           const bgColor = profile?.confirmed ? 'bg-primary text-white' : 
-                        profile?.autoFilled ? 'bg-primary-light text-white' : 
-                        'bg-muted text-primary';
+                      profile?.autoFilled ? 'bg-primary-light text-white' : 
+                      'bg-muted text-primary';
           
           return (
             <div 
@@ -403,26 +369,27 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Simple Phone Number Input */}
+      {/* Phone Number Input */}
       <div className="mb-6">
+        <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
         <input
           type="tel"
-          inputMode="numeric"
+          id="phone"
           value={formattedPhone}
           onChange={handlePhoneChange}
           onKeyDown={handleKeyPress}
           placeholder="(555) 555-5555"
-          className="p-3 w-full rounded-md border border-input bg-white dark:bg-card text-foreground"
+          className="w-full p-3 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
         />
       </div>
       
-      {/* Social Networks Section Header with Toggle */}
+      {/* Social Networks Header (Expandable) */}
       <div 
-        className="flex justify-between items-center mb-4 cursor-pointer p-2 border-b"
+        className="flex items-center justify-between p-3 mb-2 cursor-pointer bg-card rounded-lg border border-border hover:bg-muted transition-colors"
         onClick={() => setShowSocialSettings(!showSocialSettings)}
       >
-        <h3 className="text-lg font-medium">Social Networks</h3>
-        {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
+        <h3 className="text-lg font-medium text-foreground">Social Networks</h3>
+        {showSocialSettings ? <FaChevronUp className="text-primary" /> : <FaChevronDown className="text-primary" />}
       </div>
 
       {/* Social Network Settings (Collapsible) */}
@@ -436,7 +403,7 @@ export default function ProfileSetup() {
                         'bg-muted text-primary';
               
               return (
-                <div key={profile.platform} className="bg-muted rounded-lg p-4">
+                <div key={profile.platform} className="bg-card rounded-lg p-4 border border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${iconBgColor}`}>
@@ -448,7 +415,7 @@ export default function ProfileSetup() {
                         {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
                         {profile.platform === 'telegram' && <FaTelegram size={16} />}
                       </div>
-                      <div className="capitalize">{profile.platform}</div>
+                      <div className="capitalize text-foreground">{profile.platform}</div>
                     </div>
                     <button 
                       onClick={(e) => {
@@ -471,7 +438,7 @@ export default function ProfileSetup() {
                         value={socialEditValue}
                         onChange={(e) => setSocialEditValue(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        className="flex-1 p-2 text-sm border border-input rounded bg-white dark:bg-card"
+                        className="flex-1 p-2 text-sm border border-input rounded bg-background focus:ring-2 focus:ring-primary focus:border-primary"
                         autoFocus
                       />
                       <button
@@ -482,9 +449,9 @@ export default function ProfileSetup() {
                       </button>
                     </div>
                   ) : profile.username ? (
-                    <div className="mt-2 pb-1 border-b text-sm flex">
+                    <div className="mt-2 pb-1 border-b border-border text-sm flex">
                       <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
-                      <span>{profile.username}</span>
+                      <span className="text-foreground">{profile.username}</span>
                     </div>
                   ) : null}
                 </div>
