@@ -102,7 +102,7 @@ const WelcomeScreen: React.FC = () => {
             fontSize: '18px',
             fontWeight: '500',
             padding: '12px 24px',
-            borderRadius: '4px',
+            borderRadius: '100px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
             transition: 'all 0.2s ease-in-out',
             textDecoration: 'none',

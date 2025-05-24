@@ -571,6 +571,12 @@ export default function ProfileSetup() {
                 opacity: isSaving ? 0.7 : 1,
                 cursor: isSaving ? 'not-allowed' : 'pointer'
               }}
+              onMouseOver={!isSaving ? (e) => {
+                e.currentTarget.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23)';
+              } : undefined}
+              onMouseOut={!isSaving ? (e) => {
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)';
+              } : undefined}
             >
               {isSaving ? (
                 <>
