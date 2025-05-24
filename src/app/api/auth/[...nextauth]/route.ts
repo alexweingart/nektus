@@ -18,8 +18,6 @@ const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // Ensure GOOGLE_CLIENT_SECRET is set
       authorization: {
         params: {
-          // CRITICAL: Force exact redirect_uri to match Google Cloud Console
-          redirect_uri: "https://nekt.us/api/auth/callback/google",
           prompt: "select_account", // Consistently prompt for account selection
           access_type: "offline",    // Request offline access for refresh tokens if needed
           response_type: "code",     // Standard OAuth 2.0 flow
