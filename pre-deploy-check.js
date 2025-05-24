@@ -202,4 +202,46 @@ try {
   console.error('❌ Environment variable check failed:', error.message);
 }
 
+// Check for syntax errors in ProfileSetup component
+try {
+  console.log('✓ Checking ProfileSetup component for syntax errors...');
+  const profileSetupPath = path.join(__dirname, 'src/app/components/ProfileSetup.tsx');
+  const profileSetupContent = fs.readFileSync(profileSetupPath, 'utf8');
+  
+  // Check for balanced braces
+  let braceCount = 0;
+  let lineNumber = 0;
+  const lines = profileSetupContent.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    lineNumber = i + 1;
+    
+    for (let j = 0; j < line.length; j++) {
+      if (line[j] === '{') braceCount++;
+      if (line[j] === '}') braceCount--;
+      
+      // Check for negative brace count (more closing than opening)
+      if (braceCount < 0) {
+        console.error(`❌ Syntax error in ProfileSetup.tsx: Unbalanced braces at line ${lineNumber}`);
+        console.error(`   Too many closing braces '}'`);
+        process.exit(1);
+      }
+    }
+  }
+  
+  // After all lines, check if braces are balanced
+  if (braceCount !== 0) {
+    console.error(`❌ Syntax error in ProfileSetup.tsx: Unbalanced braces`);
+    console.error(`   Missing ${braceCount > 0 ? braceCount + ' closing' : Math.abs(braceCount) + ' opening'} braces`);
+    process.exit(1);
+  }
+  
+  // Skip further checks since our basic syntax validation passed
+  console.log('✅ ProfileSetup component check passed!');
+} catch (error) {
+  console.error('❌ ProfileSetup component check failed:', error.message);
+  process.exit(1);
+}
+
 console.log('🚀 All pre-deployment checks passed! Safe to deploy.');
