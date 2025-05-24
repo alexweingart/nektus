@@ -70,10 +70,9 @@ const WelcomeScreen: React.FC = () => {
             color: 'var(--primary)',
             fontSize: '48px',
             fontWeight: 'bold',
-            marginBottom: '8px',
+            marginBottom: '2px',
             textAlign: 'center',
             width: '100%',
-            cursor: 'default' // Show default cursor instead of text cursor
           }}
           {...adminModeProps} // Apply the double-click handler
         >
@@ -82,7 +81,8 @@ const WelcomeScreen: React.FC = () => {
         <p 
           style={{ 
             fontSize: '24px', 
-            marginBottom: '30px',
+            marginTop: '0px',
+            marginBottom: '24px',
             textAlign: 'center',
             width: '100%'
           }}
