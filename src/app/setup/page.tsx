@@ -18,10 +18,7 @@ export default function SetupPage() {
       )}
       
       <div style={{ maxWidth: '28rem', margin: '1rem auto 0' }}>
-        <h1 className={styles.pageTitle}>Set Up Your Profile</h1>
-        <div className={styles.setupCard}>
-          <ProfileSetup />
-        </div>
+        <ProfileSetup />
       </div>
     </div>
   );

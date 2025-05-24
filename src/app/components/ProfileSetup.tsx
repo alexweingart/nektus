@@ -106,14 +106,14 @@ export default function ProfileSetup() {
               setPhone(digits);
               setHasCompletedPhone(digits.length >= 10);
               
-              // Format the phone number for display
+              // Format the phone number for display - using spaces (000 000 0000)
               let formatted = '';
               if (digits.length > 0) {
-                formatted = '(' + digits.substring(0, 3) + ') ';
+                formatted = digits.substring(0, 3);
                 if (digits.length > 3) {
-                  formatted += digits.substring(3, 6);
+                  formatted += ' ' + digits.substring(3, 6);
                   if (digits.length > 6) {
-                    formatted += '-' + digits.substring(6, 10);
+                    formatted += ' ' + digits.substring(6, 10);
                   }
                 }
               }
@@ -163,14 +163,14 @@ export default function ProfileSetup() {
     // Store raw digits for saving
     setPhone(digits);
     
-    // Format the display value
+    // Format the display value - using spaces (000 000 0000)
     let formatted = '';
     if (digits.length > 0) {
-      formatted = '(' + digits.substring(0, 3) + ') ';
+      formatted = digits.substring(0, 3);
       if (digits.length > 3) {
-        formatted += digits.substring(3, 6);
+        formatted += ' ' + digits.substring(3, 6);
         if (digits.length > 6) {
-          formatted += '-' + digits.substring(6, 10);
+          formatted += ' ' + digits.substring(6, 10);
         }
       }
     }
@@ -218,9 +218,17 @@ export default function ProfileSetup() {
   
   // Handle editing social profile
   const handleEditSocial = (platform: SocialProfile['platform']) => {
-    const profile = socialProfiles.find(p => p.platform === platform);
-    setSocialEditValue(profile?.username || '');
-    setEditingSocial(platform);
+    // If social settings aren't shown, show them first
+    if (!showSocialSettings) {
+      setShowSocialSettings(true);
+    }
+    
+    // Small delay to ensure the section is visible before focusing
+    setTimeout(() => {
+      const profile = socialProfiles.find(p => p.platform === platform);
+      setSocialEditValue(profile?.username || '');
+      setEditingSocial(platform);
+    }, 100);
   };
   
   // Save edited social profile
@@ -373,15 +381,18 @@ export default function ProfileSetup() {
       {/* Phone Number Input */}
       <div className={styles.formGroup}>
         <label htmlFor="phone" className={styles.formLabel}>Phone Number</label>
-        <input
-          type="tel"
-          id="phone"
-          value={formattedPhone}
-          onChange={handlePhoneChange}
-          onKeyDown={handleKeyPress}
-          placeholder="(555) 555-5555"
-          className={styles.formInput}
-        />
+        <div className={styles.phoneInput}>
+          <div className={styles.phoneCountryCode}>+1</div>
+          <input
+            type="tel"
+            id="phone"
+            value={formattedPhone}
+            onChange={handlePhoneChange}
+            onKeyDown={handleKeyPress}
+            placeholder="000 000 0000"
+            className={styles.phoneNumberInput}
+          />
+        </div>
       </div>
       
       {/* Social Networks Header (Expandable) */}

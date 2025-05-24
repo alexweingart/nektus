@@ -8,9 +8,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.25rem;
-  background-color: #f4f9f4;
-  border-radius: 0.75rem;
+  padding: 1.25rem 0;
 }
 
 .profileImage {
@@ -103,21 +101,54 @@
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
+.phoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-color: white;
+}
+
+.phoneCountryCode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  font-weight: 500;
+  color: #666;
+  border-right: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+  height: 100%;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.phoneNumberInput {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  background-color: white;
+}
+
+.phoneNumberInput:focus {
+  outline: none;
+}
+
 .socialAccordionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
+  padding: 0.75rem 0;
+  margin: 1.5rem 0 0.75rem;
   cursor: pointer;
-  background-color: white;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
 }
 
 .socialAccordionHeader:hover {
-  background-color: #f5f5f5;
+  opacity: 0.8;
 }
 
 .socialHeading {
