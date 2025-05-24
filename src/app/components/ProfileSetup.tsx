@@ -118,7 +118,7 @@ export default function ProfileSetup() {
                     ...existingProfile,
                     confirmed: existingProfile.filled
                   } as SocialProfile;
-                } else if (existingProfile.platform !== 'email' && existingProfile.platform !== 'phone') {
+                } else {
                   updatedProfiles.push({
                     ...existingProfile,
                     confirmed: existingProfile.filled
@@ -419,8 +419,7 @@ export default function ProfileSetup() {
                     />
                     <Button
                       onClick={handleSaveSocialEdit}
-                      size="sm"
-                      className="ml-2"
+                      className="py-1 px-3 text-xs ml-2"
                     >
                       Save
                     </Button>
