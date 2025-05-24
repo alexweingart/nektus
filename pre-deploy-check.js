@@ -11,18 +11,23 @@ const path = require('path');
 
 console.log('🔍 Running pre-deployment checks for Nekt.Us...');
 
-// Check TypeScript types with detailed error reporting
+// Verify TypeScript types
 try {
   console.log('✓ Checking TypeScript types...');
-  // Run tsc with special formatting to better detect and fix errors
+  
+  // Make sure type declaration modules are available
+  console.log('   Checking for type declarations...');
+  
+  // Run TypeScript check with more detailed error reporting
   execSync('npx tsc --noEmit --pretty', { stdio: 'inherit' });
   console.log('✅ TypeScript check passed!');
 } catch (error) {
-  // Provide more helpful error messages for common TypeScript errors
   console.error('❌ TypeScript check failed! Common issues to look for:');
   console.error('   - Incorrect type assignments (undefined where string expected)');
   console.error('   - Missing type assertions (use "as string" when needed)');
   console.error('   - Extending objects with custom properties needs type casting (session as any)');
+  console.error('   - Missing module declarations (create .d.ts files in src/types/)');
+  console.error('   - Firebase or other library types not found (check src/types/firebase.d.ts)');
   process.exit(1);
 }
 
