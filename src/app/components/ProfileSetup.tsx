@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import Image from 'next/image';
-import { FaWhatsapp, FaTelegram, FaPhone } from 'react-icons/fa';
+import { 
+  FaWhatsapp, 
+  FaTelegram, 
+  FaFacebook, 
+  FaInstagram, 
+  FaTwitter, 
+  FaSnapchat, 
+  FaLinkedin, 
+  FaPhone 
+} from 'react-icons/fa';
 
 type GoogleUser = {
   name: string;
@@ -13,6 +22,7 @@ type SocialProfile = {
   platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
   username: string;
   shareEnabled: boolean;
+  filled?: boolean;
 };
 
 export default function ProfileSetup() {
@@ -21,10 +31,15 @@ export default function ProfileSetup() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
   const [phone, setPhone] = useState('');
+  const [handle, setHandle] = useState('');
+  const [activeSocialPlatform, setActiveSocialPlatform] = useState<SocialProfile['platform'] | null>(null);
+  const [socialInputValue, setSocialInputValue] = useState('');
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
-  const [currentPlatform, setCurrentPlatform] = useState<SocialProfile['platform']>('instagram');
-  const [currentUsername, setCurrentUsername] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
+  
+  // Refs for auto-focus
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const handleInputRef = useRef<HTMLInputElement>(null);
 
   // Styles for various components
   const googleButtonStyle = {
@@ -134,6 +149,16 @@ export default function ProfileSetup() {
     }
   }, [status, session]);
   
+  // Auto-focus on phone input when the component mounts or when step changes to 2
+  useEffect(() => {
+    if (step === 2 && phoneInputRef.current) {
+      // Focus on phone input field
+      setTimeout(() => {
+        phoneInputRef.current?.focus();
+      }, 300);
+    }
+  }, [step, phoneInputRef]);
+  
   // Handle effects on component mount
   useEffect(() => {
     // Clear any localStorage flag after checking it once
@@ -173,324 +198,349 @@ export default function ProfileSetup() {
   
   // Handle phone number changes
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value.replace(/\D/g, '');
-    setPhone(input);
+    // Only allow digits
+    const digits = e.target.value.replace(/\D/g, '');
+    setPhone(digits);
     
-    // Format phone number as (XXX) XXX-XXXX
-    if (input.length > 0) {
-      const areaCode = input.substring(0, 3);
-      const middle = input.substring(3, 6);
-      const last = input.substring(6, 10);
+    // Format the phone number for display (US format: (XXX) XXX-XXXX)
+    if (digits.length > 0) {
+      let formatted = '';
       
-      if (input.length <= 3) {
-        setFormattedPhone(`(${areaCode}`);
-      } else if (input.length <= 6) {
-        setFormattedPhone(`(${areaCode}) ${middle}`);
+      if (digits.length <= 3) {
+        formatted = digits;
+      } else if (digits.length <= 6) {
+        formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
       } else {
-        setFormattedPhone(`(${areaCode}) ${middle}-${last}`);
+        formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
       }
+      
+      setFormattedPhone(formatted);
+      
+      // Update WhatsApp and Telegram profiles when phone changes
+      updateMessagingPlatforms(digits);
     } else {
       setFormattedPhone('');
     }
   };
   
-  // Handle proceeding to social profiles
-  const handlePhoneSubmit = () => {
-    if (phone.length >= 10) {
-      setStep(3);
-    }
-  };
-  
-  // Handle adding a social profile
-  const handleAddSocialProfile = () => {
-    if (currentUsername) {
-      setSocialProfiles([
-        ...socialProfiles,
-        {
-          platform: currentPlatform,
-          username: currentUsername,
+  // Update WhatsApp and Telegram profiles based on phone number
+  const updateMessagingPlatforms = (phoneNumber: string) => {
+    if (phoneNumber.length >= 10) {
+      // Find and update or add WhatsApp
+      const whatsappIndex = socialProfiles.findIndex(p => p.platform === 'whatsapp');
+      if (whatsappIndex >= 0) {
+        const updatedProfiles = [...socialProfiles];
+        updatedProfiles[whatsappIndex].username = phoneNumber;
+        updatedProfiles[whatsappIndex].filled = true;
+        setSocialProfiles(updatedProfiles);
+      } else {
+        setSocialProfiles([...socialProfiles, {
+          platform: 'whatsapp',
+          username: phoneNumber,
           shareEnabled: true,
-        },
-      ]);
-      setCurrentUsername('');
+          filled: true
+        }]);
+      }
+      
+      // Find and update or add Telegram
+      const telegramIndex = socialProfiles.findIndex(p => p.platform === 'telegram');
+      if (telegramIndex >= 0) {
+        const updatedProfiles = [...socialProfiles];
+        updatedProfiles[telegramIndex].username = phoneNumber;
+        updatedProfiles[telegramIndex].filled = true;
+        setSocialProfiles(updatedProfiles);
+      } else {
+        setSocialProfiles(prev => [...prev, {
+          platform: 'telegram',
+          username: phoneNumber,
+          shareEnabled: true,
+          filled: true
+        }]);
+      }
     }
   };
   
-  // Handle completing the profile setup
-  const handleCompleteSetup = () => {
-    console.log('Profile setup complete:', {
-      user: googleUser,
+  // Handle social handle changes
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\s/g, '');
+    setHandle(value);
+    
+    // Update social profiles when handle changes
+    if (value) {
+      updateSocialPlatforms(value);
+    }
+  };
+  
+  // Update social platforms based on handle
+  const updateSocialPlatforms = (handleValue: string) => {
+    if (handleValue.length > 0) {
+      // Update or add Facebook, Instagram, Twitter, LinkedIn, Snapchat
+      const platforms: SocialProfile['platform'][] = [
+        'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'
+      ];
+      
+      const updatedProfiles = [...socialProfiles];
+      
+      platforms.forEach(platform => {
+        const index = updatedProfiles.findIndex(p => p.platform === platform);
+        if (index >= 0) {
+          updatedProfiles[index].username = handleValue;
+          updatedProfiles[index].filled = true;
+        } else {
+          updatedProfiles.push({
+            platform,
+            username: handleValue,
+            shareEnabled: true,
+            filled: true
+          });
+        }
+      });
+      
+      setSocialProfiles(updatedProfiles);
+    }
+  };
+  
+  // Handle key press in input fields
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, field: 'phone' | 'handle') => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (field === 'phone' && handleInputRef.current) {
+        handleInputRef.current.focus();
+      } else if (field === 'handle') {
+        handleContinue();
+      }
+    }
+  };
+  
+  // Handle continuing to the next step
+  const handleContinue = () => {
+    // Save profile data and proceed
+    // In a real app, you would save this data to a database
+    console.log('Profile data:', {
+      googleUser,
       phone,
-      socialProfiles,
+      handle,
+      socialProfiles
     });
     
-    // In a real app, you would save this data to a database
-    // and redirect the user to the next step
-    alert('Profile setup complete! You can now close this setup.');
+    // Proceed to next step or page
+    window.location.href = '/connect';
   };
   
+  // Handle clicking on a social icon
+  const handleSocialIconClick = (platform: SocialProfile['platform']) => {
+    // Set the active platform
+    setActiveSocialPlatform(platform === activeSocialPlatform ? null : platform);
+    
+    // Pre-populate the input field based on the platform
+    if (platform === activeSocialPlatform) {
+      setSocialInputValue('');
+    } else {
+      const profile = socialProfiles.find(p => p.platform === platform);
+      setSocialInputValue(profile?.username || '');
+    }
+  };
+  
+  // Update social profile value
+  const handleSocialInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSocialInputValue(e.target.value);
+    
+    // Update the social profile in real-time
+    if (activeSocialPlatform) {
+      const updatedProfiles = [...socialProfiles];
+      const index = updatedProfiles.findIndex(p => p.platform === activeSocialPlatform);
+      
+      if (index >= 0) {
+        updatedProfiles[index].username = e.target.value;
+        updatedProfiles[index].filled = !!e.target.value;
+      } else if (e.target.value) {
+        updatedProfiles.push({
+          platform: activeSocialPlatform,
+          username: e.target.value,
+          shareEnabled: true,
+          filled: true
+        });
+      }
+      
+      setSocialProfiles(updatedProfiles);
+    }
+  };
+
+  // Get the style for a social icon based on its state
+  const getSocialIconStyle = (platform: SocialProfile['platform']) => {
+    const profile = socialProfiles.find(p => p.platform === platform);
+    const isActive = activeSocialPlatform === platform;
+    const isFilled = profile?.filled;
+    
+    return {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      backgroundColor: isActive ? 'var(--primary)' : isFilled ? 'var(--primary-light)' : 'var(--input-bg)',
+      color: isActive || isFilled ? 'white' : 'var(--secondary)',
+      cursor: 'pointer',
+      marginRight: '8px',
+      transition: 'all 0.2s ease-in-out',
+    };
+  };
+
   return (
-    <div style={containerStyle}>
-      <h1 style={headerStyle}>Create Your Profile</h1>
-      
-      <div style={tabsContainerStyle}>
-        <div style={step === 1 ? activeTabStyle : tabStyle}>Sign Up</div>
-        <div style={step === 2 ? activeTabStyle : tabStyle}>Phone Number</div>
-        <div style={step === 3 ? activeTabStyle : tabStyle}>Social Accounts</div>
-      </div>
-      
+    <div style={{ paddingBottom: '40px' }}>
       {step === 1 && (
-        <div style={sectionStyle}>
-          <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Sign in with Google to get started</h2>
+        <div style={containerStyle}>
+          <h1 style={headerStyle}>Sign in</h1>
           
-          <button
-            onClick={handleGoogleSignIn}
-            style={{
-              ...googleButtonStyle,
-              backgroundColor: isSigningIn ? '#cccccc' : 'white',
-              cursor: isSigningIn ? 'not-allowed' : 'pointer'
-            }}
-            disabled={isSigningIn || status === 'loading'}
-          >
-            {isSigningIn ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div 
-                  style={{ 
-                    width: '20px', 
-                    height: '20px', 
-                    borderRadius: '50%', 
-                    border: '2px solid #4caf50',
-                    borderTopColor: 'transparent',
-                    marginRight: '16px',
-                    animation: 'spin 1s linear infinite'
+          <div style={sectionStyle}>
+            <button 
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn}
+              style={{
+                ...googleButtonStyle,
+                opacity: isSigningIn ? 0.7 : 1,
+                cursor: isSigningIn ? 'default' : 'pointer',
+              }}
+            >
+              {isSigningIn ? (
+                <div
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    border: '2px solid #ddd',
+                    borderTopColor: '#666',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    marginRight: '10px',
                   }}
                 />
-                Signing in...
-              </div>
-            ) : (
-              <>
-                <Image 
-                  src="/icons/google.svg" 
-                  alt="Google" 
-                  width={24} 
-                  height={24}
-                  style={{ marginRight: '16px' }}
-                />
-                Sign in with Google
-              </>
-            )}
-          </button>
-          
-          {status === 'authenticated' && (
-            <p style={{ marginTop: '12px', fontSize: '14px', textAlign: 'center' }}>
-              Redirecting to profile setup...
-            </p>
-          )}
-          
-          <p style={{ marginTop: '20px', fontSize: '14px', color: 'var(--secondary-dark)', textAlign: 'center' }}>
-            Google account required for Nekt.Us
-          </p>
+              ) : (
+                <svg 
+                  width="18" 
+                  height="18" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 48 48"
+                  style={{ marginRight: '10px' }}
+                >
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                </svg>
+              )}
+              {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
+            </button>
+          </div>
         </div>
       )}
       
       {step === 2 && googleUser && (
-        <div style={sectionStyle}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
-            <Image 
-              src={googleUser.picture || '/icons/default-avatar.png'} 
-              alt={googleUser.name} 
-              width={80} 
-              height={80}
-              style={{ borderRadius: '50%', marginBottom: '16px' }}
-              onError={(e) => {
-                // Fallback if Google image fails to load
-                const target = e.target as HTMLImageElement;
-                target.onerror = null;
-                target.src = '/icons/default-avatar.png';
-              }}
-            />
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ margin: '0 0 4px 0' }}>{googleUser.name}</h2>
-              <p style={{ margin: 0, color: 'var(--secondary)', fontSize: '14px' }}>{googleUser.email}</p>
-            </div>
+        <div style={containerStyle}>
+          <h1 style={headerStyle}>Create Your Profile</h1>
+          
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginBottom: '32px',
+          }}>
+            {googleUser.picture && (
+              <div style={{ marginBottom: '16px', borderRadius: '50%', overflow: 'hidden' }}>
+                <Image 
+                  src={googleUser.picture}
+                  alt={googleUser.name}
+                  width={80}
+                  height={80}
+                />
+              </div>
+            )}
+            
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '24px' }}>{googleUser.name}</h3>
+            <p style={{ margin: '0', color: 'var(--secondary)', fontSize: '16px' }}>{googleUser.email}</p>
           </div>
           
-          <h3 style={{ marginBottom: '16px' }}>Enter your phone number</h3>
-          
-          <div style={{ 
-            position: 'relative',
-            marginBottom: '24px'
-          }}>
-            <div style={{ 
-              position: 'absolute', 
-              top: '12px', 
-              left: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              color: 'var(--secondary)'
-            }}>
-              <FaPhone style={{ marginRight: '8px' }} />
-            </div>
+          <div style={sectionStyle}>
+            <h4 style={{ marginBottom: '16px', fontWeight: 'normal' }}>Enter your phone number</h4>
             <input
+              ref={phoneInputRef}
               type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={formattedPhone}
               onChange={handlePhoneChange}
+              onKeyPress={(e) => handleKeyPress(e, 'phone')}
               placeholder="(555) 555-5555"
-              style={{
-                ...inputStyle, 
-                paddingLeft: '40px',
-                backgroundColor: 'var(--input-bg)',
-                border: '1px solid var(--border)',
-                borderRadius: '100px'
-              }}
-              maxLength={14}
-            />
-          </div>
-          
-          <div style={{ marginBottom: '24px' }}>
-            <h4 style={{ marginBottom: '12px' }}>Also share this number on:</h4>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                padding: '12px 16px',
-                backgroundColor: 'var(--input-bg)',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}>
-                <FaWhatsapp style={{ color: '#25D366', marginRight: '8px', fontSize: '20px' }} />
-                <span>WhatsApp</span>
-                <input 
-                  type="checkbox" 
-                  style={{ marginLeft: '8px' }} 
-                  defaultChecked={true}
-                />
-              </div>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                padding: '12px 16px',
-                backgroundColor: 'var(--input-bg)',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}>
-                <FaTelegram style={{ color: '#0088cc', marginRight: '8px', fontSize: '20px' }} />
-                <span>Telegram</span>
-                <input 
-                  type="checkbox" 
-                  style={{ marginLeft: '8px' }} 
-                  defaultChecked={true}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <button 
-            onClick={handlePhoneSubmit}
-            style={{
-              ...buttonStyle,
-              opacity: phone.length < 10 ? 0.7 : 1,
-              cursor: phone.length < 10 ? 'not-allowed' : 'pointer',
-            }}
-            disabled={phone.length < 10}
-          >
-            Continue
-          </button>
-        </div>
-      )}
-      
-      {step === 3 && googleUser && (
-        <div style={sectionStyle}>
-          <h3 style={{ marginBottom: '24px' }}>Add your social profiles</h3>
-          
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px' }}>Platform</label>
-            <select
-              value={currentPlatform}
-              onChange={(e) => setCurrentPlatform(e.target.value as SocialProfile['platform'])}
               style={inputStyle}
-            >
-              <option value="instagram">Instagram</option>
-              <option value="twitter">Twitter</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="facebook">Facebook</option>
-              <option value="snapchat">Snapchat</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-            </select>
+              autoFocus
+            />
             
-            <label style={{ display: 'block', marginBottom: '8px' }}>Username</label>
-            <div style={{ display: 'flex', marginBottom: '16px' }}>
-              <input
-                type="text"
-                value={currentUsername}
-                onChange={(e) => setCurrentUsername(e.target.value)}
-                placeholder={`Your ${currentPlatform} username`}
-                style={{ ...inputStyle, marginBottom: 0, borderRadius: '8px 0 0 8px' }}
-              />
-              <button
-                onClick={handleAddSocialProfile}
-                style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--primary)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0 8px 8px 0',
-                  cursor: currentUsername ? 'pointer' : 'not-allowed',
-                  opacity: currentUsername ? 1 : 0.7,
-                }}
-                disabled={!currentUsername}
-              >
-                Add
-              </button>
+            <h4 style={{ marginBottom: '16px', fontWeight: 'normal' }}>Social handle</h4>
+            <input
+              ref={handleInputRef}
+              type="text"
+              value={handle}
+              onChange={handleHandleChange}
+              onKeyPress={(e) => handleKeyPress(e, 'handle')}
+              placeholder="yourhandle"
+              style={inputStyle}
+            />
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center',
+              marginBottom: '24px'
+            }}>
+              <div style={getSocialIconStyle('facebook')} onClick={() => handleSocialIconClick('facebook')}>
+                <FaFacebook size={20} />
+              </div>
+              <div style={getSocialIconStyle('instagram')} onClick={() => handleSocialIconClick('instagram')}>
+                <FaInstagram size={20} />
+              </div>
+              <div style={getSocialIconStyle('twitter')} onClick={() => handleSocialIconClick('twitter')}>
+                <FaTwitter size={20} />
+              </div>
+              <div style={getSocialIconStyle('snapchat')} onClick={() => handleSocialIconClick('snapchat')}>
+                <FaSnapchat size={20} />
+              </div>
+              <div style={getSocialIconStyle('linkedin')} onClick={() => handleSocialIconClick('linkedin')}>
+                <FaLinkedin size={20} />
+              </div>
+              <div style={getSocialIconStyle('whatsapp')} onClick={() => handleSocialIconClick('whatsapp')}>
+                <FaWhatsapp size={20} />
+              </div>
+              <div style={getSocialIconStyle('telegram')} onClick={() => handleSocialIconClick('telegram')}>
+                <FaTelegram size={20} />
+              </div>
             </div>
+            
+            {activeSocialPlatform && (
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px',
+                  textTransform: 'capitalize'
+                }}>
+                  {activeSocialPlatform} username
+                </label>
+                <input
+                  type="text"
+                  value={socialInputValue}
+                  onChange={handleSocialInputChange}
+                  placeholder={`Your ${activeSocialPlatform} username`}
+                  style={inputStyle}
+                  autoFocus
+                />
+              </div>
+            )}
+            
+            <button 
+              onClick={handleContinue}
+              style={buttonStyle}
+            >
+              Continue
+            </button>
           </div>
-          
-          {socialProfiles.length > 0 && (
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '12px' }}>Your profiles:</h4>
-              {socialProfiles.map((profile, index) => (
-                <div 
-                  key={index}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px',
-                    backgroundColor: 'var(--input-bg)',
-                    borderRadius: '8px',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <div>
-                    <strong style={{ textTransform: 'capitalize' }}>{profile.platform}:</strong> {profile.username}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const updatedProfiles = [...socialProfiles];
-                      updatedProfiles.splice(index, 1);
-                      setSocialProfiles(updatedProfiles);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--danger)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          <button 
-            onClick={handleCompleteSetup}
-            style={buttonStyle}
-          >
-            Complete Setup
-          </button>
         </div>
       )}
       
@@ -502,6 +552,8 @@ export default function ProfileSetup() {
         
         :root {
           --primary: #4caf50;
+          --primary-light: #81c784;
+          --primary-dark: #388e3c;
           --secondary: #666666;
           --secondary-dark: #888888;
           --text: #333333;
@@ -516,6 +568,16 @@ export default function ProfileSetup() {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           margin: 0;
           padding: 0;
+        }
+        
+        input[type="tel"] {
+          -webkit-text-security: disc;
+        }
+        
+        @media (max-width: 480px) {
+          input, select, button {
+            font-size: 16px !important; /* Prevent zoom on iOS */
+          }
         }
       `}</style>
     </div>

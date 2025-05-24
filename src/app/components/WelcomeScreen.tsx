@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './AdminBanner';
 
 // Standard button style shared across the application
@@ -90,8 +90,8 @@ const WelcomeScreen: React.FC = () => {
           Less typing. More connecting.
         </p>
         
-        <Link 
-          href="/setup"
+        <button 
+          onClick={() => signIn('google', { callbackUrl: '/setup' })}
           style={{
             display: 'block',
             width: '100%',
@@ -120,8 +120,11 @@ const WelcomeScreen: React.FC = () => {
             e.currentTarget.style.boxShadow = 'var(--shadow-md)';
           }}
         >
-          Start Nekt'ing
-        </Link>
+          Sign in with Google
+          <div style={{ fontSize: '14px', fontWeight: 'normal', marginTop: '4px' }}>
+            to start nekt'ing
+          </div>
+        </button>
       </div>
     </div>
   );
