@@ -123,18 +123,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Save profile to Firestore
+  // Save profile to Firestore with optimized performance
   const saveProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     if (!session?.user?.email) return null;
     
     try {
       const userId = session.user.email;
       const docRef = doc(db, 'profiles', userId);
-      const docSnap = await getDoc(docRef);
       
       // Prepare updated profile data
       const updatedProfile = {
-        ...(docSnap.exists() ? docSnap.data() : {}),
+        ...(profile || {}),
         ...profileData,
         userId,
         name: session.user.name || '',
@@ -143,27 +142,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         lastUpdated: serverTimestamp(),
       } as UserProfile;
       
-      // Save to Firestore
-      if (docSnap.exists()) {
-        await updateDoc(docRef, updatedProfile);
-      } else {
-        await setDoc(docRef, updatedProfile);
-      }
-      
-      // Update local state
+      // Update local state immediately for responsiveness
       setProfile(updatedProfile);
       
-      // Update local cache (with JS timestamp for localStorage)
+      // Update local cache immediately
       const cacheProfile = {
         ...updatedProfile,
         lastUpdated: Date.now()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheProfile));
       
-      console.log('Profile saved successfully to Firestore');
+      // Save to Firestore in the background
+      setDoc(docRef, updatedProfile, { merge: true }).catch((err: Error) => {
+        console.error('Background Firestore save failed:', err);
+      });
+      
       return updatedProfile;
     } catch (error) {
-      console.error('Error saving profile to Firestore:', error);
+      console.error('Error saving profile:', error);
       return null;
     }
   };
