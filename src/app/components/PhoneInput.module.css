@@ -1,0 +1,72 @@
+/* Custom styles for the react-phone-number-input */
+.phoneInputContainer :global(.PhoneInput) {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-color: white;
+  padding: 0;
+}
+
+.phoneInputContainer :global(.PhoneInputCountry) {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  background-color: #f9f9f9;
+  border-right: 1px solid #e0e0e0;
+  min-width: 4.5rem;
+}
+
+.phoneInputContainer :global(.PhoneInputCountrySelect) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.phoneInputContainer :global(.PhoneInputCountryIcon) {
+  width: 1.5rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+.phoneInputContainer :global(.PhoneInputCountrySelectArrow) {
+  margin-left: 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-style: solid;
+  border-color: #666;
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+}
+
+.phoneInputContainer :global(.PhoneInputInput) {
+  flex: 1;
+  border: none;
+  padding: 0.75rem;
+  font-size: 1rem;
+  color: #333;
+  width: 100%;
+  background: transparent;
+}
+
+.phoneInputContainer :global(.PhoneInputInput:focus) {
+  outline: none;
+}
+
+.phoneInputContainer :global(.PhoneInputInput::placeholder) {
+  color: #999;
+}
+
+/* Hide the focus outline */
+.phoneInputContainer :global(.PhoneInput--focus) {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}

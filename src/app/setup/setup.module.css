@@ -1,8 +1,12 @@
 .setupContainer {
   min-height: 100vh;
-  padding: 1rem;
+  padding: 0;
+  margin: 0;
   background-color: #f4f9f4;
   color: #2d3748;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .setupCard {

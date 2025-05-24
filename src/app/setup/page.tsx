@@ -17,7 +17,7 @@ export default function SetupPage() {
         </div>
       )}
       
-      <div style={{ maxWidth: '28rem', margin: '1rem auto 0' }}>
+      <div style={{ maxWidth: '28rem', margin: '0 auto' }}>
         <ProfileSetup />
       </div>
     </div>

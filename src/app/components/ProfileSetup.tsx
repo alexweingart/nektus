@@ -4,6 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import styles from './ProfileSetup.module.css';
+import phoneInputStyles from './PhoneInput.module.css';
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';  
+import 'react-phone-number-input/style.css';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -43,6 +46,8 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
+  // Use the full phone number with country code for the PhoneInput component
+  const [phoneWithCountryCode, setPhoneWithCountryCode] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
@@ -71,8 +76,29 @@ export default function ProfileSetup() {
         filled: true,
         confirmed: true
       }]);
+
+      // If we already have a phone number from previous setups, initialize it
+      if (phoneWithCountryCode) {
+        handlePhoneInputChange(phoneWithCountryCode);
+      }
     }
-  }, []); // Empty dependency array - run only once on mount
+  }, []);
+  
+  // Make sure the email icon is always green in the display
+  useEffect(() => {
+    if (socialProfiles.length > 0) {
+      const emailProfile = socialProfiles.find(p => p.platform === 'email');
+      if (emailProfile && !emailProfile.confirmed) {
+        const updatedProfiles = socialProfiles.map(profile => {
+          if (profile.platform === 'email') {
+            return { ...profile, confirmed: true };
+          }
+          return profile;
+        });
+        setSocialProfiles(updatedProfiles);
+      }
+    }
+  }, [socialProfiles]);
   
   // Load profile data and initialize social profiles
   useEffect(() => {
@@ -155,15 +181,23 @@ export default function ProfileSetup() {
     }
   }, [phone, hasCompletedPhone]);
 
-  // Handle phone number change
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Extract digits only
-    const digits = e.target.value.replace(/\D/g, '');
+  // Handle phone number change for the PhoneInput component
+  const handlePhoneInputChange = (value: string | undefined) => {
+    if (!value) {
+      setPhoneWithCountryCode('');
+      setPhone('');
+      setFormattedPhone('');
+      setHasCompletedPhone(false);
+      return;
+    }
     
-    // Store raw digits for saving
+    setPhoneWithCountryCode(value);
+    
+    // Extract just the national number without country code
+    const digits = value.replace(/\D/g, '').substring(1); // Remove +1 country code
     setPhone(digits);
     
-    // Format the display value - using spaces (000 000 0000)
+    // Format for display if needed elsewhere (though the component handles display)
     let formatted = '';
     if (digits.length > 0) {
       formatted = digits.substring(0, 3);
@@ -175,8 +209,14 @@ export default function ProfileSetup() {
       }
     }
     setFormattedPhone(formatted);
+    
+    // Check if phone is a valid number to mark as complete
+    setHasCompletedPhone(isValidPhoneNumber(value));
+    
+    // Auto-update the WhatsApp profile with the phone number
+    updateProfilesWithPhone(digits);
   };
-  
+
   // Update profiles with phone number
   const updateProfilesWithPhone = (phoneNumber: string) => {
     // Update the 'phone' platform profile with the phone number
@@ -378,19 +418,16 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Number Input */}
+      {/* Phone Number Input - Using react-phone-number-input */}
       <div className={styles.formGroup}>
         <label htmlFor="phone" className={styles.formLabel}>Phone Number</label>
-        <div className={styles.phoneInput}>
-          <div className={styles.phoneCountryCode}>+1</div>
-          <input
-            type="tel"
-            id="phone"
-            value={formattedPhone}
-            onChange={handlePhoneChange}
-            onKeyDown={handleKeyPress}
-            placeholder="000 000 0000"
-            className={styles.phoneNumberInput}
+        <div className={phoneInputStyles.phoneInputContainer}>
+          <PhoneInput
+            international
+            defaultCountry="US"
+            value={phoneWithCountryCode}
+            onChange={handlePhoneInputChange}
+            placeholder="Enter phone number"
           />
         </div>
       </div>
