@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import AdminMode from './AdminMode';
+import AdminBanner from './AdminBanner';
 
 export default function HeaderWithAdmin() {
   const [adminModeVisible, setAdminModeVisible] = useState(false);
@@ -23,7 +23,7 @@ export default function HeaderWithAdmin() {
   return (
     <>
       {/* Admin mode banner - only shown when activated */}
-      <AdminMode visible={adminModeVisible} onClose={handleClose} />
+      {adminModeVisible && <AdminBanner />}
       
       {/* Main header */}
       <header style={{ 
