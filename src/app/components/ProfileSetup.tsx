@@ -447,11 +447,12 @@ export default function ProfileSetup() {
           }}>
             {googleUser.picture && (
               <div style={{ marginBottom: '16px', borderRadius: '50%', overflow: 'hidden' }}>
-                <Image 
+                <img 
                   src={googleUser.picture}
                   alt={googleUser.name}
                   width={80}
                   height={80}
+                  style={{ borderRadius: '50%' }}
                 />
               </div>
             )}
