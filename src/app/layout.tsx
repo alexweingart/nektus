@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
 import { SessionProvider } from "./providers/SessionProvider";
+import { ProfileProvider } from "./context/ProfileContext";
 import dynamic from 'next/dynamic';
 
 import AdminModeProvider from './providers/AdminModeProvider';
@@ -37,10 +38,12 @@ export default function RootLayout({
       >
         <SessionProvider>
           <UserProvider>
-            <AdminModeProvider>
-              <ClientComponents />
-              {children}
-            </AdminModeProvider>
+            <ProfileProvider>
+              <AdminModeProvider>
+                <ClientComponents />
+                {children}
+              </AdminModeProvider>
+            </ProfileProvider>
           </UserProvider>
         </SessionProvider>
       </body>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { signIn, useSession } from 'next-auth/react';
-import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -11,6 +11,7 @@ import {
   FaLinkedin, 
   FaPhone 
 } from 'react-icons/fa';
+import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/ProfileContext';
 
 type GoogleUser = {
   name: string;
@@ -18,16 +19,16 @@ type GoogleUser = {
   picture: string;
 };
 
-type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
-  username: string;
-  shareEnabled: boolean;
-  filled?: boolean;
-};
+// Use the SocialProfile type from ProfileContext
+type SocialProfile = ProfileSocialProfile;
 
 export default function ProfileSetup() {
   const { data: session, status } = useSession();
+  const { profile, isLoading, saveProfile } = useProfile();
+  const router = useRouter();
+  
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
   const [phone, setPhone] = useState('');
@@ -135,7 +136,7 @@ export default function ProfileSetup() {
 
   // Handle session changes
   useEffect(() => {
-    if (status === 'authenticated' && session.user) {
+    if (status === 'authenticated' && session?.user) {
       // User is signed in with Google, extract the profile data
       setGoogleUser({
         name: session.user.name || '',
@@ -148,6 +149,26 @@ export default function ProfileSetup() {
       setIsSigningIn(false);
     }
   }, [status, session]);
+  
+  // Load existing profile data if available
+  useEffect(() => {
+    if (profile && !isLoading) {
+      // Populate form with existing profile data
+      if (profile.phone) {
+        setPhone(profile.phone);
+        // Format the phone number for display
+        handlePhoneChange({ target: { value: profile.phone } } as React.ChangeEvent<HTMLInputElement>);
+      }
+      
+      if (profile.handle) {
+        setHandle(profile.handle);
+      }
+      
+      if (profile.socialProfiles && profile.socialProfiles.length > 0) {
+        setSocialProfiles(profile.socialProfiles);
+      }
+    }
+  }, [profile, isLoading]);
   
   // Auto-focus on phone input when the component mounts or when step changes to 2
   useEffect(() => {
@@ -313,18 +334,25 @@ export default function ProfileSetup() {
   };
   
   // Handle continuing to the next step
-  const handleContinue = () => {
-    // Save profile data and proceed
-    // In a real app, you would save this data to a database
-    console.log('Profile data:', {
-      googleUser,
-      phone,
-      handle,
-      socialProfiles
-    });
+  const handleContinue = async () => {
+    setIsSaving(true);
     
-    // Proceed to next step or page
-    window.location.href = '/connect';
+    try {
+      // Save profile data to Firebase
+      await saveProfile({
+        phone,
+        handle,
+        socialProfiles
+      });
+      
+      // Proceed to next step or page using Next.js router
+      router.push('/connect');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('There was an error saving your profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Handle clicking on a social icon
@@ -537,9 +565,30 @@ export default function ProfileSetup() {
             
             <button 
               onClick={handleContinue}
-              style={buttonStyle}
+              disabled={isSaving}
+              style={{
+                ...buttonStyle,
+                opacity: isSaving ? 0.7 : 1,
+                cursor: isSaving ? 'not-allowed' : 'pointer'
+              }}
             >
-              Continue
+              {isSaving ? (
+                <>
+                  <div
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: 'white',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '10px',
+                      display: 'inline-block'
+                    }}
+                  /> 
+                  Saving...
+                </>
+              ) : 'Continue'}
             </button>
           </div>
         </div>
