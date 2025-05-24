@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import { authOptions } from "./options.js";
+import { authOptions } from "./options";
 
 // Logging for better debugging
 console.log('AUTH CONFIG ENVIRONMENT:');

@@ -20,6 +20,7 @@ export const useAdminMode = () => useContext(AdminModeContext);
 
 // Provider component that wraps the app and provides admin mode functionality
 export default function AdminModeProvider({ children }: { children: ReactNode }) {
+  // Ensure admin mode is off by default
   const [isAdminMode, setIsAdminMode] = useState(false);
   
   const toggleAdminMode = () => {

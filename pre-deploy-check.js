@@ -70,6 +70,52 @@ try {
   console.error('❌ Auth configuration check failed:', error.message);
 }
 
+// Check for problematic import paths
+try {
+  console.log('✓ Checking import paths for potential issues...');
+  const { globSync } = require('glob');
+  const fs = require('fs');
+  const path = require('path');
+  
+  // Find all TypeScript files
+  const tsFiles = globSync('src/**/*.{ts,tsx}');
+  let hasErrors = false;
+  
+  // Import patterns to check
+  const problematicPatterns = [
+    { pattern: /import[^;]*from\s+['"](.+\.js)['"];?/g, message: 'TypeScript import with .js extension' },
+    { pattern: /import[^;]*from\s+['"](.+\.jsx)['"];?/g, message: 'TypeScript import with .jsx extension' },
+  ];
+  
+  for (const file of tsFiles) {
+    const content = fs.readFileSync(file, 'utf8');
+    
+    problematicPatterns.forEach(({ pattern, message }) => {
+      const matches = content.match(pattern);
+      if (matches && matches.length > 0) {
+        if (!hasErrors) {
+          console.error('❌ Found potentially problematic imports:');
+          hasErrors = true;
+        }
+        console.error(`   - File ${file} has ${matches.length} ${message}(s):`);
+        matches.forEach(match => {
+          console.error(`     ${match.trim()}`);
+        });
+      }
+    });
+  }
+  
+  if (hasErrors) {
+    console.error('   Fix these imports by removing the file extension (.js/.jsx)');
+    console.error('   Example: change "import { x } from \'./y.js\'" to "import { x } from \'./y\'"');
+    process.exit(1);
+  }
+  
+  console.log('✅ Import path check passed!');
+} catch (error) {
+  console.error('❌ Import path check failed:', error.message);
+}
+
 // Verify environment variables are properly handled
 try {
   console.log('✓ Checking environment variable usage...');
