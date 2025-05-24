@@ -46,6 +46,7 @@ export default function ProfileSetup() {
   // State management
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
+  const [formattedPhone, setFormattedPhone] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialPlatform | null>(null);
@@ -105,8 +106,22 @@ export default function ProfileSetup() {
           // Handle existing profile data if available
           if (profile) {
             if (profile.phone) {
-              setPhone(profile.phone);
-              setHasCompletedPhone(profile.phone.length >= 10);
+              const digits = profile.phone.replace(/\D/g, '');
+              setPhone(digits);
+              setHasCompletedPhone(digits.length >= 10);
+              
+              // Format the phone number for display
+              let formatted = '';
+              if (digits.length > 0) {
+                formatted = `(${digits.slice(0, 3)}`;
+                if (digits.length > 3) {
+                  formatted += `) ${digits.slice(3, 6)}`;
+                }
+                if (digits.length > 6) {
+                  formatted += `-${digits.slice(6, 10)}`;
+                }
+              }
+              setFormattedPhone(formatted);
             }
             
             if (profile.socialProfiles && profile.socialProfiles.length > 0) {
@@ -147,8 +162,24 @@ export default function ProfileSetup() {
   }, [phone, hasCompletedPhone]);
 
   // Handle phone number change
-  const handlePhoneChange = (value: string) => {
-    setPhone(value);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Strip non-digits
+    const digits = input.replace(/\D/g, '');
+    setPhone(digits);
+    
+    // Format for display
+    let formatted = '';
+    if (digits.length > 0) {
+      formatted = `(${digits.slice(0, 3)}`;
+      if (digits.length > 3) {
+        formatted += `) ${digits.slice(3, 6)}`;
+      }
+      if (digits.length > 6) {
+        formatted += `-${digits.slice(6, 10)}`;
+      }
+    }
+    setFormattedPhone(formatted);
   };
   
   // Update profiles with phone number
