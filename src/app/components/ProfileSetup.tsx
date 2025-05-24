@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { 
@@ -25,79 +25,132 @@ type GoogleUser = {
   picture: string;
 };
 
-type SocialProfile = ProfileSocialProfile;
+// Extended social profile type with additional properties for UI state
+type SocialProfile = Omit<ProfileSocialProfile, 'platform'> & {
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'email' | 'phone';
+  confirmed?: boolean;
+  autoFilled?: boolean;
+};
 
 export default function ProfileSetup() {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      // Redirect to sign-in if not authenticated
+      window.location.href = '/';
+    },
+  });
   const { profile, isLoading, saveProfile } = useProfile();
   const router = useRouter();
   
+  // Performance optimization: use refs instead of state where possible
   const [isSaving, setIsSaving] = useState(false);
-  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
-  const [extractedUsername, setExtractedUsername] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
   const [socialEditValue, setSocialEditValue] = useState('');
+  const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
+  // Use refs for values that don't need to trigger re-renders
+  const extractedUsernameRef = useRef<string>('');
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle session changes and extract username from email
+  // Handle session changes and extract username from email - runs only once
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       // User is signed in with Google, extract the profile data
       const userEmail = session.user.email || '';
-      const username = userEmail.split('@')[0] || '';
+      extractedUsernameRef.current = userEmail.split('@')[0] || '';
       
-      setGoogleUser({
-        name: session.user.name || '',
-        email: userEmail,
-        picture: session.user.image || '',
+      // Initialize with email always confirmed
+      const initialProfiles: SocialProfile[] = [];
+      
+      // Immediately set email as confirmed (green)
+      initialProfiles.push({
+        platform: 'email',
+        username: userEmail,
+        shareEnabled: true,
+        filled: true,
+        confirmed: true
       });
       
-      setExtractedUsername(username);
+      setSocialProfiles(initialProfiles);
     }
-  }, [status, session]);
+  }, []); // Empty dependency array - run only once on mount
   
-  // Load existing profile data if available
+  // Load existing profile data and initialize social profiles - runs once when profile is loaded
   useEffect(() => {
-    if (profile && !isLoading) {
-      // Populate form with existing profile data
-      if (profile.phone) {
-        setPhone(profile.phone);
-        // Format the phone number for display
-        handlePhoneChange({ target: { value: profile.phone } } as React.ChangeEvent<HTMLInputElement>);
-      }
+    if (!isLoading) {
+      const loadAndInitialize = async () => {
+        try {
+          // Start with current profiles (including email which is already confirmed)
+          const updatedProfiles = [...socialProfiles];
+          
+          // Add default social profiles if they don't exist yet
+          if (extractedUsernameRef.current && !updatedProfiles.find(p => p.platform === 'instagram')) {
+            const defaultPlatforms = ['instagram', 'twitter', 'facebook', 'linkedin', 'snapchat', 'whatsapp', 'telegram'];
+            
+            defaultPlatforms.forEach(platform => {
+              if (!updatedProfiles.find(p => p.platform === platform)) {
+                updatedProfiles.push({
+                  platform: platform as SocialProfile['platform'],
+                  username: extractedUsernameRef.current,
+                  shareEnabled: true,
+                  filled: false, // Not filled initially
+                  confirmed: false, // Not confirmed initially
+                  autoFilled: false // Not auto-filled initially
+                });
+              }
+            });
+          }
+          
+          // Handle existing profile data if available
+          if (profile) {
+            if (profile.phone) {
+              setPhone(profile.phone);
+              // Format the phone number for display
+              handlePhoneChange({ target: { value: profile.phone } } as React.ChangeEvent<HTMLInputElement>);
+              setHasCompletedPhone(profile.phone.length >= 10);
+            }
+            
+            if (profile.socialProfiles && profile.socialProfiles.length > 0) {
+              // Merge existing profiles with our initialized ones
+              profile.socialProfiles.forEach(existingProfile => {
+                const index = updatedProfiles.findIndex(p => p.platform === existingProfile.platform);
+                if (index >= 0) {
+                  updatedProfiles[index] = {
+                    ...existingProfile,
+                    confirmed: existingProfile.filled // If it was filled before, it's confirmed
+                  };
+                } else {
+                  updatedProfiles.push({
+                    ...existingProfile,
+                    confirmed: existingProfile.filled
+                  });
+                }
+              });
+            }
+          }
+          
+          setSocialProfiles(updatedProfiles);
+        } catch (error) {
+          console.error('Error initializing profile:', error);
+        }
+      };
       
-      if (profile.socialProfiles && profile.socialProfiles.length > 0) {
-        setSocialProfiles(profile.socialProfiles);
-      }
+      loadAndInitialize();
     }
-  }, [profile, isLoading]);
-
-  // Initialize social profiles based on extracted username
-  useEffect(() => {
-    if (extractedUsername && socialProfiles.length === 0) {
-      const defaultProfiles: SocialProfile[] = [
-        { platform: 'instagram', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'twitter', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'facebook', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'linkedin', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'snapchat', username: extractedUsername, shareEnabled: true, filled: true },
-      ];
-      
-      setSocialProfiles(defaultProfiles);
-    }
-  }, [extractedUsername, socialProfiles.length]);
+  }, [isLoading, profile]);
   
-  // Update WhatsApp and Telegram profiles when phone number changes
+  // Update social profiles when phone number is complete
   useEffect(() => {
-    if (phone && phone.length >= 10) {
-      updateMessagingPlatforms(phone);
+    if (phone && phone.length >= 10 && !hasCompletedPhone) {
+      setHasCompletedPhone(true);
+      updateProfilesWithPhone(phone);
     }
-  }, [phone]);
+  }, [phone, hasCompletedPhone]);
 
   // Handle phone number formatting
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,41 +175,66 @@ export default function ProfileSetup() {
     }
   };
   
-  // Update WhatsApp and Telegram profiles with phone number
-  const updateMessagingPlatforms = (phoneNumber: string) => {
-    if (phoneNumber.length > 0) {
+  // Add phone profile and auto-fill other profiles with extracted username when phone is complete
+  const updateProfilesWithPhone = (phoneNumber: string) => {
+    if (phoneNumber.length >= 10) {
       // Clean phone number for messaging platforms
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       
+      // Make a copy of profiles to update
       const updatedProfiles = [...socialProfiles];
       
-      // Update WhatsApp
-      const whatsappIndex = updatedProfiles.findIndex(p => p.platform === 'whatsapp');
-      if (whatsappIndex >= 0) {
-        updatedProfiles[whatsappIndex].username = cleanPhone;
-        updatedProfiles[whatsappIndex].filled = true;
+      // First confirm the phone number profile
+      const phoneIndex = updatedProfiles.findIndex(p => p.platform === 'phone');
+      if (phoneIndex >= 0) {
+        updatedProfiles[phoneIndex] = {
+          ...updatedProfiles[phoneIndex],
+          username: cleanPhone,
+          filled: true,
+          confirmed: true,
+          autoFilled: false
+        };
       } else {
         updatedProfiles.push({
-          platform: 'whatsapp',
+          platform: 'phone',
           username: cleanPhone,
           shareEnabled: true,
-          filled: true
+          filled: true,
+          confirmed: true,
+          autoFilled: false
         });
       }
       
-      // Update Telegram (assuming phone is used for Telegram)
-      const telegramIndex = updatedProfiles.findIndex(p => p.platform === 'telegram');
-      if (telegramIndex >= 0) {
-        updatedProfiles[telegramIndex].username = cleanPhone;
-        updatedProfiles[telegramIndex].filled = true;
-      } else {
-        updatedProfiles.push({
-          platform: 'telegram',
-          username: cleanPhone,
-          shareEnabled: true,
-          filled: true
-        });
-      }
+      // Now auto-fill all other profiles
+      ['whatsapp', 'telegram', 'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'].forEach(platform => {
+        const index = updatedProfiles.findIndex(p => p.platform === platform);
+        let value = extractedUsernameRef.current;
+        
+        // For messaging platforms, use phone number
+        if (platform === 'whatsapp' || platform === 'telegram') {
+          value = cleanPhone;
+        }
+        
+        if (index >= 0) {
+          // Only auto-fill if not already confirmed
+          if (!updatedProfiles[index].confirmed) {
+            updatedProfiles[index] = {
+              ...updatedProfiles[index],
+              username: value,
+              filled: true,
+              autoFilled: true
+            };
+          }
+        } else {
+          updatedProfiles.push({
+            platform: platform as SocialProfile['platform'],
+            username: value,
+            shareEnabled: true,
+            filled: true,
+            autoFilled: true
+          });
+        }
+      });
       
       setSocialProfiles(updatedProfiles);
     }
@@ -202,10 +280,21 @@ export default function ProfileSetup() {
     setIsSaving(true);
     
     try {
+      // Filter out email and phone profiles which are just for UI
+      // and convert to the expected ProfileSocialProfile type
+      const profilesForSaving = socialProfiles
+        .filter(p => p.platform !== 'email' && p.platform !== 'phone')
+        .map(({ platform, username, shareEnabled, filled }) => ({
+          platform,
+          username,
+          shareEnabled,
+          filled
+        }));
+      
       // Save profile data to Firebase
       await saveProfile({
         phone,
-        socialProfiles
+        socialProfiles: profilesForSaving as ProfileSocialProfile[]
       });
       
       // Proceed to connect page
@@ -235,9 +324,28 @@ export default function ProfileSetup() {
         return <FaWhatsapp size={20} />;
       case 'telegram':
         return <FaTelegram size={20} />;
+      case 'email':
+        return <FaEnvelope size={20} />;
+      case 'phone':
+        return <FaPhone size={20} />;
       default:
         return null;
     }
+  };
+  
+  // Get the background color for an icon based on its state
+  const getIconBackgroundColor = (profile?: SocialProfile) => {
+    if (!profile) return 'var(--input-bg)'; // Grey for no data
+    if (profile.confirmed) return 'var(--primary)'; // Green when confirmed
+    if (profile.autoFilled) return 'var(--primary-light)'; // Light green when auto-filled
+    return 'var(--input-bg)'; // Grey otherwise
+  };
+  
+  // Get the icon color based on its state
+  const getIconColor = (profile?: SocialProfile) => {
+    if (!profile) return 'var(--primary)'; // Primary color for no data
+    if (profile.confirmed || profile.autoFilled) return 'white'; // White on green/light-green backgrounds
+    return 'var(--primary)'; // Primary color otherwise
   };
 
   // Get the URL prefix for a social platform
@@ -263,197 +371,185 @@ export default function ProfileSetup() {
   };
 
   // Main container style
-  const containerStyle = {
-    maxWidth: '480px',
-    margin: '0 auto',
-    padding: '24px',
-    color: 'var(--text)',
-  };
+  // Memoized styles for better performance
+  const styles = useMemo(() => ({
+    container: {
+      maxWidth: '480px',
+      margin: '0 auto',
+      padding: '24px',
+      color: 'var(--text)',
+    },
+    profilePhoto: {
+      width: '120px',
+      height: '120px',
+      borderRadius: '50%',
+      objectFit: 'cover' as const,
+      margin: '0 auto 16px',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+    },
+    profileName: {
+      fontSize: '24px',
+      marginBottom: '24px',
+      textAlign: 'center' as const
+    },
+    iconsRow: {
+      display: 'flex',
+      justifyContent: 'center',
+      flexWrap: 'wrap' as const,
+      gap: '12px',
+      marginBottom: '32px'
+    },
+    icon: {
+      borderRadius: '50%',
+      width: '40px',
+      height: '40px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer'
+    },
+    phoneInput: {
+      width: '100%',
+      padding: '12px',
+      border: 'none',
+      borderRadius: '8px',
+      fontSize: '16px',
+      marginBottom: '24px',
+      backgroundColor: 'var(--input-bg)'
+    },
+    socialToggle: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '16px',
+      cursor: 'pointer',
+      padding: '8px 0',
+      borderBottom: '1px solid var(--border)'
+    },
+    socialHeader: {
+      margin: 0,
+      fontSize: '18px'
+    },
+    socialItem: {
+      marginBottom: '16px',
+      padding: '12px 16px',
+      backgroundColor: 'var(--input-bg)',
+      borderRadius: '12px'
+    },
+    editInput: {
+      flex: 1,
+      border: 'none',
+      borderBottom: '1px solid var(--primary)',
+      background: 'transparent',
+      padding: '4px 0',
+      fontSize: '14px',
+      outline: 'none'
+    },
+    saveButton: {
+      display: 'block',
+      width: '100%',
+      padding: '14px 20px',
+      backgroundColor: 'var(--primary)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '100px',
+      fontSize: '16px',
+      fontWeight: 'bold' as const,
+      cursor: 'pointer',
+      transition: 'background-color 0.3s'
+    },
+    spinner: {
+      width: '18px',
+      height: '18px',
+      border: '2px solid rgba(255,255,255,0.3)',
+      borderTopColor: 'white',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite',
+      marginRight: '10px',
+      display: 'inline-block'
+    }
+  }), []);
 
-  // Button style
-  const buttonStyle = {
-    display: 'block',
-    width: '100%',
-    padding: '14px 20px',
-    backgroundColor: 'var(--primary)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '100px',
-    fontSize: '16px',
-    fontWeight: 'bold' as const,
-    cursor: 'pointer',
-    transition: 'background-color 0.3s',
-  };
+  // Use memo for the platform order to avoid recreating on each render
+  const platformOrder = useMemo(() => {
+    return ['email', 'phone', 'facebook', 'instagram', 'twitter', 'snapchat', 'linkedin', 'whatsapp', 'telegram'] as const;
+  }, []);
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div style={containerStyle}>
-        <div style={{ textAlign: 'center', marginTop: '40px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            margin: '0 auto',
-            border: '4px solid rgba(76, 175, 80, 0.3)',
-            borderTop: '4px solid var(--primary)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    router.push('/');
+  // Fast loading handling for optimal performance
+  if (!session && status !== 'loading') {
+    // Don't use router.push which is client-side - use window.location for immediate redirect
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
     return null;
   }
 
   return (
-    <div style={containerStyle}>
-      <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '32px', color: 'var(--primary)', textAlign: 'center' }}>Profile Setup</h1>
-      
-      {/* Profile Photo and Name */}
+    <div style={styles.container}>
+      {/* Profile Photo and Name - no title */}
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        {session.user?.image && (
+        {session?.user?.image && (
           <img 
             src={session.user.image}
             alt={session.user?.name || 'Profile'}
-            style={{ 
-              width: '120px', 
-              height: '120px', 
-              borderRadius: '50%',
-              objectFit: 'cover',
-              margin: '0 auto 16px',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-            }}
+            style={styles.profilePhoto}
+            loading="eager" // Load image immediately for better UX
           />
         )}
-        <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>{session.user?.name}</h2>
+        <h2 style={styles.profileName}>{session?.user?.name}</h2>
       </div>
       
-      {/* Social Media Icons Row */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center',
-        flexWrap: 'wrap',
-        gap: '12px',
-        marginBottom: '32px'
-      }}>
-        <div style={{
-          backgroundColor: 'var(--input-bg)',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--primary)'
-        }}>
-          <FaEnvelope size={20} />
-        </div>
-        
-        <div style={{
-          backgroundColor: 'var(--input-bg)',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--primary)'
-        }}>
-          <FaPhone size={20} />
-        </div>
-        
-        {['facebook', 'instagram', 'twitter', 'snapchat', 'linkedin', 'whatsapp', 'telegram'].map(platform => {
+      {/* Social Media Icons Row with proper states */}
+      <div style={styles.iconsRow}>
+        {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
-          const isFilled = profile?.filled;
           
           return (
             <div 
               key={platform}
               style={{
-                backgroundColor: isFilled ? 'var(--primary)' : 'var(--input-bg)',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isFilled ? 'white' : 'var(--primary)',
-                cursor: 'pointer'
+                ...styles.icon,
+                backgroundColor: getIconBackgroundColor(profile),
+                color: getIconColor(profile)
               }}
-              onClick={() => handleEditSocial(platform as SocialProfile['platform'])}
+              onClick={() => handleEditSocial(platform)}
             >
-              {getSocialIcon(platform as SocialProfile['platform'])}
+              {getSocialIcon(platform)}
             </div>
           );
         })}
       </div>
       
-      {/* Phone Number Entry */}
-      <div style={{ 
-        marginBottom: '24px',
-        padding: '16px',
-        backgroundColor: 'var(--input-bg)',
-        borderRadius: '12px',
-      }}>
-        <label htmlFor="phone" style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--secondary)' }}>
-          Phone Number
-        </label>
-        <input
-          id="phone"
-          ref={phoneInputRef}
-          type="tel"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={formattedPhone}
-          onChange={handlePhoneChange}
-          onKeyPress={handleKeyPress}
-          placeholder="(555) 555-5555"
-          style={{
-            width: '100%',
-            border: 'none',
-            background: 'transparent',
-            fontSize: '16px',
-            outline: 'none',
-            padding: '8px 0',
-          }}
-          autoComplete="tel"
-        />
-      </div>
+      {/* Simple Phone Number Entry */}
+      <input
+        ref={phoneInputRef}
+        type="tel"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={formattedPhone}
+        onChange={handlePhoneChange}
+        onKeyPress={handleKeyPress}
+        placeholder="(555) 555-5555"
+        style={styles.phoneInput}
+        autoComplete="tel"
+      />
       
       {/* Social Networks Section Header with Toggle */}
       <div 
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-          cursor: 'pointer',
-          padding: '8px 0',
-          borderBottom: '1px solid var(--border)'
-        }}
+        style={styles.socialToggle}
         onClick={() => setShowSocialSettings(!showSocialSettings)}
       >
-        <h3 style={{ margin: 0, fontSize: '18px' }}>Social Networks</h3>
+        <h3 style={styles.socialHeader}>Social Networks</h3>
         {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
       </div>
 
       {/* Social Network Settings (Collapsible) */}
       {showSocialSettings && (
         <div style={{ marginBottom: '24px' }}>
-          {socialProfiles.map((profile) => (
-            <div 
-              key={profile.platform}
-              style={{
-                marginBottom: '16px',
-                padding: '12px 16px',
-                backgroundColor: 'var(--input-bg)',
-                borderRadius: '12px',
-              }}
-            >
+          {socialProfiles
+            .filter(p => p.platform !== 'email' && p.platform !== 'phone') // Don't show email and phone in the list
+            .map((profile) => (
+            <div key={profile.platform} style={styles.socialItem}>
               <div style={{ 
                 display: 'flex',
                 alignItems: 'center',
@@ -467,12 +563,12 @@ export default function ProfileSetup() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '50%',
-                    backgroundColor: profile.filled ? 'var(--primary)' : 'transparent',
+                    backgroundColor: getIconBackgroundColor(profile),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: '12px',
-                    color: profile.filled ? 'white' : 'var(--primary)'
+                    color: getIconColor(profile)
                   }}>
                     {getSocialIcon(profile.platform)}
                   </div>
@@ -506,15 +602,7 @@ export default function ProfileSetup() {
                     value={socialEditValue}
                     onChange={(e) => setSocialEditValue(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      borderBottom: '1px solid var(--primary)',
-                      background: 'transparent',
-                      padding: '4px 0',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
+                    style={styles.editInput}
                     autoFocus
                   />
                   <button
@@ -555,25 +643,14 @@ export default function ProfileSetup() {
         onClick={handleSave}
         disabled={isSaving}
         style={{
-          ...buttonStyle,
+          ...styles.saveButton,
           opacity: isSaving ? 0.7 : 1,
           cursor: isSaving ? 'not-allowed' : 'pointer'
         }}
       >
         {isSaving ? (
           <>
-            <div
-              style={{
-                width: '18px',
-                height: '18px',
-                border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: 'white',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                marginRight: '10px',
-                display: 'inline-block'
-              }}
-            /> 
+            <div style={styles.spinner} /> 
             Saving...
           </>
         ) : 'Save'}
