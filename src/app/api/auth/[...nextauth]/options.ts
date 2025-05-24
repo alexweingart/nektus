@@ -13,11 +13,13 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!, // Ensure GOOGLE_CLIENT_SECRET is set
       authorization: {
         params: {
-          // Always force account selection to prevent automatic sign-in with the last account
-          prompt: "select_account",
-          access_type: "offline",    // Request offline access for refresh tokens if needed
+          // Always force account selection and show consent screen to re-authorize the app
+          prompt: "consent select_account", // 'consent' forces the consent screen to be shown
+          access_type: "offline",    // Request offline access for refresh tokens
           response_type: "code",     // Standard OAuth 2.0 flow
           scope: "openid email profile", // Request standard OpenID Connect scopes
+          // Include current time to ensure no caching occurs
+          state: Date.now().toString(),
         },
       },
     }),

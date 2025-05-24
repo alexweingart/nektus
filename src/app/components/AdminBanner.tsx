@@ -16,8 +16,7 @@ export default function AdminBanner() {
   // This component is conditionally rendered by ClientComponents when admin mode is active
 
   const handleDeleteAccount = async () => {
-    // For testing purposes, we'll reset the NextAuth session without signing out of Google entirely
-    if (!confirm('This will disconnect Nekt.Us from your Google account but keep you signed in to your browser. Continue?')) {
+    if (!confirm('This will fully disconnect Nekt.Us from your Google account. You will need to re-authorize the app next time you sign in. Continue?')) {
       return;
     }
 
@@ -25,10 +24,23 @@ export default function AdminBanner() {
     setDeleteStatus('loading');
     
     try {
-      // 1. Sign out from NextAuth locally with the correct parameter
+      // 1. Revoke the OAuth token with Google - this is the critical step
+      const revokeResponse = await fetch('/api/auth/revoke', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!revokeResponse.ok) {
+        console.error('Failed to revoke token with Google:', await revokeResponse.json());
+        throw new Error('Failed to revoke token with Google');
+      }
+      
+      // 2. Sign out from NextAuth locally
       await signOut({ redirect: false });
       
-      // 2. Clear only the NextAuth cookies (not all Google cookies)
+      // 3. Clear all NextAuth cookies
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
         if (name.includes('next-auth')) {
@@ -36,8 +48,10 @@ export default function AdminBanner() {
         }
       });
       
-      // 3. Set a localStorage flag to force account selector on next sign-in
-      localStorage.setItem('nektus_force_account_selector', 'true');
+      // 4. Clear any Google OAuth related localStorage items to force new authorization
+      localStorage.removeItem('nektus_force_account_selector'); // Remove old approach
+      localStorage.removeItem('nektus_user');
+      localStorage.removeItem('nektus_profile');
       
       // Show success status
       setDeleteStatus('success');
