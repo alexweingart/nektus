@@ -88,8 +88,8 @@ const authOptions: NextAuthOptions = {
   },
   // Log important authentication events
   events: {
-    async signIn({ user }) {
-      console.log(`SIGN_IN_EVENT: User ${user.id} signed in`);
+    async signIn({ user, account }) {
+      console.log("SIGN_IN_EVENT", { user, account });
     },
     async signOut() {
       console.log(`SIGN_OUT_EVENT: User signed out`);
