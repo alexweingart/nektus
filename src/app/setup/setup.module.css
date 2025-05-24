@@ -1,0 +1,41 @@
+.setupContainer {
+  min-height: 100vh;
+  padding: 1rem;
+  background-color: #f4f9f4;
+  color: #2d3748;
+}
+
+.setupCard {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e0e0e0;
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.errorMessage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background-color: #e53e3e;
+  color: white;
+  z-index: 50;
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .setupContainer {
+    padding: 1.5rem;
+  }
+}

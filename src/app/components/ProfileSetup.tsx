@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import styles from './ProfileSetup.module.css';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -322,37 +323,37 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.profileContainer}>
       {/* Profile Photo and Name */}
-      <div className="flex flex-col items-center py-5 rounded-xl bg-card">
+      <div className={styles.profileHeader}>
         {session?.user?.image ? (
-          <div className="w-24 h-24 mb-4 rounded-full overflow-hidden border-2 border-primary shadow-md">
+          <div className={styles.profileImage}>
             <img 
               src={session.user.image} 
               alt={session?.user?.name || 'Profile'} 
-              className="w-full h-full object-cover"
+              style={{width: '100%', height: '100%', objectFit: 'cover'}}
             />
           </div>
         ) : (
-          <div className="w-24 h-24 mb-4 rounded-full bg-muted flex items-center justify-center border-2 border-primary shadow-md">
-            <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
+          <div className={styles.profileImagePlaceholder}>
+            <span style={{fontSize: '1.5rem', fontWeight: 600}}>{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className="text-xl font-bold">{session?.user?.name}</h2>
+        <h2 className={styles.profileName}>{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}
-      <div className="flex flex-wrap justify-center gap-3 mb-8">
+      <div className={styles.socialIconsRow}>
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
-          const bgColor = profile?.confirmed ? 'bg-primary text-white' : 
-                      profile?.autoFilled ? 'bg-primary-light text-white' : 
-                      'bg-muted text-primary';
+          const iconClass = profile?.confirmed ? styles.socialIconConfirmed : 
+                      profile?.autoFilled ? styles.socialIconAutoFilled : 
+                      styles.socialIconDefault;
           
           return (
             <div 
               key={platform}
-              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer ${bgColor}`}
+              className={`${styles.socialIcon} ${iconClass}`}
               onClick={() => handleEditSocial(platform)}
             >
               {platform === 'facebook' && <FaFacebook size={20} />}
@@ -370,8 +371,8 @@ export default function ProfileSetup() {
       </div>
       
       {/* Phone Number Input */}
-      <div className="mb-6">
-        <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
+      <div className={styles.formGroup}>
+        <label htmlFor="phone" className={styles.formLabel}>Phone Number</label>
         <input
           type="tel"
           id="phone"
@@ -379,34 +380,36 @@ export default function ProfileSetup() {
           onChange={handlePhoneChange}
           onKeyDown={handleKeyPress}
           placeholder="(555) 555-5555"
-          className="w-full p-3 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          className={styles.formInput}
         />
       </div>
       
       {/* Social Networks Header (Expandable) */}
       <div 
-        className="flex items-center justify-between p-3 mb-2 cursor-pointer bg-card rounded-lg border border-border hover:bg-muted transition-colors"
+        className={styles.socialAccordionHeader}
         onClick={() => setShowSocialSettings(!showSocialSettings)}
       >
-        <h3 className="text-lg font-medium text-foreground">Social Networks</h3>
-        {showSocialSettings ? <FaChevronUp className="text-primary" /> : <FaChevronDown className="text-primary" />}
+        <h3 className={styles.socialHeading}>Social Networks</h3>
+        <div className={styles.socialAccordionIcon}>
+          {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
+        </div>
       </div>
 
       {/* Social Network Settings (Collapsible) */}
       {showSocialSettings && (
-        <div className="mb-6 space-y-4">
+        <div className={styles.socialContent}>
           {socialProfiles
             .filter(p => p.platform !== 'email' && p.platform !== 'phone')
             .map((profile) => {
-              const iconBgColor = profile.confirmed ? 'bg-primary text-white' : 
-                        profile.autoFilled ? 'bg-primary-light text-white' : 
-                        'bg-muted text-primary';
+              const iconClass = profile.confirmed ? styles.socialIconConfirmed : 
+                        profile.autoFilled ? styles.socialIconAutoFilled : 
+                        styles.socialIconDefault;
               
               return (
-                <div key={profile.platform} className="bg-card rounded-lg p-4 border border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${iconBgColor}`}>
+                <div key={profile.platform} className={styles.socialCard}>
+                  <div className={styles.socialCardHeader}>
+                    <div className={styles.socialCardIconContainer}>
+                      <div className={`${styles.socialCardIcon} ${iconClass}`}>
                         {profile.platform === 'facebook' && <FaFacebook size={16} />}
                         {profile.platform === 'instagram' && <FaInstagram size={16} />}
                         {profile.platform === 'twitter' && <FaTwitter size={16} />}
@@ -415,22 +418,22 @@ export default function ProfileSetup() {
                         {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
                         {profile.platform === 'telegram' && <FaTelegram size={16} />}
                       </div>
-                      <div className="capitalize text-foreground">{profile.platform}</div>
+                      <div className={styles.socialCardName}>{profile.platform}</div>
                     </div>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditSocial(profile.platform);
                       }}
-                      className="text-muted-foreground hover:text-foreground"
+                      className={styles.editButton}
                     >
                       <MdEdit size={20} />
                     </button>
                   </div>
                   
                   {editingSocial === profile.platform ? (
-                    <div className="mt-3 flex items-center">
-                      <span className="text-sm text-muted-foreground mr-1">
+                    <div className={styles.socialEditForm}>
+                      <span className={styles.socialPrefix}>
                         {getSocialPrefix(profile.platform)}
                       </span>
                       <input
@@ -438,20 +441,20 @@ export default function ProfileSetup() {
                         value={socialEditValue}
                         onChange={(e) => setSocialEditValue(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        className="flex-1 p-2 text-sm border border-input rounded bg-background focus:ring-2 focus:ring-primary focus:border-primary"
+                        className={styles.socialEditInput}
                         autoFocus
                       />
                       <button
                         onClick={handleSaveSocialEdit}
-                        className="ml-2 py-1 px-3 text-xs bg-primary text-white rounded"
+                        className={styles.saveButton}
                       >
                         Save
                       </button>
                     </div>
                   ) : profile.username ? (
-                    <div className="mt-2 pb-1 border-b border-border text-sm flex">
-                      <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
-                      <span className="text-foreground">{profile.username}</span>
+                    <div className={styles.socialValue}>
+                      <span className={styles.socialPrefix}>{getSocialPrefix(profile.platform)}</span>
+                      <span>{profile.username}</span>
                     </div>
                   ) : null}
                 </div>
@@ -464,11 +467,11 @@ export default function ProfileSetup() {
       <button 
         onClick={handleSave}
         disabled={isSaving}
-        className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
+        className={styles.saveProfileButton}
       >
         {isSaving ? (
           <>
-            <div className="inline-block mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            <div className={styles.loadingSpinner} />
             Saving...
           </>
         ) : 'Save'}
