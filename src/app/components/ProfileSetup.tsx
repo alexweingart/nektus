@@ -325,45 +325,63 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 text-foreground">
+    <div className="max-w-md mx-auto p-6 bg-white dark:bg-card shadow-md rounded-xl">
       {/* Profile Photo and Name */}
       <div className="text-center mb-8">
         {session?.user?.image ? (
-          <Avatar className="w-28 h-28 mx-auto mb-4 shadow-md">
-            <AvatarImage src={session.user.image} alt={session.user?.name || 'Profile'} />
-            <AvatarFallback>{session.user?.name?.[0] || '?'}</AvatarFallback>
-          </Avatar>
+          <div className="w-28 h-28 mx-auto mb-4 rounded-full overflow-hidden shadow-md">
+            <img 
+              src={session.user.image} 
+              alt={session.user?.name || 'Profile'} 
+              className="w-full h-full object-cover"
+            />
+          </div>
         ) : (
           <div className="w-28 h-28 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
             <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className="text-xl font-semibold">{session?.user?.name}</h2>
+        <h2 className="text-2xl font-semibold">{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}
       <div className="flex flex-wrap justify-center gap-3 mb-8">
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
+          const bgColor = profile?.confirmed ? 'bg-primary text-white' : 
+                        profile?.autoFilled ? 'bg-primary-light text-white' : 
+                        'bg-muted text-primary';
+          
           return (
-            <SocialIcon
+            <div 
               key={platform}
-              platform={platform}
-              status={getIconStatus(profile)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer ${bgColor}`}
               onClick={() => handleEditSocial(platform)}
-            />
+            >
+              {platform === 'facebook' && <FaFacebook size={20} />}
+              {platform === 'instagram' && <FaInstagram size={20} />}
+              {platform === 'twitter' && <FaTwitter size={20} />}
+              {platform === 'snapchat' && <FaSnapchat size={20} />}
+              {platform === 'linkedin' && <FaLinkedin size={20} />}
+              {platform === 'whatsapp' && <FaWhatsapp size={20} />}
+              {platform === 'telegram' && <FaTelegram size={20} />}
+              {platform === 'email' && <FaEnvelope size={20} />}
+              {platform === 'phone' && <FaPhone size={20} />}
+            </div>
           );
         })}
       </div>
       
       {/* Simple Phone Number Input */}
       <div className="mb-6">
-        <CustomPhoneInput
-          value={phone}
+        <input
+          type="tel"
+          inputMode="numeric"
+          value={formattedPhone}
           onChange={handlePhoneChange}
-          className="w-full"
-          placeholder="Enter phone number"
           onKeyDown={handleKeyPress}
+          placeholder="(555) 555-5555"
+          className="p-3 w-full rounded-md border border-input bg-white dark:bg-card text-foreground"
         />
       </div>
       
@@ -381,73 +399,82 @@ export default function ProfileSetup() {
         <div className="mb-6 space-y-4">
           {socialProfiles
             .filter(p => p.platform !== 'email' && p.platform !== 'phone')
-            .map((profile) => (
-              <div key={profile.platform} className="bg-muted rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <SocialIcon
-                      platform={profile.platform}
-                      status={getIconStatus(profile)}
-                      size={16}
-                      className="w-8 h-8 mr-3"
-                    />
-                    <div className="capitalize">{profile.platform}</div>
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditSocial(profile.platform);
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <MdEdit size={20} />
-                  </button>
-                </div>
-                
-                {editingSocial === profile.platform ? (
-                  <div className="mt-3 flex items-center">
-                    <span className="text-sm text-muted-foreground mr-1">
-                      {getSocialPrefix(profile.platform)}
-                    </span>
-                    <Input
-                      type="text"
-                      value={socialEditValue}
-                      onChange={(e) => setSocialEditValue(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      className="flex-1"
-                      autoFocus
-                    />
-                    <Button
-                      onClick={handleSaveSocialEdit}
-                      className="py-1 px-3 text-xs ml-2"
+            .map((profile) => {
+              const iconBgColor = profile.confirmed ? 'bg-primary text-white' : 
+                        profile.autoFilled ? 'bg-primary-light text-white' : 
+                        'bg-muted text-primary';
+              
+              return (
+                <div key={profile.platform} className="bg-muted rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${iconBgColor}`}>
+                        {profile.platform === 'facebook' && <FaFacebook size={16} />}
+                        {profile.platform === 'instagram' && <FaInstagram size={16} />}
+                        {profile.platform === 'twitter' && <FaTwitter size={16} />}
+                        {profile.platform === 'snapchat' && <FaSnapchat size={16} />}
+                        {profile.platform === 'linkedin' && <FaLinkedin size={16} />}
+                        {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
+                        {profile.platform === 'telegram' && <FaTelegram size={16} />}
+                      </div>
+                      <div className="capitalize">{profile.platform}</div>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditSocial(profile.platform);
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
                     >
-                      Save
-                    </Button>
+                      <MdEdit size={20} />
+                    </button>
                   </div>
-                ) : profile.username ? (
-                  <div className="mt-2 pb-1 border-b text-sm flex">
-                    <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
-                    <span>{profile.username}</span>
-                  </div>
-                ) : null}
-              </div>
-            ))}
+                  
+                  {editingSocial === profile.platform ? (
+                    <div className="mt-3 flex items-center">
+                      <span className="text-sm text-muted-foreground mr-1">
+                        {getSocialPrefix(profile.platform)}
+                      </span>
+                      <input
+                        type="text"
+                        value={socialEditValue}
+                        onChange={(e) => setSocialEditValue(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        className="flex-1 p-2 text-sm border border-input rounded bg-white dark:bg-card"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveSocialEdit}
+                        className="ml-2 py-1 px-3 text-xs bg-primary text-white rounded"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  ) : profile.username ? (
+                    <div className="mt-2 pb-1 border-b text-sm flex">
+                      <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
+                      <span>{profile.username}</span>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
         </div>
       )}
       
       {/* Save Button */}
-      <Button 
+      <button 
         onClick={handleSave}
         disabled={isSaving}
-        className="w-full"
+        className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
         {isSaving ? (
           <>
-            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <div className="inline-block mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             Saving...
           </>
         ) : 'Save'}
-      </Button>
+      </button>
     </div>
   );
 }
