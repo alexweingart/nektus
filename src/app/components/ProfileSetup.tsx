@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import Image from 'next/image';
+import { FaWhatsapp, FaTelegram, FaPhone } from 'react-icons/fa';
 
 type GoogleUser = {
   name: string;
@@ -57,11 +58,9 @@ export default function ProfileSetup() {
     textAlign: 'center' as const,
   };
 
-  const cardStyle = {
-    backgroundColor: 'var(--card-bg)',
-    borderRadius: '16px',
-    padding: '32px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+  const sectionStyle = {
+    width: '100%',
+    padding: '24px 0',
     marginBottom: '24px',
   };
 
@@ -91,24 +90,32 @@ export default function ProfileSetup() {
     transition: 'background-color 0.3s',
   };
 
-  const stepIndicatorStyle = {
+  const tabsContainerStyle = {
     display: 'flex',
     justifyContent: 'center',
     marginBottom: '32px',
+    width: '100%',
+    borderBottom: '1px solid var(--border)',
   };
 
-  const stepDotStyle = {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-    margin: '0 6px',
-    backgroundColor: 'var(--border)',
+  const tabStyle = {
+    padding: '12px 16px',
+    marginRight: '8px',
+    borderRadius: '8px 8px 0 0',
+    backgroundColor: 'transparent',
+    color: 'var(--secondary)',
+    border: 'none',
+    cursor: 'default',
+    fontWeight: 500,
+    fontSize: '14px',
+    opacity: 0.7,
   };
 
-  const activeStepDotStyle = {
-    ...stepDotStyle,
+  const activeTabStyle = {
+    ...tabStyle,
     backgroundColor: 'var(--primary)',
-    transform: 'scale(1.2)',
+    color: 'white',
+    opacity: 1,
   };
 
   // Handle session changes
@@ -127,13 +134,36 @@ export default function ProfileSetup() {
     }
   }, [status, session]);
   
+  // Handle effects on component mount
+  useEffect(() => {
+    // Clear any localStorage flag after checking it once
+    const cleanup = () => {
+      localStorage.removeItem('nektus_force_account_selector');
+    };
+    
+    return cleanup;
+  }, []);
+  
   // Reliable Google Sign-in handler for mobile contact exchange app
   const handleGoogleSignIn = () => {
     // Show loading state
     setIsSigningIn(true);
     
-    // Simple sign-in call - let NextAuth handle all the complexity
-    signIn('google', { callbackUrl: '/setup' });
+    // Check if we should force the account selector 
+    // (either from localStorage flag or always for first-time users)
+    const forceAccountSelector = localStorage.getItem('nektus_force_account_selector') === 'true';
+    
+    // Clear the flag immediately after checking it
+    if (forceAccountSelector) {
+      localStorage.removeItem('nektus_force_account_selector');
+    }
+    
+    // Sign in with appropriate options
+    signIn('google', { 
+      callbackUrl: '/setup',
+      // Only force account selection if the flag was set or it's a new user
+      ...(forceAccountSelector ? { prompt: 'select_account' } : {})
+    });
     
     // Reset loading state after timeout to avoid stuck UI
     setTimeout(() => {
@@ -203,93 +233,157 @@ export default function ProfileSetup() {
     <div style={containerStyle}>
       <h1 style={headerStyle}>Create Your Profile</h1>
       
-      <div style={stepIndicatorStyle}>
-        <div style={step === 1 ? activeStepDotStyle : stepDotStyle}></div>
-        <div style={step === 2 ? activeStepDotStyle : stepDotStyle}></div>
-        <div style={step === 3 ? activeStepDotStyle : stepDotStyle}></div>
+      <div style={tabsContainerStyle}>
+        <div style={step === 1 ? activeTabStyle : tabStyle}>Sign Up</div>
+        <div style={step === 2 ? activeTabStyle : tabStyle}>Phone Number</div>
+        <div style={step === 3 ? activeTabStyle : tabStyle}>Social Accounts</div>
       </div>
       
       {step === 1 && (
-        <>
-          <div style={cardStyle}>
-            <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Sign in with Google to get started</h2>
-            
-            <button
-              onClick={handleGoogleSignIn}
-              style={{
-                ...googleButtonStyle,
-                backgroundColor: isSigningIn ? '#cccccc' : 'white',
-                cursor: isSigningIn ? 'not-allowed' : 'pointer'
-              }}
-              disabled={isSigningIn || status === 'loading'}
-            >
-              {isSigningIn ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div 
-                    style={{ 
-                      width: '20px', 
-                      height: '20px', 
-                      borderRadius: '50%', 
-                      border: '2px solid #4caf50',
-                      borderTopColor: 'transparent',
-                      marginRight: '16px',
-                      animation: 'spin 1s linear infinite'
-                    }}
-                  />
-                  Signing in...
-                </div>
-              ) : (
-                <>
-                  <Image 
-                    src="/icons/google.svg" 
-                    alt="Google" 
-                    width={24} 
-                    height={24}
-                    style={{ marginRight: '16px' }}
-                  />
-                  Sign in with Google
-                </>
-              )}
-            </button>
-            
-            {status === 'authenticated' && (
-              <p style={{ marginTop: '12px', fontSize: '14px', textAlign: 'center' }}>
-                Redirecting to profile setup...
-              </p>
+        <div style={sectionStyle}>
+          <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Sign in with Google to get started</h2>
+          
+          <button
+            onClick={handleGoogleSignIn}
+            style={{
+              ...googleButtonStyle,
+              backgroundColor: isSigningIn ? '#cccccc' : 'white',
+              cursor: isSigningIn ? 'not-allowed' : 'pointer'
+            }}
+            disabled={isSigningIn || status === 'loading'}
+          >
+            {isSigningIn ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div 
+                  style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    border: '2px solid #4caf50',
+                    borderTopColor: 'transparent',
+                    marginRight: '16px',
+                    animation: 'spin 1s linear infinite'
+                  }}
+                />
+                Signing in...
+              </div>
+            ) : (
+              <>
+                <Image 
+                  src="/icons/google.svg" 
+                  alt="Google" 
+                  width={24} 
+                  height={24}
+                  style={{ marginRight: '16px' }}
+                />
+                Sign in with Google
+              </>
             )}
-            
-            <p style={{ marginTop: '20px', fontSize: '14px', color: 'var(--secondary-dark)', textAlign: 'center' }}>
-              Google account required for Nekt.Us
+          </button>
+          
+          {status === 'authenticated' && (
+            <p style={{ marginTop: '12px', fontSize: '14px', textAlign: 'center' }}>
+              Redirecting to profile setup...
             </p>
-          </div>
-        </>
+          )}
+          
+          <p style={{ marginTop: '20px', fontSize: '14px', color: 'var(--secondary-dark)', textAlign: 'center' }}>
+            Google account required for Nekt.Us
+          </p>
+        </div>
       )}
       
       {step === 2 && googleUser && (
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
             <Image 
-              src={googleUser.picture} 
+              src={googleUser.picture || '/icons/default-avatar.png'} 
               alt={googleUser.name} 
-              width={60} 
-              height={60}
-              style={{ borderRadius: '50%', marginRight: '16px' }}
+              width={80} 
+              height={80}
+              style={{ borderRadius: '50%', marginBottom: '16px' }}
+              onError={(e) => {
+                // Fallback if Google image fails to load
+                const target = e.target as HTMLImageElement;
+                target.onerror = null;
+                target.src = '/icons/default-avatar.png';
+              }}
             />
-            <div>
+            <div style={{ textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 4px 0' }}>{googleUser.name}</h2>
               <p style={{ margin: 0, color: 'var(--secondary)', fontSize: '14px' }}>{googleUser.email}</p>
             </div>
           </div>
           
           <h3 style={{ marginBottom: '16px' }}>Enter your phone number</h3>
-          <input
-            type="tel"
-            value={formattedPhone}
-            onChange={handlePhoneChange}
-            placeholder="(555) 555-5555"
-            style={inputStyle}
-            maxLength={14}
-          />
+          
+          <div style={{ 
+            position: 'relative',
+            marginBottom: '24px'
+          }}>
+            <div style={{ 
+              position: 'absolute', 
+              top: '12px', 
+              left: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--secondary)'
+            }}>
+              <FaPhone style={{ marginRight: '8px' }} />
+            </div>
+            <input
+              type="tel"
+              value={formattedPhone}
+              onChange={handlePhoneChange}
+              placeholder="(555) 555-5555"
+              style={{
+                ...inputStyle, 
+                paddingLeft: '40px',
+                backgroundColor: 'var(--input-bg)',
+                border: '1px solid var(--border)',
+                borderRadius: '100px'
+              }}
+              maxLength={14}
+            />
+          </div>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <h4 style={{ marginBottom: '12px' }}>Also share this number on:</h4>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                padding: '12px 16px',
+                backgroundColor: 'var(--input-bg)',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}>
+                <FaWhatsapp style={{ color: '#25D366', marginRight: '8px', fontSize: '20px' }} />
+                <span>WhatsApp</span>
+                <input 
+                  type="checkbox" 
+                  style={{ marginLeft: '8px' }} 
+                  defaultChecked={true}
+                />
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                padding: '12px 16px',
+                backgroundColor: 'var(--input-bg)',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}>
+                <FaTelegram style={{ color: '#0088cc', marginRight: '8px', fontSize: '20px' }} />
+                <span>Telegram</span>
+                <input 
+                  type="checkbox" 
+                  style={{ marginLeft: '8px' }} 
+                  defaultChecked={true}
+                />
+              </div>
+            </div>
+          </div>
           
           <button 
             onClick={handlePhoneSubmit}
@@ -306,7 +400,7 @@ export default function ProfileSetup() {
       )}
       
       {step === 3 && googleUser && (
-        <div style={cardStyle}>
+        <div style={sectionStyle}>
           <h3 style={{ marginBottom: '24px' }}>Add your social profiles</h3>
           
           <div style={{ marginBottom: '24px' }}>

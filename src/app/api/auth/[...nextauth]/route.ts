@@ -11,7 +11,7 @@ console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
 console.log('- Has GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
 console.log('- Has GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
 
-const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!, // Ensure GOOGLE_CLIENT_ID is set
@@ -80,10 +80,11 @@ const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async redirect() {
+    async redirect({ url, baseUrl }) {
       // Override all redirect logic to ensure consistent behavior
       // For a mobile contact exchange app, we always want users to land on the setup page
-      return "https://nekt.us/setup";
+      // Use relative URL to work in both development and production
+      return `${baseUrl}/setup`;
     },
   },
   // Log important authentication events

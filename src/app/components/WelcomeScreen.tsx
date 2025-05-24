@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useAdminModeActivator } from './AdminBanner';
 
 // Standard button style shared across the application
 const standardButtonStyle = {
@@ -23,6 +24,8 @@ const standardButtonStyle = {
 };
 
 const WelcomeScreen: React.FC = () => {
+  // Get the admin mode activator props
+  const adminModeProps = useAdminModeActivator();
   // Add a CSS rule to the document to prevent scrollbar on body
   React.useEffect(() => {
     // Add styling to prevent scroll
@@ -69,8 +72,10 @@ const WelcomeScreen: React.FC = () => {
             fontWeight: 'bold',
             marginBottom: '8px',
             textAlign: 'center',
-            width: '100%'
+            width: '100%',
+            cursor: 'default' // Show default cursor instead of text cursor
           }}
+          {...adminModeProps} // Apply the double-click handler
         >
           Nekt.Us
         </h1>
