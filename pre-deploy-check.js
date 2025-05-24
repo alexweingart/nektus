@@ -11,6 +11,47 @@ const path = require('path');
 
 console.log('🔍 Running pre-deployment checks for Nekt.Us...');
 
+// Check required dependencies
+try {
+  console.log('✓ Checking required dependencies...');
+  const fs = require('fs');
+  const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+  
+  // List of critical dependencies the app requires
+  const requiredDependencies = [
+    'next', 'react', 'react-dom', 'next-auth', 'firebase'
+  ];
+  
+  const missingDeps = [];
+  requiredDependencies.forEach(dep => {
+    if (!packageJson.dependencies || !packageJson.dependencies[dep]) {
+      missingDeps.push(dep);
+    }
+  });
+  
+  if (missingDeps.length > 0) {
+    console.error(`❌ Missing required dependencies: ${missingDeps.join(', ')}`);
+    console.error(`   Please run: npm install ${missingDeps.join(' ')}`);
+    process.exit(1);
+  }
+  
+  // Verify Firebase modules can be imported
+  try {
+    require.resolve('firebase/app');
+    require.resolve('firebase/firestore');
+    require.resolve('firebase/auth');
+    console.log('   ✓ Firebase modules verified');
+  } catch (error) {
+    console.error('❌ Firebase modules not found, please reinstall: npm install firebase');
+    process.exit(1);
+  }
+  
+  console.log('✅ All dependencies verified!');
+} catch (error) {
+  console.error('❌ Dependency check failed:', error.message);
+  process.exit(1);
+}
+
 // Verify TypeScript types
 try {
   console.log('✓ Checking TypeScript types...');
@@ -125,17 +166,35 @@ try {
 try {
   console.log('✓ Checking environment variable usage...');
   const envConfig = {
+    // NextAuth variables
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'https://nekt.us',
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'nektus-app-contact-exchange-secret-key',
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '[EXAMPLE-ID].apps.googleusercontent.com',
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '[EXAMPLE-SECRET]',
+    
+    // Firebase variables (only for production - not checked in development)
+    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || (process.env.NODE_ENV === 'production' ? undefined : '[EXAMPLE-FIREBASE-KEY]'),
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || (process.env.NODE_ENV === 'production' ? undefined : 'your-project.firebaseapp.com'),
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || (process.env.NODE_ENV === 'production' ? undefined : 'your-project-id'),
   };
+  
+  // Check for missing environment variables in production
+  if (process.env.NODE_ENV === 'production') {
+    const missingEnvVars = Object.keys(envConfig).filter(key => !envConfig[key]);
+    if (missingEnvVars.length > 0) {
+      console.error(`❌ Missing required environment variables in production: ${missingEnvVars.join(', ')}`);
+      console.error('   Please add these to your environment configuration in Vercel.');
+      process.exit(1);
+    }
+  }
   
   console.log('   Environment variables configured:');
   Object.keys(envConfig).forEach(key => {
     const value = envConfig[key];
-    const masked = key.includes('SECRET') ? value.substring(0, 5) + '...' : value;
-    console.log(`   - ${key}: ${masked}`);
+    if (value) {
+      const masked = key.includes('SECRET') || key.includes('KEY') ? value.substring(0, 5) + '...' : value;
+      console.log(`   - ${key}: ${masked}`);
+    }
   });
   
   console.log('✅ Environment variable check passed!');
