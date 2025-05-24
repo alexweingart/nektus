@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -84,18 +86,6 @@ export default function ProfileSetup() {
     marginBottom: '24px',
   };
 
-  const inputStyle = {
-    display: 'block',
-    width: '100%',
-    padding: '12px 16px',
-    marginBottom: '24px',
-    borderRadius: '8px',
-    border: '1px solid var(--border)',
-    backgroundColor: 'var(--input-bg)',
-    color: 'var(--text)',
-    fontSize: '16px',
-  };
-
   const buttonStyle = {
     display: 'block',
     width: '100%',
@@ -174,59 +164,53 @@ export default function ProfileSetup() {
       }
     }
   }, [profile, isLoading]);
-  
-  // Auto-focus on phone input when the component mounts or when step changes to 2
+
+  // Initialize social profiles based on extracted username
   useEffect(() => {
-    if (step === 2 && phoneInputRef.current) {
-      // Focus on phone input field
-      setTimeout(() => {
-        phoneInputRef.current?.focus();
-      }, 300);
+    if (extractedUsername && socialProfiles.length === 0) {
+      const defaultProfiles: SocialProfile[] = [
+        { platform: 'instagram', username: extractedUsername, shareEnabled: true, filled: true },
+        { platform: 'twitter', username: extractedUsername, shareEnabled: true, filled: true },
+        { platform: 'facebook', username: extractedUsername, shareEnabled: true, filled: true },
+        { platform: 'linkedin', username: extractedUsername, shareEnabled: true, filled: true },
+        { platform: 'snapchat', username: extractedUsername, shareEnabled: true, filled: true },
+      ];
+      
+      setSocialProfiles(defaultProfiles);
     }
-  }, [step, phoneInputRef]);
+  }, [extractedUsername, socialProfiles.length]);
   
-  // Handle effects on component mount
+  // Update WhatsApp and Telegram profiles when phone number changes
   useEffect(() => {
-    // Clear any localStorage flag after checking it once
-    const cleanup = () => {
-      localStorage.removeItem('nektus_force_account_selector');
-    };
-    
-    return cleanup;
+    if (phone && phone.length >= 10) {
+      updateMessagingPlatforms(phone);
+    }
+  }, [phone]);
+
+  // Clear any localStorage flag after checking it once
+  useEffect(() => {
+    localStorage.removeItem('oauth_return');
   }, []);
-  
-  // Reliable Google Sign-in handler for mobile contact exchange app
+
+  // Handle Google Sign-in
   const handleGoogleSignIn = () => {
-    // Show loading state
     setIsSigningIn(true);
+    localStorage.setItem('oauth_return', 'true');
     
-    // Check if we should force the account selector 
-    // (either from localStorage flag or always for first-time users)
-    const forceAccountSelector = localStorage.getItem('nektus_force_account_selector') === 'true';
-    
-    // Clear the flag immediately after checking it
-    if (forceAccountSelector) {
-      localStorage.removeItem('nektus_force_account_selector');
-    }
-    
-    // Sign in with appropriate options
-    signIn('google', { 
+    // Use NextAuth to sign in with Google
+    signIn('google', {
       callbackUrl: '/setup',
-      // Only force account selection if the flag was set or it's a new user
-      ...(forceAccountSelector ? { prompt: 'select_account' } : {})
+    }).catch(error => {
+      console.error('Sign-in error:', error);
+      setIsSigningIn(false);
     });
-    
-    // Reset loading state after timeout to avoid stuck UI
-    setTimeout(() => {
-      if (isSigningIn) setIsSigningIn(false);
-    }, 20000); // 20 seconds is plenty for the OAuth flow
   };
-  
+
   // Handle phone number formatting
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Strip all non-numeric characters
-    const digits = input.replace(/\D/g, '');
+    const digits = input.replace(/\\D/g, '');
     setPhone(digits);
     
     // Format the phone number as (XXX) XXX-XXXX
@@ -244,12 +228,12 @@ export default function ProfileSetup() {
       setFormattedPhone('');
     }
   };
-
-  // Update WhatsApp and Telegram profiles based on phone number
+  
+  // Update WhatsApp and Telegram profiles with phone number
   const updateMessagingPlatforms = (phoneNumber: string) => {
     if (phoneNumber.length > 0) {
       // Clean phone number for messaging platforms
-      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const cleanPhone = phoneNumber.replace(/\\D/g, '');
       
       const updatedProfiles = [...socialProfiles];
       
@@ -284,37 +268,15 @@ export default function ProfileSetup() {
       setSocialProfiles(updatedProfiles);
     }
   };
-
-  // Initialize social profiles based on extracted username and phone number
-  useEffect(() => {
-    if (extractedUsername && !socialProfiles.length) {
-      const defaultProfiles: SocialProfile[] = [
-        { platform: 'instagram', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'twitter', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'facebook', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'linkedin', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'snapchat', username: extractedUsername, shareEnabled: true, filled: true },
-      ];
-      
-      setSocialProfiles(defaultProfiles);
-    }
-  }, [extractedUsername, socialProfiles.length]);
   
-  // Update WhatsApp and Telegram profiles when phone number changes
-  useEffect(() => {
-    if (phone && phone.length >= 10) {
-      updateMessagingPlatforms(phone);
-    }
-  }, [phone]);
-
-  // Edit a specific social profile handle
+  // Handle editing social profile
   const handleEditSocial = (platform: SocialProfile['platform']) => {
     const profile = socialProfiles.find(p => p.platform === platform);
     setEditingSocial(platform);
     setSocialEditValue(profile?.username || '');
   };
   
-  // Save the edited social profile
+  // Save edited social profile
   const handleSaveSocialEdit = () => {
     if (editingSocial) {
       const updatedProfiles = socialProfiles.map(profile => {
@@ -342,28 +304,6 @@ export default function ProfileSetup() {
     }
   };
   
-  // Initialize social profiles based on extracted username and phone number
-  useEffect(() => {
-    if (extractedUsername && !socialProfiles.length) {
-      const defaultProfiles: SocialProfile[] = [
-        { platform: 'instagram', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'twitter', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'facebook', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'linkedin', username: extractedUsername, shareEnabled: true, filled: true },
-        { platform: 'snapchat', username: extractedUsername, shareEnabled: true, filled: true },
-      ];
-      
-      setSocialProfiles(defaultProfiles);
-    }
-  }, [extractedUsername, socialProfiles.length]);
-  
-  // Update WhatsApp and Telegram profiles when phone number changes
-  useEffect(() => {
-    if (phone && phone.length >= 10) {
-      updateMessagingPlatforms(phone);
-    }
-  }, [phone]);
-  
   // Handle continuing to the next step
   const handleContinue = async () => {
     setIsSaving(true);
@@ -385,13 +325,6 @@ export default function ProfileSetup() {
     }
   };
   
-        });
-      }
-      
-      setSocialProfiles(updatedProfiles);
-    }
-  };
-
   // Get the icon for a social platform
   const getSocialIcon = (platform: SocialProfile['platform']) => {
     switch (platform) {
@@ -437,61 +370,63 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div style={{ paddingBottom: '40px' }}>
-      {step === 1 && (
-        <div style={containerStyle}>
-          <h1 style={headerStyle}>Sign in</h1>
+    <div style={containerStyle}>
+      <h1 style={headerStyle}>Nekt.Us</h1>
+      
+      <div style={tabsContainerStyle}>
+        <div style={step === 1 ? activeTabStyle : tabStyle}>Sign In</div>
+        <div style={step === 2 ? activeTabStyle : tabStyle}>Your Profile</div>
+      </div>
+      
+      {step === 1 ? (
+        // Step 1: Sign in with Google
+        <div style={sectionStyle}>
+          <p style={{ marginBottom: '32px', textAlign: 'center' }}>
+            Please sign in with Google to create your profile.
+          </p>
           
-          <div style={sectionStyle}>
-            <button 
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
-              style={{
-                ...googleButtonStyle,
-                opacity: isSigningIn ? 0.7 : 1,
-                cursor: isSigningIn ? 'default' : 'pointer',
-              }}
-            >
-              {isSigningIn ? (
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={isSigningIn}
+            style={{
+              ...googleButtonStyle,
+              opacity: isSigningIn ? 0.7 : 1,
+              cursor: isSigningIn ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isSigningIn ? (
+              <>
                 <div
                   style={{
                     width: '18px',
                     height: '18px',
-                    border: '2px solid #ddd',
-                    borderTopColor: '#666',
+                    border: '2px solid rgba(0,0,0,0.1)',
+                    borderTopColor: '#444',
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite',
-                    marginRight: '10px',
+                    marginRight: '10px'
                   }}
-                />
-              ) : (
-                <svg 
-                  width="18" 
-                  height="18" 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  viewBox="0 0 48 48"
-                  style={{ marginRight: '10px' }}
-                >
-                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                /> 
+                Signing in...
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ marginRight: '12px' }}>
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
                 </svg>
-              )}
-              {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
-            </button>
-          </div>
+                Sign in with Google
+              </>
+            )}
+          </button>
         </div>
-      )}
-      
-      {step === 2 && googleUser && (
-        <div style={containerStyle}>
-          <h1 style={headerStyle}>Create Your Profile</h1>
-          
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+      ) : googleUser ? (
+        // Step 2: Profile setup
+        <div>
+          <div style={{ 
+            textAlign: 'center', 
             marginBottom: '32px',
           }}>
             {googleUser.picture && (
@@ -567,8 +502,7 @@ export default function ProfileSetup() {
               </div>
             )}
             
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '24px' }}>{googleUser.name}</h3>
-            <p style={{ margin: '0', color: 'var(--secondary)', fontSize: '16px' }}>{googleUser.email}</p>
+            <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>{googleUser.name}</h2>
           </div>
           
           <div style={sectionStyle}>
@@ -784,7 +718,7 @@ export default function ProfileSetup() {
             </button>
           </div>
         </div>
-      )}
+      ) : null}
       
       <style jsx global>{`
         @keyframes spin {
@@ -810,10 +744,6 @@ export default function ProfileSetup() {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           margin: 0;
           padding: 0;
-        }
-        
-        input[type="tel"] {
-          -webkit-text-security: disc;
         }
         
         @media (max-width: 480px) {
