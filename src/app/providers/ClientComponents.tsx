@@ -1,8 +1,12 @@
 "use client";
 
 import React from 'react';
+import { useAdminMode } from './AdminModeProvider';
 import AdminBanner from '../components/AdminBanner';
 
 export default function ClientComponents() {
-  return <AdminBanner />;
+  const { isAdminMode } = useAdminMode();
+  
+  // Only render the AdminBanner when admin mode is active
+  return isAdminMode ? <AdminBanner /> : null;
 }

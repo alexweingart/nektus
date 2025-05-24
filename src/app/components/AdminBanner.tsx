@@ -7,12 +7,13 @@ import { useAdminMode } from '../providers/AdminModeProvider';
 
 // The admin mode banner component
 export default function AdminBanner() {
+  // Get the closeAdminMode function from our context
   const { closeAdminMode } = useAdminMode();
   const { data: session, status } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
-  // This component is conditionally rendered by HeaderWithAdmin
+  // This component is conditionally rendered by ClientComponents when admin mode is active
 
   const handleDeleteAccount = async () => {
     // For testing purposes, we'll reset the NextAuth session without signing out of Google entirely

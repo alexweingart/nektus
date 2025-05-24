@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/options';
+import { authOptions } from '../auth/[...nextauth]/options.js';
 import { revokeGoogleToken } from '../../../utils/google';
 import { cookies } from 'next/headers';
 
