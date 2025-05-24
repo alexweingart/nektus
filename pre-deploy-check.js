@@ -23,10 +23,23 @@ try {
     'next', 'react', 'react-dom', 'next-auth', 'firebase'
   ];
   
+  // CSS-related dependencies that should be present (usually as dev dependencies)
+  const requiredDevDependencies = [
+    'autoprefixer', 'postcss', 'tailwindcss'
+  ];
+  
   const missingDeps = [];
   requiredDependencies.forEach(dep => {
     if (!packageJson.dependencies || !packageJson.dependencies[dep]) {
       missingDeps.push(dep);
+    }
+  });
+  
+  // Check for required dev dependencies
+  requiredDevDependencies.forEach(dep => {
+    if ((!packageJson.devDependencies || !packageJson.devDependencies[dep]) && 
+        (!packageJson.dependencies || !packageJson.dependencies[dep])) {
+      missingDeps.push(`${dep} (dev)`);  
     }
   });
   
@@ -282,6 +295,63 @@ try {
   console.log('✅ ProfileSetup component check passed!');
 } catch (error) {
   console.error(`❌ ProfileSetup component check failed: ${error.message}`);
+  process.exit(1);
+}
+
+// Check for CSS module usage and configuration
+try {
+  console.log('✓ Checking CSS module configuration...');
+  
+  // Check if any CSS modules are in use
+  const cssModuleFiles = [];
+  const sourceDir = path.join(__dirname, 'src');
+  
+  function findCssModuleFiles(dir) {
+    const files = fs.readdirSync(dir);
+    
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const stat = fs.statSync(filePath);
+      
+      if (stat.isDirectory()) {
+        findCssModuleFiles(filePath);
+      } else if (file.endsWith('.module.css')) {
+        cssModuleFiles.push(filePath);
+      }
+    }
+  }
+  
+  findCssModuleFiles(sourceDir);
+  
+  if (cssModuleFiles.length > 0) {
+    console.log(`   Found ${cssModuleFiles.length} CSS module files`)
+    
+    // Verify PostCSS configuration exists
+    const postcssConfigPath = path.join(__dirname, 'postcss.config.js');
+    if (!fs.existsSync(postcssConfigPath)) {
+      throw new Error('postcss.config.js not found but CSS modules are in use');
+    }
+    
+    // Verify autoprefixer is in the PostCSS config
+    const postcssConfig = require(postcssConfigPath);
+    if (!postcssConfig.plugins || !postcssConfig.plugins.autoprefixer) {
+      throw new Error('autoprefixer not configured in postcss.config.js');
+    }
+    
+    // Verify the actual module can be loaded
+    try {
+      require.resolve('autoprefixer');
+      require.resolve('postcss');
+      console.log('   ✓ PostCSS configuration verified');
+    } catch (error) {
+      throw new Error(`Unable to load CSS processing modules: ${error.message}`);
+    }
+  }
+  
+  console.log('✅ CSS module configuration check passed!');
+} catch (error) {
+  console.error(`❌ CSS module check failed: ${error.message}`);
+  console.error('   Make sure to run: npm install --save-dev postcss autoprefixer');
   process.exit(1);
 }
 
