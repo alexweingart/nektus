@@ -3,13 +3,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FaBluetoothB, FaExchangeAlt, FaCheckCircle, FaTimesCircle, FaPhoneAlt } from 'react-icons/fa';
-import { BluetoothConnector, ContactExchange as ContactData, detectBump, simulateConnection } from '../utils/bluetooth';
+import { FaBluetoothB, FaExchangeAlt, FaCheckCircle, FaTimesCircle, FaPhoneAlt, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaSnapchat, FaLinkedin, FaWhatsapp, FaTelegram } from 'react-icons/fa';
+import { BluetoothConnector, ContactExchange as ContactData, detectBump, simulateConnection, getUserId } from '../utils/bluetooth';
 import { useProfile } from '../context/ProfileContext';
 
 const BUMP_SENSITIVITY = 12; // Lower values make it more sensitive
 
 export default function ContactExchange() {
+  // Function to get the appropriate icon for a social platform
+  const getSocialIcon = (platform: string) => {
+    switch (platform) {
+      case 'facebook':
+        return <FaFacebook style={{ color: '#3b5998' }} />;
+      case 'instagram':
+        return <FaInstagram style={{ color: '#e4405f' }} />;
+      case 'twitter':
+        return <FaTwitter style={{ color: '#1da1f2' }} />;
+      case 'snapchat':
+        return <FaSnapchat style={{ color: '#fffc00' }} />;
+      case 'linkedin':
+        return <FaLinkedin style={{ color: '#0077b5' }} />;
+      case 'whatsapp':
+        return <FaWhatsapp style={{ color: '#25d366' }} />;
+      case 'telegram':
+        return <FaTelegram style={{ color: '#0088cc' }} />;
+      default:
+        return null;
+    }
+  };
+
   const { data: session } = useSession();
   const { profile } = useProfile();
   const router = useRouter();
@@ -353,10 +375,53 @@ export default function ContactExchange() {
     </div>
   );
 
-  // Show an error message if Bluetooth isn't supported
+  // Show the profile and a message if Bluetooth isn't supported
   if (!bluetoothSupported) {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '24px' }}>
+        {/* Profile Card */}
+        {profile && (
+          <div style={cardStyle}>
+            <h2 style={{ textAlign: 'center', marginBottom: '16px' }}>Your Profile</h2>
+            <div style={{ marginBottom: '24px' }}>
+              {session?.user?.image && (
+                <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 16px' }}>
+                  <img 
+                    src={session.user.image} 
+                    alt={profile.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </div>
+              )}
+              <h3 style={{ textAlign: 'center', marginBottom: '8px' }}>{profile.name}</h3>
+              
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <FaPhoneAlt style={{ marginRight: '8px', color: 'var(--primary)' }} />
+                  <span>{profile.phone}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <FaEnvelope style={{ marginRight: '8px', color: 'var(--primary)' }} />
+                  <span>{profile.email}</span>
+                </div>
+                
+                {profile.socialProfiles && profile.socialProfiles.length > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <h4 style={{ marginBottom: '8px' }}>Social Profiles</h4>
+                    {profile.socialProfiles.map((social, index) => (
+                      <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        {getSocialIcon(social.platform)}
+                        <span style={{ marginLeft: '8px' }}>{social.username}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Bluetooth Not Supported Message */}
         <div style={cardStyle}>
           <div style={{ textAlign: 'center', color: 'var(--danger)' }}>
             <FaTimesCircle size={48} style={{ marginBottom: '16px' }} />
