@@ -259,6 +259,9 @@ try {
       (alias && (packageJson.dependencies[alias] || packageJson.devDependencies?.[alias]))
     );
     
+    // Define hasAlias variable based on whether we have an alias for this package
+    const hasAlias = alias !== null && alias !== undefined;
+    
     if (!isInstalled && !hasAlias) {
       notInstalledImports.push(pkg);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import { FaChevronDown } from 'react-icons/fa';
 
 // Define country type
 type Country = {
@@ -137,7 +137,7 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
           aria-label="Select country"
         >
           <span className="mr-2">{selectedCountry.flag}</span>
-          <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+          <FaChevronDown className="h-4 w-4 text-gray-500" />
         </button>
         
         {/* Country dropdown */}
