@@ -405,39 +405,7 @@ const SetupProfile: React.FC = () => {
             
             <button
               onClick={handleGoogleSignIn}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                backgroundColor: 'white',
-                color: '#333',
-                fontSize: '18px',
-                fontWeight: '500',
-                padding: '14px 24px',
-                borderRadius: '100px',
-                transition: 'background-color 0.2s ease-in-out',
-                textDecoration: 'none',
-                textAlign: 'center',
-                border: '1px solid #ddd',
-                cursor: 'pointer',
-                marginTop: '16px',
-                marginBottom: '24px',
-                boxShadow: 'none !important',
-                filter: 'none !important',
-                WebkitBoxShadow: 'none !important',
-                MozBoxShadow: 'none !important'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#eeeeee';
-                e.currentTarget.style.boxShadow = 'none !important';
-                e.currentTarget.style.filter = 'none !important';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = 'white';
-                e.currentTarget.style.boxShadow = 'none !important';
-                e.currentTarget.style.filter = 'none !important';
-              }}
+              className="google-signin-button"
             >
               <Image 
                 src="/icons/google.svg" 
