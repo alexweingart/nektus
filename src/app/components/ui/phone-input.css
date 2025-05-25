@@ -13,10 +13,11 @@
 
 .PhoneInputCountry {
   flex: 0 0 auto;
-  padding: 12px;
+  padding: 12px 8px 12px 16px;
   min-width: 70px;
   display: flex;
   align-items: center;
+  justify-content: center;
   border-right: 1px solid var(--card-border, #e0e0e0);
 }
 
@@ -24,12 +25,12 @@
   width: 24px;
   height: 16px;
   margin-right: 4px;
-  margin-left: 0;
+  margin-left: 4px;
 }
 
 .PhoneInputCountrySelectArrow {
   margin-left: 4px;
-  margin-right: 0;
+  margin-right: 4px;
   opacity: 1;
   color: var(--primary, #4caf50) !important;
   border-color: var(--primary, #4caf50) !important;
