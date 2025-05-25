@@ -394,9 +394,11 @@ export default function ProfileSetup() {
       <div className={styles.socialIconsRow}>
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
-          const iconClass = profile?.confirmed ? styles.socialIconConfirmed : 
-                      profile?.autoFilled ? styles.socialIconAutoFilled : 
-                      styles.socialIconDefault;
+          // Force email to always be green (confirmed)
+          const iconClass = platform === 'email' ? styles.socialIconConfirmed : 
+                       profile?.confirmed ? styles.socialIconConfirmed : 
+                       profile?.autoFilled ? styles.socialIconAutoFilled : 
+                       styles.socialIconDefault;
           
           return (
             <div 
