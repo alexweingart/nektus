@@ -346,7 +346,11 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
+    <form
+      className="max-w-md mx-auto p-6"
+      autoComplete="on"
+      onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+    >
       {/* Profile Photo and Name */}
       <div className="text-center mb-8">
         {session?.user?.image ? (
@@ -396,6 +400,9 @@ export default function ProfileSetup() {
       {/* Phone Input Component */}
       <div className="mb-6">
         <PhoneInput
+          name="tel"
+          autoComplete="tel"
+          inputMode="tel"
           defaultCountry="US"
           value={phoneWithCountryCode as E164Number}
           onChange={(value: E164Number | undefined) => {
@@ -503,7 +510,7 @@ export default function ProfileSetup() {
       
       {/* Save Button */}
       <button 
-        onClick={handleSave}
+        type="submit"
         disabled={isSaving}
         className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
@@ -514,6 +521,6 @@ export default function ProfileSetup() {
           </>
         ) : 'Save'}
       </button>
-    </div>
+    </form>
   );
 }
