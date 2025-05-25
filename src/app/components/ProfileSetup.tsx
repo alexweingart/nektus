@@ -464,8 +464,8 @@ export default function ProfileSetup() {
               
               // Store only national digits
               const nationalDigits = parsed.nationalNumber;
-              setPhoneWithCountryCode(nationalDigits as E164Number);        // only national digits
-              setPhone(nationalDigits);
+              setPhoneWithCountryCode(nationalDigits.toString() as unknown as E164Number);  // only national digits
+              setPhone(nationalDigits.toString());
               
               // Set completed flag when valid
               setHasCompletedPhone(nationalDigits.length >= 10);
