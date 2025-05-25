@@ -346,7 +346,7 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-background shadow-md rounded-xl">
+    <div className="max-w-md mx-auto p-6">
       {/* Profile Photo and Name */}
       <div className="text-center mb-8">
         {session?.user?.image ? (
