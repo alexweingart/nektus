@@ -80,6 +80,17 @@ try {
   // Skip dependency check for certain packages - Vercel deployment issue
   console.log('   ✓ Using alternative dependency verification approach...');
   
+  // Special case: remove bare @radix-ui from imports if we have specific @radix-ui/* packages
+  // This happens due to how imports are detected in the findImportsInFile function
+  if (Object.keys(packageJson.dependencies || {}).some(dep => dep.startsWith('@radix-ui/'))) {
+    console.log('   ✓ Detected specific @radix-ui/* packages in dependencies');
+    // Filter out bare @radix-ui from imports since we have specific packages
+    const bareRadixIndex = importedPackages.has('@radix-ui') ? importedPackages.delete('@radix-ui') : false;
+    if (bareRadixIndex) {
+      console.log('   ✓ Removed bare @radix-ui import as we have specific packages');
+    }
+  }
+  
   // Create a temp override to ensure deployment success
   const ensureDependency = (packageName) => {
     // Special handling for @radix-ui packages
@@ -143,41 +154,57 @@ try {
   const findImportsInFile = (filePath) => {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
-      // Improved regex to better detect imports with special characters and paths
-      const importRegex = /import\s+(?:(?:[\w*\s{},]*)\s+from\s+)?['"]([^'"\s]+)['"]|require\(['"]([^'"\s]+)['"]\)/g;
       const imports = [];
-      let match;
       
-      // Directly check for known packages that might be missed by regex
-      const knownPackages = ['react-input-mask', 'react-phone-number-input'];
-      const contentHasPackage = (pkg) => content.includes(`'${pkg}'`) || content.includes(`"${pkg}"`);
+      // Helper to check if content has package import
+      const contentHasPackage = (pkg) => {
+        // Simple check for import statement
+        const pattern1 = new RegExp(`['"](${pkg}['"]|['"](${pkg}/.+)['"])`, 'i');
+        // Check for require statement
+        const pattern2 = new RegExp(`require\(['"]${pkg}(['"]|/.+['"])\)`, 'i');
+        return pattern1.test(content) || pattern2.test(content);
+      };
       
-      // Add any directly detected packages
-      knownPackages.forEach(pkg => {
-        if (contentHasPackage(pkg)) {
-          imports.push(pkg);
-        }
-      });
-      
-      // Process regular imports
-      while ((match = importRegex.exec(content)) !== null) {
-        // Handle both import and require styles
-        const importPath = match[1] || match[2];
-        if (!importPath) continue;
-        
-        // Only track external package imports (not relative or internal)
-        if (!importPath.startsWith('./') && !importPath.startsWith('../') && !importPath.startsWith('@/')) {
-          // Extract package name (e.g., 'lodash/throttle' -> 'lodash')
-          const packageName = importPath.split('/')[0];
-          if (packageName && packageName !== '@') {
-            imports.push(packageName);
-          }
+      // Check for known package patterns
+      for (const dep of Object.keys(packageJson.dependencies || {})) {
+        if (contentHasPackage(dep)) {
+          imports.push(dep);
         }
       }
       
-      return imports;
+      for (const dep of Object.keys(packageJson.devDependencies || {})) {
+        if (contentHasPackage(dep)) {
+          imports.push(dep);
+        }
+      }
+      
+      // Additional import patterns
+      const importMatches = content.match(/from\s+['"]([^'"./][^'"]*)['"]|require\(['"]([^'"./][^'"]*)['"]\)/g) || [];
+      
+      importMatches.forEach(match => {
+        const packagePath = match.replace(/from\s+['"](.*)['"]|require\(['"](.*)['"](\))?/, '$1$2');
+        const packageName = packagePath.split('/')[0];
+        
+        // Scope packages (e.g., @radix-ui/react-label)
+        if (packageName.startsWith('@')) {
+          const scope = packageName;
+          const actualPackage = packagePath.split('/')[1];
+          const fullPackage = `${scope}/${actualPackage}`;
+          
+          // Only add the scope itself for certain packages that might exist as a root package
+          // For @radix-ui, we only want the specific subpackages, not the root
+          if (scope !== '@radix-ui') {
+            imports.push(scope);
+          }
+          imports.push(fullPackage);
+        } else {
+          imports.push(packageName);
+        }
+      });
+      
+      return [...new Set(imports)];
     } catch (error) {
-      console.log(`   Warning: Error reading file ${filePath}: ${error.message}`);
+      console.error(`Error reading file ${filePath}:`, error.message);
       return [];
     }
   };
