@@ -85,14 +85,12 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
   onChange,
   className = '',
 }) => {
-  // State for tracking the phone number, selected country, and dropdown state
   const [phoneInput, setPhoneInput] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(countries[0]); // US by default
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
-  // Refs for input and dropdown
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedCountry, setSelectedCountry] = useState(countries[0]); // Default to US
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize component with value if provided
   useEffect(() => {
@@ -182,15 +180,15 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
   }, []);
 
   return (
-    <div className={`flex ${className}`}>
+    <div className={`flex ${className}`} style={{ backgroundColor: 'white' }}>
       {/* Country selector */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-3 py-2 border border-r-0 border-gray-300 rounded-l-md bg-white text-gray-700 h-full"
+          className={`flex items-center justify-between px-3 py-2 border border-r-0 ${isInputFocused ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-l-md bg-white text-gray-700 h-full`}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
-          style={{ zIndex: 1 }}
+          style={{ zIndex: 1, backgroundColor: 'white' }}
         >
           <span className="mr-2">{selectedCountry.flag}</span>
           <div className="flex flex-col">
@@ -201,7 +199,7 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-10 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-10 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto" style={{ backgroundColor: 'white' }}>
             {countries.map((country) => (
               <div
                 key={country.code}
@@ -226,6 +224,8 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
         placeholder="Enter phone number"
         value={phoneInput}
         onChange={handlePhoneChange}
+        onFocus={() => setIsInputFocused(true)}
+        onBlur={() => setIsInputFocused(false)}
         maxLength={14} // (XXX) XXX-XXXX format has 14 characters
         style={{ backgroundColor: 'white' }}
       />
