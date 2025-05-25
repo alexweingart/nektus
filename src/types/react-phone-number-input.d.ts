@@ -14,7 +14,7 @@ declare module 'react-phone-number-input' {
     countryCallingCodeEditable?: boolean;
     inputComponent?: React.ComponentType<any>;
     InputComponent?: React.ComponentType<any>;
-    onCountryChange?: (country: CountryCode) => void;
+    onCountryChange?: (country: string) => void;
   }
   
   export const parsePhoneNumberFromString: (input: string, country?: CountryCode) => {
