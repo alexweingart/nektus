@@ -605,28 +605,30 @@ export default function ProfileSetup() {
                 // Always place cursor at position 1 (after opening parenthesis)
                 // Force cursor inside the parenthesis - must be delayed to work on mobile
                 setTimeout(() => {
+                  const inputEl = e.target as HTMLInputElement;
                   if (!formattedPhone) {
-                    e.target.value = '('; // Force the field to have an opening parenthesis
-                    e.target.setSelectionRange(1, 1);
+                    inputEl.value = '(';
+                    inputEl.setSelectionRange(1, 1);
                   } else {
                     // Find the next editable position (not a symbol)
-                    const value = e.target.value;
+                    const value = inputEl.value;
                     const pos = Math.min(value.length, Math.max(1, value.search(/[^(]/)));
-                    e.target.setSelectionRange(pos, pos);
+                    inputEl.setSelectionRange(pos, pos);
                   }
                 }, 50); // Small delay needed for mobile
               }}
               onClick={(e) => {
                 // Also set cursor position on click
                 setTimeout(() => {
+                  const inputEl = e.target as HTMLInputElement;
                   if (!formattedPhone) {
-                    e.target.value = '(';
-                    e.target.setSelectionRange(1, 1);
+                    inputEl.value = '(';
+                    inputEl.setSelectionRange(1, 1);
                   } else {
                     // Find the next editable position (not a symbol)
-                    const value = e.target.value;
+                    const value = inputEl.value;
                     const pos = Math.min(value.length, Math.max(1, value.search(/[^(]/)));
-                    e.target.setSelectionRange(pos, pos);
+                    inputEl.setSelectionRange(pos, pos);
                   }
                 }, 50);
               }}
