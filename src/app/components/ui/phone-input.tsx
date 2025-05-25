@@ -14,7 +14,7 @@ export type PhoneInputProps = React.ComponentPropsWithoutRef<typeof ReactPhoneIn
 }
 
 const PhoneInput = React.forwardRef<React.ElementRef<"input">, PhoneInputProps>(
-  ({ className, onCountryChange, ...props }, ref) => {
+  ({ className, onCountryChange, onChange, ...props }, ref) => {
     return (
       <div className="relative">
         <ReactPhoneInput
@@ -22,6 +22,7 @@ const PhoneInput = React.forwardRef<React.ElementRef<"input">, PhoneInputProps>(
           international
           countryCallingCodeEditable={false}
           defaultCountry="US"
+          onChange={onChange}
           onCountryChange={(value) => {
             onCountryChange?.(value as CountryCode)
           }}
