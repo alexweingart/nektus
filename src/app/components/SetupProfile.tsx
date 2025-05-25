@@ -403,19 +403,34 @@ const SetupProfile: React.FC = () => {
               <div style={{ margin: '16px 0', color: 'var(--secondary-dark)', fontSize: '14px' }}>or</div>
             </div>
             
-            <button
-              onClick={handleGoogleSignIn}
-              className="google-signin-button"
-            >
-              <Image 
-                src="/icons/google.svg" 
-                alt="Google" 
-                width={20} 
-                height={20}
-                style={{ marginRight: '12px' }}
-              />
-              Sign in with Google
-            </button>
+            <div style={{ 
+              boxShadow: 'none', 
+              WebkitBoxShadow: 'none',
+              MozBoxShadow: 'none',
+              filter: 'none',
+              margin: '0',
+              padding: '0',
+            }}>
+              <button
+                onClick={handleGoogleSignIn}
+                className="google-signin-button"
+                style={{ 
+                  boxShadow: 'none !important',
+                  WebkitBoxShadow: 'none !important',
+                  MozBoxShadow: 'none !important',
+                  filter: 'none !important',
+                }}
+              >
+                <Image 
+                  src="/icons/google.svg" 
+                  alt="Google" 
+                  width={20} 
+                  height={20}
+                  style={{ marginRight: '12px' }}
+                />
+                Sign in with Google
+              </button>
+            </div>
           </>
         )}
         
