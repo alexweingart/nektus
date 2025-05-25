@@ -21,32 +21,40 @@
 
 /* For backward compatibility */
 .phoneInputContainer {
-  display: flex;
   width: 100%;
   margin-bottom: 1rem;
+  position: relative;
 }
 
-.phoneInputWrapper {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  background-color: white;
-  /* Make the field focused by default */
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+/* Style for the new PhoneInput component */
+.phoneInput {
+  font-size: 16px;
+  /* Ensure text is large enough on mobile */
+}
+
+/* Target the country selector inside the PhoneInput component */
+.phoneInput :global([role="combobox"]) {
   border-color: #4caf50;
+  color: #333;
+  background-color: white;
 }
 
-/* Fix for the green line between country and number */
-.phoneInputWrapper:focus-within {
+/* Target the input field inside the PhoneInput component */
+.phoneInput :global(input) {
+  border-color: #4caf50;
+  font-size: 16px;
+  padding: 8px 12px;
+  height: 42px;
+}
+
+/* Style for focused state */
+.phoneInput :global(:focus-within) {
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
   border-color: #4caf50;
 }
 
-.phoneInputWrapper input:focus {
+/* Remove default focus outlines and use our custom one */
+.phoneInput :global(input:focus) {
   box-shadow: none;
   outline: none;
 }
@@ -64,134 +72,23 @@
   height: 100%;
 }
 
-/* Interactive country code selector */
-.countryCodeSelector {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem;
-  background-color: #f9f9f9;
-  border-right: 1px solid #e0e0e0;
-  min-width: 4.5rem;
-  justify-content: space-between;
-  height: 100%;
-  position: relative;
-  cursor: pointer;
-}
+/* Social profile inputs - these are still used */
 
-.countryCodeSelector:hover,
-.countryCodeSelector:focus {
-  background-color: #f0f0f0;
-  outline: none;
-}
-
-/* Country code text */
-.countryCodeText {
-  font-size: 0.875rem;
-  color: #333;
-  margin-left: 0.25rem;
-  font-weight: 500;
-}
-
-/* Dropdown caret icon */
-.caretIcon {
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #666;
-  margin-left: 4px;
-  transition: transform 0.2s ease;
-}
-
-.countryCodeSelector[aria-expanded="true"] .caretIcon {
-  transform: rotate(180deg);
-}
-
-/* Country dropdown styles */
-.countryDropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 250px;
-  max-height: 300px;
-  overflow-y: auto;
-  background-color: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  margin-top: 5px;
-}
-
-.countryOption {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.countryOption:hover {
-  background-color: #f5f5f5;
-}
-
-.optionFlag {
-  width: 1.5rem;
-  height: 1rem;
-  object-fit: contain;
-  margin-right: 0.75rem;
-}
-
-.countryName {
-  flex: 1;
-  font-size: 0.875rem;
-  color: #333;
-}
-
-.countryCodeDisplay {
-  font-size: 0.875rem;
+/* Profile preview for social networks */
+.profilePreview {
+  font-size: 0.75rem;
   color: #666;
+  margin-top: 0.25rem;
   margin-left: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-
-
-.flagIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.flagImage {
-  width: 1.5rem;
-  height: 1rem;
-  object-fit: contain;
-}
-
-/* No arrow icon needed in simplified approach */
-
-/* Masked input styling */
-.maskedInput {
-  flex: 1;
-  border: none;
-  padding: 0.75rem;
-  font-size: 1rem;
-  color: #333;
-  width: 100%;
-  background: transparent;
-  /* Ensure proper display on iOS */
-  -webkit-appearance: none;
-  appearance: none;
-  border-radius: 0;
-}
-
-.maskedInput:focus {
-  outline: none;
-}
-
-/* Define a placeholder color */
-.maskedInput::placeholder {
-  color: #999;
+/* Social input group for each social platform */
+.socialInputGroup {
+  margin-bottom: 1rem;
 }
 
 /* Social profile URL preview */

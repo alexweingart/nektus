@@ -5,8 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import styles from './ProfileSetup.module.css';
 import phoneInputStyles from './PhoneInput.module.css';
-import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';  
-import 'react-phone-number-input/style.css';
+import { PhoneInput } from './ui/phone-input';
+import { CountryCode, E164Number } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -15,7 +15,6 @@ import {
   FaTwitter, 
   FaSnapchat, 
   FaLinkedin, 
-  FaPhone,
   FaEnvelope,
   FaChevronDown,
   FaChevronUp
@@ -54,36 +53,7 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
-  // Country dropdown state
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
-  const [selectedCountryFlag, setSelectedCountryFlag] = useState('/us-flag.png');
-  
-  // Country dropdown options
-  const countryOptions = [
-    { code: '+1', name: 'United States', flag: '/us-flag.png' },
-    { code: '+1', name: 'Canada', flag: '/ca-flag.png' },
-    { code: '+44', name: 'United Kingdom', flag: '/gb-flag.png' },
-    { code: '+52', name: 'Mexico', flag: '/mx-flag.png' },
-    { code: '+33', name: 'France', flag: '/fr-flag.png' },
-    { code: '+49', name: 'Germany', flag: '/de-flag.png' },
-  ];
-  
-  // Handle clicks outside the dropdown
-  const countryDropdownRef = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
-        setShowCountryDropdown(false);
-      }
-    }
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  // We're using a proper PhoneInput component now
 
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
@@ -489,151 +459,42 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Simple Phone Number Input with US Country Code */}
+      {/* Phone Input with ShadCN-style component */}
       <div className={styles.formGroup}>
         <div className={phoneInputStyles.phoneInputContainer}>
-          <div className={phoneInputStyles.phoneInputWrapper}>
-            {/* Interactive country code selector with dropdown */}
-            <div 
-              ref={countryDropdownRef}
-              className={phoneInputStyles.countryCodeSelector}
-              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-              role="button"
-              tabIndex={0}
-              aria-expanded={showCountryDropdown}
-              aria-haspopup="listbox"
-            >
-              <div className={phoneInputStyles.flagIcon}>
-                <img src={selectedCountryFlag} alt="Country flag" className={phoneInputStyles.flagImage} />
-              </div>
-              <span className={phoneInputStyles.countryCodeText}>{selectedCountryCode}</span>
-              <div className={phoneInputStyles.caretIcon}></div>
-              
-              {/* Country options dropdown */}
-              {showCountryDropdown && (
-                <div className={phoneInputStyles.countryDropdown} role="listbox">
-                  {countryOptions.map((country) => (
-                    <div 
-                      key={`${country.code}-${country.name}`}
-                      className={phoneInputStyles.countryOption}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCountryCode(country.code);
-                        setSelectedCountryFlag(country.flag);
-                        setShowCountryDropdown(false);
-                        setPhoneWithCountryCode(`${country.code}${phone}`);
-                      }}
-                      role="option"
-                      aria-selected={selectedCountryCode === country.code && selectedCountryFlag === country.flag}
-                    >
-                      <img src={country.flag} alt={country.name} className={phoneInputStyles.optionFlag} />
-                      <span className={phoneInputStyles.countryName}>{country.name}</span>
-                      <span className={phoneInputStyles.countryCodeDisplay}>{country.code}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Basic phone input with auto-formatting */}
-            <input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              name="phone"
-              autoFocus
-              value={formattedPhone || ''}
-              placeholder="(___) ___-____"
-              className={phoneInputStyles.maskedInput}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                let value = e.target.value;
+          <PhoneInput
+            defaultCountry="US"
+            onPhoneChange={(value: E164Number | undefined) => {
+              if (value) {
+                // Update all the state variables
+                const phoneStr = value.toString();
+                setPhoneWithCountryCode(phoneStr);
                 
-                // Handle autosuggest with country code
-                if (value.startsWith('1') || value.startsWith('+1')) {
-                  // Remove the country code prefix
-                  value = value.replace(/^\+?1\s*/, '');
-                }
-                
-                // Extract digits only - limit to 10 digits max
-                let digits = value.replace(/\D/g, '');
-                if (digits.length > 10) {
-                  digits = digits.slice(0, 10); // Strictly limit to 10 digits
-                }
-                
-                // Create formatted version with underscores as placeholders
-                let formatted = '(___) ___-____'; // Start with full placeholder
-                
-                // Replace placeholders with actual digits as they're entered
-                if (digits.length > 0) {
-                  // Format with placeholders that remain visible
-                  formatted = '';
-                  
-                  // Area code (first 3 digits)
-                  formatted = '(';
-                  for (let i = 0; i < 3; i++) {
-                    formatted += i < digits.length ? digits[i] : '_';
-                  }
-                  formatted += ') ';
-                  
-                  // Middle 3 digits
-                  for (let i = 3; i < 6; i++) {
-                    formatted += i < digits.length ? digits[i] : '_';
-                  }
-                  formatted += '-';
-                  
-                  // Last 4 digits
-                  for (let i = 6; i < 10; i++) {
-                    formatted += i < digits.length ? digits[i] : '_';
-                  }
-                }
-                
-                // Update state
-                setFormattedPhone(formatted);
+                // Extract just the local digits (no country code)
+                const digits = phoneStr.replace(/^\+\d+\s*/, '');
                 setPhone(digits);
-                setPhoneWithCountryCode(`+1${digits}`);
                 
-                // Set completed flag only when exactly 10 digits
-                const isComplete = digits.length === 10;
-                setHasCompletedPhone(isComplete);
+                // Set completed flag when valid
+                setHasCompletedPhone(digits.length === 10);
                 
-                // Update WhatsApp profile
+                // Update WhatsApp profile with the digits
                 if (digits.length > 0) {
                   updateProfilesWithPhone(digits);
                 }
-              }}
-              onFocus={(e) => {
-                // Always place cursor at position 1 (after opening parenthesis)
-                // Force cursor inside the parenthesis - must be delayed to work on mobile
-                setTimeout(() => {
-                  const inputEl = e.target as HTMLInputElement;
-                  if (!formattedPhone) {
-                    inputEl.value = '(';
-                    inputEl.setSelectionRange(1, 1);
-                  } else {
-                    // Find the next editable position (not a symbol)
-                    const value = inputEl.value;
-                    const pos = Math.min(value.length, Math.max(1, value.search(/[^(]/)));
-                    inputEl.setSelectionRange(pos, pos);
-                  }
-                }, 50); // Small delay needed for mobile
-              }}
-              onClick={(e) => {
-                // Also set cursor position on click
-                setTimeout(() => {
-                  const inputEl = e.target as HTMLInputElement;
-                  if (!formattedPhone) {
-                    inputEl.value = '(';
-                    inputEl.setSelectionRange(1, 1);
-                  } else {
-                    // Find the next editable position (not a symbol)
-                    const value = inputEl.value;
-                    const pos = Math.min(value.length, Math.max(1, value.search(/[^(]/)));
-                    inputEl.setSelectionRange(pos, pos);
-                  }
-                }, 50);
-              }}
-            />
-          </div>
+              } else {
+                // Handle empty or invalid state
+                setPhoneWithCountryCode('');
+                setPhone('');
+                setHasCompletedPhone(false);
+              }
+            }}
+            onCountryChange={(country: CountryCode) => {
+              // Update country-related state if needed
+              console.log(`Country changed to: ${country}`);
+            }}
+            className={phoneInputStyles.phoneInput}
+            autoFocus
+          />
         </div>
       </div>
       
