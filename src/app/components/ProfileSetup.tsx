@@ -393,7 +393,7 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Input Component with shadcn-style */}
+      {/* Phone Input Component */}
       <div className="mb-6">
         <PhoneInput
           defaultCountry="US"
@@ -421,11 +421,6 @@ export default function ProfileSetup() {
               setHasCompletedPhone(false);
             }
           }}
-          onCountryChange={(country) => {
-            console.log(`Country changed to: ${country}`);
-          }}
-          className="w-full"
-          autoFocus
         />
       </div>
       
