@@ -398,7 +398,7 @@ export default function ProfileSetup() {
         <PhoneInput
           defaultCountry="US"
           value={phoneWithCountryCode as E164Number}
-          onChange={(value) => {
+          onChange={(value: E164Number | undefined) => {
             if (value) {
               // Update all the state variables
               setPhoneWithCountryCode(value as string);
