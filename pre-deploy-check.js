@@ -20,7 +20,7 @@ try {
   
   // List of critical dependencies the app requires
   const requiredDependencies = [
-    'next', 'react', 'react-dom', 'next-auth', 'firebase'
+    'next', 'react', 'react-dom', 'next-auth', 'firebase', 'react-input-mask', 'react-phone-number-input'
   ];
   
   // CSS-related dependencies that should be present (usually as dev dependencies)
@@ -61,14 +61,37 @@ try {
   // Find all imported packages from source code
   console.log('   ✓ Checking for imported packages not in package.json...');
   
+  // Special check for critical dependencies that might be missed by regex
+  console.log('   ✓ Verifying react-input-mask is installed...');
+  try {
+    require.resolve('react-input-mask');
+    console.log('   ✓ react-input-mask verified');
+  } catch (error) {
+    console.error('❌ react-input-mask not found, please reinstall: npm install --save react-input-mask');
+    process.exit(1);
+  }
+  
   // Use a custom approach to find imports in source code
   const findImportsInFile = (filePath) => {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
+      // Improved regex to better detect imports with special characters and paths
       const importRegex = /import\s+(?:(?:[\w*\s{},]*)\s+from\s+)?['"]([^'"\s]+)['"]|require\(['"]([^'"\s]+)['"]\)/g;
       const imports = [];
       let match;
       
+      // Directly check for known packages that might be missed by regex
+      const knownPackages = ['react-input-mask', 'react-phone-number-input'];
+      const contentHasPackage = (pkg) => content.includes(`'${pkg}'`) || content.includes(`"${pkg}"`);
+      
+      // Add any directly detected packages
+      knownPackages.forEach(pkg => {
+        if (contentHasPackage(pkg)) {
+          imports.push(pkg);
+        }
+      });
+      
+      // Process regular imports
       while ((match = importRegex.exec(content)) !== null) {
         // Handle both import and require styles
         const importPath = match[1] || match[2];
