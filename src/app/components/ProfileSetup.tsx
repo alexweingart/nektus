@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import styles from './ProfileSetup.module.css';
 import phoneInputStyles from './PhoneInput.module.css';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';  
 import 'react-phone-number-input/style.css';
-import InputMask from 'react-input-mask';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -471,24 +470,36 @@ export default function ProfileSetup() {
               <div className={phoneInputStyles.arrowIcon}></div>
             </div>
             
-            {/* Masked input field */}
-            <InputMask
-              mask="(999) 999-9999"
-              maskChar="_"
-              alwaysShowMask
+            {/* Custom masked input field */}
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              name="phone"
+              autoFocus
               value={formattedPhone}
+              placeholder="(___) ___-____"
+              className={phoneInputStyles.maskedInput}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const value = e.target.value;
-                setFormattedPhone(value);
+                // Get just the digits
+                const digits = e.target.value.replace(/\D/g, '');
                 
-                // Extract digits
-                const digits = value.replace(/\D/g, '');
+                // Format the digits with mask
+                let formatted = '';
+                if (digits.length > 0) {
+                  formatted = `(${digits.slice(0, 3)}`;
+                  if (digits.length > 3) {
+                    formatted += `) ${digits.slice(3, 6)}`;
+                    if (digits.length > 6) {
+                      formatted += `-${digits.slice(6, 10)}`;
+                    }
+                  }
+                }
+                
+                // Update state
+                setFormattedPhone(formatted);
                 setPhone(digits);
-                
-                // Set country code format for compatibility
                 setPhoneWithCountryCode(`+1${digits}`);
-                
-                // Update completion status
                 setHasCompletedPhone(digits.length === 10);
                 
                 // Update WhatsApp profile
@@ -496,12 +507,6 @@ export default function ProfileSetup() {
                   updateProfilesWithPhone(digits);
                 }
               }}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              name="phone"
-              autoFocus
-              className={phoneInputStyles.maskedInput}
             />
           </div>
         </div>
