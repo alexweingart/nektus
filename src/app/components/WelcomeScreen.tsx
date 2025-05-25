@@ -91,7 +91,11 @@ const WelcomeScreen: React.FC = () => {
         </p>
         
         <button 
-          onClick={() => signIn('google', { callbackUrl: '/setup' })}
+          onClick={() => {
+            // Set flag to indicate we want to focus the phone input after redirect
+            sessionStorage.setItem("wantsPhoneFocus", "1");
+            signIn('google', { callbackUrl: '/setup' });
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
