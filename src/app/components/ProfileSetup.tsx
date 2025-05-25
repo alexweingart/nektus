@@ -7,6 +7,7 @@ import styles from './ProfileSetup.module.css';
 import phoneInputStyles from './PhoneInput.module.css';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';  
 import 'react-phone-number-input/style.css';
+import InputMask from 'react-input-mask';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -430,29 +431,51 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Number Input - Using react-phone-number-input */}
+      {/* Phone Number Input - With proper masking and mobile support */}
       <div className={styles.formGroup}>
         <div className={phoneInputStyles.phoneInputContainer}>
-          <PhoneInput
-            international
-            defaultCountry="US"
-            value={phoneWithCountryCode}
-            onChange={handlePhoneInputChange}
-            placeholder="(___) ___-____"
-            inputComponent={({ onChange, ...restProps }) => (
-              <input
-                {...restProps}
-                type="tel"
-                autoComplete="tel"
-                name="phone"
-                onChange={(e) => {
-                  if (onChange) {
-                    onChange(e);
-                  }
-                }}
-              />
-            )}
-          />
+          <div className={phoneInputStyles.phoneInputWrapper}>
+            {/* Country code selector */}
+            <div className={phoneInputStyles.countryCodeSelector}>
+              <div className={phoneInputStyles.flagIcon}>
+                <img src="/us-flag.png" alt="US" className={phoneInputStyles.flagImage} />
+              </div>
+              <div className={phoneInputStyles.arrowIcon}></div>
+            </div>
+            
+            {/* Masked input field */}
+            <InputMask
+              mask="(999) 999-9999"
+              maskChar="_"
+              alwaysShowMask
+              value={formattedPhone}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormattedPhone(value);
+                
+                // Extract digits
+                const digits = value.replace(/\D/g, '');
+                setPhone(digits);
+                
+                // Set country code format for compatibility
+                setPhoneWithCountryCode(`+1${digits}`);
+                
+                // Update completion status
+                setHasCompletedPhone(digits.length === 10);
+                
+                // Update WhatsApp profile
+                if (digits.length > 0) {
+                  updateProfilesWithPhone(digits);
+                }
+              }}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              name="phone"
+              autoFocus
+              className={phoneInputStyles.maskedInput}
+            />
+          </div>
         </div>
       </div>
       

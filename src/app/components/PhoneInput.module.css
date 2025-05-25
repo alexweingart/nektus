@@ -1,64 +1,60 @@
-/* Custom styles for the react-phone-number-input */
-.phoneInputContainer :global(.PhoneInput) {
+/* Custom styles for the phone input */
+.phoneInputContainer {
   display: flex;
+  width: 100%;
+}
+
+.phoneInputWrapper {
+  display: flex;
+  width: 100%;
   align-items: center;
   border: 1px solid #e0e0e0;
   border-radius: 0.5rem;
   overflow: hidden;
   background-color: white;
-  padding: 0;
   /* Make the field focused by default */
   outline: none;
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
   border-color: #4caf50;
 }
 
-.phoneInputContainer :global(.PhoneInputCountry) {
+/* Country code selector */
+.countryCodeSelector {
   display: flex;
   align-items: center;
   padding: 0 0.5rem;
-  background-color: transparent;
-  /* Remove the border between country code and input */
-  border-right: none;
-  min-width: 2.5rem;
-  max-width: 2.5rem;
+  background-color: #f9f9f9;
+  border-right: 1px solid #e0e0e0;
+  min-width: 3rem;
+  max-width: 3rem;
+  justify-content: center;
+  height: 100%;
+}
+
+.flagIcon {
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-/* Hide the country code text (+1, etc.) */
-.phoneInputContainer :global(.PhoneInputCountryCode) {
-  display: none;
-}
-
-.phoneInputContainer :global(.PhoneInputCountrySelect) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  z-index: 1;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.phoneInputContainer :global(.PhoneInputCountryIcon) {
+.flagImage {
   width: 1.5rem;
   height: 1rem;
-  /* Remove margin as we're hiding the country code */
-  margin-right: 0;
+  object-fit: contain;
 }
 
-.phoneInputContainer :global(.PhoneInputCountrySelectArrow) {
+.arrowIcon {
   width: 0.5rem;
   height: 0.5rem;
   border-style: solid;
   border-color: #666;
   border-width: 0 1px 1px 0;
   transform: rotate(45deg);
+  margin-left: 0.25rem;
 }
 
-.phoneInputContainer :global(.PhoneInputInput) {
+/* Masked input styling */
+.maskedInput {
   flex: 1;
   border: none;
   padding: 0.75rem;
@@ -66,19 +62,17 @@
   color: #333;
   width: 100%;
   background: transparent;
+  /* Ensure proper display on iOS */
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
 }
 
-.phoneInputContainer :global(.PhoneInputInput:focus) {
+.maskedInput:focus {
   outline: none;
 }
 
-.phoneInputContainer :global(.PhoneInputInput::placeholder) {
+/* Define a placeholder color */
+.maskedInput::placeholder {
   color: #999;
-}
-
-/* Hide the focus outline */
-.phoneInputContainer :global(.PhoneInput--focus) {
-  outline: none;
-  border-color: #4caf50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
