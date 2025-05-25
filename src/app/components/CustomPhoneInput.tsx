@@ -78,19 +78,30 @@ interface CustomPhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  placeholder?: string;
+  isDisabled?: boolean;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
 }
 
-const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
-  value,
-  onChange,
-  className = '',
-}) => {
+const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProps>((
+  {
+    value,
+    onChange,
+    className = '',
+    placeholder = 'Enter phone number',
+    isDisabled = false,
+    inputProps = {},
+  },
+  ref
+) => {
   const [phoneInput, setPhoneInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries[0]); // Default to US
   const [isInputFocused, setIsInputFocused] = useState(false);
+  
+  // Create refs
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize component with value if provided
   useEffect(() => {
@@ -216,21 +227,37 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
       
       {/* Phone number input */}
       <input
-        ref={inputRef}
+        ref={(element) => {
+          // Forward ref to parent component
+          if (typeof ref === 'function') {
+            ref(element);
+          } else if (ref) {
+            (ref as React.MutableRefObject<HTMLInputElement | null>).current = element;
+          }
+          // Also store in internal ref
+          if (element !== null) {
+            inputRef.current = element;
+          }
+        }}
         type="tel"
         inputMode="tel"
         autoComplete="tel"
         className="flex-1 px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
-        placeholder="Enter phone number"
+        placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
         onFocus={() => setIsInputFocused(true)}
         onBlur={() => setIsInputFocused(false)}
         maxLength={14} // (XXX) XXX-XXXX format has 14 characters
         style={{ backgroundColor: 'white' }}
+        disabled={isDisabled}
+        {...inputProps}
       />
     </div>
   );
-};
+});
+
+// Add display name for React DevTools
+CustomPhoneInput.displayName = 'CustomPhoneInput';
 
 export default CustomPhoneInput;
