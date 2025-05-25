@@ -200,21 +200,28 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
         if (country.value === "US" || country.value === "CA") {
           // Format as (XXX) XXX-XXXX
           if (value.length > 0) {
+            // Always start with an open parenthesis
             let formatted = "("
             
-            // Area code
-            if (value.length > 0) {
-              formatted += value.substring(0, Math.min(3, value.length))
+            // Area code with placeholder underscores
+            for (let i = 0; i < 3; i++) {
+              formatted += i < value.length ? value[i] : "_"
             }
             
-            if (value.length > 3) {
-              formatted += ") " + value.substring(3, Math.min(6, value.length))
-            } else if (value.length === 3) {
-              formatted += ") "
+            // Always add closing parenthesis and space after the area code
+            formatted += ") "
+            
+            // Next 3 digits with placeholder underscores
+            for (let i = 3; i < 6; i++) {
+              formatted += i < value.length ? value[i] : "_"
             }
             
-            if (value.length > 6) {
-              formatted += "-" + value.substring(6, Math.min(10, value.length))
+            // Always add the hyphen
+            formatted += "-"
+            
+            // Last 4 digits with placeholder underscores
+            for (let i = 6; i < 10; i++) {
+              formatted += i < value.length ? value[i] : "_"
             }
             
             return formatted

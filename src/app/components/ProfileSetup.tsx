@@ -54,7 +54,16 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
-  // We're using a proper PhoneInput component now
+  // Define the countries array for phone input component
+  const countries = [
+    { value: "US", label: "United States", code: "+1" },
+    { value: "CA", label: "Canada", code: "+1" },
+    { value: "GB", label: "United Kingdom", code: "+44" },
+    { value: "MX", label: "Mexico", code: "+52" },
+    { value: "IN", label: "India", code: "+91" },
+    { value: "DE", label: "Germany", code: "+49" },
+    { value: "FR", label: "France", code: "+33" },
+  ];
 
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
@@ -490,8 +499,16 @@ export default function ProfileSetup() {
               }
             }}
             onCountryChange={(country: CountryCode) => {
-              // Update country-related state if needed
-              console.log(`Country changed to: ${country}`);
+              // Update stored country information when changed
+              // This ensures the country code is properly reflected in the phone number
+              if (country && phone) {
+                // Get the country code from the selected country
+                const countryObj = countries.find((c: {value: string, label: string, code: string}) => c.value === country);
+                if (countryObj) {
+                  // Update the full phone number with the new country code
+                  setPhoneWithCountryCode(`${countryObj.code}${phone}`);
+                }
+              }
             }}
             className={phoneInputStyles.phoneInput}
             autoFocus
