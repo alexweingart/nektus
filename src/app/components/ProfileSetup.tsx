@@ -394,11 +394,21 @@ export default function ProfileSetup() {
       <div className={styles.socialIconsRow}>
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
-          // Force email to always be green (confirmed)
-          const iconClass = platform === 'email' ? styles.socialIconConfirmed : 
-                       profile?.confirmed ? styles.socialIconConfirmed : 
+          // Handle special cases for icon styling
+          let iconClass;
+          
+          if (platform === 'email') {
+            // Force email to always be green (confirmed)
+            iconClass = styles.socialIconConfirmed;
+          } else if (platform === 'phone') {
+            // Phone icon should only be green when exactly 10 digits are entered
+            iconClass = phone && phone.length === 10 ? styles.socialIconConfirmed : styles.socialIconDefault;
+          } else {
+            // Normal behavior for other icons
+            iconClass = profile?.confirmed ? styles.socialIconConfirmed : 
                        profile?.autoFilled ? styles.socialIconAutoFilled : 
                        styles.socialIconDefault;
+          }
           
           return (
             <div 
@@ -422,14 +432,26 @@ export default function ProfileSetup() {
       
       {/* Phone Number Input - Using react-phone-number-input */}
       <div className={styles.formGroup}>
-        <label htmlFor="phone" className={styles.formLabel}>Phone Number</label>
         <div className={phoneInputStyles.phoneInputContainer}>
           <PhoneInput
             international
             defaultCountry="US"
             value={phoneWithCountryCode}
             onChange={handlePhoneInputChange}
-            placeholder="Enter phone number"
+            placeholder="(___) ___-____"
+            inputComponent={({ onChange, ...restProps }) => (
+              <input
+                {...restProps}
+                type="tel"
+                autoComplete="tel"
+                name="phone"
+                onChange={(e) => {
+                  if (onChange) {
+                    onChange(e);
+                  }
+                }}
+              />
+            )}
           />
         </div>
       </div>

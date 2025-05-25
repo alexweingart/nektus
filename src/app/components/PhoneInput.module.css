@@ -7,15 +7,27 @@
   overflow: hidden;
   background-color: white;
   padding: 0;
+  /* Make the field focused by default */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+  border-color: #4caf50;
 }
 
 .phoneInputContainer :global(.PhoneInputCountry) {
   display: flex;
   align-items: center;
-  padding: 0 0.75rem;
-  background-color: #f9f9f9;
-  border-right: 1px solid #e0e0e0;
-  min-width: 4.5rem;
+  padding: 0 0.5rem;
+  background-color: transparent;
+  /* Remove the border between country code and input */
+  border-right: none;
+  min-width: 2.5rem;
+  max-width: 2.5rem;
+  justify-content: center;
+}
+
+/* Hide the country code text (+1, etc.) */
+.phoneInputContainer :global(.PhoneInputCountryCode) {
+  display: none;
 }
 
 .phoneInputContainer :global(.PhoneInputCountrySelect) {
@@ -33,11 +45,11 @@
 .phoneInputContainer :global(.PhoneInputCountryIcon) {
   width: 1.5rem;
   height: 1rem;
-  margin-right: 0.5rem;
+  /* Remove margin as we're hiding the country code */
+  margin-right: 0;
 }
 
 .phoneInputContainer :global(.PhoneInputCountrySelectArrow) {
-  margin-left: 0.5rem;
   width: 0.5rem;
   height: 0.5rem;
   border-style: solid;
