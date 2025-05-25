@@ -430,6 +430,7 @@ export default function ProfileSetup() {
           value={phoneWithCountryCode}
           onCountryChange={(c: CountryCode) => setSelectedCountry(c)}
           onChange={(value: E164Number | undefined) => {
+            /* 0.  Clear everything on empty */
             if (!value) {
               setPhoneWithCountryCode(undefined);
               setPhone('');
@@ -437,58 +438,62 @@ export default function ProfileSetup() {
               return;
             }
 
-            /**
-             * 1)  Chrome bubble gives either:
-             *     • "+18182926036"
-             *     • "18182926036"   (US example, no plus)
-             * 2)  Users typing give national digits only ("8182926036").
-             *
-             * We try to parse as full E.164 first; if that succeeds we:
-             *   • switch the flag           (setSelectedCountry)
-             *   • keep only national digits (setPhoneWithCountryCode(parsed.nationalNumber))
-             * Otherwise we just store whatever they typed.
-             */
-            let maybeInternational = value.toString();
-            if (maybeInternational && !maybeInternational.startsWith('+') && /^\d{11,15}$/.test(maybeInternational)) {
-              // Assume it's an international number without "+"
-              maybeInternational = '+' + maybeInternational;
+            // ────────────────────────────────────────────────────────
+            // 1.  Normalise the string we got from PhoneInput
+            //     • The lib passes *raw user input* when in national mode (no "+").
+            //     • Chrome paste bubble can give:
+            //         "18182926036"   (11–15 digits, no "+")
+            //         "+18182926036"
+            //         "(818) 292–6036"  (formatted)
+            //     • Users typing give things like "8182926036".
+            // ────────────────────────────────────────────────────────
+            let digitsOnly = value.toString().replace(/\D/g, '');      // just numbers
+            if (digitsOnly.length === 0) return;                       // nothing useful yet
+
+            // If it looks like a full international (+???) without the "+", add it.
+            //  US example = 11 digits starting with 1
+            const looksLikeInternational = digitsOnly.length >= 11;
+            const asPossibleE164 = looksLikeInternational ? '+' + digitsOnly : null;
+
+            // ────────────────────────────────────────────────────────
+            // 2.  Try to parse as a valid phone number
+            //     • First attempt: global parse (no default country), works if "+…"
+            //     • Second attempt: parse with current flag as default.
+            // ────────────────────────────────────────────────────────
+            let parsed =
+              (asPossibleE164 && parsePhoneNumberFromString(asPossibleE164)) ??
+              parsePhoneNumberFromString(digitsOnly, selectedCountry);
+
+            // Edge case: Chrome bubble sometimes pastes "1xxxxxxxxxx" (no "+")
+            // for US numbers. Handle that explicitly.
+            if (!parsed && selectedCountry === 'US' && digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+              parsed = parsePhoneNumberFromString(digitsOnly.slice(1), 'US'); // drop the leading 1
             }
 
-            const parsed = parsePhoneNumberFromString(maybeInternational || '', selectedCountry);
-
             if (parsed && parsed.isValid()) {
-              // Update country flag if parsed successfully
-              if (parsed.country) {
-                setSelectedCountry(parsed.country as CountryCode);          // flag update
+              // 2a.  Update the flag if it changed
+              if (parsed.country && parsed.country !== selectedCountry) {
+                setSelectedCountry(parsed.country as CountryCode);
               }
-              
-              // Store only national digits
-              const nationalDigits = parsed.nationalNumber;
-              setPhoneWithCountryCode(nationalDigits.toString() as unknown as E164Number);  // only national digits
-              setPhone(nationalDigits.toString());
-              
-              // Set completed flag when valid
-              setHasCompletedPhone(nationalDigits.length >= 10);
-              
-              // Update WhatsApp profile with the digits
-              if (nationalDigits.length > 0) {
-                updateProfilesWithPhone(nationalDigits);
-              }
+
+              // 2b.  Keep only national digits in component state
+              const national = parsed.nationalNumber;                // e.g. "8182926036"
+              setPhoneWithCountryCode(national as unknown as E164Number);
+              setPhone(national);
+              setHasCompletedPhone(national.length >= 10);
+              updateProfilesWithPhone(national);
             } else {
-              // Just store what they typed if we couldn't parse it
-              setPhoneWithCountryCode(value);
-              
-              // Extract just the local digits (fallback to old method)
-              const digits = value.toString().replace(/^\+\d+\s*/, '');
-              setPhone(digits);
-              
-              // Set completed flag when valid
-              setHasCompletedPhone(digits.length >= 10);
-              
-              // Update WhatsApp profile with the digits
-              if (digits.length > 0) {
-                updateProfilesWithPhone(digits);
+              // ─────────────────────────────────────────────────
+              // 3.  Fallback: treat whatever we got as plain national digits
+              //     (still strips a leading "1" if US & 11 digits)
+              // ─────────────────────────────────────────────────
+              if (selectedCountry === 'US' && digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+                digitsOnly = digitsOnly.slice(1);
               }
+              setPhoneWithCountryCode(digitsOnly as unknown as E164Number);
+              setPhone(digitsOnly);
+              setHasCompletedPhone(digitsOnly.length >= 10);
+              updateProfilesWithPhone(digitsOnly);
             }
           }}
         />
