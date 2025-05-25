@@ -470,19 +470,27 @@ export default function ProfileSetup() {
               <div className={phoneInputStyles.arrowIcon}></div>
             </div>
             
-            {/* Custom masked input field */}
+            {/* Custom masked input field with improved behavior */}
             <input
               type="tel"
               inputMode="tel"
               autoComplete="tel"
               name="phone"
               autoFocus
-              value={formattedPhone}
+              value={formattedPhone || ''}
               placeholder="(___) ___-____"
               className={phoneInputStyles.maskedInput}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                let value = e.target.value;
+                
+                // Special handling for autosuggest that might include country code
+                if (value.startsWith('1') || value.startsWith('+1')) {
+                  // Strip the country code (1 or +1) and process the rest
+                  value = value.replace(/^\+?1/, '');
+                }
+                
                 // Get just the digits
-                const digits = e.target.value.replace(/\D/g, '');
+                const digits = value.replace(/\D/g, '');
                 
                 // Format the digits with mask
                 let formatted = '';
@@ -492,6 +500,9 @@ export default function ProfileSetup() {
                     formatted += `) ${digits.slice(3, 6)}`;
                     if (digits.length > 6) {
                       formatted += `-${digits.slice(6, 10)}`;
+                    } else if (digits.length === 3) {
+                      // Add the closing parenthesis and space to keep cursor in right position
+                      formatted += ') ';
                     }
                   }
                 }
@@ -506,6 +517,11 @@ export default function ProfileSetup() {
                 if (digits.length > 0) {
                   updateProfilesWithPhone(digits);
                 }
+              }}
+              onFocus={(e) => {
+                // Place cursor at the end of the current value
+                const value = e.target.value;
+                e.target.setSelectionRange(value.length, value.length);
               }}
             />
           </div>
