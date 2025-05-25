@@ -35,13 +35,17 @@ const secondaryButtonStyle = {
   fontWeight: '500',
   padding: '14px 24px',
   borderRadius: '100px',
-  boxShadow: 'var(--shadow-sm)',
   transition: 'all 0.2s ease-in-out',
   textDecoration: 'none',
   textAlign: 'center' as const,
   border: '1px solid #ddd',
   cursor: 'pointer',
   marginTop: '16px'
+};
+
+const secondaryButtonHoverStyle = {
+  backgroundColor: '#f5f5f5',
+  transform: 'translateY(-1px)',
 };
 
 // List of supported social networks
@@ -404,6 +408,14 @@ const SetupProfile: React.FC = () => {
               style={{
                 ...secondaryButtonStyle,
                 marginBottom: '24px'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = secondaryButtonHoverStyle.backgroundColor;
+                e.currentTarget.style.transform = secondaryButtonHoverStyle.transform;
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.transform = 'none';
               }}
             >
               <Image 
