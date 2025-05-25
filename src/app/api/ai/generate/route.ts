@@ -3,10 +3,13 @@ import { OpenAI } from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Server-side environment variable
-});
+// Initialize OpenAI client if API key is available
+let openai: OpenAI | null = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY, // Server-side environment variable
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +19,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+    
+    // Check if OpenAI client is initialized
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'AI service not available' },
+        { status: 503 }
       );
     }
 
@@ -54,6 +65,9 @@ export async function POST(request: NextRequest) {
 
 async function generateBio(profile: any) {
   try {
+    if (!openai) {
+      return NextResponse.json({ bio: 'Connecting people through technology' });
+    }
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -86,6 +100,9 @@ async function generateBio(profile: any) {
 
 async function generateBackground(profile: any) {
   try {
+    if (!openai) {
+      return NextResponse.json({ imageUrl: '/gradient-bg.jpg' });
+    }
     const response = await openai.images.generate({
       model: 'dall-e-3',
       prompt: `Create an abstract, gradient background image that represents the essence of ${profile.name}. 
@@ -106,6 +123,11 @@ async function generateBackground(profile: any) {
 
 async function generateAvatar(profile: any) {
   try {
+    if (!openai) {
+      return NextResponse.json({ 
+        imageUrl: profile.picture || '/default-avatar.png' 
+      });
+    }
     const response = await openai.images.generate({
       model: 'dall-e-3',
       prompt: `Create a stylized, artistic profile picture based on the essence of a person named ${profile.name}. 

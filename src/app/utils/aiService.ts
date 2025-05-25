@@ -2,9 +2,12 @@ import { OpenAI } from 'openai';
 import { UserProfile } from '../context/ProfileContext';
 
 // Initialize OpenAI client with API key from environment variables
-const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+if (process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  });
+}
 
 /**
  * Generate a personalized bio based on user profile
@@ -13,6 +16,9 @@ const openai = new OpenAI({
  */
 export async function generateBio(profile: UserProfile): Promise<string> {
   try {
+    if (!openai) {
+      return "Connecting people through technology";
+    }
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -50,6 +56,9 @@ export async function generateBio(profile: UserProfile): Promise<string> {
  */
 export async function generateProfileBackground(profile: UserProfile): Promise<string> {
   try {
+    if (!openai) {
+      return '/gradient-bg.jpg';
+    }
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: `Create an abstract, gradient background image that represents the essence of ${profile.name}. 
@@ -81,6 +90,10 @@ export async function generateStylizedAvatar(profile: UserProfile): Promise<stri
   }
 
   try {
+    if (!openai) {
+      return profile.picture || '/default-avatar.png';
+    }
+    
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: `Create a stylized, artistic profile picture based on the essence of a person named ${profile.name}. 
