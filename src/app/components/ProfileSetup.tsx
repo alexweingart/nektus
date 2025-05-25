@@ -428,7 +428,7 @@ export default function ProfileSetup() {
           countryCallingCodeEditable={false}
           autoComplete="tel-national"
           value={phoneWithCountryCode}
-          onCountryChange={(c) => setSelectedCountry(c as CountryCode)}
+          onCountryChange={(c: CountryCode) => setSelectedCountry(c)}
           onChange={(value: E164Number | undefined) => {
             if (value) {
               // value is now the NATIONAL digits (no + or dial code)
