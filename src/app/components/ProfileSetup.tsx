@@ -477,7 +477,7 @@ export default function ProfileSetup() {
               maskChar="_"
               alwaysShowMask
               value={formattedPhone}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 const value = e.target.value;
                 setFormattedPhone(value);
                 
@@ -567,7 +567,7 @@ export default function ProfileSetup() {
                       <input
                         type="text"
                         value={profile.username || ''}
-                        onChange={(e) => {
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           // Update the username in socialProfiles
                           const updatedProfiles = socialProfiles.map(p => {
                             if (p.platform === profile.platform) {
