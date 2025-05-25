@@ -1,10 +1,12 @@
 'use client';
 
-import React, { memo } from 'react';
+import * as React from 'react';
+import { memo } from 'react';
 import { PhoneInput as ShadcnPhoneInput } from '@/app/components/ui/phone-input';
+import type { PhoneInputProps } from '@/app/components/ui/phone-input';
 
 /* Native <input> with the four magic attributes for tel autofill */
-const NativeTelInput = React.forwardRef<HTMLInputElement, any>((props, ref) => (
+const NativeTelInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
   <input
     {...props}
     ref={ref}
@@ -22,7 +24,7 @@ const MemoNativeTelInput = memo(NativeTelInput);
 /* Drop‑in replacement that forwards everything else */
 export const PhoneInputAutofill = React.forwardRef<
   HTMLInputElement,
-  React.ComponentProps<typeof ShadcnPhoneInput>
+  PhoneInputProps
 >((props, ref) => (
   <ShadcnPhoneInput
     {...props}

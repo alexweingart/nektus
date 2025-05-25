@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import * as React from 'react';
+const { useState, useEffect, useMemo } = React;
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { PhoneInputAutofill as PhoneInput } from './phone-input-autofill';
