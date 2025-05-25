@@ -35,8 +35,8 @@ export const PhoneInputAutofill = React.forwardRef<
 >((props, ref) => (
   <ShadcnPhoneInput
     {...props}
-    /* NOTE: prop is InputComponent (capital I) in react-phone-number-input */
-    InputComponent={MemoNativeTelInput}
+    /** ✅ correct prop name is all-lowercase */
+    inputComponent={MemoNativeTelInput}
     ref={ref}
   />
 ));
