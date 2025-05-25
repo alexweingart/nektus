@@ -1,12 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { PhoneInput as ShadcnPhoneInput } from '@/app/components/ui/phone-input';
+
+/**
+ * Native <input> with the four magic attributes for tel autofill.
+ * Defined outside React render to maintain stable identity.
+ */
+const NativeTelInput = React.forwardRef<HTMLInputElement, any>((props, ref) => (
+  <input
+    {...props}
+    ref={ref}
+    type="tel"
+    name="tel"
+    autoComplete="tel"
+    inputMode="tel"
+  />
+));
+NativeTelInput.displayName = 'NativeTelInput';
+
+/**
+ * Memoize so its identity never changes across renders
+ */
+const MemoNativeTelInput = memo(NativeTelInput);
 
 /**
  * A drop‑in replacement for shadcn `<PhoneInput>` that
  * guarantees the critical autofill attributes reach the
- * _actual_ <input/>.
+ * _actual_ <input/> and maintains focus across renders.
  */
 export const PhoneInputAutofill = React.forwardRef<
   HTMLInputElement,
@@ -14,20 +35,9 @@ export const PhoneInputAutofill = React.forwardRef<
 >((props, ref) => (
   <ShadcnPhoneInput
     {...props}
-    /** forward everything else */
-    inputComponent={React.forwardRef<HTMLInputElement, any>(
-      (inputProps, inputRef) => (
-        <input
-          {...inputProps}
-          ref={inputRef ?? ref}
-          /** 🔑 the four magic attributes */
-          type="tel"
-          name="tel"
-          autoComplete="tel"
-          inputMode="tel"
-        />
-      )
-    )}
+    /* NOTE: prop is InputComponent (capital I) in react-phone-number-input */
+    InputComponent={MemoNativeTelInput}
+    ref={ref}
   />
 ));
 
