@@ -497,30 +497,30 @@ export default function ProfileSetup() {
                   digits = digits.slice(0, 10); // Strictly limit to 10 digits
                 }
                 
-                // Create formatted version
-                let formatted = '';
+                // Create formatted version with underscores as placeholders
+                let formatted = '(___) ___-____'; // Start with full placeholder
+                
+                // Replace placeholders with actual digits as they're entered
                 if (digits.length > 0) {
-                  // First 3 digits - area code
-                  formatted = `(${digits.slice(0, Math.min(3, digits.length))}`;
+                  // Format with placeholders that remain visible
+                  formatted = '';
                   
-                  // Add closing parenthesis and space after 3 digits
-                  if (digits.length >= 3) {
-                    formatted += ') ';
-                    
-                    // Next 3 digits
-                    if (digits.length > 3) {
-                      formatted += digits.slice(3, Math.min(6, digits.length));
-                      
-                      // Add hyphen after 6 digits
-                      if (digits.length >= 6) {
-                        formatted += '-';
-                        
-                        // Last 4 digits
-                        if (digits.length > 6) {
-                          formatted += digits.slice(6, 10);
-                        }
-                      }
-                    }
+                  // Area code (first 3 digits)
+                  formatted = '(';
+                  for (let i = 0; i < 3; i++) {
+                    formatted += i < digits.length ? digits[i] : '_';
+                  }
+                  formatted += ') ';
+                  
+                  // Middle 3 digits
+                  for (let i = 3; i < 6; i++) {
+                    formatted += i < digits.length ? digits[i] : '_';
+                  }
+                  formatted += '-';
+                  
+                  // Last 4 digits
+                  for (let i = 6; i < 10; i++) {
+                    formatted += i < digits.length ? digits[i] : '_';
                   }
                 }
                 
