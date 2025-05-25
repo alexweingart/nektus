@@ -1,7 +1,29 @@
-/* Custom styles for the phone input */
+/* Custom styles for inputs with icons */
+.inputContainer {
+  display: flex;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.inputWrapper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-color: white;
+  /* Make the field focused by default */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+  border-color: #4caf50;
+}
+
+/* For backward compatibility */
 .phoneInputContainer {
   display: flex;
   width: 100%;
+  margin-bottom: 1rem;
 }
 
 .phoneInputWrapper {
@@ -18,7 +40,20 @@
   border-color: #4caf50;
 }
 
-/* Country code selector */
+/* Icon container for inputs */
+.iconContainer {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  background-color: #f9f9f9;
+  border-right: 1px solid #e0e0e0;
+  min-width: 3rem;
+  max-width: 3rem;
+  justify-content: center;
+  height: 100%;
+}
+
+/* For backward compatibility */
 .countryCodeSelector {
   display: flex;
   align-items: center;
@@ -75,4 +110,20 @@
 /* Define a placeholder color */
 .maskedInput::placeholder {
   color: #999;
+}
+
+/* Social profile URL preview */
+.profilePreview {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 0.25rem;
+  padding-left: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Social input group */
+.socialInputGroup {
+  margin-bottom: 1rem;
 }

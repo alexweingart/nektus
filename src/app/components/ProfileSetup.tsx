@@ -67,16 +67,44 @@ export default function ProfileSetup() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       const userEmail = session.user.email || '';
-      extractedUsernameRef.current = userEmail.split('@')[0] || '';
+      const extractedUsername = userEmail.split('@')[0] || '';
+      extractedUsernameRef.current = extractedUsername;
       
-      // Email is immediately confirmed (green)
-      setSocialProfiles([{
-        platform: 'email',
-        username: userEmail,
-        shareEnabled: true,
-        filled: true,
-        confirmed: true
-      }]);
+      // Start with email confirmed (green)
+      const initialProfiles: SocialProfile[] = [
+        {
+          platform: 'email',
+          username: userEmail,
+          shareEnabled: true,
+          filled: true,
+          confirmed: true
+        }
+      ];
+      
+      // Add all other platforms with extracted username as placeholder
+      platformOrder.forEach(platform => {
+        if (platform !== 'email') {
+          // Add initial social profile
+          let username = '';
+          let autoFilled = false;
+          
+          // Use extracted username for social platforms
+          if (platform !== 'phone' && platform !== 'whatsapp' && platform !== 'telegram') {
+            username = extractedUsername;
+            autoFilled = !!extractedUsername;
+          }
+          
+          initialProfiles.push({
+            platform,
+            username,
+            shareEnabled: true,
+            filled: !!username,
+            autoFilled
+          });
+        }
+      });
+      
+      setSocialProfiles(initialProfiles);
 
       // If we already have a phone number from previous setups, initialize it
       if (phoneWithCountryCode) {
@@ -490,68 +518,83 @@ export default function ProfileSetup() {
         </div>
       </div>
 
-      {/* Social Network Settings (Collapsible) */}
+      {/* Social Network Settings (Collapsible) - New Design with Input Fields */}
       {showSocialSettings && (
         <div className={styles.socialContent}>
           {socialProfiles
             .filter(p => p.platform !== 'email' && p.platform !== 'phone')
             .map((profile) => {
-              const iconClass = profile.confirmed ? styles.socialIconConfirmed : 
-                        profile.autoFilled ? styles.socialIconAutoFilled : 
-                        styles.socialIconDefault;
+              // Get the appropriate icon for this social platform
+              const SocialIcon = (() => {
+                switch(profile.platform) {
+                  case 'facebook': return FaFacebook;
+                  case 'instagram': return FaInstagram;
+                  case 'twitter': return FaTwitter;
+                  case 'snapchat': return FaSnapchat;
+                  case 'linkedin': return FaLinkedin;
+                  case 'whatsapp': return FaWhatsapp;
+                  case 'telegram': return FaTelegram;
+                  default: return null;
+                }
+              })();
+              
+              // Generate preview URL based on the platform and username
+              const previewUrl = (() => {
+                if (!profile.username) return '';
+                
+                switch(profile.platform) {
+                  case 'facebook': return `https://facebook.com/${profile.username}`;
+                  case 'instagram': return `https://instagram.com/${profile.username}`;
+                  case 'twitter': return `https://twitter.com/${profile.username}`;
+                  case 'snapchat': return `https://snapchat.com/add/${profile.username}`;
+                  case 'linkedin': return `https://linkedin.com/in/${profile.username}`;
+                  case 'whatsapp': return `https://wa.me/${profile.username}`;
+                  case 'telegram': return `https://t.me/${profile.username}`;
+                  default: return '';
+                }
+              })();
               
               return (
-                <div key={profile.platform} className={styles.socialCard}>
-                  <div className={styles.socialCardHeader}>
-                    <div className={styles.socialCardIconContainer}>
-                      <div className={`${styles.socialCardIcon} ${iconClass}`}>
-                        {profile.platform === 'facebook' && <FaFacebook size={16} />}
-                        {profile.platform === 'instagram' && <FaInstagram size={16} />}
-                        {profile.platform === 'twitter' && <FaTwitter size={16} />}
-                        {profile.platform === 'snapchat' && <FaSnapchat size={16} />}
-                        {profile.platform === 'linkedin' && <FaLinkedin size={16} />}
-                        {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
-                        {profile.platform === 'telegram' && <FaTelegram size={16} />}
+                <div key={profile.platform} className={phoneInputStyles.socialInputGroup}>
+                  <div className={phoneInputStyles.inputContainer}>
+                    <div className={phoneInputStyles.inputWrapper}>
+                      {/* Social icon on the left */}
+                      <div className={phoneInputStyles.iconContainer}>
+                        {SocialIcon && <SocialIcon size={20} />}
                       </div>
-                      <div className={styles.socialCardName}>{profile.platform}</div>
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditSocial(profile.platform);
-                      }}
-                      className={styles.editButton}
-                    >
-                      <MdEdit size={20} />
-                    </button>
-                  </div>
-                  
-                  {editingSocial === profile.platform ? (
-                    <div className={styles.socialEditForm}>
-                      <span className={styles.socialPrefix}>
-                        {getSocialPrefix(profile.platform)}
-                      </span>
+                      
+                      {/* Input field */}
                       <input
                         type="text"
-                        value={socialEditValue}
-                        onChange={(e) => setSocialEditValue(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        className={styles.socialEditInput}
-                        autoFocus
+                        value={profile.username || ''}
+                        onChange={(e) => {
+                          // Update the username in socialProfiles
+                          const updatedProfiles = socialProfiles.map(p => {
+                            if (p.platform === profile.platform) {
+                              return {
+                                ...p,
+                                username: e.target.value,
+                                filled: !!e.target.value,
+                                confirmed: !!e.target.value
+                              };
+                            }
+                            return p;
+                          });
+                          setSocialProfiles(updatedProfiles);
+                        }}
+                        placeholder={`Enter your ${profile.platform} username`}
+                        className={phoneInputStyles.maskedInput}
+                        autoComplete="off"
                       />
-                      <button
-                        onClick={handleSaveSocialEdit}
-                        className={styles.saveButton}
-                      >
-                        Save
-                      </button>
                     </div>
-                  ) : profile.username ? (
-                    <div className={styles.socialValue}>
-                      <span className={styles.socialPrefix}>{getSocialPrefix(profile.platform)}</span>
-                      <span>{profile.username}</span>
+                  </div>
+                  
+                  {/* Preview of the profile URL */}
+                  {profile.username && (
+                    <div className={phoneInputStyles.profilePreview}>
+                      {previewUrl}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               );
             })}
