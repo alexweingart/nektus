@@ -96,27 +96,14 @@ input[type="tel"] {
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1a2421;
-    --background-secondary: #243b2e;
-    --foreground: #f0f4f0;
-    --primary: #66bb6a;
-    --primary-dark: #4c9850;
-    --primary-light: #375f3e;
-    --secondary: #81c784;
-    --secondary-dark: #519657;
-    --accent: #8ce392;
-    --card-bg: #243b2e;
-    --card-border: #2f4237;
-  }
-}
+/* Removed dark mode override to ensure consistent light green background */
 
 html, body {
   padding: 0;
   margin: 0;
   color: var(--foreground);
-  background: var(--background);
+  background: var(--background, #f4f9f4) !important;
+  background-color: #f4f9f4 !important;
   min-height: 100vh;
   height: 100%;
   width: 100%;
