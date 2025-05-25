@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { PhoneInput } from './ui/phone-input';
+import { E164Number, CountryCode } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -42,6 +44,7 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
+  const [phoneWithCountryCode, setPhoneWithCountryCode] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
@@ -343,14 +346,7 @@ export default function ProfileSetup() {
   }
 
   return (
-    <form
-      className="max-w-md mx-auto p-6 bg-white dark:bg-card shadow-md rounded-xl"
-      autoComplete="on"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSave();
-      }}
-    >
+    <div className="max-w-md mx-auto p-6">
       {/* Profile Photo and Name */}
       <div className="text-center mb-8">
         {session?.user?.image ? (
@@ -366,7 +362,7 @@ export default function ProfileSetup() {
             <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className="text-2xl font-semibold">{session?.user?.name}</h2>
+        <h2 className="text-2xl font-semibold" style={{ color: '#2d3748' }}>{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}
@@ -397,18 +393,34 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Simple Phone Number Input with Autosuggest */}
+      {/* Phone Input Component */}
       <div className="mb-6">
-        <input
-          type="tel"
-          inputMode="tel"
-          name="tel"
-          autoComplete="tel"
-          value={formattedPhone}
-          onChange={handlePhoneChange}
-          onKeyDown={handleKeyPress}
-          placeholder="(555) 555-5555"
-          className="p-3 w-full rounded-md border border-input bg-white dark:bg-card text-foreground"
+        <PhoneInput
+          defaultCountry="US"
+          value={phoneWithCountryCode as E164Number}
+          onChange={(value: E164Number | undefined) => {
+            if (value) {
+              // Update all the state variables
+              setPhoneWithCountryCode(value as string);
+              
+              // Extract just the local digits (no country code)
+              const digits = value.toString().replace(/^\+\d+\s*/, '');
+              setPhone(digits);
+              
+              // Set completed flag when valid
+              setHasCompletedPhone(digits.length >= 10);
+              
+              // Update WhatsApp profile with the digits
+              if (digits.length > 0) {
+                updateProfilesWithPhone(digits);
+              }
+            } else {
+              // Handle empty or invalid state
+              setPhoneWithCountryCode('');
+              setPhone('');
+              setHasCompletedPhone(false);
+            }
+          }}
         />
       </div>
       
@@ -491,12 +503,17 @@ export default function ProfileSetup() {
       
       {/* Save Button */}
       <button 
-        type="submit"
+        onClick={handleSave}
         disabled={isSaving}
-        className="w-full py-4 px-8 rounded-full text-white font-medium text-lg bg-primary hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+        className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
-        {isSaving ? 'Saving...' : 'Save Profile'}
+        {isSaving ? (
+          <>
+            <div className="inline-block mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Saving...
+          </>
+        ) : 'Save'}
       </button>
-    </form>
+    </div>
   );
 }
