@@ -54,39 +54,7 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
-  // Track country selector dropdown state
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
-  const [selectedCountryFlag, setSelectedCountryFlag] = useState('/us-flag.png');
-  
-  // Create ref for dropdown element to handle click outside
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Handle clicks outside the country dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowCountryDropdown(false);
-      }
-    }
-    
-    // Add event listener
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      // Clean up
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-  
-  // Common country codes for dropdown
-  const countryCodes = [
-    { code: '+1', name: 'United States', flag: '/us-flag.png' },
-    { code: '+1', name: 'Canada', flag: '/ca-flag.png' },
-    { code: '+44', name: 'United Kingdom', flag: '/gb-flag.png' },
-    { code: '+52', name: 'Mexico', flag: '/mx-flag.png' },
-    { code: '+33', name: 'France', flag: '/fr-flag.png' },
-    { code: '+49', name: 'Germany', flag: '/de-flag.png' },
-  ];
+  // We're using a simplified approach with fixed +1 country code
 
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
@@ -492,59 +460,19 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Number Input - With proper masking and mobile support */}
+      {/* Simple Phone Number Input with US Country Code */}
       <div className={styles.formGroup}>
         <div className={phoneInputStyles.phoneInputContainer}>
           <div className={phoneInputStyles.phoneInputWrapper}>
-            {/* Country code selector with dropdown */}
-            <div 
-              ref={dropdownRef}
-              className={phoneInputStyles.countryCodeSelector}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCountryDropdown(!showCountryDropdown);
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  setShowCountryDropdown(!showCountryDropdown);
-                }
-              }}
-            >
+            {/* Static country code display */}
+            <div className={phoneInputStyles.countryCodeSelector}>
               <div className={phoneInputStyles.flagIcon}>
-                <img src={selectedCountryFlag} alt="Country" className={phoneInputStyles.flagImage} />
+                <img src="/us-flag.png" alt="US" className={phoneInputStyles.flagImage} />
               </div>
-              <div className={phoneInputStyles.arrowIcon}></div>
-              
-              {/* Country dropdown */}
-              {showCountryDropdown && (
-                <div className={phoneInputStyles.countryDropdown}>
-                  {countryCodes.map((country) => (
-                    <div 
-                      key={`${country.code}-${country.name}`}
-                      className={phoneInputStyles.countryOption}
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent parent click handler
-                        setSelectedCountryCode(country.code);
-                        setSelectedCountryFlag(country.flag);
-                        setShowCountryDropdown(false);
-                        
-                        // Update the phone number with the new country code
-                        const digits = phone;
-                        setPhoneWithCountryCode(`${country.code}${digits}`);
-                      }}
-                    >
-                      <img src={country.flag} alt={country.name} className={phoneInputStyles.countryOptionFlag} />
-                      <span className={phoneInputStyles.countryName}>{country.name}</span>
-                      <span className={phoneInputStyles.countryCode}>{country.code}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <span className={phoneInputStyles.countryCodeText}>+1</span>
             </div>
             
-            {/* Custom masked input field with improved behavior */}
+            {/* Basic phone input with auto-formatting */}
             <input
               type="tel"
               inputMode="tel"
@@ -557,26 +485,38 @@ export default function ProfileSetup() {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 let value = e.target.value;
                 
-                // Special handling for autosuggest that might include country code
+                // Handle autosuggest with country code
                 if (value.startsWith('1') || value.startsWith('+1')) {
-                  // Strip the country code (1 or +1) and process the rest
-                  value = value.replace(/^\+?1/, '');
+                  // Remove the country code prefix
+                  value = value.replace(/^\+?1\s*/, '');
                 }
                 
-                // Get just the digits
+                // Extract digits only
                 const digits = value.replace(/\D/g, '');
                 
-                // Format the digits with mask
+                // Create formatted version
                 let formatted = '';
                 if (digits.length > 0) {
-                  formatted = `(${digits.slice(0, 3)}`;
-                  if (digits.length > 3) {
-                    formatted += `) ${digits.slice(3, 6)}`;
-                    if (digits.length > 6) {
-                      formatted += `-${digits.slice(6, 10)}`;
-                    } else if (digits.length === 3) {
-                      // Add the closing parenthesis and space to keep cursor in right position
-                      formatted += ') ';
+                  // First 3 digits - area code
+                  formatted = `(${digits.slice(0, Math.min(3, digits.length))}`;
+                  
+                  // Add closing parenthesis and space after 3 digits
+                  if (digits.length >= 3) {
+                    formatted += ') ';
+                    
+                    // Next 3 digits
+                    if (digits.length > 3) {
+                      formatted += digits.slice(3, Math.min(6, digits.length));
+                      
+                      // Add hyphen after 6 digits
+                      if (digits.length >= 6) {
+                        formatted += '-';
+                        
+                        // Last 4 digits
+                        if (digits.length > 6) {
+                          formatted += digits.slice(6, Math.min(10, digits.length));
+                        }
+                      }
                     }
                   }
                 }
@@ -593,16 +533,12 @@ export default function ProfileSetup() {
                 }
               }}
               onFocus={(e) => {
-                // Place cursor at the appropriate position
+                // Always place cursor at position 1 (after opening parenthesis) when empty
                 if (!formattedPhone) {
-                  // If empty, place cursor after the opening parenthesis in the placeholder
-                  // Use a short timeout to ensure the browser has rendered the input
-                  setTimeout(() => {
+                  // Force cursor inside the parenthesis
+                  requestAnimationFrame(() => {
                     e.target.setSelectionRange(1, 1);
-                  }, 0);
-                } else {
-                  // Otherwise place cursor at the end of the current value
-                  e.target.setSelectionRange(formattedPhone.length, formattedPhone.length);
+                  });
                 }
               }}
             />
