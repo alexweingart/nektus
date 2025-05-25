@@ -453,7 +453,7 @@ export default function ProfileSetup() {
               {platform === 'whatsapp' && <FaWhatsapp size={20} />}
               {platform === 'telegram' && <FaTelegram size={20} />}
               {platform === 'email' && <FaEnvelope size={20} />}
-              {platform === 'phone' && <FaPhone size={20} />}
+              {platform === 'phone' && <FaEnvelope size={20} />}
             </div>
           );
         })}
