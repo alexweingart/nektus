@@ -414,15 +414,13 @@ export default function ProfileSetup() {
       </div>
       
       {/* Phone Input Component */}
-      <div className="mb-6">
-        {/* Invisible to users but visible to accessibility & browser heuristics */}
-        <label htmlFor="phone" className="sr-only">
+      <div className="mb-8">
+        <label className="block text-sm font-medium mb-2" htmlFor="phone">
           Phone number
         </label>
         <PhoneInput
-          id="phone"              /* ties the <label> to the input */
-          placeholder="Phone number" /* backup cue for Android quick-chips */
-          /* ---- key props that remove "+1" but keep the flag ---- */
+          id="phone"
+          placeholder="Phone number"
           defaultCountry={selectedCountry}
           international={false}
           withCountryCallingCode={false}
@@ -430,77 +428,62 @@ export default function ProfileSetup() {
           autoComplete="tel-national"
           value={phoneWithCountryCode}
           onCountryChange={(country) => {
-            // Explicitly handle the type by checking it's a valid country code
             if (typeof country === 'string' && country.length === 2) {
               setSelectedCountry(country as CountryCode);
             }
           }}
-          onChange={(value: E164Number | undefined) => {
-            /* 0.  Clear everything on empty */
-            if (!value) {
+          onChange={(raw: E164Number | undefined) => {
+            // 0. Empty input – clear state
+            if (!raw) {
               setPhoneWithCountryCode(undefined);
               setPhone('');
               setHasCompletedPhone(false);
               return;
             }
 
-            // ────────────────────────────────────────────────────────
-            // 1.  Normalise the string we got from PhoneInput
-            //     • The lib passes *raw user input* when in national mode (no "+").
-            //     • Chrome paste bubble can give:
-            //         "18182926036"   (11–15 digits, no "+")
-            //         "+18182926036"
-            //         "(818) 292–6036"  (formatted)
-            //     • Users typing give things like "8182926036".
-            // ────────────────────────────────────────────────────────
-            let digitsOnly = value.toString().replace(/\D/g, '');      // just numbers
-            if (digitsOnly.length === 0) return;                       // nothing useful yet
+            // react-phone-number-input (national mode) gives us either:
+            // • "8182926036"  ← typing
+            // • "18182926036" or "+18182926036" ← Chrome paste bubble
+            const digits = raw.toString().replace(/\D/g, '');
 
-            // If it looks like a full international (+???) without the "+", add it.
-            //  US example = 11 digits starting with 1
-            const looksLikeInternational = digitsOnly.length >= 11;
-            const asPossibleE164 = looksLikeInternational ? '+' + digitsOnly : null;
+            // 1. If user pasted 11-15 digits, try to parse
+            //    to detect the real country & strip dial code
+            if (digits.length >= 11) {
+              // Add "+" if missing so the global parser can work
+              const asE164 = digits.startsWith('+') ? digits : '+' + digits;
+              const parsed = parsePhoneNumberFromString(asE164);
 
-            // ────────────────────────────────────────────────────────
-            // 2.  Try to parse as a valid phone number
-            //     • First attempt: global parse (no default country), works if "+…"
-            //     • Second attempt: parse with current flag as default.
-            // ────────────────────────────────────────────────────────
-            let parsed =
-              (asPossibleE164 && parsePhoneNumberFromString(asPossibleE164)) ??
-              parsePhoneNumberFromString(digitsOnly, selectedCountry);
+              if (parsed?.isValid()) {
+                // a. keep real flag (never "001"/"INTL")
+                if (parsed.country && parsed.country !== selectedCountry) {
+                  setSelectedCountry(parsed.country as CountryCode);
+                }
 
-            // Edge case: Chrome bubble sometimes pastes "1xxxxxxxxxx" (no "+")
-            // for US numbers. Handle that explicitly.
-            if (!parsed && selectedCountry === 'US' && digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
-              parsed = parsePhoneNumberFromString(digitsOnly.slice(1), 'US'); // drop the leading 1
+                // b. store NATIONAL digits (react-phone-number-input
+                //    will format & cap length automatically)
+                const national = parsed.nationalNumber;
+                setPhoneWithCountryCode(national as unknown as E164Number);
+                setPhone(national);
+                setHasCompletedPhone(national.length >= 10);
+                updateProfilesWithPhone(national);
+                return;   // ✔ done
+              }
             }
 
-            if (parsed && parsed.isValid()) {
-              // 2a.  Update the flag if it changed
-              if (parsed.country && parsed.country !== selectedCountry) {
-                setSelectedCountry(parsed.country as CountryCode);
-              }
+            // 2. Normal typing / deleting path
+            //    • Let the library handle formatting & flag
+            //    • Hard-cap at the country's max length
+            const metadataMax =
+              selectedCountry === 'US'
+                ? 10
+                : 15; // generic fallback for other countries
 
-              // 2b.  Keep only national digits in component state
-              const national = parsed.nationalNumber;                // e.g. "8182926036"
-              setPhoneWithCountryCode(national as unknown as E164Number);
-              setPhone(national);
-              setHasCompletedPhone(national.length >= 10);
-              updateProfilesWithPhone(national);
-            } else {
-              // ─────────────────────────────────────────────────
-              // 3.  Fallback: treat whatever we got as plain national digits
-              //     (still strips a leading "1" if US & 11 digits)
-              // ─────────────────────────────────────────────────
-              if (selectedCountry === 'US' && digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
-                digitsOnly = digitsOnly.slice(1);
-              }
-              setPhoneWithCountryCode(digitsOnly as unknown as E164Number);
-              setPhone(digitsOnly);
-              setHasCompletedPhone(digitsOnly.length >= 10);
-              updateProfilesWithPhone(digitsOnly);
-            }
+            const trimmed = digits.slice(0, metadataMax);
+
+            setPhoneWithCountryCode(trimmed as unknown as E164Number);
+            setPhone(trimmed);
+            setHasCompletedPhone(trimmed.length >= 10);
+            updateProfilesWithPhone(trimmed);
           }}
         />
       </div>
