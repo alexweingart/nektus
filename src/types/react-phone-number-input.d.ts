@@ -9,11 +9,13 @@ declare module 'react-phone-number-input' {
     value?: E164Number;
     onChange?: (value?: E164Number) => void;
     defaultCountry?: CountryCode;
+    country?: CountryCode;              // Pin the flag to a specific country
     international?: boolean;
     withCountryCallingCode?: boolean;
     countryCallingCodeEditable?: boolean;
     inputComponent?: React.ComponentType<any>;
     InputComponent?: React.ComponentType<any>;
+    limitMaxLength?: boolean;           // Built-in length guard
     // Using any type to handle all possible country values from the library
     onCountryChange?: (country: any) => void;
   }

@@ -45,7 +45,7 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
-  const [phoneWithCountryCode, setPhoneWithCountryCode] = useState<E164Number | undefined>();
+  const [phoneDigits, setPhoneDigits] = useState('');      // national digits only
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>('US');   // keep track of flag
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
@@ -328,8 +328,8 @@ export default function ProfileSetup() {
       
       // Convert national phone number to E.164 format
       const toE164 = () => {
-        if (!phoneWithCountryCode) return null;
-        const parsed = parsePhoneNumberFromString(phoneWithCountryCode as string, selectedCountry);
+        if (!phoneDigits) return null;
+        const parsed = parsePhoneNumberFromString(phoneDigits, selectedCountry);
         return parsed?.isValid() ? parsed.number /* e.g. +18182926036 */ : null;
       };
       
@@ -421,69 +421,46 @@ export default function ProfileSetup() {
         <PhoneInput
           id="phone"
           placeholder="Phone number"
-          defaultCountry={selectedCountry}
+          country={selectedCountry}              /* flag never drops to "INTL"       */
           international={false}
           withCountryCallingCode={false}
           countryCallingCodeEditable={false}
           autoComplete="tel-national"
-          value={phoneWithCountryCode}
+          value={(phoneDigits || undefined) as E164Number | undefined}  /* library wants undefined for empty */
+          limitMaxLength                         /* built-in length guard            */
           onCountryChange={(country) => {
             if (typeof country === 'string' && country.length === 2) {
               setSelectedCountry(country as CountryCode);
             }
           }}
-          onChange={(raw: E164Number | undefined) => {
-            // 0. Empty input – clear state
-            if (!raw) {
-              setPhoneWithCountryCode(undefined);
-              setPhone('');
-              setHasCompletedPhone(false);
-              return;
+          onChange={(val) => {
+            // `val` comes back already stripped of formatting chars
+            let digits = (val || '').toString().replace(/\D/g, '');
+
+            // Chrome iOS paste bubble: "18182926036" → drop leading US "1"
+            if (selectedCountry === 'US' && digits.length === 11 && digits.startsWith('1')) {
+              digits = digits.slice(1);
             }
 
-            // react-phone-number-input (national mode) gives us either:
-            // • "8182926036"  ← typing
-            // • "18182926036" or "+18182926036" ← Chrome paste bubble
-            const digits = raw.toString().replace(/\D/g, '');
+            // Cap length: 10 for US, otherwise lib will cap automatically because of `limitMaxLength`
+            if (selectedCountry === 'US' && digits.length > 10) digits = digits.slice(0, 10);
 
-            // 1. If user pasted 11-15 digits, try to parse
-            //    to detect the real country & strip dial code
+            setPhoneDigits(digits);
+
+            // Fully auto-update flag when the user pastes an E.164 number
             if (digits.length >= 11) {
-              // Add "+" if missing so the global parser can work
-              const asE164 = digits.startsWith('+') ? digits : '+' + digits;
-              const parsed = parsePhoneNumberFromString(asE164);
-
-              if (parsed?.isValid()) {
-                // a. keep real flag (never "001"/"INTL")
-                if (parsed.country && parsed.country !== selectedCountry) {
-                  setSelectedCountry(parsed.country as CountryCode);
-                }
-
-                // b. store NATIONAL digits (react-phone-number-input
-                //    will format & cap length automatically)
-                const national = parsed.nationalNumber;
-                setPhoneWithCountryCode(national as unknown as E164Number);
-                setPhone(national);
-                setHasCompletedPhone(national.length >= 10);
-                updateProfilesWithPhone(national);
-                return;   // ✔ done
+              const parsed = parsePhoneNumberFromString('+' + digits);
+              if (parsed?.country && parsed.isValid()) {
+                setSelectedCountry(parsed.country as CountryCode);
+                digits = parsed.nationalNumber;
+                setPhoneDigits(digits);
               }
             }
 
-            // 2. Normal typing / deleting path
-            //    • Let the library handle formatting & flag
-            //    • Hard-cap at the country's max length
-            const metadataMax =
-              selectedCountry === 'US'
-                ? 10
-                : 15; // generic fallback for other countries
-
-            const trimmed = digits.slice(0, metadataMax);
-
-            setPhoneWithCountryCode(trimmed as unknown as E164Number);
-            setPhone(trimmed);
-            setHasCompletedPhone(trimmed.length >= 10);
-            updateProfilesWithPhone(trimmed);
+            // "completed" flag
+            setPhone(digits);
+            setHasCompletedPhone(digits.length >= 10);
+            if (digits.length) updateProfilesWithPhone(digits);
           }}
         />
       </div>
