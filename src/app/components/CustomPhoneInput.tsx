@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaChevronDown } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 // Define country type
 type Country = {
@@ -21,13 +21,51 @@ const countries: Country[] = [
   { name: 'China', code: 'CN', flag: '🇨🇳', dialCode: '86' },
   { name: 'Japan', code: 'JP', flag: '🇯🇵', dialCode: '81' },
   { name: 'Brazil', code: 'BR', flag: '🇧🇷', dialCode: '55' },
-  // More countries can be added as needed
+  { name: 'Afghanistan', code: 'AF', flag: '🇦🇫', dialCode: '93' },
+  { name: 'Albania', code: 'AL', flag: '🇦🇱', dialCode: '355' },
+  { name: 'Algeria', code: 'DZ', flag: '🇩🇿', dialCode: '213' },
+  { name: 'Argentina', code: 'AR', flag: '🇦🇷', dialCode: '54' },
+  { name: 'Austria', code: 'AT', flag: '🇦🇹', dialCode: '43' },
+  { name: 'Belgium', code: 'BE', flag: '🇧🇪', dialCode: '32' },
+  { name: 'Chile', code: 'CL', flag: '🇨🇱', dialCode: '56' },
+  { name: 'Colombia', code: 'CO', flag: '🇨🇴', dialCode: '57' },
+  { name: 'Denmark', code: 'DK', flag: '🇩🇰', dialCode: '45' },
+  { name: 'Egypt', code: 'EG', flag: '🇪🇬', dialCode: '20' },
+  { name: 'Finland', code: 'FI', flag: '🇫🇮', dialCode: '358' },
+  { name: 'Greece', code: 'GR', flag: '🇬🇷', dialCode: '30' },
+  { name: 'Indonesia', code: 'ID', flag: '🇮🇩', dialCode: '62' },
+  { name: 'Ireland', code: 'IE', flag: '🇮🇪', dialCode: '353' },
+  { name: 'Israel', code: 'IL', flag: '🇮🇱', dialCode: '972' },
+  { name: 'Italy', code: 'IT', flag: '🇮🇹', dialCode: '39' },
+  { name: 'Mexico', code: 'MX', flag: '🇲🇽', dialCode: '52' },
+  { name: 'Netherlands', code: 'NL', flag: '🇳🇱', dialCode: '31' },
+  { name: 'New Zealand', code: 'NZ', flag: '🇳🇿', dialCode: '64' },
+  { name: 'Norway', code: 'NO', flag: '🇳🇴', dialCode: '47' },
+  { name: 'Philippines', code: 'PH', flag: '🇵🇭', dialCode: '63' },
+  { name: 'Poland', code: 'PL', flag: '🇵🇱', dialCode: '48' },
+  { name: 'Portugal', code: 'PT', flag: '🇵🇹', dialCode: '351' },
+  { name: 'Russia', code: 'RU', flag: '🇷🇺', dialCode: '7' },
+  { name: 'Saudi Arabia', code: 'SA', flag: '🇸🇦', dialCode: '966' },
+  { name: 'Singapore', code: 'SG', flag: '🇸🇬', dialCode: '65' },
+  { name: 'South Africa', code: 'ZA', flag: '🇿🇦', dialCode: '27' },
+  { name: 'South Korea', code: 'KR', flag: '🇰🇷', dialCode: '82' },
+  { name: 'Spain', code: 'ES', flag: '🇪🇸', dialCode: '34' },
+  { name: 'Sweden', code: 'SE', flag: '🇸🇪', dialCode: '46' },
+  { name: 'Switzerland', code: 'CH', flag: '🇨🇭', dialCode: '41' },
+  { name: 'Thailand', code: 'TH', flag: '🇹🇭', dialCode: '66' },
+  { name: 'Turkey', code: 'TR', flag: '🇹🇷', dialCode: '90' },
+  { name: 'Ukraine', code: 'UA', flag: '🇺🇦', dialCode: '380' },
+  { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '971' },
+  { name: 'Vietnam', code: 'VN', flag: '🇻🇳', dialCode: '84' },
 ];
 
-// Map dial codes to countries
-const dialCodeMap: Record<string, Country> = {};
+// Map dial codes to countries with special handling for US/Canada
+const dialCodeMap: Record<string, Country[]> = {};
 countries.forEach(country => {
-  dialCodeMap[country.dialCode] = country;
+  if (!dialCodeMap[country.dialCode]) {
+    dialCodeMap[country.dialCode] = [];
+  }
+  dialCodeMap[country.dialCode].push(country);
 });
 
 interface CustomPhoneInputProps {
@@ -79,7 +117,18 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
       
       // Try to find a matching country by dial code
       if (dialCodeMap[countryCode]) {
-        setSelectedCountry(dialCodeMap[countryCode]);
+        // Special handling for US/Canada (both have dial code 1)
+        if (countryCode === '1') {
+          // If US is already selected, keep it as US
+          if (selectedCountry.code !== 'US') {
+            // Only change if not already US
+            const usCountry = countries.find(c => c.code === 'US');
+            if (usCountry) setSelectedCountry(usCountry);
+          }
+        } else {
+          // For other countries, use the first match
+          setSelectedCountry(dialCodeMap[countryCode][0]);
+        }
       }
       
       // Update with only the last 10 digits
@@ -137,7 +186,10 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
           aria-label="Select country"
         >
           <span className="mr-2">{selectedCountry.flag}</span>
-          <FaChevronDown className="h-4 w-4 text-gray-500" />
+          <div className="flex flex-col">
+            <FaChevronUp className="h-3 w-3 text-primary" />
+            <FaChevronDown className="h-3 w-3 text-primary" />
+          </div>
         </button>
         
         {/* Country dropdown */}
@@ -163,7 +215,7 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
         placeholder="Enter phone number"
         value={phoneInput}
         onChange={handlePhoneChange}
