@@ -491,8 +491,11 @@ export default function ProfileSetup() {
                   value = value.replace(/^\+?1\s*/, '');
                 }
                 
-                // Extract digits only
-                const digits = value.replace(/\D/g, '');
+                // Extract digits only - limit to 10 digits max
+                let digits = value.replace(/\D/g, '');
+                if (digits.length > 10) {
+                  digits = digits.slice(0, 10); // Strictly limit to 10 digits
+                }
                 
                 // Create formatted version
                 let formatted = '';
@@ -514,7 +517,7 @@ export default function ProfileSetup() {
                         
                         // Last 4 digits
                         if (digits.length > 6) {
-                          formatted += digits.slice(6, Math.min(10, digits.length));
+                          formatted += digits.slice(6, 10);
                         }
                       }
                     }
@@ -525,7 +528,10 @@ export default function ProfileSetup() {
                 setFormattedPhone(formatted);
                 setPhone(digits);
                 setPhoneWithCountryCode(`+1${digits}`);
-                setHasCompletedPhone(digits.length === 10);
+                
+                // Set completed flag only when exactly 10 digits
+                const isComplete = digits.length === 10;
+                setHasCompletedPhone(isComplete);
                 
                 // Update WhatsApp profile
                 if (digits.length > 0) {
