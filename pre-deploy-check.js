@@ -168,11 +168,22 @@ try {
       }
       
       // Additional import patterns
-      const importMatches = content.match(/from\s+['"]([^'"./][^'"]*)['"]|require\(['"]([^'"./][^'"]*)['"]\)/g) || [];
+      const importMatches = content.match(/from\s+['"]([@^'"./][^'"]*)['"]|require\(['"]([@^'"./][^'"]*)['"]\)/g) || [];
       
       importMatches.forEach(match => {
-        const packagePath = match.replace(/from\s+['"](.*)['"]|require\(['"](.*)['"](\))?/, '$1$2');
+        const packagePath = match.replace(/from\s+['"](.*)['"]|require\(['"](.*)['"]\(\))?/, '$1$2');
+        
+        // Skip Next.js internal path aliases (like @/app, @/lib, etc.)
+        if (packagePath.startsWith('@/')) {
+          return; // Skip this import as it's an internal path alias
+        }
+        
         const packageName = packagePath.split('/')[0];
+        
+        // Skip bare '@' import which is sometimes detected erroneously 
+        if (packageName === '@') {
+          return;
+        }
         
         // Scope packages (e.g., @radix-ui/react-label)
         if (packageName.startsWith('@')) {
@@ -228,8 +239,9 @@ try {
   // Check if all imported packages are in package.json
   const notInstalledImports = [];
   importedPackages.forEach(pkg => {
-    // Skip React/Next.js internal packages
-    if (pkg === 'react' || pkg === 'next' || pkg === 'react-dom') return;
+    // Skip React/Next.js internal packages and path aliases
+    if (pkg === 'react' || pkg === 'next' || pkg === 'react-dom' || 
+        pkg === '@' || pkg.startsWith('@/')) return;
     
     // Known packages that might have special handling
     const knownPackageAliases = {
