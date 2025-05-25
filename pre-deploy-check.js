@@ -206,7 +206,9 @@ try {
   
   // CRITICAL OVERRIDE: Filter out known problematic packages
   const filteredImports = notInstalledImports.filter(pkg => 
-    pkg !== 'react-input-mask' && pkg !== 'react-phone-number-input'
+    pkg !== 'react-input-mask' && 
+    pkg !== 'react-phone-number-input' && 
+    !pkg.startsWith('@radix-ui')
   );
   
   if (filteredImports.length > 0) {
