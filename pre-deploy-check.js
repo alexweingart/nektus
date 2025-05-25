@@ -65,12 +65,15 @@ try {
   const findImportsInFile = (filePath) => {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
-      const importRegex = /import\s+(?:(?:[\w*\s{},]*)\s+from\s+)?['"]([^'"\s]+)['"]/g;
+      const importRegex = /import\s+(?:(?:[\w*\s{},]*)\s+from\s+)?['"]([^'"\s]+)['"]|require\(['"]([^'"\s]+)['"]\)/g;
       const imports = [];
       let match;
       
       while ((match = importRegex.exec(content)) !== null) {
-        const importPath = match[1];
+        // Handle both import and require styles
+        const importPath = match[1] || match[2];
+        if (!importPath) continue;
+        
         // Only track external package imports (not relative or internal)
         if (!importPath.startsWith('./') && !importPath.startsWith('../') && !importPath.startsWith('@/')) {
           // Extract package name (e.g., 'lodash/throttle' -> 'lodash')
@@ -83,6 +86,7 @@ try {
       
       return imports;
     } catch (error) {
+      console.log(`   Warning: Error reading file ${filePath}: ${error.message}`);
       return [];
     }
   };
@@ -120,7 +124,20 @@ try {
     // Skip React/Next.js internal packages
     if (pkg === 'react' || pkg === 'next' || pkg === 'react-dom') return;
     
-    if (!packageJson.dependencies[pkg] && !packageJson.devDependencies?.[pkg]) {
+    // Known packages that might have special handling
+    const knownPackageAliases = {
+      'react-phone-number-input': ['react-phone-number-input'],
+      'react-input-mask': ['react-input-mask'],
+      'react-icons': ['react-icons'],
+    };
+    
+    // Check if the package or any of its aliases are in dependencies or devDependencies
+    const isInstalled = packageJson.dependencies[pkg] || packageJson.devDependencies?.[pkg];
+    const hasAlias = knownPackageAliases[pkg]?.some(alias => 
+      packageJson.dependencies[alias] || packageJson.devDependencies?.[alias]
+    );
+    
+    if (!isInstalled && !hasAlias) {
       notInstalledImports.push(pkg);
     }
   });
