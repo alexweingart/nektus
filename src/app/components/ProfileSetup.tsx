@@ -362,7 +362,7 @@ export default function ProfileSetup() {
             <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className="text-2xl font-semibold text-foreground">{session?.user?.name}</h2>
+        <h2 className="text-2xl font-semibold" style={{ color: '#2d3748' }}>{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}

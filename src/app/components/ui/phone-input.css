@@ -64,13 +64,7 @@
   }
 }
 
-/* Ensure black text with maximum specificity */
-.PhoneInput .PhoneInputInput,
-.PhoneInput input[type="tel"],
-.PhoneInputInput,
-.PhoneInputInput.PhoneInputInput,
-input.PhoneInputInput,
-input[type="tel"].PhoneInputInput {
-  color: var(--foreground, #2d3748) !important;
-  -webkit-text-fill-color: var(--foreground, #2d3748) !important;
+/* Ensure black text with normal specificity */
+.PhoneInputInput {
+  color: #2d3748 !important;
 }
