@@ -13,6 +13,18 @@ export type PhoneInputProps = React.ComponentPropsWithoutRef<typeof ReactPhoneIn
   onCountryChange?: (country: CountryCode) => void
 }
 
+// Custom input component that preserves styling but adds autocomplete
+const CustomInput = (props: any) => {
+  return (
+    <input
+      {...props}
+      type="tel"
+      autoComplete="tel"
+      className={props.className}
+    />
+  );
+};
+
 const PhoneInput = React.forwardRef<React.ElementRef<"input">, PhoneInputProps>(
   ({ className, onCountryChange, onChange, ...props }, ref) => {
     return (
@@ -26,7 +38,7 @@ const PhoneInput = React.forwardRef<React.ElementRef<"input">, PhoneInputProps>(
           onCountryChange={(value) => {
             onCountryChange?.(value as CountryCode)
           }}
-          autoComplete="tel"
+          inputComponent={CustomInput}
           {...props}
         />
       </div>
