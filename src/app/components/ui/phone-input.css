@@ -5,10 +5,7 @@
   align-items: center;
   width: 100%;
   min-height: 40px;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid var(--card-border, #e0e0e0);
-  background-color: white;
+  background-color: transparent;
 }
 
 .PhoneInputCountry {
@@ -17,7 +14,7 @@
   min-width: 70px;
   display: flex;
   align-items: center;
-  border-right: 1px solid var(--card-border, #e0e0e0);
+  border-right: none;
 }
 
 .PhoneInputCountryIcon {
