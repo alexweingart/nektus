@@ -429,7 +429,12 @@ export default function ProfileSetup() {
           countryCallingCodeEditable={false}
           autoComplete="tel-national"
           value={phoneWithCountryCode}
-          onCountryChange={(country: string) => setSelectedCountry(country as CountryCode)}
+          onCountryChange={(country) => {
+            // Explicitly handle the type by checking it's a valid country code
+            if (typeof country === 'string' && country.length === 2) {
+              setSelectedCountry(country as CountryCode);
+            }
+          }}
           onChange={(value: E164Number | undefined) => {
             /* 0.  Clear everything on empty */
             if (!value) {

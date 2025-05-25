@@ -10,7 +10,8 @@ declare module '@/app/components/ui/phone-input' {
     withCountryCallingCode?: boolean;
     countryCallingCodeEditable?: boolean;
     inputComponent?: React.ComponentType<any>;
-    onCountryChange?: (country: string) => void;
+    // The library provides a country string that may or may not be a valid CountryCode
+    onCountryChange?: (country: any) => void;
   }
 
   export const PhoneInput: React.ForwardRefExoticComponent<
