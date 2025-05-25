@@ -59,6 +59,25 @@ export default function ProfileSetup() {
   const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
   const [selectedCountryFlag, setSelectedCountryFlag] = useState('/us-flag.png');
   
+  // Create ref for dropdown element to handle click outside
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Handle clicks outside the country dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    }
+    
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      // Clean up
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
   // Common country codes for dropdown
   const countryCodes = [
     { code: '+1', name: 'United States', flag: '/us-flag.png' },
@@ -479,8 +498,19 @@ export default function ProfileSetup() {
           <div className={phoneInputStyles.phoneInputWrapper}>
             {/* Country code selector with dropdown */}
             <div 
+              ref={dropdownRef}
               className={phoneInputStyles.countryCodeSelector}
-              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCountryDropdown(!showCountryDropdown);
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  setShowCountryDropdown(!showCountryDropdown);
+                }
+              }}
             >
               <div className={phoneInputStyles.flagIcon}>
                 <img src={selectedCountryFlag} alt="Country" className={phoneInputStyles.flagImage} />
@@ -563,9 +593,17 @@ export default function ProfileSetup() {
                 }
               }}
               onFocus={(e) => {
-                // Place cursor at the end of the current value
-                const value = e.target.value;
-                e.target.setSelectionRange(value.length, value.length);
+                // Place cursor at the appropriate position
+                if (!formattedPhone) {
+                  // If empty, place cursor after the opening parenthesis in the placeholder
+                  // Use a short timeout to ensure the browser has rendered the input
+                  setTimeout(() => {
+                    e.target.setSelectionRange(1, 1);
+                  }, 0);
+                } else {
+                  // Otherwise place cursor at the end of the current value
+                  e.target.setSelectionRange(formattedPhone.length, formattedPhone.length);
+                }
               }}
             />
           </div>
