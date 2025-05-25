@@ -430,11 +430,55 @@ export default function ProfileSetup() {
           value={phoneWithCountryCode}
           onCountryChange={(c: CountryCode) => setSelectedCountry(c)}
           onChange={(value: E164Number | undefined) => {
-            if (value) {
-              // value is now the NATIONAL digits (no + or dial code)
+            if (!value) {
+              setPhoneWithCountryCode(undefined);
+              setPhone('');
+              setHasCompletedPhone(false);
+              return;
+            }
+
+            /**
+             * 1)  Chrome bubble gives either:
+             *     • "+18182926036"
+             *     • "18182926036"   (US example, no plus)
+             * 2)  Users typing give national digits only ("8182926036").
+             *
+             * We try to parse as full E.164 first; if that succeeds we:
+             *   • switch the flag           (setSelectedCountry)
+             *   • keep only national digits (setPhoneWithCountryCode(parsed.nationalNumber))
+             * Otherwise we just store whatever they typed.
+             */
+            let maybeInternational = value.toString();
+            if (maybeInternational && !maybeInternational.startsWith('+') && /^\d{11,15}$/.test(maybeInternational)) {
+              // Assume it's an international number without "+"
+              maybeInternational = '+' + maybeInternational;
+            }
+
+            const parsed = parsePhoneNumberFromString(maybeInternational || '', selectedCountry);
+
+            if (parsed && parsed.isValid()) {
+              // Update country flag if parsed successfully
+              if (parsed.country) {
+                setSelectedCountry(parsed.country as CountryCode);          // flag update
+              }
+              
+              // Store only national digits
+              const nationalDigits = parsed.nationalNumber;
+              setPhoneWithCountryCode(nationalDigits as E164Number);        // only national digits
+              setPhone(nationalDigits);
+              
+              // Set completed flag when valid
+              setHasCompletedPhone(nationalDigits.length >= 10);
+              
+              // Update WhatsApp profile with the digits
+              if (nationalDigits.length > 0) {
+                updateProfilesWithPhone(nationalDigits);
+              }
+            } else {
+              // Just store what they typed if we couldn't parse it
               setPhoneWithCountryCode(value);
               
-              // Extract just the local digits (no country code)
+              // Extract just the local digits (fallback to old method)
               const digits = value.toString().replace(/^\+\d+\s*/, '');
               setPhone(digits);
               
@@ -445,11 +489,6 @@ export default function ProfileSetup() {
               if (digits.length > 0) {
                 updateProfilesWithPhone(digits);
               }
-            } else {
-              // Handle empty or invalid state
-              setPhoneWithCountryCode(undefined);
-              setPhone('');
-              setHasCompletedPhone(false);
             }
           }}
         />
