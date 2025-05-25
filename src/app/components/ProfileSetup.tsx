@@ -4,9 +4,8 @@ import * as React from 'react';
 const { useState, useEffect, useMemo } = React;
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { PhoneInputAutofill as PhoneInput } from './phone-input-autofill';
-import { E164Number, parsePhoneNumberFromString } from 'libphonenumber-js';
-import { formatUSPhone, cleanUSDigits } from '@/utils/formatUS';
+import { SmartPhoneInput } from './SmartPhoneInput';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -44,7 +43,8 @@ export default function ProfileSetup() {
   
   // State management
   const [isSaving, setIsSaving] = useState(false);
-  const [usDigits, setUsDigits] = useState('');  // US national digits only (max 10)
+  const [digits, setDigits] = useState('');  // National digits only (no country code)
+  const [country, setCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
@@ -104,12 +104,16 @@ export default function ProfileSetup() {
           // Handle existing profile data if available
           if (profile) {
             if (profile.phone) {
-              // Get the national digits only from the stored phone number
-              const digits = cleanUSDigits(profile.phone);
-              
-              // Update state with clean digits
-              setUsDigits(digits);
-              setHasCompletedPhone(digits.length === 10);
+              // Get the national digits from the stored phone number
+              const parsed = parsePhoneNumberFromString(profile.phone);
+              if (parsed?.isValid()) {
+                // Update state with detected country and national digits
+                setDigits(parsed.nationalNumber);
+                if (parsed.country && ['US', 'CA', 'GB', 'AU', 'DE', 'FR', 'IN'].includes(parsed.country)) {
+                  setCountry(parsed.country as 'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN');
+                }
+                setHasCompletedPhone(parsed.nationalNumber.length >= 6);
+              }
             }
             
             if (profile.socialProfiles && profile.socialProfiles.length > 0) {
@@ -143,10 +147,10 @@ export default function ProfileSetup() {
   
   // Update social profiles when phone number is complete
   useEffect(() => {
-    if (usDigits && usDigits.length === 10) {
-      updateProfilesWithPhone(usDigits);
+    if (digits && digits.length >= 6) {
+      updateProfilesWithPhone(digits);
     }
-  }, [usDigits, hasCompletedPhone]);
+  }, [digits, hasCompletedPhone]);
 
   // Phone input now handled directly by the PhoneInput component's onChange callback
   
@@ -295,7 +299,7 @@ export default function ProfileSetup() {
         })) as ProfileSocialProfile[];
       
       // Convert national phone number to E.164 format
-      const parsed = parsePhoneNumberFromString(usDigits, 'US');
+      const parsed = parsePhoneNumberFromString(digits, country);
       if (!parsed?.isValid()) { 
         alert('Invalid phone number'); 
         setIsSaving(false);
@@ -377,42 +381,24 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Input Component - US Only */}
+      {/* Smart Phone Input Component with Country Selection */}
       <div className="mb-8">
         <label className="block text-sm font-medium mb-2" htmlFor="phone">
           Phone number
         </label>
-        <div className="relative">
-          <PhoneInput
-            id="phone"
-            placeholder="Phone number"
-            country="US"                         /* Hard-coded to US */
-            international={false}               /* Always use national format */
-            withCountryCallingCode={false}      /* Don't show +1 prefix */
-            autoComplete="tel-national"
-            value={(usDigits || undefined) as E164Number | undefined}  /* library wants undefined for empty */
-            onChange={(val) => {
-              // Clean the input using our utility
-              const digits = cleanUSDigits(val ?? '');
-              
-              // Update state with clean digits
-              setUsDigits(digits);
-              
-              // Update completion status
-              setHasCompletedPhone(digits.length === 10);
-              
-              // Update social profiles if we have a complete phone number
-              if (digits.length === 10) updateProfilesWithPhone(digits);
-            }}
-          />
-          
-          {/* Display formatted version to show user */}
-          {usDigits && (
-            <div className="text-sm text-gray-500 mt-1">
-              {formatUSPhone(usDigits)}
-            </div>
-          )}
-        </div>
+        <SmartPhoneInput
+          id="phone"
+          country={country}
+          value={digits}
+          onChange={(d, c) => {
+            setDigits(d);
+            setCountry(c);
+            setHasCompletedPhone(d.length >= 6);  // Mark as complete with reasonable length
+            
+            // Update social profiles if we have a complete phone number
+            if (d.length >= 6) updateProfilesWithPhone(d);
+          }}
+        />
       </div>
       
       {/* Social Networks Section Header with Toggle */}
