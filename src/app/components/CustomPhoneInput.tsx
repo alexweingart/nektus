@@ -11,32 +11,35 @@ type Country = {
 
 // List of countries with their info
 const countries: Country[] = [
-  { name: 'United States', code: 'US', flag: '🇺🇸', dialCode: '1' },
-  { name: 'Canada', code: 'CA', flag: '🇨🇦', dialCode: '1' },
-  { name: 'United Kingdom', code: 'GB', flag: '🇬🇧', dialCode: '44' },
-  { name: 'Australia', code: 'AU', flag: '🇦🇺', dialCode: '61' },
-  { name: 'Germany', code: 'DE', flag: '🇩🇪', dialCode: '49' },
-  { name: 'France', code: 'FR', flag: '🇫🇷', dialCode: '33' },
-  { name: 'India', code: 'IN', flag: '🇮🇳', dialCode: '91' },
-  { name: 'China', code: 'CN', flag: '🇨🇳', dialCode: '86' },
-  { name: 'Japan', code: 'JP', flag: '🇯🇵', dialCode: '81' },
-  { name: 'Brazil', code: 'BR', flag: '🇧🇷', dialCode: '55' },
   { name: 'Afghanistan', code: 'AF', flag: '🇦🇫', dialCode: '93' },
   { name: 'Albania', code: 'AL', flag: '🇦🇱', dialCode: '355' },
   { name: 'Algeria', code: 'DZ', flag: '🇩🇿', dialCode: '213' },
   { name: 'Argentina', code: 'AR', flag: '🇦🇷', dialCode: '54' },
+  { name: 'Australia', code: 'AU', flag: '🇦🇺', dialCode: '61' },
   { name: 'Austria', code: 'AT', flag: '🇦🇹', dialCode: '43' },
   { name: 'Belgium', code: 'BE', flag: '🇧🇪', dialCode: '32' },
+  { name: 'Brazil', code: 'BR', flag: '🇧🇷', dialCode: '55' },
+  { name: 'Canada', code: 'CA', flag: '🇨🇦', dialCode: '1' },
   { name: 'Chile', code: 'CL', flag: '🇨🇱', dialCode: '56' },
+  { name: 'China', code: 'CN', flag: '🇨🇳', dialCode: '86' },
   { name: 'Colombia', code: 'CO', flag: '🇨🇴', dialCode: '57' },
   { name: 'Denmark', code: 'DK', flag: '🇩🇰', dialCode: '45' },
   { name: 'Egypt', code: 'EG', flag: '🇪🇬', dialCode: '20' },
   { name: 'Finland', code: 'FI', flag: '🇫🇮', dialCode: '358' },
+  { name: 'France', code: 'FR', flag: '🇫🇷', dialCode: '33' },
+  { name: 'Germany', code: 'DE', flag: '🇩🇪', dialCode: '49' },
   { name: 'Greece', code: 'GR', flag: '🇬🇷', dialCode: '30' },
+  { name: 'Hong Kong', code: 'HK', flag: '🇭🇰', dialCode: '852' },
+  { name: 'Hungary', code: 'HU', flag: '🇭🇺', dialCode: '36' },
+  { name: 'Iceland', code: 'IS', flag: '🇮🇸', dialCode: '354' },
+  { name: 'India', code: 'IN', flag: '🇮🇳', dialCode: '91' },
   { name: 'Indonesia', code: 'ID', flag: '🇮🇩', dialCode: '62' },
   { name: 'Ireland', code: 'IE', flag: '🇮🇪', dialCode: '353' },
   { name: 'Israel', code: 'IL', flag: '🇮🇱', dialCode: '972' },
   { name: 'Italy', code: 'IT', flag: '🇮🇹', dialCode: '39' },
+  { name: 'Japan', code: 'JP', flag: '🇯🇵', dialCode: '81' },
+  { name: 'Luxembourg', code: 'LU', flag: '🇱🇺', dialCode: '352' },
+  { name: 'Malaysia', code: 'MY', flag: '🇲🇾', dialCode: '60' },
   { name: 'Mexico', code: 'MX', flag: '🇲🇽', dialCode: '52' },
   { name: 'Netherlands', code: 'NL', flag: '🇳🇱', dialCode: '31' },
   { name: 'New Zealand', code: 'NZ', flag: '🇳🇿', dialCode: '64' },
@@ -52,12 +55,15 @@ const countries: Country[] = [
   { name: 'Spain', code: 'ES', flag: '🇪🇸', dialCode: '34' },
   { name: 'Sweden', code: 'SE', flag: '🇸🇪', dialCode: '46' },
   { name: 'Switzerland', code: 'CH', flag: '🇨🇭', dialCode: '41' },
+  { name: 'Taiwan', code: 'TW', flag: '🇹🇼', dialCode: '886' },
   { name: 'Thailand', code: 'TH', flag: '🇹🇭', dialCode: '66' },
   { name: 'Turkey', code: 'TR', flag: '🇹🇷', dialCode: '90' },
   { name: 'Ukraine', code: 'UA', flag: '🇺🇦', dialCode: '380' },
   { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '971' },
+  { name: 'United Kingdom', code: 'GB', flag: '🇬🇧', dialCode: '44' },
+  { name: 'United States', code: 'US', flag: '🇺🇸', dialCode: '1' },
   { name: 'Vietnam', code: 'VN', flag: '🇻🇳', dialCode: '84' },
-  { name: 'Malaysia', code: 'MY', flag: '🇲🇾', dialCode: '60' },
+
 ];
 
 // Map dial codes to countries with special handling for US/Canada
@@ -185,6 +191,7 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
           className="flex items-center justify-between px-3 py-2 border border-r-0 border-gray-300 rounded-l-md bg-white text-gray-700 h-full"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
+          style={{ zIndex: 1 }}
         >
           <span className="mr-2">{selectedCountry.flag}</span>
           <div className="flex flex-col">
@@ -211,18 +218,20 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
       </div>
       
       {/* Phone number input */}
-      <input
-        ref={inputRef}
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        className="flex-1 px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
-        placeholder="Enter phone number"
-        value={phoneInput}
-        onChange={handlePhoneChange}
-        maxLength={14} // (XXX) XXX-XXXX format has 14 characters
-        style={{ backgroundColor: 'white' }}
-      />
+      <div className="relative flex-1">
+        <input
+          ref={inputRef}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          className="w-full px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
+          placeholder="Enter phone number"
+          value={phoneInput}
+          onChange={handlePhoneChange}
+          maxLength={14} // (XXX) XXX-XXXX format has 14 characters
+          style={{ backgroundColor: '#ffffff' }}
+        />
+      </div>
     </div>
   );
 };
