@@ -26,14 +26,6 @@ const PhoneInput = React.forwardRef<React.ElementRef<"input">, PhoneInputProps>(
           onCountryChange={(value) => {
             onCountryChange?.(value as CountryCode)
           }}
-          inputComponent={({ className, ...restProps }) => (
-            <input 
-              type="tel" 
-              autoComplete="tel" 
-              placeholder="Enter your phone number"
-              {...restProps} 
-            />
-          )}
           {...props}
         />
       </div>
