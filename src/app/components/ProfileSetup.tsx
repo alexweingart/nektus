@@ -377,33 +377,7 @@ export default function ProfileSetup() {
         <h2 className="text-2xl font-semibold" style={{ color: '#2d3748' }}>{session?.user?.name}</h2>
       </div>
       
-      {/* Social Media Icons Row */}
-      <div className="flex flex-wrap justify-center gap-3 mb-8">
-        {platformOrder.map(platform => {
-          const profile = socialProfiles.find(p => p.platform === platform);
-          const bgColor = profile?.confirmed ? 'bg-primary text-white' : 
-                        profile?.autoFilled ? 'bg-primary-light text-white' : 
-                        'bg-muted text-primary';
-          
-          return (
-            <div 
-              key={platform}
-              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer ${bgColor}`}
-              onClick={() => handleEditSocial(platform)}
-            >
-              {platform === 'facebook' && <FaFacebook size={20} />}
-              {platform === 'instagram' && <FaInstagram size={20} />}
-              {platform === 'twitter' && <FaTwitter size={20} />}
-              {platform === 'snapchat' && <FaSnapchat size={20} />}
-              {platform === 'linkedin' && <FaLinkedin size={20} />}
-              {platform === 'whatsapp' && <FaWhatsapp size={20} />}
-              {platform === 'telegram' && <FaTelegram size={20} />}
-              {platform === 'email' && <FaEnvelope size={20} />}
-              {platform === 'phone' && <FaPhone size={20} />}
-            </div>
-          );
-        })}
-      </div>
+
       
       {/* Custom Phone Input Component */}
       <div className="mb-8">
@@ -427,82 +401,7 @@ export default function ProfileSetup() {
         </div>
       </div>
       
-      {/* Social Networks Section Header with Toggle */}
-      <div 
-        className="flex justify-between items-center mb-4 cursor-pointer p-2 border-b"
-        onClick={() => setShowSocialSettings(!showSocialSettings)}
-      >
-        <h3 className="text-lg font-medium">Social Networks</h3>
-        {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
-      </div>
 
-      {/* Social Network Settings (Collapsible) */}
-      {showSocialSettings && (
-        <div className="mb-6 space-y-4">
-          {socialProfiles
-            .filter(p => p.platform !== 'email' && p.platform !== 'phone')
-            .map((profile) => {
-              const iconBgColor = profile.confirmed ? 'bg-primary text-white' : 
-                        profile.autoFilled ? 'bg-primary-light text-white' : 
-                        'bg-muted text-primary';
-              
-              return (
-                <div key={profile.platform} className="bg-muted rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${iconBgColor}`}>
-                        {profile.platform === 'facebook' && <FaFacebook size={16} />}
-                        {profile.platform === 'instagram' && <FaInstagram size={16} />}
-                        {profile.platform === 'twitter' && <FaTwitter size={16} />}
-                        {profile.platform === 'snapchat' && <FaSnapchat size={16} />}
-                        {profile.platform === 'linkedin' && <FaLinkedin size={16} />}
-                        {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
-                        {profile.platform === 'telegram' && <FaTelegram size={16} />}
-                      </div>
-                      <div className="capitalize">{profile.platform}</div>
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditSocial(profile.platform);
-                      }}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <MdEdit size={20} />
-                    </button>
-                  </div>
-                  
-                  {editingSocial === profile.platform ? (
-                    <div className="mt-3 flex items-center">
-                      <span className="text-sm text-muted-foreground mr-1">
-                        {getSocialPrefix(profile.platform)}
-                      </span>
-                      <input
-                        type="text"
-                        value={socialEditValue}
-                        onChange={(e) => setSocialEditValue(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        className="flex-1 p-2 text-sm border border-input rounded bg-white dark:bg-card"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleSaveSocialEdit}
-                        className="ml-2 py-1 px-3 text-xs bg-primary text-white rounded"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  ) : profile.username ? (
-                    <div className="mt-2 pb-1 border-b text-sm flex">
-                      <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
-                      <span>{profile.username}</span>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-        </div>
-      )}
       
       {/* Save Button */}
       <button 
