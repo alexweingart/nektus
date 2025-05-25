@@ -393,35 +393,36 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Phone Input Component */}
+      {/* Simple Phone Input with Autosuggest */}
       <div className="mb-6">
-        <PhoneInput
-          defaultCountry="US"
-          value={phoneWithCountryCode as E164Number}
-          onChange={(value: E164Number | undefined) => {
-            if (value) {
-              // Update all the state variables
-              setPhoneWithCountryCode(value as string);
-              
-              // Extract just the local digits (no country code)
-              const digits = value.toString().replace(/^\+\d+\s*/, '');
+        <div className="flex items-center border rounded-md overflow-hidden">
+          <div className="flex items-center px-3 py-2 bg-white border-r">
+            <span className="text-base mr-2">🇺🇸</span>
+            <span className="text-sm text-gray-500">+1</span>
+          </div>
+          <input 
+            type="tel" 
+            autoComplete="tel" 
+            className="flex-1 py-2 px-3 outline-none bg-white text-foreground" 
+            placeholder="(555) 555-5555"
+            value={phone} 
+            onChange={(e) => {
+              // Get just the digits
+              const digits = e.target.value.replace(/\D/g, '');
               setPhone(digits);
               
-              // Set completed flag when valid
-              setHasCompletedPhone(digits.length >= 10);
-              
-              // Update WhatsApp profile with the digits
+              // Format for E.164
               if (digits.length > 0) {
+                setPhoneWithCountryCode(`+1${digits}` as E164Number);
+                setHasCompletedPhone(digits.length >= 10);
                 updateProfilesWithPhone(digits);
+              } else {
+                setPhoneWithCountryCode('');
+                setHasCompletedPhone(false);
               }
-            } else {
-              // Handle empty or invalid state
-              setPhoneWithCountryCode('');
-              setPhone('');
-              setHasCompletedPhone(false);
-            }
-          }}
-        />
+            }}
+          />
+        </div>
       </div>
       
       {/* Social Networks Section Header with Toggle */}
