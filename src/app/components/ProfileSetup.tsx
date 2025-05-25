@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import styles from './ProfileSetup.module.css';
-import phoneInputStyles from './PhoneInput.module.css';
 import { PhoneInput } from './ui/phone-input';
-import { CountryCode, E164Number } from 'libphonenumber-js';
+import { E164Number, CountryCode } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -15,10 +13,10 @@ import {
   FaTwitter, 
   FaSnapchat, 
   FaLinkedin, 
+  FaPhone,
   FaEnvelope,
   FaChevronDown,
-  FaChevronUp,
-  FaPhoneAlt
+  FaChevronUp
 } from 'react-icons/fa';
 import { MdEdit } from 'react-icons/md';
 import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/ProfileContext';
@@ -46,7 +44,6 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
-  // Use the full phone number with country code for the PhoneInput component
   const [phoneWithCountryCode, setPhoneWithCountryCode] = useState('');
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
@@ -54,17 +51,6 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
-  // Define the countries array for phone input component
-  const countries = [
-    { value: "US", label: "United States", code: "+1" },
-    { value: "CA", label: "Canada", code: "+1" },
-    { value: "GB", label: "United Kingdom", code: "+44" },
-    { value: "MX", label: "Mexico", code: "+52" },
-    { value: "IN", label: "India", code: "+91" },
-    { value: "DE", label: "Germany", code: "+49" },
-    { value: "FR", label: "France", code: "+33" },
-  ];
-
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
 
@@ -77,67 +63,18 @@ export default function ProfileSetup() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       const userEmail = session.user.email || '';
-      const extractedUsername = userEmail.split('@')[0] || '';
-      extractedUsernameRef.current = extractedUsername;
+      extractedUsernameRef.current = userEmail.split('@')[0] || '';
       
-      // Start with email confirmed (green)
-      const initialProfiles: SocialProfile[] = [
-        {
-          platform: 'email',
-          username: userEmail,
-          shareEnabled: true,
-          filled: true,
-          confirmed: true
-        }
-      ];
-      
-      // Add all other platforms with extracted username as placeholder
-      platformOrder.forEach(platform => {
-        if (platform !== 'email') {
-          // Add initial social profile
-          let username = '';
-          let autoFilled = false;
-          
-          // Use extracted username for social platforms
-          if (platform !== 'phone' && platform !== 'whatsapp' && platform !== 'telegram') {
-            username = extractedUsername;
-            autoFilled = !!extractedUsername;
-          }
-          
-          initialProfiles.push({
-            platform,
-            username,
-            shareEnabled: true,
-            filled: !!username,
-            autoFilled
-          });
-        }
-      });
-      
-      setSocialProfiles(initialProfiles);
-
-      // If we already have a phone number from previous setups, initialize it
-      if (phoneWithCountryCode) {
-        handlePhoneInputChange(phoneWithCountryCode);
-      }
+      // Email is immediately confirmed (green)
+      setSocialProfiles([{
+        platform: 'email',
+        username: userEmail,
+        shareEnabled: true,
+        filled: true,
+        confirmed: true
+      }]);
     }
-  }, []);
-  
-  // Make sure the email icon is always green in the display
-  useEffect(() => {
-    if (socialProfiles.length > 0) {
-      const emailProfile = socialProfiles.find(p => p.platform === 'email');
-      if (emailProfile && !emailProfile.confirmed) {
-        const updatedProfiles = socialProfiles.map(profile => {
-          if (profile.platform === 'email') {
-            return { ...profile, confirmed: true };
-          }
-          return profile;
-        });
-        setSocialProfiles(updatedProfiles);
-      }
-    }
-  }, [socialProfiles]);
+  }, []); // Empty dependency array - run only once on mount
   
   // Load profile data and initialize social profiles
   useEffect(() => {
@@ -171,40 +108,42 @@ export default function ProfileSetup() {
               setPhone(digits);
               setHasCompletedPhone(digits.length >= 10);
               
-              // Format the phone number for display - using spaces (000 000 0000)
+              // Format the phone number for display
               let formatted = '';
               if (digits.length > 0) {
-                formatted = digits.substring(0, 3);
+                formatted = `(${digits.slice(0, 3)}`;
                 if (digits.length > 3) {
-                  formatted += ' ' + digits.substring(3, 6);
-                  if (digits.length > 6) {
-                    formatted += ' ' + digits.substring(6, 10);
-                  }
+                  formatted += `) ${digits.slice(3, 6)}`;
+                }
+                if (digits.length > 6) {
+                  formatted += `-${digits.slice(6, 10)}`;
                 }
               }
               setFormattedPhone(formatted);
             }
             
-            // Update social profiles from saved data
             if (profile.socialProfiles && profile.socialProfiles.length > 0) {
-              profile.socialProfiles.forEach(savedProfile => {
-                const existingIndex = updatedProfiles.findIndex(p => p.platform === savedProfile.platform);
-                if (existingIndex !== -1) {
-                  updatedProfiles[existingIndex] = {
-                    ...updatedProfiles[existingIndex],
-                    ...savedProfile,
-                    filled: true,
-                    confirmed: true
-                  };
+              // Merge existing profiles with our initialized ones
+              profile.socialProfiles.forEach(existingProfile => {
+                const index = updatedProfiles.findIndex(p => p.platform === existingProfile.platform);
+                if (index >= 0) {
+                  updatedProfiles[index] = {
+                    ...existingProfile,
+                    confirmed: existingProfile.filled
+                  } as SocialProfile;
+                } else {
+                  updatedProfiles.push({
+                    ...existingProfile,
+                    confirmed: existingProfile.filled
+                  } as SocialProfile);
                 }
               });
             }
           }
           
-          // Update the state with the updated profiles
           setSocialProfiles(updatedProfiles);
         } catch (error) {
-          console.error('Error loading profile data:', error);
+          console.error('Error initializing profile:', error);
         }
       };
       
@@ -220,128 +159,125 @@ export default function ProfileSetup() {
     }
   }, [phone, hasCompletedPhone]);
 
-  // Handle phone number change for the PhoneInput component
-  const handlePhoneInputChange = (value: string | undefined) => {
-    if (!value) {
-      setPhoneWithCountryCode('');
-      setPhone('');
-      setFormattedPhone('');
-      setHasCompletedPhone(false);
-      return;
-    }
-    
-    setPhoneWithCountryCode(value);
-    
-    // Extract just the national number without country code
-    const digits = value.replace(/\D/g, '').substring(1); // Remove +1 country code
+  // Handle phone number change
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Strip non-digits
+    const digits = input.replace(/\D/g, '');
     setPhone(digits);
     
-    // Format for display if needed elsewhere (though the component handles display)
+    // Format for display
     let formatted = '';
     if (digits.length > 0) {
-      formatted = digits.substring(0, 3);
+      formatted = `(${digits.slice(0, 3)}`;
       if (digits.length > 3) {
-        formatted += ' ' + digits.substring(3, 6);
-        if (digits.length > 6) {
-          formatted += ' ' + digits.substring(6, 10);
-        }
+        formatted += `) ${digits.slice(3, 6)}`;
+      }
+      if (digits.length > 6) {
+        formatted += `-${digits.slice(6, 10)}`;
       }
     }
     setFormattedPhone(formatted);
-    
-    // Check if phone has enough digits to be valid (simple length check)
-    setHasCompletedPhone(digits.length >= 10);
-    
-    // Auto-update the WhatsApp profile with the phone number
-    updateProfilesWithPhone(digits);
   };
-
+  
   // Update profiles with phone number
   const updateProfilesWithPhone = (phoneNumber: string) => {
-    // Update the 'phone' platform profile with the phone number
-    setSocialProfiles(prev => {
-      const updated = [...prev];
-      const phoneIndex = updated.findIndex(p => p.platform === 'phone');
+    if (phoneNumber.length >= 10) {
+      // Make a copy of profiles to update
+      const updatedProfiles = [...socialProfiles];
       
-      if (phoneIndex !== -1) {
-        updated[phoneIndex] = {
-          ...updated[phoneIndex],
+      // First confirm the phone number profile
+      const phoneIndex = updatedProfiles.findIndex(p => p.platform === 'phone');
+      if (phoneIndex >= 0) {
+        updatedProfiles[phoneIndex] = {
+          ...updatedProfiles[phoneIndex],
           username: phoneNumber,
           filled: true,
-          confirmed: true
+          confirmed: true,
+          autoFilled: false
         };
       } else {
-        updated.push({
+        updatedProfiles.push({
           platform: 'phone',
           username: phoneNumber,
           shareEnabled: true,
           filled: true,
-          confirmed: true
+          confirmed: true,
+          autoFilled: false
         });
       }
       
-      // Also update WhatsApp with the same number if it's not already set
-      const whatsappIndex = updated.findIndex(p => p.platform === 'whatsapp');
-      if (whatsappIndex !== -1 && (!updated[whatsappIndex].username || !updated[whatsappIndex].filled)) {
-        updated[whatsappIndex] = {
-          ...updated[whatsappIndex],
-          username: phoneNumber,
-          filled: true,
-          autoFilled: true // Mark as auto-filled for visual indication
-        };
-      }
+      // Auto-fill all other profiles with light green
+      ['whatsapp', 'telegram', 'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'].forEach(platform => {
+        const index = updatedProfiles.findIndex(p => p.platform === platform as SocialProfile['platform']);
+        let value = extractedUsernameRef.current;
+        
+        // For messaging platforms, use phone number
+        if (platform === 'whatsapp' || platform === 'telegram') {
+          value = phoneNumber;
+        }
+        
+        if (index >= 0) {
+          // Only auto-fill if not already confirmed
+          if (!updatedProfiles[index].confirmed) {
+            updatedProfiles[index] = {
+              ...updatedProfiles[index],
+              username: value,
+              filled: true,
+              autoFilled: true
+            };
+          }
+        } else {
+          updatedProfiles.push({
+            platform: platform as SocialProfile['platform'],
+            username: value,
+            shareEnabled: true,
+            filled: true,
+            autoFilled: true
+          });
+        }
+      });
       
-      return updated;
-    });
+      setSocialProfiles(updatedProfiles);
+    }
   };
   
   // Handle editing social profile
   const handleEditSocial = (platform: SocialProfile['platform']) => {
-    // If social settings aren't shown, show them first
-    if (!showSocialSettings) {
-      setShowSocialSettings(true);
-    }
-    
-    // Small delay to ensure the section is visible before focusing
-    setTimeout(() => {
-      const profile = socialProfiles.find(p => p.platform === platform);
-      setSocialEditValue(profile?.username || '');
-      setEditingSocial(platform);
-    }, 100);
+    const profile = socialProfiles.find(p => p.platform === platform);
+    setEditingSocial(platform);
+    setSocialEditValue(profile?.username || '');
   };
   
   // Save edited social profile
   const handleSaveSocialEdit = () => {
-    if (!editingSocial) return;
-    
-    setSocialProfiles(prev => {
-      const updated = [...prev];
-      const index = updated.findIndex(p => p.platform === editingSocial);
+    if (editingSocial) {
+      const updatedProfiles = socialProfiles.map(profile => {
+        if (profile.platform === editingSocial) {
+          return { 
+            ...profile, 
+            username: socialEditValue, 
+            filled: !!socialEditValue,
+            confirmed: !!socialEditValue,
+            autoFilled: false
+          };
+        }
+        return profile;
+      });
       
-      if (index !== -1) {
-        updated[index] = {
-          ...updated[index],
-          username: socialEditValue,
-          filled: !!socialEditValue,
-          confirmed: !!socialEditValue,
-          autoFilled: false // Reset auto-filled flag once manually edited
-        };
-      }
-      
-      return updated;
-    });
-    
-    setEditingSocial(null);
-    setSocialEditValue('');
+      setSocialProfiles(updatedProfiles);
+      setEditingSocial(null);
+      setSocialEditValue('');
+    }
   };
   
   // Handle key press in input fields
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       if (editingSocial) {
         handleSaveSocialEdit();
       } else {
-        // Focus the next input or save
         handleSave();
       }
     }
@@ -410,49 +346,37 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className={styles.profileContainer}>
+    <div className="max-w-md mx-auto p-6 bg-white dark:bg-card shadow-md rounded-xl">
       {/* Profile Photo and Name */}
-      <div className={styles.profileHeader}>
+      <div className="text-center mb-8">
         {session?.user?.image ? (
-          <div className={styles.profileImage}>
+          <div className="w-28 h-28 mx-auto mb-4 rounded-full overflow-hidden shadow-md">
             <img 
               src={session.user.image} 
-              alt={session?.user?.name || 'Profile'} 
-              style={{width: '100%', height: '100%', objectFit: 'cover'}}
+              alt={session.user?.name || 'Profile'} 
+              className="w-full h-full object-cover"
             />
           </div>
         ) : (
-          <div className={styles.profileImagePlaceholder}>
-            <span style={{fontSize: '1.5rem', fontWeight: 600}}>{session?.user?.name?.[0] || '?'}</span>
+          <div className="w-28 h-28 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <span className="text-2xl font-semibold">{session?.user?.name?.[0] || '?'}</span>
           </div>
         )}
-        <h2 className={styles.profileName}>{session?.user?.name}</h2>
+        <h2 className="text-2xl font-semibold">{session?.user?.name}</h2>
       </div>
       
       {/* Social Media Icons Row */}
-      <div className={styles.socialIconsRow}>
+      <div className="flex flex-wrap justify-center gap-3 mb-8">
         {platformOrder.map(platform => {
           const profile = socialProfiles.find(p => p.platform === platform);
-          // Handle special cases for icon styling
-          let iconClass;
-          
-          if (platform === 'email') {
-            // Force email to always be green (confirmed)
-            iconClass = styles.socialIconConfirmed;
-          } else if (platform === 'phone') {
-            // Phone icon should only be green when exactly 10 digits are entered
-            iconClass = phone && phone.length === 10 ? styles.socialIconConfirmed : styles.socialIconDefault;
-          } else {
-            // Normal behavior for other icons
-            iconClass = profile?.confirmed ? styles.socialIconConfirmed : 
-                       profile?.autoFilled ? styles.socialIconAutoFilled : 
-                       styles.socialIconDefault;
-          }
+          const bgColor = profile?.confirmed ? 'bg-primary text-white' : 
+                        profile?.autoFilled ? 'bg-primary-light text-white' : 
+                        'bg-muted text-primary';
           
           return (
             <div 
               key={platform}
-              className={`${styles.socialIcon} ${iconClass}`}
+              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer ${bgColor}`}
               onClick={() => handleEditSocial(platform)}
             >
               {platform === 'facebook' && <FaFacebook size={20} />}
@@ -463,147 +387,119 @@ export default function ProfileSetup() {
               {platform === 'whatsapp' && <FaWhatsapp size={20} />}
               {platform === 'telegram' && <FaTelegram size={20} />}
               {platform === 'email' && <FaEnvelope size={20} />}
-              {platform === 'phone' && <FaPhoneAlt size={20} />}
+              {platform === 'phone' && <FaPhone size={20} />}
             </div>
           );
         })}
       </div>
       
-      {/* Phone Input with ShadCN-style component */}
-      <div className={styles.formGroup}>
-        <div className={phoneInputStyles.phoneInputContainer}>
-          <PhoneInput
-            defaultCountry="US"
-            onPhoneChange={(value: E164Number | undefined) => {
-              if (value) {
-                // Update all the state variables
-                const phoneStr = value.toString();
-                setPhoneWithCountryCode(phoneStr);
-                
-                // Extract just the local digits (no country code)
-                const digits = phoneStr.replace(/^\+\d+\s*/, '');
-                setPhone(digits);
-                
-                // Set completed flag when valid
-                setHasCompletedPhone(digits.length === 10);
-                
-                // Update WhatsApp profile with the digits
-                if (digits.length > 0) {
-                  updateProfilesWithPhone(digits);
-                }
-              } else {
-                // Handle empty or invalid state
-                setPhoneWithCountryCode('');
-                setPhone('');
-                setHasCompletedPhone(false);
+      {/* Phone Input Component with shadcn-style */}
+      <div className="mb-6">
+        <PhoneInput
+          defaultCountry="US"
+          value={phoneWithCountryCode as E164Number}
+          onChange={(value) => {
+            if (value) {
+              // Update all the state variables
+              setPhoneWithCountryCode(value as string);
+              
+              // Extract just the local digits (no country code)
+              const digits = value.toString().replace(/^\+\d+\s*/, '');
+              setPhone(digits);
+              
+              // Set completed flag when valid
+              setHasCompletedPhone(digits.length >= 10);
+              
+              // Update WhatsApp profile with the digits
+              if (digits.length > 0) {
+                updateProfilesWithPhone(digits);
               }
-            }}
-            onCountryChange={(country: CountryCode) => {
-              // Update stored country information when changed
-              // This ensures the country code is properly reflected in the phone number
-              if (country && phone) {
-                // Get the country code from the selected country
-                const countryObj = countries.find((c: {value: string, label: string, code: string}) => c.value === country);
-                if (countryObj) {
-                  // Update the full phone number with the new country code
-                  setPhoneWithCountryCode(`${countryObj.code}${phone}`);
-                }
-              }
-            }}
-            className={phoneInputStyles.phoneInput}
-            autoFocus
-          />
-        </div>
+            } else {
+              // Handle empty or invalid state
+              setPhoneWithCountryCode('');
+              setPhone('');
+              setHasCompletedPhone(false);
+            }
+          }}
+          onCountryChange={(country) => {
+            console.log(`Country changed to: ${country}`);
+          }}
+          className="w-full"
+          autoFocus
+        />
       </div>
       
-      {/* Social Networks Header (Expandable) */}
+      {/* Social Networks Section Header with Toggle */}
       <div 
-        className={styles.socialAccordionHeader}
+        className="flex justify-between items-center mb-4 cursor-pointer p-2 border-b"
         onClick={() => setShowSocialSettings(!showSocialSettings)}
       >
-        <h3 className={styles.socialHeading}>Social Networks</h3>
-        <div className={styles.socialAccordionIcon}>
-          {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
-        </div>
+        <h3 className="text-lg font-medium">Social Networks</h3>
+        {showSocialSettings ? <FaChevronUp /> : <FaChevronDown />}
       </div>
 
-      {/* Social Network Settings (Collapsible) - New Design with Input Fields */}
+      {/* Social Network Settings (Collapsible) */}
       {showSocialSettings && (
-        <div className={styles.socialContent}>
+        <div className="mb-6 space-y-4">
           {socialProfiles
             .filter(p => p.platform !== 'email' && p.platform !== 'phone')
             .map((profile) => {
-              // Get the appropriate icon for this social platform
-              const SocialIcon = (() => {
-                switch(profile.platform) {
-                  case 'facebook': return FaFacebook;
-                  case 'instagram': return FaInstagram;
-                  case 'twitter': return FaTwitter;
-                  case 'snapchat': return FaSnapchat;
-                  case 'linkedin': return FaLinkedin;
-                  case 'whatsapp': return FaWhatsapp;
-                  case 'telegram': return FaTelegram;
-                  default: return null;
-                }
-              })();
-              
-              // Generate preview URL based on the platform and username
-              const previewUrl = (() => {
-                if (!profile.username) return '';
-                
-                switch(profile.platform) {
-                  case 'facebook': return `https://facebook.com/${profile.username}`;
-                  case 'instagram': return `https://instagram.com/${profile.username}`;
-                  case 'twitter': return `https://twitter.com/${profile.username}`;
-                  case 'snapchat': return `https://snapchat.com/add/${profile.username}`;
-                  case 'linkedin': return `https://linkedin.com/in/${profile.username}`;
-                  case 'whatsapp': return `https://wa.me/${profile.username}`;
-                  case 'telegram': return `https://t.me/${profile.username}`;
-                  default: return '';
-                }
-              })();
+              const iconBgColor = profile.confirmed ? 'bg-primary text-white' : 
+                        profile.autoFilled ? 'bg-primary-light text-white' : 
+                        'bg-muted text-primary';
               
               return (
-                <div key={profile.platform} className={phoneInputStyles.socialInputGroup}>
-                  <div className={phoneInputStyles.inputContainer}>
-                    <div className={phoneInputStyles.inputWrapper}>
-                      {/* Social icon on the left */}
-                      <div className={phoneInputStyles.iconContainer}>
-                        {SocialIcon && <SocialIcon size={20} />}
+                <div key={profile.platform} className="bg-muted rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${iconBgColor}`}>
+                        {profile.platform === 'facebook' && <FaFacebook size={16} />}
+                        {profile.platform === 'instagram' && <FaInstagram size={16} />}
+                        {profile.platform === 'twitter' && <FaTwitter size={16} />}
+                        {profile.platform === 'snapchat' && <FaSnapchat size={16} />}
+                        {profile.platform === 'linkedin' && <FaLinkedin size={16} />}
+                        {profile.platform === 'whatsapp' && <FaWhatsapp size={16} />}
+                        {profile.platform === 'telegram' && <FaTelegram size={16} />}
                       </div>
-                      
-                      {/* Input field */}
-                      <input
-                        type="text"
-                        value={profile.username || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          // Update the username in socialProfiles
-                          const updatedProfiles = socialProfiles.map(p => {
-                            if (p.platform === profile.platform) {
-                              return {
-                                ...p,
-                                username: e.target.value,
-                                filled: !!e.target.value,
-                                confirmed: !!e.target.value
-                              };
-                            }
-                            return p;
-                          });
-                          setSocialProfiles(updatedProfiles);
-                        }}
-                        placeholder={`Enter your ${profile.platform} username`}
-                        className={phoneInputStyles.maskedInput}
-                        autoComplete="off"
-                      />
+                      <div className="capitalize">{profile.platform}</div>
                     </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditSocial(profile.platform);
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <MdEdit size={20} />
+                    </button>
                   </div>
                   
-                  {/* Preview of the profile URL */}
-                  {profile.username && (
-                    <div className={phoneInputStyles.profilePreview}>
-                      {previewUrl}
+                  {editingSocial === profile.platform ? (
+                    <div className="mt-3 flex items-center">
+                      <span className="text-sm text-muted-foreground mr-1">
+                        {getSocialPrefix(profile.platform)}
+                      </span>
+                      <input
+                        type="text"
+                        value={socialEditValue}
+                        onChange={(e) => setSocialEditValue(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        className="flex-1 p-2 text-sm border border-input rounded bg-white dark:bg-card"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveSocialEdit}
+                        className="ml-2 py-1 px-3 text-xs bg-primary text-white rounded"
+                      >
+                        Save
+                      </button>
                     </div>
-                  )}
+                  ) : profile.username ? (
+                    <div className="mt-2 pb-1 border-b text-sm flex">
+                      <span className="text-muted-foreground">{getSocialPrefix(profile.platform)}</span>
+                      <span>{profile.username}</span>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -614,11 +510,11 @@ export default function ProfileSetup() {
       <button 
         onClick={handleSave}
         disabled={isSaving}
-        className={styles.saveProfileButton}
+        className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
         {isSaving ? (
           <>
-            <div className={styles.loadingSpinner} />
+            <div className="inline-block mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             Saving...
           </>
         ) : 'Save'}
