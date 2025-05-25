@@ -54,6 +54,21 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
+  // Track country selector dropdown state
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
+  const [selectedCountryFlag, setSelectedCountryFlag] = useState('/us-flag.png');
+  
+  // Common country codes for dropdown
+  const countryCodes = [
+    { code: '+1', name: 'United States', flag: '/us-flag.png' },
+    { code: '+1', name: 'Canada', flag: '/ca-flag.png' },
+    { code: '+44', name: 'United Kingdom', flag: '/gb-flag.png' },
+    { code: '+52', name: 'Mexico', flag: '/mx-flag.png' },
+    { code: '+33', name: 'France', flag: '/fr-flag.png' },
+    { code: '+49', name: 'Germany', flag: '/de-flag.png' },
+  ];
+
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
 
@@ -462,12 +477,41 @@ export default function ProfileSetup() {
       <div className={styles.formGroup}>
         <div className={phoneInputStyles.phoneInputContainer}>
           <div className={phoneInputStyles.phoneInputWrapper}>
-            {/* Country code selector */}
-            <div className={phoneInputStyles.countryCodeSelector}>
+            {/* Country code selector with dropdown */}
+            <div 
+              className={phoneInputStyles.countryCodeSelector}
+              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+            >
               <div className={phoneInputStyles.flagIcon}>
-                <img src="/us-flag.png" alt="US" className={phoneInputStyles.flagImage} />
+                <img src={selectedCountryFlag} alt="Country" className={phoneInputStyles.flagImage} />
               </div>
               <div className={phoneInputStyles.arrowIcon}></div>
+              
+              {/* Country dropdown */}
+              {showCountryDropdown && (
+                <div className={phoneInputStyles.countryDropdown}>
+                  {countryCodes.map((country) => (
+                    <div 
+                      key={`${country.code}-${country.name}`}
+                      className={phoneInputStyles.countryOption}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent parent click handler
+                        setSelectedCountryCode(country.code);
+                        setSelectedCountryFlag(country.flag);
+                        setShowCountryDropdown(false);
+                        
+                        // Update the phone number with the new country code
+                        const digits = phone;
+                        setPhoneWithCountryCode(`${country.code}${digits}`);
+                      }}
+                    >
+                      <img src={country.flag} alt={country.name} className={phoneInputStyles.countryOptionFlag} />
+                      <span className={phoneInputStyles.countryName}>{country.name}</span>
+                      <span className={phoneInputStyles.countryCode}>{country.code}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
             {/* Custom masked input field with improved behavior */}
