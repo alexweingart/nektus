@@ -44,7 +44,6 @@ export default function ProfileSetup() {
   
   // State management
   const [isSaving, setIsSaving] = useState(false);
-  const [phone, setPhone] = useState('');  // keeping for backward compatibility
   const [usDigits, setUsDigits] = useState('');  // US national digits only (max 10)
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
@@ -110,8 +109,7 @@ export default function ProfileSetup() {
               
               // Update state with clean digits
               setUsDigits(digits);
-              setPhone(digits);
-              setHasCompletedPhone(digits.length >= 10);
+              setHasCompletedPhone(digits.length === 10);
             }
             
             if (profile.socialProfiles && profile.socialProfiles.length > 0) {
@@ -145,27 +143,12 @@ export default function ProfileSetup() {
   
   // Update social profiles when phone number is complete
   useEffect(() => {
-    if (phone && phone.length >= 10 && !hasCompletedPhone) {
-      setHasCompletedPhone(true);
-      updateProfilesWithPhone(phone);
+    if (usDigits && usDigits.length === 10) {
+      updateProfilesWithPhone(usDigits);
     }
-  }, [phone, hasCompletedPhone]);
+  }, [usDigits, hasCompletedPhone]);
 
-  // Handle phone number change - legacy function, no longer used directly
-  // Now handled by the onChange handler of PhoneInput
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    // Use our utility to clean and format the input
-    const digits = cleanUSDigits(input);
-    setPhone(digits);
-    setUsDigits(digits);
-    
-    // Update completion status
-    setHasCompletedPhone(digits.length >= 10);
-    
-    // Update social profiles if we have digits
-    if (digits.length) updateProfilesWithPhone(digits);
-  };
+  // Phone input now handled directly by the PhoneInput component's onChange callback
   
   // Update profiles with phone number
   const updateProfilesWithPhone = (phoneNumber: string) => {
@@ -312,18 +295,14 @@ export default function ProfileSetup() {
         })) as ProfileSocialProfile[];
       
       // Convert national phone number to E.164 format
-      const toE164 = () => {
-        if (!usDigits) return null;
-        const parsed = parsePhoneNumberFromString(usDigits, 'US');
-        return parsed?.isValid() ? parsed.number /* e.g. +18182926036 */ : null;
-      };
-      
-      const fullNumber = toE164();
-      if (!fullNumber) { 
+      const parsed = parsePhoneNumberFromString(usDigits, 'US');
+      if (!parsed?.isValid()) { 
         alert('Invalid phone number'); 
         setIsSaving(false);
         return; 
       }
+      
+      const fullNumber = parsed.number; // e.g. +18182926036
       
       // Save profile data to Firebase
       await saveProfile({
@@ -414,26 +393,23 @@ export default function ProfileSetup() {
             value={(usDigits || undefined) as E164Number | undefined}  /* library wants undefined for empty */
             onChange={(val) => {
               // Clean the input using our utility
-              const digits = cleanUSDigits(val ? val.toString() : '');
+              const digits = cleanUSDigits(val ?? '');
               
               // Update state with clean digits
               setUsDigits(digits);
               
-              // Keep for backward compatibility
-              setPhone(digits);
-              
               // Update completion status
-              setHasCompletedPhone(digits.length >= 10);
+              setHasCompletedPhone(digits.length === 10);
               
-              // Update social profiles if we have digits
-              if (digits.length) updateProfilesWithPhone(digits);
+              // Update social profiles if we have a complete phone number
+              if (digits.length === 10) updateProfilesWithPhone(digits);
             }}
           />
           
           {/* Display formatted version to show user */}
-          {usDigits.length > 0 && (
+          {usDigits && (
             <div className="text-sm text-gray-500 mt-1">
-              Format: {formatUSPhone(usDigits)}
+              {formatUSPhone(usDigits)}
             </div>
           )}
         </div>
