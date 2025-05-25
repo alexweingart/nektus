@@ -80,17 +80,6 @@ try {
   // Skip dependency check for certain packages - Vercel deployment issue
   console.log('   ✓ Using alternative dependency verification approach...');
   
-  // Special case: remove bare @radix-ui from imports if we have specific @radix-ui/* packages
-  // This happens due to how imports are detected in the findImportsInFile function
-  if (Object.keys(packageJson.dependencies || {}).some(dep => dep.startsWith('@radix-ui/'))) {
-    console.log('   ✓ Detected specific @radix-ui/* packages in dependencies');
-    // Filter out bare @radix-ui from imports since we have specific packages
-    const bareRadixIndex = importedPackages.has('@radix-ui') ? importedPackages.delete('@radix-ui') : false;
-    if (bareRadixIndex) {
-      console.log('   ✓ Removed bare @radix-ui import as we have specific packages');
-    }
-  }
-  
   // Create a temp override to ensure deployment success
   const ensureDependency = (packageName) => {
     // Special handling for @radix-ui packages
@@ -265,6 +254,18 @@ try {
     'react-input-mask',
     'react-phone-number-input'
   ];
+  
+  // Special case: remove bare @radix-ui from imports if we have specific @radix-ui/* packages
+  // This happens due to how imports are detected in the findImportsInFile function
+  if (Object.keys(packageJson.dependencies || {}).some(dep => dep.startsWith('@radix-ui/'))) {
+    console.log('   ✓ Detected specific @radix-ui/* packages in dependencies');
+    // Remove '@radix-ui' from notInstalledImports if present
+    const bareRadixIndex = notInstalledImports.indexOf('@radix-ui');
+    if (bareRadixIndex !== -1) {
+      notInstalledImports.splice(bareRadixIndex, 1);
+      console.log('   ✓ Removed bare @radix-ui import as we have specific packages');
+    }
+  }
   
   // Check for Radix UI packages
   const radixPackages = notInstalledImports.filter(pkg => pkg.startsWith('@radix-ui'));
