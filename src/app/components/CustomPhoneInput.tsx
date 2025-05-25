@@ -217,22 +217,18 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
       </div>
       
       {/* Phone number input */}
-      <div className="relative flex-1">
-        <input
-          ref={inputRef}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          className="w-full px-3 py-2 border-0 rounded-r-md rounded-l-none focus:outline-none focus:ring-0"
-          placeholder="Enter phone number"
-          value={phoneInput}
-          onChange={handlePhoneChange}
-          maxLength={14} // (XXX) XXX-XXXX format has 14 characters
-          style={{ backgroundColor: '#ffffff' }}
-        />
-        {/* Overlay for consistent border styling */}
-        <div className="absolute inset-0 pointer-events-none rounded-r-md border border-gray-300 border-l-0 focus-within:border-primary focus-within:border-l-primary focus-within:ring-2 focus-within:ring-primary" style={{ zIndex: 1 }}></div>
-      </div>
+      <input
+        ref={inputRef}
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        className="flex-1 px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
+        placeholder="Enter phone number"
+        value={phoneInput}
+        onChange={handlePhoneChange}
+        maxLength={14} // (XXX) XXX-XXXX format has 14 characters
+        style={{ backgroundColor: 'white' }}
+      />
     </div>
   );
 };
