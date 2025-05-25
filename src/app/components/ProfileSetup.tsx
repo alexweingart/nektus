@@ -239,8 +239,8 @@ export default function ProfileSetup() {
     }
     setFormattedPhone(formatted);
     
-    // Check if phone is a valid number to mark as complete
-    setHasCompletedPhone(isValidPhoneNumber(value));
+    // Check if phone has enough digits to be valid (simple length check)
+    setHasCompletedPhone(digits.length >= 10);
     
     // Auto-update the WhatsApp profile with the phone number
     updateProfilesWithPhone(digits);
