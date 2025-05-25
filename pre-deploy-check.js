@@ -167,11 +167,12 @@ try {
         }
       }
       
-      // Additional import patterns
-      const importMatches = content.match(/from\s+['"]([@^'"./][^'"]*)['"]|require\(['"]([@^'"./][^'"]*)['"]\)/g) || [];
+      // Additional import patterns - detect both normal imports and requires
+      const importMatches = content.match(/from\s+['"]([@\w\/-]+)['"]|require\(['"]([@\w\/-]+)['"]\)/g) || [];
       
       importMatches.forEach(match => {
-        const packagePath = match.replace(/from\s+['"](.*)['"]|require\(['"](.*)['"]\(\))?/, '$1$2');
+        // Extract the package path from the import or require statement
+        const packagePath = match.replace(/from\s+['"]([@\w\/-]+)['"]|require\(['"]([@\w\/-]+)['"]\)/, '$1$2');
         
         // Skip Next.js internal path aliases (like @/app, @/lib, etc.)
         if (packagePath.startsWith('@/')) {
