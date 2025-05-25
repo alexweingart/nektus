@@ -399,7 +399,13 @@ export default function ProfileSetup() {
       
       {/* Phone Input Component */}
       <div className="mb-6">
+        {/* Invisible to users but visible to accessibility & browser heuristics */}
+        <label htmlFor="phone" className="sr-only">
+          Phone number
+        </label>
         <PhoneInput
+          id="phone"              /* ties the <label> to the input */
+          placeholder="Phone number" /* backup cue for Android quick-chips */
           name="tel"
           autoComplete="tel"
           inputMode="tel"
