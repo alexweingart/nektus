@@ -4,7 +4,7 @@ import * as React from 'react';
 const { useState, useEffect, useMemo } = React;
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { SmartPhoneInput } from './SmartPhoneInput';
+import CustomPhoneInput from './CustomPhoneInput';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
@@ -381,23 +381,18 @@ export default function ProfileSetup() {
         })}
       </div>
       
-      {/* Smart Phone Input Component with Country Selection */}
+      {/* Custom Phone Input Component */}
       <div className="mb-8">
-        <label className="block text-sm font-medium mb-2" htmlFor="phone">
-          Phone number
-        </label>
-        <SmartPhoneInput
-          id="phone"
-          country={country}
+        <CustomPhoneInput
           value={digits}
-          onChange={(d, c) => {
-            setDigits(d);
-            setCountry(c);
-            setHasCompletedPhone(d.length >= 6);  // Mark as complete with reasonable length
+          onChange={(value) => {
+            setDigits(value);
+            setHasCompletedPhone(value.length >= 6);  // Mark as complete with reasonable length
             
             // Update social profiles if we have a complete phone number
-            if (d.length >= 6) updateProfilesWithPhone(d);
+            if (value.length >= 6) updateProfilesWithPhone(value);
           }}
+          className="w-full"
         />
       </div>
       
