@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { PhoneInput } from './ui/phone-input';
+import { PhoneInputAutofill as PhoneInput } from './phone-input-autofill';
 import { E164Number, CountryCode } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
