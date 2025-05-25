@@ -17,7 +17,8 @@ import {
   FaLinkedin, 
   FaEnvelope,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaPhoneAlt
 } from 'react-icons/fa';
 import { MdEdit } from 'react-icons/md';
 import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/ProfileContext';
@@ -453,7 +454,7 @@ export default function ProfileSetup() {
               {platform === 'whatsapp' && <FaWhatsapp size={20} />}
               {platform === 'telegram' && <FaTelegram size={20} />}
               {platform === 'email' && <FaEnvelope size={20} />}
-              {platform === 'phone' && <FaEnvelope size={20} />}
+              {platform === 'phone' && <FaPhoneAlt size={20} />}
             </div>
           );
         })}
