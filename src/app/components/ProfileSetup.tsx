@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { PhoneInputAutofill as PhoneInput } from './phone-input-autofill';
-import { E164Number, CountryCode } from 'libphonenumber-js';
+import { E164Number, CountryCode, getCountryCallingCode, parsePhoneNumberFromString } from 'libphonenumber-js';
 import { 
   FaWhatsapp, 
   FaTelegram, 
@@ -44,7 +44,8 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [formattedPhone, setFormattedPhone] = useState('');
-  const [phoneWithCountryCode, setPhoneWithCountryCode] = useState('');
+  const [phoneWithCountryCode, setPhoneWithCountryCode] = useState<E164Number | undefined>();
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>('US');   // keep track of flag
   const [showSocialSettings, setShowSocialSettings] = useState(false);
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
@@ -324,9 +325,23 @@ export default function ProfileSetup() {
           filled
         })) as ProfileSocialProfile[];
       
+      // Convert national phone number to E.164 format
+      const toE164 = () => {
+        if (!phoneWithCountryCode) return null;
+        const parsed = parsePhoneNumberFromString(phoneWithCountryCode as string, selectedCountry);
+        return parsed?.isValid() ? parsed.number /* e.g. +18182926036 */ : null;
+      };
+      
+      const fullNumber = toE164();
+      if (!fullNumber) { 
+        alert('Invalid phone number'); 
+        setIsSaving(false);
+        return; 
+      }
+      
       // Save profile data to Firebase
       await saveProfile({
-        phone,
+        phone: fullNumber,
         socialProfiles: profilesForSaving
       });
       
@@ -406,15 +421,18 @@ export default function ProfileSetup() {
         <PhoneInput
           id="phone"              /* ties the <label> to the input */
           placeholder="Phone number" /* backup cue for Android quick-chips */
-          name="tel"
-          autoComplete="tel"
-          inputMode="tel"
-          defaultCountry="US"
-          value={phoneWithCountryCode as E164Number}
+          /* ---- key props that remove "+1" but keep the flag ---- */
+          defaultCountry={selectedCountry}
+          international={false}
+          withCountryCallingCode={false}
+          countryCallingCodeEditable={false}
+          autoComplete="tel-national"
+          value={phoneWithCountryCode}
+          onCountryChange={(c) => setSelectedCountry(c as CountryCode)}
           onChange={(value: E164Number | undefined) => {
             if (value) {
-              // Update all the state variables
-              setPhoneWithCountryCode(value as string);
+              // value is now the NATIONAL digits (no + or dial code)
+              setPhoneWithCountryCode(value);
               
               // Extract just the local digits (no country code)
               const digits = value.toString().replace(/^\+\d+\s*/, '');
@@ -429,7 +447,7 @@ export default function ProfileSetup() {
               }
             } else {
               // Handle empty or invalid state
-              setPhoneWithCountryCode('');
+              setPhoneWithCountryCode(undefined);
               setPhone('');
               setHasCompletedPhone(false);
             }
