@@ -57,6 +57,7 @@ const countries: Country[] = [
   { name: 'Ukraine', code: 'UA', flag: '🇺🇦', dialCode: '380' },
   { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '971' },
   { name: 'Vietnam', code: 'VN', flag: '🇻🇳', dialCode: '84' },
+  { name: 'Malaysia', code: 'MY', flag: '🇲🇾', dialCode: '60' },
 ];
 
 // Map dial codes to countries with special handling for US/Canada
@@ -215,11 +216,12 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+        className="flex-1 px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
         placeholder="Enter phone number"
         value={phoneInput}
         onChange={handlePhoneChange}
         maxLength={14} // (XXX) XXX-XXXX format has 14 characters
+        style={{ backgroundColor: 'white' }}
       />
     </div>
   );
