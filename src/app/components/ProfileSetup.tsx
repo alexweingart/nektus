@@ -51,8 +51,32 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
+  // Create a ref for the phone input
+  const phoneInputRef = React.useRef<HTMLInputElement>(null);
+  
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
+  
+  // Auto-focus phone input after Google OAuth redirect
+  useEffect(() => {
+    // Only try if we set the flag before redirect
+    if (!sessionStorage.getItem("wantsPhoneFocus")) return;
+    sessionStorage.removeItem("wantsPhoneFocus");
+    
+    requestAnimationFrame(() => {
+      // 1 — put focus on the phone input
+      if (phoneInputRef.current) {
+        phoneInputRef.current.focus({ preventScroll: true });
+        
+        // 2 — on modern Chrome/Edge Android, explicitly ask for the keyboard
+        // Using the VirtualKeyboard API (available in Chrome 93+)
+        if ('virtualKeyboard' in navigator && 
+            typeof (navigator as any).virtualKeyboard?.show === 'function') {
+          (navigator as any).virtualKeyboard.show();
+        }
+      }
+    });
+  }, []);
 
   // Memoized platform order
   const platformOrder = useMemo<SocialProfile['platform'][]>(() => 
@@ -383,17 +407,24 @@ export default function ProfileSetup() {
       
       {/* Custom Phone Input Component */}
       <div className="mb-8">
-        <CustomPhoneInput
-          value={digits}
-          onChange={(value) => {
-            setDigits(value);
-            setHasCompletedPhone(value.length >= 6);  // Mark as complete with reasonable length
-            
-            // Update social profiles if we have a complete phone number
-            if (value.length >= 6) updateProfilesWithPhone(value);
-          }}
-          className="w-full"
-        />
+        <div>
+          <label htmlFor="phone-input" className="sr-only">Phone number</label>
+          <CustomPhoneInput
+            isDisabled={hasCompletedPhone}
+            onChange={(value) => {
+              setDigits(value);
+              updateProfilesWithPhone(value);
+            }}
+            value={digits}
+            placeholder="Enter phone number"
+            ref={phoneInputRef}
+            inputProps={{
+              id: "phone-input",
+              autoFocus: true, // helps on Android ≤122 & Firefox
+              autoComplete: "tel"
+            }}
+          />
+        </div>
       </div>
       
       {/* Social Networks Section Header with Toggle */}
