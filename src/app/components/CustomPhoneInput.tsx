@@ -11,6 +11,7 @@ type Country = {
 
 // List of countries with their info
 const countries: Country[] = [
+  { name: 'United States', code: 'US', flag: '🇺🇸', dialCode: '1' },
   { name: 'Afghanistan', code: 'AF', flag: '🇦🇫', dialCode: '93' },
   { name: 'Albania', code: 'AL', flag: '🇦🇱', dialCode: '355' },
   { name: 'Algeria', code: 'DZ', flag: '🇩🇿', dialCode: '213' },
@@ -61,9 +62,7 @@ const countries: Country[] = [
   { name: 'Ukraine', code: 'UA', flag: '🇺🇦', dialCode: '380' },
   { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '971' },
   { name: 'United Kingdom', code: 'GB', flag: '🇬🇧', dialCode: '44' },
-  { name: 'United States', code: 'US', flag: '🇺🇸', dialCode: '1' },
   { name: 'Vietnam', code: 'VN', flag: '🇻🇳', dialCode: '84' },
-
 ];
 
 // Map dial codes to countries with special handling for US/Canada
@@ -224,13 +223,15 @@ const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          className="w-full px-3 py-2 border border-gray-300 border-l-0 rounded-r-md rounded-l-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:border-l-primary"
+          className="w-full px-3 py-2 border-0 rounded-r-md rounded-l-none focus:outline-none focus:ring-0"
           placeholder="Enter phone number"
           value={phoneInput}
           onChange={handlePhoneChange}
           maxLength={14} // (XXX) XXX-XXXX format has 14 characters
           style={{ backgroundColor: '#ffffff' }}
         />
+        {/* Overlay for consistent border styling */}
+        <div className="absolute inset-0 pointer-events-none rounded-r-md border border-gray-300 border-l-0 focus-within:border-primary focus-within:border-l-primary focus-within:ring-2 focus-within:ring-primary" style={{ zIndex: 1 }}></div>
       </div>
     </div>
   );
