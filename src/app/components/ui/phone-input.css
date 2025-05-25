@@ -56,10 +56,21 @@
   color: var(--success, #43a047);
 }
 
-/* Fix for mobile Safari input background */
+/* Fix for mobile Safari input background and ensure black text */
 @supports (-webkit-touch-callout: none) {
   .PhoneInputInput {
     background-color: transparent !important;
     color: var(--foreground, #2d3748) !important;
   }
+}
+
+/* Ensure black text with maximum specificity */
+.PhoneInput .PhoneInputInput,
+.PhoneInput input[type="tel"],
+.PhoneInputInput,
+.PhoneInputInput.PhoneInputInput,
+input.PhoneInputInput,
+input[type="tel"].PhoneInputInput {
+  color: var(--foreground, #2d3748) !important;
+  -webkit-text-fill-color: var(--foreground, #2d3748) !important;
 }
