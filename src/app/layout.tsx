@@ -28,13 +28,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="theme-color" content="#ff0000" />
+        <meta name="theme-color" content="#f4f9f4" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body
-        className={`${inter.variable} antialiased`}
+        className={`${inter.variable} antialiased bg-background`}
+        style={{ backgroundColor: 'var(--background, #f4f9f4)' }}
       >
         <SessionProvider>
           <UserProvider>
