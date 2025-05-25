@@ -64,16 +64,24 @@
   height: 100%;
 }
 
-/* Simple fixed country code display */
+/* Interactive country code selector */
 .countryCodeSelector {
   display: flex;
   align-items: center;
   padding: 0.5rem;
   background-color: #f9f9f9;
   border-right: 1px solid #e0e0e0;
-  min-width: 4rem;
-  justify-content: center;
+  min-width: 4.5rem;
+  justify-content: space-between;
   height: 100%;
+  position: relative;
+  cursor: pointer;
+}
+
+.countryCodeSelector:hover,
+.countryCodeSelector:focus {
+  background-color: #f0f0f0;
+  outline: none;
 }
 
 /* Country code text */
@@ -84,7 +92,69 @@
   font-weight: 500;
 }
 
-/* No dropdown styles needed - using simplified approach */
+/* Dropdown caret icon */
+.caretIcon {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #666;
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+
+.countryCodeSelector[aria-expanded="true"] .caretIcon {
+  transform: rotate(180deg);
+}
+
+/* Country dropdown styles */
+.countryDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  margin-top: 5px;
+}
+
+.countryOption {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.countryOption:hover {
+  background-color: #f5f5f5;
+}
+
+.optionFlag {
+  width: 1.5rem;
+  height: 1rem;
+  object-fit: contain;
+  margin-right: 0.75rem;
+}
+
+.countryName {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #333;
+}
+
+.countryCodeDisplay {
+  font-size: 0.875rem;
+  color: #666;
+  margin-left: 0.5rem;
+}
+
+
 
 .flagIcon {
   display: flex;

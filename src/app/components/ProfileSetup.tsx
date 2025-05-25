@@ -54,7 +54,36 @@ export default function ProfileSetup() {
   const [socialEditValue, setSocialEditValue] = useState('');
   const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
-  // We're using a simplified approach with fixed +1 country code
+  // Country dropdown state
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
+  const [selectedCountryFlag, setSelectedCountryFlag] = useState('/us-flag.png');
+  
+  // Country dropdown options
+  const countryOptions = [
+    { code: '+1', name: 'United States', flag: '/us-flag.png' },
+    { code: '+1', name: 'Canada', flag: '/ca-flag.png' },
+    { code: '+44', name: 'United Kingdom', flag: '/gb-flag.png' },
+    { code: '+52', name: 'Mexico', flag: '/mx-flag.png' },
+    { code: '+33', name: 'France', flag: '/fr-flag.png' },
+    { code: '+49', name: 'Germany', flag: '/de-flag.png' },
+  ];
+  
+  // Handle clicks outside the dropdown
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Use ref for extracted username to avoid re-renders
   const extractedUsernameRef = React.useRef<string>('');
@@ -464,12 +493,46 @@ export default function ProfileSetup() {
       <div className={styles.formGroup}>
         <div className={phoneInputStyles.phoneInputContainer}>
           <div className={phoneInputStyles.phoneInputWrapper}>
-            {/* Static country code display */}
-            <div className={phoneInputStyles.countryCodeSelector}>
+            {/* Interactive country code selector with dropdown */}
+            <div 
+              ref={countryDropdownRef}
+              className={phoneInputStyles.countryCodeSelector}
+              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={showCountryDropdown}
+              aria-haspopup="listbox"
+            >
               <div className={phoneInputStyles.flagIcon}>
-                <img src="/us-flag.png" alt="US" className={phoneInputStyles.flagImage} />
+                <img src={selectedCountryFlag} alt="Country flag" className={phoneInputStyles.flagImage} />
               </div>
-              <span className={phoneInputStyles.countryCodeText}>+1</span>
+              <span className={phoneInputStyles.countryCodeText}>{selectedCountryCode}</span>
+              <div className={phoneInputStyles.caretIcon}></div>
+              
+              {/* Country options dropdown */}
+              {showCountryDropdown && (
+                <div className={phoneInputStyles.countryDropdown} role="listbox">
+                  {countryOptions.map((country) => (
+                    <div 
+                      key={`${country.code}-${country.name}`}
+                      className={phoneInputStyles.countryOption}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCountryCode(country.code);
+                        setSelectedCountryFlag(country.flag);
+                        setShowCountryDropdown(false);
+                        setPhoneWithCountryCode(`${country.code}${phone}`);
+                      }}
+                      role="option"
+                      aria-selected={selectedCountryCode === country.code && selectedCountryFlag === country.flag}
+                    >
+                      <img src={country.flag} alt={country.name} className={phoneInputStyles.optionFlag} />
+                      <span className={phoneInputStyles.countryName}>{country.name}</span>
+                      <span className={phoneInputStyles.countryCodeDisplay}>{country.code}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
             {/* Basic phone input with auto-formatting */}
