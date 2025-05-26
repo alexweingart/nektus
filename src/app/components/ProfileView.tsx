@@ -345,7 +345,7 @@ const ProfileView: React.FC = () => {
           }}>
             {(() => {
               // Define icons in correct order
-              const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'telegram', 'linkedin'];
+              const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'twitter', 'telegram', 'linkedin'];
               
               // Map of available social profiles by platform
               const socialMap: Record<string, SocialProfile> = {};
@@ -361,13 +361,13 @@ const ProfileView: React.FC = () => {
               return orderedPlatforms.map(platform => {
                 // For phone
                 if (platform === 'phone') {
-                  // Only show phone if it exists
-                  if (!localProfile.phone || localProfile.phone.trim() === '') return null;
+                  // Always show phone icon, even if number is empty
+                  // This ensures consistency in the UI
                   return (
                     <div key={platform} className="flex justify-center">
                       <SocialIcon
                         platform={platform as any}
-                        username={localProfile.phone}
+                        username={localProfile.phone || ''}
                         size="md"
                       />
                     </div>

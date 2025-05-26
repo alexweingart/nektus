@@ -80,7 +80,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
           flex items-center justify-center 
           rounded-full 
           transition-colors duration-200
-          ${isActive ? 'bg-white' : 'bg-gray-400 hover:bg-gray-500'}
+          ${isActive ? 'bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'}
         `}
       >
         <div className={`${isActive ? 'text-green-500' : 'text-white'}`}>
