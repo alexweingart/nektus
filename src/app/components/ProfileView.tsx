@@ -5,6 +5,7 @@ import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SocialIcon from './SocialIcon';
+import { useAdminModeActivator } from './AdminBanner';
 
 // Define types for profile data
 type SocialProfile = {
@@ -51,6 +52,7 @@ const ProfileView: React.FC = () => {
   const { data: session } = useSession();
   const profileContextData = useProfile();
   const { saveProfile } = profileContextData;
+  const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
   // Local state to manage profile data from multiple sources
   const [localProfile, setLocalProfile] = useState<ExtendedUserProfile | null>(null);
@@ -267,7 +269,16 @@ const ProfileView: React.FC = () => {
               </div>
             )}
           </Link>
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--foreground)', marginBottom: '8px' }}>
+          <h2 
+            style={{ 
+              fontSize: '28px', 
+              fontWeight: 'bold', 
+              color: 'var(--foreground)', 
+              marginBottom: '8px',
+              cursor: 'pointer' // Add cursor pointer to indicate it's clickable
+            }}
+            {...adminModeProps} // Add admin mode activation on double click
+          >
             {localProfile.name}
           </h2>
           
