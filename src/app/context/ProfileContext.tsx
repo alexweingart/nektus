@@ -249,7 +249,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const emailUsername = session.user.email.split('@')[0] || '';
       
       // Normalize phone number if available
-      const phoneNumber = profileData.phone || profile?.phone || '';
+      const phoneNumber = profileData.internationalPhone || profile?.internationalPhone || '';
       const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
       
       // Start with confirmed data (profile photo, name, email, phone, country)
@@ -262,8 +262,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         emailUserConfirmed: true,
         picture: session.user.image || '',
         pictureUserConfirmed: true,
-        phone: phoneNumber,
-        phoneUserConfirmed: true,
+        internationalPhone: phoneNumber,
+        nationalPhone: profileData.nationalPhone || profile?.nationalPhone || '',
+        internationalPhoneUserConfirmed: true,
+        nationalPhoneUserConfirmed: true,
         country: country,
         countryUserConfirmed: !!country,
         lastUpdated: serverTimestamp(),
