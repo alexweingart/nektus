@@ -7,12 +7,13 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 
 // Define the structure of our profile data
 export type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x';
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x' | 'email' | 'phone';
   username: string;
   url?: string;
   shareEnabled: boolean;
   filled?: boolean;
   userConfirmed?: boolean;
+  countryUserConfirmed?: boolean;
 };
 
 export type UserProfile = {
@@ -352,6 +353,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             shareEnabled: true,
             filled: true,
             userConfirmed: field.userConfirmed,
+            countryUserConfirmed: false,
           })),
       ];
       

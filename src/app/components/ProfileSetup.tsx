@@ -94,7 +94,8 @@ export default function ProfileSetup() {
         username: userEmail,
         shareEnabled: true,
         filled: true,
-        confirmed: true
+        confirmed: true,
+        countryUserConfirmed: true
       }]);
     }
   }, []); // Empty dependency array - run only once on mount
@@ -118,7 +119,8 @@ export default function ProfileSetup() {
                   shareEnabled: true,
                   filled: false,
                   confirmed: false,
-                  autoFilled: false
+                  autoFilled: false,
+                  countryUserConfirmed: true
                 });
               }
             });
@@ -141,12 +143,14 @@ export default function ProfileSetup() {
                 if (index >= 0) {
                   updatedProfiles[index] = {
                     ...existingProfile,
-                    confirmed: existingProfile.filled
+                    confirmed: existingProfile.filled,
+                    countryUserConfirmed: true
                   } as SocialProfile;
                 } else {
                   updatedProfiles.push({
                     ...existingProfile,
-                    confirmed: existingProfile.filled
+                    confirmed: existingProfile.filled,
+                    countryUserConfirmed: true
                   } as SocialProfile);
                 }
               });
@@ -186,7 +190,8 @@ export default function ProfileSetup() {
           username: phoneNumber,
           filled: true,
           confirmed: true,
-          autoFilled: false
+          autoFilled: false,
+          countryUserConfirmed: true
         };
       } else {
         updatedProfiles.push({
@@ -195,7 +200,8 @@ export default function ProfileSetup() {
           shareEnabled: true,
           filled: true,
           confirmed: true,
-          autoFilled: false
+          autoFilled: false,
+          countryUserConfirmed: true
         });
       }
       
@@ -216,7 +222,8 @@ export default function ProfileSetup() {
               ...updatedProfiles[index],
               username: value,
               filled: true,
-              autoFilled: true
+              autoFilled: true,
+              countryUserConfirmed: true
             };
           }
         } else {
@@ -225,7 +232,8 @@ export default function ProfileSetup() {
             username: value,
             shareEnabled: true,
             filled: true,
-            autoFilled: true
+            autoFilled: true,
+            countryUserConfirmed: true
           });
         }
       });
@@ -251,7 +259,8 @@ export default function ProfileSetup() {
             username: socialEditValue, 
             filled: !!socialEditValue,
             confirmed: !!socialEditValue,
-            autoFilled: false
+            autoFilled: false,
+            countryUserConfirmed: true
           };
         }
         return profile;

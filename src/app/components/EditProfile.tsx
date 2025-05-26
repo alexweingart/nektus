@@ -111,11 +111,7 @@ const EditProfile: React.FC = () => {
   
   // Auto-focus name input on mount for mobile convenience
   useEffect(() => {
-    if (nameInputRef.current) {
-      nameInputRef.current.focus();
-      // Ensure the input has focus styling
-      nameInputRef.current.classList.add('ring-2', 'ring-primary', 'border-primary');
-    }
+    nameInputRef.current?.focus();
   }, []);
   
   // Handle image upload
@@ -312,7 +308,7 @@ const EditProfile: React.FC = () => {
               // Automatically trigger click on mobile
               document.getElementById('avatar-upload')?.click();
             }}>
-              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
                 <img 
                   src={formData.picture || '/default-avatar.png'} 
                   alt="Profile" 
@@ -320,7 +316,7 @@ const EditProfile: React.FC = () => {
                 />
               </div>
               <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
-                <MdEdit size={6} />
+                <MdEdit size={8} />
               </div>
               <input 
                 type="file" 

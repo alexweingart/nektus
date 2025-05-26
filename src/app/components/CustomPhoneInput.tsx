@@ -220,26 +220,28 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   };
 
   return (
-    <div className={`flex ${className}`} style={{ backgroundColor: 'white' }}>
+    <div
+      className={`flex w-full rounded-md bg-white border transition-colors ${isInputFocused ? 'ring-2 ring-primary border-primary' : 'border-gray-300'} ${className}`}
+    >
       {/* Country selector */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className={`flex items-center justify-between px-3 py-2 border ${isInputFocused ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-l-none bg-white text-gray-700 h-full`}
+          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
-          style={{ zIndex: 1, backgroundColor: 'white' }}
+          style={{ zIndex: 1 }}
         >
           <span className="mr-2">{selectedCountry.flag}</span>
-          <div className="flex flex-col">
-            <FaChevronUp className="h-3 w-3 text-primary" />
-            <FaChevronDown className="h-3 w-3 text-primary" />
+          <div className="flex flex-col text-primary">
+            <FaChevronUp className="h-3 w-3" />
+            <FaChevronDown className="h-3 w-3" />
           </div>
         </button>
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-10 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto" style={{ backgroundColor: 'white' }}>
+          <div className="absolute z-10 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {countries.map((country) => (
               <div
                 key={country.code}
@@ -254,31 +256,29 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         )}
       </div>
       
+      {/* separator */}
+      <span className="w-px bg-gray-300 self-stretch" />
+      
       {/* Phone number input */}
       <input
         ref={(element) => {
-          // Forward ref to parent component
           if (typeof ref === 'function') {
             ref(element);
           } else if (ref) {
             (ref as React.MutableRefObject<HTMLInputElement | null>).current = element;
           }
-          // Also store in internal ref
-          if (element !== null) {
-            inputRef.current = element;
-          }
+          if (element) inputRef.current = element;
         }}
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="flex-1 px-3 py-2 border border-gray-300 rounded-none bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+        className="flex-1 px-3 py-2 bg-white focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
         onFocus={() => setIsInputFocused(true)}
-        onBlur={handleInputBlur}
-        maxLength={14} // (XXX) XXX-XXXX format has 14 characters
-        style={{ backgroundColor: 'white' }}
+        onBlur={() => setIsInputFocused(false)}
+        maxLength={14}
         disabled={isDisabled}
         {...inputProps}
       />
