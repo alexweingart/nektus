@@ -35,7 +35,6 @@ const EditProfile: React.FC = () => {
     name: string;
     email: string;
     phone: string;
-    country: string;
     picture: string;
     socialProfiles: SocialProfile[];
     backgroundImage: string;
@@ -43,7 +42,6 @@ const EditProfile: React.FC = () => {
     name: '',
     email: '',
     phone: '',
-    country: '',
     picture: '',
     socialProfiles: [],
     backgroundImage: '/gradient-bg.jpg',
@@ -81,7 +79,6 @@ const EditProfile: React.FC = () => {
       name: profileData.name || '',
       email: profileData.email || '',
       phone: profileData.phone || '',
-      country: profileData.country || '',
       picture: profileData.picture || '',
       socialProfiles: profileData.socialProfiles || [],
       backgroundImage: profileData.backgroundImage || '/gradient-bg.jpg',
@@ -212,11 +209,64 @@ const EditProfile: React.FC = () => {
         email: formData.email,
         picture: formData.picture,
         phone: phoneNumber,
-        country: formData.country,
         socialProfiles: formData.socialProfiles,
         backgroundImage: formData.backgroundImage,
         lastUpdated: Date.now()
       };
+      
+      // Auto-populate WhatsApp, Telegram, and WeChat with phone number if they're empty
+      const phoneBasedProfiles = ['whatsapp', 'telegram', 'wechat'] as const;
+      phoneBasedProfiles.forEach(platform => {
+        if (!updatedProfile.socialProfiles) {
+          updatedProfile.socialProfiles = [];
+        }
+        
+        const profileIndex = updatedProfile.socialProfiles.findIndex(
+          p => p.platform === platform
+        );
+        
+        if (profileIndex === -1 || !updatedProfile.socialProfiles[profileIndex]?.username) {
+          // Profile doesn't exist or has empty username, add with phone number
+          if (profileIndex === -1) {
+            updatedProfile.socialProfiles.push({
+              platform,
+              username: normalizedPhone,
+              shareEnabled: true,
+              filled: !!normalizedPhone
+            });
+          } else if (profileIndex >= 0) {
+            updatedProfile.socialProfiles[profileIndex].username = normalizedPhone;
+            updatedProfile.socialProfiles[profileIndex].filled = !!normalizedPhone;
+          }
+        }
+      });
+      
+      // Auto-populate other social profiles with email username if they're empty
+      const emailUsernameProfiles = ['facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'] as const;
+      emailUsernameProfiles.forEach(platform => {
+        if (!updatedProfile.socialProfiles) {
+          updatedProfile.socialProfiles = [];
+        }
+        
+        const profileIndex = updatedProfile.socialProfiles.findIndex(
+          p => p.platform === platform
+        );
+        
+        if (profileIndex === -1 || !updatedProfile.socialProfiles[profileIndex]?.username) {
+          // Profile doesn't exist or has empty username, add with email username
+          if (profileIndex === -1) {
+            updatedProfile.socialProfiles.push({
+              platform,
+              username: emailUsername,
+              shareEnabled: true,
+              filled: !!emailUsername
+            });
+          } else if (profileIndex >= 0) {
+            updatedProfile.socialProfiles[profileIndex].username = emailUsername;
+            updatedProfile.socialProfiles[profileIndex].filled = !!emailUsername;
+          }
+        }
+      });
       
       // Save to local storage immediately for future loads
       localStorage.setItem('nektus_user_profile_cache', JSON.stringify({
@@ -315,22 +365,7 @@ const EditProfile: React.FC = () => {
         </div>
       </div>
       
-      {/* Country Input */}
-      <div className="mb-5 w-full max-w-md">
-        <div className="flex items-center">
-          <div className="mr-3 pointer-events-none">
-            <span className="inline-block w-6 h-6 text-center">🌎</span>
-          </div>
-          <input
-            type="text"
-            id="country"
-            value={formData.country}
-            onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Country"
-          />
-        </div>
-      </div>
+
       
       {/* Email Input with Icon */}
       <div className="mb-5 w-full max-w-md">
