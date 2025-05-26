@@ -461,18 +461,22 @@ const EditProfile: React.FC = () => {
         </div>
       </div>
       
-      {/* Twitter */}
+      {/* X (formerly Twitter) */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
           <div className="mr-3 pointer-events-none">
-            <SocialIcon platform="twitter" size="sm" />
+            <SocialIcon platform="x" size="sm" />
           </div>
           <input
             type="text"
-            id="twitter"
-            value={getSocialProfileValue('twitter')}
-            onChange={(e) => handleSocialChange('twitter', e.target.value)}
-            placeholder="Twitter username"
+            id="x"
+            value={getSocialProfileValue('x') || getSocialProfileValue('twitter')}
+            onChange={(e) => {
+              handleSocialChange('x', e.target.value);
+              // Also update twitter for backwards compatibility
+              handleSocialChange('twitter', e.target.value);
+            }}
+            placeholder="𝕏 username"
             className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
