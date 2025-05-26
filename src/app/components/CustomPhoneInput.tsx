@@ -96,11 +96,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 ) => {
   const [phoneInput, setPhoneInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
-  // Debug helper to verify dropdown state changes
-  useEffect(() => {
-    console.log('Dropdown state changed:', isDropdownOpen);
-  }, [isDropdownOpen]);
   const [selectedCountry, setSelectedCountry] = useState(countries.find(c => c.code === 'US') || countries[0]);
   const [isInputFocused, setIsInputFocused] = useState(false);
   
@@ -224,56 +219,45 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     // since user will likely tap back in - managed by document click instead
   };
 
-  // Inline styles to ensure absolutely no internal borders
-  const containerStyle = {
-    display: 'flex',
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: '0.375rem',
-    border: '1px solid #d1d5db',
-    overflow: 'hidden'
-  };
-
-  const containerClassName = `transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`;
-
-  // Simple select element styling
-  const selectStyle = {
-    WebkitAppearance: 'none',
-    MozAppearance: 'none',
-    padding: '0.5rem 0.75rem',
-    backgroundColor: 'transparent',
-    border: 'none',
-    outline: 'none',
-    width: '4rem', // Wide enough for the flag and dropdown icon
-    cursor: 'pointer'
-  } as React.CSSProperties;
-
   return (
     <div
-      className={containerClassName}
-      style={containerStyle}
+      className={`flex w-full rounded-md bg-white ${className}`}
+      style={{ overflow: 'visible', border: 'none' }}
     >
-      {/* Country selector using native select for reliable dropdown */}
-      <div className="flex-shrink-0">
-        <select 
-          value={selectedCountry.code}
-          onChange={(e) => {
-            const countryCode = e.target.value;
-            const country = countries.find(c => c.code === countryCode);
-            if (country) handleCountrySelect(country);
-          }}
-          style={selectStyle}
-          className="focus:outline-none"
+      {/* Country selector */}
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none"
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          aria-label="Select country"
+          style={{ zIndex: 1 }}
         >
-          {countries.map((country) => (
-            <option key={country.code} value={country.code}>
-              {country.flag}
-            </option>
-          ))}
-        </select>
+          <span className="mr-2">{selectedCountry.flag}</span>
+          <div className="flex flex-col text-primary">
+            <FaChevronUp className="h-3 w-3" />
+            <FaChevronDown className="h-3 w-3" />
+          </div>
+        </button>
+        
+        {/* Country dropdown */}
+        {isDropdownOpen && (
+          <div className="absolute z-50 mt-1 w-60 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
+            {countries.map((country) => (
+              <div
+                key={country.code}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                onClick={() => handleCountrySelect(country)}
+              >
+                <span className="mr-2">{country.flag}</span>
+                <span>{country.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       
-      {/* Phone number input with no borders */}
+      {/* Phone number input */}
       <input
         ref={(element) => {
           if (typeof ref === 'function') {
@@ -286,15 +270,8 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        style={{ 
-          flex: 1,
-          padding: '0.5rem 0.75rem',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          border: 'none',
-          outline: 'none',
-          boxShadow: 'none'
-        }}
-        className="focus:outline-none"
+        style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
+        className="flex-1 px-3 py-2 bg-white focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
