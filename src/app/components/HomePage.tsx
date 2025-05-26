@@ -48,56 +48,16 @@ const HomePage: React.FC = () => {
   
   // Otherwise show the welcome screen
   return (
-    <div 
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        height: '100vh',
-        width: '100vw',
-        overflow: 'hidden',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingTop: '10vh' // Position elements higher on the screen
-      }}
-    >
+    <div className="flex items-start justify-center fixed inset-0 h-screen w-screen overflow-hidden pt-[10vh]">
       {/* Welcome screen content remains the same */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '320px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards'
-        }}
-      >
+      <div className="w-full max-w-[320px] flex flex-col justify-start items-center animate-[fadeIn_0.3s_ease-out_forwards]">
         <h1 
-          style={{ 
-            color: 'var(--primary)',
-            fontSize: '48px',
-            fontWeight: 'bold',
-            marginBottom: '2px',
-            textAlign: 'center',
-            width: '100%',
-          }}
+          className="text-[color:var(--primary)] text-5xl font-bold mb-0.5 text-center w-full"
           {...adminModeProps} // Apply the double-click handler
         >
           Nekt.Us
         </h1>
-        <p 
-          style={{ 
-            fontSize: '24px', 
-            marginTop: '0px',
-            marginBottom: '24px',
-            textAlign: 'center',
-            width: '100%'
-          }}
-        >
+        <p className="text-2xl mt-0 mb-6 text-center w-full">
           Less typing. More connecting.
         </p>
         
@@ -108,29 +68,9 @@ const HomePage: React.FC = () => {
             // We'll use the auth callback to determine where to go
             signIn('google');
           }}
+          className="flex items-center justify-center w-full rounded-full py-3 px-6 text-lg font-medium transition-all duration-200 bg-white hover:bg-gray-100 text-gray-600 border border-gray-200 shadow-sm cursor-pointer mb-2"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            backgroundColor: 'white',
-            color: '#757575',
-            fontSize: '18px',
-            fontWeight: '500',
-            padding: '12px 24px',
-            borderRadius: '100px',
             transition: 'all 0.2s ease-in-out',
-            textDecoration: 'none',
-            textAlign: 'center',
-            border: '1px solid #ddd',
-            cursor: 'pointer',
-            marginBottom: '8px'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = '#f5f5f5';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = 'white';
           }}
         >
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ marginRight: '12px' }}>
@@ -142,7 +82,7 @@ const HomePage: React.FC = () => {
           Sign in with Google
         </button>
         
-        <div style={{ fontSize: '16px', color: '#555', textAlign: 'center', marginTop: '4px', marginBottom: '20px' }}>
+        <div className="text-base text-gray-600 text-center mt-1 mb-5">
           to start nekt'ing
         </div>
       </div>
