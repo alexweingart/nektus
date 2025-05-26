@@ -575,12 +575,14 @@ const ProfileView: React.FC = () => {
           >
             Nekt
           </Link>
-          <Link 
-            href="/profile/edit"
-            className="edit-button w-full text-center border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Edit Profile
-          </Link>
+          <div className="mt-2 text-center">
+            <Link 
+              href="/edit"
+              className="text-green-600 hover:text-green-700 no-underline"
+            >
+              Edit Profile
+            </Link>
+          </div>
         </div>
       </div>
     </div>
