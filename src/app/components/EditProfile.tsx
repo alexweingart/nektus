@@ -301,42 +301,44 @@ const EditProfile: React.FC = () => {
     >
       <h1 className="text-2xl font-bold mb-6 text-center text-black">Edit Profile</h1>
       
-      {/* Name Input with Profile Photo */}
+      {/* Name Input */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <label htmlFor="avatar-upload" className="relative cursor-pointer mr-3" onClick={() => {
-            // Automatically trigger click on mobile
-            document.getElementById('avatar-upload')?.click();
-          }}>
-            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-white">
-              <img 
-                src={formData.picture || '/default-avatar.png'} 
-                alt="Profile" 
-                className="w-full h-full object-cover"
+          <div className="mr-3 pointer-events-none">
+            <label htmlFor="avatar-upload" className="relative cursor-pointer" onClick={() => {
+              // Automatically trigger click on mobile
+              document.getElementById('avatar-upload')?.click();
+            }}>
+              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
+                <img 
+                  src={formData.picture || '/default-avatar.png'} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
+                <MdEdit size={6} />
+              </div>
+              <input 
+                type="file" 
+                id="avatar-upload" 
+                className="hidden" 
+                accept="image/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleImageUpload(e, 'avatar');
+                  }
+                }}
               />
-            </div>
-            <div className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full">
-              <MdEdit size={10} />
-            </div>
-            <input 
-              type="file" 
-              id="avatar-upload" 
-              className="hidden" 
-              accept="image/*"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleImageUpload(e, 'avatar');
-                }
-              }}
-            />
-          </label>
+            </label>
+          </div>
           <input
             type="text"
             id="name"
             ref={nameInputRef}
             value={formData.name}
             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full p-2 pl-3 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
             placeholder="Name"
           />
         </div>
@@ -355,10 +357,11 @@ const EditProfile: React.FC = () => {
               }}
               value={digits}
               placeholder="Phone number"
+              className="w-full"
               inputProps={{
                 id: "phone-input",
                 autoComplete: "tel",
-                className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                className: "w-full p-2 border border-gray-300 rounded-none bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
               }}
             />
           </div>
