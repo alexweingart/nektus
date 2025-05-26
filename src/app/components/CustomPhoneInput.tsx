@@ -219,12 +219,25 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     // since user will likely tap back in - managed by document click instead
   };
 
+  // Inline styles to ensure absolutely no internal borders
+  const containerStyle = {
+    display: 'flex',
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: '0.375rem',
+    border: '1px solid #d1d5db',
+    overflow: 'hidden'
+  };
+
+  const containerClassName = `transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`;
+
   return (
     <div
-      className={`relative flex w-full rounded-md bg-white bg-opacity-90 border border-gray-300 overflow-hidden transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`}
+      className={containerClassName}
+      style={containerStyle}
     >
       {/* Country selector with no borders */}
-      <div className="flex-shrink-0" ref={dropdownRef}>
+      <div className="relative flex-shrink-0" style={{ zIndex: 2 }} ref={dropdownRef}>
         <button
           type="button"
           className="flex items-center justify-between px-3 py-2 bg-white bg-opacity-90 text-gray-700 h-full focus:outline-none border-0"
@@ -269,7 +282,15 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="flex-1 px-3 py-2 bg-white bg-opacity-90 focus:outline-none border-0 outline-none"
+        style={{ 
+          flex: 1,
+          padding: '0.5rem 0.75rem',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none'
+        }}
+        className="focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
