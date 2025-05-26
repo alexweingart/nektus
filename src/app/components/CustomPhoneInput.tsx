@@ -190,6 +190,17 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     }
   }, []);
 
+  // Function to handle blur and immediately refocus if browser didn't move focus elsewhere (e.g., suggestion tap)
+  const handleInputBlur = () => {
+    setIsInputFocused(false);
+    // If after a short delay the input is not focused and the active element is body/null, refocus.
+    setTimeout(() => {
+      if (inputRef.current && (document.activeElement === document.body || document.activeElement === null)) {
+        inputRef.current.focus();
+      }
+    }, 10);
+  };
+
   return (
     <div className={`flex ${className}`} style={{ backgroundColor: 'white' }}>
       {/* Country selector */}
@@ -247,7 +258,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         value={phoneInput}
         onChange={handlePhoneChange}
         onFocus={() => setIsInputFocused(true)}
-        onBlur={() => setIsInputFocused(false)}
+        onBlur={handleInputBlur}
         maxLength={14} // (XXX) XXX-XXXX format has 14 characters
         style={{ backgroundColor: 'white' }}
         disabled={isDisabled}
