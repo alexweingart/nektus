@@ -54,7 +54,8 @@ const PLACEHOLDER_BIOS = [
   "Creating moments worth sharing"
 ];
 
-const getPlaceholderBio = (name: string) => {
+const getPlaceholderBio = (name: string | null | undefined) => {
+  if (!name) return PLACEHOLDER_BIOS[0];
   const nameSum = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return PLACEHOLDER_BIOS[nameSum % PLACEHOLDER_BIOS.length];
 };
@@ -71,6 +72,32 @@ const ProfileView: React.FC = () => {
   const [bgImage, setBgImage] = useState<string>("/gradient-bg.jpg");
   const [isAIContentLoading, setIsAIContentLoading] = useState<boolean>(false);
   
+  // Create a minimal profile from session data
+  const createMinimalProfileFromSession = () => {
+    if (session?.user) {
+      // Create minimal profile with session data
+      const minimalProfile: UserProfile = {
+        userId: session.user.email || `user-${Date.now()}`, // Fallback ID if email is missing
+        name: session.user.name || 'User',
+        email: session.user.email || '',
+        picture: session.user.image || '',
+        phone: '',
+        socialProfiles: [],
+        lastUpdated: Date.now()
+      };
+      setLocalProfile(minimalProfile);
+      setIsLoading(false);
+      
+      // Set placeholder bio right away
+      setBio(getPlaceholderBio(minimalProfile.name));
+      
+      // Load AI content for this minimal profile
+      loadAIContent(minimalProfile);
+    } else {
+      setIsLoading(false); // No session available
+    }
+  };
+  
   // Load profile data directly from localStorage immediately on mount
   useEffect(() => {
     const loadProfile = () => {
@@ -78,33 +105,31 @@ const ProfileView: React.FC = () => {
         // STEP 1: Try to load from localStorage first (ultra-fast)
         const cachedData = localStorage.getItem('nektus_user_profile_cache');
         if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          setLocalProfile(parsedData);
-          setIsLoading(false);
-          
-          // Set placeholder bio right away
-          setBio(getPlaceholderBio(parsedData.name));
-          
-          // STEP 2: After showing cached data, trigger background AI content loading
-          loadAIContent(parsedData);
+          try {
+            const parsedData = JSON.parse(cachedData) as UserProfile;
+            
+            // Ensure all required fields exist
+            if (!parsedData.userId || !parsedData.name || !parsedData.email) {
+              throw new Error('Invalid profile data in cache');
+            }
+            
+            // Set the profile data
+            setLocalProfile(parsedData);
+            setIsLoading(false);
+            
+            // Set placeholder bio right away
+            setBio(getPlaceholderBio(parsedData.name));
+            
+            // STEP 2: After showing cached data, trigger background AI content loading
+            loadAIContent(parsedData);
+          } catch (error) {
+            console.error('Error parsing cached profile data:', error);
+            // Fall back to session data if cache is invalid
+            createMinimalProfileFromSession();
+          }
         } else if (session?.user) {
-          // Create minimal profile with session data if no cache exists
-          const minimalProfile = {
-            userId: session.user.email,
-            name: session.user.name || '',
-            email: session.user.email,
-            picture: session.user.image || '',
-            phone: '',
-            socialProfiles: [],
-          };
-          setLocalProfile(minimalProfile);
-          setIsLoading(false);
-          
-          // Set placeholder bio right away
-          setBio(getPlaceholderBio(minimalProfile.name));
-          
-          // Load AI content for this minimal profile - casting to ensure type safety
-          loadAIContent(minimalProfile as UserProfile);
+          // Fall back to session data if no cache exists
+          createMinimalProfileFromSession();
         } else {
           setIsLoading(false); // Nothing to load
         }
