@@ -105,7 +105,7 @@ const ConnectionScreen: React.FC = () => {
         const contactData: ContactExchange = {
           userId: getUserId(),
           name: userData.name,
-          phone: userData.phone,
+          internationalPhone: userData.internationalPhone,
           email: userData.email,
           title: userData.title,
           company: userData.company,
@@ -200,7 +200,7 @@ const ConnectionScreen: React.FC = () => {
               <ProfileCard 
                 userData={{
                   name: contactRequest.contactData.name,
-                  phone: contactRequest.contactData.phone,
+                  internationalPhone: contactRequest.contactData.internationalPhone,
                   email: contactRequest.contactData.email,
                   title: contactRequest.contactData.title,
                   company: contactRequest.contactData.company,

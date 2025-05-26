@@ -11,7 +11,8 @@ export interface SocialProfile {
 
 export interface UserData {
   name: string;
-  phone: string;
+  internationalPhone: string; // Updated to match new field structure
+  nationalPhone?: string;
   email: string;
   title?: string;
   company?: string;
@@ -30,7 +31,8 @@ interface UserContextType {
 // Create default empty user data
 const defaultUserData: UserData = {
   name: '',
-  phone: '',
+  internationalPhone: '',
+  nationalPhone: '',
   email: '',
   title: '',
   company: '',
@@ -55,7 +57,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const complete = Boolean(
       userData.name && 
-      userData.phone && 
+      userData.internationalPhone && 
       userData.email
     );
     setIsProfileComplete(complete);
