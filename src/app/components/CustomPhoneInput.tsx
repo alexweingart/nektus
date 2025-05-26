@@ -190,15 +190,12 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     }
   }, []);
 
-  // Function to handle blur and immediately refocus if browser didn't move focus elsewhere (e.g., suggestion tap)
+  // Function to handle blur - set focus state to false when user taps away
   const handleInputBlur = () => {
-    setIsInputFocused(false);
-    // If after a short delay the input is not focused and the active element is body/null, refocus.
+    // Delay slightly to ensure we're not in the middle of processing a tap elsewhere
     setTimeout(() => {
-      if (inputRef.current && (document.activeElement === document.body || document.activeElement === null)) {
-        inputRef.current.focus();
-      }
-    }, 10);
+      setIsInputFocused(false);
+    }, 50);
   };
 
   return (
@@ -207,7 +204,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className={`flex items-center justify-between px-3 py-2 border border-r-0 ${isInputFocused ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-l-md bg-white text-gray-700 h-full`}
+          className={`flex items-center justify-between px-3 py-2 border border-r-0 ${isInputFocused ? 'border-primary' : 'border-gray-300'} rounded-l-md bg-white text-gray-700 h-full`}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
           style={{ zIndex: 1, backgroundColor: 'white' }}
