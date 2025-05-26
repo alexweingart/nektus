@@ -123,7 +123,7 @@ export default function ContactExchange() {
         userId: profile.userId,
         name: profile.name,
         email: profile.email,
-        phone: profile.phone || '',
+        internationalPhone: profile.internationalPhone || '',
         socialProfiles: profile.socialProfiles || []
       };
       
@@ -344,9 +344,9 @@ export default function ContactExchange() {
       {receivedContact && (
         <div style={cardStyle}>
           <h4 style={{ marginBottom: '8px' }}>{receivedContact.name}</h4>
-          {receivedContact.phone && (
+          {receivedContact.internationalPhone && (
             <p style={{ marginBottom: '4px', color: '#666' }}>
-              {receivedContact.phone}
+              {receivedContact.internationalPhone}
             </p>
           )}
           <p style={{ marginBottom: '16px', color: '#666' }}>
@@ -398,7 +398,7 @@ export default function ContactExchange() {
               <div style={{ marginTop: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                   <FaPhoneAlt style={{ marginRight: '8px', color: 'var(--primary)' }} />
-                  <span>{profile.phone}</span>
+                  <span>{profile.internationalPhone}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                   <FaEnvelope style={{ marginRight: '8px', color: 'var(--primary)' }} />

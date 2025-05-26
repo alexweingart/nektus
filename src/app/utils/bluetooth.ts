@@ -43,7 +43,7 @@ interface BluetoothDevice {
 export interface ContactExchange {
   userId: string;
   name: string;
-  phone: string;
+  internationalPhone: string; // Updated to match new field structure
   email: string;
   title?: string;
   company?: string;
@@ -257,7 +257,7 @@ export const simulateConnection = async (
       onDataReceivedCallback({
         userId: generateUserId(),
         name: 'Simulated Contact',
-        phone: '+1234567890',
+        internationalPhone: '+1234567890',
         email: 'contact@example.com',
         title: 'Software Engineer',
         company: 'Tech Company',
