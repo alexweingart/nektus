@@ -410,7 +410,7 @@ const EditProfile: React.FC = () => {
               inputProps={{
                 id: "phone-input",
                 autoComplete: "tel",
-                className: "w-full p-2 border border-gray-300 rounded-none bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                className: "w-full p-2 bg-white bg-opacity-90 focus:outline-none"
               }}
             />
           </div>
