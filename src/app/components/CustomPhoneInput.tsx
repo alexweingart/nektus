@@ -190,15 +190,30 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     }
   }, []);
 
-  // Function to handle blur and immediately refocus if browser didn't move focus elsewhere (e.g., suggestion tap)
-  const handleInputBlur = () => {
-    setIsInputFocused(false);
-    // If after a short delay the input is not focused and the active element is body/null, refocus.
-    setTimeout(() => {
-      if (inputRef.current && (document.activeElement === document.body || document.activeElement === null)) {
-        inputRef.current.focus();
+  // Add global document click handler to detect clicks outside both inputs
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      // Check if click is outside both phone input and country selector
+      const isOutsideComponent = (
+        !inputRef.current?.contains(event.target as Node) && 
+        !dropdownRef.current?.contains(event.target as Node)
+      );
+      
+      if (isOutsideComponent) {
+        setIsInputFocused(false);
       }
-    }, 10);
+    };
+    
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+    };
+  }, []);
+  
+  // Handle blur only for autofill case, focus state is managed by document click handler
+  const handleInputBlur = () => {
+    // For autofill and browser suggestions, we don't want to remove focus state
+    // since user will likely tap back in - managed by document click instead
   };
 
   return (
