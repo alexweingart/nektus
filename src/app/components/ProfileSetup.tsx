@@ -128,15 +128,12 @@ export default function ProfileSetup() {
           // Handle existing profile data if available
           if (profile) {
             if (profile.phone) {
-              // Get the national digits from the stored phone number
-              const parsed = parsePhoneNumberFromString(profile.phone);
+              const parsed = parsePhoneNumberFromString(profile.phone, country);
               if (parsed?.isValid()) {
                 // Update state with detected country and national digits
                 setDigits(parsed.nationalNumber);
-                if (parsed.country && ['US', 'CA', 'GB', 'AU', 'DE', 'FR', 'IN'].includes(parsed.country)) {
-                  setCountry(parsed.country as 'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN');
-                }
-                setHasCompletedPhone(parsed.nationalNumber.length >= 6);
+                // Only mark as completed if full 10+ digit phone number exists in DB
+                setHasCompletedPhone(parsed.nationalNumber.length >= 10);
               }
             }
             
