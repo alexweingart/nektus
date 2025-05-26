@@ -24,6 +24,8 @@ type UserProfile = {
   country?: string;
   socialProfiles: SocialProfile[];
   lastUpdated?: any;
+  bio?: string;
+  backgroundImage?: string; // Add backgroundImage to UserProfile type
 };
 
 // Single instructional placeholder bio
@@ -34,10 +36,7 @@ const getPlaceholderBio = () => {
 };
 
 // Define extended UserProfile type with AI content fields
-type ExtendedUserProfile = UserProfile & {
-  bio?: string;
-  backgroundImage?: string;
-};
+type ExtendedUserProfile = UserProfile;
 
 const ProfileView: React.FC = () => {
   const { data: session } = useSession();
@@ -76,6 +75,7 @@ const ProfileView: React.FC = () => {
           { platform: 'telegram', username: '', shareEnabled: true, filled: false },
           { platform: 'wechat', username: '', shareEnabled: true, filled: false }
         ],
+        backgroundImage: '/gradient-bg.jpg',
         lastUpdated: Date.now()
       };
       
