@@ -1,5 +1,5 @@
-import WelcomeScreen from './components/WelcomeScreen';
+import HomePage from './components/HomePage';
 
 export default function Home() {
-  return <WelcomeScreen />;
+  return <HomePage />;
 }
