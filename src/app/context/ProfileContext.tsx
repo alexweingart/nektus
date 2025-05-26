@@ -7,7 +7,7 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 
 // Define the structure of our profile data
 export type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'x';
   username: string;
   url?: string;
   shareEnabled: boolean;
@@ -55,6 +55,10 @@ export type UserProfile = {
   telegramUsername?: string;
   telegramUrl?: string;
   telegramUserConfirmed?: boolean;
+  
+  xUsername?: string;
+  xUrl?: string;
+  xUserConfirmed?: boolean;
 };
 
 // Create a context for our profile data
@@ -194,6 +198,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return `https://wa.me/${whatsappNumber}`;
       case 'telegram':
         return `https://t.me/${username}`;
+      case 'x':
+        return `https://x.com/${username}`;
       default:
         return '';
     }
@@ -266,6 +272,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         {
           platform: 'telegram',
           username: normalizedPhone,
+          userConfirmed: false,
+        },
+        {
+          platform: 'x',
+          username: emailUsername,
           userConfirmed: false,
         },
       ];
