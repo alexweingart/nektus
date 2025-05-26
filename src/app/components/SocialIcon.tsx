@@ -79,11 +79,12 @@ const SocialIcon: React.FC<SocialIconProps> = ({
           ${getContainerSize()} 
           flex items-center justify-center 
           rounded-full 
-          transition-colors duration-200
-          ${isActive ? 'bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'}
+          transition-all duration-200
+          ${isActive ? 'bg-primary-dark' : 'bg-primary hover:bg-primary-dark'}
+          shadow-sm hover:shadow-md
         `}
       >
-        <div className={`${isActive ? 'text-green-500' : 'text-white'}`}>
+        <div className="text-white">
           {renderIcon()}
         </div>
       </div>
