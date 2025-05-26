@@ -256,9 +256,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         )}
       </div>
       
-      {/* separator */}
-      <span className="w-px bg-gray-300 self-stretch" />
-      
       {/* Phone number input */}
       <input
         ref={(element) => {
