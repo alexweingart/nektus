@@ -123,7 +123,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Save profile to Firestore with optimized performance
+  // Save profile to Firestore with optimized performance for fast UI transitions
   const saveProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     if (!session?.user?.email) return null;
     
@@ -142,18 +142,22 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         lastUpdated: serverTimestamp(),
       } as UserProfile;
       
-      // Update local state immediately for responsiveness
+      // Update local state SYNCHRONOUSLY for immediate UI response
       setProfile(updatedProfile);
       
-      // Update local cache immediately
+      // Update local cache SYNCHRONOUSLY
       const cacheProfile = {
         ...updatedProfile,
         lastUpdated: Date.now()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheProfile));
       
-      // Save to Firestore in the background
-      setDoc(docRef, updatedProfile, { merge: true }).catch((err: Error) => {
+      // Return the updated profile immediately to allow UI to progress
+      // while we start the Firestore save in the background
+      const firestoreSave = setDoc(docRef, updatedProfile, { merge: true });
+      
+      // Start the save but don't wait for it to complete
+      firestoreSave.catch((err: Error) => {
         console.error('Background Firestore save failed:', err);
       });
       

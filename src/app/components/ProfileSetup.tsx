@@ -301,7 +301,7 @@ export default function ProfileSetup() {
     }
   };
   
-  // Handle saving profile data
+  // Handle saving profile data with optimized loading
   const handleSave = async () => {
     setIsSaving(true);
     
@@ -326,20 +326,30 @@ export default function ProfileSetup() {
       
       const fullNumber = parsed.number; // e.g. +18182926036
       
-      // Save profile data to Firebase
-      await saveProfile({
+      // Start navigation immediately before the Firebase save completes
+      // This allows the profile page to load faster
+      const profileData = {
         phone: fullNumber,
         socialProfiles: profilesForSaving
-      });
+      };
       
-      // Proceed to connect page
-      router.push('/connect');
+      // Begin the save operation, but don't await it yet
+      const savePromise = saveProfile(profileData);
+      
+      // Navigate to profile page immediately
+      router.push('/profile');
+      
+      // Continue the save in the background to ensure data is stored
+      savePromise.catch(error => {
+        console.error('Background profile save error:', error);
+        // Error is handled silently in the background since user has already navigated away
+      });
     } catch (error: any) {
       console.error('Error saving profile:', error);
       alert('There was an error saving your profile. Please try again.');
-    } finally {
       setIsSaving(false);
     }
+    // Note: we don't set isSaving to false in the happy path because the component unmounts
   };
 
   // If no session, return null (redirect is handled by useSession)
