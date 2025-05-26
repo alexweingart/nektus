@@ -440,76 +440,87 @@ const ProfileView: React.FC = () => {
         
         {/* Contact & Social Icons - Arranged in 2 rows */}
         <div style={{ marginBottom: '24px', width: '100%', maxWidth: '320px' }}>
-          {/* Create organized icon list with correct order */}
-          <div style={{ 
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gridTemplateRows: 'repeat(2, auto)',
-            gap: '16px',
-            justifyContent: 'center',
-            margin: '0 auto'
-          }}>
-            {(() => {
-              // Define icons in correct order
-              const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'twitter', 'telegram', 'linkedin'];
-              
-              // Map of available social profiles by platform
-              const socialMap: Record<string, SocialProfile> = {};
-              if (localProfile.socialProfiles) {
-                localProfile.socialProfiles.forEach((social: SocialProfile) => {
-                  // Map all social profiles, even if username is empty
-                  // This ensures the icons are displayed but can be configured later
-                  socialMap[social.platform] = social;
-                });
-              }
-              
-              // Create each icon in order - display all required platforms
-              return orderedPlatforms.map(platform => {
-                // For phone
-                if (platform === 'phone') {
-                  // Always show phone icon, even if number is empty
-                  // This ensures consistency in the UI
-                  return (
-                    <div key={platform} className="flex justify-center">
-                      <SocialIcon
-                        platform={platform as any}
-                        username={localProfile.phone || ''}
-                        size="md"
-                      />
-                    </div>
-                  );
-                }
-                
-                // For email
-                if (platform === 'email' && (!localProfile.email || localProfile.email.trim() === '')) return null;
-                
-                // For social profiles
-                if (platform !== 'phone' && platform !== 'email') {
-                  // Only show if profile exists
-                  if (!socialMap[platform]) return null;
-                  
-                  // For now we'll display all social platforms even if username is empty
-                  // This makes it clear to the user which platforms are supported
-                  // In a real app, you might want to hide empty ones or show them differently
-                }
-                
-                // Get username for platforms
-                const username = platform === 'phone' ? localProfile.phone :
-                                platform === 'email' ? localProfile.email :
-                                socialMap[platform]?.username || '';
-                
+          {/* Two separate rows with defined number of icons in each */}
+          {(() => {
+            // Define all platforms in order
+            const allPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'twitter', 'telegram', 'linkedin'];
+            
+            // Split into first row (4 icons) and second row (5 icons)
+            const firstRowPlatforms = allPlatforms.slice(0, 4); // phone, email, facebook, instagram
+            const secondRowPlatforms = allPlatforms.slice(4);   // whatsapp, snapchat, twitter, telegram, linkedin
+            
+            // Map of available social profiles by platform
+            const socialMap: Record<string, SocialProfile> = {};
+            if (localProfile.socialProfiles) {
+              localProfile.socialProfiles.forEach((social: SocialProfile) => {
+                // Map all social profiles, even if username is empty
+                socialMap[social.platform] = social;
+              });
+            }
+            
+            // Helper function to render an icon
+            const renderIcon = (platform: string) => {
+              // For phone
+              if (platform === 'phone') {
                 return (
                   <div key={platform} className="flex justify-center">
                     <SocialIcon
                       platform={platform as any}
-                      username={username}
+                      username={localProfile.phone || ''}
                       size="md"
                     />
                   </div>
                 );
-              });
-            })()}
-          </div>
+              }
+              
+              // For email
+              if (platform === 'email' && (!localProfile.email || localProfile.email.trim() === '')) {
+                return null;
+              }
+              
+              // For social profiles
+              if (platform !== 'phone' && platform !== 'email') {
+                // Only show if profile exists
+                if (!socialMap[platform]) return null;
+              }
+              
+              // Get username for platforms
+              const username = platform === 'phone' ? localProfile.phone :
+                              platform === 'email' ? localProfile.email :
+                              socialMap[platform]?.username || '';
+              
+              return (
+                <div key={platform} className="flex justify-center">
+                  <SocialIcon
+                    platform={platform as any}
+                    username={username}
+                    size="md"
+                  />
+                </div>
+              );
+            };
+            
+            return (
+              <>
+                {/* First row - 4 icons */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  marginBottom: '16px'
+                }}>
+                  {firstRowPlatforms.map(platform => renderIcon(platform))}
+                </div>
+                
+                {/* Second row - 5 icons */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between' 
+                }}>
+                  {secondRowPlatforms.map(platform => renderIcon(platform))}
+                </div>
+              </>
+            );
+          })()}
         </div>
         
         {/* Action Buttons */}
