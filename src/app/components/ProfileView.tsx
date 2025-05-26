@@ -55,7 +55,7 @@ const ProfileView: React.FC = () => {
     if (session?.user) {
       // Create minimal profile with session data
       const minimalProfile: UserProfile = {
-        userId: session.user.email || \`user-\${Date.now()}\`, // Fallback ID if email is missing
+        userId: session.user.email || `user-${Date.now()}`, // Fallback ID if email is missing
         name: session.user.name || 'User',
         email: session.user.email || '',
         picture: session.user.image || '',
@@ -239,15 +239,15 @@ const ProfileView: React.FC = () => {
     if (!phone) return '';
     
     // Remove all non-numeric characters
-    const cleaned = phone.replace(/\\D/g, '');
+    const cleaned = phone.replace(/\D/g, '');
     
     // Check if US/Canada format (10 digits)
     if (cleaned.length === 10) {
-      return \`(\${cleaned.slice(0, 3)}) \${cleaned.slice(3, 6)}-\${cleaned.slice(6)}\`;
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     } 
     
     // International number - just add a plus if needed
-    return phone.startsWith('+') ? phone : \`+\${cleaned}\`;
+    return phone.startsWith('+') ? phone : `+${cleaned}`;
   };
   
   // Process bio generation request
@@ -448,7 +448,7 @@ const ProfileView: React.FC = () => {
       <div
         className="absolute top-0 left-0 w-full h-full opacity-20 z-0"
         style={{
-          backgroundImage: bgImage && bgImage !== DEFAULT_BG_IMAGE ? \`url(\${bgImage})\` : 'none',
+          backgroundImage: bgImage && bgImage !== DEFAULT_BG_IMAGE ? `url(${bgImage})` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -462,7 +462,7 @@ const ProfileView: React.FC = () => {
           <button 
             onClick={() => {
               localStorage.removeItem('nektus_generated_content');
-              localStorage.removeItem(\`nektus_ai_tried_\${localProfile?.userId || ''}\`);
+              localStorage.removeItem(`nektus_ai_tried_${localProfile?.userId || ''}`);
               setBio(PLACEHOLDER_BIO);
               setBgImage(DEFAULT_BG_IMAGE);
               alert('Cleared all AI content. Refresh page to regenerate.');
