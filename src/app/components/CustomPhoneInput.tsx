@@ -219,16 +219,30 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     // since user will likely tap back in - managed by document click instead
   };
 
+  // Inline styles to ensure absolutely no internal borders
+  const containerStyle = {
+    display: 'flex',
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: '0.375rem',
+    border: '1px solid #d1d5db',
+    overflow: 'hidden'
+  };
+
+  const containerClassName = `transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`;
+
   return (
-    <div className={`flex w-full rounded-md bg-white bg-opacity-90 border border-gray-300 transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`}>
+    <div
+      className={containerClassName}
+      style={containerStyle}
+    >
       {/* Country selector with no borders */}
-      <div className="relative flex-shrink-0 z-20" ref={dropdownRef}>
+      <div className="relative flex-shrink-0" style={{ zIndex: 50 }} ref={dropdownRef}>
         <button
           type="button"
           className="flex items-center justify-between px-3 py-2 bg-white bg-opacity-90 text-gray-700 h-full focus:outline-none border-0"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
-          style={{ zIndex: 1 }}
         >
           <span className="mr-2">{selectedCountry.flag}</span>
           <div className="flex flex-col text-primary">
@@ -239,7 +253,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-30 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-50 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {countries.map((country) => (
               <div
                 key={country.code}
@@ -267,7 +281,15 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="w-full flex-1 bg-transparent border-none outline-none px-3 py-2 focus:outline-none"
+        style={{ 
+          flex: 1,
+          padding: '0.5rem 0.75rem',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none'
+        }}
+        className="focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
