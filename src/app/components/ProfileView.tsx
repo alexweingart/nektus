@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
-import ForceContentGenerator from './ForceContentGenerator';
+// Import only necessary components
 
 // Define types for profile data
 type SocialProfile = {
@@ -28,10 +28,7 @@ type UserProfile = {
 
 // Single instructional placeholder bio
 const PLACEHOLDER_BIO = "AI will create a bio here for you, or tap edit profile to write your own";
-
-const getPlaceholderBio = () => {
-  return PLACEHOLDER_BIO;
-};
+const DEFAULT_BG_IMAGE = "/gradient-bg.jpg";
 
 // Define extended UserProfile type with AI content fields
 type ExtendedUserProfile = UserProfile & {
@@ -84,10 +81,9 @@ const ProfileView: React.FC = () => {
       setIsLoading(false);
       
       // Set placeholder bio right away
-      setBio(getPlaceholderBio());
+      setBio(PLACEHOLDER_BIO);
       
-      // Skip AI content loading on minimal profile creation
-      // We'll only load AI content after proper profile setup
+      // The AI content will be generated via the useEffect when placeholder values are detected
     } else {
       setIsLoading(false); // No session available
     }
@@ -135,7 +131,7 @@ const ProfileView: React.FC = () => {
               if (profileContextData.profile.bio) {
                 setBio(profileContextData.profile.bio);
               } else {
-                setBio(getPlaceholderBio());
+                setBio(PLACEHOLDER_BIO);
               }
               
               // If there's a saved background image, use it
@@ -149,18 +145,16 @@ const ProfileView: React.FC = () => {
               if (triggerAiContent) {
                 // Clear the flag so we don't regenerate on next load
                 sessionStorage.removeItem('nektus_profile_setup_completed');
-                // Trigger AI content generation
-                loadAIContent(profileContextData.profile);
+                // No need to explicitly call generation - it will be triggered by the useEffect
               }
             } else if (parsedData) {
               setLocalProfile(parsedData);
               setIsLoading(false);
               
               // Set placeholder bio right away
-              setBio(getPlaceholderBio());
+              setBio(PLACEHOLDER_BIO);
               
-              // Also load AI content in background
-              loadAIContent(parsedData);
+              // AI content will be generated via the useEffect when placeholder values are detected
               
               // Re-save to localStorage with any fixes we made
               localStorage.setItem('nektus_user_profile_cache', JSON.stringify(parsedData));
@@ -208,6 +202,34 @@ const ProfileView: React.FC = () => {
     }
   }, [session, profileContextData]); // Re-run when session changes
   
+  // Effect to detect placeholder values and generate AI content
+  useEffect(() => {
+    // Only run if we have a profile and either bio is placeholder or background is default
+    if (localProfile && 
+        (bio === PLACEHOLDER_BIO || bgImage === DEFAULT_BG_IMAGE)) {
+      
+      console.log('Detected placeholder content - generating AI content');
+      
+      // Check if we've already tried generating AI content for this user
+      const hasTriedGenerating = localStorage.getItem(`nektus_ai_tried_${localProfile.userId}`);
+      
+      // Only attempt generation if we haven't tried before
+      if (!hasTriedGenerating) {
+        // Mark that we've tried generating
+        localStorage.setItem(`nektus_ai_tried_${localProfile.userId}`, 'true');
+        
+        // Generate content right away
+        if (bio === PLACEHOLDER_BIO) {
+          generateBio();
+        }
+        
+        if (bgImage === DEFAULT_BG_IMAGE) {
+          generateBackground();
+        }
+      }
+    }
+  }, [localProfile, bio, bgImage]);
+  
   // If session becomes available later, create profile from it
   useEffect(() => {
     if (!localProfile && session?.user) {
@@ -215,176 +237,131 @@ const ProfileView: React.FC = () => {
     }
   }, [session, localProfile]);
   
-  // Format phone number for display
-  const formatPhoneNumber = (phone: string) => {
-    if (!phone) return '';
-    
-    // Remove all non-numeric characters
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // Check if US/Canada format (10 digits)
-    if (cleaned.length === 10) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-    } 
-    
-    // International number - just add a plus if needed
-    return phone.startsWith('+') ? phone : `+${cleaned}`;
-  };
-  
-  // Load AI content asynchronously - makes API calls without blocking the UI and only fires once per user
-  const loadAIContent = async (profile: UserProfile) => {
-    if (!profile) return;
-    
-    // Set initial placeholder states while waiting for AI content
-    if (!bio) {
-      setBio(getPlaceholderBio());
-    }
-    
-    // Check localStorage for AI content status flag to ensure we only make these calls once per user
-    const aiContentStatusKey = `nektus_ai_content_status_${profile.userId}`;
-    const aiContentStatus = localStorage.getItem(aiContentStatusKey);
-    
-    // If we've already triggered AI content generation for this user, don't do it again
-    if (aiContentStatus === 'triggered') {
-      return;
-    }
-    
-    // Mark that we've started the AI content generation process
-    localStorage.setItem(aiContentStatusKey, 'triggered');
-    setIsAIContentLoading(true);
-    
-    // Process bio generation request
-    const generateBio = async () => {
-      try {
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'bio',
-            profile
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.bio) {
-            setBio(data.bio);
-            localStorage.setItem('nektus_generated_content', JSON.stringify({ bio: data.bio }));
-          }
-        }
-      } catch (error) {
-        console.error('Error generating bio:', error);
-        // Keep using the placeholder bio on error
-      }
-    };
-    
-    // Process background image generation request
-    const generateBackground = async () => {
-      try {
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'background',
-            profile
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.imageUrl) {
-            setBgImage(data.imageUrl);
-            localStorage.setItem('nektus_generated_content', JSON.stringify({ backgroundImage: data.imageUrl }));
-          }
-        }
-      } catch (error) {
-        console.error('Error generating background:', error);
-        // Keep using the default background on error
-      }
-    };
-    
-    // Process avatar generation request - only if we don't already have a Google profile picture
-    const generateAvatar = async () => {
-      // Skip avatar generation if we already have a Google profile picture
-      if (profile.picture && profile.picture.includes('googleusercontent.com')) {
+  // Process bio generation request
+  const generateBio = async () => {
+    console.log('Generating bio...');
+    try {
+      // Show loading state
+      setIsAIContentLoading(true);
+      
+      // Check if we already have it in localStorage
+      const cachedContent = localStorage.getItem('nektus_generated_content');
+      const content = cachedContent ? JSON.parse(cachedContent) : {};
+      
+      if (content.bio && content.bio !== PLACEHOLDER_BIO) {
+        console.log('Using cached bio:', content.bio);
+        setBio(content.bio);
         return;
       }
       
-      try {
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'avatar',
-            profile
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.imageUrl) {
-            // Update local profile picture without saving to server
-            setLocalProfile(prev => prev ? {
-              ...prev,
-              picture: data.imageUrl
-            } : null);
-          }
+      // Make API call
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'bio',
+          profile: localProfile
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.bio) {
+          console.log('Successfully generated bio:', data.bio);
+          
+          // Update state immediately
+          setBio(data.bio);
+          
+          // Save to localStorage (merge with existing content)
+          const updatedContent = { ...content, bio: data.bio };
+          localStorage.setItem('nektus_generated_content', JSON.stringify(updatedContent));
         }
-      } catch (error) {
-        console.error('Error generating avatar:', error);
-        // Keep using the default avatar on error
+      } else {
+        console.error('Bio generation request failed:', await response.text());
       }
-    };
-
-    // Launch all generation requests in parallel without awaiting them
-    // This ensures the UI isn't blocked while waiting for responses
-    generateBio();
-    generateBackground();
-    generateAvatar();
-    
-    // After a timeout, mark the loading as complete even if all requests haven't finished
-    // This ensures the loading indicator doesn't stay forever if something goes wrong
-    setTimeout(() => {
+    } catch (error) {
+      console.error('Error generating bio:', error);
+    } finally {
       setIsAIContentLoading(false);
-    }, 10000); // 10 second timeout
+    }
   };
-
+  
+  // Process background image generation request
+  const generateBackground = async () => {
+    console.log('Generating background image...');
+    try {
+      // Show loading state
+      setIsAIContentLoading(true);
+      
+      // Check if we already have it in localStorage
+      const cachedContent = localStorage.getItem('nektus_generated_content');
+      const content = cachedContent ? JSON.parse(cachedContent) : {};
+      
+      if (content.backgroundImage && content.backgroundImage !== DEFAULT_BG_IMAGE) {
+        console.log('Using cached background:', content.backgroundImage);
+        setBgImage(content.backgroundImage);
+        return;
+      }
+      
+      // Make API call
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'background',
+          profile: localProfile
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.imageUrl) {
+          console.log('Successfully generated background:', data.imageUrl);
+          
+          // Create an image element to preload the image
+          const img = new Image();
+          img.onload = () => {
+            // Update state only after image is loaded
+            setBgImage(data.imageUrl);
+            console.log('Background image loaded and applied');
+          };
+          img.onerror = () => {
+            console.error('Failed to load background image:', data.imageUrl);
+          };
+          img.src = data.imageUrl;
+          
+          // Save to localStorage (merge with existing content)
+          const updatedContent = { ...content, backgroundImage: data.imageUrl };
+          localStorage.setItem('nektus_generated_content', JSON.stringify(updatedContent));
+        }
+      } else {
+        console.error('Background generation request failed:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error generating background:', error);
+    } finally {
+      setIsAIContentLoading(false);
+    }
+  };
+  
   // Show message if no profile exists
   if (!localProfile) {
-    // Handler for when ForceContentGenerator generates content
-    const handleContentGenerated = (data: { bio: string, backgroundImage: string }) => {
-      if (data.bio) {
-        setBio(data.bio);
-      }
-      if (data.backgroundImage) {
-        setBgImage(data.backgroundImage);
-      }
-    };
-
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4" style={{ backgroundColor: bgImage ? 'transparent' : 'var(--background)' }}>
-        {/* Add the ForceContentGenerator component for direct content generation */}
-        {process.env.NODE_ENV !== 'production' && session?.user?.email && (
-          <ForceContentGenerator 
-            email={session.user.email} 
-            onGenerated={handleContentGenerated}
-          />
+        {/* Loading indicator */}
+        {isAIContentLoading && (
+          <div className="fixed top-4 right-4 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm shadow-lg z-50">
+            Generating profile content...
+          </div>
         )}
         
-        {/* Background image - only show if we have one */}
+        {/* Background image */}
         <div
-          className="profile-background absolute top-0 left-0 w-full h-full opacity-20 z-0"
+          className="absolute top-0 left-0 w-full h-full opacity-20 z-0"
           style={{
-            backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+            backgroundImage: bgImage && bgImage !== DEFAULT_BG_IMAGE ? `url(${bgImage})` : 'none',
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            display: bgImage ? 'block' : 'none'
+            backgroundPosition: 'center'
           }}
         />
       </div>
