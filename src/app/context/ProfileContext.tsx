@@ -5,6 +5,12 @@ import { useSession } from 'next-auth/react';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
+// Define the structure of our contact channels
+type ContactChannel = 
+  | { type: 'phoneInfo'; internationalPhone: string; nationalPhone: string; userConfirmed: boolean }
+  | { type: 'email'; email: string; userConfirmed: boolean }
+  | { type: 'social'; platform: 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'wechat' | 'linkedin'; username: string; url: string; userConfirmed: boolean };
+
 // Define the structure of our profile data
 export type SocialProfile = {
   platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x' | 'email' | 'phone';
@@ -14,6 +20,27 @@ export type SocialProfile = {
   filled?: boolean;
   userConfirmed?: boolean;
   countryUserConfirmed?: boolean;
+};
+
+// Define the structure of contact channels in the profile
+type ProfileContactChannels = {
+  phoneInfo: {
+    internationalPhone: string;
+    nationalPhone: string;
+    userConfirmed: boolean;
+  };
+  email: {
+    email: string;
+    userConfirmed: boolean;
+  };
+  facebook: { username: string; url: string; userConfirmed: boolean };
+  instagram: { username: string; url: string; userConfirmed: boolean };
+  x: { username: string; url: string; userConfirmed: boolean };
+  whatsapp: { username: string; url: string; userConfirmed: boolean };
+  snapchat: { username: string; url: string; userConfirmed: boolean };
+  telegram: { username: string; url: string; userConfirmed: boolean };
+  wechat: { username: string; url: string; userConfirmed: boolean };
+  linkedin: { username: string; url: string; userConfirmed: boolean };
 };
 
 export type UserProfile = {
@@ -253,8 +280,84 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
       
       // Start with confirmed data (profile photo, name, email, phone, country)
-      const country = profileData.country || profile?.country || '';
-      const baseProfileData = {
+      const country = profileData.country || profile?.country || 'US';
+      const nationalPhone = profileData.nationalPhone || profile?.nationalPhone || '';
+      
+      // Create contact channels with new structure
+      const contactChannels = {
+        phoneInfo: {
+          internationalPhone: phoneNumber,
+          nationalPhone: nationalPhone,
+          userConfirmed: true
+        },
+        email: {
+          email: session.user.email,
+          userConfirmed: true
+        },
+        // Initialize all social channels with empty data
+        facebook: { username: '', url: '', userConfirmed: false },
+        instagram: { username: '', url: '', userConfirmed: false },
+        x: { username: '', url: '', userConfirmed: false },
+        whatsapp: { username: '', url: '', userConfirmed: false },
+        snapchat: { username: '', url: '', userConfirmed: false },
+        telegram: { username: '', url: '', userConfirmed: false },
+        wechat: { username: '', url: '', userConfirmed: false },
+        linkedin: { username: '', url: '', userConfirmed: false }
+      };
+      
+      // Auto-populate social media profiles
+      const socialMediaFields = [
+        { platform: 'facebook', username: emailUsername },
+        { platform: 'instagram', username: emailUsername },
+        { platform: 'snapchat', username: emailUsername },
+        { platform: 'linkedin', username: emailUsername },
+        { platform: 'whatsapp', username: normalizedPhone },
+        { platform: 'telegram', username: normalizedPhone },
+        { platform: 'wechat', username: normalizedPhone },
+        { platform: 'x', username: emailUsername },
+      ];
+      
+      // Process social media fields
+      for (const field of socialMediaFields) {
+        const { platform, username } = field;
+        if (!username) continue;
+        
+        const isValid = await validateSocialMediaUrl(platform, username);
+        if (isValid) {
+          const url = getSocialMediaUrl(platform, username);
+          
+          // Update the specific platform in contactChannels with proper typing
+          switch (platform) {
+            case 'facebook':
+              contactChannels.facebook = { username, url, userConfirmed: true };
+              break;
+            case 'instagram':
+              contactChannels.instagram = { username, url, userConfirmed: true };
+              break;
+            case 'x':
+              contactChannels.x = { username, url, userConfirmed: true };
+              break;
+            case 'whatsapp':
+              contactChannels.whatsapp = { username, url, userConfirmed: true };
+              break;
+            case 'snapchat':
+              contactChannels.snapchat = { username, url, userConfirmed: true };
+              break;
+            case 'telegram':
+              contactChannels.telegram = { username, url, userConfirmed: true };
+              break;
+            case 'wechat':
+              contactChannels.wechat = { username, url, userConfirmed: true };
+              break;
+            case 'linkedin':
+              contactChannels.linkedin = { username, url, userConfirmed: true };
+              break;
+          }
+        }
+      }
+      
+      // Create the updated profile with new structure
+      const updatedProfile: UserProfile = {
         userId,
         name: session.user.name || '',
         nameUserConfirmed: true,
@@ -263,123 +366,53 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         picture: session.user.image || '',
         pictureUserConfirmed: true,
         internationalPhone: phoneNumber,
-        nationalPhone: profileData.nationalPhone || profile?.nationalPhone || '',
+        nationalPhone: nationalPhone,
         internationalPhoneUserConfirmed: true,
         nationalPhoneUserConfirmed: true,
         country: country,
-        countryUserConfirmed: !!country,
+        countryUserConfirmed: true,
+        handle: '',
+        socialProfiles: [],
         lastUpdated: serverTimestamp(),
+        // For backward compatibility, keep the old fields
+        ...(Object.entries(contactChannels)
+          .filter(([key]) => key !== 'phoneInfo' && key !== 'email')
+          .reduce((acc, [key, value]) => {
+            const platform = key as keyof typeof contactChannels;
+            if ('username' in value) {
+              acc[`${platform}Username` as const] = value.username;
+              acc[`${platform}Url` as const] = value.url;
+              acc[`${platform}UserConfirmed` as const] = value.userConfirmed;
+            }
+            return acc;
+          }, {} as Record<string, any>))
       };
-      
-      // Prepare initial updated profile with core fields
-      let updatedProfile = {
-        ...(profile || {}),
-        ...profileData,
-        ...baseProfileData,
-      } as UserProfile;
-      
-      // Auto-populate social media profiles
-      // These will be validated before final save
-      const socialMediaFields = [
-        {
-          platform: 'facebook',
-          username: emailUsername,
-          userConfirmed: false,
-        },
-        {
-          platform: 'instagram',
-          username: emailUsername,
-          userConfirmed: false,
-        },
-        {
-          platform: 'snapchat',
-          username: emailUsername,
-          userConfirmed: false,
-        },
-        {
-          platform: 'linkedin',
-          username: emailUsername,
-          userConfirmed: false,
-        },
-        {
-          platform: 'whatsapp',
-          username: normalizedPhone,
-          userConfirmed: false,
-        },
-        {
-          platform: 'telegram',
-          username: normalizedPhone,
-          userConfirmed: false,
-        },
-        {
-          platform: 'wechat',
-          username: normalizedPhone,
-          userConfirmed: false,
-        },
-        {
-          platform: 'x',
-          username: emailUsername,
-          userConfirmed: false,
-        },
-      ];
-      
-      // Validate and populate social media profiles
-      for (const field of socialMediaFields) {
-        const { platform, username, userConfirmed } = field;
-        const platformKey = platform as keyof UserProfile;
-        const usernameKey = `${platform}Username` as keyof UserProfile;
-        const urlKey = `${platform}Url` as keyof UserProfile;
-        const confirmedKey = `${platform}UserConfirmed` as keyof UserProfile;
-        
-        // Skip if no username
-        if (!username) continue;
-        
-        // Validate if the profile exists
-        const isValid = await validateSocialMediaUrl(platform, username);
-        
-        if (isValid) {
-          // Generate URL for the platform
-          const url = getSocialMediaUrl(platform, username);
-          
-          // Add to updated profile
-          updatedProfile = {
-            ...updatedProfile,
-            [usernameKey]: username,
-            [urlKey]: url,
-            [confirmedKey]: userConfirmed,
-          } as UserProfile;
-        }
-      }
-      
-      // Also maintain compatibility with socialProfiles array
-      // for backward compatibility
-      const socialProfiles: SocialProfile[] = [
-        ...socialMediaFields
-          .filter(field => {
-            const usernameKey = `${field.platform}Username` as keyof UserProfile;
-            return !!updatedProfile[usernameKey]; // Only include validated ones
-          })
-          .map(field => ({
-            platform: field.platform as SocialProfile['platform'],
-            username: field.username,
-            url: getSocialMediaUrl(field.platform, field.username),
-            shareEnabled: true,
-            filled: true,
-            userConfirmed: field.userConfirmed,
-            countryUserConfirmed: false,
-          })),
-      ];
-      
-      updatedProfile.socialProfiles = socialProfiles;
       
       // Update local state SYNCHRONOUSLY for immediate UI response
       setProfile(updatedProfile);
       
-      // Update local cache SYNCHRONOUSLY
+      // Create the cached profile with the new structure
       const cacheProfile = {
-        ...updatedProfile,
-        lastUpdated: Date.now()
+        backgroundImage: profile?.backgroundImage || '/gradient-bg.jpg',
+        profileImage: session.user.image || '',
+        bio: profile?.bio || '',
+        name: session.user.name || '',
+        lastUpdated: Date.now(),
+        contactChannels: {
+          phoneInfo: contactChannels.phoneInfo,
+          email: contactChannels.email,
+          facebook: contactChannels.facebook,
+          instagram: contactChannels.instagram,
+          x: contactChannels.x,
+          whatsapp: contactChannels.whatsapp,
+          snapchat: contactChannels.snapchat,
+          telegram: contactChannels.telegram,
+          wechat: contactChannels.wechat,
+          linkedin: contactChannels.linkedin
+        }
       };
+      
+      // Update local cache SYNCHRONOUSLY
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheProfile));
       
       // Return the updated profile immediately to allow UI to progress
