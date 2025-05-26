@@ -237,23 +237,24 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       style={containerStyle}
     >
       {/* Country selector with no borders */}
-      <div className="relative flex-shrink-0" style={{ zIndex: 50 }} ref={dropdownRef}>
-        <button
-          type="button"
-          className="flex items-center justify-between px-3 py-2 bg-white bg-opacity-90 text-gray-700 h-full focus:outline-none border-0"
+      <div className="flex-none" style={{ position: 'relative' }} ref={dropdownRef}>
+        <div 
+          className="flex items-center justify-between px-3 py-2 h-full cursor-pointer"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          aria-label="Select country"
         >
           <span className="mr-2">{selectedCountry.flag}</span>
           <div className="flex flex-col text-primary">
             <FaChevronUp className="h-3 w-3" />
             <FaChevronDown className="h-3 w-3" />
           </div>
-        </button>
+        </div>
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-50 mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div 
+            className="absolute mt-1 w-60 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto" 
+            style={{ zIndex: 999, left: 0, top: '100%' }}
+          >
             {countries.map((country) => (
               <div
                 key={country.code}
