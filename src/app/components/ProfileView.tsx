@@ -95,8 +95,8 @@ const ProfileView: React.FC = () => {
       // Set placeholder bio right away
       setBio(getPlaceholderBio(minimalProfile.name));
       
-      // Load AI content for this minimal profile
-      loadAIContent(minimalProfile);
+      // Skip AI content loading on minimal profile creation
+      // We'll only load AI content after proper profile setup
     } else {
       setIsLoading(false); // No session available
     }
@@ -109,6 +109,9 @@ const ProfileView: React.FC = () => {
   useEffect(() => {
     const loadProfile = () => {
       try {
+        // Check if user just completed profile setup - this is a flag set by ProfileSetup
+        const justCompletedSetup = sessionStorage.getItem('nektus_profile_setup_completed');
+        const triggerAiContent = justCompletedSetup === 'true';
         // STEP 1: Try to load from localStorage first (ultra-fast)
         const cachedData = localStorage.getItem('nektus_user_profile_cache');
         if (cachedData) {
@@ -134,18 +137,43 @@ const ProfileView: React.FC = () => {
               ];
             }
             
-            // Valid profile found in localStorage
-            setLocalProfile(parsedData);
-            setIsLoading(false);
-            
-            // Set placeholder bio right away
-            setBio(getPlaceholderBio(parsedData.name));
-            
-            // Also load AI content in background
-            loadAIContent(parsedData);
-            
-            // Re-save to localStorage with any fixes we made
-            localStorage.setItem('nektus_user_profile_cache', JSON.stringify(parsedData));
+            if (parsedData.userId === profileContextData.profile?.userId) {
+              setLocalProfile(profileContextData.profile);
+              
+              // If there's a saved bio, use it
+              if (profileContextData.profile.bio) {
+                setBio(profileContextData.profile.bio);
+              } else {
+                setBio(getPlaceholderBio(profileContextData.profile.name));
+              }
+              
+              // If there's a saved background image, use it
+              if (profileContextData.profile.backgroundImage) {
+                setBgImage(profileContextData.profile.backgroundImage);
+              }
+              
+              setIsLoading(false);
+              
+              // If user just completed profile setup, trigger AI content generation
+              if (triggerAiContent) {
+                // Clear the flag so we don't regenerate on next load
+                sessionStorage.removeItem('nektus_profile_setup_completed');
+                // Trigger AI content generation
+                loadAIContent(profileContextData.profile);
+              }
+            } else if (parsedData) {
+              setLocalProfile(parsedData);
+              setIsLoading(false);
+              
+              // Set placeholder bio right away
+              setBio(getPlaceholderBio(parsedData.name));
+              
+              // Also load AI content in background
+              loadAIContent(parsedData);
+              
+              // Re-save to localStorage with any fixes we made
+              localStorage.setItem('nektus_user_profile_cache', JSON.stringify(parsedData));
+            }
             
             return; // Successfully loaded from cache
           } catch (error) {
@@ -171,7 +199,7 @@ const ProfileView: React.FC = () => {
     };
     
     loadProfile();
-  }, [session]); // Re-run when session changes
+  }, [session, profileContextData]); // Re-run when session changes
   
   // If session becomes available later, create profile from it
   useEffect(() => {
@@ -196,50 +224,128 @@ const ProfileView: React.FC = () => {
     return phone.startsWith('+') ? phone : `+${cleaned}`;
   };
   
-  // Load AI content asynchronously - optimized to make only one call per type
+  // Load AI content asynchronously - makes API calls without blocking the UI and only fires once per user
   const loadAIContent = async (profile: UserProfile) => {
     if (!profile) return;
     
-    // Skip if bio already exists
+    // Set initial placeholder states while waiting for AI content
     if (!bio) {
-      setIsAIContentLoading(true);
+      setBio(getPlaceholderBio(profile.name));
+    }
+    
+    // Check localStorage for AI content status flag to ensure we only make these calls once per user
+    const aiContentStatusKey = `nektus_ai_content_status_${profile.userId}`;
+    const aiContentStatus = localStorage.getItem(aiContentStatusKey);
+    
+    // If we've already triggered AI content generation for this user, don't do it again
+    if (aiContentStatus === 'triggered') {
+      return;
+    }
+    
+    // Mark that we've started the AI content generation process
+    localStorage.setItem(aiContentStatusKey, 'triggered');
+    setIsAIContentLoading(true);
+    
+    // Process bio generation request
+    const generateBio = async () => {
+      try {
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'bio',
+            profile
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.bio) {
+            setBio(data.bio);
+          }
+        }
+      } catch (error) {
+        console.error('Error generating bio:', error);
+        // Keep using the placeholder bio on error
+      }
+    };
+    
+    // Process background image generation request
+    const generateBackground = async () => {
+      try {
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'background',
+            profile
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.imageUrl) {
+            setBgImage(data.imageUrl);
+          }
+        }
+      } catch (error) {
+        console.error('Error generating background:', error);
+        // Keep using the default background on error
+      }
+    };
+    
+    // Process avatar generation request - only if we don't already have a Google profile picture
+    const generateAvatar = async () => {
+      // Skip avatar generation if we already have a Google profile picture
+      if (profile.picture && profile.picture.includes('googleusercontent.com')) {
+        return;
+      }
       
       try {
-        // In a real app, this would make an API call to generate content
-        // For now, we'll just use the placeholder and add a delay to simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'avatar',
+            profile
+          }),
+        });
         
-        // Get customized bio based on user's name
-        const generatedBio = getPlaceholderBio(profile.name);
-        setBio(generatedBio);
-        
-        // Update the background image if needed
-        const imageOptions = [
-          "/gradient-bg.jpg",
-          "/gradient-blue.jpg",
-          "/gradient-purple.jpg"
-        ];
-        
-        // Choose image based on user's email or name
-        const nameSum = (profile.name || profile.email || "").split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-        const selectedImage = imageOptions[nameSum % imageOptions.length];
-        setBgImage(selectedImage);
-        
-        // If we had real AI-generated content, we'd save to profile in context here
-        // saveProfile({
-        //   ...profile,
-        //   bio: generatedBio,
-        //   backgroundImage: selectedImage
-        // });
-        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.imageUrl) {
+            // Update local profile picture without saving to server
+            setLocalProfile(prev => prev ? {
+              ...prev,
+              picture: data.imageUrl
+            } : null);
+          }
+        }
       } catch (error) {
-        console.error('Error generating AI content:', error);
-      } finally {
-        setIsAIContentLoading(false);
+        console.error('Error generating avatar:', error);
+        // Keep using the default avatar on error
       }
-    }
+    };
+
+    // Launch all generation requests in parallel without awaiting them
+    // This ensures the UI isn't blocked while waiting for responses
+    generateBio();
+    generateBackground();
+    generateAvatar();
+    
+    // After a timeout, mark the loading as complete even if all requests haven't finished
+    // This ensures the loading indicator doesn't stay forever if something goes wrong
+    setTimeout(() => {
+      setIsAIContentLoading(false);
+    }, 10000); // 10 second timeout
   };
-  
+
   // Show message if no profile exists
   if (!localProfile) {
     return (

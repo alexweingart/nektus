@@ -343,6 +343,10 @@ export default function ProfileSetup() {
         localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
       }
       
+      // Set a flag to indicate that profile setup was just completed
+      // This will be used by ProfileView to trigger AI content generation
+      sessionStorage.setItem('nektus_profile_setup_completed', 'true');
+      
       // STEP 2: Navigate to profile page immediately - without waiting for Firebase
       router.push('/');
       
