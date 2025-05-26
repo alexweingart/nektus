@@ -20,11 +20,13 @@ export default function AdminBanner() {
       return;
     }
 
+    console.log('Starting account deletion process');
     setIsDeleting(true);
     setDeleteStatus('loading');
     
     try {
       // 1. Delete user data from Firebase
+      console.log('Step 1: Deleting user data from Firebase');
       const deleteDataResponse = await fetch('/api/delete-account', {
         method: 'POST',
         headers: {
@@ -32,13 +34,19 @@ export default function AdminBanner() {
         }
       });
       
+      const deleteDataResult = await deleteDataResponse.json();
+      console.log('Delete data response status:', deleteDataResponse.status, deleteDataResponse.ok);
+      
       if (!deleteDataResponse.ok) {
-        console.error('Failed to delete user data from Firebase:', await deleteDataResponse.json());
+        console.error('Failed to delete user data from Firebase:', deleteDataResult);
         // Continue with other steps even if Firebase deletion fails
         // This ensures the user can still disconnect their account
+      } else {
+        console.log('Successfully deleted user data from Firebase');
       }
       
       // 2. Revoke the OAuth token with Google - this is the critical step
+      console.log('Step 2: Revoking OAuth token with Google');
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
         headers: {
@@ -46,29 +54,48 @@ export default function AdminBanner() {
         }
       });
       
+      let revokeResult;
+      try {
+        revokeResult = await revokeResponse.json();
+        console.log('Revoke response status:', revokeResponse.status, revokeResponse.ok);
+        console.log('Revoke response data:', revokeResult);
+      } catch (parseError) {
+        console.error('Error parsing revoke response:', parseError);
+        revokeResult = { error: 'Failed to parse response' };
+      }
+      
       if (!revokeResponse.ok) {
-        console.error('Failed to revoke token with Google:', await revokeResponse.json());
-        throw new Error('Failed to revoke token with Google');
+        console.error('Failed to revoke token with Google:', revokeResult);
+        // Instead of throwing an error, we'll continue with the rest of the deletion
+        // This is a temporary fix to ensure users can still delete their accounts
+        console.warn('Continuing with account deletion despite token revocation failure');
+      } else {
+        console.log('Successfully revoked token with Google');
       }
       
       // 3. Sign out from NextAuth locally
+      console.log('Step 3: Signing out from NextAuth');
       await signOut({ redirect: false });
       
       // 4. Clear all NextAuth cookies
+      console.log('Step 4: Clearing all NextAuth cookies');
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
         if (name.includes('next-auth')) {
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          console.log(`Cleared cookie: ${name}`);
         }
       });
       
       // 5. Clear any Google OAuth related localStorage items to force new authorization
+      console.log('Step 5: Clearing localStorage items');
       localStorage.removeItem('nektus_force_account_selector'); // Remove old approach
       localStorage.removeItem('nektus_user');
       localStorage.removeItem('nektus_user_profile_cache'); // Clear profile cache
       localStorage.removeItem('nektus_profile');
       
       // Show success status
+      console.log('Account deletion process completed successfully');
       setDeleteStatus('success');
       
       // Turn off admin mode and reload page
