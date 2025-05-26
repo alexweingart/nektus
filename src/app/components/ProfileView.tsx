@@ -73,9 +73,22 @@ const ProfileView: React.FC = () => {
         email: session.user.email || '',
         picture: session.user.image || '',
         phone: '',
-        socialProfiles: [],
+        // Initialize all social profiles with empty values but proper structure
+        socialProfiles: [
+          { platform: 'facebook', username: '', shareEnabled: true, filled: false },
+          { platform: 'instagram', username: '', shareEnabled: true, filled: false },
+          { platform: 'twitter', username: '', shareEnabled: true, filled: false },
+          { platform: 'linkedin', username: '', shareEnabled: true, filled: false },
+          { platform: 'snapchat', username: '', shareEnabled: true, filled: false },
+          { platform: 'whatsapp', username: '', shareEnabled: true, filled: false },
+          { platform: 'telegram', username: '', shareEnabled: true, filled: false }
+        ],
         lastUpdated: Date.now()
       };
+      
+      // Save to local storage immediately for future loads
+      localStorage.setItem('nektus_user_profile_cache', JSON.stringify(minimalProfile));
+      
       setLocalProfile(minimalProfile);
       setIsLoading(false);
       
@@ -89,7 +102,10 @@ const ProfileView: React.FC = () => {
     }
   };
   
-  // Load profile data directly from localStorage immediately on mount
+  // Load profile data following the three-step approach:
+  // 1. First time: render client-side and save to database
+  // 2. Subsequent visits: load from client cache/cookies
+  // 3. New device: load from database
   useEffect(() => {
     const loadProfile = () => {
       try {
@@ -104,6 +120,20 @@ const ProfileView: React.FC = () => {
               throw new Error('Invalid profile data in cache');
             }
             
+            // Ensure social profiles array exists and has proper structure
+            if (!parsedData.socialProfiles || !Array.isArray(parsedData.socialProfiles)) {
+              // Initialize empty social profiles if missing
+              parsedData.socialProfiles = [
+                { platform: 'facebook', username: '', shareEnabled: true, filled: false },
+                { platform: 'instagram', username: '', shareEnabled: true, filled: false },
+                { platform: 'twitter', username: '', shareEnabled: true, filled: false },
+                { platform: 'linkedin', username: '', shareEnabled: true, filled: false },
+                { platform: 'snapchat', username: '', shareEnabled: true, filled: false },
+                { platform: 'whatsapp', username: '', shareEnabled: true, filled: false },
+                { platform: 'telegram', username: '', shareEnabled: true, filled: false }
+              ];
+            }
+            
             // Valid profile found in localStorage
             setLocalProfile(parsedData);
             setIsLoading(false);
@@ -113,6 +143,10 @@ const ProfileView: React.FC = () => {
             
             // Also load AI content in background
             loadAIContent(parsedData);
+            
+            // Re-save to localStorage with any fixes we made
+            localStorage.setItem('nektus_user_profile_cache', JSON.stringify(parsedData));
+            
             return; // Successfully loaded from cache
           } catch (error) {
             console.error('Error loading profile from cache:', error);
@@ -127,6 +161,9 @@ const ProfileView: React.FC = () => {
           // No session available yet, will try again when session loads
           setIsLoading(false);
         }
+        
+        // STEP 3: If we had a database, we would try to load from there here
+        // if no local storage or session data was available
       } catch (error) {
         console.error('Error in profile loading process:', error);
         setIsLoading(false);
@@ -314,9 +351,9 @@ const ProfileView: React.FC = () => {
               const socialMap: Record<string, SocialProfile> = {};
               if (localProfile.socialProfiles) {
                 localProfile.socialProfiles.forEach((social: SocialProfile) => {
-                  if (social.username) {
-                    socialMap[social.platform] = social;
-                  }
+                  // Map all social profiles, even if username is empty
+                  // This ensures the icons are displayed but can be configured later
+                  socialMap[social.platform] = social;
                 });
               }
               
@@ -342,8 +379,12 @@ const ProfileView: React.FC = () => {
                 
                 // For social profiles
                 if (platform !== 'phone' && platform !== 'email') {
-                  // Only show if profile exists and has username
-                  if (!socialMap[platform]?.username) return null;
+                  // Only show if profile exists
+                  if (!socialMap[platform]) return null;
+                  
+                  // For now we'll display all social platforms even if username is empty
+                  // This makes it clear to the user which platforms are supported
+                  // In a real app, you might want to hide empty ones or show them differently
                 }
                 
                 // Get username for platforms
