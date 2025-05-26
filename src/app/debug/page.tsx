@@ -1,28 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useSession } from 'next-auth/react';
+import React, { useState, useEffect } from 'react';
 
 export default function AIDebugPage() {
-  const { data: session } = useSession();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('ajweingart@gmail.com');
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  
+  // Use useEffect to ensure we're only running on client-side
+  useEffect(() => {
+    setIsClient(true);
+    console.log('Debug page mounted');
+  }, []);
 
   const runDiagnostics = async () => {
+    console.log('Running diagnostics...');
     setLoading(true);
     setError(null);
     setResults(null);
     
     try {
-      const emailToTest = email || (session?.user?.email as string);
+      const emailToTest = email;
       
       if (!emailToTest) {
-        setError('Please enter an email address or sign in');
+        setError('Please enter an email address');
         setLoading(false);
         return;
       }
+      
+      console.log('Sending request for:', emailToTest);
       
       const response = await fetch('/api/ai/diagnose', {
         method: 'POST',
@@ -47,19 +55,27 @@ export default function AIDebugPage() {
   };
 
   const forceRegeneration = () => {
-    if (!session?.user?.email) {
-      setError('You must be signed in to force regeneration');
+    console.log('Forcing regeneration...');
+    if (!email) {
+      setError('Please enter an email address first');
       return;
     }
     
-    // Clear the localStorage flag to allow regeneration
-    const aiContentStatusKey = `nektus_ai_content_status_${session.user.email}`;
-    localStorage.removeItem(aiContentStatusKey);
-    
-    // Set session storage flag to trigger regeneration
-    sessionStorage.setItem('nektus_profile_setup_completed', 'true');
-    
-    alert('AI content regeneration has been forced. Please refresh the home page to trigger generation.');
+    try {
+      // Clear the localStorage flag to allow regeneration
+      const aiContentStatusKey = `nektus_ai_content_status_${email}`;
+      localStorage.removeItem(aiContentStatusKey);
+      console.log(`Removed localStorage key: ${aiContentStatusKey}`);
+      
+      // Set session storage flag to trigger regeneration
+      sessionStorage.setItem('nektus_profile_setup_completed', 'true');
+      console.log('Set sessionStorage flag: nektus_profile_setup_completed=true');
+      
+      alert('AI content regeneration has been forced. Please refresh the home page to trigger generation.');
+    } catch (err) {
+      console.error('Error in force regeneration:', err);
+      setError('Error clearing cache. See console for details.');
+    }
   };
 
   return (
@@ -74,14 +90,12 @@ export default function AIDebugPage() {
           <input
             type="email"
             className="border rounded p-2 w-full"
-            placeholder={session?.user?.email || "Enter email"}
+            placeholder="Enter email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <p className="text-sm text-gray-500 mt-1">
-            {session?.user?.email ? 
-              "Leave blank to use your signed-in email" : 
-              "Please enter an email address to test"}
+            Enter the email address to test
           </p>
         </div>
         
@@ -97,7 +111,7 @@ export default function AIDebugPage() {
           <button
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
             onClick={forceRegeneration}
-            disabled={!session?.user?.email}
+            disabled={!isClient || !email}
           >
             Force AI Regeneration
           </button>
