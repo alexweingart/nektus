@@ -87,3 +87,26 @@
 .PhoneInputInput {
   color: #2d3748 !important;
 }
+
+/* Fix autofill text color issues */
+.PhoneInputInput:-webkit-autofill,
+.PhoneInputInput:-webkit-autofill:hover, 
+.PhoneInputInput:-webkit-autofill:focus,
+.PhoneInputInput:-webkit-autofill:active {
+  -webkit-text-fill-color: #2d3748 !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: #2d3748;
+}
+
+/* Fix for delayed color change issues */
+.PhoneInputInput:not(:focus) {
+  color: #2d3748 !important;
+  -webkit-text-fill-color: #2d3748 !important;
+}
+
+/* Force the input color to stay black */
+input.PhoneInputInput,
+.PhoneInputInput[type="tel"] {
+  color: #2d3748 !important;
+  -webkit-text-fill-color: #2d3748 !important;
+}
