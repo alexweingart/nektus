@@ -431,7 +431,7 @@ const ProfileView: React.FC = () => {
         
         {/* Contact & Social Icons - Arranged in 2 rows */}
         <div style={{ marginBottom: '24px', width: '100%', maxWidth: '320px' }}>
-          {/* First row - 4 icons with equal spacing */}
+          {/* First row - 5 icons with equal spacing */}
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -447,15 +447,13 @@ const ProfileView: React.FC = () => {
             </div>
             
             {/* Email Icon */}
-            {localProfile.email && (
-              <div className="flex justify-center">
-                <SocialIcon
-                  platform="email"
-                  username={localProfile.email}
-                  size="md"
-                />
-              </div>
-            )}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="email"
+                username={localProfile.email || ''}
+                size="md"
+              />
+            </div>
             
             {/* Facebook Icon */}
             <div className="flex justify-center">
@@ -474,9 +472,18 @@ const ProfileView: React.FC = () => {
                 size="md"
               />
             </div>
+            
+            {/* Twitter Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="twitter"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'twitter')?.username || ''}
+                size="md"
+              />
+            </div>
           </div>
           
-          {/* Second row - 6 icons with equal spacing */}
+          {/* Second row - 5 icons with equal spacing */}
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             {/* WhatsApp Icon */}
             <div className="flex justify-center">
@@ -492,15 +499,6 @@ const ProfileView: React.FC = () => {
               <SocialIcon
                 platform="snapchat"
                 username={localProfile.socialProfiles?.find(p => p.platform === 'snapchat')?.username || ''}
-                size="md"
-              />
-            </div>
-            
-            {/* Twitter Icon */}
-            <div className="flex justify-center">
-              <SocialIcon
-                platform="twitter"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'twitter')?.username || ''}
                 size="md"
               />
             </div>
