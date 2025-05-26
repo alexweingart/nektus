@@ -7,7 +7,7 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 
 // Define the structure of our profile data
 export type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'x';
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x';
   username: string;
   url?: string;
   shareEnabled: boolean;
@@ -25,6 +25,8 @@ export type UserProfile = {
   pictureUserConfirmed?: boolean;
   phone: string;
   phoneUserConfirmed?: boolean;
+  country?: string;
+  countryUserConfirmed?: boolean;
   handle: string;
   socialProfiles: SocialProfile[];
   bio?: string; // AI-generated bio
@@ -55,6 +57,10 @@ export type UserProfile = {
   telegramUsername?: string;
   telegramUrl?: string;
   telegramUserConfirmed?: boolean;
+  
+  wechatUsername?: string;
+  wechatUrl?: string;
+  wechatUserConfirmed?: boolean;
   
   xUsername?: string;
   xUrl?: string;
@@ -162,44 +168,58 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   // Function to validate social media URLs
   const validateSocialMediaUrl = async (platform: string, username: string): Promise<boolean> => {
-    // In a real app, this would make API calls to verify accounts
-    // For this implementation, we'll do a simple validation based on username length
-    // and assume the URL is valid if the username meets minimum requirements
+    // For now, we'll use a basic validation approach
+    // In a production app, you might want to make API calls to validate these
+    if (!username) return false;
     
-    if (!username || username.length < 3) return false;
-    
-    // Could be expanded to include real API validation
-    // Example: Use HEAD requests to check if profile pages return 200 status
-    // const url = getSocialMediaUrl(platform, username);
-    // try {
-    //   const response = await fetch(url, { method: 'HEAD' });
-    //   return response.status === 200;
-    // } catch (error) {
-    //   return false;
-    // }
-    
-    return true;
+    switch(platform) {
+      case 'facebook':
+        return username.length > 2; // Basic validation
+      case 'instagram':
+        return username.length > 2 && !username.includes(' ');
+      case 'twitter':
+      case 'x':
+        return username.length > 2 && !username.includes(' ');
+      case 'linkedin':
+        return username.length > 2;
+      case 'snapchat':
+        return username.length > 2 && !username.includes(' ');
+      case 'whatsapp':
+        return username.length >= 10 && /^\d+$/.test(username);
+      case 'telegram':
+        return username.length > 2;
+      case 'wechat':
+        return username.length > 2;
+      default:
+        return false;
+    }
   };
 
   // Function to generate social media URLs based on platform and username
   const getSocialMediaUrl = (platform: string, username: string): string => {
-    switch (platform) {
+    if (!username) return '';
+    
+    switch(platform) {
       case 'facebook':
         return `https://facebook.com/${username}`;
       case 'instagram':
         return `https://instagram.com/${username}`;
-      case 'snapchat':
-        return `https://snapchat.com/add/${username}`;
-      case 'linkedin':
-        return `https://linkedin.com/in/${username}`;
-      case 'whatsapp':
-        // Remove non-numeric characters for WhatsApp
-        const whatsappNumber = username.replace(/[^0-9]/g, '');
-        return `https://wa.me/${whatsappNumber}`;
-      case 'telegram':
-        return `https://t.me/${username}`;
+      case 'twitter':
+        return `https://twitter.com/${username}`;
       case 'x':
         return `https://x.com/${username}`;
+      case 'linkedin':
+        return `https://linkedin.com/in/${username}`;
+      case 'snapchat':
+        return `https://snapchat.com/add/${username}`;
+      case 'whatsapp':
+        return `https://wa.me/${username}`;
+      case 'telegram':
+        return `https://t.me/${username}`;
+      case 'wechat':
+        // WeChat doesn't have a direct profile URL structure
+        // Using a placeholder that can be replaced with actual deeplink when available
+        return `weixin://contacts/profile/${username}`;
       default:
         return '';
     }
@@ -220,7 +240,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const phoneNumber = profileData.phone || profile?.phone || '';
       const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
       
-      // Start with confirmed data (profile photo, name, email, phone)
+      // Start with confirmed data (profile photo, name, email, phone, country)
+      const country = profileData.country || profile?.country || '';
       const baseProfileData = {
         userId,
         name: session.user.name || '',
@@ -231,6 +252,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         pictureUserConfirmed: true,
         phone: phoneNumber,
         phoneUserConfirmed: true,
+        country: country,
+        countryUserConfirmed: !!country,
         lastUpdated: serverTimestamp(),
       };
       
@@ -271,6 +294,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         },
         {
           platform: 'telegram',
+          username: normalizedPhone,
+          userConfirmed: false,
+        },
+        {
+          platform: 'wechat',
           username: normalizedPhone,
           userConfirmed: false,
         },

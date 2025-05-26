@@ -18,6 +18,7 @@ type UserProfile = {
   email: string;
   picture: string;
   phone: string;
+  country?: string;
   socialProfiles: SocialProfile[];
   backgroundImage?: string;
   lastUpdated?: any;
@@ -34,6 +35,7 @@ const EditProfile: React.FC = () => {
     name: string;
     email: string;
     phone: string;
+    country: string;
     picture: string;
     socialProfiles: SocialProfile[];
     backgroundImage: string;
@@ -41,54 +43,73 @@ const EditProfile: React.FC = () => {
     name: '',
     email: '',
     phone: '',
+    country: '',
     picture: '',
     socialProfiles: [],
     backgroundImage: '/gradient-bg.jpg',
   });
   
   const [digits, setDigits] = useState('');
-  const [country, setCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
+  const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
   
   // Load profile data
   useEffect(() => {
-    if (profile) {
-      console.log('Loading profile data:', profile);
-      console.log('Phone number from profile:', profile.phone);
-      // Initialize form data with profile data
-      setFormData({
-        name: profile.name || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        picture: profile.picture || '',
-        socialProfiles: profile.socialProfiles || [],
-        backgroundImage: profile.backgroundImage || '/gradient-bg.jpg',
-      });
-      
-      // Parse phone number to display in the input
-      if (profile.phone && profile.phone.trim() !== '') {
-        console.log('Attempting to parse phone number:', profile.phone);
-        try {
-          const parsedPhone = parsePhoneNumberFromString(profile.phone);
-          console.log('Parsed phone result:', parsedPhone);
-          
-          if (parsedPhone) {
-            console.log('National number:', parsedPhone.nationalNumber);
-            console.log('Country:', parsedPhone.country);
-            setDigits(parsedPhone.nationalNumber);
-            setCountry(parsedPhone.country as any || 'US');
-          } else {
-            // If the number can't be parsed as E.164, use it directly
-            setDigits(profile.phone.replace(/[^0-9]/g, ''));
-          }
-        } catch (error) {
-          console.error('Error parsing phone number:', error);
-          // Fallback: just use the raw digits
-          setDigits(profile.phone.replace(/[^0-9]/g, ''));
-        }
+    // First try to load from localStorage for immediate display
+    try {
+      const cachedProfile = localStorage.getItem('nektus_user_profile_cache');
+      if (cachedProfile) {
+        const parsedProfile = JSON.parse(cachedProfile);
+        console.log('Loading profile data from localStorage:', parsedProfile);
+        initializeFormData(parsedProfile);
       }
+    } catch (err) {
+      console.log('Error reading from localStorage cache:', err);
+    }
+    
+    // Then load from profile context (which might be more up-to-date)
+    if (profile) {
+      console.log('Loading profile data from context:', profile);
+      initializeFormData(profile);
     }
   }, [profile]);
+  
+  // Helper function to initialize form data from profile
+  const initializeFormData = (profileData: any) => {
+    // Initialize form data with profile data
+    setFormData({
+      name: profileData.name || '',
+      email: profileData.email || '',
+      phone: profileData.phone || '',
+      country: profileData.country || '',
+      picture: profileData.picture || '',
+      socialProfiles: profileData.socialProfiles || [],
+      backgroundImage: profileData.backgroundImage || '/gradient-bg.jpg',
+    });
+    
+    // Parse phone number to display in the input
+    if (profileData.phone && profileData.phone.trim() !== '') {
+      console.log('Attempting to parse phone number:', profileData.phone);
+      try {
+        const parsedPhone = parsePhoneNumberFromString(profileData.phone);
+        console.log('Parsed phone result:', parsedPhone);
+        
+        if (parsedPhone) {
+          console.log('National number:', parsedPhone.nationalNumber);
+          console.log('Country:', parsedPhone.country);
+          setDigits(parsedPhone.nationalNumber);
+          setPhoneCountry(parsedPhone.country as any || 'US');
+        } else {
+          // If the number can't be parsed as E.164, use it directly
+          setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+        }
+      } catch (error) {
+        console.error('Error parsing phone number:', error);
+        // Fallback: just use the raw digits
+        setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+      }
+    }
+  };
   
   // Auto-focus name input on load
   useEffect(() => {
@@ -115,18 +136,20 @@ const EditProfile: React.FC = () => {
   };
   
   // Handle social profile input change
-  const handleSocialChange = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'x', value: string) => {
+  const handleSocialChange = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x', value: string) => {
     setFormData(prev => {
       const updatedProfiles = [...prev.socialProfiles];
       const profileIndex = updatedProfiles.findIndex(p => p.platform === platform);
       
       if (profileIndex >= 0) {
+        // Update existing profile
         updatedProfiles[profileIndex] = {
           ...updatedProfiles[profileIndex],
           username: value,
           filled: value.trim() !== ''
         };
       } else {
+        // Add new profile
         updatedProfiles.push({
           platform,
           username: value,
@@ -140,7 +163,7 @@ const EditProfile: React.FC = () => {
   };
   
   // Get social profile value
-  const getSocialProfileValue = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'x'): string => {
+  const getSocialProfileValue = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x'): string => {
     const profile = formData.socialProfiles.find(p => p.platform === platform);
     return profile?.username || '';
   };
@@ -150,88 +173,67 @@ const EditProfile: React.FC = () => {
     setIsSaving(true);
     
     try {
-      // Convert national phone number to E.164 format
-      let fullNumber = formData.phone;
+      if (!session?.user?.email) {
+        throw new Error('No user session');
+      }
+      
+      // Extract email username (for auto-populating social profiles)
+      const emailUsername = session.user.email.split('@')[0] || '';
+      
+      // Format phone number with country code
+      let phoneNumber = '';
       if (digits) {
-        console.log('Saving phone number from digits:', digits, 'country:', country);
         try {
           // Try to parse with the country code
-          const parsed = parsePhoneNumberFromString(digits, country);
-          console.log('Parsed phone result:', parsed);
-          
+          const parsed = parsePhoneNumberFromString(digits, phoneCountry as any);
           if (parsed?.isValid()) {
-            fullNumber = parsed.number;
-            console.log('Using formatted E.164 number:', fullNumber);
+            phoneNumber = parsed.format('E.164'); // +12133734253
           } else {
-            // If parsing with country fails, try adding a plus
-            const withPlus = digits.startsWith('+') ? digits : `+${digits}`;
-            const parsedWithPlus = parsePhoneNumberFromString(withPlus);
-            
-            if (parsedWithPlus?.isValid()) {
-              fullNumber = parsedWithPlus.number;
-              console.log('Using formatted E.164 number with added plus:', fullNumber);
-            } else {
-              // Just use digits as-is if all parsing fails
-              fullNumber = digits.replace(/[^0-9]/g, '');
-              // Add country code if it doesn't start with one
-              if (!fullNumber.startsWith('1')) { // Assuming US for now
-                fullNumber = `+1${fullNumber}`;
-              } else {
-                fullNumber = `+${fullNumber}`;
-              }
-              console.log('Using manually formatted number:', fullNumber);
+            // Basic fallback
+            phoneNumber = digits.replace(/[^0-9]/g, '');
+            if (!phoneNumber.startsWith('+')) {
+              phoneNumber = `+${phoneNumber}`;
             }
           }
         } catch (error) {
-          console.error('Error parsing phone for save:', error);
-          // Use a basic fallback format if parsing fails
-          fullNumber = digits.replace(/[^0-9]/g, '');
-          if (!fullNumber.startsWith('1')) { // Assuming US for now
-            fullNumber = `+1${fullNumber}`;
-          } else {
-            fullNumber = `+${fullNumber}`;
-          }
-          console.log('Using fallback formatted number after error:', fullNumber);
+          console.error('Error formatting phone:', error);
+          // Simple fallback
+          phoneNumber = digits;
         }
       }
       
-      // Create profile data for saving
-      const profileData = {
+      // Normalize phone number for social profiles
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      
+      // Create a merged profile with updated data
+      const updatedProfile: Partial<UserProfile> = {
+        userId: session.user.email,
         name: formData.name,
         email: formData.email,
-        phone: fullNumber,
         picture: formData.picture,
+        phone: phoneNumber,
+        country: formData.country,
         socialProfiles: formData.socialProfiles,
-        backgroundImage: formData.backgroundImage
+        backgroundImage: formData.backgroundImage,
+        lastUpdated: Date.now()
       };
       
-      console.log('Saving profile with data:', profileData);
+      // Save to local storage immediately for future loads
+      localStorage.setItem('nektus_user_profile_cache', JSON.stringify({
+        ...updatedProfile,
+        lastUpdated: Date.now()
+      }));
       
-      // Save profile
-      const savedProfile = await saveProfile(profileData);
-      console.log('Profile saved, result:', savedProfile);
+      console.log('Saving profile:', updatedProfile);
       
-      // Update local storage cache
-      if (session?.user?.email) {
-        const cachedProfile = {
-          userId: session.user.email,
-          name: formData.name,
-          email: formData.email,
-          picture: formData.picture,
-          phone: fullNumber,
-          socialProfiles: formData.socialProfiles,
-          backgroundImage: formData.backgroundImage,
-          lastUpdated: Date.now(),
-        };
-        localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
-        console.log('Updated local storage cache with phone:', fullNumber);
-      }
+      // Save to context (which will save to Firestore)
+      await saveProfile(updatedProfile);
       
-      // Navigate back to profile page
+      // Redirect to profile view
       router.push('/');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      alert('Error saving profile. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -310,6 +312,23 @@ const EditProfile: React.FC = () => {
               }}
             />
           </div>
+        </div>
+      </div>
+      
+      {/* Country Input */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <span className="inline-block w-6 h-6 text-center">🌎</span>
+          </div>
+          <input
+            type="text"
+            id="country"
+            value={formData.country}
+            onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Country"
+          />
         </div>
       </div>
       
@@ -446,6 +465,23 @@ const EditProfile: React.FC = () => {
             value={getSocialProfileValue('telegram')}
             onChange={(e) => handleSocialChange('telegram', e.target.value)}
             placeholder="Telegram username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* WeChat */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="wechat" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="wechat"
+            value={getSocialProfileValue('wechat')}
+            onChange={(e) => handleSocialChange('wechat', e.target.value)}
+            placeholder="WeChat ID"
             className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
