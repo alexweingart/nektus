@@ -221,17 +221,16 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div
-      className={`flex w-full rounded-md bg-white ${className}`}
-      style={{ overflow: 'visible', border: 'none' }}
+      className={`flex w-full rounded-md bg-white overflow-visible border border-gray-300 ${className}`}
+      style={{ overflow: 'visible' }}
     >
       {/* Country selector */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none"
+          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none border-0"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
-          style={{ zIndex: 1 }}
         >
           <span className="mr-2">{selectedCountry.flag}</span>
           <div className="flex flex-col text-primary">
@@ -242,7 +241,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-50 mt-1 w-60 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-50 mt-1 w-60 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto">
             {countries.map((country) => (
               <div
                 key={country.code}
