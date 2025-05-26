@@ -206,28 +206,28 @@ async function generateBackground(profile: any) {
       
       console.log('OpenAI request prompt:', prompt);
       
-      // Use the simple API format as shown in the example
+      // Use the simple API format exactly as shown in the example - without additional parameters
+      console.log('Calling OpenAI API with minimal parameters');
       const result = await openai.images.generate({
         model: 'gpt-image-1',
         prompt,
-        response_format: 'b64_json',  // Explicitly request base64 JSON format
-        size: '1024x1024',  // Standard size
-        n: 1,  // Generate one image
       });
       
       console.log('OpenAI response received, data structure:', 
         JSON.stringify(Object.keys(result), null, 2));
       
-      // Get the base64 image data and convert to a data URL
-      const image_base64 = result.data[0].b64_json;
+      // Get the image URL from the response
+      console.log('Response data:', result.data);
       
-      if (!image_base64) {
-        console.error('No b64_json in response:', result);
-        throw new Error('Missing base64 image data in OpenAI response');
+      // Check for URL in the response
+      const imageUrl = result.data[0]?.url;
+      
+      if (!imageUrl) {
+        console.error('No URL in response:', result);
+        throw new Error('Missing image URL in OpenAI response');
       }
       
-      // Create a data URL from the base64 data
-      const imageUrl = `data:image/png;base64,${image_base64}`;
+      console.log('Retrieved image URL:', imageUrl);
       
       // Store the generated background image URL in Firestore
       if (profile.userId) {

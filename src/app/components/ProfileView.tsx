@@ -28,9 +28,6 @@ type UserProfile = {
 // Single instructional placeholder bio
 const PLACEHOLDER_BIO = "AI will create a bio here for you, or tap edit profile to write your own";
 const DEFAULT_BG_IMAGE = "/gradient-bg.jpg";
-// Hardcoded content that we know works
-const FALLBACK_BIO = "Alexander Weingart: Passionate dreamer crafting joy and inspiration daily.";
-const FALLBACK_BG = "https://images.unsplash.com/photo-1557682250-62937d0e4b5b?q=80&w=1000";
 
 // Define extended UserProfile type with AI content fields
 type ExtendedUserProfile = UserProfile & {
