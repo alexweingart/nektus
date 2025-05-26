@@ -217,7 +217,7 @@ export default function ConnectPage() {
   }
   
   // Redirect to profile setup if profile is incomplete
-  if (!profile || !profile.phone) {
+  if (!profile || !profile.internationalPhone) {
     redirect('/setup');
   }
   
