@@ -10,23 +10,12 @@ import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp,
          FaSnapchat, FaTelegram, FaLinkedin, FaPen, FaExclamation, FaMagic } from 'react-icons/fa';
 import { BluetoothConnector } from '../utils/bluetooth';
 
-// Placeholder bio for when AI generation fails or is loading
-const PLACEHOLDER_BIOS = [
-  "Creative soul with an adventurous spirit",
-  "Professional dreamer, part-time explorer",
-  "Coffee lover, always smiling",
-  "Digital nomad chasing sunsets",
-  "Tech enthusiast with a big heart",
-  "Passionate about connecting people",
-  "Foodie who loves to travel",
-  "Creating moments worth sharing",
-  "Living life one smile at a time"
-];
+// Single instructional placeholder bio
+const PLACEHOLDER_BIO = "AI will create a bio here for you, or tap edit profile to write your own";
 
-// Get a placeholder bio deterministically based on name
-const getPlaceholderBio = (name: string) => {
-  const nameSum = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return PLACEHOLDER_BIOS[nameSum % PLACEHOLDER_BIOS.length];
+// Get placeholder bio - now returns a single consistent message
+const getPlaceholderBio = () => {
+  return PLACEHOLDER_BIO;
 };
 
 // AI-powered bio generation
@@ -49,7 +38,7 @@ const generateAIBio = async (profile: any) => {
     return data.bio;
   } catch (error) {
     console.error('Error generating bio:', error);
-    return getPlaceholderBio(profile.name);
+    return getPlaceholderBio();
   }
 };
 
@@ -160,7 +149,7 @@ export default function ConnectPage() {
       // Set initial values with placeholders
       const initialLinks = generateSocialLinks(profile);
       setSocialLinks(initialLinks);
-      setBio(getPlaceholderBio(profile.name));
+      setBio(getPlaceholderBio());
       setAvatarImage(profile.picture || '/default-avatar.png');
       
       // Start AI generation asynchronously
