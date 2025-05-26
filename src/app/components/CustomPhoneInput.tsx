@@ -207,7 +207,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className={`flex items-center justify-between px-3 py-2 border border-r-0 ${isInputFocused ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-l-md bg-white text-gray-700 h-full`}
+          className={`flex items-center justify-between px-3 py-2 border border-r-0 ${isInputFocused ? 'border-primary' : 'border-gray-300'} rounded-l-md bg-white text-gray-700 h-full`}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
           style={{ zIndex: 1, backgroundColor: 'white' }}
