@@ -216,18 +216,37 @@ async function generateBackground(profile: any) {
       console.log('OpenAI response received, data structure:', 
         JSON.stringify(Object.keys(result), null, 2));
       
-      // Get the image URL from the response
-      console.log('Response data:', result.data);
+      // Log the complete response for debugging
+      console.log('Full OpenAI response:', JSON.stringify(result, null, 2));
       
-      // Check for URL in the response
-      const imageUrl = result.data[0]?.url;
+      // Check all possible response formats
+      console.log('Response data array:', result.data);
+      console.log('First item in data array:', result.data[0]);
       
-      if (!imageUrl) {
-        console.error('No URL in response:', result);
-        throw new Error('Missing image URL in OpenAI response');
+      // Try to find a URL or image data in the response
+      let imageUrl = '/gradient-bg.jpg';
+      
+      if (result.data && result.data[0]) {
+        if (result.data[0].url) {
+          // If there's a direct URL
+          imageUrl = result.data[0].url;
+          console.log('Found URL in response:', imageUrl);
+        } else if (result.data[0].b64_json) {
+          // If there's base64 data
+          imageUrl = `data:image/png;base64,${result.data[0].b64_json}`;
+          console.log('Found base64 data in response');
+        } else if (typeof result.data[0] === 'string') {
+          // If the data itself is a string (URL)
+          imageUrl = result.data[0];
+          console.log('Data is a string URL:', imageUrl);
+        } else {
+          console.error('Unexpected response format:', result.data[0]);
+          // Keep the default image URL
+        }
+      } else {
+        console.error('No data in response:', result);
+        // Keep the default image URL
       }
-      
-      console.log('Retrieved image URL:', imageUrl);
       
       // Store the generated background image URL in Firestore
       if (profile.userId) {
