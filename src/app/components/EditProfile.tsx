@@ -84,8 +84,22 @@ const EditProfile: React.FC = () => {
       backgroundImage: profileData.backgroundImage || '/gradient-bg.jpg',
     });
     
-    // Parse phone number to display in the input
-    if (profileData.phone && profileData.phone.trim() !== '') {
+    // Initialize the phone number input from nationalPhone or parse from full number
+    if (profileData.nationalPhone) {
+      // Use the already parsed national phone number if available
+      console.log('Using stored national number:', profileData.nationalPhone);
+      setDigits(profileData.nationalPhone);
+      
+      // Use stored country if available
+      if (profileData.country && profileData.countryUserConfirmed) {
+        console.log('Using stored country:', profileData.country);
+        setPhoneCountry(profileData.country as any);
+      } else {
+        // Fallback to default country
+        setPhoneCountry('US');
+      }
+    } else if (profileData.phone && profileData.phone.trim() !== '') {
+      // Fallback to parsing from full phone for backward compatibility
       console.log('Attempting to parse phone number:', profileData.phone);
       try {
         const parsedPhone = parsePhoneNumberFromString(profileData.phone);
@@ -99,12 +113,13 @@ const EditProfile: React.FC = () => {
         } else {
           // If the number can't be parsed as E.164, use it directly
           setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+          setPhoneCountry('US');
         }
       } catch (error) {
         console.error('Error parsing phone number:', error);
-        // Add auto-focus to name input on component mount
         // Fallback: just use the raw digits
         setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+        setPhoneCountry('US');
       }
     }
   };
@@ -176,6 +191,22 @@ const EditProfile: React.FC = () => {
       // Extract email username (for auto-populating social profiles)
       const emailUsername = session.user.email.split('@')[0] || '';
       
+      // Create a merged profile with updated data first
+      const updatedProfile = {
+        userId: session.user.email,
+        name: formData.name,
+        email: formData.email,
+        picture: formData.picture,
+        phone: '', // Will be set below
+        internationalPhone: '',
+        nationalPhone: '',
+        country: phoneCountry as string,
+        countryUserConfirmed: true,
+        socialProfiles: formData.socialProfiles,
+        backgroundImage: formData.backgroundImage,
+        lastUpdated: Date.now()
+      };
+      
       // Format phone number with country code
       let phoneNumber = '';
       if (digits) {
@@ -184,34 +215,42 @@ const EditProfile: React.FC = () => {
           const parsed = parsePhoneNumberFromString(digits, phoneCountry as any);
           if (parsed?.isValid()) {
             phoneNumber = parsed.format('E.164'); // +12133734253
+            const nationalNumber = parsed.nationalNumber; // Store the national format
+            const countryCode = parsed.country || phoneCountry;
+            
+            // Store both formats along with country information
+            updatedProfile.phone = phoneNumber; // Keep for backward compatibility
+            updatedProfile.internationalPhone = phoneNumber;
+            updatedProfile.nationalPhone = nationalNumber;
+            updatedProfile.country = countryCode;
+            updatedProfile.countryUserConfirmed = true;
           } else {
             // Basic fallback
             phoneNumber = digits.replace(/[^0-9]/g, '');
             if (!phoneNumber.startsWith('+')) {
               phoneNumber = `+${phoneNumber}`;
             }
+            // Still set both formats with basic values
+            updatedProfile.phone = phoneNumber; // Keep for backward compatibility
+            updatedProfile.internationalPhone = phoneNumber;
+            updatedProfile.nationalPhone = digits;
+            updatedProfile.country = phoneCountry; 
+            updatedProfile.countryUserConfirmed = true;
           }
         } catch (error) {
           console.error('Error formatting phone:', error);
           // Simple fallback
           phoneNumber = digits;
+          updatedProfile.phone = phoneNumber; // Keep for backward compatibility
+          updatedProfile.internationalPhone = phoneNumber;
+          updatedProfile.nationalPhone = digits;
+          updatedProfile.country = phoneCountry;
+          updatedProfile.countryUserConfirmed = true;
         }
       }
       
       // Normalize phone number for social profiles
       const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
-      
-      // Create a merged profile with updated data
-      const updatedProfile: Partial<UserProfile> = {
-        userId: session.user.email,
-        name: formData.name,
-        email: formData.email,
-        picture: formData.picture,
-        phone: phoneNumber,
-        socialProfiles: formData.socialProfiles,
-        backgroundImage: formData.backgroundImage,
-        lastUpdated: Date.now()
-      };
       
       // Auto-populate WhatsApp, Telegram, and WeChat with phone number if they're empty
       const phoneBasedProfiles = ['whatsapp', 'telegram', 'wechat'] as const;
@@ -276,7 +315,7 @@ const EditProfile: React.FC = () => {
       console.log('Saving profile:', updatedProfile);
       
       // Save to context (which will save to Firestore)
-      await saveProfile(updatedProfile);
+      await saveProfile(updatedProfile as Partial<UserProfile>);
       
       // Redirect to profile view
       router.push('/');

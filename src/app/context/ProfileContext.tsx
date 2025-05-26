@@ -24,7 +24,9 @@ export type UserProfile = {
   emailUserConfirmed?: boolean;
   picture: string;
   pictureUserConfirmed?: boolean;
-  phone: string;
+  phone: string; // Keeping for backward compatibility
+  internationalPhone?: string; // Full international format with country code
+  nationalPhone?: string; // National format without country code
   phoneUserConfirmed?: boolean;
   country?: string;
   countryUserConfirmed?: boolean;
