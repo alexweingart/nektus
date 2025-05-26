@@ -341,12 +341,11 @@ const ProfileView: React.FC = () => {
               });
             }
             
-            // Create each icon in order
+            // Create each icon in order - display all required platforms
             return orderedPlatforms.map(platform => {
-              // Skip platforms with no data
+              // For phone and email only, skip if no data
               if (platform === 'phone' && !localProfile.phone) return null;
               if (platform === 'email' && !localProfile.email) return null;
-              if (platform !== 'phone' && platform !== 'email' && !socialMap[platform]) return null;
               
               // Common icon container style
               const iconContainerStyle = {
@@ -377,27 +376,27 @@ const ProfileView: React.FC = () => {
                   break;
                 case 'facebook':
                   icon = <FaFacebook size={16} />;
-                  url = `https://facebook.com/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://facebook.com/${socialMap[platform].username}` : '#';
                   break;
                 case 'instagram':
                   icon = <FaInstagram size={16} />;
-                  url = `https://instagram.com/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://instagram.com/${socialMap[platform].username}` : '#';
                   break;
                 case 'whatsapp':
                   icon = <FaWhatsapp size={16} />;
-                  url = `https://wa.me/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://wa.me/${socialMap[platform].username}` : '#';
                   break;
                 case 'snapchat':
                   icon = <FaSnapchat size={16} />;
-                  url = `https://snapchat.com/add/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://snapchat.com/add/${socialMap[platform].username}` : '#';
                   break;
                 case 'telegram':
                   icon = <FaTelegram size={16} />;
-                  url = `https://t.me/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://t.me/${socialMap[platform].username}` : '#';
                   break;
                 case 'linkedin':
                   icon = <FaLinkedin size={16} />;
-                  url = `https://linkedin.com/in/${socialMap[platform].username}`;
+                  url = socialMap[platform] ? `https://linkedin.com/in/${socialMap[platform].username}` : '#';
                   break;
                 default:
                   return null;
@@ -406,11 +405,30 @@ const ProfileView: React.FC = () => {
               // Determine if this icon should have a dot indicator (all except phone and email)
               const shouldShowDot = platform !== 'phone' && platform !== 'email';
               
+              // Determine if this icon has data (profile exists)
+              const hasData = (platform === 'phone' && localProfile.phone) || 
+                (platform === 'email' && localProfile.email) || 
+                (platform !== 'phone' && platform !== 'email' && socialMap[platform]);
+              
+              // Adjust styling for icons without data
+              const inactiveStyle = !hasData ? {
+                opacity: 0.4,
+                pointerEvents: 'none' as const,
+                cursor: 'default' as const
+              } : {};
+              
               return (
-                <a key={platform} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <div style={iconContainerStyle}>
+                <a 
+                  key={platform} 
+                  href={url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ textDecoration: 'none', ...inactiveStyle }}
+                  onClick={!hasData ? (e) => e.preventDefault() : undefined}
+                >
+                  <div style={{...iconContainerStyle, ...((!hasData) ? { backgroundColor: 'rgba(255,255,255,0.1)' } : {})}}>
                     {icon}
-                    {shouldShowDot && (
+                    {shouldShowDot && hasData && (
                       <div style={{
                         position: 'absolute',
                         top: '2px',
