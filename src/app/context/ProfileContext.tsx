@@ -9,21 +9,52 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 export type SocialProfile = {
   platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
   username: string;
+  url?: string;
   shareEnabled: boolean;
   filled?: boolean;
+  userConfirmed?: boolean;
 };
 
 export type UserProfile = {
   userId: string;
   name: string;
+  nameUserConfirmed?: boolean;
   email: string;
+  emailUserConfirmed?: boolean;
   picture: string;
+  pictureUserConfirmed?: boolean;
   phone: string;
+  phoneUserConfirmed?: boolean;
   handle: string;
   socialProfiles: SocialProfile[];
   bio?: string; // AI-generated bio
   backgroundImage?: string; // AI-generated background image
   lastUpdated: any; // Firestore timestamp
+
+  // Individual social media fields
+  facebookUsername?: string;
+  facebookUrl?: string;
+  facebookUserConfirmed?: boolean;
+
+  instagramUsername?: string;
+  instagramUrl?: string;
+  instagramUserConfirmed?: boolean;
+
+  snapchatUsername?: string;
+  snapchatUrl?: string;
+  snapchatUserConfirmed?: boolean;
+
+  linkedinUsername?: string;
+  linkedinUrl?: string;
+  linkedinUserConfirmed?: boolean;
+
+  whatsappUsername?: string;
+  whatsappUrl?: string;
+  whatsappUserConfirmed?: boolean;
+
+  telegramUsername?: string;
+  telegramUrl?: string;
+  telegramUserConfirmed?: boolean;
 };
 
 // Create a context for our profile data
@@ -125,6 +156,49 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Function to validate social media URLs
+  const validateSocialMediaUrl = async (platform: string, username: string): Promise<boolean> => {
+    // In a real app, this would make API calls to verify accounts
+    // For this implementation, we'll do a simple validation based on username length
+    // and assume the URL is valid if the username meets minimum requirements
+    
+    if (!username || username.length < 3) return false;
+    
+    // Could be expanded to include real API validation
+    // Example: Use HEAD requests to check if profile pages return 200 status
+    // const url = getSocialMediaUrl(platform, username);
+    // try {
+    //   const response = await fetch(url, { method: 'HEAD' });
+    //   return response.status === 200;
+    // } catch (error) {
+    //   return false;
+    // }
+    
+    return true;
+  };
+
+  // Function to generate social media URLs based on platform and username
+  const getSocialMediaUrl = (platform: string, username: string): string => {
+    switch (platform) {
+      case 'facebook':
+        return `https://facebook.com/${username}`;
+      case 'instagram':
+        return `https://instagram.com/${username}`;
+      case 'snapchat':
+        return `https://snapchat.com/add/${username}`;
+      case 'linkedin':
+        return `https://linkedin.com/in/${username}`;
+      case 'whatsapp':
+        // Remove non-numeric characters for WhatsApp
+        const whatsappNumber = username.replace(/[^0-9]/g, '');
+        return `https://wa.me/${whatsappNumber}`;
+      case 'telegram':
+        return `https://t.me/${username}`;
+      default:
+        return '';
+    }
+  };
+
   // Save profile to Firestore with optimized performance for fast UI transitions
   const saveProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     if (!session?.user?.email) return null;
@@ -133,16 +207,116 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const userId = session.user.email;
       const docRef = doc(db, 'profiles', userId);
       
-      // Prepare updated profile data
-      const updatedProfile = {
-        ...(profile || {}),
-        ...profileData,
+      // Extract email username (for auto-populating social profiles)
+      const emailUsername = session.user.email.split('@')[0] || '';
+      
+      // Normalize phone number if available
+      const phoneNumber = profileData.phone || profile?.phone || '';
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      
+      // Start with confirmed data (profile photo, name, email, phone)
+      const baseProfileData = {
         userId,
         name: session.user.name || '',
+        nameUserConfirmed: true,
         email: session.user.email,
+        emailUserConfirmed: true,
         picture: session.user.image || '',
+        pictureUserConfirmed: true,
+        phone: phoneNumber,
+        phoneUserConfirmed: true,
         lastUpdated: serverTimestamp(),
+      };
+      
+      // Prepare initial updated profile with core fields
+      let updatedProfile = {
+        ...(profile || {}),
+        ...profileData,
+        ...baseProfileData,
       } as UserProfile;
+      
+      // Auto-populate social media profiles
+      // These will be validated before final save
+      const socialMediaFields = [
+        {
+          platform: 'facebook',
+          username: emailUsername,
+          userConfirmed: false,
+        },
+        {
+          platform: 'instagram',
+          username: emailUsername,
+          userConfirmed: false,
+        },
+        {
+          platform: 'snapchat',
+          username: emailUsername,
+          userConfirmed: false,
+        },
+        {
+          platform: 'linkedin',
+          username: emailUsername,
+          userConfirmed: false,
+        },
+        {
+          platform: 'whatsapp',
+          username: normalizedPhone,
+          userConfirmed: false,
+        },
+        {
+          platform: 'telegram',
+          username: normalizedPhone,
+          userConfirmed: false,
+        },
+      ];
+      
+      // Validate and populate social media profiles
+      for (const field of socialMediaFields) {
+        const { platform, username, userConfirmed } = field;
+        const platformKey = platform as keyof UserProfile;
+        const usernameKey = `${platform}Username` as keyof UserProfile;
+        const urlKey = `${platform}Url` as keyof UserProfile;
+        const confirmedKey = `${platform}UserConfirmed` as keyof UserProfile;
+        
+        // Skip if no username
+        if (!username) continue;
+        
+        // Validate if the profile exists
+        const isValid = await validateSocialMediaUrl(platform, username);
+        
+        if (isValid) {
+          // Generate URL for the platform
+          const url = getSocialMediaUrl(platform, username);
+          
+          // Add to updated profile
+          updatedProfile = {
+            ...updatedProfile,
+            [usernameKey]: username,
+            [urlKey]: url,
+            [confirmedKey]: userConfirmed,
+          } as UserProfile;
+        }
+      }
+      
+      // Also maintain compatibility with socialProfiles array
+      // for backward compatibility
+      const socialProfiles: SocialProfile[] = [
+        ...socialMediaFields
+          .filter(field => {
+            const usernameKey = `${field.platform}Username` as keyof UserProfile;
+            return !!updatedProfile[usernameKey]; // Only include validated ones
+          })
+          .map(field => ({
+            platform: field.platform as SocialProfile['platform'],
+            username: field.username,
+            url: getSocialMediaUrl(field.platform, field.username),
+            shareEnabled: true,
+            filled: true,
+            userConfirmed: field.userConfirmed,
+          })),
+      ];
+      
+      updatedProfile.socialProfiles = socialProfiles;
       
       // Update local state SYNCHRONOUSLY for immediate UI response
       setProfile(updatedProfile);
