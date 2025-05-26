@@ -49,7 +49,6 @@ export default function ProfileSetup() {
   const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [editingSocial, setEditingSocial] = useState<SocialProfile['platform'] | null>(null);
   const [socialEditValue, setSocialEditValue] = useState('');
-  const [hasCompletedPhone, setHasCompletedPhone] = useState(false);
   
   // Create a ref for the phone input
   const phoneInputRef = React.useRef<HTMLInputElement>(null);
@@ -132,8 +131,6 @@ export default function ProfileSetup() {
               if (parsed?.isValid()) {
                 // Update state with detected country and national digits
                 setDigits(parsed.nationalNumber);
-                // Only mark as completed if full 10+ digit phone number exists in DB
-                setHasCompletedPhone(parsed.nationalNumber.length >= 10);
               }
             }
             
@@ -171,7 +168,7 @@ export default function ProfileSetup() {
     if (digits && digits.length >= 6) {
       updateProfilesWithPhone(digits);
     }
-  }, [digits, hasCompletedPhone]);
+  }, [digits]);
 
   // Phone input now handled directly by the PhoneInput component's onChange callback
   
@@ -381,7 +378,6 @@ export default function ProfileSetup() {
         <div>
           <label htmlFor="phone-input" className="sr-only">Phone number</label>
           <CustomPhoneInput
-            isDisabled={hasCompletedPhone}
             onChange={(value) => {
               setDigits(value);
               updateProfilesWithPhone(value);
