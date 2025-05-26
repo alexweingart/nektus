@@ -368,8 +368,7 @@ const ProfileView: React.FC = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Admin Mode Trigger Zone - Invisible but clickable */}
-      <div {...adminModeProps} className="absolute top-0 right-0 w-16 h-16 z-50"></div>
+      {/* Admin Mode is now triggered by double-clicking on the name */}
       
       <div className="w-full max-w-md flex flex-col items-center">
         {/* Profile Image */}
@@ -383,20 +382,13 @@ const ProfileView: React.FC = () => {
           </div>
         </div>
         
-        {/* Profile Name */}
-        <h1 className="text-2xl font-bold mb-1 text-center text-white shadow-text">
+        {/* Profile Name - Double click to activate admin mode */}
+        <h1 className="text-2xl font-bold mb-1 text-center text-black cursor-pointer" {...adminModeProps}>
           {localProfile.name}
         </h1>
         
-        {/* Profile Location/Country */}
-        {localProfile.country && (
-          <p className="text-sm text-white mb-2 shadow-text">
-            {localProfile.country}
-          </p>
-        )}
-        
         {/* Bio */}
-        <p className="text-sm text-white mb-6 text-center max-w-xs shadow-text">
+        <p className="text-sm text-black mb-6 text-center max-w-xs">
           {bio || getPlaceholderBio()}
         </p>
         
