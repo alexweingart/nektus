@@ -107,7 +107,6 @@ const WelcomeScreen: React.FC = () => {
             fontWeight: '500',
             padding: '12px 24px',
             borderRadius: '100px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
             transition: 'all 0.2s ease-in-out',
             textDecoration: 'none',
             textAlign: 'center',
@@ -116,10 +115,10 @@ const WelcomeScreen: React.FC = () => {
             marginBottom: '8px'
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23)';
+            e.currentTarget.style.backgroundColor = '#f5f5f5';
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)';
+            e.currentTarget.style.backgroundColor = 'white';
           }}
         >
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ marginRight: '12px' }}>
