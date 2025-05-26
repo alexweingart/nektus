@@ -531,6 +531,14 @@ const ProfileView: React.FC = () => {
           >
             Nekt
           </Link>
+          <div className="mt-2 text-center">
+            <Link 
+              href="/edit"
+              className="text-green-600 hover:text-green-700 no-underline"
+            >
+              Edit Profile
+            </Link>
+          </div>
         </div>
       </div>
     </div>
