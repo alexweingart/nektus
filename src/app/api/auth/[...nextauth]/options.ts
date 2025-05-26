@@ -1,5 +1,7 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { NextAuthOptions, User, Account, Profile } from "next-auth";
+import { db } from "../../../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 // CRITICAL: Set the correct NEXTAUTH_URL for all environments
 if (!process.env.NEXTAUTH_URL) {
@@ -60,6 +62,33 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email as string;
         token.name = user.name as string;
         token.picture = user.image as string;
+
+        // Check if the user already has a profile with phone number
+        try {
+          if (user.email) {
+            const userEmail = user.email;
+            const userDocRef = doc(db, 'profiles', userEmail);
+            const userDocSnap = await getDoc(userDocRef);
+            
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              // Only mark profile as existing if it has a phone number
+              if (userData.phone && userData.phone.trim() !== '') {
+                token.profileWithPhoneExists = true;
+                console.log('User has existing profile with phone, will redirect to homepage');
+              } else {
+                token.profileWithPhoneExists = false;
+                console.log('User has profile but no phone, will redirect to setup');
+              }
+            } else {
+              token.profileWithPhoneExists = false;
+              console.log('No profile found for user, will redirect to setup');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking user profile:', error);
+          token.profileWithPhoneExists = false;
+        }
       }
       return token;
     },
@@ -80,9 +109,23 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Override all redirect logic to ensure consistent behavior
-      // For a mobile contact exchange app, we always want users to land on the setup page
-      // Use relative URL to work in both development and production
+      // If the URL includes a specific callback destination, honor it
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+
+      // If the token has profileExists flag, redirect to homepage
+      try {
+        // This is a bit of a hack, but we can extract the token from the URL
+        const token = JSON.parse(decodeURIComponent(url.split('token=')[1]?.split('&')[0] || '{}'));
+        if (token.profileWithPhoneExists) {
+          return `${baseUrl}/`; // Redirect to homepage
+        }
+      } catch (e) {
+        console.error('Error parsing token in redirect callback:', e);
+      }
+      
+      // Default to setup page if no profile exists or we couldn't determine
       return `${baseUrl}/setup`;
     },
   },
@@ -90,6 +133,8 @@ export const authOptions: NextAuthOptions = {
   events: {
     async signIn({ user, account }) {
       console.log("SIGN_IN_EVENT", { user, account });
+      
+      // No need to check profile here as events don't affect redirection
     },
     async signOut() {
       console.log(`SIGN_OUT_EVENT: User signed out`);

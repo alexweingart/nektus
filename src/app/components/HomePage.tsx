@@ -105,7 +105,8 @@ const HomePage: React.FC = () => {
           onClick={() => {
             // Set flag to indicate we want to focus the phone input after redirect
             sessionStorage.setItem("wantsPhoneFocus", "1");
-            signIn('google', { callbackUrl: '/setup' });
+            // We'll use the auth callback to determine where to go
+            signIn('google');
           }}
           style={{
             display: 'flex',
