@@ -220,15 +220,12 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   };
 
   return (
-    <div
-      className={`flex w-full rounded-md bg-white overflow-visible border border-gray-300 ${className}`}
-      style={{ overflow: 'visible' }}
-    >
+    <div className={`flex w-full bg-white border border-gray-300 rounded-md relative ${className}`}>
       {/* Country selector */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative z-10" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none border-0"
+          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none border-0 rounded-l-md"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
         >
@@ -241,7 +238,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-50 mt-1 w-60 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto">
+          <div className="absolute z-50 mt-1 w-60 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full">
             {countries.map((country) => (
               <div
                 key={country.code}
@@ -270,7 +267,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         inputMode="tel"
         autoComplete="tel"
         style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
-        className="flex-1 px-3 py-2 bg-white focus:outline-none"
+        className="flex-1 px-3 py-2 bg-white focus:outline-none rounded-r-md"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
