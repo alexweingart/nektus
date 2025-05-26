@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp, 
          FaSnapchat, FaTelegram, FaLinkedin } from 'react-icons/fa';
+import SocialIcon from './SocialIcon';
 
 // Define types for profile data
 type SocialProfile = {
@@ -273,7 +274,9 @@ const ProfileView: React.FC = () => {
         backgroundImage: `url(${bgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        transition: 'background-image 0.5s ease-in-out'
+        transition: 'background-image 0.5s ease-in-out',
+        backdropFilter: 'blur(10px)',
+        backgroundColor: 'rgba(0,0,0,0.3)'
       }}
     >
       <div
@@ -287,26 +290,47 @@ const ProfileView: React.FC = () => {
           padding: '20px',
           animation: 'fadeIn 0.3s ease-out forwards',
           backgroundColor: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(10px)',
           borderRadius: '16px',
           margin: '20px'
         }}
       >
         {/* Profile Photo and Name */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          {localProfile.picture ? (
-            <div style={{ width: '120px', height: '120px', margin: '0 auto 16px', borderRadius: '60px', overflow: 'hidden', border: '3px solid white' }}>
-              <img 
-                src={localProfile.picture} 
-                alt={localProfile.name || 'Profile'} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          ) : (
-            <div style={{ width: '120px', height: '120px', margin: '0 auto 16px', borderRadius: '60px', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '48px', fontWeight: 'bold' }}>{localProfile.name?.[0] || '?'}</span>
-            </div>
-          )}
+          <Link href="/setup">
+            {localProfile.picture ? (
+              <div style={{ 
+                width: '120px', 
+                height: '120px', 
+                margin: '0 auto 16px', 
+                borderRadius: '60px', 
+                overflow: 'hidden', 
+                border: '3px solid white',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out'
+              }}>
+                <img 
+                  src={localProfile.picture} 
+                  alt={localProfile.name || 'Profile'} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+            ) : (
+              <div style={{ 
+                width: '120px', 
+                height: '120px', 
+                margin: '0 auto 16px', 
+                borderRadius: '60px', 
+                backgroundColor: '#e0e0e0', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out'
+              }}>
+                <span style={{ fontSize: '48px', fontWeight: 'bold' }}>{localProfile.name?.[0] || '?'}</span>
+              </div>
+            )}
+          </Link>
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>
             {localProfile.name}
           </h2>
@@ -324,111 +348,56 @@ const ProfileView: React.FC = () => {
           </p>
         </div>
         
-        {/* Contact & Social Icons */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+        {/* Contact & Social Icons - Arranged in 2 rows */}
+        <div style={{ marginBottom: '24px', width: '100%', maxWidth: '320px' }}>
           {/* Create organized icon list with correct order and indicator dots */}
-          {(() => {
-            // Define icons in correct order
-            const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'telegram', 'linkedin'];
-            
-            // Map of available social profiles by platform
-            const socialMap: Record<string, SocialProfile> = {};
-            if (localProfile.socialProfiles) {
-              localProfile.socialProfiles.forEach(social => {
-                if (social.username) {
-                  socialMap[social.platform] = social;
-                }
-              });
-            }
-            
-            // Create each icon in order - display all required platforms
-            return orderedPlatforms.map(platform => {
-              // For phone and email only, skip if no data
-              if (platform === 'phone' && !localProfile.phone) return null;
-              if (platform === 'email' && !localProfile.email) return null;
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateRows: 'repeat(2, auto)',
+            gap: '16px',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {(() => {
+              // Define icons in correct order
+              const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'telegram', 'linkedin'];
               
-              // Common icon container style
-              const iconContainerStyle = {
-                position: 'relative' as const,
-                width: '40px',
-                height: '40px',
-                borderRadius: '20px',
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                transition: 'all 0.2s ease'
-              };
-              
-              // Determine icon and URL for each platform
-              let icon = null;
-              let url = '';
-              
-              switch(platform) {
-                case 'phone':
-                  icon = <FaPhone size={16} />;
-                  url = `tel:${localProfile.phone}`;
-                  break;
-                case 'email':
-                  icon = <FaEnvelope size={16} />;
-                  url = `mailto:${localProfile.email}`;
-                  break;
-                case 'facebook':
-                  icon = <FaFacebook size={16} />;
-                  url = socialMap[platform] ? `https://facebook.com/${socialMap[platform].username}` : '#';
-                  break;
-                case 'instagram':
-                  icon = <FaInstagram size={16} />;
-                  url = socialMap[platform] ? `https://instagram.com/${socialMap[platform].username}` : '#';
-                  break;
-                case 'whatsapp':
-                  icon = <FaWhatsapp size={16} />;
-                  url = socialMap[platform] ? `https://wa.me/${socialMap[platform].username}` : '#';
-                  break;
-                case 'snapchat':
-                  icon = <FaSnapchat size={16} />;
-                  url = socialMap[platform] ? `https://snapchat.com/add/${socialMap[platform].username}` : '#';
-                  break;
-                case 'telegram':
-                  icon = <FaTelegram size={16} />;
-                  url = socialMap[platform] ? `https://t.me/${socialMap[platform].username}` : '#';
-                  break;
-                case 'linkedin':
-                  icon = <FaLinkedin size={16} />;
-                  url = socialMap[platform] ? `https://linkedin.com/in/${socialMap[platform].username}` : '#';
-                  break;
-                default:
-                  return null;
+              // Map of available social profiles by platform
+              const socialMap: Record<string, SocialProfile> = {};
+              if (localProfile.socialProfiles) {
+                localProfile.socialProfiles.forEach(social => {
+                  if (social.username) {
+                    socialMap[social.platform] = social;
+                  }
+                });
               }
               
-              // Determine if this icon should have a dot indicator (all except phone and email)
-              const shouldShowDot = platform !== 'phone' && platform !== 'email';
-              
-              // Determine if this icon has data (profile exists)
-              const hasData = (platform === 'phone' && localProfile.phone) || 
-                (platform === 'email' && localProfile.email) || 
-                (platform !== 'phone' && platform !== 'email' && socialMap[platform]);
-              
-              // Adjust styling for icons without data
-              const inactiveStyle = !hasData ? {
-                opacity: 0.4,
-                pointerEvents: 'none' as const,
-                cursor: 'default' as const
-              } : {};
-              
-              return (
-                <a 
-                  key={platform} 
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  style={{ textDecoration: 'none', ...inactiveStyle }}
-                  onClick={!hasData ? (e) => e.preventDefault() : undefined}
-                >
-                  <div style={{...iconContainerStyle, ...((!hasData) ? { backgroundColor: 'rgba(255,255,255,0.1)' } : {})}}>
-                    {icon}
-                    {shouldShowDot && hasData && (
+              // Create each icon in order - display all required platforms
+              return orderedPlatforms.map(platform => {
+                // For phone and email only, skip if no data
+                if (platform === 'phone' && !localProfile.phone) return null;
+                if (platform === 'email' && !localProfile.email) return null;
+                
+                // Determine if this icon has data (profile exists)
+                const hasData = (platform === 'phone' && localProfile.phone) || 
+                  (platform === 'email' && localProfile.email) || 
+                  (platform !== 'phone' && platform !== 'email' && socialMap[platform]);
+                
+                // Get username for social platforms
+                const username = platform === 'phone' ? localProfile.phone :
+                                platform === 'email' ? localProfile.email :
+                                socialMap[platform]?.username || '';
+                
+                return (
+                  <div key={platform} className="flex justify-center">
+                    <SocialIcon
+                      platform={platform as any}
+                      username={username}
+                      size="md"
+                    />
+                    {/* Add yellow dot indicator only for social media (not phone/email) that have data */}
+                    {platform !== 'phone' && platform !== 'email' && hasData && (
                       <div style={{
                         position: 'absolute',
                         top: '2px',
@@ -441,26 +410,13 @@ const ProfileView: React.FC = () => {
                       }} />
                     )}
                   </div>
-                </a>
-              );
-            });
-          })()}
+                );
+              });
+            })()}
+          </div>
         </div>
         
-        {/* Edit Profile Link - Simple text hyperlink */}
-        <div style={{ marginBottom: '20px' }}>
-          <Link 
-            href="/setup" 
-            style={{
-              color: 'var(--primary)',
-              textDecoration: 'underline',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            Edit Profile
-          </Link>
-        </div>
+        {/* Edit Profile Link removed as requested */}
         
         {/* Action Buttons */}
         <div style={{ width: '100%', maxWidth: '320px' }}>
