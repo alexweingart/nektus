@@ -20,8 +20,14 @@ type UserProfile = {
   name: string;
   email: string;
   picture: string;
-  phone: string;
+  // Replace phone with the new fields
+  internationalPhone: string;
+  nationalPhone: string;
+  internationalPhoneUserConfirmed?: boolean;
+  nationalPhoneUserConfirmed?: boolean;
   country?: string;
+  countryUserConfirmed?: boolean;
+  handle?: string;
   socialProfiles: SocialProfile[];
   lastUpdated?: any;
   bio?: string;
@@ -62,8 +68,13 @@ const ProfileView: React.FC = () => {
         name: session.user.name || 'User',
         email: session.user.email || '',
         picture: session.user.image || '',
-        phone: '',
-        country: '',
+        internationalPhone: '',
+        nationalPhone: '',
+        internationalPhoneUserConfirmed: false,
+        nationalPhoneUserConfirmed: false,
+        country: 'US',
+        countryUserConfirmed: false,
+        handle: '',
         // Initialize all social profiles with empty values but proper structure
         socialProfiles: [
           { platform: 'facebook', username: '', shareEnabled: true, filled: false },
@@ -404,7 +415,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="phone"
-                username={localProfile.phone || ''}
+                username={localProfile.internationalPhone || ''}
                 size="md"
               />
             </div>

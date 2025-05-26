@@ -24,10 +24,13 @@ export type UserProfile = {
   emailUserConfirmed?: boolean;
   picture: string;
   pictureUserConfirmed?: boolean;
-  phone: string; // Keeping for backward compatibility
-  internationalPhone?: string; // Full international format with country code
-  nationalPhone?: string; // National format without country code
-  phoneUserConfirmed?: boolean;
+  // Remove phone and phoneUserConfirmed as requested
+  // phone: string; // Removing per requirements
+  // phoneUserConfirmed?: boolean; // Removing per requirements
+  internationalPhone: string; // Full international format with country code
+  nationalPhone: string; // National format without country code
+  internationalPhoneUserConfirmed?: boolean; // Add confirmation flag for international format
+  nationalPhoneUserConfirmed?: boolean; // Add confirmation flag for national format
   country?: string;
   countryUserConfirmed?: boolean;
   handle: string;
@@ -144,7 +147,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             name: session.user.name || '',
             email: session.user.email || '',
             picture: session.user.image || '',
-            phone: '',
+            // Replace phone with the new fields
+            internationalPhone: '',
+            nationalPhone: '',
+            internationalPhoneUserConfirmed: false,
+            nationalPhoneUserConfirmed: false,
+            country: 'US',
+            countryUserConfirmed: false,
             handle: '',
             socialProfiles: [],
             lastUpdated: serverTimestamp(),

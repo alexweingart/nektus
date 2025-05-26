@@ -12,13 +12,20 @@ import { MdEdit } from 'react-icons/md';
 // Use the SocialProfile type from ProfileContext
 type SocialProfile = ProfileSocialProfile;
 
+// Use type from ProfileContext
 type UserProfile = {
   userId: string;
   name: string;
   email: string;
   picture: string;
-  phone: string;
+  // phone removed per requirements
+  internationalPhone: string;
+  nationalPhone: string;
+  internationalPhoneUserConfirmed?: boolean;
+  nationalPhoneUserConfirmed?: boolean;
   country?: string;
+  countryUserConfirmed?: boolean;
+  handle?: string;
   socialProfiles: SocialProfile[];
   backgroundImage?: string;
   lastUpdated?: any;
@@ -34,14 +41,12 @@ const EditProfile: React.FC = () => {
   const [formData, setFormData] = useState<{
     name: string;
     email: string;
-    phone: string;
     picture: string;
     socialProfiles: SocialProfile[];
     backgroundImage: string;
   }>({
     name: '',
     email: '',
-    phone: '',
     picture: '',
     socialProfiles: [],
     backgroundImage: '/gradient-bg.jpg',
@@ -78,13 +83,13 @@ const EditProfile: React.FC = () => {
     setFormData({
       name: profileData.name || '',
       email: profileData.email || '',
-      phone: profileData.phone || '',
+      // Removed phone as requested
       picture: profileData.picture || '',
       socialProfiles: profileData.socialProfiles || [],
       backgroundImage: profileData.backgroundImage || '/gradient-bg.jpg',
     });
     
-    // Initialize the phone number input from nationalPhone or parse from full number
+    // Initialize the phone number input from nationalPhone
     if (profileData.nationalPhone) {
       // Use the already parsed national phone number if available
       console.log('Using stored national number:', profileData.nationalPhone);
@@ -98,11 +103,11 @@ const EditProfile: React.FC = () => {
         // Fallback to default country
         setPhoneCountry('US');
       }
-    } else if (profileData.phone && profileData.phone.trim() !== '') {
-      // Fallback to parsing from full phone for backward compatibility
-      console.log('Attempting to parse phone number:', profileData.phone);
+    } else if (profileData.internationalPhone) {
+      // Fallback to parsing from internationalPhone
+      console.log('Attempting to parse phone number:', profileData.internationalPhone);
       try {
-        const parsedPhone = parsePhoneNumberFromString(profileData.phone);
+        const parsedPhone = parsePhoneNumberFromString(profileData.internationalPhone);
         console.log('Parsed phone result:', parsedPhone);
         
         if (parsedPhone) {
@@ -111,14 +116,14 @@ const EditProfile: React.FC = () => {
           setDigits(parsedPhone.nationalNumber);
           setPhoneCountry(parsedPhone.country as any || 'US');
         } else {
-          // If the number can't be parsed as E.164, use it directly
-          setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+          // If the number can't be parsed, set empty
+          setDigits('');
           setPhoneCountry('US');
         }
       } catch (error) {
         console.error('Error parsing phone number:', error);
-        // Fallback: just use the raw digits
-        setDigits(profileData.phone.replace(/[^0-9]/g, ''));
+        // Fallback: set empty
+        setDigits('');
         setPhoneCountry('US');
       }
     }
@@ -197,13 +202,16 @@ const EditProfile: React.FC = () => {
         name: formData.name,
         email: formData.email,
         picture: formData.picture,
-        phone: '', // Will be set below
+        // Remove phone field per requirements
         internationalPhone: '',
         nationalPhone: '',
+        internationalPhoneUserConfirmed: true,
+        nationalPhoneUserConfirmed: true,
         country: phoneCountry as string,
         countryUserConfirmed: true,
         socialProfiles: formData.socialProfiles,
         backgroundImage: formData.backgroundImage,
+        handle: '',
         lastUpdated: Date.now()
       };
       
@@ -219,9 +227,10 @@ const EditProfile: React.FC = () => {
             const countryCode = parsed.country || phoneCountry;
             
             // Store both formats along with country information
-            updatedProfile.phone = phoneNumber; // Keep for backward compatibility
             updatedProfile.internationalPhone = phoneNumber;
             updatedProfile.nationalPhone = nationalNumber;
+            updatedProfile.internationalPhoneUserConfirmed = true;
+            updatedProfile.nationalPhoneUserConfirmed = true;
             updatedProfile.country = countryCode;
             updatedProfile.countryUserConfirmed = true;
           } else {
@@ -231,9 +240,10 @@ const EditProfile: React.FC = () => {
               phoneNumber = `+${phoneNumber}`;
             }
             // Still set both formats with basic values
-            updatedProfile.phone = phoneNumber; // Keep for backward compatibility
             updatedProfile.internationalPhone = phoneNumber;
             updatedProfile.nationalPhone = digits;
+            updatedProfile.internationalPhoneUserConfirmed = true;
+            updatedProfile.nationalPhoneUserConfirmed = true;
             updatedProfile.country = phoneCountry; 
             updatedProfile.countryUserConfirmed = true;
           }
@@ -241,9 +251,10 @@ const EditProfile: React.FC = () => {
           console.error('Error formatting phone:', error);
           // Simple fallback
           phoneNumber = digits;
-          updatedProfile.phone = phoneNumber; // Keep for backward compatibility
           updatedProfile.internationalPhone = phoneNumber;
           updatedProfile.nationalPhone = digits;
+          updatedProfile.internationalPhoneUserConfirmed = true;
+          updatedProfile.nationalPhoneUserConfirmed = true;
           updatedProfile.country = phoneCountry;
           updatedProfile.countryUserConfirmed = true;
         }
