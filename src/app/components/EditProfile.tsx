@@ -312,15 +312,15 @@ const EditProfile: React.FC = () => {
               // Automatically trigger click on mobile
               document.getElementById('avatar-upload')?.click();
             }}>
-              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
+              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
                 <img 
                   src={formData.picture || '/default-avatar.png'} 
                   alt="Profile" 
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full">
-                <MdEdit size={10} />
+              <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
+                <MdEdit size={6} />
               </div>
               <input 
                 type="file" 

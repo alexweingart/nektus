@@ -96,7 +96,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 ) => {
   const [phoneInput, setPhoneInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState(countries[0]); // Default to US
+  const [selectedCountry, setSelectedCountry] = useState(countries.find(c => c.code === 'US') || countries[0]);
   const [isInputFocused, setIsInputFocused] = useState(false);
   
   // Create refs
@@ -109,6 +109,9 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       // Just set the formatted value without changing the actual value
       setPhoneInput(formatPhoneNumber(value.replace(/\D/g, '').slice(-10)));
     }
+    
+    // Make sure the country selector doesn't show focus styling on initial load
+    setIsInputFocused(false);
   }, []);
 
   // Format phone number with parentheses and dash
