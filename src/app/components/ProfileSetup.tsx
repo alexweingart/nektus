@@ -393,23 +393,58 @@ export default function ProfileSetup() {
       
       // STEP 1: Store data in localStorage for immediate access
       if (session?.user?.email) {
-        const cachedProfile = {
-          userId: session.user.email,
-          name: session.user.name || '',
-          email: session.user.email,
-          picture: session.user.image || '',
-          // phone field removed per requirements
-          internationalPhone: internationalPhone,
-          nationalPhone: nationalPhone,
-          internationalPhoneUserConfirmed: true,
-          nationalPhoneUserConfirmed: true,
-          country: country,
-          countryUserConfirmed: true,
-          socialProfiles: profilesForSaving,
-          handle: '',
-          lastUpdated: Date.now(),
+        // Get email profile (should always exist)
+        const emailProfile = socialProfiles.find(p => p.platform === 'email');
+        
+        // Create contact channels
+        const contactChannels = {
+          phoneInfo: {
+            internationalPhone: internationalPhone,
+            nationalPhone: nationalPhone,
+            userConfirmed: true
+          },
+          email: {
+            email: session.user.email,
+            userConfirmed: true
+          },
+          // Initialize all social channels with empty data
+          facebook: { username: '', url: '', userConfirmed: false },
+          instagram: { username: '', url: '', userConfirmed: false },
+          x: { username: '', url: '', userConfirmed: false },
+          whatsapp: { username: '', url: '', userConfirmed: false },
+          snapchat: { username: '', url: '', userConfirmed: false },
+          telegram: { username: '', url: '', userConfirmed: false },
+          wechat: { username: '', url: '', userConfirmed: false },
+          linkedin: { username: '', url: '', userConfirmed: false }
         };
-        // Ensure we're saving the complete profile to local storage
+
+        // Populate social channels from profilesForSaving
+        profilesForSaving.forEach(profile => {
+          const platform = profile.platform;
+          if (platform === 'email' || platform === 'phone') return;
+          
+          // Only process known social platforms
+          if (['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'].includes(platform)) {
+            const socialPlatform = platform as 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'wechat' | 'linkedin';
+            contactChannels[socialPlatform] = {
+              username: profile.username || '',
+              url: profile.username ? `${getSocialPrefix(platform as any)}${profile.username}` : '',
+              userConfirmed: !!profile.filled
+            };
+          }
+        });
+
+        // Create the cached profile with the new structure
+        const cachedProfile = {
+          backgroundImage: '',
+          profileImage: session.user.image || '',
+          bio: '',
+          name: session.user.name || '',
+          lastUpdated: Date.now(),
+          contactChannels
+        };
+
+        // Save to local storage
         localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
         console.log('Saved profile to localStorage:', cachedProfile);
       }

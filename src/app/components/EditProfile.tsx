@@ -1,7 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useProfile, SocialProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
+import { useProfile, SocialProfile as BaseSocialProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
+
+// Extend the base SocialProfile type to include our additional fields
+type SocialProfile = BaseSocialProfile & {
+  filled?: boolean;
+  confirmed?: boolean;
+};
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CustomPhoneInput from './CustomPhoneInput';
@@ -60,16 +66,93 @@ const EditProfile: React.FC = () => {
     }
   }, [profile]);
   
+  // Helper function to get social prefix for a platform
+  const getSocialPrefix = (platform: string) => {
+    switch (platform) {
+      case 'facebook':
+        return 'facebook.com/';
+      case 'instagram':
+        return 'instagram.com/';
+      case 'x':
+      case 'twitter':
+        return 'x.com/';
+      case 'snapchat':
+        return 'snapchat.com/add/';
+      case 'linkedin':
+        return 'linkedin.com/in/';
+      case 'whatsapp':
+        return '+';
+      case 'telegram':
+        return 't.me/';
+      case 'wechat':
+        return '';
+      default:
+        return '';
+    }
+  };
+
   // Helper function to initialize form data from profile
   const initializeFormData = (profileData: any) => {
     // Initialize form data with profile data
+    const name = profileData.name || '';
+    const email = profileData.email || '';
+    const picture = profileData.profileImage || profileData.picture || '';
+    const backgroundImage = profileData.backgroundImage || '/gradient-bg.jpg';
+    
+    // Initialize social profiles from contactChannels if available, otherwise use old structure
+    let socialProfiles: Array<SocialProfile & { filled?: boolean }> = [];
+    
+    if (profileData.contactChannels) {
+      // New structure with contactChannels
+      const { contactChannels } = profileData;
+      
+      // Add phone if available
+      if (contactChannels.phoneInfo) {
+        socialProfiles.push({
+          platform: 'phone',
+          username: contactChannels.phoneInfo.nationalPhone || '',
+          shareEnabled: true,
+          filled: !!contactChannels.phoneInfo.nationalPhone,
+          confirmed: contactChannels.phoneInfo.userConfirmed
+        });
+      }
+      
+      // Add email if available
+      if (contactChannels.email) {
+        socialProfiles.push({
+          platform: 'email',
+          username: contactChannels.email.email || '',
+          shareEnabled: true,
+          filled: !!contactChannels.email.email,
+          confirmed: contactChannels.email.userConfirmed
+        });
+      }
+      
+      // Add social profiles
+      const socialPlatforms = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
+      socialPlatforms.forEach(platform => {
+        const channel = contactChannels[platform];
+        if (channel && channel.username) {
+          socialProfiles.push({
+            platform: platform as any,
+            username: channel.username,
+            shareEnabled: true,
+            filled: !!channel.username,
+            confirmed: channel.userConfirmed
+          });
+        }
+      });
+    } else if (profileData.socialProfiles) {
+      // Old structure, use as is
+      socialProfiles = [...profileData.socialProfiles];
+    }
+    
     setFormData({
-      name: profileData.name || '',
-      email: profileData.email || '',
-      // Removed phone as requested
-      picture: profileData.picture || '',
-      socialProfiles: profileData.socialProfiles || [],
-      backgroundImage: profileData.backgroundImage || '/gradient-bg.jpg',
+      name,
+      email,
+      picture,
+      socialProfiles,
+      backgroundImage
     });
     
     // Initialize the phone number input from nationalPhone
@@ -300,11 +383,58 @@ const EditProfile: React.FC = () => {
         }
       });
       
-      // Save to local storage immediately for future loads
-      localStorage.setItem('nektus_user_profile_cache', JSON.stringify({
-        ...updatedProfile,
-        lastUpdated: Date.now()
-      }));
+      // Create contact channels from the updated profile
+      const contactChannels = {
+        phoneInfo: {
+          internationalPhone: updatedProfile.internationalPhone || '',
+          nationalPhone: updatedProfile.nationalPhone || '',
+          userConfirmed: true
+        },
+        email: {
+          email: updatedProfile.email || '',
+          userConfirmed: true
+        },
+        // Initialize all social channels with empty data
+        facebook: { username: '', url: '', userConfirmed: false },
+        instagram: { username: '', url: '', userConfirmed: false },
+        x: { username: '', url: '', userConfirmed: false },
+        whatsapp: { username: '', url: '', userConfirmed: false },
+        snapchat: { username: '', url: '', userConfirmed: false },
+        telegram: { username: '', url: '', userConfirmed: false },
+        wechat: { username: '', url: '', userConfirmed: false },
+        linkedin: { username: '', url: '', userConfirmed: false }
+      };
+
+      // Populate social channels from socialProfiles
+      if (updatedProfile.socialProfiles) {
+        updatedProfile.socialProfiles.forEach(profile => {
+          const platform = profile.platform;
+          if (platform === 'email' || platform === 'phone') return;
+          
+          // Only process known social platforms
+          if (['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'].includes(platform)) {
+            const socialPlatform = platform as 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'wechat' | 'linkedin';
+            contactChannels[socialPlatform] = {
+              username: profile.username || '',
+              url: profile.username ? `${getSocialPrefix(platform as any)}${profile.username}` : '',
+              userConfirmed: !!profile.filled
+            };
+          }
+        });
+      }
+
+      // Create the cached profile with the new structure
+      const cachedProfile = {
+        backgroundImage: updatedProfile.backgroundImage || '',
+        profileImage: updatedProfile.picture || '',
+        bio: '',
+        name: updatedProfile.name || '',
+        lastUpdated: Date.now(),
+        contactChannels
+      };
+
+      // Save to local storage
+      localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
       
       console.log('Saving profile:', updatedProfile);
       
