@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         
         results.tests.images.success = true;
         results.tests.images.response = {
-          url: imageResponse.data[0]?.url,
+          url: imageResponse.data && imageResponse.data[0]?.url,
           model: 'dall-e-3'
         };
       } catch (dalleError) {
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           
           results.tests.images.success = true;
           results.tests.images.response = {
-            url: gptImageResponse.data[0]?.url,
+            url: gptImageResponse.data && gptImageResponse.data[0]?.url,
             model: 'gpt-image-1'
           };
         } catch (gptImageError) {
