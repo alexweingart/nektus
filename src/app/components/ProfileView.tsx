@@ -238,14 +238,20 @@ const ProfileView: React.FC = () => {
       console.log('Making API call to generate bio with profile:', localProfile);
       
       if (localProfile) {
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'bio',
-            profile: localProfile
-          }),
-        });
+        // Create a controller for the fetch timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        try {
+          const response = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'bio',
+              profile: localProfile
+            }),
+            signal: controller.signal
+          });
         
         // Log full response for debugging
         console.log('API response status:', response.status);
@@ -257,6 +263,9 @@ const ProfileView: React.FC = () => {
           console.error(`Bio generation API error (${response.status}):`, responseText);
           return; // Keep placeholder
         }
+        
+        // Clear the timeout as the request completed successfully
+        clearTimeout(timeoutId);
         
         // Parse JSON manually after reading text
         let data;
@@ -284,7 +293,11 @@ const ProfileView: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error in bio generation process:', error);
+      if (error.name === 'AbortError') {
+        console.error('Bio generation request timed out after 15 seconds');
+      } else {
+        console.error('Error in bio generation process:', error);
+      }
       // Keep placeholder
     } finally {
       setIsAIContentLoading(false);
@@ -313,14 +326,20 @@ const ProfileView: React.FC = () => {
       console.log('Making API call to generate background with profile:', localProfile);
       
       if (localProfile) {
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'background',
-            profile: localProfile
-          }),
-        });
+        // Create a controller for the fetch timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        try {
+          const response = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'background',
+              profile: localProfile
+            }),
+            signal: controller.signal
+          });
         
         // Log full response for debugging
         console.log('API response status:', response.status);
@@ -332,6 +351,9 @@ const ProfileView: React.FC = () => {
           console.error(`Background generation API error (${response.status}):`, responseText);
           return; // Keep placeholder
         }
+        
+        // Clear the timeout as the request completed successfully
+        clearTimeout(timeoutId);
         
         // Parse JSON manually after reading text
         let data;
@@ -369,7 +391,11 @@ const ProfileView: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error in background generation process:', error);
+      if (error.name === 'AbortError') {
+        console.error('Background generation request timed out after 15 seconds');
+      } else {
+        console.error('Error in background generation process:', error);
+      }
       // Keep placeholder
     } finally {
       setIsAIContentLoading(false);

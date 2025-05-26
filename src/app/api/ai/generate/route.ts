@@ -208,10 +208,23 @@ async function generateBackground(profile: any) {
       
       // Use the simple API format exactly as shown in the example - without additional parameters
       console.log('Calling OpenAI API with minimal parameters');
-      const result = await openai.images.generate({
-        model: 'gpt-image-1',
-        prompt,
+      
+      // Create a promise that rejects after a timeout
+      const timeout = new Promise((_, reject) => {
+        const timeoutId = setTimeout(() => {
+          clearTimeout(timeoutId);
+          reject(new Error('OpenAI API request timed out after 10 seconds'));
+        }, 10000); // 10 second timeout
       });
+      
+      // Race the API call against the timeout
+      const result = await Promise.race([
+        openai.images.generate({
+          model: 'gpt-image-1',
+          prompt,
+        }),
+        timeout
+      ]) as OpenAI.Images.ImagesResponse;
       
       console.log('OpenAI response received, data structure:', 
         JSON.stringify(Object.keys(result), null, 2));
