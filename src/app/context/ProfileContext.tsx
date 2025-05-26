@@ -21,6 +21,8 @@ export type UserProfile = {
   phone: string;
   handle: string;
   socialProfiles: SocialProfile[];
+  bio?: string; // AI-generated bio
+  backgroundImage?: string; // AI-generated background image
   lastUpdated: any; // Firestore timestamp
 };
 
