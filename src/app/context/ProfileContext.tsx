@@ -356,36 +356,54 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Create the updated profile with new structure
+      // Convert contactChannels to the old format for backward compatibility
+      const legacyFields = Object.entries(contactChannels).reduce((acc, [key, value]) => {
+        if (key === 'phoneInfo') {
+          // Skip phone info as it's already included in the root
+          return acc;
+        } else if (key === 'email') {
+          // Skip email as it's already included in the root
+          return acc;
+        } else if ('username' in value) {
+          // Add social media fields in the old format
+          const platform = key as keyof typeof contactChannels;
+          acc[`${platform}Username`] = value.username;
+          acc[`${platform}Url`] = value.url;
+          acc[`${platform}UserConfirmed`] = value.userConfirmed;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Create the updated profile with both new and legacy fields
       const updatedProfile: UserProfile = {
+        // Core user info
         userId,
         name: session.user.name || '',
-        nameUserConfirmed: true,
         email: session.user.email,
-        emailUserConfirmed: true,
         picture: session.user.image || '',
-        pictureUserConfirmed: true,
+        handle: '',
+        
+        // Phone info
         internationalPhone: phoneNumber,
         nationalPhone: nationalPhone,
         internationalPhoneUserConfirmed: true,
         nationalPhoneUserConfirmed: true,
+        
+        // Location info
         country: country,
         countryUserConfirmed: true,
-        handle: '',
+        
+        // Status flags
+        nameUserConfirmed: true,
+        emailUserConfirmed: true,
+        pictureUserConfirmed: true,
+        
+        // Social profiles (legacy format)
         socialProfiles: [],
+        ...legacyFields,
+        
+        // Timestamp
         lastUpdated: serverTimestamp(),
-        // For backward compatibility, keep the old fields
-        ...(Object.entries(contactChannels)
-          .filter(([key]) => key !== 'phoneInfo' && key !== 'email')
-          .reduce((acc, [key, value]) => {
-            const platform = key as keyof typeof contactChannels;
-            if ('username' in value) {
-              acc[`${platform}Username` as const] = value.username;
-              acc[`${platform}Url` as const] = value.url;
-              acc[`${platform}UserConfirmed` as const] = value.userConfirmed;
-            }
-            return acc;
-          }, {} as Record<string, any>))
       };
       
       // Update local state SYNCHRONOUSLY for immediate UI response
@@ -393,22 +411,71 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       // Create the cached profile with the new structure
       const cacheProfile = {
-        backgroundImage: profile?.backgroundImage || '/gradient-bg.jpg',
-        profileImage: session.user.image || '',
-        bio: profile?.bio || '',
+        // Basic profile info
         name: session.user.name || '',
         lastUpdated: Date.now(),
+        bio: profile?.bio || '',
+        
+        // Images
+        backgroundImage: profile?.backgroundImage || '/gradient-bg.jpg',
+        profileImage: session.user.image || '',
+        
+        // Contact channels
         contactChannels: {
-          phoneInfo: contactChannels.phoneInfo,
-          email: contactChannels.email,
-          facebook: contactChannels.facebook,
-          instagram: contactChannels.instagram,
-          x: contactChannels.x,
-          whatsapp: contactChannels.whatsapp,
-          snapchat: contactChannels.snapchat,
-          telegram: contactChannels.telegram,
-          wechat: contactChannels.wechat,
-          linkedin: contactChannels.linkedin
+          // Phone info
+          phoneInfo: {
+            internationalPhone: phoneNumber,
+            nationalPhone: nationalPhone,
+            userConfirmed: true
+          },
+          
+          // Email
+          email: {
+            email: session.user.email,
+            userConfirmed: true
+          },
+          
+          // Social media
+          facebook: { 
+            username: contactChannels.facebook.username,
+            url: `https://facebook.com/${contactChannels.facebook.username}`,
+            userConfirmed: contactChannels.facebook.userConfirmed
+          },
+          instagram: { 
+            username: contactChannels.instagram.username,
+            url: `https://instagram.com/${contactChannels.instagram.username}`,
+            userConfirmed: contactChannels.instagram.userConfirmed
+          },
+          x: { 
+            username: contactChannels.x.username,
+            url: `https://x.com/${contactChannels.x.username}`,
+            userConfirmed: contactChannels.x.userConfirmed
+          },
+          whatsapp: { 
+            username: contactChannels.whatsapp.username,
+            url: `https://wa.me/${contactChannels.whatsapp.username}`,
+            userConfirmed: contactChannels.whatsapp.userConfirmed
+          },
+          snapchat: { 
+            username: contactChannels.snapchat.username,
+            url: `https://snapchat.com/add/${contactChannels.snapchat.username}`,
+            userConfirmed: contactChannels.snapchat.userConfirmed
+          },
+          telegram: { 
+            username: contactChannels.telegram.username,
+            url: `https://t.me/${contactChannels.telegram.username}`,
+            userConfirmed: contactChannels.telegram.userConfirmed
+          },
+          wechat: { 
+            username: contactChannels.wechat.username,
+            url: `weixin://contacts/profile/${contactChannels.wechat.username}`,
+            userConfirmed: contactChannels.wechat.userConfirmed
+          },
+          linkedin: { 
+            username: contactChannels.linkedin.username,
+            url: `https://linkedin.com/in/${contactChannels.linkedin.username}`,
+            userConfirmed: contactChannels.linkedin.userConfirmed
+          }
         }
       };
       
