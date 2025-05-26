@@ -16,13 +16,23 @@ export async function POST(req: NextRequest) {
     // Google's token revocation endpoint
     const revokeEndpoint = "https://oauth2.googleapis.com/revoke";
     
+    // Prepare the form data for token revocation
+    const formData = new URLSearchParams();
+    formData.append('token', token.accessToken);
+    formData.append('token_type_hint', 'access_token');
+    
+    console.log('Attempting to revoke token with endpoint:', revokeEndpoint);
+    
     // Make the request to Google to revoke the token
-    const response = await fetch(`${revokeEndpoint}?token=${token.accessToken}`, {
+    const response = await fetch(revokeEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: formData
     });
+    
+    console.log('Token revocation response status:', response.status);
 
     if (response.ok) {
       return NextResponse.json({ success: true });
