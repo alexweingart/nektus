@@ -236,56 +236,41 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   const containerClassName = `transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`;
 
+  // Simple select element styling
+  const selectStyle = {
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
+    padding: '0.5rem 0.75rem',
+    backgroundColor: 'transparent',
+    border: 'none',
+    outline: 'none',
+    width: '4rem', // Wide enough for the flag and dropdown icon
+    cursor: 'pointer'
+  } as React.CSSProperties;
+
   return (
     <div
       className={containerClassName}
       style={containerStyle}
     >
-      {/* Country selector with no borders */}
-      <div style={{ position: 'relative' }} ref={dropdownRef}>
-        <button 
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Country selector clicked');
-            setIsDropdownOpen(!isDropdownOpen);
+      {/* Country selector using native select for reliable dropdown */}
+      <div className="flex-shrink-0">
+        <select 
+          value={selectedCountry.code}
+          onChange={(e) => {
+            const countryCode = e.target.value;
+            const country = countries.find(c => c.code === countryCode);
+            if (country) handleCountrySelect(country);
           }}
-          className="flex items-center justify-between px-3 py-2 h-full cursor-pointer bg-transparent border-0 outline-none"
+          style={selectStyle}
+          className="focus:outline-none"
         >
-          <span className="mr-2">{selectedCountry.flag}</span>
-          <div className="flex flex-col text-primary">
-            <FaChevronUp className="h-3 w-3" />
-            <FaChevronDown className="h-3 w-3" />
-          </div>
-        </button>
-        
-        {/* Country dropdown - using portal to avoid z-index issues */}
-        {isDropdownOpen && (
-          <div 
-            className="fixed bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto w-60" 
-            style={{ 
-              zIndex: 9999,
-              position: 'absolute',
-              top: '100%',
-              left: 0
-            }}
-          >
-            {countries.map((country) => (
-              <div
-                key={country.code}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCountrySelect(country);
-                }}
-              >
-                <span className="mr-2">{country.flag}</span>
-                <span>{country.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
+          {countries.map((country) => (
+            <option key={country.code} value={country.code}>
+              {country.flag}
+            </option>
+          ))}
+        </select>
       </div>
       
       {/* Phone number input with no borders */}
