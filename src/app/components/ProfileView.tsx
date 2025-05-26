@@ -208,40 +208,176 @@ const ProfileView: React.FC = () => {
       
       // Generate content right away
       if (bio === PLACEHOLDER_BIO) {
-        console.log('Bio is placeholder, applying fallback content...');
-        // Apply hardcoded fallback directly
-        setBio(FALLBACK_BIO);
-        
-        // Save to localStorage
-        try {
-          const cachedContent = localStorage.getItem('nektus_generated_content') || '{}';
-          const content = JSON.parse(cachedContent);
-          content.bio = FALLBACK_BIO;
-          localStorage.setItem('nektus_generated_content', JSON.stringify(content));
-          console.log('Saved fallback bio to localStorage');
-        } catch (err) {
-          console.error('Error saving bio to localStorage:', err);
-        }
+        console.log('Bio is placeholder, generating...');
+        generateBio();
       }
       
       if (bgImage === DEFAULT_BG_IMAGE) {
-        console.log('Background is default, applying fallback content...');
-        // Apply hardcoded fallback directly
-        setBgImage(FALLBACK_BG);
-        
-        // Save to localStorage
-        try {
-          const cachedContent = localStorage.getItem('nektus_generated_content') || '{}';
-          const content = JSON.parse(cachedContent);
-          content.backgroundImage = FALLBACK_BG;
-          localStorage.setItem('nektus_generated_content', JSON.stringify(content));
-          console.log('Saved fallback background to localStorage');
-        } catch (err) {
-          console.error('Error saving background to localStorage:', err);
-        }
+        console.log('Background is default, generating...');
+        generateBackground();
       }
     }
   }, [localProfile, bio, bgImage]);
+  
+  // Process bio generation request
+  const generateBio = async () => {
+    console.log('Generating bio...');
+    
+    try {
+      // Show loading state
+      setIsAIContentLoading(true);
+      
+      // Check if we already have it in localStorage
+      const cachedContent = localStorage.getItem('nektus_generated_content');
+      const content = cachedContent ? JSON.parse(cachedContent) : {};
+      
+      if (content.bio && content.bio !== PLACEHOLDER_BIO) {
+        console.log('Using cached bio:', content.bio);
+        setBio(content.bio);
+        return;
+      }
+      
+      // Try the API call with detailed error logging
+      console.log('Making API call to generate bio with profile:', localProfile);
+      
+      if (localProfile) {
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'bio',
+            profile: localProfile
+          }),
+        });
+        
+        // Log full response for debugging
+        console.log('API response status:', response.status);
+        
+        const responseText = await response.text();
+        console.log('API response text:', responseText);
+        
+        if (!response.ok) {
+          console.error(`Bio generation API error (${response.status}):`, responseText);
+          return; // Keep placeholder
+        }
+        
+        // Parse JSON manually after reading text
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse API response JSON:', e);
+          return; // Keep placeholder
+        }
+        
+        console.log('API response for bio:', data);
+        
+        if (data.bio && data.bio !== PLACEHOLDER_BIO) {
+          console.log('Successfully generated bio:', data.bio);
+          
+          // Update state immediately
+          setBio(data.bio);
+          
+          // Save to localStorage (merge with existing content)
+          const updatedContent = { ...content, bio: data.bio };
+          localStorage.setItem('nektus_generated_content', JSON.stringify(updatedContent));
+        } else {
+          console.error('API returned empty or placeholder bio:', data);
+          // Keep placeholder
+        }
+      }
+    } catch (error) {
+      console.error('Error in bio generation process:', error);
+      // Keep placeholder
+    } finally {
+      setIsAIContentLoading(false);
+    }
+  };
+  
+  // Process background image generation request
+  const generateBackground = async () => {
+    console.log('Generating background image...');
+    
+    try {
+      // Show loading state
+      setIsAIContentLoading(true);
+      
+      // Check if we already have it in localStorage
+      const cachedContent = localStorage.getItem('nektus_generated_content');
+      const content = cachedContent ? JSON.parse(cachedContent) : {};
+      
+      if (content.backgroundImage && content.backgroundImage !== DEFAULT_BG_IMAGE) {
+        console.log('Using cached background:', content.backgroundImage);
+        setBgImage(content.backgroundImage);
+        return;
+      }
+      
+      // Try the API call with detailed error logging
+      console.log('Making API call to generate background with profile:', localProfile);
+      
+      if (localProfile) {
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'background',
+            profile: localProfile
+          }),
+        });
+        
+        // Log full response for debugging
+        console.log('API response status:', response.status);
+        
+        const responseText = await response.text();
+        console.log('API response text:', responseText);
+        
+        if (!response.ok) {
+          console.error(`Background generation API error (${response.status}):`, responseText);
+          return; // Keep placeholder
+        }
+        
+        // Parse JSON manually after reading text
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse API response JSON:', e);
+          return; // Keep placeholder
+        }
+        
+        console.log('API response for background:', data);
+        
+        if (data.imageUrl && data.imageUrl !== DEFAULT_BG_IMAGE) {
+          console.log('Successfully generated background:', data.imageUrl);
+          
+          // Create an image element to preload the image
+          const img = new Image();
+          img.onload = () => {
+            // Update state only after image is loaded
+            setBgImage(data.imageUrl);
+            console.log('Background image loaded and applied');
+          };
+          img.onerror = (e) => {
+            console.error('Failed to load background image:', data.imageUrl, e);
+            // Keep placeholder
+          };
+          img.src = data.imageUrl;
+          
+          // Save to localStorage (merge with existing content)
+          const updatedContent = { ...content, backgroundImage: data.imageUrl };
+          localStorage.setItem('nektus_generated_content', JSON.stringify(updatedContent));
+        } else {
+          console.error('API returned empty or default background:', data);
+          // Keep placeholder
+        }
+      }
+    } catch (error) {
+      console.error('Error in background generation process:', error);
+      // Keep placeholder
+    } finally {
+      setIsAIContentLoading(false);
+    }
+  };
   
   // If session becomes available later, create profile from it
   useEffect(() => {
@@ -266,15 +402,14 @@ const ProfileView: React.FC = () => {
     return phone.startsWith('+') ? phone : `+${cleaned}`;
   };
   
-  // Apply hardcoded content immediately
-  const applyTestContent = () => {
-    setBio(FALLBACK_BIO);
-    setBgImage(FALLBACK_BG);
+  // Clear generated content and reset to placeholders
+  const clearGeneratedContent = () => {
+    setBio(PLACEHOLDER_BIO);
+    setBgImage(DEFAULT_BG_IMAGE);
     
-    // Save to localStorage
-    const content = { bio: FALLBACK_BIO, backgroundImage: FALLBACK_BG };
-    localStorage.setItem('nektus_generated_content', JSON.stringify(content));
-    console.log('Applied test content directly');
+    // Clear from localStorage
+    localStorage.removeItem('nektus_generated_content');
+    console.log('Cleared all generated content');
   };
   
   // Show message if no profile exists
@@ -331,21 +466,19 @@ const ProfileView: React.FC = () => {
           <div><strong>BG URL:</strong> <span className="break-all">{bgImage?.substring(0, 30)}...</span></div>
           <div className="flex space-x-2 mt-2">
             <button 
-              onClick={() => {
-                localStorage.removeItem('nektus_generated_content');
-                setBio(PLACEHOLDER_BIO);
-                setBgImage(DEFAULT_BG_IMAGE);
-                alert('Cleared AI content. Refresh page to regenerate.');
-              }}
+              onClick={clearGeneratedContent}
               className="px-2 py-1 bg-red-500 text-white rounded text-xs"
             >
               Clear Content
             </button>
             <button 
-              onClick={applyTestContent}
-              className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+              onClick={() => {
+                generateBio();
+                generateBackground();
+              }}
+              className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
             >
-              Apply Test Content
+              Retry Generation
             </button>
           </div>
         </div>
