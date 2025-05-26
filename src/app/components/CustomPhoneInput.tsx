@@ -220,13 +220,20 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   };
 
   return (
-    <div className={`flex w-full bg-white border border-gray-300 rounded-md relative ${className}`}>
+    <div 
+      className={`flex w-full bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
+      onFocus={() => setIsInputFocused(true)}
+      onBlur={() => setIsInputFocused(false)}
+    >
       {/* Country selector */}
       <div className="relative z-10" ref={dropdownRef}>
         <button
           type="button"
           className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none border-0 rounded-l-md"
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          onClick={() => {
+            setIsDropdownOpen(!isDropdownOpen);
+            setIsInputFocused(true);
+          }}
           aria-label="Select country"
         >
           <span className="mr-2">{selectedCountry.flag}</span>
@@ -266,8 +273,14 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
-        className="flex-1 px-3 py-2 bg-white focus:outline-none rounded-r-md"
+        style={{ 
+          border: 'none', 
+          outline: 'none', 
+          boxShadow: 'none',
+          borderTopRightRadius: '0.375rem',
+          borderBottomRightRadius: '0.375rem'
+        }}
+        className="flex-1 px-3 py-2 bg-white focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
