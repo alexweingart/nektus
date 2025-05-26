@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp, 
@@ -60,11 +61,19 @@ const getPlaceholderBio = (name: string | null | undefined) => {
   return PLACEHOLDER_BIOS[nameSum % PLACEHOLDER_BIOS.length];
 };
 
+// Define extended UserProfile type with AI content fields
+type ExtendedUserProfile = UserProfile & {
+  bio?: string;
+  backgroundImage?: string;
+};
+
 const ProfileView: React.FC = () => {
   const { data: session } = useSession();
+  const profileContextData = useProfile();
+  const { saveProfile } = profileContextData;
   
   // Local state to manage profile data from multiple sources
-  const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
+  const [localProfile, setLocalProfile] = useState<ExtendedUserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // State for progressively loaded content
@@ -159,14 +168,22 @@ const ProfileView: React.FC = () => {
     return phone; // Return original if we can't format it
   };
 
-  // Load AI content asynchronously
+  // Load AI content asynchronously - optimized to make only one call per type
   const loadAIContent = async (profile: UserProfile) => {
     if (!profile) return;
     
     try {
       setIsAIContentLoading(true);
       
-      // Generate bio in background - fire and forget
+      // Check if we already have bio and background stored in the profile context
+      if (profileContextData.profile?.bio && profileContextData.profile?.backgroundImage) {
+        setBio(profileContextData.profile.bio);
+        setBgImage(profileContextData.profile.backgroundImage);
+        setIsAIContentLoading(false);
+        return;
+      }
+      
+      // Make a single call for bio generation
       fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -182,12 +199,16 @@ const ProfileView: React.FC = () => {
         }
         throw new Error('Bio generation failed');
       }).then(data => {
-        setBio(data.bio);
+        const generatedBio = data.bio;
+        setBio(generatedBio);
+        
+        // Save bio to profile context
+        saveProfile({ bio: generatedBio });
       }).catch(error => {
         console.error('Error loading bio:', error);
       });
       
-      // Generate background image in background - fire and forget
+      // Make a single call for background image generation
       fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -203,7 +224,11 @@ const ProfileView: React.FC = () => {
         }
         throw new Error('Background generation failed');
       }).then(data => {
-        setBgImage(data.imageUrl);
+        const imageUrl = data.imageUrl;
+        setBgImage(imageUrl);
+        
+        // Save background image to profile context
+        saveProfile({ backgroundImage: imageUrl });
       }).catch(error => {
         console.error('Error loading background:', error);
       }).finally(() => {
@@ -300,100 +325,123 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Contact & Social Icons */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
-          {/* Phone */}
-          {localProfile.phone && (
-            <a href={`tel:${localProfile.phone}`} style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                width: '50px', 
-                height: '50px', 
-                borderRadius: '25px', 
-                backgroundColor: 'rgba(255,255,255,0.2)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: 'white',
-                transition: 'all 0.2s ease'
-              }}>
-                <FaPhone size={20} />
-              </div>
-            </a>
-          )}
-          
-          {/* Email */}
-          {localProfile.email && (
-            <a href={`mailto:${localProfile.email}`} style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                width: '50px', 
-                height: '50px', 
-                borderRadius: '25px', 
-                backgroundColor: 'rgba(255,255,255,0.2)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: 'white',
-                transition: 'all 0.2s ease'
-              }}>
-                <FaEnvelope size={20} />
-              </div>
-            </a>
-          )}
-          
-          {/* Social Media Icons - only show if profiles exist */}
-          {localProfile.socialProfiles && localProfile.socialProfiles.map((social: SocialProfile) => {
-            // Skip if username is empty
-            if (!social.username) return null;
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+          {/* Create organized icon list with correct order and indicator dots */}
+          {(() => {
+            // Define icons in correct order
+            const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'telegram', 'linkedin'];
             
-            let icon = null;
-            let url = '';
-            
-            switch(social.platform) {
-              case 'facebook':
-                icon = <FaFacebook size={20} />;
-                url = `https://facebook.com/${social.username}`;
-                break;
-              case 'instagram':
-                icon = <FaInstagram size={20} />;
-                url = `https://instagram.com/${social.username}`;
-                break;
-              case 'whatsapp':
-                icon = <FaWhatsapp size={20} />;
-                url = `https://wa.me/${social.username}`;
-                break;
-              case 'snapchat':
-                icon = <FaSnapchat size={20} />;
-                url = `https://snapchat.com/add/${social.username}`;
-                break;
-              case 'telegram':
-                icon = <FaTelegram size={20} />;
-                url = `https://t.me/${social.username}`;
-                break;
-              case 'linkedin':
-                icon = <FaLinkedin size={20} />;
-                url = `https://linkedin.com/in/${social.username}`;
-                break;
-              default:
-                return null;
+            // Map of available social profiles by platform
+            const socialMap: Record<string, SocialProfile> = {};
+            if (localProfile.socialProfiles) {
+              localProfile.socialProfiles.forEach(social => {
+                if (social.username) {
+                  socialMap[social.platform] = social;
+                }
+              });
             }
             
-            return (
-              <a key={social.platform} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <div style={{ 
-                  width: '50px', 
-                  height: '50px', 
-                  borderRadius: '25px', 
-                  backgroundColor: 'rgba(255,255,255,0.2)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  color: 'white',
-                  transition: 'all 0.2s ease'
-                }}>
-                  {icon}
-                </div>
-              </a>
-            );
-          })}
+            // Create each icon in order
+            return orderedPlatforms.map(platform => {
+              // Skip platforms with no data
+              if (platform === 'phone' && !localProfile.phone) return null;
+              if (platform === 'email' && !localProfile.email) return null;
+              if (platform !== 'phone' && platform !== 'email' && !socialMap[platform]) return null;
+              
+              // Common icon container style
+              const iconContainerStyle = {
+                position: 'relative' as const,
+                width: '40px',
+                height: '40px',
+                borderRadius: '20px',
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                transition: 'all 0.2s ease'
+              };
+              
+              // Determine icon and URL for each platform
+              let icon = null;
+              let url = '';
+              
+              switch(platform) {
+                case 'phone':
+                  icon = <FaPhone size={16} />;
+                  url = `tel:${localProfile.phone}`;
+                  break;
+                case 'email':
+                  icon = <FaEnvelope size={16} />;
+                  url = `mailto:${localProfile.email}`;
+                  break;
+                case 'facebook':
+                  icon = <FaFacebook size={16} />;
+                  url = `https://facebook.com/${socialMap[platform].username}`;
+                  break;
+                case 'instagram':
+                  icon = <FaInstagram size={16} />;
+                  url = `https://instagram.com/${socialMap[platform].username}`;
+                  break;
+                case 'whatsapp':
+                  icon = <FaWhatsapp size={16} />;
+                  url = `https://wa.me/${socialMap[platform].username}`;
+                  break;
+                case 'snapchat':
+                  icon = <FaSnapchat size={16} />;
+                  url = `https://snapchat.com/add/${socialMap[platform].username}`;
+                  break;
+                case 'telegram':
+                  icon = <FaTelegram size={16} />;
+                  url = `https://t.me/${socialMap[platform].username}`;
+                  break;
+                case 'linkedin':
+                  icon = <FaLinkedin size={16} />;
+                  url = `https://linkedin.com/in/${socialMap[platform].username}`;
+                  break;
+                default:
+                  return null;
+              }
+              
+              // Determine if this icon should have a dot indicator (all except phone and email)
+              const shouldShowDot = platform !== 'phone' && platform !== 'email';
+              
+              return (
+                <a key={platform} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <div style={iconContainerStyle}>
+                    {icon}
+                    {shouldShowDot && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '2px',
+                        right: '2px',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '4px',
+                        backgroundColor: '#FFD700', // Yellow dot
+                        border: '1px solid rgba(0,0,0,0.2)'
+                      }} />
+                    )}
+                  </div>
+                </a>
+              );
+            });
+          })()}
+        </div>
+        
+        {/* Edit Profile Link - Simple text hyperlink */}
+        <div style={{ marginBottom: '20px' }}>
+          <Link 
+            href="/setup" 
+            style={{
+              color: 'var(--primary)',
+              textDecoration: 'underline',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            Edit Profile
+          </Link>
         </div>
         
         {/* Action Buttons */}
@@ -416,27 +464,6 @@ const ProfileView: React.FC = () => {
             }}
           >
             Nekt
-          </Link>
-          
-          <Link 
-            href="/setup"
-            style={{
-              ...standardButtonStyle,
-              backgroundColor: 'transparent',
-              border: '2px solid var(--primary)',
-              color: 'var(--primary)',
-              marginTop: '12px'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            Edit Profile
           </Link>
         </div>
       </div>
