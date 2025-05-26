@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
+import ForceContentGenerator from './ForceContentGenerator';
 
 // Define types for profile data
 type SocialProfile = {
@@ -189,6 +190,22 @@ const ProfileView: React.FC = () => {
     };
     
     loadProfile();
+    
+    // Load any cached AI content from localStorage
+    try {
+      const cachedContent = localStorage.getItem('nektus_generated_content');
+      if (cachedContent) {
+        const parsedContent = JSON.parse(cachedContent);
+        if (parsedContent.bio) {
+          setBio(parsedContent.bio);
+        }
+        if (parsedContent.backgroundImage) {
+          setBgImage(parsedContent.backgroundImage);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached AI content:', error);
+    }
   }, [session, profileContextData]); // Re-run when session changes
   
   // If session becomes available later, create profile from it
@@ -254,6 +271,7 @@ const ProfileView: React.FC = () => {
           const data = await response.json();
           if (data.bio) {
             setBio(data.bio);
+            localStorage.setItem('nektus_generated_content', JSON.stringify({ bio: data.bio }));
           }
         }
       } catch (error) {
@@ -280,6 +298,7 @@ const ProfileView: React.FC = () => {
           const data = await response.json();
           if (data.imageUrl) {
             setBgImage(data.imageUrl);
+            localStorage.setItem('nektus_generated_content', JSON.stringify({ backgroundImage: data.imageUrl }));
           }
         }
       } catch (error) {
@@ -338,13 +357,37 @@ const ProfileView: React.FC = () => {
 
   // Show message if no profile exists
   if (!localProfile) {
+    // Handler for when ForceContentGenerator generates content
+    const handleContentGenerated = (data: { bio: string, backgroundImage: string }) => {
+      if (data.bio) {
+        setBio(data.bio);
+      }
+      if (data.backgroundImage) {
+        setBgImage(data.backgroundImage);
+      }
+    };
+
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-4" style={{ backgroundColor: 'var(--background)' }}>
-        <h1 className="text-2xl font-bold text-primary mb-4">Profile Not Found</h1>
-        <p className="text-center mb-6">Please create your profile first.</p>
-        <Link href="/setup" className="nekt-button w-full text-center">
-          Create Profile
-        </Link>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4" style={{ backgroundColor: bgImage ? 'transparent' : 'var(--background)' }}>
+        {/* Add the ForceContentGenerator component for direct content generation */}
+        {process.env.NODE_ENV !== 'production' && session?.user?.email && (
+          <ForceContentGenerator 
+            email={session.user.email} 
+            onGenerated={handleContentGenerated}
+          />
+        )}
+        
+        {/* Background image - only show if we have one */}
+        {bgImage && (
+          <div
+            className="absolute top-0 left-0 w-full h-full opacity-20 z-0"
+            style={{
+              backgroundImage: `url(${bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -430,85 +473,113 @@ const ProfileView: React.FC = () => {
         
         {/* Contact & Social Icons - Arranged in 2 rows */}
         <div style={{ marginBottom: '24px', width: '100%', maxWidth: '320px' }}>
-          {/* Create organized icon list with correct order */}
+          {/* First row - 4 icons with equal spacing */}
           <div style={{ 
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gridTemplateRows: 'repeat(2, auto)',
-            gap: '16px',
-            justifyContent: 'center',
-            margin: '0 auto'
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            marginBottom: '20px' 
           }}>
-            {(() => {
-              // Define icons in correct order
-              const orderedPlatforms = ['phone', 'email', 'facebook', 'instagram', 'whatsapp', 'snapchat', 'twitter', 'telegram', 'linkedin'];
-              
-              // Map of available social profiles by platform
-              const socialMap: Record<string, SocialProfile> = {};
-              if (localProfile.socialProfiles) {
-                localProfile.socialProfiles.forEach((social: SocialProfile) => {
-                  // Map all social profiles, even if username is empty
-                  // This ensures the icons are displayed but can be configured later
-                  socialMap[social.platform] = social;
-                });
-              }
-              
-              // Create each icon in order - display all required platforms
-              return orderedPlatforms.map(platform => {
-                // For phone
-                if (platform === 'phone') {
-                  // Always show phone icon, even if number is empty
-                  // This ensures consistency in the UI
-                  return (
-                    <div key={platform} className="flex justify-center">
-                      <SocialIcon
-                        platform={platform as any}
-                        username={localProfile.phone || ''}
-                        size="md"
-                      />
-                    </div>
-                  );
-                }
-                
-                // For email
-                if (platform === 'email' && (!localProfile.email || localProfile.email.trim() === '')) return null;
-                
-                // For social profiles
-                if (platform !== 'phone' && platform !== 'email') {
-                  // Only show if profile exists
-                  if (!socialMap[platform]) return null;
-                  
-                  // For now we'll display all social platforms even if username is empty
-                  // This makes it clear to the user which platforms are supported
-                  // In a real app, you might want to hide empty ones or show them differently
-                }
-                
-                // Get username for platforms
-                const username = platform === 'phone' ? localProfile.phone :
-                                platform === 'email' ? localProfile.email :
-                                socialMap[platform]?.username || '';
-                
-                return (
-                  <div key={platform} className="flex justify-center">
-                    <SocialIcon
-                      platform={platform as any}
-                      username={username}
-                      size="md"
-                    />
-                  </div>
-                );
-              });
-            })()}
+            {/* Phone Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="phone"
+                username={localProfile.phone || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* Email Icon */}
+            {localProfile.email && (
+              <div className="flex justify-center">
+                <SocialIcon
+                  platform="email"
+                  username={localProfile.email}
+                  size="md"
+                />
+              </div>
+            )}
+            
+            {/* Facebook Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="facebook"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'facebook')?.username || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* Instagram Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="instagram"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'instagram')?.username || ''}
+                size="md"
+              />
+            </div>
+          </div>
+          
+          {/* Second row - 5 icons with equal spacing */}
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            {/* WhatsApp Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="whatsapp"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'whatsapp')?.username || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* Snapchat Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="snapchat"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'snapchat')?.username || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* Twitter Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="twitter"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'twitter')?.username || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* Telegram Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="telegram"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'telegram')?.username || ''}
+                size="md"
+              />
+            </div>
+            
+            {/* LinkedIn Icon */}
+            <div className="flex justify-center">
+              <SocialIcon
+                platform="linkedin"
+                username={localProfile.socialProfiles?.find(p => p.platform === 'linkedin')?.username || ''}
+                size="md"
+              />
+            </div>
           </div>
         </div>
         
         {/* Action Buttons */}
-        <div style={{ width: '100%', maxWidth: '320px' }}>
+        <div style={{ width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Link 
             href="/connect"
             className="nekt-button w-full text-center"
           >
             Nekt
+          </Link>
+          <Link 
+            href="/profile/edit"
+            className="edit-button w-full text-center border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Edit Profile
           </Link>
         </div>
       </div>
