@@ -210,6 +210,9 @@ async function generateBackground(profile: any) {
       const result = await openai.images.generate({
         model: 'gpt-image-1',
         prompt,
+        response_format: 'b64_json',  // Explicitly request base64 JSON format
+        size: '1024x1024',  // Standard size
+        n: 1,  // Generate one image
       });
       
       console.log('OpenAI response received, data structure:', 
