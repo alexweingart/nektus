@@ -160,7 +160,8 @@ async function generateBio(profile: any) {
       temperature: 0.7,
     });
 
-    const bio = response.choices[0]?.message?.content?.trim() || 
+    // Add additional null check for response itself
+    const bio = response && response.choices && response.choices[0]?.message?.content?.trim() || 
       'Connecting people through technology';
     
     // Store the generated bio in Firestore
@@ -186,109 +187,40 @@ async function generateBackground(profile: any) {
   try {
     // Safety check for OpenAI client
     if (!openai) {
-      console.error('OpenAI client not initialized - API key may be missing');
       return NextResponse.json({ imageUrl: '/gradient-bg.jpg' });
     }
 
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
-    console.log('Starting OpenAI background image generation with model: gpt-image-1');
-    
-    try {
-      // Create a prompt for the image generation
-      const prompt = `Create an abstract, gradient background image that represents the essence of ${profile.name}. 
+    const response = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt: `Create an abstract, gradient background image that represents the essence of ${profile.name}. 
       The image should be subtle, elegant, and suitable as a profile page background. 
       Use soft colors that create a professional appearance. No text or people should be visible.
       
       ${socialLinks ? `Personalize based on these social media profiles:
-      ${socialLinks}` : ''}`;
-      
-      console.log('OpenAI request prompt:', prompt);
-      
-      // Use the simple API format exactly as shown in the example - without additional parameters
-      console.log('Calling OpenAI API with minimal parameters');
-      
-      // Create a promise that rejects after a timeout
-      const timeout = new Promise((_, reject) => {
-        const timeoutId = setTimeout(() => {
-          clearTimeout(timeoutId);
-          reject(new Error('OpenAI API request timed out after 10 seconds'));
-        }, 10000); // 10 second timeout
-      });
-      
-      // Race the API call against the timeout
-      const result = await Promise.race([
-        openai.images.generate({
-          model: 'gpt-image-1',
-          prompt,
-        }),
-        timeout
-      ]) as OpenAI.Images.ImagesResponse;
-      
-      console.log('OpenAI response received, data structure:', 
-        JSON.stringify(Object.keys(result), null, 2));
-      
-      // Log the complete response for debugging
-      console.log('Full OpenAI response:', JSON.stringify(result, null, 2));
-      
-      // Check all possible response formats
-      console.log('Response data array:', result.data);
-      console.log('First item in data array:', result.data[0]);
-      
-      // Try to find a URL or image data in the response
-      let imageUrl = '/gradient-bg.jpg';
-      
-      if (result.data && result.data[0]) {
-        if (result.data[0].url) {
-          // If there's a direct URL
-          imageUrl = result.data[0].url;
-          console.log('Found URL in response:', imageUrl);
-        } else if (result.data[0].b64_json) {
-          // If there's base64 data
-          imageUrl = `data:image/png;base64,${result.data[0].b64_json}`;
-          console.log('Found base64 data in response');
-        } else if (typeof result.data[0] === 'string') {
-          // If the data itself is a string (URL)
-          imageUrl = result.data[0];
-          console.log('Data is a string URL:', imageUrl);
-        } else {
-          console.error('Unexpected response format:', result.data[0]);
-          // Keep the default image URL
-        }
-      } else {
-        console.error('No data in response:', result);
-        // Keep the default image URL
+      ${socialLinks}` : ''}`,
+      n: 1,
+      size: '1024x1024',
+      quality: 'standard',
+    });
+
+    // Ensure response and data are defined before accessing
+    const imageUrl = response && response.data && response.data[0] && response.data[0].url ? 
+      response.data[0].url : '/gradient-bg.jpg';
+    
+    // Store the generated background image URL in Firestore
+    if (profile.userId) {
+      try {
+        const aiContentRef = doc(db, 'ai_content', profile.userId);
+        await setDoc(aiContentRef, { backgroundImage: imageUrl }, { merge: true });
+      } catch (error) {
+        console.error('Error storing AI background image content:', error);
       }
-      
-      // Store the generated background image URL in Firestore
-      if (profile.userId) {
-        try {
-          const aiContentRef = doc(db, 'ai_content', profile.userId);
-          await setDoc(aiContentRef, { backgroundImage: imageUrl }, { merge: true });
-        } catch (error) {
-          console.error('Error storing AI background image content:', error);
-        }
-      }
-      
-      return NextResponse.json({ imageUrl });
-    } catch (error: any) {
-      // Log detailed error information for debugging
-      console.error('OpenAI API error during background generation:');
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Data:', error.response.data);
-      } else if (error.message) {
-        console.error('Error message:', error.message);
-      } else {
-        console.error('Unknown error:', error);
-      }
-      
-      return NextResponse.json({ 
-        imageUrl: '/gradient-bg.jpg',
-        error: error.message || 'Unknown error during image generation'
-      });
     }
+    
+    return NextResponse.json({ imageUrl });
   } catch (error) {
     console.error('Background generation error:', error);
     return NextResponse.json({ imageUrl: '/gradient-bg.jpg' });
@@ -326,7 +258,9 @@ async function generateAvatar(profile: any) {
       quality: 'standard',
     });
 
-    const avatarUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : (profile.picture || '/default-avatar.png');
+    // Ensure response and data are defined before accessing
+    const avatarUrl = response && response.data && response.data[0] && response.data[0].url ? 
+      response.data[0].url : (profile.picture || '/default-avatar.png');
     
     // Store the generated avatar URL in Firestore
     if (profile.userId) {
