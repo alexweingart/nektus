@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 
 interface SocialIconProps {
-  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram';
+  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
   username?: string;
   size?: 'sm' | 'md' | 'lg';
   onClick?: () => void;
@@ -48,6 +48,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
         return <FaWhatsapp className={getIconClass()} />;
       case 'telegram':
         return <FaTelegram className={getIconClass()} />;
+      case 'wechat':
+        return <FaWeixin className={getIconClass()} />;
       default:
         return null;
     }
@@ -79,12 +81,11 @@ const SocialIcon: React.FC<SocialIconProps> = ({
           ${getContainerSize()} 
           flex items-center justify-center 
           rounded-full 
-          transition-all duration-200
-          ${isActive ? 'bg-primary-dark' : 'bg-primary hover:bg-primary-dark'}
-          shadow-sm hover:shadow-md
+          transition-colors duration-200
+          ${isActive ? 'bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'}
         `}
       >
-        <div className="text-white">
+        <div className={`${isActive ? 'text-green-500' : 'text-white'}`}>
           {renderIcon()}
         </div>
       </div>
