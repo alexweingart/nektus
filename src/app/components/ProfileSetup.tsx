@@ -304,8 +304,12 @@ export default function ProfileSetup() {
   // Handle saving data with ultra-fast navigation first approach
   const handleSave = () => {
     try {
-      // Filter out email and phone profiles and convert to the expected format
-      const profilesForSaving = socialProfiles
+      // Get email from the existing social profiles
+      const emailProfile = socialProfiles.find(p => p.platform === 'email');
+      const emailUsername = emailProfile?.username?.split('@')[0] || '';
+      
+      // Start with existing profiles but filter out email and phone
+      let profilesForSaving = socialProfiles
         .filter(p => p.platform !== 'email' && p.platform !== 'phone')
         .map(({ platform, username, shareEnabled, filled }) => ({
           platform,
@@ -322,6 +326,47 @@ export default function ProfileSetup() {
       }
       
       const fullNumber = parsed.number; // e.g. +18182926036
+      const normalizedPhone = fullNumber.replace(/[^0-9]/g, '');
+      
+      // Auto-populate WhatsApp, Telegram, and WeChat with phone number if they're empty
+      const phoneBasedPlatforms = ['whatsapp', 'telegram', 'wechat'] as const;
+      phoneBasedPlatforms.forEach(platform => {
+        const profileIndex = profilesForSaving.findIndex(p => p.platform === platform);
+        
+        if (profileIndex === -1) {
+          // Add the platform with phone number
+          profilesForSaving.push({
+            platform,
+            username: normalizedPhone,
+            shareEnabled: true,
+            filled: !!normalizedPhone
+          });
+        } else if (!profilesForSaving[profileIndex].username) {
+          // Update existing empty platform with phone number
+          profilesForSaving[profileIndex].username = normalizedPhone;
+          profilesForSaving[profileIndex].filled = !!normalizedPhone;
+        }
+      });
+      
+      // Auto-populate other social profiles with email username if they're empty
+      const emailBasedPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'] as const;
+      emailBasedPlatforms.forEach(platform => {
+        const profileIndex = profilesForSaving.findIndex(p => p.platform === platform);
+        
+        if (profileIndex === -1) {
+          // Add the platform with email username
+          profilesForSaving.push({
+            platform,
+            username: emailUsername,
+            shareEnabled: true,
+            filled: !!emailUsername
+          });
+        } else if (!profilesForSaving[profileIndex].username) {
+          // Update existing empty platform with email username
+          profilesForSaving[profileIndex].username = emailUsername;
+          profilesForSaving[profileIndex].filled = !!emailUsername;
+        }
+      });
       
       // Create profile data structure
       const profileData = {
@@ -340,7 +385,9 @@ export default function ProfileSetup() {
           socialProfiles: profilesForSaving,
           lastUpdated: Date.now(),
         };
+        // Ensure we're saving the complete profile to local storage
         localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
+        console.log('Saved profile to localStorage:', cachedProfile);
       }
       
       // Set a flag to indicate that profile setup was just completed
