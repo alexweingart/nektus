@@ -378,16 +378,15 @@ const ProfileView: React.FC = () => {
         )}
         
         {/* Background image - only show if we have one */}
-        {bgImage && (
-          <div
-            className="absolute top-0 left-0 w-full h-full opacity-20 z-0"
-            style={{
-              backgroundImage: `url(${bgImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-        )}
+        <div
+          className="profile-background absolute top-0 left-0 w-full h-full opacity-20 z-0"
+          style={{
+            backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            display: bgImage ? 'block' : 'none'
+          }}
+        />
       </div>
     );
   }

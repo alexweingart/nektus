@@ -70,11 +70,33 @@ export default function ForceContentGenerator({ email, onGenerated }: {
       });
       
       // Save to local storage for persistence across page loads
-      localStorage.setItem('nektus_generated_content', JSON.stringify({
+      const existingContent = localStorage.getItem('nektus_generated_content');
+      const newContent = {
         bio: generatedBio,
         backgroundImage: generatedBg,
         timestamp: new Date().toISOString()
-      }));
+      };
+      
+      // This is critical - log what we're storing
+      console.log('Storing generated content in localStorage:', newContent);
+      localStorage.setItem('nektus_generated_content', JSON.stringify(newContent));
+      
+      // Also update directly in document.body for immediate effect
+      if (generatedBg) {
+        try {
+          // Add the background image as a style directly to the body
+          const bgElement = document.querySelector('.profile-background');
+          if (bgElement) {
+            console.log('Setting background on element:', bgElement);
+            (bgElement as HTMLElement).style.backgroundImage = `url(${generatedBg})`;
+            (bgElement as HTMLElement).style.opacity = '0.2';
+          } else {
+            console.log('No profile-background element found to apply background to');
+          }
+        } catch (err) {
+          console.error('Error applying background directly:', err);
+        }
+      }
       
       setStatus('Generation completed successfully!');
     } catch (err) {
