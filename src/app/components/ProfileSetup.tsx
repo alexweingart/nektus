@@ -128,8 +128,8 @@ export default function ProfileSetup() {
           
           // Handle existing profile data if available
           if (profile) {
-            if (profile.phone) {
-              const parsed = parsePhoneNumberFromString(profile.phone, country);
+            if (profile.internationalPhone) {
+              const parsed = parsePhoneNumberFromString(profile.internationalPhone, country);
               if (parsed?.isValid()) {
                 // Update state with detected country and national digits
                 setDigits(parsed.nationalNumber);
@@ -334,8 +334,10 @@ export default function ProfileSetup() {
         return; 
       }
       
-      const fullNumber = parsed.number; // e.g. +18182926036
-      const normalizedPhone = fullNumber.replace(/[^0-9]/g, '');
+      // Get both formats of the phone number
+      const internationalPhone = parsed.number; // e.g. +18182926036
+      const nationalPhone = parsed.nationalNumber; // e.g. 8182926036
+      const normalizedPhone = internationalPhone.replace(/[^0-9]/g, '');
       
       // Auto-populate WhatsApp, Telegram, and WeChat with phone number if they're empty
       const phoneBasedPlatforms = ['whatsapp', 'telegram', 'wechat'] as const;
@@ -379,7 +381,13 @@ export default function ProfileSetup() {
       
       // Create profile data structure
       const profileData = {
-        phone: fullNumber,
+        // phone field removed per requirements
+        internationalPhone: internationalPhone,
+        nationalPhone: nationalPhone,
+        internationalPhoneUserConfirmed: true,
+        nationalPhoneUserConfirmed: true,
+        country: country,
+        countryUserConfirmed: true,
         socialProfiles: profilesForSaving
       };
       
@@ -390,8 +398,15 @@ export default function ProfileSetup() {
           name: session.user.name || '',
           email: session.user.email,
           picture: session.user.image || '',
-          phone: fullNumber,
+          // phone field removed per requirements
+          internationalPhone: internationalPhone,
+          nationalPhone: nationalPhone,
+          internationalPhoneUserConfirmed: true,
+          nationalPhoneUserConfirmed: true,
+          country: country,
+          countryUserConfirmed: true,
           socialProfiles: profilesForSaving,
+          handle: '',
           lastUpdated: Date.now(),
         };
         // Ensure we're saving the complete profile to local storage
