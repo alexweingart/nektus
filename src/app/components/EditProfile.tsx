@@ -54,6 +54,7 @@ const EditProfile: React.FC = () => {
   useEffect(() => {
     if (profile) {
       console.log('Loading profile data:', profile);
+      console.log('Phone number from profile:', profile.phone);
       // Initialize form data with profile data
       setFormData({
         name: profile.name || '',
@@ -65,11 +66,25 @@ const EditProfile: React.FC = () => {
       });
       
       // Parse phone number to display in the input
-      if (profile.phone) {
-        const parsedPhone = parsePhoneNumberFromString(profile.phone);
-        if (parsedPhone) {
-          setDigits(parsedPhone.nationalNumber);
-          setCountry(parsedPhone.country as any || 'US');
+      if (profile.phone && profile.phone.trim() !== '') {
+        console.log('Attempting to parse phone number:', profile.phone);
+        try {
+          const parsedPhone = parsePhoneNumberFromString(profile.phone);
+          console.log('Parsed phone result:', parsedPhone);
+          
+          if (parsedPhone) {
+            console.log('National number:', parsedPhone.nationalNumber);
+            console.log('Country:', parsedPhone.country);
+            setDigits(parsedPhone.nationalNumber);
+            setCountry(parsedPhone.country as any || 'US');
+          } else {
+            // If the number can't be parsed as E.164, use it directly
+            setDigits(profile.phone.replace(/[^0-9]/g, ''));
+          }
+        } catch (error) {
+          console.error('Error parsing phone number:', error);
+          // Fallback: just use the raw digits
+          setDigits(profile.phone.replace(/[^0-9]/g, ''));
         }
       }
     }
@@ -138,9 +153,45 @@ const EditProfile: React.FC = () => {
       // Convert national phone number to E.164 format
       let fullNumber = formData.phone;
       if (digits) {
-        const parsed = parsePhoneNumberFromString(digits, country);
-        if (parsed?.isValid()) {
-          fullNumber = parsed.number;
+        console.log('Saving phone number from digits:', digits, 'country:', country);
+        try {
+          // Try to parse with the country code
+          const parsed = parsePhoneNumberFromString(digits, country);
+          console.log('Parsed phone result:', parsed);
+          
+          if (parsed?.isValid()) {
+            fullNumber = parsed.number;
+            console.log('Using formatted E.164 number:', fullNumber);
+          } else {
+            // If parsing with country fails, try adding a plus
+            const withPlus = digits.startsWith('+') ? digits : `+${digits}`;
+            const parsedWithPlus = parsePhoneNumberFromString(withPlus);
+            
+            if (parsedWithPlus?.isValid()) {
+              fullNumber = parsedWithPlus.number;
+              console.log('Using formatted E.164 number with added plus:', fullNumber);
+            } else {
+              // Just use digits as-is if all parsing fails
+              fullNumber = digits.replace(/[^0-9]/g, '');
+              // Add country code if it doesn't start with one
+              if (!fullNumber.startsWith('1')) { // Assuming US for now
+                fullNumber = `+1${fullNumber}`;
+              } else {
+                fullNumber = `+${fullNumber}`;
+              }
+              console.log('Using manually formatted number:', fullNumber);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing phone for save:', error);
+          // Use a basic fallback format if parsing fails
+          fullNumber = digits.replace(/[^0-9]/g, '');
+          if (!fullNumber.startsWith('1')) { // Assuming US for now
+            fullNumber = `+1${fullNumber}`;
+          } else {
+            fullNumber = `+${fullNumber}`;
+          }
+          console.log('Using fallback formatted number after error:', fullNumber);
         }
       }
       
@@ -154,8 +205,11 @@ const EditProfile: React.FC = () => {
         backgroundImage: formData.backgroundImage
       };
       
+      console.log('Saving profile with data:', profileData);
+      
       // Save profile
-      await saveProfile(profileData);
+      const savedProfile = await saveProfile(profileData);
+      console.log('Profile saved, result:', savedProfile);
       
       // Update local storage cache
       if (session?.user?.email) {
@@ -170,6 +224,7 @@ const EditProfile: React.FC = () => {
           lastUpdated: Date.now(),
         };
         localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
+        console.log('Updated local storage cache with phone:', fullNumber);
       }
       
       // Navigate back to profile page
