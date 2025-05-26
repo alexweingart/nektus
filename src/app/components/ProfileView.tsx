@@ -322,16 +322,31 @@ const ProfileView: React.FC = () => {
               
               // Create each icon in order - display all required platforms
               return orderedPlatforms.map(platform => {
-                // For phone and email only, skip if no data
-                if (platform === 'phone' && !localProfile.phone) return null;
-                if (platform === 'email' && !localProfile.email) return null;
+                // For phone
+                if (platform === 'phone') {
+                  // Only show phone if it exists
+                  if (!localProfile.phone || localProfile.phone.trim() === '') return null;
+                  return (
+                    <div key={platform} className="flex justify-center">
+                      <SocialIcon
+                        platform={platform as any}
+                        username={localProfile.phone}
+                        size="md"
+                      />
+                    </div>
+                  );
+                }
                 
-                // Determine if this icon has data (profile exists)
-                const hasData = (platform === 'phone' && localProfile.phone) || 
-                  (platform === 'email' && localProfile.email) || 
-                  (platform !== 'phone' && platform !== 'email' && socialMap[platform]);
+                // For email
+                if (platform === 'email' && (!localProfile.email || localProfile.email.trim() === '')) return null;
                 
-                // Get username for social platforms
+                // For social profiles
+                if (platform !== 'phone' && platform !== 'email') {
+                  // Only show if profile exists and has username
+                  if (!socialMap[platform]?.username) return null;
+                }
+                
+                // Get username for platforms
                 const username = platform === 'phone' ? localProfile.phone :
                                 platform === 'email' ? localProfile.email :
                                 socialMap[platform]?.username || '';
