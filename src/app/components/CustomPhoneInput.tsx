@@ -193,12 +193,10 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   // Function to handle blur and immediately refocus if browser didn't move focus elsewhere (e.g., suggestion tap)
   const handleInputBlur = () => {
     setIsInputFocused(false);
-    // If after a short delay the input is not focused and the active element is body/null, refocus.
+    // Always re-focus quickly so keyboard stays up after iOS autofill/suggestion.
     setTimeout(() => {
-      if (inputRef.current && (document.activeElement === document.body || document.activeElement === null)) {
-        inputRef.current.focus();
-      }
-    }, 10);
+      inputRef.current?.focus();
+    }, 30); // <50 ms beats WebKit keyboard-dismiss timer
   };
 
   return (
