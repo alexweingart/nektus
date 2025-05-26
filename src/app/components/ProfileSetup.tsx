@@ -301,10 +301,8 @@ export default function ProfileSetup() {
     }
   };
   
-  // Handle saving profile data with optimized loading
-  const handleSave = async () => {
-    setIsSaving(true);
-    
+  // Handle saving data with ultra-fast navigation first approach
+  const handleSave = () => {
     try {
       // Filter out email and phone profiles and convert to the expected format
       const profilesForSaving = socialProfiles
@@ -320,36 +318,46 @@ export default function ProfileSetup() {
       const parsed = parsePhoneNumberFromString(digits, country);
       if (!parsed?.isValid()) { 
         alert('Invalid phone number'); 
-        setIsSaving(false);
         return; 
       }
       
       const fullNumber = parsed.number; // e.g. +18182926036
       
-      // Start navigation immediately before the Firebase save completes
-      // This allows the profile page to load faster
+      // Create profile data structure
       const profileData = {
         phone: fullNumber,
         socialProfiles: profilesForSaving
       };
       
-      // Begin the save operation, but don't await it yet
-      const savePromise = saveProfile(profileData);
+      // STEP 1: Store data in localStorage for immediate access
+      if (session?.user?.email) {
+        const cachedProfile = {
+          userId: session.user.email,
+          name: session.user.name || '',
+          email: session.user.email,
+          picture: session.user.image || '',
+          phone: fullNumber,
+          socialProfiles: profilesForSaving,
+          lastUpdated: Date.now(),
+        };
+        localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
+      }
       
-      // Navigate to profile page immediately
+      // STEP 2: Navigate to profile page immediately - without waiting for Firebase
       router.push('/profile');
       
-      // Continue the save in the background to ensure data is stored
-      savePromise.catch(error => {
-        console.error('Background profile save error:', error);
-        // Error is handled silently in the background since user has already navigated away
-      });
+      // STEP 3: After navigation has started, save to Firebase in the background
+      // This happens after the user has already navigated away
+      setTimeout(() => {
+        saveProfile(profileData).catch(error => {
+          console.error('Background profile save error:', error);
+        });
+      }, 100);
+      
     } catch (error: any) {
-      console.error('Error saving profile:', error);
+      console.error('Error during save process:', error);
       alert('There was an error saving your profile. Please try again.');
-      setIsSaving(false);
     }
-    // Note: we don't set isSaving to false in the happy path because the component unmounts
   };
 
   // If no session, return null (redirect is handled by useSession)

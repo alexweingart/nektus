@@ -1,11 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp, 
          FaSnapchat, FaTelegram, FaLinkedin } from 'react-icons/fa';
+
+// Define types for profile data
+type SocialProfile = {
+  platform: string;
+  username: string;
+  shareEnabled: boolean;
+  filled?: boolean;
+};
+
+type UserProfile = {
+  userId: string;
+  name: string;
+  email: string;
+  picture: string;
+  phone: string;
+  socialProfiles: SocialProfile[];
+  lastUpdated?: any;
+};
 
 // Standard button style shared across the application as a React style object
 const standardButtonStyle = {
@@ -43,13 +60,62 @@ const getPlaceholderBio = (name: string) => {
 };
 
 const ProfileView: React.FC = () => {
-  const { profile, isLoading } = useProfile();
   const { data: session } = useSession();
+  
+  // Local state to manage profile data from multiple sources
+  const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // State for progressively loaded content
   const [bio, setBio] = useState<string>("");
   const [bgImage, setBgImage] = useState<string>("/gradient-bg.jpg");
   const [isAIContentLoading, setIsAIContentLoading] = useState<boolean>(false);
+  
+  // Load profile data directly from localStorage immediately on mount
+  useEffect(() => {
+    const loadProfile = () => {
+      try {
+        // STEP 1: Try to load from localStorage first (ultra-fast)
+        const cachedData = localStorage.getItem('nektus_user_profile_cache');
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          setLocalProfile(parsedData);
+          setIsLoading(false);
+          
+          // Set placeholder bio right away
+          setBio(getPlaceholderBio(parsedData.name));
+          
+          // STEP 2: After showing cached data, trigger background AI content loading
+          loadAIContent(parsedData);
+        } else if (session?.user) {
+          // Create minimal profile with session data if no cache exists
+          const minimalProfile = {
+            userId: session.user.email,
+            name: session.user.name || '',
+            email: session.user.email,
+            picture: session.user.image || '',
+            phone: '',
+            socialProfiles: [],
+          };
+          setLocalProfile(minimalProfile);
+          setIsLoading(false);
+          
+          // Set placeholder bio right away
+          setBio(getPlaceholderBio(minimalProfile.name));
+          
+          // Load AI content for this minimal profile - casting to ensure type safety
+          loadAIContent(minimalProfile as UserProfile);
+        } else {
+          setIsLoading(false); // Nothing to load
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadProfile();
+  }, [session]);
   
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
@@ -68,61 +134,61 @@ const ProfileView: React.FC = () => {
     return phone; // Return original if we can't format it
   };
 
-  // Load AI content asynchronously after component mounts
-  useEffect(() => {
-    const loadAIContent = async () => {
-      if (!profile) return;
-      
-      // Set initial placeholder bio based on name
-      setBio(getPlaceholderBio(profile.name));
-      
-      try {
-        setIsAIContentLoading(true);
-        
-        // Generate bio in background
-        const response = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'bio',
-            profile,
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setBio(data.bio);
-        }
-        
-        // Generate background image in background
-        const bgResponse = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'background',
-            profile,
-          }),
-        });
-        
-        if (bgResponse.ok) {
-          const bgData = await bgResponse.json();
-          setBgImage(bgData.imageUrl);
-        }
-      } catch (error) {
-        console.error('Error loading AI content:', error);
-      } finally {
-        setIsAIContentLoading(false);
-      }
-    };
+  // Load AI content asynchronously
+  const loadAIContent = async (profile: UserProfile) => {
+    if (!profile) return;
     
-    if (profile && !isLoading) {
-      loadAIContent();
+    try {
+      setIsAIContentLoading(true);
+      
+      // Generate bio in background - fire and forget
+      fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'bio',
+          profile,
+        }),
+      }).then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('Bio generation failed');
+      }).then(data => {
+        setBio(data.bio);
+      }).catch(error => {
+        console.error('Error loading bio:', error);
+      });
+      
+      // Generate background image in background - fire and forget
+      fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'background',
+          profile,
+        }),
+      }).then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('Background generation failed');
+      }).then(data => {
+        setBgImage(data.imageUrl);
+      }).catch(error => {
+        console.error('Error loading background:', error);
+      }).finally(() => {
+        setIsAIContentLoading(false);
+      });
+    } catch (error) {
+      console.error('Error starting AI content generation:', error);
+      setIsAIContentLoading(false);
     }
-  }, [profile, isLoading]);
+  };
 
   // Show loading state if profile data is loading
   if (isLoading) {
@@ -134,7 +200,7 @@ const ProfileView: React.FC = () => {
   }
 
   // Show message if no profile exists
-  if (!profile) {
+  if (!localProfile) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-4">
         <h1 className="text-2xl font-bold text-primary mb-4">Profile Not Found</h1>
@@ -178,21 +244,21 @@ const ProfileView: React.FC = () => {
       >
         {/* Profile Photo and Name */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          {profile.picture ? (
+          {localProfile.picture ? (
             <div style={{ width: '120px', height: '120px', margin: '0 auto 16px', borderRadius: '60px', overflow: 'hidden', border: '3px solid white' }}>
               <img 
-                src={profile.picture} 
-                alt={profile.name || 'Profile'} 
+                src={localProfile.picture} 
+                alt={localProfile.name || 'Profile'} 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
           ) : (
             <div style={{ width: '120px', height: '120px', margin: '0 auto 16px', borderRadius: '60px', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '48px', fontWeight: 'bold' }}>{profile.name?.[0] || '?'}</span>
+              <span style={{ fontSize: '48px', fontWeight: 'bold' }}>{localProfile.name?.[0] || '?'}</span>
             </div>
           )}
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>
-            {profile.name}
+            {localProfile.name}
           </h2>
           
           {/* Bio - show placeholder while loading */}
@@ -211,8 +277,8 @@ const ProfileView: React.FC = () => {
         {/* Contact & Social Icons */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
           {/* Phone */}
-          {profile.phone && (
-            <a href={`tel:${profile.phone}`} style={{ textDecoration: 'none' }}>
+          {localProfile.phone && (
+            <a href={`tel:${localProfile.phone}`} style={{ textDecoration: 'none' }}>
               <div style={{ 
                 width: '50px', 
                 height: '50px', 
@@ -230,8 +296,8 @@ const ProfileView: React.FC = () => {
           )}
           
           {/* Email */}
-          {profile.email && (
-            <a href={`mailto:${profile.email}`} style={{ textDecoration: 'none' }}>
+          {localProfile.email && (
+            <a href={`mailto:${localProfile.email}`} style={{ textDecoration: 'none' }}>
               <div style={{ 
                 width: '50px', 
                 height: '50px', 
@@ -249,7 +315,7 @@ const ProfileView: React.FC = () => {
           )}
           
           {/* Social Media Icons - only show if profiles exist */}
-          {profile.socialProfiles && profile.socialProfiles.map(social => {
+          {localProfile.socialProfiles && localProfile.socialProfiles.map((social: SocialProfile) => {
             // Skip if username is empty
             if (!social.username) return null;
             
