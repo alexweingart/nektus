@@ -39,9 +39,9 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   const getIconClass = () => {
     switch (size) {
       case 'sm': return 'w-6 h-6';
-      case 'lg': return 'w-10 h-10';
+      case 'lg': return 'w-14 h-14';
       case 'md':
-      default: return 'w-8 h-8';
+      default: return 'w-12 h-12';
     }
   };
 
@@ -105,10 +105,14 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
   return (
     <div 
-      className="cursor-pointer transition-transform hover:scale-110"
+      className="cursor-pointer transition-all duration-200 hover:scale-105"
       onClick={handleClick}
     >
-      {renderIcon()}
+      <div className="flex items-center justify-center p-3 bg-gray-300 rounded-full hover:bg-primary transition-colors duration-200">
+        <div className="text-white">
+          {renderIcon()}
+        </div>
+      </div>
     </div>
   );
 };
