@@ -221,13 +221,13 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div
-      className={`flex w-full rounded-md bg-white border transition-colors ${isInputFocused ? 'ring-2 ring-primary border-primary' : 'border-gray-300'} ${className}`}
+      className={`flex w-full rounded-md bg-white bg-opacity-90 border border-gray-300 transition-colors ${isInputFocused ? 'ring-2 ring-primary' : ''} ${className}`}
     >
       {/* Country selector */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none"
+          className="flex items-center justify-between px-3 py-2 bg-white bg-opacity-90 text-gray-700 h-full focus:outline-none"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           aria-label="Select country"
           style={{ zIndex: 1 }}
@@ -272,7 +272,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        className="flex-1 px-3 py-2 bg-white focus:outline-none"
+        className="flex-1 px-3 py-2 bg-white bg-opacity-90 focus:outline-none"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
