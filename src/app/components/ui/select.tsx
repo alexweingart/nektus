@@ -26,8 +26,8 @@ const SelectTrigger = React.forwardRef<
       WebkitAppearance: 'none',
       MozAppearance: 'none',
       appearance: 'none',
-      backgroundColor: 'var(--background)',
-      color: 'var(--foreground)'
+      backgroundColor: 'white',
+      color: 'inherit'
     }}
     {...props}
   >

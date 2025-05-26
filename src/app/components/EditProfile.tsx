@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/ProfileContext';
+import { useProfile, SocialProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CustomPhoneInput from './CustomPhoneInput';
@@ -9,26 +9,9 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './SocialIcon';
 import { MdEdit } from 'react-icons/md';
 
-// Use the SocialProfile type from ProfileContext
-type SocialProfile = ProfileSocialProfile;
-
-// Use type from ProfileContext
-type UserProfile = {
-  userId: string;
-  name: string;
-  email: string;
-  picture: string;
-  // phone removed per requirements
-  internationalPhone: string;
-  nationalPhone: string;
-  internationalPhoneUserConfirmed?: boolean;
-  nationalPhoneUserConfirmed?: boolean;
-  country?: string;
-  countryUserConfirmed?: boolean;
-  handle?: string;
-  socialProfiles: SocialProfile[];
-  backgroundImage?: string;
-  lastUpdated?: any;
+// Extend the ProfileContextUserProfile type with our additional fields
+type UserProfile = ProfileContextUserProfile & {
+  socialProfiles: Array<SocialProfile & { filled?: boolean }>;
 };
 
 const EditProfile: React.FC = () => {
@@ -42,7 +25,7 @@ const EditProfile: React.FC = () => {
     name: string;
     email: string;
     picture: string;
-    socialProfiles: SocialProfile[];
+    socialProfiles: Array<SocialProfile & { filled?: boolean }>;
     backgroundImage: string;
   }>({
     name: '',
@@ -580,7 +563,7 @@ const EditProfile: React.FC = () => {
       
       {/* Edit Background */}
       <div className="mb-6 text-center w-full max-w-md">
-        <label htmlFor="background-upload" className="text-white font-medium cursor-pointer hover:text-green-300 shadow-text">
+        <label htmlFor="background-upload" className="text-green-600 hover:text-green-800 font-medium cursor-pointer transition-colors">
           Edit Background
         </label>
         <input 

@@ -7,13 +7,8 @@ import Link from 'next/link';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
 
-// Define types for profile data
-type SocialProfile = {
-  platform: string;
-  username: string;
-  shareEnabled: boolean;
-  filled?: boolean;
-};
+// Import types from ProfileContext
+import { SocialProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
 
 type UserProfile = {
   userId: string;
@@ -25,10 +20,11 @@ type UserProfile = {
   nationalPhone: string;
   internationalPhoneUserConfirmed?: boolean;
   nationalPhoneUserConfirmed?: boolean;
+  emailUserConfirmed?: boolean;
   country?: string;
   countryUserConfirmed?: boolean;
   handle?: string;
-  socialProfiles: SocialProfile[];
+  socialProfiles: Array<SocialProfile & { filled?: boolean }>;
   lastUpdated?: any;
   bio?: string;
   backgroundImage?: string; // Add backgroundImage to UserProfile type
@@ -79,13 +75,13 @@ const ProfileView: React.FC = () => {
         socialProfiles: [
           { platform: 'facebook', username: '', shareEnabled: true, filled: false },
           { platform: 'instagram', username: '', shareEnabled: true, filled: false },
-          { platform: 'twitter', username: '', shareEnabled: true, filled: false },
+          { platform: 'x', username: '', shareEnabled: true, filled: false },
           { platform: 'linkedin', username: '', shareEnabled: true, filled: false },
           { platform: 'snapchat', username: '', shareEnabled: true, filled: false },
           { platform: 'whatsapp', username: '', shareEnabled: true, filled: false },
           { platform: 'telegram', username: '', shareEnabled: true, filled: false },
           { platform: 'wechat', username: '', shareEnabled: true, filled: false }
-        ],
+        ] as Array<SocialProfile & { filled?: boolean }>,
         backgroundImage: '/gradient-bg.jpg',
         lastUpdated: Date.now()
       };
@@ -139,11 +135,9 @@ const ProfileView: React.FC = () => {
               // Set bio placeholder - will be replaced with AI content if needed
               setBio(cachedProfile.bio || getPlaceholderBio());
               
-              // Trigger AI content generation if user just completed setup
-              if (triggerAiContent) {
-                loadAIContent(cachedProfile);
-                // Clear the flag so we don't regenerate on page refresh
-                sessionStorage.removeItem('nektus_profile_setup_completed');
+              // Generate AI content if any fields are missing
+              if (!cachedProfile.bio || !cachedProfile.backgroundImage || !cachedProfile.picture) {
+                generateAIContent(cachedProfile);
               }
               
               return; // Successfully loaded from cache
@@ -172,10 +166,9 @@ const ProfileView: React.FC = () => {
           // Save to local storage for future loads
           localStorage.setItem('nektus_user_profile_cache', JSON.stringify(profile));
           
-          // Trigger AI content generation if user just completed setup
-          if (triggerAiContent) {
-            loadAIContent(profile);
-            sessionStorage.removeItem('nektus_profile_setup_completed');
+          // Generate AI content if any fields are missing
+          if (!profile.bio || !profile.backgroundImage || !profile.picture) {
+            generateAIContent(profile);
           }
           
           return; // Successfully loaded from context
@@ -204,44 +197,18 @@ const ProfileView: React.FC = () => {
     }
   }, [session, profileContextData.profile]);
   
-  // Format phone number for display
-  const formatPhoneNumber = (phone: string) => {
-    if (!phone) return '';
-    
-    // For US numbers, format as (123) 456-7890
-    if (phone.startsWith('+1') && phone.length === 12) {
-      const cleaned = phone.replace(/\D/g, '').substring(1); // Remove +1
-      const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-      if (match) {
-        return `(${match[1]}) ${match[2]}-${match[3]}`;
-      }
-    }
-    
-    // For other numbers, just use as-is
-    return phone;
-  };
-  
-  // Load AI content asynchronously - makes API calls without blocking the UI and only fires once per user
-  const loadAIContent = async (profile: UserProfile) => {
+  // Generate AI content for the profile if needed
+  const generateAIContent = async (profile: UserProfile) => {
     if (!profile || isAIContentLoading) return;
     
-    // Check if we're eligible for AI content generation
-    // - Must have a profile with name and email at minimum
-    // - Limit to once every 24 hours per user to avoid API cost spikes
-    const lastGenerated = localStorage.getItem('nektus_ai_content_last_generated');
-    const now = Date.now();
-    const generateCooldown = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    
-    if (lastGenerated && now - parseInt(lastGenerated) < generateCooldown) {
-      console.log('AI content generation on cooldown, skipping');
+    // Check if we have the minimum required fields for generation
+    if (!profile.name || !profile.email) {
+      console.log('Skipping AI content generation - missing required profile data');
       return;
     }
     
-    // Start loading
+    // Set loading state
     setIsAIContentLoading(true);
-    
-    // Track if we've generated anything
-    let generatedSomething = false;
     
     // Process bio generation request
     const generateBio = async () => {
@@ -255,7 +222,8 @@ const ProfileView: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               prompt: `Create a brief, friendly bio for ${profile.name}. Keep it general and positive.`,
-              type: 'bio'
+              type: 'bio',
+              profile: profile // Pass the full profile for context
             })
           });
           
@@ -263,7 +231,6 @@ const ProfileView: React.FC = () => {
             const data = await bioResponse.json();
             if (data.content) {
               setBio(data.content);
-              generatedSomething = true;
               
               // Save the generated bio to profile
               if (saveProfile) {
@@ -289,7 +256,8 @@ const ProfileView: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               prompt: `Create a subtle, abstract background gradient for ${profile.name}'s profile.`,
-              type: 'background'
+              type: 'background',
+              profile: profile // Pass the full profile for context
             })
           });
           
@@ -297,7 +265,6 @@ const ProfileView: React.FC = () => {
             const data = await bgResponse.json();
             if (data.imageUrl) {
               setBgImage(data.imageUrl);
-              generatedSomething = true;
               
               // Save the generated background to profile
               if (saveProfile) {
@@ -323,17 +290,15 @@ const ProfileView: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               prompt: `Create a simple, cartoon-style avatar for ${profile.name}.`,
-              type: 'avatar'
+              type: 'avatar',
+              profile: profile // Pass the full profile for context
             })
           });
           
           if (avatarResponse.ok) {
             const data = await avatarResponse.json();
             if (data.imageUrl) {
-              // We'll update the profile picture in the profile
-              generatedSomething = true;
-              
-              // Save the generated avatar to profile
+              // Update the profile picture in the profile
               if (saveProfile) {
                 await saveProfile({ picture: data.imageUrl });
               }
@@ -345,20 +310,34 @@ const ProfileView: React.FC = () => {
       }
     };
     
-    // Execute all three generation requests in parallel
-    await Promise.all([
-      generateBio(),
-      generateBackground(),
-      generateAvatar()
-    ]);
+    try {
+      // Execute all three generation requests in parallel
+      await Promise.all([
+        generateBio(),
+        generateBackground(),
+        generateAvatar()
+      ]);
+    } finally {
+      // Always ensure loading state is cleared
+      setIsAIContentLoading(false);
+    }
+  };
+
+  // Format phone number for display
+  const formatPhoneNumber = (phone: string) => {
+    if (!phone) return '';
     
-    // If we generated anything, update the timestamp
-    if (generatedSomething) {
-      localStorage.setItem('nektus_ai_content_last_generated', now.toString());
+    // For US numbers, format as (123) 456-7890
+    if (phone.startsWith('+1') && phone.length === 12) {
+      const cleaned = phone.replace(/\D/g, '').substring(1); // Remove +1
+      const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+      if (match) {
+        return `(${match[1]}) ${match[2]}-${match[3]}`;
+      }
     }
     
-    // Finish loading
-    setIsAIContentLoading(false);
+    // For other numbers, just use as-is
+    return phone;
   };
   
   if (isLoading || !localProfile) {
@@ -404,29 +383,35 @@ const ProfileView: React.FC = () => {
         </p>
         
         {/* Contact Icons */}
-        <div className="mb-8 w-full">
+        <div className="mb-8 w-full max-w-xs mx-auto">
           {/* First row - 5 icons with equal spacing */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '20px' 
-          }}>
+          <div className="flex justify-between mb-5">
             {/* Phone Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="phone"
-                username={localProfile.internationalPhone || ''}
-                size="md"
-              />
+              <div className="relative">
+                {!localProfile.internationalPhoneUserConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="phone"
+                  username={localProfile.internationalPhone || ''}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* Email Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="email"
-                username={localProfile.email || ''}
-                size="md"
-              />
+              <div className="relative">
+                {!localProfile.emailUserConfirmed && localProfile.email && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="email"
+                  username={localProfile.email || ''}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* Facebook Icon */}
@@ -458,7 +443,7 @@ const ProfileView: React.FC = () => {
           </div>
           
           {/* Second row - 5 icons with equal spacing */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div className="flex justify-between">
             {/* WhatsApp Icon */}
             <div className="flex justify-center">
               <SocialIcon
@@ -515,7 +500,7 @@ const ProfileView: React.FC = () => {
             Nekt
           </Link>
           <Link 
-            href="/edit"
+            href="/edit" 
             className="w-full text-center py-2 px-4 text-sm font-medium text-green-600 hover:text-green-700"
           >
             Edit Profile

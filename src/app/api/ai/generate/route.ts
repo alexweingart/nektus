@@ -160,8 +160,7 @@ async function generateBio(profile: any) {
       temperature: 0.7,
     });
 
-    // Add additional null check for response itself
-    const bio = response && response.choices && response.choices[0]?.message?.content?.trim() || 
+    const bio = response.choices[0]?.message?.content?.trim() || 
       'Connecting people through technology';
     
     // Store the generated bio in Firestore
@@ -206,9 +205,7 @@ async function generateBackground(profile: any) {
       quality: 'standard',
     });
 
-    // Ensure response and data are defined before accessing
-    const imageUrl = response && response.data && response.data[0] && response.data[0].url ? 
-      response.data[0].url : '/gradient-bg.jpg';
+    const imageUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : '/gradient-bg.jpg';
     
     // Store the generated background image URL in Firestore
     if (profile.userId) {
@@ -258,9 +255,7 @@ async function generateAvatar(profile: any) {
       quality: 'standard',
     });
 
-    // Ensure response and data are defined before accessing
-    const avatarUrl = response && response.data && response.data[0] && response.data[0].url ? 
-      response.data[0].url : (profile.picture || '/default-avatar.png');
+    const avatarUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : (profile.picture || '/default-avatar.png');
     
     // Store the generated avatar URL in Firestore
     if (profile.userId) {

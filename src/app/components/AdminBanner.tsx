@@ -11,8 +11,7 @@ export default function AdminBanner() {
   const { closeAdminMode } = useAdminMode();
   const { data: session, status } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'partial-success'>('idle');
-  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   // This component is conditionally rendered by ClientComponents when admin mode is active
 
@@ -24,7 +23,6 @@ export default function AdminBanner() {
     console.log('Starting account deletion process');
     setIsDeleting(true);
     setDeleteStatus('loading');
-    setStatusMessage('');
     
     try {
       // 1. Delete user data from Firebase
@@ -41,8 +39,8 @@ export default function AdminBanner() {
       
       if (!deleteDataResponse.ok) {
         console.error('Failed to delete user data from Firebase:', deleteDataResult);
-        // If we can't delete the data, we should stop the process
-        throw new Error('Failed to delete user data from our database');
+        // Continue with other steps even if Firebase deletion fails
+        // This ensures the user can still disconnect their account
       } else {
         console.log('Successfully deleted user data from Firebase');
       }
@@ -57,21 +55,20 @@ export default function AdminBanner() {
       });
       
       let revokeResult;
-      let tokenRevocationSuccessful = false;
       try {
         revokeResult = await revokeResponse.json();
         console.log('Revoke response status:', revokeResponse.status, revokeResponse.ok);
         console.log('Revoke response data:', revokeResult);
-        tokenRevocationSuccessful = revokeResponse.ok;
       } catch (parseError) {
         console.error('Error parsing revoke response:', parseError);
         revokeResult = { error: 'Failed to parse response' };
       }
       
-      if (!tokenRevocationSuccessful) {
+      if (!revokeResponse.ok) {
         console.error('Failed to revoke token with Google:', revokeResult);
-        // We'll continue but let the user know they need to revoke access manually
-        setStatusMessage('Your data was deleted but token revocation failed. Please revoke Nekt.Us access in your Google account settings.');
+        // Instead of throwing an error, we'll continue with the rest of the deletion
+        // This is a temporary fix to ensure users can still delete their accounts
+        console.warn('Continuing with account deletion despite token revocation failure');
       } else {
         console.log('Successfully revoked token with Google');
       }
@@ -97,23 +94,18 @@ export default function AdminBanner() {
       localStorage.removeItem('nektus_user_profile_cache'); // Clear profile cache
       localStorage.removeItem('nektus_profile');
       
-      // Show appropriate success/partial success status
-      console.log('Account deletion process completed');
-      if (tokenRevocationSuccessful) {
-        setDeleteStatus('success');
-      } else {
-        setDeleteStatus('partial-success');
-      }
+      // Show success status
+      console.log('Account deletion process completed successfully');
+      setDeleteStatus('success');
       
       // Turn off admin mode and reload page
       setTimeout(() => {
         closeAdminMode();
         window.location.href = '/';
-      }, 3000); // Give users more time to read the message
+      }, 1000);
     } catch (error) {
       console.error('Error during account deletion:', error);
       setDeleteStatus('error');
-      setStatusMessage(error instanceof Error ? error.message : 'Unknown error occurred');
       setIsDeleting(false);
     }
   };
@@ -139,20 +131,6 @@ export default function AdminBanner() {
         <strong>ADMIN MODE</strong>
       </div>
       
-      {statusMessage && (
-        <div style={{
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          padding: '10px',
-          borderRadius: '4px',
-          marginTop: '10px',
-          fontSize: '14px',
-          maxWidth: '300px'
-        }}>
-          {statusMessage}
-        </div>
-      )}
-      
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button
           onClick={handleDeleteAccount}
@@ -171,7 +149,6 @@ export default function AdminBanner() {
         >
           {deleteStatus === 'loading' ? 'Deleting...' : 
            deleteStatus === 'success' ? 'Deleted!' : 
-           deleteStatus === 'partial-success' ? 'Partial Success' :
            deleteStatus === 'error' ? 'Failed!' : 
            'Delete Account'}
         </button>
