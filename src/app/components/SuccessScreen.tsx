@@ -10,7 +10,7 @@ const SuccessScreen: React.FC = () => {
   const contactName = searchParams.get('name') || 'Contact';
 
   const handleDone = () => {
-    router.push('/profile');
+    router.push('/');
   };
 
   return (

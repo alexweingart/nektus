@@ -138,7 +138,7 @@ const SocialProfileInputs: React.FC = () => {
     
     // Save data and navigate to profile page
     saveUserData();
-    router.push('/profile');
+    router.push('/');
   };
 
   return (

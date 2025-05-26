@@ -178,7 +178,7 @@ const SetupProfile: React.FC = () => {
     }));
     
     // Navigate to profile
-    router.push('/profile');
+    router.push('/');
   };
 
   // Render the underlines for phone number digits

@@ -344,7 +344,7 @@ export default function ProfileSetup() {
       }
       
       // STEP 2: Navigate to profile page immediately - without waiting for Firebase
-      router.push('/profile');
+      router.push('/');
       
       // STEP 3: After navigation has started, save to Firebase in the background
       // This happens after the user has already navigated away
