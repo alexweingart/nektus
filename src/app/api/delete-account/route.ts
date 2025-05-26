@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { revokeGoogleToken } from '../../../utils/google';
+import { db } from '../../lib/firebase';
+import { doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { cookies } from 'next/headers';
 
 /**
- * API route to delete a user account and revoke Google OAuth connections
+ * API route to delete a user account and related data from Firebase
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,12 +16,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // In a mobile contact exchange app, we want to force sign out and clean up auth cookies
+    const userId = session.user.email;
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID not found' }, { status: 400 });
+    }
     
     // Log for debugging
-    console.log('Deleting account for user:', session?.user?.email || 'unknown user');
+    console.log('Deleting account data for user:', userId);
     
-    // Get all cookies to clear them
+    // Delete user profile from Firestore
+    try {
+      // First check if profile exists
+      const profileDocRef = doc(db, 'profiles', userId);
+      const profileSnapshot = await getDoc(profileDocRef);
+      
+      if (profileSnapshot.exists()) {
+        // Delete the profile document
+        await deleteDoc(profileDocRef);
+        console.log(`Successfully deleted profile for user: ${userId}`);
+      } else {
+        console.log(`No profile found for user: ${userId}`);
+      }
+
+      // Note: If there are additional collections storing user data, they should be deleted here as well
+      // For example: connections, messages, etc.
+      
+    } catch (firestoreError) {
+      console.error('Error deleting Firestore data:', firestoreError);
+      // Continue execution even if Firestore deletion fails
+      // This allows the account disconnection to proceed
+    }
+    
+    // Get auth cookies for logging purposes
     const cookieStore = cookies();
     const allCookies = cookieStore.getAll();
     
@@ -31,10 +59,7 @@ export async function POST(req: NextRequest) {
       cookie.name.includes('token')
     );
     
-    console.log('Found auth cookies:', authCookies.map(c => c.name));
-    
-    // We'll consider the operation successful as long as we found the user session
-    // The actual sign-out will happen client-side after this operation
+    console.log('Found auth cookies to be cleared client-side:', authCookies.map(c => c.name));
     
     return NextResponse.json({ success: true });
   } catch (error) {

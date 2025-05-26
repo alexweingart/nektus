@@ -16,7 +16,7 @@ export default function AdminBanner() {
   // This component is conditionally rendered by ClientComponents when admin mode is active
 
   const handleDeleteAccount = async () => {
-    if (!confirm('This will fully disconnect Nekt.Us from your Google account. You will need to re-authorize the app next time you sign in. Continue?')) {
+    if (!confirm('This will fully disconnect Nekt.Us from your Google account and delete all your data from our database. You will need to re-authorize the app next time you sign in. Continue?')) {
       return;
     }
 
@@ -24,7 +24,21 @@ export default function AdminBanner() {
     setDeleteStatus('loading');
     
     try {
-      // 1. Revoke the OAuth token with Google - this is the critical step
+      // 1. Delete user data from Firebase
+      const deleteDataResponse = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!deleteDataResponse.ok) {
+        console.error('Failed to delete user data from Firebase:', await deleteDataResponse.json());
+        // Continue with other steps even if Firebase deletion fails
+        // This ensures the user can still disconnect their account
+      }
+      
+      // 2. Revoke the OAuth token with Google - this is the critical step
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
         headers: {
@@ -37,10 +51,10 @@ export default function AdminBanner() {
         throw new Error('Failed to revoke token with Google');
       }
       
-      // 2. Sign out from NextAuth locally
+      // 3. Sign out from NextAuth locally
       await signOut({ redirect: false });
       
-      // 3. Clear all NextAuth cookies
+      // 4. Clear all NextAuth cookies
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
         if (name.includes('next-auth')) {
@@ -48,9 +62,10 @@ export default function AdminBanner() {
         }
       });
       
-      // 4. Clear any Google OAuth related localStorage items to force new authorization
+      // 5. Clear any Google OAuth related localStorage items to force new authorization
       localStorage.removeItem('nektus_force_account_selector'); // Remove old approach
       localStorage.removeItem('nektus_user');
+      localStorage.removeItem('nektus_user_profile_cache'); // Clear profile cache
       localStorage.removeItem('nektus_profile');
       
       // Show success status
