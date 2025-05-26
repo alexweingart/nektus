@@ -247,7 +247,7 @@ const EditProfile: React.FC = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <h1 className="text-2xl font-bold mb-6 text-center text-white shadow-text">Edit Profile</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center text-black">Edit Profile</h1>
       
       {/* Name Input with Profile Photo */}
       <div className="mb-5 w-full max-w-md">
@@ -271,7 +271,11 @@ const EditProfile: React.FC = () => {
               id="avatar-upload" 
               className="hidden" 
               accept="image/*"
-              onChange={(e) => handleImageUpload(e, 'avatar')}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleImageUpload(e, 'avatar');
+                }
+              }}
             />
           </label>
           <input
@@ -289,7 +293,7 @@ const EditProfile: React.FC = () => {
       {/* Phone Input with Icon */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="phone" size="sm" />
           </div>
           <div className="flex-1">
@@ -312,7 +316,7 @@ const EditProfile: React.FC = () => {
       {/* Email Input with Icon */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="email" size="sm" />
           </div>
           <input
@@ -331,7 +335,7 @@ const EditProfile: React.FC = () => {
       {/* Facebook */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="facebook" size="sm" />
           </div>
           <input
@@ -348,7 +352,7 @@ const EditProfile: React.FC = () => {
       {/* Instagram */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="instagram" size="sm" />
           </div>
           <input
@@ -365,7 +369,7 @@ const EditProfile: React.FC = () => {
       {/* Twitter */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="twitter" size="sm" />
           </div>
           <input
@@ -382,7 +386,7 @@ const EditProfile: React.FC = () => {
       {/* LinkedIn */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="linkedin" size="sm" />
           </div>
           <input
@@ -399,7 +403,7 @@ const EditProfile: React.FC = () => {
       {/* Snapchat */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="snapchat" size="sm" />
           </div>
           <input
@@ -416,7 +420,7 @@ const EditProfile: React.FC = () => {
       {/* WhatsApp */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="whatsapp" size="sm" />
           </div>
           <input
@@ -433,7 +437,7 @@ const EditProfile: React.FC = () => {
       {/* Telegram */}
       <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <div className="mr-3">
+          <div className="mr-3 pointer-events-none">
             <SocialIcon platform="telegram" size="sm" />
           </div>
           <input
@@ -457,7 +461,11 @@ const EditProfile: React.FC = () => {
           id="background-upload" 
           className="hidden" 
           accept="image/*"
-          onChange={(e) => handleImageUpload(e, 'background')}
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleImageUpload(e, 'background');
+            }
+          }}
         />
       </div>
       
