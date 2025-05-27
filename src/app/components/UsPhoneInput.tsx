@@ -11,11 +11,22 @@ type Props = {
 
 export const UsPhoneInput = forwardRef<HTMLInputElement, Props>(
   ({ value, onChange, id, placeholder }, ref) => {
-    // 1. clean -> digits only, strip leading 1, max‑10
+    // 1. clean -> handle international numbers, strip country codes, and normalize to US format
     const normalise = (raw: string) => {
-      let d = raw.replace(/\D/g, '');
-      if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
-      return d.slice(0, 10);
+      // Remove all non-digit characters
+      let digits = raw.replace(/\D/g, '');
+      
+      // Handle international numbers (starting with + or 00, or longer than 10 digits)
+      if (digits.startsWith('1') && digits.length === 11) {
+        // US/Canada number with country code 1
+        return digits.slice(1, 11); // Remove leading 1, keep next 10 digits
+      } else if (digits.length > 10) {
+        // For other international numbers, take last 10 digits
+        return digits.slice(-10);
+      }
+      
+      // For regular US numbers, ensure max 10 digits
+      return digits.slice(0, 10);
     };
 
     // 2. formatter ("(123) 456‑7890")
