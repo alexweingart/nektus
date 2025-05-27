@@ -114,7 +114,15 @@ export async function POST(request: NextRequest) {
     // Handle different generation types
     switch (type) {
       case 'bio':
-        return await generateBio(profile);
+        try {
+          return await generateBio(profile);
+        } catch (error) {
+          console.error('Bio generation error:', error);
+          return NextResponse.json({ 
+            error: 'Failed to generate bio',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }, { status: 500 });
+        }
       case 'background':
         return await generateBackground(profile);
       case 'avatar':
@@ -156,37 +164,13 @@ function getSocialProfileUrls(profile: any): string[] {
 async function generateBio(profile: any) {
   // Safety check for OpenAI client
   if (!openai) {
-    console.error('OpenAI client not initialized when generateBio was called');
     throw new Error('OpenAI client not initialized');
   }
 
+  try {
     // Get social profile URLs
     const socialProfileUrls = getSocialProfileUrls(profile);
     
-    // Create the prompt with social profile URLs if available
-    let promptText = `Generate a hyper-personalized, specific bio for a person named ${profile.name}. 
-    The bio should be no more than 20 words. Only return the bio text, nothing else. 
-    Do not mention their name in the bio.`;
-    
-    // Add social profile URLs to the prompt if available
-    if (socialProfileUrls.length > 0) {
-      promptText += `\n\nHere are some social media profiles that might be relevant:\n${socialProfileUrls.join('\n')}`;
-    }
-    
-    console.log('ChatGPT Prompt:', JSON.stringify({
-      type: 'bio',
-      prompt: promptText,
-      socialProfileUrls: socialProfileUrls
-    }, null, 2));
-    
-    // Prepare the web search tool with social profile URLs
-    const tools = [{
-      type: 'web_search_preview' as const,
-      web_search_preview: {
-        search_context_size: 'high' as const
-      }
-    }];
-
     // Prepare the messages for the API
     const messages = [
       {
@@ -223,78 +207,41 @@ async function generateBio(profile: any) {
           type: 'text' as const
         }
       },
-      tools: tools,
+      tools: [{
+        type: 'web_search_preview' as const,
+        web_search_preview: {
+          search_context_size: 'high' as const
+        }
+      }],
       temperature: 0.8,
       max_output_tokens: 150,
       top_p: 1,
       store: true
     };
 
-    console.log('Sending request to OpenAI API with payload:', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      model: requestPayload.model,
-      hasTools: requestPayload.tools.length > 0,
-      messageCount: requestPayload.input.length,
-      temperature: requestPayload.temperature
-    }, null, 2));
+    console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
     
-    try {
-      console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
+    const response = await openai.responses.create(requestPayload);
+    console.log('Raw OpenAI API response:', JSON.stringify(response, null, 2));
+    
+    // Extract the generated bio from the response
+    const firstOutput = response?.output?.[0];
+    
+    if (firstOutput && 'type' in firstOutput && firstOutput.type === 'message') {
+      const messageOutput = firstOutput as { content?: Array<{ type: string; text?: string }> };
+      const firstContent = messageOutput.content?.[0];
       
-      const response = await openai.responses.create(requestPayload);
-      
-      // Log the full response for debugging
-      console.log('Raw OpenAI API response:', JSON.stringify(response, null, 2));
-      
-      // Extract the generated bio from the response
-      let bio = 'AI should be generating a bio for you, but it\'s not - No valid response format';
-      
-      try {
-        const firstOutput = response?.output?.[0];
-        
-        if (firstOutput && 'type' in firstOutput && firstOutput.type === 'message') {
-          const messageOutput = firstOutput as { content?: Array<{ type: string; text?: string }> };
-          const firstContent = messageOutput.content?.[0];
-          
-          if (firstContent && 'type' in firstContent && firstContent.type === 'output_text' && firstContent.text) {
-            bio = firstContent.text.trim();
-            console.log('Successfully extracted bio from response');
-          } else {
-            console.warn('Unexpected content format in message response:', {
-              contentType: firstContent?.type,
-              hasText: Boolean(firstContent?.text)
-            });
-          }
-        } else {
-          console.warn('Unexpected response format from OpenAI API:', {
-            outputType: firstOutput?.type,
-            hasOutput: Boolean(firstOutput)
-          });
-        }
-      } catch (parseError) {
-        console.error('Error parsing OpenAI response:', parseError);
+      if (firstContent?.type === 'output_text' && firstContent.text) {
+        const bio = firstContent.text.trim();
+        console.log('Successfully extracted bio from response');
+        return NextResponse.json({ bio });
       }
-      
-      // Temporarily disabled Firestore save
-      // if (profile.userId) {
-      //   try {
-      //     const aiContentRef = doc(db, 'ai_content', profile.userId);
-      //     await setDoc(aiContentRef, { bio }, { merge: true });
-      //   } catch (error) {
-      //     console.error('Error storing AI bio content:', error);
-      //   }
-      // }
-      
-      return NextResponse.json({ bio });
-    } catch (error) {
-      console.error('Error calling OpenAI API:', error);
-      return NextResponse.json({ 
-        bio: 'AI should be generating a bio for you, but encountered an error. Please try again later.' 
-      });
     }
+    
+    throw new Error('Unexpected response format from OpenAI API');
+    
   } catch (error) {
-    console.error('Bio generation error:', error);
-    console.error('Error in generateBio:', error);
+    console.error('Error generating bio:', error);
     throw error;
   }
 }
