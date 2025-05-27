@@ -39,6 +39,7 @@ export default function ProfileSetup() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user && !profile) {
       const userEmail = session.user.email || '';
+      const usernameFromEmail = userEmail.split('@')[0] || '';
       
       // Create initial profile with just the essential information
       const initialProfile = {
@@ -57,15 +58,15 @@ export default function ProfileSetup() {
             email: userEmail,
             userConfirmed: true
           },
-          // Initialize empty social channels
-          facebook: { username: '', url: '', userConfirmed: false },
-          instagram: { username: '', url: '', userConfirmed: false },
-          x: { username: '', url: '', userConfirmed: false },
-          whatsapp: { username: '', url: '', userConfirmed: false },
-          snapchat: { username: '', url: '', userConfirmed: false },
+          // Initialize social channels with username from email
+          facebook: { username: usernameFromEmail, url: '', userConfirmed: true },
+          instagram: { username: usernameFromEmail, url: '', userConfirmed: true },
+          x: { username: usernameFromEmail, url: '', userConfirmed: true },
+          whatsapp: { username: usernameFromEmail, url: '', userConfirmed: true },
+          snapchat: { username: usernameFromEmail, url: '', userConfirmed: true },
           telegram: { username: '', url: '', userConfirmed: false },
           wechat: { username: '', url: '', userConfirmed: false },
-          linkedin: { username: '', url: '', userConfirmed: false }
+          linkedin: { username: usernameFromEmail, url: '', userConfirmed: true }
         }
       };
       
@@ -126,11 +127,29 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center" style={{ paddingTop: '10vh' }}>
-      <div className="w-full max-w-md px-4">
-        <h1 className="text-4xl font-bold text-[var(--primary)] mb-8 text-center">Complete Your Profile</h1>
+    <div className="min-h-screen w-full flex flex-col items-center py-8 px-4">
+      <div className="w-full max-w-xs flex flex-col items-center">
+        {/* Profile Picture - Fixed height container */}
+        <div className="relative mb-4 h-24">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-md">
+            {profile?.profileImage && (
+              <img 
+                src={profile.profileImage} 
+                alt="Profile" 
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+        </div>
         
-        <div className="space-y-6">
+        {/* User's Name - Fixed height container */}
+        <div className="min-h-[2.5rem] mb-8 w-full">
+          {profile?.name && (
+            <h1 className="text-2xl font-bold text-center text-black">{profile.name}</h1>
+          )}
+        </div>
+        
+        <div className="w-full space-y-6">
           <div>
             <label className="sr-only">Phone Number</label>
             <CustomPhoneInput
@@ -139,13 +158,16 @@ export default function ProfileSetup() {
               onChange={setDigits}
               placeholder="Enter phone number"
               className="w-full"
+              inputProps={{
+                className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              }}
             />
           </div>
           
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className={`nekt-button w-full text-center mt-6 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+            className={`nekt-button w-full text-center py-3 text-base font-medium rounded-lg mt-6 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>

@@ -103,12 +103,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // If no profile exists, create a new one
       if (session?.user) {
-        const defaultSocialChannel = {
-          username: '',
-          url: '',
-          userConfirmed: false
+        const userEmail = session.user.email || '';
+        const usernameFromEmail = userEmail.split('@')[0] || '';
+        
+        // Generate URLs for each social network
+        const socialUrls = {
+          facebook: usernameFromEmail ? `https://facebook.com/${usernameFromEmail}` : '',
+          instagram: usernameFromEmail ? `https://instagram.com/${usernameFromEmail}` : '',
+          x: usernameFromEmail ? `https://x.com/${usernameFromEmail}` : '',
+          linkedin: usernameFromEmail ? `https://linkedin.com/in/${usernameFromEmail}` : '',
+          snapchat: usernameFromEmail ? `https://snapchat.com/add/${usernameFromEmail}` : '',
+          telegram: '',
+          wechat: '',
+          whatsapp: ''
         };
-
+        
         const newProfile: UserProfile = {
           userId: generateGuid(), // Generate a new GUID for the user
           name: session.user.name || 'New User',
@@ -123,17 +132,50 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               userConfirmed: false
             },
             email: {
-              email: session.user.email || '',
-              userConfirmed: false
+              email: userEmail,
+              userConfirmed: true  // Only email is confirmed by default
             },
-            facebook: { ...defaultSocialChannel },
-            instagram: { ...defaultSocialChannel },
-            x: { ...defaultSocialChannel },
-            whatsapp: { ...defaultSocialChannel },
-            snapchat: { ...defaultSocialChannel },
-            telegram: { ...defaultSocialChannel },
-            wechat: { ...defaultSocialChannel },
-            linkedin: { ...defaultSocialChannel }
+            // Initialize social channels with username from email and generated URLs
+            facebook: { 
+              username: usernameFromEmail, 
+              url: socialUrls.facebook, 
+              userConfirmed: false 
+            },
+            instagram: { 
+              username: usernameFromEmail, 
+              url: socialUrls.instagram, 
+              userConfirmed: false 
+            },
+            x: { 
+              username: usernameFromEmail, 
+              url: socialUrls.x, 
+              userConfirmed: false 
+            },
+            whatsapp: { 
+              username: usernameFromEmail, 
+              url: socialUrls.whatsapp, 
+              userConfirmed: false 
+            },
+            snapchat: { 
+              username: usernameFromEmail, 
+              url: socialUrls.snapchat, 
+              userConfirmed: false 
+            },
+            telegram: { 
+              username: '', 
+              url: socialUrls.telegram, 
+              userConfirmed: false 
+            },
+            wechat: { 
+              username: '', 
+              url: socialUrls.wechat, 
+              userConfirmed: false 
+            },
+            linkedin: { 
+              username: usernameFromEmail, 
+              url: socialUrls.linkedin, 
+              userConfirmed: false 
+            }
           }
         };
         
