@@ -55,17 +55,51 @@ const ProfileView: React.FC = () => {
   const { saveProfile } = profileContextData;
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
-  // Use hardcoded profile for now
   const [localProfile, setLocalProfile] = useState<UserProfile>(HARDCODED_PROFILE);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // State for UI
-  const [bio, setBio] = useState<string>(HARDCODED_PROFILE.bio || '');
-  const [bgImage, setBgImage] = useState<string>(HARDCODED_PROFILE.backgroundImage || '/gradient-bg.jpg');
+  const [bio, setBio] = useState<string>('');
+  const [bgImage, setBgImage] = useState<string>('/gradient-bg.jpg');
   
-  // Skip profile loading for now since we're using hardcoded data
+  // Load profile from localStorage
   useEffect(() => {
-    setIsLoading(false);
+    const loadProfile = () => {
+      try {
+        const savedProfile = localStorage.getItem('nektus_user_profile');
+        if (savedProfile) {
+          const parsedProfile = JSON.parse(savedProfile);
+          setLocalProfile(prev => ({
+            ...HARDCODED_PROFILE,
+            ...parsedProfile,
+            contactChannels: {
+              ...HARDCODED_PROFILE.contactChannels,
+              ...(parsedProfile.contactChannels || {})
+            }
+          }));
+          
+          // Set individual UI states
+          if (parsedProfile.bio) setBio(parsedProfile.bio);
+          if (parsedProfile.backgroundImage) setBgImage(parsedProfile.backgroundImage);
+        }
+      } catch (error) {
+        console.error('Error loading profile from localStorage:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadProfile();
+    
+    // Optional: Listen for storage events to update when profile changes in another tab
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nektus_user_profile') {
+        loadProfile();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
   
   // Format phone number for display
@@ -161,29 +195,44 @@ const ProfileView: React.FC = () => {
             
             {/* Facebook Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="facebook"
-                username={localProfile.contactChannels.facebook.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.facebook.username && !localProfile.contactChannels.facebook.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="facebook"
+                  username={localProfile.contactChannels.facebook.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* Instagram Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="instagram"
-                username={localProfile.contactChannels.instagram.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.instagram.username && !localProfile.contactChannels.instagram.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="instagram"
+                  username={localProfile.contactChannels.instagram.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* X Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="x"
-                username={localProfile.contactChannels.x.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.x.username && !localProfile.contactChannels.x.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="x"
+                  username={localProfile.contactChannels.x.username}
+                  size="md"
+                />
+              </div>
             </div>
           </div>
           
@@ -191,47 +240,72 @@ const ProfileView: React.FC = () => {
           <div className="flex justify-between">
             {/* WhatsApp Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="whatsapp"
-                username={localProfile.contactChannels.whatsapp.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.whatsapp.username && !localProfile.contactChannels.whatsapp.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="whatsapp"
+                  username={localProfile.contactChannels.whatsapp.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* Snapchat Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="snapchat"
-                username={localProfile.contactChannels.snapchat.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.snapchat.username && !localProfile.contactChannels.snapchat.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="snapchat"
+                  username={localProfile.contactChannels.snapchat.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* Telegram Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="telegram"
-                username={localProfile.contactChannels.telegram.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.telegram.username && !localProfile.contactChannels.telegram.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="telegram"
+                  username={localProfile.contactChannels.telegram.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* WeChat Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="wechat"
-                username={localProfile.contactChannels.wechat.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.wechat.username && !localProfile.contactChannels.wechat.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="wechat"
+                  username={localProfile.contactChannels.wechat.username}
+                  size="md"
+                />
+              </div>
             </div>
             
             {/* LinkedIn Icon */}
             <div className="flex justify-center">
-              <SocialIcon
-                platform="linkedin"
-                username={localProfile.contactChannels.linkedin.username}
-                size="md"
-              />
+              <div className="relative">
+                {localProfile.contactChannels.linkedin.username && !localProfile.contactChannels.linkedin.userConfirmed && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                )}
+                <SocialIcon
+                  platform="linkedin"
+                  username={localProfile.contactChannels.linkedin.username}
+                  size="md"
+                />
+              </div>
             </div>
           </div>
         </div>
