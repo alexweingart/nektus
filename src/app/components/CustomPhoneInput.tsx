@@ -106,59 +106,87 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   // Initialize component with value if provided
   useEffect(() => {
     if (value) {
-      // Just set the formatted value without changing the actual value
-      setPhoneInput(formatPhoneNumber(value.replace(/\D/g, '').slice(-10)));
+      console.log('Initializing CustomPhoneInput with value:', value);
+      // Clean the value and format it
+      const cleanedValue = value.replace(/\D/g, '');
+      const formattedValue = formatPhoneNumber(cleanedValue);
+      setPhoneInput(formattedValue);
+      
+      // If the value is a US number, ensure US is selected
+      if (cleanedValue.length === 10 || (cleanedValue.length === 11 && cleanedValue.startsWith('1'))) {
+        const usCountry = countries.find(c => c.code === 'US');
+        if (usCountry) {
+          setSelectedCountry(usCountry);
+        }
+      }
     }
     
     // Make sure the country selector doesn't show focus styling on initial load
     setIsInputFocused(false);
-  }, []);
+  }, [value]); // Add value to dependency array to update when value changes
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
-    if (digits.length === 0) return '';
-    if (digits.length === 1) return `(${digits}`;
-    if (digits.length <= 3) return `(${digits}`;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+    if (!digits) return '';
+    
+    // Clean the input
+    const cleaned = digits.replace(/\D/g, '');
+    
+    // Format based on length
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 3) return `(${cleaned}`;
+    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
   // Handle phone input change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
+    // Keep track of cursor position
+    const cursorPosition = e.target.selectionStart || 0;
+    
+    // Get all digits from input
     const digits = input.replace(/\D/g, '');
     
-    // Check if it's an international number (more than 10 digits)
-    if (digits.length > 10) {
-      const countryCode = digits.slice(0, digits.length - 10);
-      const phoneDigits = digits.slice(-10);
-      
-      // Try to find a matching country by dial code
-      if (dialCodeMap[countryCode]) {
-        // Special handling for US/Canada (both have dial code 1)
-        if (countryCode === '1') {
-          // If US is already selected, keep it as US
-          if (selectedCountry.code !== 'US') {
-            // Only change if not already US
-            const usCountry = countries.find(c => c.code === 'US');
-            if (usCountry) setSelectedCountry(usCountry);
-          }
-        } else {
-          // For other countries, use the first match
-          setSelectedCountry(dialCodeMap[countryCode][0]);
-        }
-      }
-      
-      // Update with only the last 10 digits
-      const formattedPhone = formatPhoneNumber(phoneDigits);
-      setPhoneInput(formattedPhone);
-      onChange(phoneDigits);
-    } else {
-      // Normal case with 10 or fewer digits
-      const formattedPhone = formatPhoneNumber(digits);
-      setPhoneInput(formattedPhone);
-      onChange(digits);
+    // Format the phone number
+    let formattedPhone = '';
+    
+    if (digits.length > 0) {
+      formattedPhone = formatPhoneNumber(digits);
     }
+    
+    // Update the input value
+    setPhoneInput(formattedPhone);
+    
+    // Call the parent's onChange with just the digits
+    onChange(digits);
+    
+    // Restore cursor position (with some adjustment for formatting)
+    setTimeout(() => {
+      if (inputRef.current) {
+        // Calculate new cursor position
+        let newCursorPosition = cursorPosition;
+        const isAdding = formattedPhone.length > phoneInput.length;
+        
+        // If we added a formatting character, move cursor forward
+        if (isAdding && (formattedPhone[cursorPosition] === ')' || 
+                         formattedPhone[cursorPosition] === ' ' || 
+                         formattedPhone[cursorPosition] === '-')) {
+          newCursorPosition = cursorPosition + 1;
+        }
+        // If we removed a formatting character, keep cursor in same position
+        else if (!isAdding && cursorPosition > 0 && 
+                (phoneInput[cursorPosition - 1] === ')' || 
+                 phoneInput[cursorPosition - 1] === ' ' || 
+                 phoneInput[cursorPosition - 1] === '-')) {
+          newCursorPosition = cursorPosition - 1;
+        }
+        
+        // Set the cursor position
+        inputRef.current.selectionStart = newCursorPosition;
+        inputRef.current.selectionEnd = newCursorPosition;
+      }
+    }, 0);
   };
 
   // Handle country selection
@@ -221,7 +249,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div 
-      className={`flex w-full max-w-[320px] bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
+      className={`flex w-full bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
       onFocus={() => setIsInputFocused(true)}
       onBlur={() => setIsInputFocused(false)}
       style={{ width: '100%' }}

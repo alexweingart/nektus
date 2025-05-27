@@ -52,10 +52,31 @@ const EditProfile: React.FC = () => {
   useEffect(() => {
     // Load from profile context which uses the correct storage key
     if (profile) {
-      console.log('Loading profile data from context:', profile);
+      console.log('Loading profile data from context:', {
+        ...profile,
+        // Stringify to avoid [object Object] in console
+        contactChannels: JSON.parse(JSON.stringify(profile.contactChannels || {})),
+        // Add a flag to indicate if contactChannels exists
+        hasContactChannels: !!profile.contactChannels,
+        // Check if phoneInfo exists
+        hasPhoneInfo: !!(profile.contactChannels?.phoneInfo)
+      });
       initializeFormData(profile);
     }
   }, [profile]);
+  
+  // Initialize form with session data if profile is empty
+  useEffect(() => {
+    if (session?.user && !profile) {
+      console.log('Initializing form with session data');
+      setFormData(prev => ({
+        ...prev,
+        name: session.user?.name || '',
+        email: session.user?.email || '',
+        picture: session.user?.image || ''
+      }));
+    }
+  }, [session, profile]);
   
   // Helper function to get social prefix for a platform
   const getSocialPrefix = (platform: string) => {
@@ -83,10 +104,17 @@ const EditProfile: React.FC = () => {
 
   // Helper function to initialize form data from profile
   const initializeFormData = (profileData: any) => {
+    console.log('Initializing form data with profile:', {
+      name: profileData.name,
+      email: profileData.contactChannels?.email?.email,
+      phoneInfo: profileData.contactChannels?.phoneInfo,
+      hasContactChannels: !!profileData.contactChannels,
+      hasPhoneInfo: !!profileData.contactChannels?.phoneInfo
+    });
     // Initialize form data with profile data
-    const name = profileData.name || '';
-    const email = profileData.contactChannels?.email?.email || '';
-    const picture = profileData.profileImage || '';
+    const name = profileData.name || session?.user?.name || '';
+    const email = profileData.contactChannels?.email?.email || session?.user?.email || '';
+    const picture = profileData.profileImage || session?.user?.image || '/default-avatar.png';
     const backgroundImage = profileData.backgroundImage || '/gradient-bg.jpg';
     
     // Initialize social profiles from contactChannels
@@ -138,10 +166,50 @@ const EditProfile: React.FC = () => {
     });
     
     // Initialize the phone number input from contactChannels.phoneInfo
-    if (profileData.contactChannels?.phoneInfo?.nationalPhone) {
-      setDigits(profileData.contactChannels.phoneInfo.nationalPhone);
-      // Default to US if no country is set
-      setPhoneCountry('US');
+    console.log('Phone info from profile:', profileData.contactChannels?.phoneInfo);
+    
+    // Check if we have phone info in the expected location
+    const phoneInfo = profileData.contactChannels?.phoneInfo || 
+                    (profileData as any).phoneInfo; // Fallback to root level
+    
+    if (phoneInfo) {
+      console.log('Found phone info:', phoneInfo);
+      
+      // Try to get the phone number from various possible locations
+      // Prefer national phone number as it's already formatted for display
+      const phoneNumber = phoneInfo.nationalPhone || 
+                         phoneInfo.internationalPhone?.replace(/^\+1/, '') || // Remove +1 from international
+                         phoneInfo.phoneNumber || 
+                         phoneInfo.phone ||
+                         '';
+      
+      console.log('Extracted phone number:', phoneNumber);
+      
+      if (phoneNumber) {
+        // Clean the phone number to remove any non-digit characters
+        const cleanedNumber = phoneNumber.replace(/\D/g, '');
+        console.log('Cleaned phone number:', cleanedNumber);
+        
+        // Only update digits if we don't already have a value (to prevent overwriting user input)
+        if (!digits) {
+          setDigits(cleanedNumber);
+          setPhoneCountry('US'); // Default to US if no country is set
+          
+          console.log('Set phone number state:', {
+            original: phoneNumber,
+            cleaned: cleanedNumber,
+            digits: cleanedNumber,
+            national: phoneInfo.nationalPhone,
+            international: phoneInfo.internationalPhone
+          });
+        } else {
+          console.log('Skipping phone number update, already has value:', digits);
+        }
+      } else {
+        console.log('No valid phone number found in phoneInfo');
+      }
+    } else {
+      console.log('No phoneInfo found in profile data');
     }
   };
   
@@ -213,25 +281,43 @@ const EditProfile: React.FC = () => {
       let phoneNumber = '';
       let nationalNumber = '';
       
+      console.log('Saving phone number, digits:', digits);
+      
       if (digits) {
         try {
-          // Try to parse with the country code
-          const parsed = parsePhoneNumberFromString(digits, phoneCountry as any);
-          if (parsed?.isValid()) {
-            phoneNumber = parsed.format('E.164'); // +12133734253
-            nationalNumber = parsed.nationalNumber; // Store the national format
-          } else {
-            // Basic fallback
-            phoneNumber = digits.replace(/[^0-9]/g, '');
-            if (!phoneNumber.startsWith('+')) {
-              phoneNumber = `+${phoneNumber}`;
+          // Clean the digits first (remove any non-digit characters except +)
+          const cleanedDigits = digits.replace(/[^0-9+]/g, '');
+          
+          // If it starts with +, it's already in international format
+          if (cleanedDigits.startsWith('+')) {
+            const parsed = parsePhoneNumberFromString(cleanedDigits);
+            if (parsed?.isValid()) {
+              phoneNumber = parsed.format('E.164');
+              nationalNumber = parsed.nationalNumber;
+            } else {
+              // If parsing fails, use the cleaned digits as is
+              phoneNumber = cleanedDigits;
+              nationalNumber = cleanedDigits.replace(/^\+?\d+/, ''); // Remove country code for national
             }
-            nationalNumber = digits;
+          } else {
+            // For national numbers, use the selected country code
+            const parsed = parsePhoneNumberFromString(cleanedDigits, phoneCountry as any);
+            if (parsed?.isValid()) {
+              phoneNumber = parsed.format('E.164');
+              nationalNumber = parsed.nationalNumber;
+            } else {
+              // Fallback to raw digits if parsing fails
+              phoneNumber = `+${cleanedDigits}`;
+              nationalNumber = cleanedDigits;
+            }
           }
+          
+          console.log('Formatted phone number:', { phoneNumber, nationalNumber, digits });
+          
         } catch (error) {
           console.error('Error formatting phone:', error);
-          // Simple fallback
-          phoneNumber = digits;
+          // Fallback to raw digits
+          phoneNumber = digits.startsWith('+') ? digits : `+${digits}`;
           nationalNumber = digits;
         }
       }

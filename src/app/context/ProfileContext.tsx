@@ -183,15 +183,29 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!profile) return null;
     
     try {
+      // Debug log the incoming profile data
+      console.log('Saving profile with data:', {
+        incomingPhoneInfo: profileData.contactChannels?.phoneInfo,
+        existingPhoneInfo: profile.contactChannels.phoneInfo,
+        hasPhoneInfo: !!profileData.contactChannels?.phoneInfo,
+        profileDataKeys: Object.keys(profileData)
+      });
+
       const updatedProfile = {
         ...profile,
         ...profileData,
         lastUpdated: Date.now(),
         contactChannels: {
-          // Phone info
+          ...profile.contactChannels, // Preserve all existing contact channels
+          ...(profileData.contactChannels || {}), // Apply updates
+          
+          // Ensure phone info is properly preserved
           phoneInfo: {
-            internationalPhone: profileData.contactChannels?.phoneInfo?.internationalPhone ?? profile.contactChannels.phoneInfo.internationalPhone,
-            nationalPhone: profileData.contactChannels?.phoneInfo?.nationalPhone ?? profile.contactChannels.phoneInfo.nationalPhone,
+            ...profile.contactChannels.phoneInfo, // Keep existing phone info
+            ...(profileData.contactChannels?.phoneInfo || {}), // Apply updates
+            // Ensure we don't overwrite with empty strings
+            internationalPhone: profileData.contactChannels?.phoneInfo?.internationalPhone || profile.contactChannels.phoneInfo.internationalPhone,
+            nationalPhone: profileData.contactChannels?.phoneInfo?.nationalPhone || profile.contactChannels.phoneInfo.nationalPhone,
             userConfirmed: profileData.contactChannels?.phoneInfo?.userConfirmed ?? profile.contactChannels.phoneInfo.userConfirmed
           },
           // Email
