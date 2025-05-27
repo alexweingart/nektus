@@ -5,8 +5,13 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
-// Initialize Firebase
-const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+// Initialize Firebase with environment variables
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+};
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 // import { db } from '../../../lib/firebase';
