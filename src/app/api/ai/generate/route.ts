@@ -1,12 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { OpenAI } from 'openai';
+import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
 // Temporarily disabled Firebase imports
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Initialize OpenAI client with v5 configuration
+// Extend the OpenAI type to include the responses API
+declare module 'openai' {
+  interface OpenAI {
+    responses: {
+      create: (params: {
+        model: string;
+        input: Array<{
+          role: 'system' | 'user' | 'assistant';
+          content: Array<{
+            type: string;
+            text: string;
+          }>;
+        }>;
+        tools?: Array<{
+          type: string;
+          user_location?: {
+            type: string;
+            country: string;
+            region?: string;
+            city?: string;
+          };
+          search_context_size?: string;
+        }>;
+        temperature?: number;
+        max_tokens?: number;
+        top_p?: number;
+        store?: boolean;
+      }) => Promise<any>;
+    };
+  }
+}
+
+// Initialize OpenAI client with beta features
 let openai: OpenAI | null = null;
 try {
   if (!process.env.OPENAI_API_KEY) {
@@ -18,12 +50,41 @@ try {
     // Use beta endpoint for responses API
     baseURL: 'https://api.openai.com/v1',
     defaultQuery: { 'api-version': '2024-02-15-preview' },
-    defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' }
+    defaultHeaders: { 
+      'OpenAI-Beta': 'assistants=v2',
+      'Content-Type': 'application/json'
+    }
   });
   
-  console.log('OpenAI client v5 initialized successfully');
+  // Add the responses API to the client
+  openai.responses = {
+    create: async (params) => {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          ...params,
+          // Ensure we're using the latest model if not specified
+          model: params.model || 'gpt-4-turbo-preview'
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(error)}`);
+      }
+      
+      return response.json();
+    }
+  };
+  
+  console.log('OpenAI client with responses API initialized successfully');
 } catch (error) {
-  console.error('Failed to initialize OpenAI client v5:', error);
+  console.error('Failed to initialize OpenAI client:', error);
   console.error('Please check your OPENAI_API_KEY in .env.local');
 }
 
@@ -166,8 +227,7 @@ function getSocialProfileUrls(profile: any): string[] {
 }
 
 async function generateBio(profile: any) {
-
-  console.log('I am here in generateBio');
+  console.log('Starting bio generation for profile:', profile?.name || 'unknown');
 
   // Safety check for OpenAI client
   if (!openai) {
@@ -178,95 +238,113 @@ async function generateBio(profile: any) {
     // Get social profile URLs
     const socialProfileUrls = getSocialProfileUrls(profile);
     
-    // Prepare the messages for the API
-    const messages = [
+    // Prepare the input for the responses API with proper typing
+    const input: Array<{
+      role: 'system' | 'user' | 'assistant';
+      content: Array<{ type: string; text: string }>;
+    }> = [
       {
-        role: 'system' as const,
-        content: 'You are an amazing copywriter that generates short, personalized, and specific personal bios.'
+        role: 'system',
+        content: [
+          {
+            type: 'input_text',
+            text: 'You are an amazing copywriter that generates short, personalized, and specific personal bios.'
+          }
+        ]
       },
       {
-        role: 'user' as const,
-        content: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
+          }
+        ]
       }
     ];
 
     // Add social profile URLs to the prompt if available
     if (socialProfileUrls.length > 0) {
       const socialLinksText = socialProfileUrls.join('\n');
-      messages[1].content += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important:\n${socialLinksText}`;
-    }
-
-    // Prepare the request for the responses API
-    const requestPayload = {
-      model: 'gpt-4-turbo-preview',
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'text',
-              text: messages[0].content
-            }
-          ]
-        },
-        {
+      input[1].content[0].text += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important.`;
+      
+      // Add each social URL as a separate input
+      socialProfileUrls.forEach((url, index) => {
+        input.push({
           role: 'user',
           content: [
             {
-              type: 'text',
-              text: messages[1].content
+              type: 'input_text',
+              text: url
             }
           ]
-        }
-      ],
+        });
+      });
+    }
+
+    // Prepare the request for the responses API
+    const response = await openai.responses.create({
+      model: 'gpt-4-turbo-preview',
+      input,
       tools: [
         {
-          type: 'web_search',
-          web_search: {
-            search_context_size: 'high'
-          }
+          type: 'web_search_preview',
+          user_location: {
+            type: 'approximate',
+            country: 'US',
+            region: 'California',
+            city: 'San Francisco'
+          },
+          search_context_size: 'medium'
         }
       ],
       temperature: 0.8,
       max_tokens: 150,
-      top_p: 1
-    };
-
-    console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
-    
-    // Use the chat completions API with the responses format
-    // Create the completion without the web search tool as it's not supported in this version
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { 
-          role: 'system', 
-          content: messages[0].content + ' Use the provided context to generate a bio.'
-        },
-        { 
-          role: 'user', 
-          content: messages[1].content 
-        }
-      ],
-      temperature: 0.8,
-      max_tokens: 150,
-      top_p: 1
+      top_p: 1,
+      store: true
     });
     
     console.log('Received response from OpenAI API:', JSON.stringify(response, null, 2));
     
     // Extract the generated bio from the response
-    const bio = response.choices[0]?.message?.content?.trim();
+    // The response format may vary, so we need to handle different possible structures
+    let bio = '';
+    
+    // Try to find the assistant's response with the generated bio
+    const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
+    if (assistantResponse?.content) {
+      const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
+      if (textContent?.text) {
+        bio = textContent.text.trim();
+      }
+    }
+    
+    // Fallback to the first text content if no assistant response found
+    if (!bio && response.output) {
+      for (const item of response.output) {
+        if (item.content) {
+          const textContent = item.content.find((c: any) => c.type === 'output_text' || c.type === 'text');
+          if (textContent?.text) {
+            bio = textContent.text.trim();
+            break;
+          }
+        }
+      }
+    }
     
     if (!bio) {
-      throw new Error('No bio was generated');
+      console.error('No bio was generated in the response:', response);
+      throw new Error('No bio was generated in the response');
     }
     
     return NextResponse.json({ bio });
     
   } catch (error) {
     console.error('Error in generateBio:', error);
-    throw error;
+    // Fallback to a simple bio if the API call fails
+    return NextResponse.json({ 
+      bio: profile.bio || 'Passionate about connecting with others and sharing experiences.' 
+    });
   }
 }
 

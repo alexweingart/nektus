@@ -2,8 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* iOS 18+ specific fixes */
+/* iOS 18+ specific fixes - Aggressive scroll prevention */
 @supports (-webkit-touch-callout: none) and (color: light-dark(red, red)) {
+  /* Disable all scrolling on the body */
+  html, body {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: auto !important;
+    touch-action: manipulation !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+  
+  /* Allow scrolling only in the main content area */
+  .ios-scroll-container {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: none !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    transform: translate3d(0, 0, 0) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding-bottom: constant(safe-area-inset-bottom) !important;
+  }
   /* Lock the viewport to prevent resizing */
   html, body {
     position: fixed !important;

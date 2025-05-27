@@ -62,12 +62,30 @@ export default function ProfileSetup() {
       // Set initial viewport height
       setViewportHeight();
       
+      // Lock the viewport height to prevent resizing
+      const lockViewportHeight = () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.height = `${window.innerHeight}px`;
+      };
+      
       // Handle input focus/blur for iOS 18+
       const handleFocus = (e: FocusEvent) => {
         if (isIOS18Plus) {
           e.preventDefault();
           const target = e.target as HTMLElement;
-          target.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' });
+          
+          // Lock the viewport height when input is focused
+          lockViewportHeight();
+          
+          // Scroll the input into view
+          setTimeout(() => {
+            target.scrollIntoView({ 
+              behavior: 'instant', 
+              block: 'center', 
+              inline: 'nearest' 
+            });
+          }, 100);
         }
       };
       
@@ -76,6 +94,15 @@ export default function ProfileSetup() {
       inputs.forEach(input => {
         input.addEventListener('focus', handleFocus as EventListener);
       });
+      
+      // Lock viewport on orientation change
+      const handleOrientationChange = () => {
+        lockViewportHeight();
+      };
+      
+      // Add event listeners
+      window.addEventListener('resize', lockViewportHeight);
+      window.addEventListener('orientationchange', handleOrientationChange);
       
       // Setup scroll lock with a small delay
       const timer = setTimeout(() => {
@@ -113,19 +140,30 @@ export default function ProfileSetup() {
         // Clean up when component unmounts
         return () => {
           cleanup();
+          window.removeEventListener('resize', lockViewportHeight);
+          window.removeEventListener('orientationchange', handleOrientationChange);
+          
           if (window.visualViewport) {
             window.visualViewport.removeEventListener('resize', handleResize);
           } else {
             window.removeEventListener('resize', handleResize);
           }
+          
           inputs.forEach(input => {
             input.removeEventListener('focus', handleFocus as EventListener);
           });
+          
+          // Reset styles
           document.body.classList.remove('ios-device', 'ios-keyboard-visible');
+          document.documentElement.style.height = '';
         };
       }, 100);
       
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', lockViewportHeight);
+        window.removeEventListener('orientationchange', handleOrientationChange);
+      };
     }
   }, []);
 
