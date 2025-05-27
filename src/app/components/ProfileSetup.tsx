@@ -185,59 +185,61 @@ export default function ProfileSetup() {
     if (!isLoading) {
       const loadAndInitialize = async () => {
         try {
-          // Start with current profiles (including email which is already confirmed)
-          const updatedProfiles = [...socialProfiles];
-          
-          // Add default social profiles if they don't exist yet
-          if (extractedUsernameRef.current && !updatedProfiles.find(p => p.platform === 'instagram')) {
-            // Add all social platforms in grey (empty) state
-            platformOrder.forEach(platform => {
-              if (platform !== 'email' && !updatedProfiles.find(p => p.platform === platform)) {
-                updatedProfiles.push({
-                  platform,
-                  username: platform === 'phone' ? '' : extractedUsernameRef.current,
-                  shareEnabled: true,
-                  filled: false,
-                  confirmed: false,
-                  autoFilled: false,
-                  countryUserConfirmed: true
-                });
-              }
-            });
-          }
-          
-          // Handle existing profile data if available
-          if (profile) {
-            if (profile.internationalPhone) {
-              const parsed = parsePhoneNumberFromString(profile.internationalPhone, country);
-              if (parsed?.isValid()) {
-                // Update state with detected country and national digits
-                setDigits(parsed.nationalNumber);
-              }
-            }
+          setSocialProfiles(prevProfiles => {
+            // Start with current profiles (including email which is already confirmed)
+            const updatedProfiles = [...prevProfiles];
             
-            if (profile.socialProfiles && profile.socialProfiles.length > 0) {
-              // Merge existing profiles with our initialized ones
-              profile.socialProfiles.forEach(existingProfile => {
-                const index = updatedProfiles.findIndex(p => p.platform === existingProfile.platform);
-                if (index >= 0) {
-                  updatedProfiles[index] = {
-                    ...existingProfile,
-                    confirmed: existingProfile.filled,
-                    countryUserConfirmed: true
-                  } as SocialProfile;
-                } else {
+            // Add default social profiles if they don't exist yet
+            if (extractedUsernameRef.current && !updatedProfiles.find(p => p.platform === 'instagram')) {
+              // Add all social platforms in grey (empty) state
+              platformOrder.forEach(platform => {
+                if (platform !== 'email' && !updatedProfiles.find(p => p.platform === platform)) {
                   updatedProfiles.push({
-                    ...existingProfile,
-                    confirmed: existingProfile.filled,
+                    platform,
+                    username: platform === 'phone' ? '' : extractedUsernameRef.current,
+                    shareEnabled: true,
+                    filled: false,
+                    confirmed: false,
+                    autoFilled: false,
                     countryUserConfirmed: true
-                  } as SocialProfile);
+                  });
                 }
               });
             }
-          }
-          
-          setSocialProfiles(updatedProfiles);
+            
+            // Handle existing profile data if available
+            if (profile) {
+              if (profile.internationalPhone) {
+                const parsed = parsePhoneNumberFromString(profile.internationalPhone, country);
+                if (parsed?.isValid()) {
+                  // Update state with detected country and national digits
+                  setDigits(parsed.nationalNumber);
+                }
+              }
+              
+              if (profile.socialProfiles && profile.socialProfiles.length > 0) {
+                // Merge existing profiles with our initialized ones
+                profile.socialProfiles.forEach(existingProfile => {
+                  const index = updatedProfiles.findIndex(p => p.platform === existingProfile.platform);
+                  if (index >= 0) {
+                    updatedProfiles[index] = {
+                      ...existingProfile,
+                      confirmed: existingProfile.filled,
+                      countryUserConfirmed: true
+                    } as SocialProfile;
+                  } else {
+                    updatedProfiles.push({
+                      ...existingProfile,
+                      confirmed: existingProfile.filled,
+                      countryUserConfirmed: true
+                    } as SocialProfile);
+                  }
+                });
+              }
+            }
+            
+            return updatedProfiles;
+          });
         } catch (error) {
           console.error('Error initializing profile:', error);
         }
@@ -245,7 +247,7 @@ export default function ProfileSetup() {
       
       loadAndInitialize();
     }
-  }, [isLoading, profile, platformOrder, socialProfiles]);
+  }, [isLoading, profile, platformOrder]);
   
   // Update social profiles when phone number is complete
   useEffect(() => {
