@@ -235,18 +235,17 @@ async function generateBio(profile: any) {
     console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
     
     // Use the chat completions API with the responses format
+    // Create the completion without the web search tool as it's not supported in this version
     const response = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
-        { role: 'system', content: messages[0].content },
-        { role: 'user', content: messages[1].content }
-      ],
-      tools: [
-        {
-          type: 'web_search',
-          web_search: {
-            search_context_size: 'high'
-          }
+        { 
+          role: 'system', 
+          content: messages[0].content + ' Use the provided context to generate a bio.'
+        },
+        { 
+          role: 'user', 
+          content: messages[1].content 
         }
       ],
       temperature: 0.8,
