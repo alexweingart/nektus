@@ -50,6 +50,9 @@ export default function ProfileSetup() {
       // Add iOS-specific class to body
       document.body.classList.add('ios-device');
       
+      // Check if iOS 18+
+      const isIOS18Plus = CSS.supports('color', 'light-dark(red, red)');
+      
       // Store the current viewport height
       const setViewportHeight = () => {
         const vh = window.innerHeight * 0.01;
@@ -58,6 +61,21 @@ export default function ProfileSetup() {
       
       // Set initial viewport height
       setViewportHeight();
+      
+      // Handle input focus/blur for iOS 18+
+      const handleFocus = (e: FocusEvent) => {
+        if (isIOS18Plus) {
+          e.preventDefault();
+          const target = e.target as HTMLElement;
+          target.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' });
+        }
+      };
+      
+      // Add event listeners for all inputs
+      const inputs = document.querySelectorAll('input, textarea, [contenteditable]');
+      inputs.forEach(input => {
+        input.addEventListener('focus', handleFocus as EventListener);
+      });
       
       // Setup scroll lock with a small delay
       const timer = setTimeout(() => {
@@ -72,8 +90,8 @@ export default function ProfileSetup() {
           
           if (isKeyboardVisible) {
             document.body.classList.add('ios-keyboard-visible');
-            // Scroll the active element into view
-            if (document.activeElement) {
+            // Scroll the active element into view for non-iOS 18
+            if (!isIOS18Plus && document.activeElement) {
               document.activeElement.scrollIntoView({
                 behavior: 'smooth',
                 block: 'center',
@@ -100,6 +118,9 @@ export default function ProfileSetup() {
           } else {
             window.removeEventListener('resize', handleResize);
           }
+          inputs.forEach(input => {
+            input.removeEventListener('focus', handleFocus as EventListener);
+          });
           document.body.classList.remove('ios-device', 'ios-keyboard-visible');
         };
       }, 100);

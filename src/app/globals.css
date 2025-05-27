@@ -2,74 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-/* iOS-specific fixes */
-@supports (-webkit-touch-callout: none) {
+/* iOS 18+ specific fixes */
+@supports (-webkit-touch-callout: none) and (color: light-dark(red, red)) {
   /* Lock the viewport to prevent resizing */
   html, body {
     position: fixed !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
+    max-height: 100% !important;
     overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: none;
-    touch-action: none;
   }
 
   /* Main scroll container */
   .ios-scroll-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: none;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-  }
-
-  /* When keyboard is visible */
-  body.ios-keyboard-visible {
-    position: fixed !important;
-    overflow: hidden !important;
-    height: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: none !important;
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding-bottom: constant(safe-area-inset-bottom) !important; /* For older iOS versions */
   }
 
   /* Input styles */
   input, textarea, [contenteditable] {
     font-size: 16px !important;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
     -webkit-appearance: none;
+    appearance: none;
     border-radius: 0;
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+    touch-action: manipulation;
   }
 
-  /* Fix for position fixed elements */
-  @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    body {
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-bottom: constant(safe-area-inset-bottom); /* For older iOS versions */
-    }
-    
-    body.ios-keyboard-visible {
-      padding-bottom: calc(env(safe-area-inset-bottom) + 50px);
-    }
-  }
-
-  /* Prevent iOS zoom on focus */
+  /* Fix for iOS 18 Chrome */
   @media screen and (-webkit-min-device-pixel-ratio: 0) {
-    input[type="text"],
-    input[type="tel"],
-    input[type="email"],
-    textarea,
-    [contenteditable] {
-      font-size: 16px !important;
+    input, textarea, [contenteditable] {
       transform: scale(1) !important;
       -webkit-transform: scale(1) !important;
       transform-origin: 0 0 !important;
@@ -82,18 +65,46 @@
   input::-webkit-credentials-auto-fill-button,
   input::-webkit-outer-spin-button,
   input::-webkit-inner-spin-button {
-    visibility: hidden;
+    visibility: hidden !important;
     display: none !important;
-    pointer-events: none;
-    height: 0;
-    width: 0;
-    margin: 0;
-    padding: 0;
+    pointer-events: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
   }
 
-  /* Disable pull-to-refresh */
+  /* Disable pull-to-refresh and overscroll */
   body {
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* Fallback for older iOS versions */
+@supports (-webkit-touch-callout: none) and (not (color: light-dark(red, red))) {
+  /* Similar styles as above but without iOS 18 specific features */
+  html, body {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+
+  .ios-scroll-container {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 }
 

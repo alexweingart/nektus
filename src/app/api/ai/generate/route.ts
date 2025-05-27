@@ -6,7 +6,7 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Initialize OpenAI client with proper error handling
+// Initialize OpenAI client with v5 configuration
 let openai: OpenAI | null = null;
 try {
   if (!process.env.OPENAI_API_KEY) {
@@ -15,11 +15,15 @@ try {
   
   openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+    // Use beta endpoint for responses API
+    baseURL: 'https://api.openai.com/v1',
+    defaultQuery: { 'api-version': '2024-02-15-preview' },
+    defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' }
   });
   
-  console.log('OpenAI client initialized successfully');
+  console.log('OpenAI client v5 initialized successfully');
 } catch (error) {
-  console.error('Failed to initialize OpenAI client:', error);
+  console.error('Failed to initialize OpenAI client v5:', error);
   console.error('Please check your OPENAI_API_KEY in .env.local');
 }
 
@@ -169,7 +173,7 @@ async function generateBio(profile: any) {
   if (!openai) {
     throw new Error('OpenAI client not initialized');
   }
-
+  
   try {
     // Get social profile URLs
     const socialProfileUrls = getSocialProfileUrls(profile);
@@ -178,73 +182,91 @@ async function generateBio(profile: any) {
     const messages = [
       {
         role: 'system' as const,
-        content: [
-          {
-            type: 'input_text' as const,
-            text: 'You are an amazing copywriter that generates short, personalized, and specific personal bios.'
-          }
-        ]
+        content: 'You are an amazing copywriter that generates short, personalized, and specific personal bios.'
       },
       {
         role: 'user' as const,
-        content: [
-          {
-            type: 'input_text' as const,
-            text: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
-          }
-        ]
+        content: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
       }
     ];
 
     // Add social profile URLs to the prompt if available
     if (socialProfileUrls.length > 0) {
       const socialLinksText = socialProfileUrls.join('\n');
-      messages[1].content[0].text += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important:\n${socialLinksText}`;
+      messages[1].content += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important:\n${socialLinksText}`;
     }
 
+    // Prepare the request for the responses API
     const requestPayload = {
-      model: 'gpt-4.1',
-      input: messages,
-      text: {
-        format: {
-          type: 'text' as const
+      model: 'gpt-4-turbo-preview',
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'text',
+              text: messages[0].content
+            }
+          ]
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: messages[1].content
+            }
+          ]
         }
-      },
-      tools: [{
-        type: 'web_search_preview' as const,
-        web_search_preview: {
-          search_context_size: 'high' as const
+      ],
+      tools: [
+        {
+          type: 'web_search',
+          web_search: {
+            search_context_size: 'high'
+          }
         }
-      }],
+      ],
       temperature: 0.8,
-      max_output_tokens: 150,
-      top_p: 1,
-      store: true
+      max_tokens: 150,
+      top_p: 1
     };
 
     console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
     
-    const response = await openai.responses.create(requestPayload);
-    console.log('Raw OpenAI API response:', JSON.stringify(response, null, 2));
+    // Use the chat completions API with the responses format
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        { role: 'system', content: messages[0].content },
+        { role: 'user', content: messages[1].content }
+      ],
+      tools: [
+        {
+          type: 'web_search',
+          web_search: {
+            search_context_size: 'high'
+          }
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 150,
+      top_p: 1
+    });
+    
+    console.log('Received response from OpenAI API:', JSON.stringify(response, null, 2));
     
     // Extract the generated bio from the response
-    const firstOutput = response?.output?.[0];
+    const bio = response.choices[0]?.message?.content?.trim();
     
-    if (firstOutput && 'type' in firstOutput && firstOutput.type === 'message') {
-      const messageOutput = firstOutput as { content?: Array<{ type: string; text?: string }> };
-      const firstContent = messageOutput.content?.[0];
-      
-      if (firstContent?.type === 'output_text' && firstContent.text) {
-        const bio = firstContent.text.trim();
-        console.log('Successfully extracted bio from response');
-        return NextResponse.json({ bio });
-      }
+    if (!bio) {
+      throw new Error('No bio was generated');
     }
     
-    throw new Error('Unexpected response format from OpenAI API');
+    return NextResponse.json({ bio });
     
   } catch (error) {
-    console.error('Error generating bio:', error);
+    console.error('Error in generateBio:', error);
     throw error;
   }
 }
