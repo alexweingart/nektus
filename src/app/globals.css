@@ -2,119 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* iOS 18+ specific fixes - Aggressive scroll prevention */
-@supports (-webkit-touch-callout: none) and (color: light-dark(red, red)) {
-  /* Disable all scrolling on the body */
-  html, body {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    overscroll-behavior: none !important;
-    -webkit-overflow-scrolling: auto !important;
-    touch-action: manipulation !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
+/* Basic iOS fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Prevent zoom on input focus */
+  input, textarea, [contenteditable] {
+    font-size: 16px;
   }
   
-  /* Allow scrolling only in the main content area */
-  .ios-scroll-container {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: none !important;
-    -webkit-transform: translate3d(0, 0, 0) !important;
-    transform: translate3d(0, 0, 0) !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    padding-bottom: constant(safe-area-inset-bottom) !important;
-  }
-  /* Lock the viewport to prevent resizing */
-  html, body {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    overscroll-behavior: none !important;
-    touch-action: pan-x pan-y;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Main scroll container */
-  .ios-scroll-container {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: none !important;
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    padding-bottom: constant(safe-area-inset-bottom) !important; /* For older iOS versions */
-  }
-
-  /* Input styles */
-  input, textarea, [contenteditable] {
-    font-size: 16px !important;
-    -webkit-appearance: none;
-    appearance: none;
-    border-radius: 0;
-    transform: translateZ(0) !important;
-    -webkit-transform: translateZ(0) !important;
-    touch-action: manipulation;
-  }
-
-  /* Fix for iOS 18 Chrome */
-  @media screen and (-webkit-min-device-pixel-ratio: 0) {
-    input, textarea, [contenteditable] {
-      transform: scale(1) !important;
-      -webkit-transform: scale(1) !important;
-      transform-origin: 0 0 !important;
-      -webkit-transform-origin: 0 0 !important;
+  /* Fix for position fixed elements */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-bottom: constant(safe-area-inset-bottom); /* For older iOS versions */
     }
-  }
-
-  /* Hide autofill buttons */
-  input::-webkit-contacts-auto-fill-button,
-  input::-webkit-credentials-auto-fill-button,
-  input::-webkit-outer-spin-button,
-  input::-webkit-inner-spin-button {
-    visibility: hidden !important;
-    display: none !important;
-    pointer-events: none !important;
-    height: 0 !important;
-    width: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    opacity: 0 !important;
-  }
-
-  /* Disable pull-to-refresh and overscroll */
-  body {
-    overscroll-behavior-y: none !important;
-    -webkit-overflow-scrolling: touch !important;
   }
 }
 

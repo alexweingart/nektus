@@ -343,7 +343,7 @@ async function generateBio(profile: any) {
         content: [
           {
             type: 'input_text',
-            text: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
+            text: `Generate a hyper-personalized bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio. You should always come up with something unique and creative.`
           }
         ]
       }
@@ -351,26 +351,13 @@ async function generateBio(profile: any) {
 
     // Add social profile URLs to the prompt if available
     if (socialProfileUrls.length > 0) {
-      const socialLinksText = socialProfileUrls.join('\n');
-      input[1].content[0].text += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important.`;
-      
-      // Add each social URL as a separate input
-      socialProfileUrls.forEach((url, index) => {
-        input.push({
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: url
-            }
-          ]
-        });
-      });
+      const socialLinksText = socialProfileUrls.join(', ');
+      input[1].content[0].text += `Please follow these web links to read about ${profile.name}: ${socialLinksText}. If the webpage was updated more recently, that information is more important.`;
     }
 
     // Prepare the request for the responses API
     const requestParams = {
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4.1',
       input,
       tools: [
         {
@@ -384,8 +371,8 @@ async function generateBio(profile: any) {
           search_context_size: 'medium'
         }
       ],
-      temperature: 0.8,
-      max_tokens: 150,
+      temperature: .8,
+      max_output_tokens: 2048,
       top_p: 1,
       store: true
     };

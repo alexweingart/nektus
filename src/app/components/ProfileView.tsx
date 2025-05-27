@@ -7,6 +7,7 @@ import Link from 'next/link';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
 import { toast } from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
 
 // Import types from ProfileContext
 import { UserProfile } from '../context/ProfileContext';
@@ -330,10 +331,29 @@ const ProfileView: React.FC = () => {
           {localProfile.name}
         </h1>
         
-        {/* Bio */}
-        <p className="text-sm text-black mb-6 text-center max-w-xs">
-          {bio || getPlaceholderBio()}
-        </p>
+        {/* Bio with markdown support */}
+        <div className="text-sm text-black mb-6 text-center max-w-xs">
+          <style jsx>{`
+            .bio-content a {
+              color: #16a34a; /* green-600 */
+              text-decoration: none;
+            }
+            .bio-content a:hover {
+              color: #166534; /* green-800 */
+            }
+          `}</style>
+          <div className="bio-content">
+            <ReactMarkdown 
+              components={{
+                a: ({node, ...props}) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                )
+              }}
+            >
+              {bio || getPlaceholderBio()}
+            </ReactMarkdown>
+          </div>
+        </div>
         
         {/* Contact Icons */}
         <div className="mb-8 w-full max-w-xs mx-auto">
