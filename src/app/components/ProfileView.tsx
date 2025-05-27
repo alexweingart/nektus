@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
+import { toast } from 'react-hot-toast';
 
 // Import types from ProfileContext
 import { UserProfile } from '../context/ProfileContext';
@@ -40,7 +41,7 @@ const HARDCODED_PROFILE: UserProfile = {
 };
 
 // Single instructional placeholder bio
-const PLACEHOLDER_BIO = "AI will create a bio here for you, or tap edit profile to write your own";
+const PLACEHOLDER_BIO = "Generating your personalized bio...";
 
 const getPlaceholderBio = () => {
   return PLACEHOLDER_BIO;
@@ -62,28 +63,154 @@ const ProfileView: React.FC = () => {
   const [bio, setBio] = useState<string>('');
   const [bgImage, setBgImage] = useState<string>('/gradient-bg.jpg');
   
-  // Load profile from localStorage
+  // Function to generate bio using AI
+  const generateBio = useCallback(async (profile: typeof localProfile) => {
+    try {
+      // Check if we have enough data to generate a meaningful bio
+      const hasSocialInfo = Object.values(profile.contactChannels).some(
+        (channel: any) => 
+          (channel.username && channel.username !== '') || 
+          (channel.email && channel.email !== '') ||
+          (channel.internationalPhone && channel.internationalPhone !== '')
+      );
+
+      if (!hasSocialInfo) return;
+
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'bio',
+          profile: {
+            ...profile,
+            // Map the contact channels to the format expected by the API
+            facebookUsername: profile.contactChannels.facebook.username,
+            instagramUsername: profile.contactChannels.instagram.username,
+            xUsername: profile.contactChannels.x.username,
+            linkedinUsername: profile.contactChannels.linkedin.username,
+            snapchatUsername: profile.contactChannels.snapchat.username,
+            whatsappUsername: profile.contactChannels.whatsapp.username,
+            telegramUsername: profile.contactChannels.telegram.username,
+            wechatUsername: profile.contactChannels.wechat.username,
+            email: profile.contactChannels.email.email,
+            phone: profile.contactChannels.phoneInfo.internationalPhone,
+            name: profile.name,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate bio');
+      }
+
+      const { bio: generatedBio } = await response.json();
+      
+      if (generatedBio) {
+        console.log('Generated bio:', generatedBio);
+        
+        // First, get the current profile from localStorage to ensure we have the latest data
+        const currentProfile = localStorage.getItem('nektus_user_profile');
+        let profileToUpdate = profile;
+        
+        if (currentProfile) {
+          try {
+            // Parse the current profile and merge with the new bio
+            const parsedProfile = JSON.parse(currentProfile);
+            profileToUpdate = {
+              ...parsedProfile,
+              bio: generatedBio,
+              lastUpdated: Date.now()
+            };
+          } catch (e) {
+            console.error('Error parsing current profile:', e);
+            // Fallback to the passed profile if parsing fails
+            profileToUpdate = {
+              ...profile,
+              bio: generatedBio,
+              lastUpdated: Date.now()
+            };
+          }
+        } else {
+          // If no profile exists, create a new one with the bio
+          profileToUpdate = {
+            ...profile,
+            bio: generatedBio,
+            lastUpdated: Date.now()
+          };
+        }
+        
+        // Save the updated profile to localStorage
+        console.log('Saving updated profile to localStorage:', profileToUpdate);
+        localStorage.setItem('nektus_user_profile', JSON.stringify(profileToUpdate));
+        
+        // Update the local state
+        setLocalProfile(profileToUpdate);
+        setBio(generatedBio);
+        
+        console.log('Bio generation and save complete');
+      }
+    } catch (error) {
+      console.error('Error generating bio:', error);
+      toast.error('Failed to generate bio. Please try again later.');
+    }
+  }, []);
+
+  // Log the current local storage state when the component mounts
+  useEffect(() => {
+    console.log('Initial local storage state:', {
+      'nektus_user_profile': localStorage.getItem('nektus_user_profile'),
+      'entire local storage': {...localStorage}
+    });
+  }, []);
+
+  // Track if we've attempted to generate a bio
+  const hasGeneratedBio = React.useRef(false);
+  
+  // Load profile from localStorage and generate bio if needed
   useEffect(() => {
     const loadProfile = () => {
       try {
         const savedProfile = localStorage.getItem('nektus_user_profile');
+        console.log('Loading profile from localStorage');
+        
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          setLocalProfile(prev => ({
+          
+          // Create a complete profile with all defaults filled in
+          // But preserve the existing userId if it exists in the parsed profile
+          const updatedProfile = {
             ...HARDCODED_PROFILE,
             ...parsedProfile,
+            // Only use the hardcoded userId if there isn't one in the parsed profile
+            userId: parsedProfile.userId || HARDCODED_PROFILE.userId,
             contactChannels: {
               ...HARDCODED_PROFILE.contactChannels,
               ...(parsedProfile.contactChannels || {})
             }
-          }));
+          };
           
-          // Set individual UI states
-          if (parsedProfile.bio) setBio(parsedProfile.bio);
-          if (parsedProfile.backgroundImage) setBgImage(parsedProfile.backgroundImage);
+          // Update local state with the complete profile
+          setLocalProfile(updatedProfile);
+          
+          // Set background image if it exists
+          if (parsedProfile.backgroundImage) {
+            setBgImage(parsedProfile.backgroundImage);
+          }
+          
+          // Handle bio - only generate if bio is empty and we haven't generated one yet
+          if (parsedProfile.bio && parsedProfile.bio.trim() !== '') {
+            console.log('Using existing bio from profile');
+            setBio(parsedProfile.bio);
+          } else if (!hasGeneratedBio.current) {
+            console.log('No bio found, generating new one');
+            hasGeneratedBio.current = true;
+            generateBio(updatedProfile);
+          }
         }
       } catch (error) {
-        console.error('Error loading profile from localStorage:', error);
+        console.error('Error loading profile:', error);
       } finally {
         setIsLoading(false);
       }
@@ -91,7 +218,7 @@ const ProfileView: React.FC = () => {
     
     loadProfile();
     
-    // Optional: Listen for storage events to update when profile changes in another tab
+    // Listen for storage events to update when profile changes in another tab
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'nektus_user_profile') {
         loadProfile();

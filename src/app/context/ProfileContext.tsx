@@ -95,10 +95,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const cachedProfile = localStorage.getItem(STORAGE_KEY);
       if (cachedProfile) {
         const parsed = JSON.parse(cachedProfile);
-        if (parsed.userId === userId) {
-          setProfile(parsed);
-          return parsed;
-        }
+        // Always use the existing userId from localStorage if it exists
+        const userIdToUse = parsed.userId || userId;
+        setProfile(parsed);
+        return parsed;
       }
       
       // If no profile exists, create a new one
@@ -106,8 +106,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const userEmail = session.user.email || '';
         const usernameFromEmail = userEmail.split('@')[0] || '';
         
+        // Check if we already have a userId in sessionStorage to maintain consistency
+        const existingUserId = sessionStorage.getItem('nektus_user_id') || generateGuid();
+        sessionStorage.setItem('nektus_user_id', existingUserId);
+        
         const newProfile: UserProfile = {
-          userId: generateGuid(),
+          userId: existingUserId,
           name: session.user.name || 'New User',
           bio: '',
           profileImage: session.user.image || '/default-avatar.png',

@@ -143,6 +143,36 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
+  // Parse international phone number and return national number and country code
+  const parseInternationalNumber = (digits: string): { nationalNumber: string, countryCode: string | null } => {
+    // If it's a US number (10 digits or 11 digits starting with 1), return as is
+    if (digits.length === 10 || (digits.length === 11 && digits.startsWith('1'))) {
+      const nationalNumber = digits.length === 11 ? digits.slice(1) : digits;
+      return { nationalNumber, countryCode: 'US' };
+    }
+    
+    // Check if the number starts with a known country code
+    for (let i = 4; i >= 1; i--) {
+      const potentialDialCode = digits.substring(0, i);
+      const matchingCountries = dialCodeMap[potentialDialCode];
+      
+      if (matchingCountries && matchingCountries.length > 0) {
+        // Found a matching country code
+        const nationalNumber = digits.substring(i);
+        // If we have a national number that's at least 4 digits, use it
+        if (nationalNumber.length >= 4) {
+          return { 
+            nationalNumber: nationalNumber,
+            countryCode: matchingCountries[0].code // Default to first matching country
+          };
+        }
+      }
+    }
+    
+    // If no country code found, return the original digits
+    return { nationalNumber: digits, countryCode: null };
+  };
+
   // Handle phone input change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
@@ -152,14 +182,43 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     // Get all digits from input
     const digits = input.replace(/\D/g, '');
     
-    // Format the phone number
-    let formattedPhone = '';
-    
-    if (digits.length > 0) {
-      formattedPhone = formatPhoneNumber(digits);
+    // Check if this looks like an international number (more than 10 digits)
+    if (digits.length > 10) {
+      const { nationalNumber, countryCode } = parseInternationalNumber(digits);
+      
+      if (countryCode && nationalNumber) {
+        // Update the selected country if we detected a country code
+        const newCountry = countries.find(c => c.code === countryCode);
+        if (newCountry && newCountry.code !== selectedCountry.code) {
+          setSelectedCountry(newCountry);
+        }
+        
+        // Use the national number for formatting
+        const formattedPhone = formatPhoneNumber(nationalNumber);
+        
+        // Call the parent's onChange with just the national number digits
+        onChange(nationalNumber);
+        
+        // Update the input value
+        requestAnimationFrame(() => {
+          setPhoneInput(prev => formattedPhone);
+          
+          // Restore cursor position if possible
+          if (inputRef.current) {
+            const newCursorPosition = Math.min(cursorPosition, formattedPhone.length);
+            inputRef.current.selectionStart = newCursorPosition;
+            inputRef.current.selectionEnd = newCursorPosition;
+          }
+        });
+        
+        return;
+      }
     }
     
-    // Call the parent's onChange with just the digits first
+    // Default handling for regular phone numbers
+    const formattedPhone = digits ? formatPhoneNumber(digits) : '';
+    
+    // Call the parent's onChange with just the digits
     onChange(digits);
     
     // Update the input value in a way that preserves cursor position
