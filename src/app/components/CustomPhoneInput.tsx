@@ -221,9 +221,10 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div 
-      className={`flex w-full bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
+      className={`flex w-full max-w-[320px] bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
       onFocus={() => setIsInputFocused(true)}
       onBlur={() => setIsInputFocused(false)}
+      style={{ width: '100%' }}
     >
       {/* Country selector */}
       <div className="relative z-10" ref={dropdownRef}>

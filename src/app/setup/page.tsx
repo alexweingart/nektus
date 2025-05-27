@@ -10,16 +10,13 @@ export default function SetupPage() {
   const error = searchParams?.get('error');
   
   return (
-    <div className={styles.setupContainer}>
+    <div className={`${styles.setupContainer} max-w-[28rem] mx-auto`}>
       {error && (
         <div className={styles.errorMessage}>
           There was a problem with Google sign-in. Please try again.
         </div>
       )}
-      
-      <div style={{ maxWidth: '28rem', margin: '0 auto' }}>
-        <ProfileSetup />
-      </div>
+      <ProfileSetup />
     </div>
   );
 }

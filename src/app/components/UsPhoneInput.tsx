@@ -38,31 +38,31 @@ export const UsPhoneInput = forwardRef<HTMLInputElement, Props>(
     const pretty = new AsYouType('US').input(value);
 
     return (
-      <input
-        ref={ref}
-        type="tel"
-        id={id}
-        inputMode="tel"
-        autoComplete="tel-national"
-        placeholder={placeholder ?? 'Phone number'}
-        className="w-full rounded-md border p-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-        value={pretty}
-        onChange={(e) => onChange(normalise(e.target.value))}
-        onInput={(e) => {
-          // Handle autofill events that might not trigger onChange
-          const input = e.target as HTMLInputElement;
-          const value = input.value;
-          if (value && value !== pretty) {
-            onChange(normalise(value));
-          }
-        }}
-        // Allow "Paste" from iOS/Android bubble without extra click
-        onPaste={(e) => {
-          e.preventDefault();
-          const text = e.clipboardData.getData('text');
-          onChange(normalise(text));
-        }}
-      />
+    <input
+      ref={ref}
+      type="tel"
+      id={id}
+      inputMode="tel"
+      autoComplete="tel-national"
+      placeholder={placeholder ?? 'Phone number'}
+      className="w-full rounded-md border p-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+      value={pretty}
+      onChange={(e) => onChange(normalise(e.target.value))}
+      onInput={(e) => {
+        // Handle autofill events that might not trigger onChange
+        const input = e.target as HTMLInputElement;
+        const value = input.value;
+        if (value && value !== pretty) {
+          onChange(normalise(value));
+        }
+      }}
+      // Allow "Paste" from iOS/Android bubble without extra click
+      onPaste={(e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text');
+        onChange(normalise(text));
+      }}
+    />
     );
   }
 );

@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent scrolling when keyboard is open on mobile */
+@supports (-webkit-touch-callout: none) {
+  /* CSS specific to iOS devices */
+  html, body {
+    position: fixed;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+  }
+  
+  /* Allow scrolling within specific containers */
+  .scrollable-content {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    height: 100%;
+    width: 100%;
+  }
+}
+
 /* Mobile Safari Input Fix */
 input,
 select,
