@@ -6,16 +6,21 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Initialize OpenAI client with proper null check for the API key
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY, // Server-side environment variable
-    })
-  : null;
-
-// Check if OpenAI client is properly initialized
-if (!openai) {
-  console.error('OpenAI API key is missing. Please set OPENAI_API_KEY in your environment variables.');
+// Initialize OpenAI client with proper error handling
+let openai: OpenAI | null = null;
+try {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not set in environment variables');
+  }
+  
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  
+  console.log('OpenAI client initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize OpenAI client:', error);
+  console.error('Please check your OPENAI_API_KEY in .env.local');
 }
 
 // Helper function to extract social media links from profile
@@ -152,8 +157,10 @@ async function generateBio(profile: any) {
   try {
     // Safety check for OpenAI client
     if (!openai) {
+      console.error('OpenAI client not initialized when generateBio was called');
       return NextResponse.json(
-        { bio: 'Connecting people through technology' }
+        { bio: 'AI should be generating a bio for you, but it\'s not - OpenAI client not initialized. Check server logs for details.' },
+        { status: 500 }
       );
     }
 
@@ -221,7 +228,7 @@ async function generateBio(profile: any) {
     const bio = response.output[0].type === 'message' && 
       response.output[0].content?.[0]?.type === 'output_text'
       ? response.output[0].content[0].text.trim()
-      : 'Connecting people through technology';
+      : 'AI should be generating a bio for you, but it\'s not - No AI response';
     
     // Temporarily disabled Firestore save
     // if (profile.userId) {

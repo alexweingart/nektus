@@ -4,31 +4,46 @@
 
 /* iOS-specific fixes */
 @supports (-webkit-touch-callout: none) {
-  /* Prevent elastic scrolling */
+  /* Prevent elastic scrolling and set up base styles */
   html, body {
     position: relative;
     height: 100%;
     width: 100%;
     overflow: hidden;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* When keyboard is visible */
   body.ios-keyboard-visible {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: none !important;
   }
   
-  /* Ensure inputs are tap-friendly */
+  /* Ensure inputs are tap-friendly and prevent iOS zoom */
   input, textarea, [contenteditable] {
-    font-size: 16px; /* Prevent iOS zoom */
+    font-size: 16px;
   }
   
-  /* Fix for position fixed elements */
+  /* Fix for position fixed elements and safe area insets */
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
     body.ios-keyboard-visible {
       padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    /* Adjust fixed elements when keyboard is visible */
+    .ios-keyboard-visible [data-fixed] {
+      bottom: env(safe-area-inset-bottom) !important;
+    }
+  }
+  
+  /* Prevent iOS from zooming in on input focus */
+  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+    input, textarea, [contenteditable] {
+      font-size: 16px !important;
     }
   }
 }

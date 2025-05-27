@@ -4,12 +4,20 @@ let scrollY = 0;
 let isLocked = false;
 let isIOS = false;
 let originalViewport = '';
+let activeElement: HTMLElement | null = null;
 
 // Detect iOS
 if (typeof window !== 'undefined') {
   isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
+
+// Store the current active element
+const storeActiveElement = () => {
+  if (document.activeElement?.matches('input, textarea, [contenteditable]')) {
+    activeElement = document.activeElement as HTMLElement;
+  }
+};
 
 export function setupScrollLock() {
   // Store the current scroll position
@@ -33,36 +41,47 @@ export function setupScrollLock() {
     isLocked = true;
     storeScrollPosition();
     
-    // For all platforms
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.body.style.overscrollBehavior = 'none';
-    document.documentElement.style.overscrollBehavior = 'none';
-    
-    // Add touch event listeners
-    document.addEventListener('touchmove', preventDefault, { passive: false });
-    
-    // iOS specific fixes
+    // For iOS, we'll use a different approach
     if (isIOS) {
       // Store original viewport content
       const viewport = document.querySelector('meta[name="viewport"]');
       if (viewport) {
         originalViewport = viewport.getAttribute('content') || '';
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover');
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover, interactive-widget=resizes-content');
       }
       
-      // Add padding to the bottom of the body to account for the keyboard
-      const keyboardHeight = Math.min(window.innerHeight * 0.4, 300); // Estimate keyboard height
-      document.body.style.paddingBottom = `${keyboardHeight}px`;
-      
-      // Force scroll to top to prevent any shifting
-      window.scrollTo(0, 0);
+      // Set body styles
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.bottom = '0';
+      document.body.style.overflow = 'hidden';
+      // Using bracket notation to avoid TypeScript errors with webkit-prefixed properties
+      document.body.style['WebkitOverflowScrolling' as any] = 'touch';
       
       // Add a class to the body for iOS-specific styling
       document.body.classList.add('ios-keyboard-visible');
+      
+      // Add touch event listeners
+      document.addEventListener('touchmove', preventDefault, { passive: false });
+      
+      // Focus the active element after a delay
+      if (activeElement) {
+        setTimeout(() => {
+          activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    } else {
+      // Standard approach for other platforms
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.addEventListener('touchmove', preventDefault, { passive: false });
     }
   };
 
@@ -80,18 +99,20 @@ export function setupScrollLock() {
         viewport.setAttribute('content', originalViewport);
       }
       
-      // Remove padding and iOS class
-      document.body.style.paddingBottom = '';
+      // Remove iOS class
       document.body.classList.remove('ios-keyboard-visible');
     }
     
     // Restore body styles
-    const scrollY = document.body.style.top;
-    document.body.style.overflow = '';
+    const scrollY = Math.abs(parseInt(document.body.style.top || '0'));
     document.body.style.position = '';
     document.body.style.top = '';
-    document.body.style.width = '';
-    document.body.style.height = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.bottom = '';
+    document.body.style.overflow = '';
+    // Using bracket notation to avoid TypeScript errors with webkit-prefixed properties
+    document.body.style['WebkitOverflowScrolling' as any] = '';
     document.body.style.overscrollBehavior = '';
     document.documentElement.style.overscrollBehavior = '';
     
@@ -100,7 +121,7 @@ export function setupScrollLock() {
     
     // Restore scroll position after a short delay
     window.setTimeout(() => {
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      window.scrollTo(0, scrollY);
     }, 0);
   };
 
@@ -108,6 +129,7 @@ export function setupScrollLock() {
   const handleFocusIn = (e: FocusEvent) => {
     const target = e.target as HTMLElement;
     if (target.matches('input, textarea, [contenteditable]')) {
+      storeActiveElement();
       // Small delay to allow iOS to finish focusing
       setTimeout(lockScroll, 100);
     }
@@ -121,6 +143,7 @@ export function setupScrollLock() {
   // Add event listeners
   document.addEventListener('focusin', handleFocusIn, true);
   document.addEventListener('focusout', handleFocusOut, true);
+  document.addEventListener('touchstart', storeActiveElement, true);
   
   // Handle page visibility changes
   const handleVisibilityChange = () => {
@@ -128,8 +151,8 @@ export function setupScrollLock() {
       unlockScroll();
     } else {
       // Re-lock if we're still focused on an input
-      const activeElement = document.activeElement;
-      if (activeElement?.matches('input, textarea, [contenteditable]')) {
+      if (document.activeElement?.matches('input, textarea, [contenteditable]')) {
+        storeActiveElement();
         lockScroll();
       }
     }
@@ -140,8 +163,8 @@ export function setupScrollLock() {
   window.addEventListener('orientationchange', storeScrollPosition);
 
   // Initial check
-  const activeElement = document.activeElement;
-  if (activeElement?.matches('input, textarea, [contenteditable]')) {
+  if (document.activeElement?.matches('input, textarea, [contenteditable]')) {
+    storeActiveElement();
     lockScroll();
   }
 
@@ -150,6 +173,7 @@ export function setupScrollLock() {
     unlockScroll();
     document.removeEventListener('focusin', handleFocusIn, true);
     document.removeEventListener('focusout', handleFocusOut, true);
+    document.removeEventListener('touchstart', storeActiveElement, true);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('resize', storeScrollPosition);
     window.removeEventListener('orientationchange', storeScrollPosition);
