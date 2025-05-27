@@ -199,8 +199,8 @@ const ConnectionScreen: React.FC = () => {
                   title: contactRequest.contactData.title,
                   company: contactRequest.contactData.company,
                   location: contactRequest.contactData.location,
-                  socialProfiles: contactRequest.contactData.socialProfiles.map(p => ({
-                    platform: p.platform as any,
+                  socialProfiles: (contactRequest.contactData.socialProfiles || []).map((p: { platform: string; username: string }) => ({
+                    platform: p.platform,
                     username: p.username,
                     shareEnabled: true
                   }))
