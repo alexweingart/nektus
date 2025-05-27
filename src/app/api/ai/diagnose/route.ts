@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-// Temporarily disabled Firebase imports
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+
+// Initialize Firebase
+const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
