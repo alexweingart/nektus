@@ -21,8 +21,18 @@ type SocialChannel = {
   userConfirmed: boolean;
 };
 
+// Function to generate a GUID
+const generateGuid = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export type UserProfile = {
   // Basic profile info
+  userId: string; // Add userId field
   name: string;
   bio: string;
   profileImage: string;
@@ -100,6 +110,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         };
 
         const newProfile: UserProfile = {
+          userId: generateGuid(), // Generate a new GUID for the user
           name: session.user.name || 'New User',
           bio: '',
           profileImage: session.user.image || '/default-avatar.png',
@@ -169,6 +180,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     try {
       // Create a new object with all fields from the current profile
       const updatedProfile: UserProfile = {
+        // Preserve the userId
+        userId: profile.userId,
         // Basic profile info
         name: profileData.name ?? profile.name,
         bio: profileData.bio ?? profile.bio,

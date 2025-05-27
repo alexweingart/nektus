@@ -8,26 +8,35 @@ import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
 
 // Import types from ProfileContext
-import { SocialProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
+import { UserProfile } from '../context/ProfileContext';
 
-type UserProfile = {
-  userId: string;
-  name: string;
-  email: string;
-  picture: string;
-  // Replace phone with the new fields
-  internationalPhone: string;
-  nationalPhone: string;
-  internationalPhoneUserConfirmed?: boolean;
-  nationalPhoneUserConfirmed?: boolean;
-  emailUserConfirmed?: boolean;
-  country?: string;
-  countryUserConfirmed?: boolean;
-  handle?: string;
-  socialProfiles: Array<SocialProfile & { filled?: boolean }>;
-  lastUpdated?: any;
-  bio?: string;
-  backgroundImage?: string; // Add backgroundImage to UserProfile type
+// Hardcoded profile data for now
+const HARDCODED_PROFILE: UserProfile = {
+  userId: 'temp-user-id',
+  name: 'User',
+  bio: '',
+  profileImage: '/default-avatar.png',
+  backgroundImage: '',
+  lastUpdated: Date.now(),
+  contactChannels: {
+    phoneInfo: {
+      internationalPhone: '',
+      nationalPhone: '',
+      userConfirmed: false
+    },
+    email: {
+      email: 'user@example.com',
+      userConfirmed: false
+    },
+    facebook: { username: '', url: '', userConfirmed: false },
+    instagram: { username: '', url: '', userConfirmed: false },
+    x: { username: '', url: '', userConfirmed: false },
+    whatsapp: { username: '', url: '', userConfirmed: false },
+    snapchat: { username: '', url: '', userConfirmed: false },
+    telegram: { username: '', url: '', userConfirmed: false },
+    wechat: { username: '', url: '', userConfirmed: false },
+    linkedin: { username: '', url: '', userConfirmed: false }
+  }
 };
 
 // Single instructional placeholder bio
@@ -46,312 +55,19 @@ const ProfileView: React.FC = () => {
   const { saveProfile } = profileContextData;
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
-  // Local state to manage profile data from multiple sources
-  const [localProfile, setLocalProfile] = useState<ExtendedUserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Use hardcoded profile for now
+  const [localProfile, setLocalProfile] = useState<UserProfile>(HARDCODED_PROFILE);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // State for progressively loaded content
-  const [bio, setBio] = useState<string>("");
-  const [bgImage, setBgImage] = useState<string>("/gradient-bg.jpg");
-  const [isAIContentLoading, setIsAIContentLoading] = useState<boolean>(false);
+  // State for UI
+  const [bio, setBio] = useState<string>(HARDCODED_PROFILE.bio || '');
+  const [bgImage, setBgImage] = useState<string>(HARDCODED_PROFILE.backgroundImage || '/gradient-bg.jpg');
   
-  // Create a minimal profile from session data
-  const createMinimalProfileFromSession = () => {
-    if (session?.user) {
-      // Create minimal profile with session data
-      const minimalProfile: UserProfile = {
-        userId: session.user.email || `user-${Date.now()}`, // Fallback ID if email is missing
-        name: session.user.name || 'User',
-        email: session.user.email || '',
-        picture: session.user.image || '',
-        internationalPhone: '',
-        nationalPhone: '',
-        internationalPhoneUserConfirmed: false,
-        nationalPhoneUserConfirmed: false,
-        country: 'US',
-        countryUserConfirmed: false,
-        handle: '',
-        // Initialize all social profiles with empty values but proper structure
-        socialProfiles: [
-          { platform: 'facebook', username: '', shareEnabled: true, filled: false },
-          { platform: 'instagram', username: '', shareEnabled: true, filled: false },
-          { platform: 'x', username: '', shareEnabled: true, filled: false },
-          { platform: 'linkedin', username: '', shareEnabled: true, filled: false },
-          { platform: 'snapchat', username: '', shareEnabled: true, filled: false },
-          { platform: 'whatsapp', username: '', shareEnabled: true, filled: false },
-          { platform: 'telegram', username: '', shareEnabled: true, filled: false },
-          { platform: 'wechat', username: '', shareEnabled: true, filled: false }
-        ] as Array<SocialProfile & { filled?: boolean }>,
-        backgroundImage: '/gradient-bg.jpg',
-        lastUpdated: Date.now()
-      };
-      
-      // Save to local storage immediately for future loads
-      localStorage.setItem('nektus_user_profile_cache', JSON.stringify(minimalProfile));
-      
-      setLocalProfile(minimalProfile);
-      setIsLoading(false);
-      
-      // Set placeholder bio right away
-      setBio(getPlaceholderBio());
-      
-      // Skip AI content loading on minimal profile creation
-      // We'll only load AI content after proper profile setup
-    } else {
-      setIsLoading(false); // No session available
-    }
-  };
-  
-  // Load profile data following the three-step approach:
-  // 1. First time: render client-side and save to database
-  // 2. Subsequent visits: load from client cache/cookies
-  // 3. New device: load from database
+  // Skip profile loading for now since we're using hardcoded data
   useEffect(() => {
-    // Skip if we don't have a session yet
-    if (!session?.user) {
-      setIsLoading(false);
-      return;
-    }
-
-    const loadProfile = async () => {
-      try {
-        // Check if we've already loaded the profile to prevent reloading
-        if (localProfile?.userId === session.user?.email) {
-          return; // Already loaded this profile
-        }
-
-        // Check if user just completed profile setup - this is a flag set by ProfileSetup
-        const justCompletedSetup = sessionStorage.getItem('nektus_profile_setup_completed');
-        const triggerAiContent = justCompletedSetup === 'true';
-        
-        // Clear the flag after reading it
-        if (justCompletedSetup) {
-          sessionStorage.removeItem('nektus_profile_setup_completed');
-        }
-        
-        // STEP 1: Try to load from localStorage first (ultra-fast)
-        const cachedProfileStr = localStorage.getItem('nektus_user_profile_cache');
-        
-        if (cachedProfileStr) {
-          try {
-            const cachedProfile = JSON.parse(cachedProfileStr) as UserProfile;
-            
-            // Only use the cache if it's for the current user
-            if (cachedProfile.userId === session.user?.email) {
-              console.log('Using profile from local storage cache');
-              
-              // Update state in a single batch to prevent multiple renders
-              setLocalProfile(prev => {
-                // Skip update if the data is the same
-                if (JSON.stringify(prev) === JSON.stringify(cachedProfile)) {
-                  return prev;
-                }
-                return cachedProfile;
-              });
-              
-              // Set background image if available
-              if (cachedProfile.backgroundImage && cachedProfile.backgroundImage !== bgImage) {
-                setBgImage(cachedProfile.backgroundImage);
-              }
-              
-              // Set bio if available
-              const newBio = cachedProfile.bio || getPlaceholderBio();
-              setBio(prevBio => prevBio === newBio ? prevBio : newBio);
-              
-              setIsLoading(false);
-              
-              // Generate AI content if any fields are missing
-              if (triggerAiContent || !cachedProfile.bio || !cachedProfile.backgroundImage || !cachedProfile.picture) {
-                generateAIContent(cachedProfile);
-              }
-              
-              return; // Successfully loaded from cache
-            }
-          } catch (error) {
-            console.error('Error parsing local storage cache:', error);
-            // Continue to other methods if local cache parsing fails
-          }
-        }
-        
-        // STEP 2: If no valid cache, check if we have profile data from context
-        if (profileContextData.profile) {
-          console.log('Using profile from context');
-          const profile = profileContextData.profile;
-          
-          // Update state in a single batch to prevent multiple renders
-          setLocalProfile(prev => {
-            // Skip update if the data is the same
-            if (JSON.stringify(prev) === JSON.stringify(profile)) {
-              return prev;
-            }
-            return profile;
-          });
-          
-          // Set background image if available
-          if (profile.backgroundImage && profile.backgroundImage !== bgImage) {
-            setBgImage(profile.backgroundImage);
-          }
-          
-          // Set bio if available
-          const newBio = profile.bio || getPlaceholderBio();
-          setBio(prevBio => prevBio === newBio ? prevBio : newBio);
-          
-          setIsLoading(false);
-          
-          // Save to local storage for future loads
-          localStorage.setItem('nektus_user_profile_cache', JSON.stringify(profile));
-          
-          // Generate AI content if any fields are missing
-          if (triggerAiContent || !profile.bio || !profile.backgroundImage || !profile.picture) {
-            generateAIContent(profile);
-          }
-          
-          return; // Successfully loaded from context
-        }
-        
-        // STEP 3: If nothing found, create a minimal profile from session
-        console.log('Creating minimal profile from session data');
-        createMinimalProfileFromSession();
-        
-      } catch (error) {
-        console.error('Error in profile loading process:', error);
-        // Fallback to minimal profile if anything fails
-        createMinimalProfileFromSession();
-      }
-    };
-    
-    // Only run this effect if we have a session
-    if (session?.user) {
-      loadProfile();
-    }
-  }, [session?.user?.email, profileContextData.profile?.userId]); // Only depend on these values
+    setIsLoading(false);
+  }, []);
   
-  // Generate AI content for the profile if needed
-  const generateAIContent = async (profile: UserProfile) => {
-    if (!profile || isAIContentLoading) return;
-    
-    // Check if we have the minimum required fields for generation
-    if (!profile.name || !profile.email) {
-      console.log('Skipping AI content generation - missing required profile data');
-      return;
-    }
-    
-    // Set loading state
-    setIsAIContentLoading(true);
-    
-    // Process bio generation request
-    const generateBio = async () => {
-      try {
-        // Only generate if we don't already have a bio
-        if (!profile.bio || profile.bio === PLACEHOLDER_BIO) {
-          console.log('Generating AI bio...');
-          
-          const bioResponse = await fetch('/api/ai/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: `Create a brief, friendly bio for ${profile.name}. Keep it general and positive.`,
-              type: 'bio',
-              profile: profile // Pass the full profile for context
-            })
-          });
-          
-          if (bioResponse.ok) {
-            const data = await bioResponse.json();
-            if (data.content) {
-              setBio(data.content);
-              
-              // Save the generated bio to profile
-              if (saveProfile) {
-                await saveProfile({ bio: data.content });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error generating bio:', error);
-      }
-    };
-    
-    // Process background image generation request
-    const generateBackground = async () => {
-      try {
-        // Only generate if we don't already have a custom background
-        if (!profile.backgroundImage || profile.backgroundImage === '/gradient-bg.jpg') {
-          console.log('Generating AI background...');
-          
-          const bgResponse = await fetch('/api/ai/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: `Create a subtle, abstract background gradient for ${profile.name}'s profile.`,
-              type: 'background',
-              profile: profile // Pass the full profile for context
-            })
-          });
-          
-          if (bgResponse.ok) {
-            const data = await bgResponse.json();
-            if (data.imageUrl) {
-              setBgImage(data.imageUrl);
-              
-              // Save the generated background to profile
-              if (saveProfile) {
-                await saveProfile({ backgroundImage: data.imageUrl });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error generating background:', error);
-      }
-    };
-    
-    // Process avatar generation request - only if we don't already have a Google profile picture
-    const generateAvatar = async () => {
-      try {
-        // Only generate if we don't have a profile picture from Google
-        if (!profile.picture || profile.picture === '') {
-          console.log('Generating AI avatar...');
-          
-          const avatarResponse = await fetch('/api/ai/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: `Create a simple, cartoon-style avatar for ${profile.name}.`,
-              type: 'avatar',
-              profile: profile // Pass the full profile for context
-            })
-          });
-          
-          if (avatarResponse.ok) {
-            const data = await avatarResponse.json();
-            if (data.imageUrl) {
-              // Update the profile picture in the profile
-              if (saveProfile) {
-                await saveProfile({ picture: data.imageUrl });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error generating avatar:', error);
-      }
-    };
-    
-    try {
-      // Execute all three generation requests in parallel
-      await Promise.all([
-        generateBio(),
-        generateBackground(),
-        generateAvatar()
-      ]);
-    } finally {
-      // Always ensure loading state is cleared
-      setIsAIContentLoading(false);
-    }
-  };
-
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
     if (!phone) return '';
@@ -369,7 +85,7 @@ const ProfileView: React.FC = () => {
     return phone;
   };
   
-  if (isLoading || !localProfile) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-green-400 to-blue-500">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
@@ -394,7 +110,7 @@ const ProfileView: React.FC = () => {
         <div className="mb-4">
           <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
             <img 
-              src={localProfile.picture || '/default-avatar.png'} 
+              src={localProfile.profileImage} 
               alt={localProfile.name} 
               className="w-full h-full object-cover"
             />
@@ -418,12 +134,12 @@ const ProfileView: React.FC = () => {
             {/* Phone Icon */}
             <div className="flex justify-center">
               <div className="relative">
-                {!localProfile.internationalPhoneUserConfirmed && (
+                {!localProfile.contactChannels.phoneInfo.userConfirmed && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
                 )}
                 <SocialIcon
                   platform="phone"
-                  username={localProfile.internationalPhone || ''}
+                  username={localProfile.contactChannels.phoneInfo.internationalPhone}
                   size="md"
                 />
               </div>
@@ -432,12 +148,12 @@ const ProfileView: React.FC = () => {
             {/* Email Icon */}
             <div className="flex justify-center">
               <div className="relative">
-                {!localProfile.emailUserConfirmed && localProfile.email && (
+                {!localProfile.contactChannels.email.userConfirmed && localProfile.contactChannels.email.email && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
                 )}
                 <SocialIcon
                   platform="email"
-                  username={localProfile.email || ''}
+                  username={localProfile.contactChannels.email.email}
                   size="md"
                 />
               </div>
@@ -447,7 +163,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="facebook"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'facebook')?.username || ''}
+                username={localProfile.contactChannels.facebook.username}
                 size="md"
               />
             </div>
@@ -456,7 +172,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="instagram"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'instagram')?.username || ''}
+                username={localProfile.contactChannels.instagram.username}
                 size="md"
               />
             </div>
@@ -465,7 +181,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="x"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'x')?.username || ''}
+                username={localProfile.contactChannels.x.username}
                 size="md"
               />
             </div>
@@ -477,7 +193,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="whatsapp"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'whatsapp')?.username || ''}
+                username={localProfile.contactChannels.whatsapp.username}
                 size="md"
               />
             </div>
@@ -486,7 +202,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="snapchat"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'snapchat')?.username || ''}
+                username={localProfile.contactChannels.snapchat.username}
                 size="md"
               />
             </div>
@@ -495,7 +211,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="telegram"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'telegram')?.username || ''}
+                username={localProfile.contactChannels.telegram.username}
                 size="md"
               />
             </div>
@@ -504,7 +220,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="wechat"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'wechat')?.username || ''}
+                username={localProfile.contactChannels.wechat.username}
                 size="md"
               />
             </div>
@@ -513,7 +229,7 @@ const ProfileView: React.FC = () => {
             <div className="flex justify-center">
               <SocialIcon
                 platform="linkedin"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'linkedin')?.username || ''}
+                username={localProfile.contactChannels.linkedin.username}
                 size="md"
               />
             </div>
