@@ -92,21 +92,31 @@ const SetupProfile: React.FC = () => {
       phoneInputRef.current.focus();
       
       // Delayed focus as backup for mobile
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (phoneInputRef.current) {
           phoneInputRef.current.focus();
           phoneInputRef.current.click();
         }
       }, 100);
+      
+      return () => clearTimeout(timer);
     }
-
-    // Set up blinking cursor effect
-    const interval = setInterval(() => {
+  }, []);
+  
+  // Set up blinking cursor effect with useRef to prevent unnecessary re-renders
+  const cursorInterval = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    cursorInterval.current = setInterval(() => {
       setCursorPosition(prev => prev === 0 ? 1 : 0);
     }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
+    
+    return () => {
+      if (cursorInterval.current) {
+        clearInterval(cursorInterval.current);
+      }
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleanup on unmount
 
   // Handle phone number changes
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,7 +150,19 @@ const SetupProfile: React.FC = () => {
   const handleGoogleSignIn = () => {
     // In a real implementation, this would trigger OAuth flow
     // For now, we'll just mock setting the email
-    setEmail('user@gmail.com');
+    const mockEmail = 'user@gmail.com';
+    setEmail(mockEmail);
+    
+    // Initialize user data with required fields to prevent infinite loops
+    setUserData(prev => ({
+      ...prev,
+      email: mockEmail,
+      // Set default values for required fields
+      name: prev.name || '',
+      internationalPhone: prev.internationalPhone || '',
+      socialProfiles: prev.socialProfiles || []
+    }));
+    
     setStep(2);
   };
 
@@ -169,65 +191,85 @@ const SetupProfile: React.FC = () => {
       }
     });
     
-    // Save all user data
-    setUserData(prev => ({
-      ...prev,
-      phone: phoneNumber,
-      email: email,
-      socialProfiles: socialProfiles
-    }));
+    // Save all user data with all required fields to prevent infinite loops
+    setUserData(prev => {
+      const updatedData = {
+        ...prev,
+        name: prev.name || 'New User', // Ensure name has a default value
+        internationalPhone: phoneNumber || prev.internationalPhone,
+        email: email || prev.email,
+        socialProfiles: socialProfiles.length > 0 ? socialProfiles : (prev.socialProfiles || [])
+      };
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nektus-user-data', JSON.stringify(updatedData));
+      }
+      
+      return updatedData;
+    });
     
     // Navigate to profile
     router.push('/');
   };
 
-  // Render the underlines for phone number digits
-  const renderUnderlines = () => {
-    const underlines = [];
-    for (let i = 0; i < 10; i++) {
-      const digit = phoneNumber[i] || '';
-      const isFirstEmpty = phoneNumber.length === i;
-      const showCursor = isFirstEmpty && cursorPosition === 1;
-      
-      underlines.push(
-        <div key={i} style={{ 
-          width: '24px', 
-          display: 'inline-block',
-          marginRight: i === 2 || i === 5 ? '8px' : '4px',
-          textAlign: 'center',
-          position: 'relative'
-        }}>
-          <div style={{ 
-            fontSize: '24px', 
-            fontWeight: 'bold',
-            height: '36px',
-            lineHeight: '36px'
-          }}>
-            {digit}
-            {showCursor && (
-              <span 
-                style={{
-                  position: 'absolute',
-                  width: '2px',
-                  height: '24px',
-                  backgroundColor: 'var(--primary)',
-                  top: '6px',
-                  left: '50%',
-                  transform: 'translateX(-50%)'
-                }}
-              ></span>
-            )}
+  // Memoize the cursor component to prevent unnecessary re-renders
+  const Cursor = React.memo(() => (
+    <span 
+      style={{
+        position: 'absolute',
+        width: '2px',
+        height: '24px',
+        backgroundColor: 'var(--primary)',
+        top: '6px',
+        left: '50%',
+        transform: 'translateX(-50%)'
+      }}
+    />
+  ));
+  Cursor.displayName = 'Cursor';
+  
+  // Memoize the renderUnderlines function to prevent unnecessary re-renders
+  const renderUnderlines = React.useMemo(() => {
+    return () => {
+      const underlines = [];
+      for (let i = 0; i < 10; i++) {
+        const digit = phoneNumber[i] || '';
+        const isFirstEmpty = phoneNumber.length === i;
+        const showCursor = isFirstEmpty && cursorPosition === 1;
+        
+        underlines.push(
+          <div 
+            key={i} 
+            style={{ 
+              width: '24px', 
+              display: 'inline-block',
+              marginRight: i === 2 || i === 5 ? '8px' : '4px',
+              textAlign: 'center',
+              position: 'relative'
+            }}
+          >
+            <div style={{ 
+              fontSize: '24px', 
+              fontWeight: 'bold',
+              height: '36px',
+              lineHeight: '36px',
+              position: 'relative'
+            }}>
+              {digit}
+              {showCursor && <Cursor />}
+            </div>
+            <div style={{ 
+              height: '2px', 
+              backgroundColor: digit ? 'var(--primary)' : 'var(--card-border)',
+              width: '100%' 
+            }}></div>
           </div>
-          <div style={{ 
-            height: '2px', 
-            backgroundColor: digit ? 'var(--primary)' : 'var(--card-border)',
-            width: '100%' 
-          }}></div>
-        </div>
-      );
-    }
-    return underlines;
-  };
+        );
+      }
+      return underlines;
+    };
+  }, [phoneNumber, cursorPosition]);
 
   // Render platform handles with icons
   const renderPlatformHandles = () => {

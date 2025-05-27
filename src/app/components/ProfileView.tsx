@@ -107,11 +107,27 @@ const ProfileView: React.FC = () => {
   // 2. Subsequent visits: load from client cache/cookies
   // 3. New device: load from database
   useEffect(() => {
-    const loadProfile = () => {
+    // Skip if we don't have a session yet
+    if (!session?.user) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadProfile = async () => {
       try {
+        // Check if we've already loaded the profile to prevent reloading
+        if (localProfile?.userId === session.user?.email) {
+          return; // Already loaded this profile
+        }
+
         // Check if user just completed profile setup - this is a flag set by ProfileSetup
         const justCompletedSetup = sessionStorage.getItem('nektus_profile_setup_completed');
         const triggerAiContent = justCompletedSetup === 'true';
+        
+        // Clear the flag after reading it
+        if (justCompletedSetup) {
+          sessionStorage.removeItem('nektus_profile_setup_completed');
+        }
         
         // STEP 1: Try to load from localStorage first (ultra-fast)
         const cachedProfileStr = localStorage.getItem('nektus_user_profile_cache');
@@ -121,22 +137,31 @@ const ProfileView: React.FC = () => {
             const cachedProfile = JSON.parse(cachedProfileStr) as UserProfile;
             
             // Only use the cache if it's for the current user
-            // This handles the case where a different user logs in on the same device
-            if (session?.user?.email && cachedProfile.userId === session.user.email) {
+            if (cachedProfile.userId === session.user?.email) {
               console.log('Using profile from local storage cache');
-              setLocalProfile(cachedProfile);
-              setIsLoading(false);
               
-              // Load background image if available
-              if (cachedProfile.backgroundImage) {
+              // Update state in a single batch to prevent multiple renders
+              setLocalProfile(prev => {
+                // Skip update if the data is the same
+                if (JSON.stringify(prev) === JSON.stringify(cachedProfile)) {
+                  return prev;
+                }
+                return cachedProfile;
+              });
+              
+              // Set background image if available
+              if (cachedProfile.backgroundImage && cachedProfile.backgroundImage !== bgImage) {
                 setBgImage(cachedProfile.backgroundImage);
               }
               
-              // Set bio placeholder - will be replaced with AI content if needed
-              setBio(cachedProfile.bio || getPlaceholderBio());
+              // Set bio if available
+              const newBio = cachedProfile.bio || getPlaceholderBio();
+              setBio(prevBio => prevBio === newBio ? prevBio : newBio);
+              
+              setIsLoading(false);
               
               // Generate AI content if any fields are missing
-              if (!cachedProfile.bio || !cachedProfile.backgroundImage || !cachedProfile.picture) {
+              if (triggerAiContent || !cachedProfile.bio || !cachedProfile.backgroundImage || !cachedProfile.picture) {
                 generateAIContent(cachedProfile);
               }
               
@@ -152,22 +177,32 @@ const ProfileView: React.FC = () => {
         if (profileContextData.profile) {
           console.log('Using profile from context');
           const profile = profileContextData.profile;
-          setLocalProfile(profile);
-          setIsLoading(false);
           
-          // Load background image if available
-          if (profile.backgroundImage) {
+          // Update state in a single batch to prevent multiple renders
+          setLocalProfile(prev => {
+            // Skip update if the data is the same
+            if (JSON.stringify(prev) === JSON.stringify(profile)) {
+              return prev;
+            }
+            return profile;
+          });
+          
+          // Set background image if available
+          if (profile.backgroundImage && profile.backgroundImage !== bgImage) {
             setBgImage(profile.backgroundImage);
           }
           
-          // Set bio
-          setBio(profile.bio || getPlaceholderBio());
+          // Set bio if available
+          const newBio = profile.bio || getPlaceholderBio();
+          setBio(prevBio => prevBio === newBio ? prevBio : newBio);
+          
+          setIsLoading(false);
           
           // Save to local storage for future loads
           localStorage.setItem('nektus_user_profile_cache', JSON.stringify(profile));
           
           // Generate AI content if any fields are missing
-          if (!profile.bio || !profile.backgroundImage || !profile.picture) {
+          if (triggerAiContent || !profile.bio || !profile.backgroundImage || !profile.picture) {
             generateAIContent(profile);
           }
           
@@ -175,27 +210,21 @@ const ProfileView: React.FC = () => {
         }
         
         // STEP 3: If nothing found, create a minimal profile from session
-        if (session?.user) {
-          console.log('Creating minimal profile from session data');
-          createMinimalProfileFromSession();
-        } else {
-          setIsLoading(false); // No session available
-        }
+        console.log('Creating minimal profile from session data');
+        createMinimalProfileFromSession();
+        
       } catch (error) {
         console.error('Error in profile loading process:', error);
         // Fallback to minimal profile if anything fails
-        if (session?.user) {
-          createMinimalProfileFromSession();
-        } else {
-          setIsLoading(false);
-        }
+        createMinimalProfileFromSession();
       }
     };
     
-    if (typeof window !== 'undefined') {
+    // Only run this effect if we have a session
+    if (session?.user) {
       loadProfile();
     }
-  }, [session, profileContextData.profile]);
+  }, [session?.user?.email, profileContextData.profile?.userId]); // Only depend on these values
   
   // Generate AI content for the profile if needed
   const generateAIContent = async (profile: UserProfile) => {
