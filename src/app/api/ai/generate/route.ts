@@ -122,11 +122,22 @@ function extractSocialLinks(profile: any): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+  const requestStartTime = Date.now();
+  
+  console.log(`[${new Date().toISOString()}] [Request ${requestId}] Starting API request`);
+  
   try {
+    // Log request headers for debugging
+    const headers = Object.fromEntries(request.headers.entries());
+    console.log(`[Request ${requestId}] Headers:`, JSON.stringify(headers, null, 2));
+    
     // Verify OpenAI client is initialized
     if (!openai) {
+      const error = 'OpenAI API key is not configured';
+      console.error(`[Request ${requestId}] ${error}`);
       return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
+        { error, code: 'OPENAI_NOT_CONFIGURED' },
         { status: 500 }
       );
     }
@@ -140,8 +151,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body
-    const { type, profile } = await request.json();
+    // Parse and validate request body
+    let requestBody;
+    try {
+      requestBody = await request.json();
+      console.log(`[Request ${requestId}] Request body:`, JSON.stringify({
+        type: requestBody?.type,
+        hasProfile: !!requestBody?.profile,
+        profileKeys: requestBody?.profile ? Object.keys(requestBody.profile) : []
+      }, null, 2));
+    } catch (e) {
+      const error = 'Failed to parse request body';
+      console.error(`[Request ${requestId}] ${error}:`, e);
+      return NextResponse.json(
+        { error, code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
+    }
+    
+    const { type, profile } = requestBody;
+    
+    // Validate request parameters
+    if (!type || typeof type !== 'string') {
+      const error = 'Missing or invalid type parameter';
+      console.error(`[Request ${requestId}] ${error}`);
+      return NextResponse.json(
+        { error, code: 'INVALID_TYPE_PARAMETER' },
+        { status: 400 }
+      );
+    }
+    
+    if (!profile || typeof profile !== 'object') {
+      const error = 'Missing or invalid profile data';
+      console.error(`[Request ${requestId}] ${error}`);
+      return NextResponse.json(
+        { error, code: 'INVALID_PROFILE_DATA' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`[Request ${requestId}] Processing request for type: ${type}`);
     
     // Check if we've already generated AI content for this user
     if (profile?.userId) {
@@ -199,10 +248,47 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error('AI generation error:', error);
+    const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    const errorDetails = {
+      errorId,
+      message: errorMessage,
+      name: error instanceof Error ? error.name : 'UnknownError',
+      stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+      timestamp: new Date().toISOString(),
+      requestId,
+      durationMs: Date.now() - requestStartTime,
+      // Include additional context that might be helpful for debugging
+      environment: process.env.NODE_ENV,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      openAiKeyPrefix: process.env.OPENAI_API_KEY ? 
+        `${process.env.OPENAI_API_KEY.substring(0, 5)}...${process.env.OPENAI_API_KEY.substring(-3)}` : 
+        'Not set'
+    };
+
+    console.error(`[Request ${requestId}] AI generation error (${errorId}):`, JSON.stringify(errorDetails, null, 2));
+    
+    // Return detailed error in development, sanitized in production
     return NextResponse.json(
-      { error: 'Failed to generate content' },
-      { status: 500 }
+      { 
+        error: 'Failed to generate content',
+        errorId,
+        code: 'GENERATION_ERROR',
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorDetails : {
+          errorId,
+          message: errorMessage
+        }
+      },
+      { 
+        status: 500,
+        headers: {
+          'X-Request-ID': requestId,
+          'X-Error-ID': errorId
+        }
+      }
     );
   }
 }
@@ -283,7 +369,7 @@ async function generateBio(profile: any) {
     }
 
     // Prepare the request for the responses API
-    const response = await openai.responses.create({
+    const requestParams = {
       model: 'gpt-4-turbo-preview',
       input,
       tools: [
@@ -302,9 +388,31 @@ async function generateBio(profile: any) {
       max_tokens: 150,
       top_p: 1,
       store: true
-    });
+    };
+
+    console.log('Sending request to OpenAI API:', JSON.stringify({
+      model: requestParams.model,
+      input: requestParams.input.map(i => ({
+        role: i.role,
+        content: i.content.map(c => ({
+          type: c.type,
+          text: c.text.substring(0, 50) + (c.text.length > 50 ? '...' : '')
+        }))
+      })),
+      tools: requestParams.tools
+    }, null, 2));
     
-    console.log('Received response from OpenAI API:', JSON.stringify(response, null, 2));
+    const response = await openai.responses.create(requestParams);
+    
+    console.log('Received response from OpenAI API:', JSON.stringify({
+      output: response.output?.map((o: any) => ({
+        role: o.role,
+        content: o.content?.map((c: any) => ({
+          type: c.type,
+          text: c.text ? c.text.substring(0, 100) + (c.text.length > 100 ? '...' : '') : undefined
+        }))
+      }))
+    }, null, 2));
     
     // Extract the generated bio from the response
     // The response format may vary, so we need to handle different possible structures
@@ -333,18 +441,67 @@ async function generateBio(profile: any) {
     }
     
     if (!bio) {
-      console.error('No bio was generated in the response:', response);
-      throw new Error('No bio was generated in the response');
+      const errorMessage = 'No bio was generated in the response';
+      const errorDetails = {
+        responseSummary: {
+          outputLength: response.output?.length,
+          assistantResponse: !!assistantResponse,
+          hasContent: assistantResponse?.content?.length > 0,
+          rawResponse: JSON.stringify(response, null, 2).substring(0, 1000) + '...' // Truncate long responses
+        },
+        requestParams: {
+          model: requestParams.model,
+          inputLength: requestParams.input.length,
+          hasTools: requestParams.tools?.length > 0,
+          inputPreview: JSON.stringify(requestParams.input, null, 2).substring(0, 500) + '...'
+        },
+        profile: {
+          name: profile?.name,
+          contactChannels: Object.keys(profile?.contactChannels || {})
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error(errorMessage, errorDetails);
+      
+      // Return error with details for frontend
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          details: errorDetails,
+          code: 'NO_BIO_GENERATED'
+        },
+        { status: 500 }
+      );
     }
     
     return NextResponse.json({ bio });
     
   } catch (error) {
-    console.error('Error in generateBio:', error);
-    // Fallback to a simple bio if the API call fails
-    return NextResponse.json({ 
-      bio: profile.bio || 'Passionate about connecting with others and sharing experiences.' 
-    });
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'UnknownError',
+      profile: {
+        name: profile?.name,
+        hasContactChannels: !!profile?.contactChannels,
+        contactChannels: profile?.contactChannels ? Object.keys(profile.contactChannels) : []
+      },
+      timestamp: new Date().toISOString(),
+      errorType: 'BIO_GENERATION_ERROR'
+    };
+
+    console.error('Error in generateBio:', JSON.stringify(errorDetails, null, 2));
+    
+    // Return a more detailed error response
+    return NextResponse.json(
+      { 
+        error: 'Failed to generate bio',
+        details: errorDetails.message,
+        code: 'BIO_GENERATION_ERROR'
+      },
+      { status: 500 }
+    );
   }
 }
 

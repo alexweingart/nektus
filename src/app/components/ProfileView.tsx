@@ -114,20 +114,48 @@ const ProfileView: React.FC = () => {
         },
       };
       
+      console.log('Sending request to generate bio with data:', JSON.stringify(promptData, null, 2));
+      
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(promptData),
-
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate bio');
+      let responseData;
+      let responseText;
+      
+      try {
+        responseText = await response.text();
+        responseData = responseText ? JSON.parse(responseText) : {};
+        console.log('API Response:', JSON.stringify(responseData, null, 2));
+      } catch (e: unknown) {
+        const error = e as Error;
+        console.error('Failed to parse JSON response:', error);
+        console.error('Raw response text:', responseText);
+        throw new Error(`Failed to parse API response: ${error.message}`);
       }
 
-      const { bio: generatedBio } = await response.json();
+      if (!response.ok) {
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: responseData
+        });
+        
+        const error = new Error(responseData?.error || `API request failed with status ${response.status}`);
+        (error as any).response = responseData;
+        throw error;
+      }
+
+      const generatedBio = responseData?.bio;
+      
+      if (!generatedBio) {
+        throw new Error('No bio was generated in the response');
+      }
       
       if (generatedBio) {
         // First, get the current profile from localStorage to ensure we have the latest data
@@ -168,9 +196,32 @@ const ProfileView: React.FC = () => {
         setLocalProfile(profileToUpdate);
         setBio(generatedBio);
       }
-    } catch (error) {
-      console.error('Error generating bio:', error);
-      toast.error('Failed to generate bio. Please try again later.');
+    } catch (err) {
+      // Handle different types of errors
+      const error = err as Error & {
+        response?: { data?: { details?: string } };
+        request?: any;
+      };
+      
+      // Log the error with type safety
+      console.error('Error generating bio:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        ...(error.response && { response: error.response }),
+        ...(error.request && { request: error.request }),
+      });
+      
+      // Get a user-friendly error message
+      const errorMessage = error.response?.data?.details || 
+                         error.message || 
+                         'Failed to generate bio. Please try again.';
+      
+      // Show error toast
+      toast.error(errorMessage);
+      
+      // Update loading state
+      setIsLoading(false);
     }
   }, [localProfile, profile]);
 
