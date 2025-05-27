@@ -56,7 +56,7 @@ const SOCIAL_PLATFORMS: Array<{
   prefix: string;
 }> = [
   { id: 'instagram', label: 'Instagram', icon: '/icons/instagram.svg', prefix: '@' },
-  { id: 'twitter', label: 'Twitter', icon: '/icons/twitter.svg', prefix: '@' },
+  { id: 'x', label: 'X', icon: '/icons/twitter.svg', prefix: '@' },
   { id: 'facebook', label: 'Facebook', icon: '/icons/facebook.svg', prefix: '' },
   { id: 'linkedin', label: 'LinkedIn', icon: '/icons/linkedin.svg', prefix: '' },
   { id: 'snapchat', label: 'Snapchat', icon: '/icons/snapchat.svg', prefix: '' },

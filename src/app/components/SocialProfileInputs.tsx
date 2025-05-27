@@ -32,7 +32,7 @@ const SOCIAL_NETWORKS = [
   { id: 'snapchat' as const, label: 'Snapchat', type: 'text', placeholder: 'username' },
   { id: 'linkedin' as const, label: 'LinkedIn', type: 'text', placeholder: 'username or URL' },
   { id: 'telegram' as const, label: 'Telegram', type: 'text', placeholder: '@username' },
-  { id: 'twitter' as const, label: 'Twitter', type: 'text', placeholder: '@username' },
+  { id: 'x' as const, label: 'X', type: 'text', placeholder: '@username' },
 ];
 
 // Valid platform types from the SocialProfile interface
@@ -118,7 +118,7 @@ const SocialProfileInputs: React.FC = () => {
       .filter(([id, value]) => value.trim() !== '' && id !== 'email') // Only include non-empty values and exclude email
       .forEach(([id, value]) => {
         // Ensure id is a valid platform type
-        if (id === 'facebook' || id === 'instagram' || id === 'twitter' || 
+        if (id === 'facebook' || id === 'instagram' || id === 'x' || 
             id === 'linkedin' || id === 'snapchat' || id === 'whatsapp' || 
             id === 'telegram') {
           socialProfiles.push({

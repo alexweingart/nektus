@@ -263,7 +263,7 @@ export const simulateConnection = async (
         company: 'Tech Company',
         socialProfiles: [
           { platform: 'linkedin', username: 'simulated-user' },
-          { platform: 'twitter', username: 'sim_user' }
+          { platform: 'x', username: 'sim_user' }
         ]
       });
     }
