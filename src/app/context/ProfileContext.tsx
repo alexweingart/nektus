@@ -32,7 +32,7 @@ const generateGuid = () => {
 
 export type UserProfile = {
   // Basic profile info
-  userId: string; // Add userId field
+  userId: string; 
   name: string;
   bio: string;
   profileImage: string;
@@ -97,7 +97,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(cachedProfile);
         if (parsed.userId === userId) {
           setProfile(parsed);
-          return;
+          return parsed;
         }
       }
       
@@ -106,20 +106,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const userEmail = session.user.email || '';
         const usernameFromEmail = userEmail.split('@')[0] || '';
         
-        // Generate URLs for each social network
-        const socialUrls = {
-          facebook: usernameFromEmail ? `https://facebook.com/${usernameFromEmail}` : '',
-          instagram: usernameFromEmail ? `https://instagram.com/${usernameFromEmail}` : '',
-          x: usernameFromEmail ? `https://x.com/${usernameFromEmail}` : '',
-          linkedin: usernameFromEmail ? `https://linkedin.com/in/${usernameFromEmail}` : '',
-          snapchat: usernameFromEmail ? `https://snapchat.com/add/${usernameFromEmail}` : '',
-          telegram: '',
-          wechat: '',
-          whatsapp: ''
-        };
-        
         const newProfile: UserProfile = {
-          userId: generateGuid(), // Generate a new GUID for the user
+          userId: generateGuid(),
           name: session.user.name || 'New User',
           bio: '',
           profileImage: session.user.image || '/default-avatar.png',
@@ -133,47 +121,46 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             },
             email: {
               email: userEmail,
-              userConfirmed: true  // Only email is confirmed by default
+              userConfirmed: true
             },
-            // Initialize social channels with username from email and generated URLs
             facebook: { 
               username: usernameFromEmail, 
-              url: socialUrls.facebook, 
+              url: `https://facebook.com/${usernameFromEmail}`, 
               userConfirmed: false 
             },
             instagram: { 
               username: usernameFromEmail, 
-              url: socialUrls.instagram, 
+              url: `https://instagram.com/${usernameFromEmail}`, 
               userConfirmed: false 
             },
             x: { 
               username: usernameFromEmail, 
-              url: socialUrls.x, 
+              url: `https://x.com/${usernameFromEmail}`, 
               userConfirmed: false 
             },
             whatsapp: { 
-              username: usernameFromEmail, 
-              url: socialUrls.whatsapp, 
+              username: '', 
+              url: '', 
               userConfirmed: false 
             },
             snapchat: { 
               username: usernameFromEmail, 
-              url: socialUrls.snapchat, 
+              url: `https://snapchat.com/add/${usernameFromEmail}`, 
               userConfirmed: false 
             },
             telegram: { 
               username: '', 
-              url: socialUrls.telegram, 
+              url: '', 
               userConfirmed: false 
             },
             wechat: { 
               username: '', 
-              url: socialUrls.wechat, 
+              url: '', 
               userConfirmed: false 
             },
             linkedin: { 
               username: usernameFromEmail, 
-              url: socialUrls.linkedin, 
+              url: `https://linkedin.com/in/${usernameFromEmail}`, 
               userConfirmed: false 
             }
           }
@@ -188,50 +175,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+    return null;
   }, [session]);
 
-  // Load profile when session changes
-  useEffect(() => {
-    if (sessionEmail) {
-      loadProfile(sessionEmail);
-    } else {
-      setProfile(null);
-      setIsLoading(false);
-    }
-  }, [sessionEmail, loadProfile]);
-
-  // Clear profile function
-  const clearProfile = useCallback(async (): Promise<void> => {
-    if (!session?.user?.email) return;
+  // Save profile to localStorage
+  const saveProfile = useCallback(async (profileData: Partial<UserProfile>) => {
+    if (!profile) return null;
     
     try {
-      // Clear from local storage
-      localStorage.removeItem(STORAGE_KEY);
-      
-      // Reset profile state
-      setProfile(null);
-    } catch (error) {
-      console.error('Error clearing profile:', error);
-    }
-  }, [session?.user?.email]);
-
-    // Save profile to local storage
-  const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
-    if (!session?.user?.email || !profile) return null;
-    
-    try {
-      // Create a new object with all fields from the current profile
-      const updatedProfile: UserProfile = {
-        // Preserve the userId
-        userId: profile.userId,
-        // Basic profile info
-        name: profileData.name ?? profile.name,
-        bio: profileData.bio ?? profile.bio,
-        profileImage: profileData.profileImage ?? profile.profileImage,
-        backgroundImage: profileData.backgroundImage ?? profile.backgroundImage,
+      const updatedProfile = {
+        ...profile,
+        ...profileData,
         lastUpdated: Date.now(),
-        
-        // Contact channels - merge existing with updates
         contactChannels: {
           // Phone info
           phoneInfo: {
@@ -288,18 +243,34 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
       };
       
-      // Update local state
       setProfile(updatedProfile);
-      
-      // Save to local storage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
-      
       return updatedProfile;
     } catch (error) {
       console.error('Error saving profile:', error);
       return null;
     }
-  }, [session, profile]);
+  }, [profile]);
+
+  // Clear profile from localStorage
+  const clearProfile = useCallback(async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      setProfile(null);
+    } catch (error) {
+      console.error('Error clearing profile:', error);
+    }
+  }, []);
+
+  // Load profile when session changes
+  useEffect(() => {
+    if (sessionEmail) {
+      loadProfile(sessionEmail);
+    } else {
+      setProfile(null);
+      setIsLoading(false);
+    }
+  }, [sessionEmail, loadProfile]);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({

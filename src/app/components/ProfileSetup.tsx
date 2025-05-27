@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import CustomPhoneInput from './CustomPhoneInput';
+import { useAdminModeActivator } from './AdminBanner';
 
 // Define Country type to match CustomPhoneInput
 type Country = {
@@ -13,7 +14,7 @@ type Country = {
   flag: string;
   dialCode: string;
 };
-import { useProfile } from '../context/ProfileContext';
+import { useProfile, UserProfile } from '../context/ProfileContext';
 
 export default function ProfileSetup() {
   const { data: session, status } = useSession({
@@ -34,14 +35,14 @@ export default function ProfileSetup() {
     dialCode: '1'
   });
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const adminModeProps = useAdminModeActivator();
 
   // Initialize profile on first load if it doesn't exist
   useEffect(() => {
     if (status === 'authenticated' && session?.user && !profile) {
       const userEmail = session.user.email || '';
-      const usernameFromEmail = userEmail.split('@')[0] || '';
       
-      // Create initial profile with just the essential information
+      // Create initial profile with all required fields
       const initialProfile = {
         name: session.user.name || '',
         profileImage: session.user.image || '',
@@ -58,15 +59,14 @@ export default function ProfileSetup() {
             email: userEmail,
             userConfirmed: true
           },
-          // Initialize social channels with username from email
-          facebook: { username: usernameFromEmail, url: '', userConfirmed: true },
-          instagram: { username: usernameFromEmail, url: '', userConfirmed: true },
-          x: { username: usernameFromEmail, url: '', userConfirmed: true },
-          whatsapp: { username: usernameFromEmail, url: '', userConfirmed: true },
-          snapchat: { username: usernameFromEmail, url: '', userConfirmed: true },
+          facebook: { username: '', url: '', userConfirmed: false },
+          instagram: { username: '', url: '', userConfirmed: false },
+          x: { username: '', url: '', userConfirmed: false },
+          whatsapp: { username: '', url: '', userConfirmed: false },
+          snapchat: { username: '', url: '', userConfirmed: false },
           telegram: { username: '', url: '', userConfirmed: false },
           wechat: { username: '', url: '', userConfirmed: false },
-          linkedin: { username: usernameFromEmail, url: '', userConfirmed: true }
+          linkedin: { username: '', url: '', userConfirmed: false }
         }
       };
       
@@ -144,7 +144,12 @@ export default function ProfileSetup() {
       {/* User's Name - Fixed height container */}
       <div className="min-h-[2.5rem] mb-8 w-full">
         {profile?.name && (
-          <h1 className="text-2xl font-bold text-center text-black">{profile.name}</h1>
+          <h1 
+            className="text-2xl font-bold text-center text-black cursor-pointer"
+            {...adminModeProps}
+          >
+            {profile.name}
+          </h1>
         )}
       </div>
       
