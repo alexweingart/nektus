@@ -12,9 +12,14 @@ type Props = {
 export const UsPhoneInput = forwardRef<HTMLInputElement, Props>(
   ({ value, onChange, id, placeholder }, ref) => {
     // 1. clean -> handle international numbers, strip country codes, and normalize to US format
-    const normalise = (raw: string) => {
+    const normalise = (raw: string): string => {
+      if (!raw) return '';
+      
       // Remove all non-digit characters
       let digits = raw.replace(/\D/g, '');
+      
+      // Handle empty input
+      if (!digits) return '';
       
       // Handle international numbers (starting with + or 00, or longer than 10 digits)
       if (digits.startsWith('1') && digits.length === 11) {
@@ -43,6 +48,14 @@ export const UsPhoneInput = forwardRef<HTMLInputElement, Props>(
         className="w-full rounded-md border p-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
         value={pretty}
         onChange={(e) => onChange(normalise(e.target.value))}
+        onInput={(e) => {
+          // Handle autofill events that might not trigger onChange
+          const input = e.target as HTMLInputElement;
+          const value = input.value;
+          if (value && value !== pretty) {
+            onChange(normalise(value));
+          }
+        }}
         // Allow "Paste" from iOS/Android bubble without extra click
         onPaste={(e) => {
           e.preventDefault();
