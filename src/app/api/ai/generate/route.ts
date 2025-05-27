@@ -154,15 +154,11 @@ function getSocialProfileUrls(profile: any): string[] {
 }
 
 async function generateBio(profile: any) {
-  try {
-    // Safety check for OpenAI client
-    if (!openai) {
-      console.error('OpenAI client not initialized when generateBio was called');
-      return NextResponse.json(
-        { bio: 'AI should be generating a bio for you, but it\'s not - OpenAI client not initialized. Check server logs for details.' },
-        { status: 500 }
-      );
-    }
+  // Safety check for OpenAI client
+  if (!openai) {
+    console.error('OpenAI client not initialized when generateBio was called');
+    throw new Error('OpenAI client not initialized');
+  }
 
     // Get social profile URLs
     const socialProfileUrls = getSocialProfileUrls(profile);
@@ -183,69 +179,123 @@ async function generateBio(profile: any) {
       socialProfileUrls: socialProfileUrls
     }, null, 2));
     
-    // Configure web search tool
+    // Prepare the web search tool with social profile URLs
     const tools = [{
       type: 'web_search_preview' as const,
       web_search_preview: {
         search_context_size: 'high' as const
       }
     }];
-    
-    // Log the full request payload
+
+    // Prepare the messages for the API
+    const messages = [
+      {
+        role: 'system' as const,
+        content: [
+          {
+            type: 'input_text' as const,
+            text: 'You are an amazing copywriter that generates short, personalized, and specific personal bios.'
+          }
+        ]
+      },
+      {
+        role: 'user' as const,
+        content: [
+          {
+            type: 'input_text' as const,
+            text: `Generate a hyper-personalized, specific bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio.`
+          }
+        ]
+      }
+    ];
+
+    // Add social profile URLs to the prompt if available
+    if (socialProfileUrls.length > 0) {
+      const socialLinksText = socialProfileUrls.join('\n');
+      messages[1].content[0].text += `\n\nPlease follow these web links to read about ${profile.name} and write the bio. If the webpage was updated more recently, that information is more important:\n${socialLinksText}`;
+    }
+
     const requestPayload = {
-      model: 'gpt-4o',
-      input: promptText,
-      instructions: 'You are an amazing copywriter that generates short, personalized, and specific personal bios. Use the provided tools to gather information if needed.',
-      max_output_tokens: 100,
-      temperature: 0.8,
-      tools: tools,
-      tool_choice: 'auto' as const,
+      model: 'gpt-4.1',
+      input: messages,
       text: {
         format: {
           type: 'text' as const
         }
-      }
+      },
+      tools: tools,
+      temperature: 0.8,
+      max_output_tokens: 150,
+      top_p: 1,
+      store: true
     };
 
-    console.log('Sending request to OpenAI API:', JSON.stringify({
+    console.log('Sending request to OpenAI API with payload:', JSON.stringify({
       timestamp: new Date().toISOString(),
-      request: requestPayload
+      model: requestPayload.model,
+      hasTools: requestPayload.tools.length > 0,
+      messageCount: requestPayload.input.length,
+      temperature: requestPayload.temperature
     }, null, 2));
-
-    let response;
+    
     try {
-      response = await openai.responses.create(requestPayload);
-      console.log('Received response from OpenAI API:', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        response: response
-      }, null, 2));
+      console.log('Sending request to OpenAI API with payload:', JSON.stringify(requestPayload, null, 2));
+      
+      const response = await openai.responses.create(requestPayload);
+      
+      // Log the full response for debugging
+      console.log('Raw OpenAI API response:', JSON.stringify(response, null, 2));
+      
+      // Extract the generated bio from the response
+      let bio = 'AI should be generating a bio for you, but it\'s not - No valid response format';
+      
+      try {
+        const firstOutput = response?.output?.[0];
+        
+        if (firstOutput && 'type' in firstOutput && firstOutput.type === 'message') {
+          const messageOutput = firstOutput as { content?: Array<{ type: string; text?: string }> };
+          const firstContent = messageOutput.content?.[0];
+          
+          if (firstContent && 'type' in firstContent && firstContent.type === 'output_text' && firstContent.text) {
+            bio = firstContent.text.trim();
+            console.log('Successfully extracted bio from response');
+          } else {
+            console.warn('Unexpected content format in message response:', {
+              contentType: firstContent?.type,
+              hasText: Boolean(firstContent?.text)
+            });
+          }
+        } else {
+          console.warn('Unexpected response format from OpenAI API:', {
+            outputType: firstOutput?.type,
+            hasOutput: Boolean(firstOutput)
+          });
+        }
+      } catch (parseError) {
+        console.error('Error parsing OpenAI response:', parseError);
+      }
+      
+      // Temporarily disabled Firestore save
+      // if (profile.userId) {
+      //   try {
+      //     const aiContentRef = doc(db, 'ai_content', profile.userId);
+      //     await setDoc(aiContentRef, { bio }, { merge: true });
+      //   } catch (error) {
+      //     console.error('Error storing AI bio content:', error);
+      //   }
+      // }
+      
+      return NextResponse.json({ bio });
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
-      throw error;
+      return NextResponse.json({ 
+        bio: 'AI should be generating a bio for you, but encountered an error. Please try again later.' 
+      });
     }
-
-    // Extract the bio from the response
-    const bio = response.output[0].type === 'message' && 
-      response.output[0].content?.[0]?.type === 'output_text'
-      ? response.output[0].content[0].text.trim()
-      : 'AI should be generating a bio for you, but it\'s not - No AI response';
-    
-    // Temporarily disabled Firestore save
-    // if (profile.userId) {
-    //   try {
-    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
-    //     await setDoc(aiContentRef, { bio }, { merge: true });
-    //   } catch (error) {
-    //     console.error('Error storing AI bio content:', error);
-    //   }
-    // }
-    
-    return NextResponse.json({ bio });
   } catch (error) {
     console.error('Bio generation error:', error);
-    return NextResponse.json(
-      { bio: 'Connecting people through technology' }
-    );
+    console.error('Error in generateBio:', error);
+    throw error;
   }
 }
 

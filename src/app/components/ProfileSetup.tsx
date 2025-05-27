@@ -40,17 +40,42 @@ export default function ProfileSetup() {
 
   // Set up scroll lock for mobile keyboard
   useEffect(() => {
-    // Add a small delay to ensure the component is fully mounted
-    const timer = setTimeout(() => {
-      const cleanup = setupScrollLock();
-      
-      // Clean up when component unmounts
-      return () => {
-        cleanup();
-      };
-    }, 100);
+    // Only run on client side
+    if (typeof window === 'undefined') return;
     
-    return () => clearTimeout(timer);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    if (isIOS) {
+      // Add iOS-specific class to body
+      document.body.classList.add('ios-device');
+      
+      // Setup scroll lock with a small delay
+      const timer = setTimeout(() => {
+        const cleanup = setupScrollLock();
+        
+        // Add keyboard detection
+        const handleResize = () => {
+          const isKeyboardVisible = window.innerHeight < window.outerHeight * 0.8;
+          if (isKeyboardVisible) {
+            document.body.classList.add('ios-keyboard-visible');
+          } else {
+            document.body.classList.remove('ios-keyboard-visible');
+          }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        
+        // Clean up when component unmounts
+        return () => {
+          cleanup();
+          window.removeEventListener('resize', handleResize);
+          document.body.classList.remove('ios-device', 'ios-keyboard-visible');
+        };
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   // Initialize profile on first load if it doesn't exist
@@ -158,8 +183,8 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-background overflow-y-auto">
-      <div className="min-h-full w-full flex flex-col items-center py-6 px-4">
+    <div className="ios-scroll-container">
+      <div className="min-h-screen w-full flex flex-col items-center py-6 px-4 bg-background">
         <div className="w-full max-w-[320px] mx-auto flex flex-col items-center">
           {/* Profile Picture - Fixed height container */}
           <div className="relative mb-4 h-24">

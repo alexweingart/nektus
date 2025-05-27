@@ -4,13 +4,26 @@
 
 /* iOS-specific fixes */
 @supports (-webkit-touch-callout: none) {
-  /* Prevent elastic scrolling and set up base styles */
+  /* Base styles to prevent scrolling and set up fixed positioning */
   html, body {
-    position: relative;
+    position: fixed;
     height: 100%;
     width: 100%;
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+  
+  /* Container that will hold the scrollable content */
+  .ios-scroll-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
   }
   
   /* When keyboard is visible */
@@ -19,24 +32,24 @@
     width: 100% !important;
     height: 100% !important;
     overflow: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: none !important;
   }
   
   /* Ensure inputs are tap-friendly and prevent iOS zoom */
   input, textarea, [contenteditable] {
     font-size: 16px;
+    transform: translateZ(0); /* Force hardware acceleration */
   }
   
   /* Fix for position fixed elements and safe area insets */
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    body.ios-keyboard-visible {
+    /* Adjust for the home indicator area */
+    body {
       padding-bottom: env(safe-area-inset-bottom);
     }
     
-    /* Adjust fixed elements when keyboard is visible */
-    .ios-keyboard-visible [data-fixed] {
-      bottom: env(safe-area-inset-bottom) !important;
+    /* When keyboard is visible, adjust the bottom padding */
+    body.ios-keyboard-visible {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 300px); /* Extra space for keyboard */
     }
   }
   
@@ -44,6 +57,27 @@
   @media screen and (-webkit-min-device-pixel-ratio: 0) {
     input, textarea, [contenteditable] {
       font-size: 16px !important;
+    }
+  }
+  
+  /* Hide the autofill suggestion bar */
+  input::-webkit-contacts-auto-fill-button,
+  input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    display: none !important;
+    pointer-events: none;
+    height: 0;
+    width: 0;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Disable auto-zoom on input focus in mobile Safari */
+  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+    input, textarea, [contenteditable] {
+      font-size: 16px !important;
+      transform: scale(1);
+      transform-origin: 0 0;
     }
   }
 }
