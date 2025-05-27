@@ -39,21 +39,6 @@ interface BluetoothDevice {
   removeEventListener(type: string, listener: EventListener): void;
 }
 
-// Define the shape of a contact exchange
-export interface ContactExchange {
-  userId: string;
-  name: string;
-  internationalPhone: string; // Updated to match new field structure
-  email: string;
-  title?: string;
-  company?: string;
-  location?: string;
-  socialProfiles: Array<{
-    platform: string;
-    username: string;
-  }>;
-}
-
 // Generate a unique ID for the user
 export const generateUserId = (): string => {
   return Math.random().toString(36).substring(2, 15) + 
@@ -81,7 +66,7 @@ export class BluetoothConnector {
   private characteristicUUID = '0000ffe1-0000-1000-8000-00805f9b34fb'; // Custom characteristic UUID
   
   constructor(private onConnectionCallback?: (connected: boolean) => void,
-              private onDataReceivedCallback?: (data: ContactExchange) => void) {}
+              private onDataReceivedCallback?: (data: any) => void) {}
   
   // Check if Web Bluetooth is supported
   isSupported(): boolean {
@@ -129,7 +114,7 @@ export class BluetoothConnector {
           const decoder = new TextDecoder('utf-8');
           const data = decoder.decode(value);
           try {
-            const contactData = JSON.parse(data) as ContactExchange;
+            const contactData = JSON.parse(data);
             if (this.onDataReceivedCallback) {
               this.onDataReceivedCallback(contactData);
             }
@@ -154,7 +139,7 @@ export class BluetoothConnector {
   }
   
   // Send data to connected device
-  async sendData(data: ContactExchange): Promise<boolean> {
+  async sendData(data: any): Promise<boolean> {
     if (!this.server) {
       console.error('Not connected to any device');
       return false;
@@ -242,7 +227,7 @@ export const detectBump = (
 // Fallback method for browsers that don't support Web Bluetooth API
 export const simulateConnection = async (
   onConnectionCallback?: (connected: boolean) => void,
-  onDataReceivedCallback?: (data: ContactExchange) => void
+  onDataReceivedCallback?: (data: any) => void
 ): Promise<void> => {
   // Simulate connection delay
   await new Promise(resolve => setTimeout(resolve, 2000));

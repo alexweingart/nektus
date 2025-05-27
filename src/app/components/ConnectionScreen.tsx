@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
-import { BluetoothConnector, ContactExchange, getUserId, detectBump, simulateConnection } from '../utils/bluetooth';
+import { BluetoothConnector, getUserId, detectBump, simulateConnection } from '../utils/bluetooth';
 import ProfileCard from './ProfileCard';
 
 enum ConnectionState {
@@ -17,7 +17,8 @@ enum ConnectionState {
 interface ContactRequest {
   userId: string;
   name: string;
-  contactData: ContactExchange;
+  // Contact data will be redefined when we implement the connection flow
+  contactData: any;
 }
 
 const ConnectionScreen: React.FC = () => {
@@ -102,17 +103,10 @@ const ConnectionScreen: React.FC = () => {
         }
         
         // Send our contact info
-        const contactData: ContactExchange = {
+        const contactData = {
           userId: getUserId(),
-          name: userData.name,
-          internationalPhone: userData.internationalPhone,
-          email: userData.email,
-          title: userData.title,
-          company: userData.company,
-          location: userData.location,
-          socialProfiles: userData.socialProfiles
-            .filter(profile => profile.shareEnabled)
-            .map(profile => ({
+          name: 'User',
+          contactData: {}
               platform: profile.platform,
               username: profile.username
             }))
