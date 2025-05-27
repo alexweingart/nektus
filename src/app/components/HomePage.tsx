@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import ProfileView from './ProfileView';
+import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './AdminBanner';
 
 // Standard button style shared across the application
@@ -25,28 +23,18 @@ const standardButtonStyle = {
   marginTop: '10px'
 };
 
-// Component now handles both the welcome screen and authenticated user view
+// Component handles just the welcome screen
 const HomePage: React.FC = () => {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const adminModeProps = useAdminModeActivator();
   
   // Prevent scrolling on welcome screen
   useEffect(() => {
-    if (!session) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [session]);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
   
-  // If authenticated, show the profile view
-  if (status === 'authenticated' && session) {
-    return <ProfileView />;
-  }
-  
-  // Otherwise show the welcome screen
   return (
     <div 
       style={{

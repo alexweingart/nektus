@@ -105,10 +105,11 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   // Initialize component with value if provided
   useEffect(() => {
-    if (value) {
-      console.log('Initializing CustomPhoneInput with value:', value);
-      // Clean the value and format it
-      const cleanedValue = value.replace(/\D/g, '');
+    // Only update if the value has actually changed to prevent unnecessary re-renders
+    const cleanedValue = value ? value.replace(/\D/g, '') : '';
+    const currentCleaned = phoneInput.replace(/\D/g, '');
+    
+    if (cleanedValue !== currentCleaned) {
       const formattedValue = formatPhoneNumber(cleanedValue);
       setPhoneInput(formattedValue);
       
@@ -134,8 +135,11 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     
     // Format based on length
     if (cleaned.length === 0) return '';
-    if (cleaned.length <= 3) return `(${cleaned}`;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    if (cleaned.length === 1) return `(${cleaned}`;
+    if (cleaned.length === 2) return `(${cleaned}`;
+    if (cleaned.length === 3) return `(${cleaned}) `;
+    if (cleaned.length === 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}-`;
+    if (cleaned.length < 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
@@ -155,38 +159,49 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       formattedPhone = formatPhoneNumber(digits);
     }
     
-    // Update the input value
-    setPhoneInput(formattedPhone);
-    
-    // Call the parent's onChange with just the digits
+    // Call the parent's onChange with just the digits first
     onChange(digits);
     
-    // Restore cursor position (with some adjustment for formatting)
-    setTimeout(() => {
+    // Update the input value in a way that preserves cursor position
+    requestAnimationFrame(() => {
+      setPhoneInput(prev => {
+        // Only update if the formatted value is different
+        if (prev !== formattedPhone) {
+          return formattedPhone;
+        }
+        return prev;
+      });
+      
+      // Restore cursor position after state update
       if (inputRef.current) {
         // Calculate new cursor position
         let newCursorPosition = cursorPosition;
         const isAdding = formattedPhone.length > phoneInput.length;
         
         // If we added a formatting character, move cursor forward
-        if (isAdding && (formattedPhone[cursorPosition] === ')' || 
-                         formattedPhone[cursorPosition] === ' ' || 
-                         formattedPhone[cursorPosition] === '-')) {
+        if (isAdding && cursorPosition > 0 && 
+            (formattedPhone[cursorPosition - 1] === ')' || 
+             formattedPhone[cursorPosition - 1] === ' ' || 
+             formattedPhone[cursorPosition - 1] === '-')) {
           newCursorPosition = cursorPosition + 1;
         }
         // If we removed a formatting character, keep cursor in same position
         else if (!isAdding && cursorPosition > 0 && 
+                cursorPosition <= phoneInput.length &&
                 (phoneInput[cursorPosition - 1] === ')' || 
                  phoneInput[cursorPosition - 1] === ' ' || 
                  phoneInput[cursorPosition - 1] === '-')) {
-          newCursorPosition = cursorPosition - 1;
+          newCursorPosition = Math.max(0, cursorPosition - 1);
         }
+        
+        // Ensure cursor stays within bounds
+        newCursorPosition = Math.min(newCursorPosition, formattedPhone.length);
         
         // Set the cursor position
         inputRef.current.selectionStart = newCursorPosition;
         inputRef.current.selectionEnd = newCursorPosition;
       }
-    }, 0);
+    });
   };
 
   // Handle country selection

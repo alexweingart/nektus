@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { db } from '../../lib/firebase';
-import { doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { cookies } from 'next/headers';
 
 /**
- * API route to delete a user account and related data from Firebase
+ * API route to handle account deletion
  */
 export async function POST(req: NextRequest) {
   try {
@@ -22,31 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User ID not found' }, { status: 400 });
     }
     
-    // Log for debugging
-    console.log('Deleting account data for user:', userId);
-    
-    // Delete user profile from Firestore
-    try {
-      // First check if profile exists
-      const profileDocRef = doc(db, 'profiles', userId);
-      const profileSnapshot = await getDoc(profileDocRef);
-      
-      if (profileSnapshot.exists()) {
-        // Delete the profile document
-        await deleteDoc(profileDocRef);
-        console.log(`Successfully deleted profile for user: ${userId}`);
-      } else {
-        console.log(`No profile found for user: ${userId}`);
-      }
-
-      // Note: If there are additional collections storing user data, they should be deleted here as well
-      // For example: connections, messages, etc.
-      
-    } catch (firestoreError) {
-      console.error('Error deleting Firestore data:', firestoreError);
-      // Continue execution even if Firestore deletion fails
-      // This allows the account disconnection to proceed
-    }
+    console.log('Processing account deletion for user:', userId);
     
     // Get auth cookies for logging purposes
     const cookieStore = cookies();
@@ -61,9 +35,12 @@ export async function POST(req: NextRequest) {
     
     console.log('Found auth cookies to be cleared client-side:', authCookies.map(c => c.name));
     
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      message: 'Account deletion processed. Please clear client-side auth state.'
+    });
   } catch (error) {
-    console.error('Error deleting account:', error);
-    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
+    console.error('Error processing account deletion:', error);
+    return NextResponse.json({ error: 'Failed to process account deletion' }, { status: 500 });
   }
 }

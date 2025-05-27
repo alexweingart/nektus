@@ -104,7 +104,7 @@ export default function ProfileSetup() {
         }
       }
       
-      // Update the profile with phone info
+      // Update the profile with phone info and set as username for messaging apps
       const updatedProfile = {
         ...profile,
         contactChannels: {
@@ -113,6 +113,21 @@ export default function ProfileSetup() {
             internationalPhone,
             nationalPhone,
             userConfirmed: true
+          },
+          whatsapp: {
+            ...profile.contactChannels.whatsapp,
+            username: nationalPhone,
+            userConfirmed: false
+          },
+          wechat: {
+            ...profile.contactChannels.wechat,
+            username: nationalPhone,
+            userConfirmed: false
+          },
+          telegram: {
+            ...profile.contactChannels.telegram,
+            username: nationalPhone,
+            userConfirmed: false
           }
         }
       };

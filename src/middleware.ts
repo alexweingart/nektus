@@ -1,57 +1,106 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const PUBLIC_PATHS = [
+  '/',
+  '/setup',
+  '/api/auth/signin',
+  '/api/auth/signin/google',
+  '/api/auth/error',
+  '/api/auth/csrf',
+  '/api/auth/session',
+  '/api/auth/callback/google',
+  '/api/auth/_log',
+  '/_next',
+  '/favicon.ico'
+];
+
 export function middleware(request: NextRequest) {
-  const sessionToken = request.cookies.get('next-auth.session-token') || 
-                     request.cookies.get('__Secure-next-auth.session-token');
-  
-  // If no session token, no need to check anything
+  const { pathname } = request.nextUrl;
+  // Check for both development and production session tokens
+  const sessionToken = 
+    request.cookies.get('__Secure-next-auth.session-token')?.value ||
+    request.cookies.get('next-auth.session-token')?.value;
+
+  // Skip middleware for public paths and static files
+  if (PUBLIC_PATHS.some(path => pathname.startsWith(path)) || 
+      pathname.includes('.') || 
+      pathname === '/favicon.ico' ||
+      pathname.startsWith('/_next')) {
+    return NextResponse.next();
+  }
+
+  // If no session token, allow access to public paths only
   if (!sessionToken) {
-    return NextResponse.next();
-  }
-  
-  const path = request.nextUrl.pathname;
-  
-  // Don't run middleware for these paths
-  if (path.startsWith('/_next') || 
-      path.includes('.') || 
-      path.startsWith('/api') ||
-      path === '/setup') {
-    return NextResponse.next();
-  }
-  
-  // Check for profile in cookies (we'll set this after successful setup)
-  const hasProfile = request.cookies.get('nektus_has_profile');
-  
-  // If on root path and no profile, redirect to setup
-  if (path === '/' && !hasProfile) {
-    const profileStr = request.cookies.get('nektus_profile_cache');
+    const isPublicPath = PUBLIC_PATHS.some(path => 
+      pathname === path || pathname.startsWith(path + '/') || 
+      pathname === '/api/auth/signin/google' ||
+      pathname.startsWith('/_next')
+    );
     
-    try {
-      if (profileStr) {
-        const profile = JSON.parse(profileStr.value);
-        // If profile has phone number, set the has_profile cookie
-        if (profile?.contactChannels?.phoneInfo?.internationalPhone) {
-          const response = NextResponse.next();
-          response.cookies.set('nektus_has_profile', 'true', { path: '/' });
-          return response;
+    if (!isPublicPath) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // For authenticated users
+  if (sessionToken) {
+    // If on root path, check if profile is complete
+    if (pathname === '/') {
+      const profileStr = request.cookies.get('nektus_profile_cache');
+      
+      try {
+        if (profileStr) {
+          const profile = JSON.parse(profileStr.value);
+          // If profile has phone number, allow access to root
+          if (profile?.contactChannels?.phoneInfo?.internationalPhone) {
+            return NextResponse.next();
+          }
         }
+        // If no phone number, redirect to setup
+        return NextResponse.redirect(new URL('/setup', request.url));
+      } catch (e) {
+        console.error('Error checking profile:', e);
+        return NextResponse.redirect(new URL('/setup', request.url));
       }
-      
-      // If we get here, redirect to setup
-      const setupUrl = new URL('/setup', request.url);
-      return NextResponse.redirect(setupUrl);
-      
-    } catch (e) {
-      console.error('Error checking profile in middleware:', e);
-      const setupUrl = new URL('/setup', request.url);
-      return NextResponse.redirect(setupUrl);
+    }
+    
+    // If on setup page but already has profile, redirect to home
+    if (pathname === '/setup') {
+      const profileStr = request.cookies.get('nektus_profile_cache');
+      try {
+        if (profileStr) {
+          const profile = JSON.parse(profileStr.value);
+          if (profile?.contactChannels?.phoneInfo?.internationalPhone) {
+            return NextResponse.redirect(new URL('/', request.url));
+          }
+        }
+      } catch (e) {
+        console.error('Error checking profile:', e);
+      }
     }
   }
-  
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: '/:path*',
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\..*).*)',
+  ],
+  // Required for handling OAuth callbacks
+  unstable_allowDynamic: [
+    '/node_modules/next-auth/core/lib/security/csrf-token-handler.js',
+    '/node_modules/next-auth/core/lib/security/nonce.js',
+    '/node_modules/next-auth/core/lib/security/pkce.js',
+    '/node_modules/next-auth/core/lib/security/csrf.js',
+  ],
 };
