@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
-import { BluetoothConnector, getUserId, detectBump, simulateConnection } from '../utils/bluetooth';
+import { BluetoothConnector, ContactExchange, getUserId, detectBump, simulateConnection } from '../utils/bluetooth';
 import ProfileCard from './ProfileCard';
 
 enum ConnectionState {
@@ -17,8 +17,7 @@ enum ConnectionState {
 interface ContactRequest {
   userId: string;
   name: string;
-  // Contact data will be redefined when we implement the connection flow
-  contactData: any;
+  contactData: ContactExchange;
 }
 
 const ConnectionScreen: React.FC = () => {
@@ -103,13 +102,20 @@ const ConnectionScreen: React.FC = () => {
         }
         
         // Send our contact info
-        const contactData = {
+        const contactData: ContactExchange = {
           userId: getUserId(),
-          name: 'User',
-          contactData: {
-            platform: 'unknown',
-            username: 'user'
-          }
+          name: userData.name,
+          internationalPhone: userData.internationalPhone,
+          email: userData.email,
+          title: userData.title,
+          company: userData.company,
+          location: userData.location,
+          socialProfiles: userData.socialProfiles
+            .filter(profile => profile.shareEnabled)
+            .map(profile => ({
+              platform: profile.platform,
+              username: profile.username
+            }))
         };
         
         await connector.sendData(contactData);
@@ -199,8 +205,8 @@ const ConnectionScreen: React.FC = () => {
                   title: contactRequest.contactData.title,
                   company: contactRequest.contactData.company,
                   location: contactRequest.contactData.location,
-                  socialProfiles: (contactRequest.contactData.socialProfiles || []).map((p: { platform: string; username: string }) => ({
-                    platform: p.platform,
+                  socialProfiles: contactRequest.contactData.socialProfiles.map(p => ({
+                    platform: p.platform as any,
                     username: p.username,
                     shareEnabled: true
                   }))

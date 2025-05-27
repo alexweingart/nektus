@@ -1,61 +1,59 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
-
-// Define the SocialProfile type for the form
-type SocialProfile = {
-  platform: string;
-  username: string;
-  shareEnabled: boolean;
-  filled?: boolean;
-  confirmed?: boolean;
-};
-import { useSession } from 'next-auth/react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import CustomPhoneInput from './CustomPhoneInput';
-import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './SocialIcon';
 import { MdEdit } from 'react-icons/md';
 
-// Extend the ProfileContextUserProfile type with our additional fields
-type UserProfile = ProfileContextUserProfile & {
-  socialProfiles: Array<SocialProfile & { filled?: boolean }>;
-};
+// Hardcoded social profiles for the form
+const socialPlatforms = [
+  { id: 'facebook', label: 'Facebook', icon: 'facebook' },
+  { id: 'instagram', label: 'Instagram', icon: 'instagram' },
+  { id: 'x', label: 'X (Twitter)', icon: 'x' },
+  { id: 'linkedin', label: 'LinkedIn', icon: 'linkedin' },
+  { id: 'github', label: 'GitHub', icon: 'github' },
+  { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
+  { id: 'telegram', label: 'Telegram', icon: 'telegram' },
+  { id: 'tiktok', label: 'TikTok', icon: 'tiktok' },
+];
 
 const EditProfile: React.FC = () => {
-  const { data: session } = useSession();
-  const { profile, saveProfile } = useProfile();
   const router = useRouter();
   const nameInputRef = useRef<HTMLInputElement>(null);
   
-  // State for form data
-  const [formData, setFormData] = useState<{
-    name: string;
-    email: string;
-    picture: string;
-    socialProfiles: Array<SocialProfile & { filled?: boolean }>;
-    backgroundImage: string;
-  }>({
-    name: '',
-    email: '',
-    picture: '',
-    socialProfiles: [],
+  // Hardcoded form data
+  const [formData, setFormData] = useState({
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    phone: '+1 (555) 123-4567',
+    title: 'Software Engineer',
+    company: 'Tech Corp',
+    location: 'San Francisco, CA',
+    bio: 'Passionate developer building amazing web experiences',
+    profileImage: '',
     backgroundImage: '/gradient-bg.jpg',
+    socials: {
+      facebook: 'johndoe',
   });
   
-  const [digits, setDigits] = useState('');
-  const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
   
-  // Load profile data
-  useEffect(() => {
-    // Load from profile context which uses the correct storage key
-    if (profile) {
-      console.log('Loading profile data from context:', profile);
-      initializeFormData(profile);
-    }
-  }, [profile]);
+  // Handle input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Handle social media changes
+  const handleSocialChange = (platform: string, value: string) => {
+    setSocials(prev => ({
+      ...prev,
+      [platform]: value
+    }));
+  };
   
   // Helper function to get social prefix for a platform
   const getSocialPrefix = (platform: string) => {
@@ -81,53 +79,63 @@ const EditProfile: React.FC = () => {
     }
   };
 
-  // Helper function to initialize form data from profile
-  const initializeFormData = (profileData: any) => {
-    // Initialize form data with profile data
-    const name = profileData.name || '';
-    const email = profileData.contactChannels?.email?.email || '';
-    const picture = profileData.profileImage || '';
-    const backgroundImage = profileData.backgroundImage || '/gradient-bg.jpg';
-    
-    // Initialize social profiles from contactChannels
-    const socialProfiles: Array<SocialProfile & { filled?: boolean }> = [];
-    
-    // Add phone if available
-    if (profileData.contactChannels?.phoneInfo) {
-      socialProfiles.push({
-        platform: 'phone',
-        username: profileData.contactChannels.phoneInfo.nationalPhone || '',
-        shareEnabled: true,
-        filled: !!profileData.contactChannels.phoneInfo.nationalPhone,
-        confirmed: profileData.contactChannels.phoneInfo.userConfirmed
-      });
-    }
-    
-    // Add email
-    if (profileData.contactChannels?.email) {
-      socialProfiles.push({
-        platform: 'email',
-        username: profileData.contactChannels.email.email || '',
-        shareEnabled: true,
-        filled: !!profileData.contactChannels.email.email,
-        confirmed: profileData.contactChannels.email.userConfirmed
-      });
-    }
-    
-    // Add social profiles
-    const socialPlatforms = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
-    socialPlatforms.forEach(platform => {
-      const channel = profileData.contactChannels?.[platform];
-      if (channel?.username) {
+  // Simple phone input component for the hardcoded version
+  const PhoneInput = ({ value, onChange, ...props }: any) => (
+    <input
+      type="tel"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+      {...props}
+    />
+  );
+
+  return (
+    // Your JSX code here
+  );
+};
+
+export default EditProfile;
+      // Add phone if available
+      if (contactChannels.phoneInfo) {
         socialProfiles.push({
-          platform: platform as any,
-          username: channel.username,
+          platform: 'phone',
+          username: contactChannels.phoneInfo.nationalPhone || '',
           shareEnabled: true,
-          filled: !!channel.username,
-          confirmed: channel.userConfirmed
+          filled: !!contactChannels.phoneInfo.nationalPhone,
+          confirmed: contactChannels.phoneInfo.userConfirmed
         });
       }
-    });
+      
+      // Add email if available
+      if (contactChannels.email) {
+        socialProfiles.push({
+          platform: 'email',
+          username: contactChannels.email.email || '',
+          shareEnabled: true,
+          filled: !!contactChannels.email.email,
+          confirmed: contactChannels.email.userConfirmed
+        });
+      }
+      
+      // Add social profiles
+      const socialPlatforms = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
+      socialPlatforms.forEach(platform => {
+        const channel = contactChannels[platform];
+        if (channel && channel.username) {
+          socialProfiles.push({
+            platform: platform as any,
+            username: channel.username,
+            shareEnabled: true,
+            filled: !!channel.username,
+            confirmed: channel.userConfirmed
+          });
+        }
+      });
+    } else if (profileData.socialProfiles) {
+      // Old structure, use as is
+      socialProfiles = [...profileData.socialProfiles];
+    }
     
     setFormData({
       name,
@@ -137,11 +145,43 @@ const EditProfile: React.FC = () => {
       backgroundImage
     });
     
-    // Initialize the phone number input from contactChannels.phoneInfo
-    if (profileData.contactChannels?.phoneInfo?.nationalPhone) {
-      setDigits(profileData.contactChannels.phoneInfo.nationalPhone);
-      // Default to US if no country is set
-      setPhoneCountry('US');
+    // Initialize the phone number input from nationalPhone
+    if (profileData.nationalPhone) {
+      // Use the already parsed national phone number if available
+      console.log('Using stored national number:', profileData.nationalPhone);
+      setDigits(profileData.nationalPhone);
+      
+      // Use stored country if available
+      if (profileData.country && profileData.countryUserConfirmed) {
+        console.log('Using stored country:', profileData.country);
+        setPhoneCountry(profileData.country as any);
+      } else {
+        // Fallback to default country
+        setPhoneCountry('US');
+      }
+    } else if (profileData.internationalPhone) {
+      // Fallback to parsing from internationalPhone
+      console.log('Attempting to parse phone number:', profileData.internationalPhone);
+      try {
+        const parsedPhone = parsePhoneNumberFromString(profileData.internationalPhone);
+        console.log('Parsed phone result:', parsedPhone);
+        
+        if (parsedPhone) {
+          console.log('National number:', parsedPhone.nationalNumber);
+          console.log('Country:', parsedPhone.country);
+          setDigits(parsedPhone.nationalNumber);
+          setPhoneCountry(parsedPhone.country as any || 'US');
+        } else {
+          // If the number can't be parsed, set empty
+          setDigits('');
+          setPhoneCountry('US');
+        }
+      } catch (error) {
+        console.error('Error parsing phone number:', error);
+        // Fallback: set empty
+        setDigits('');
+        setPhoneCountry('US');
+      }
     }
   };
   
@@ -209,89 +249,187 @@ const EditProfile: React.FC = () => {
         throw new Error('No user session');
       }
       
+      // Extract email username (for auto-populating social profiles)
+      const emailUsername = session.user.email.split('@')[0] || '';
+      
+      // Create a merged profile with updated data first
+      const updatedProfile = {
+        userId: session.user.email,
+        name: formData.name,
+        email: formData.email,
+        picture: formData.picture,
+        // Remove phone field per requirements
+        internationalPhone: '',
+        nationalPhone: '',
+        internationalPhoneUserConfirmed: true,
+        nationalPhoneUserConfirmed: true,
+        country: phoneCountry as string,
+        countryUserConfirmed: true,
+        socialProfiles: formData.socialProfiles,
+        backgroundImage: formData.backgroundImage,
+        handle: '',
+        lastUpdated: Date.now()
+      };
+      
       // Format phone number with country code
       let phoneNumber = '';
-      let nationalNumber = '';
-      
       if (digits) {
         try {
           // Try to parse with the country code
           const parsed = parsePhoneNumberFromString(digits, phoneCountry as any);
           if (parsed?.isValid()) {
             phoneNumber = parsed.format('E.164'); // +12133734253
-            nationalNumber = parsed.nationalNumber; // Store the national format
+            const nationalNumber = parsed.nationalNumber; // Store the national format
+            const countryCode = parsed.country || phoneCountry;
+            
+            // Store both formats along with country information
+            updatedProfile.internationalPhone = phoneNumber;
+            updatedProfile.nationalPhone = nationalNumber;
+            updatedProfile.internationalPhoneUserConfirmed = true;
+            updatedProfile.nationalPhoneUserConfirmed = true;
+            updatedProfile.country = countryCode;
+            updatedProfile.countryUserConfirmed = true;
           } else {
             // Basic fallback
             phoneNumber = digits.replace(/[^0-9]/g, '');
             if (!phoneNumber.startsWith('+')) {
               phoneNumber = `+${phoneNumber}`;
             }
-            nationalNumber = digits;
+            // Still set both formats with basic values
+            updatedProfile.internationalPhone = phoneNumber;
+            updatedProfile.nationalPhone = digits;
+            updatedProfile.internationalPhoneUserConfirmed = true;
+            updatedProfile.nationalPhoneUserConfirmed = true;
+            updatedProfile.country = phoneCountry; 
+            updatedProfile.countryUserConfirmed = true;
           }
         } catch (error) {
           console.error('Error formatting phone:', error);
           // Simple fallback
           phoneNumber = digits;
-          nationalNumber = digits;
+          updatedProfile.internationalPhone = phoneNumber;
+          updatedProfile.nationalPhone = digits;
+          updatedProfile.internationalPhoneUserConfirmed = true;
+          updatedProfile.nationalPhoneUserConfirmed = true;
+          updatedProfile.country = phoneCountry;
+          updatedProfile.countryUserConfirmed = true;
         }
       }
       
-      // Create the updated profile with the correct structure for UserProfile
-      const updatedProfile: Partial<ProfileContextUserProfile> & { contactChannels: any } = {
-        name: formData.name,
-        profileImage: formData.picture,
-        backgroundImage: formData.backgroundImage,
-        lastUpdated: Date.now(),
-        contactChannels: {
-          phoneInfo: {
-            internationalPhone: phoneNumber,
-            nationalPhone: nationalNumber,
-            userConfirmed: true
-          },
-          email: {
-            email: formData.email,
-            userConfirmed: true
-          },
-          // Initialize all social channels with empty data
-          facebook: { username: '', url: '', userConfirmed: false },
-          instagram: { username: '', url: '', userConfirmed: false },
-          x: { username: '', url: '', userConfirmed: false },
-          whatsapp: { username: '', url: '', userConfirmed: false },
-          snapchat: { username: '', url: '', userConfirmed: false },
-          telegram: { username: '', url: '', userConfirmed: false },
-          wechat: { username: '', url: '', userConfirmed: false },
-          linkedin: { username: '', url: '', userConfirmed: false }
-        }
-      };
+      // Normalize phone number for social profiles
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
       
-      // Update social profiles from form data
-      if (updatedProfile.contactChannels) {
-        formData.socialProfiles.forEach(profile => {
+      // Auto-populate WhatsApp, Telegram, and WeChat with phone number if they're empty
+      const phoneBasedProfiles = ['whatsapp', 'telegram', 'wechat'] as const;
+      phoneBasedProfiles.forEach(platform => {
+        if (!updatedProfile.socialProfiles) {
+          updatedProfile.socialProfiles = [];
+        }
+        
+        const profileIndex = updatedProfile.socialProfiles.findIndex(
+          p => p.platform === platform
+        );
+        
+        if (profileIndex === -1 || !updatedProfile.socialProfiles[profileIndex]?.username) {
+          // Profile doesn't exist or has empty username, add with phone number
+          if (profileIndex === -1) {
+            updatedProfile.socialProfiles.push({
+              platform,
+              username: normalizedPhone,
+              shareEnabled: true,
+              filled: !!normalizedPhone
+            });
+          } else if (profileIndex >= 0) {
+            updatedProfile.socialProfiles[profileIndex].username = normalizedPhone;
+            updatedProfile.socialProfiles[profileIndex].filled = !!normalizedPhone;
+          }
+        }
+      });
+      
+      // Auto-populate other social profiles with email username if they're empty
+      const emailUsernameProfiles = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
+      emailUsernameProfiles.forEach(platform => {
+        if (!updatedProfile.socialProfiles) {
+          updatedProfile.socialProfiles = [];
+        }
+        
+        const profileIndex = updatedProfile.socialProfiles.findIndex(
+          p => p.platform === platform
+        );
+        
+        if (profileIndex === -1 || !updatedProfile.socialProfiles[profileIndex]?.username) {
+          // Profile doesn't exist or has empty username, add with email username
+          if (profileIndex === -1) {
+            updatedProfile.socialProfiles.push({
+              platform,
+              username: emailUsername,
+              shareEnabled: true,
+              filled: !!emailUsername
+            });
+          } else if (profileIndex >= 0) {
+            updatedProfile.socialProfiles[profileIndex].username = emailUsername;
+            updatedProfile.socialProfiles[profileIndex].filled = !!emailUsername;
+          }
+        }
+      });
+      
+      // Create contact channels from the updated profile
+      const contactChannels = {
+        phoneInfo: {
+          internationalPhone: updatedProfile.internationalPhone || '',
+          nationalPhone: updatedProfile.nationalPhone || '',
+          userConfirmed: true
+        },
+        email: {
+          email: updatedProfile.email || '',
+          userConfirmed: true
+        },
+        // Initialize all social channels with empty data
+        facebook: { username: '', url: '', userConfirmed: false },
+        instagram: { username: '', url: '', userConfirmed: false },
+        x: { username: '', url: '', userConfirmed: false },
+        whatsapp: { username: '', url: '', userConfirmed: false },
+        snapchat: { username: '', url: '', userConfirmed: false },
+        telegram: { username: '', url: '', userConfirmed: false },
+        wechat: { username: '', url: '', userConfirmed: false },
+        linkedin: { username: '', url: '', userConfirmed: false }
+      };
+
+      // Populate social channels from socialProfiles
+      if (updatedProfile.socialProfiles) {
+        updatedProfile.socialProfiles.forEach(profile => {
           const platform = profile.platform;
-          if (platform === 'email') {
-            updatedProfile.contactChannels.email = {
-              email: profile.username,
-              userConfirmed: true
+          if (platform === 'email' || platform === 'phone') return;
+          
+          // Only process known social platforms
+          if (['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'].includes(platform)) {
+            const socialPlatform = platform as 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'wechat' | 'linkedin';
+            contactChannels[socialPlatform] = {
+              username: profile.username || '',
+              url: profile.username ? `${getSocialPrefix(platform as any)}${profile.username}` : '',
+              userConfirmed: !!profile.filled
             };
-          } else if (platform === 'phone') {
-            // Already handled above
-          } else if (['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'].includes(platform)) {
-            const socialPlatform = platform as keyof typeof updatedProfile.contactChannels;
-            if (socialPlatform in updatedProfile.contactChannels) {
-              (updatedProfile.contactChannels as any)[socialPlatform] = {
-                username: profile.username,
-                url: profile.username ? `${getSocialPrefix(platform as any)}${profile.username}` : '',
-                userConfirmed: true
-              };
-            }
           }
         });
       }
+
+      // Create the cached profile with the new structure
+      const cachedProfile = {
+        backgroundImage: updatedProfile.backgroundImage || '',
+        profileImage: updatedProfile.picture || '',
+        bio: '',
+        name: updatedProfile.name || '',
+        lastUpdated: Date.now(),
+        contactChannels
+      };
+
+      // Save to local storage
+      localStorage.setItem('nektus_user_profile_cache', JSON.stringify(cachedProfile));
       
       console.log('Saving profile:', updatedProfile);
       
-      // Save to context (which will save to localStorage)
-      await saveProfile(updatedProfile);
+      // Save to context (which will save to Firestore)
+      await saveProfile(updatedProfile as Partial<UserProfile>);
       
       // Redirect to profile view
       router.push('/');
