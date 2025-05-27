@@ -167,7 +167,7 @@ export default function ProfileSetup() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className={`nekt-button w-full text-center py-3 text-base font-medium rounded-lg mt-6 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+            className={`nekt-button w-full text-center py-3 text-base font-medium rounded-full mt-6 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
