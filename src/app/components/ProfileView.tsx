@@ -184,29 +184,45 @@ const ProfileView: React.FC = () => {
   // Track if we've attempted to generate a bio
   const hasGeneratedBio = React.useRef(false);
 
-  // Handle loading state
+  // Handle loading state and bio generation
   useEffect(() => {
-    if (profile) {
-      setLocalProfile(profile);
-      if (profile.bio) setBio(profile.bio);
-      if (profile.backgroundImage) setBgImage(profile.backgroundImage);
-      setIsLoading(false);
-    } else {
-      // Try to load from localStorage if no profile in context
+    const loadProfile = async () => {
       try {
-        const savedProfile = localStorage.getItem('nektus_user_profile');
-        if (savedProfile) {
-          const parsedProfile = JSON.parse(savedProfile);
-          setLocalProfile(parsedProfile);
-          if (parsedProfile.bio) setBio(parsedProfile.bio);
-          if (parsedProfile.backgroundImage) setBgImage(parsedProfile.backgroundImage);
+        let currentProfile = profile;
+        
+        // If no profile in context, try loading from localStorage
+        if (!currentProfile) {
+          const savedProfile = localStorage.getItem('nektus_user_profile');
+          if (savedProfile) {
+            currentProfile = JSON.parse(savedProfile);
+          }
+        }
+
+        // If we have a profile, update the state
+        if (currentProfile) {
+          setLocalProfile(currentProfile);
+          
+          // Set bio and background image if they exist
+          if (currentProfile.bio) {
+            setBio(currentProfile.bio);
+          } else if (!hasGeneratedBio.current) {
+            // Only generate bio if we haven't tried before
+            hasGeneratedBio.current = true;
+            await generateBio(currentProfile);
+          }
+          
+          if (currentProfile.backgroundImage) {
+            setBgImage(currentProfile.backgroundImage);
+          }
         }
       } catch (error) {
-        console.error('Error loading profile from localStorage:', error);
+        console.error('Error loading profile:', error);
       } finally {
         setIsLoading(false);
       }
-    }
+    };
+
+    loadProfile();
   }, [profile]);
   
   // Format phone number for display

@@ -3,6 +3,7 @@
 let scrollY = 0;
 let isLocked = false;
 let isIOS = false;
+let originalViewport = '';
 
 // Detect iOS
 if (typeof window !== 'undefined') {
@@ -32,57 +33,36 @@ export function setupScrollLock() {
     isLocked = true;
     storeScrollPosition();
     
+    // For all platforms
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overscrollBehavior = 'none';
+    
+    // Add touch event listeners
+    document.addEventListener('touchmove', preventDefault, { passive: false });
+    
     // iOS specific fixes
     if (isIOS) {
-      // Add a fixed position container to prevent iOS from adjusting the viewport
-      const scrollLockContainer = document.createElement('div');
-      scrollLockContainer.id = 'ios-scroll-lock-container';
-      scrollLockContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        -webkit-overflow-scrolling: touch;
-      `;
-      
-      // Move the app content into the container
-      const appContent = document.getElementById('__next');
-      if (appContent) {
-        document.body.insertBefore(scrollLockContainer, appContent);
-        scrollLockContainer.appendChild(appContent);
-      }
-      
-      // Prevent overscroll bounce
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      document.body.style.overscrollBehavior = 'none';
-      document.documentElement.style.overscrollBehavior = 'none';
-      
-      // Add touch event listeners
-      document.addEventListener('touchmove', preventDefault, { passive: false });
-    } else {
-      // Standard approach for other platforms
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      document.body.style.overscrollBehavior = 'none';
-      document.documentElement.style.overscrollBehavior = 'none';
-      document.addEventListener('touchmove', preventDefault, { passive: false });
-    }
-    
-    // Handle iOS viewport resize when keyboard appears
-    if (isIOS) {
+      // Store original viewport content
       const viewport = document.querySelector('meta[name="viewport"]');
       if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        originalViewport = viewport.getAttribute('content') || '';
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover');
       }
+      
+      // Add padding to the bottom of the body to account for the keyboard
+      const keyboardHeight = Math.min(window.innerHeight * 0.4, 300); // Estimate keyboard height
+      document.body.style.paddingBottom = `${keyboardHeight}px`;
+      
+      // Force scroll to top to prevent any shifting
+      window.scrollTo(0, 0);
+      
+      // Add a class to the body for iOS-specific styling
+      document.body.classList.add('ios-keyboard-visible');
     }
   };
 
@@ -92,26 +72,21 @@ export function setupScrollLock() {
     
     isLocked = false;
     
-    // iOS specific cleanup
+    // Remove iOS specific styles first
     if (isIOS) {
-      // Restore the original DOM structure
-      const scrollLockContainer = document.getElementById('ios-scroll-lock-container');
-      if (scrollLockContainer) {
-        const appContent = scrollLockContainer.firstElementChild;
-        if (appContent) {
-          document.body.insertBefore(appContent, scrollLockContainer);
-          document.body.removeChild(scrollLockContainer);
-        }
+      // Restore original viewport settings
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport && originalViewport) {
+        viewport.setAttribute('content', originalViewport);
       }
       
-      // Restore viewport settings
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, interactive-widget=overlays-content');
-      }
+      // Remove padding and iOS class
+      document.body.style.paddingBottom = '';
+      document.body.classList.remove('ios-keyboard-visible');
     }
     
     // Restore body styles
+    const scrollY = document.body.style.top;
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.top = '';
@@ -125,7 +100,7 @@ export function setupScrollLock() {
     
     // Restore scroll position after a short delay
     window.setTimeout(() => {
-      window.scrollTo(0, scrollY);
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
     }, 0);
   };
 
@@ -133,12 +108,13 @@ export function setupScrollLock() {
   const handleFocusIn = (e: FocusEvent) => {
     const target = e.target as HTMLElement;
     if (target.matches('input, textarea, [contenteditable]')) {
-      lockScroll();
+      // Small delay to allow iOS to finish focusing
+      setTimeout(lockScroll, 100);
     }
   };
 
   const handleFocusOut = () => {
-    // Small delay to prevent race conditions
+    // Slightly longer delay to ensure the keyboard is fully dismissed
     setTimeout(unlockScroll, 300);
   };
 

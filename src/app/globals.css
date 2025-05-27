@@ -2,22 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent scrolling when keyboard is open on mobile */
+/* iOS-specific fixes */
 @supports (-webkit-touch-callout: none) {
-  /* CSS specific to iOS devices */
+  /* Prevent elastic scrolling */
   html, body {
-    position: fixed;
-    overflow: hidden;
+    position: relative;
     height: 100%;
     width: 100%;
+    overflow: hidden;
   }
   
-  /* Allow scrolling within specific containers */
-  .scrollable-content {
-    -webkit-overflow-scrolling: touch;
-    overflow-y: auto;
-    height: 100%;
+  /* When keyboard is visible */
+  body.ios-keyboard-visible {
+    position: fixed;
     width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  /* Ensure inputs are tap-friendly */
+  input, textarea, [contenteditable] {
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+  
+  /* Fix for position fixed elements */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body.ios-keyboard-visible {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
   }
 }
 
