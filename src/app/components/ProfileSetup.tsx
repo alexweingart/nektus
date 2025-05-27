@@ -50,26 +50,56 @@ export default function ProfileSetup() {
       // Add iOS-specific class to body
       document.body.classList.add('ios-device');
       
+      // Store the current viewport height
+      const setViewportHeight = () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      };
+      
+      // Set initial viewport height
+      setViewportHeight();
+      
       // Setup scroll lock with a small delay
       const timer = setTimeout(() => {
         const cleanup = setupScrollLock();
         
-        // Add keyboard detection
+        // Add keyboard detection using visualViewport API if available
         const handleResize = () => {
-          const isKeyboardVisible = window.innerHeight < window.outerHeight * 0.8;
+          setViewportHeight();
+          const windowHeight = window.innerHeight;
+          const visualViewportHeight = window.visualViewport?.height || windowHeight;
+          const isKeyboardVisible = visualViewportHeight < windowHeight * 0.8;
+          
           if (isKeyboardVisible) {
             document.body.classList.add('ios-keyboard-visible');
+            // Scroll the active element into view
+            if (document.activeElement) {
+              document.activeElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+              });
+            }
           } else {
             document.body.classList.remove('ios-keyboard-visible');
           }
         };
         
-        window.addEventListener('resize', handleResize);
+        // Use visualViewport API if available for more accurate detection
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', handleResize);
+        } else {
+          window.addEventListener('resize', handleResize);
+        }
         
         // Clean up when component unmounts
         return () => {
           cleanup();
-          window.removeEventListener('resize', handleResize);
+          if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', handleResize);
+          } else {
+            window.removeEventListener('resize', handleResize);
+          }
           document.body.classList.remove('ios-device', 'ios-keyboard-visible');
         };
       }, 100);

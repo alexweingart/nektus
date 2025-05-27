@@ -162,6 +162,9 @@ function getSocialProfileUrls(profile: any): string[] {
 }
 
 async function generateBio(profile: any) {
+
+  console.log('I am here in generateBio');
+
   // Safety check for OpenAI client
   if (!openai) {
     throw new Error('OpenAI client not initialized');
