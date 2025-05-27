@@ -106,10 +106,10 @@ const ConnectionScreen: React.FC = () => {
         const contactData = {
           userId: getUserId(),
           name: 'User',
-          contactData: {}
-              platform: profile.platform,
-              username: profile.username
-            }))
+          contactData: {
+            platform: 'unknown',
+            username: 'user'
+          }
         };
         
         await connector.sendData(contactData);
