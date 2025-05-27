@@ -52,15 +52,6 @@ const EditProfile: React.FC = () => {
   useEffect(() => {
     // Load from profile context which uses the correct storage key
     if (profile) {
-      console.log('Loading profile data from context:', {
-        ...profile,
-        // Stringify to avoid [object Object] in console
-        contactChannels: JSON.parse(JSON.stringify(profile.contactChannels || {})),
-        // Add a flag to indicate if contactChannels exists
-        hasContactChannels: !!profile.contactChannels,
-        // Check if phoneInfo exists
-        hasPhoneInfo: !!(profile.contactChannels?.phoneInfo)
-      });
       initializeFormData(profile);
     }
   }, [profile]);
@@ -68,7 +59,6 @@ const EditProfile: React.FC = () => {
   // Initialize form with session data if profile is empty
   useEffect(() => {
     if (session?.user && !profile) {
-      console.log('Initializing form with session data');
       setFormData(prev => ({
         ...prev,
         name: session.user?.name || '',
@@ -104,13 +94,6 @@ const EditProfile: React.FC = () => {
 
   // Helper function to initialize form data from profile
   const initializeFormData = (profileData: any) => {
-    console.log('Initializing form data with profile:', {
-      name: profileData.name,
-      email: profileData.contactChannels?.email?.email,
-      phoneInfo: profileData.contactChannels?.phoneInfo,
-      hasContactChannels: !!profileData.contactChannels,
-      hasPhoneInfo: !!profileData.contactChannels?.phoneInfo
-    });
     // Initialize form data with profile data
     const name = profileData.name || session?.user?.name || '';
     const email = profileData.contactChannels?.email?.email || session?.user?.email || '';
@@ -165,16 +148,11 @@ const EditProfile: React.FC = () => {
       backgroundImage
     });
     
-    // Initialize the phone number input from contactChannels.phoneInfo
-    console.log('Phone info from profile:', profileData.contactChannels?.phoneInfo);
-    
     // Check if we have phone info in the expected location
     const phoneInfo = profileData.contactChannels?.phoneInfo || 
                     (profileData as any).phoneInfo; // Fallback to root level
     
     if (phoneInfo) {
-      console.log('Found phone info:', phoneInfo);
-      
       // Try to get the phone number from various possible locations
       // Prefer national phone number as it's already formatted for display
       const phoneNumber = phoneInfo.nationalPhone || 
@@ -183,25 +161,14 @@ const EditProfile: React.FC = () => {
                          phoneInfo.phone ||
                          '';
       
-      console.log('Extracted phone number:', phoneNumber);
-      
       if (phoneNumber) {
         // Clean the phone number to remove any non-digit characters
         const cleanedNumber = phoneNumber.replace(/\D/g, '');
-        console.log('Cleaned phone number:', cleanedNumber);
         
         // Only update digits if we don't already have a value (to prevent overwriting user input)
         if (!digits) {
           setDigits(cleanedNumber);
           setPhoneCountry('US'); // Default to US if no country is set
-          
-          console.log('Set phone number state:', {
-            original: phoneNumber,
-            cleaned: cleanedNumber,
-            digits: cleanedNumber,
-            national: phoneInfo.nationalPhone,
-            international: phoneInfo.internationalPhone
-          });
         } else {
           console.log('Skipping phone number update, already has value:', digits);
         }
