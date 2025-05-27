@@ -171,51 +171,52 @@ export default function ProfileSetup() {
     <div className="fixed inset-0 w-full h-full bg-background overflow-y-auto">
       <div className="min-h-full w-full flex flex-col items-center py-6 px-4">
         <div className="w-full max-w-[320px] mx-auto flex flex-col items-center">
-        {/* Profile Picture - Fixed height container */}
-        <div className="relative mb-4 h-24">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-md">
-            {profile?.profileImage && (
-              <img 
-                src={profile.profileImage} 
-                alt="Profile" 
-                className="w-full h-full object-cover"
-              />
+          {/* Profile Picture - Fixed height container */}
+          <div className="relative mb-4 h-24">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-md">
+              {profile?.profileImage && (
+                <img 
+                  src={profile.profileImage} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+          </div>
+          
+          {/* User's Name - Fixed height container with reduced bottom margin */}
+          <div className="min-h-[2.5rem] mb-4 w-full">
+            {profile?.name && (
+              <h1 
+                className="text-2xl font-bold text-center text-black cursor-pointer"
+                {...adminModeProps}
+              >
+                {profile.name}
+              </h1>
             )}
           </div>
-        </div>
-        
-        {/* User's Name - Fixed height container with reduced bottom margin */}
-        <div className="min-h-[2.5rem] mb-4 w-full">
-          {profile?.name && (
-            <h1 
-              className="text-2xl font-bold text-center text-black cursor-pointer"
-              {...adminModeProps}
-            >
-              {profile.name}
-            </h1>
-          )}
-        </div>
-        
-        <div className="w-full space-y-4">
-          <label className="sr-only">Phone Number</label>
-          <CustomPhoneInput
-            ref={phoneInputRef}
-            value={digits}
-            onChange={setDigits}
-            placeholder="Enter phone number"
-            className="w-full"
-            inputProps={{
-              className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-            }}
-          />
           
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`btn-primary w-full ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </button>
+          <div className="w-full space-y-4">
+            <label className="sr-only">Phone Number</label>
+            <CustomPhoneInput
+              ref={phoneInputRef}
+              value={digits}
+              onChange={setDigits}
+              placeholder="Enter phone number"
+              className="w-full"
+              inputProps={{
+                className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              }}
+            />
+            
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className={`btn-primary w-full ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
