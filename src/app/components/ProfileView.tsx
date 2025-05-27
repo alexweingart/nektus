@@ -52,12 +52,30 @@ type ExtendedUserProfile = UserProfile;
 
 const ProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const profileContextData = useProfile();
-  const { saveProfile } = profileContextData;
+  const { profile, saveProfile } = useProfile();
+  const [isLoading, setIsLoading] = useState(true);
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
-  const [localProfile, setLocalProfile] = useState<UserProfile>(HARDCODED_PROFILE);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [localProfile, setLocalProfile] = useState<UserProfile>({
+    userId: `user-${Date.now()}`,
+    name: 'New User',
+    bio: '',
+    profileImage: '/default-avatar.png',
+    backgroundImage: '',
+    lastUpdated: Date.now(),
+    contactChannels: {
+      phoneInfo: { internationalPhone: '', nationalPhone: '', userConfirmed: false },
+      email: { email: '', userConfirmed: false },
+      facebook: { username: '', url: '', userConfirmed: false },
+      instagram: { username: '', url: '', userConfirmed: false },
+      x: { username: '', url: '', userConfirmed: false },
+      whatsapp: { username: '', url: '', userConfirmed: false },
+      snapchat: { username: '', url: '', userConfirmed: false },
+      telegram: { username: '', url: '', userConfirmed: false },
+      wechat: { username: '', url: '', userConfirmed: false },
+      linkedin: { username: '', url: '', userConfirmed: false }
+    }
+  });
   
   // State for UI
   const [bio, setBio] = useState<string>('');
@@ -154,73 +172,42 @@ const ProfileView: React.FC = () => {
       console.error('Error generating bio:', error);
       toast.error('Failed to generate bio. Please try again later.');
     }
-  }, []);
+  }, [localProfile, profile]);
 
-  // Initialize component
+  // Handle loading state
   useEffect(() => {
-    // Initialization code can go here if needed
-  }, []);
+    if (profile) {
+      setIsLoading(false);
+    }
+  }, [profile]);
 
   // Track if we've attempted to generate a bio
   const hasGeneratedBio = React.useRef(false);
-  
-  // Load profile from localStorage and generate bio if needed
+
+  // Handle loading state
   useEffect(() => {
-    const loadProfile = () => {
+    if (profile) {
+      setLocalProfile(profile);
+      if (profile.bio) setBio(profile.bio);
+      if (profile.backgroundImage) setBgImage(profile.backgroundImage);
+      setIsLoading(false);
+    } else {
+      // Try to load from localStorage if no profile in context
       try {
         const savedProfile = localStorage.getItem('nektus_user_profile');
-        
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          
-          // Create a complete profile with all defaults filled in
-          // But preserve the existing userId if it exists in the parsed profile
-          const updatedProfile = {
-            ...HARDCODED_PROFILE,
-            ...parsedProfile,
-            // Only use the hardcoded userId if there isn't one in the parsed profile
-            userId: parsedProfile.userId || HARDCODED_PROFILE.userId,
-            contactChannels: {
-              ...HARDCODED_PROFILE.contactChannels,
-              ...(parsedProfile.contactChannels || {})
-            }
-          };
-          
-          // Update local state with the complete profile
-          setLocalProfile(updatedProfile);
-          
-          // Set background image if it exists
-          if (parsedProfile.backgroundImage) {
-            setBgImage(parsedProfile.backgroundImage);
-          }
-          
-          // Handle bio - only generate if bio is empty and we haven't generated one yet
-          if (parsedProfile.bio && parsedProfile.bio.trim() !== '') {
-            setBio(parsedProfile.bio);
-          } else if (!hasGeneratedBio.current) {
-            hasGeneratedBio.current = true;
-            generateBio(updatedProfile);
-          }
+          setLocalProfile(parsedProfile);
+          if (parsedProfile.bio) setBio(parsedProfile.bio);
+          if (parsedProfile.backgroundImage) setBgImage(parsedProfile.backgroundImage);
         }
       } catch (error) {
-        console.error('Error loading profile:', error);
+        console.error('Error loading profile from localStorage:', error);
       } finally {
         setIsLoading(false);
       }
-    };
-    
-    loadProfile();
-    
-    // Listen for storage events to update when profile changes in another tab
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'nektus_user_profile') {
-        loadProfile();
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    }
+  }, [profile]);
   
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
@@ -239,7 +226,7 @@ const ProfileView: React.FC = () => {
     return phone;
   };
   
-  if (isLoading) {
+  if (isLoading || !profile) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-green-400 to-blue-500">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>

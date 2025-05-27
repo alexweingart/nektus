@@ -2,8 +2,20 @@
 
 let scrollY = 0;
 let isLocked = false;
+let isIOS = false;
+
+// Detect iOS
+if (typeof window !== 'undefined') {
+  isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
 
 export function setupScrollLock() {
+  // Store the current scroll position
+  const storeScrollPosition = () => {
+    scrollY = window.scrollY;
+  };
+
   // Disable touch scrolling on the document
   const preventDefault = (e: TouchEvent) => {
     if (isLocked) {
@@ -13,38 +25,65 @@ export function setupScrollLock() {
     }
   };
 
-  // More aggressive scroll prevention
-  const preventDefaultForScrollKeys = (e: KeyboardEvent) => {
-    if (isLocked) {
-      const keys = { 37: 1, 38: 1, 39: 1, 40: 1 };
-      if (keys[e.keyCode as keyof typeof keys]) {
-        e.preventDefault();
-        return false;
-      }
-    }
-  };
-
   // Lock scrolling
   const lockScroll = () => {
     if (isLocked) return;
     
     isLocked = true;
-    scrollY = window.scrollY;
+    storeScrollPosition();
     
-    // Disable scroll on body
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
+    // iOS specific fixes
+    if (isIOS) {
+      // Add a fixed position container to prevent iOS from adjusting the viewport
+      const scrollLockContainer = document.createElement('div');
+      scrollLockContainer.id = 'ios-scroll-lock-container';
+      scrollLockContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        -webkit-overflow-scrolling: touch;
+      `;
+      
+      // Move the app content into the container
+      const appContent = document.getElementById('__next');
+      if (appContent) {
+        document.body.insertBefore(scrollLockContainer, appContent);
+        scrollLockContainer.appendChild(appContent);
+      }
+      
+      // Prevent overscroll bounce
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overscrollBehavior = 'none';
+      
+      // Add touch event listeners
+      document.addEventListener('touchmove', preventDefault, { passive: false });
+    } else {
+      // Standard approach for other platforms
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.addEventListener('touchmove', preventDefault, { passive: false });
+    }
     
-    // Prevent iOS rubber banding
-    document.body.style.overscrollBehavior = 'none';
-    document.documentElement.style.overscrollBehavior = 'none';
-    
-    // Add touch event listeners
-    document.addEventListener('touchmove', preventDefault, { passive: false });
-    window.addEventListener('keydown', preventDefaultForScrollKeys, false);
+    // Handle iOS viewport resize when keyboard appears
+    if (isIOS) {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+    }
   };
 
   // Unlock scrolling
@@ -53,7 +92,26 @@ export function setupScrollLock() {
     
     isLocked = false;
     
-    // Re-enable scroll on body
+    // iOS specific cleanup
+    if (isIOS) {
+      // Restore the original DOM structure
+      const scrollLockContainer = document.getElementById('ios-scroll-lock-container');
+      if (scrollLockContainer) {
+        const appContent = scrollLockContainer.firstElementChild;
+        if (appContent) {
+          document.body.insertBefore(appContent, scrollLockContainer);
+          document.body.removeChild(scrollLockContainer);
+        }
+      }
+      
+      // Restore viewport settings
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, interactive-widget=overlays-content');
+      }
+    }
+    
+    // Restore body styles
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.top = '';
@@ -62,12 +120,13 @@ export function setupScrollLock() {
     document.body.style.overscrollBehavior = '';
     document.documentElement.style.overscrollBehavior = '';
     
-    // Restore scroll position
-    window.scrollTo(0, scrollY);
-    
     // Remove event listeners
     document.removeEventListener('touchmove', preventDefault);
-    window.removeEventListener('keydown', preventDefaultForScrollKeys);
+    
+    // Restore scroll position after a short delay
+    window.setTimeout(() => {
+      window.scrollTo(0, scrollY);
+    }, 0);
   };
 
   // Handle focus events
@@ -80,7 +139,7 @@ export function setupScrollLock() {
 
   const handleFocusOut = () => {
     // Small delay to prevent race conditions
-    setTimeout(unlockScroll, 100);
+    setTimeout(unlockScroll, 300);
   };
 
   // Add event listeners
@@ -91,10 +150,24 @@ export function setupScrollLock() {
   const handleVisibilityChange = () => {
     if (document.hidden) {
       unlockScroll();
+    } else {
+      // Re-lock if we're still focused on an input
+      const activeElement = document.activeElement;
+      if (activeElement?.matches('input, textarea, [contenteditable]')) {
+        lockScroll();
+      }
     }
   };
   
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('resize', storeScrollPosition);
+  window.addEventListener('orientationchange', storeScrollPosition);
+
+  // Initial check
+  const activeElement = document.activeElement;
+  if (activeElement?.matches('input, textarea, [contenteditable]')) {
+    lockScroll();
+  }
 
   // Cleanup function
   return () => {
@@ -102,5 +175,7 @@ export function setupScrollLock() {
     document.removeEventListener('focusin', handleFocusIn, true);
     document.removeEventListener('focusout', handleFocusOut, true);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('resize', storeScrollPosition);
+    window.removeEventListener('orientationchange', storeScrollPosition);
   };
 }

@@ -87,27 +87,65 @@ export default function AdminBanner() {
         }
       });
       
-      // 5. Clear all storage to ensure complete cleanup
+      // Clear all storage to ensure complete cleanup
       console.log('Step 5: Clearing all storage items');
       
-      // Clear localStorage
-      localStorage.removeItem('nektus_force_account_selector');
-      localStorage.removeItem('nektus_user');
-      localStorage.removeItem('nektus_user_profile_cache');
-      localStorage.removeItem('nektus_user_profile');
-      localStorage.removeItem('nektus_profile');
+      // Clear localStorage - remove all known keys
+      const localStorageKeys = [
+        'nektus_force_account_selector',
+        'nektus_user',
+        'nektus_user_profile_cache',
+        'nektus_user_profile',
+        'nektus_profile',
+        'nektus-user-data',
+        'nektus_user_profile_v2',
+        'nektus-bio',
+        'nektus-profile',
+        'profile'
+      ];
+      
+      // Clear known keys
+      localStorageKeys.forEach(key => localStorage.removeItem(key));
+      
+      // Also clear any keys that start with 'nektus_'
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('nektus_')) {
+          localStorage.removeItem(key);
+        }
+      });
       
       // Clear sessionStorage
-      sessionStorage.removeItem('nektus_user_id');
-      sessionStorage.removeItem('nektus_session');
+      const sessionStorageKeys = [
+        'nektus_user_id',
+        'nektus_session',
+        'nektus-session',
+        'session'
+      ];
       
-      // Clear all sessionStorage items (be more specific in production)
-      // sessionStorage.clear(); // Uncomment if you want to clear everything
+      // Clear known keys
+      sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
+      
+      // Also clear any keys that start with 'nektus_'
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('nektus_') || key.startsWith('nektus-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
       
       // Clear any other related storage
       if (window.indexedDB) {
-        // Clear IndexedDB if needed
-        indexedDB.deleteDatabase('nektus');
+        // Clear all IndexedDB databases that might be related to the app
+        try {
+          const dbs = await window.indexedDB.databases();
+          dbs.forEach(db => {
+            if (db.name && (db.name.includes('nektus') || db.name.includes('firebase'))) {
+              console.log(`Deleting IndexedDB: ${db.name}`);
+              window.indexedDB.deleteDatabase(db.name);
+            }
+          });
+        } catch (e) {
+          console.error('Error clearing IndexedDB:', e);
+        }
       }
       
       // Show success status

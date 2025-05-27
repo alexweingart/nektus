@@ -38,25 +38,15 @@ export default function ProfileSetup() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const adminModeProps = useAdminModeActivator();
 
-  // Set up scroll lock for mobile keyboard - more aggressive approach
+  // Set up scroll lock for mobile keyboard
   useEffect(() => {
     // Add a small delay to ensure the component is fully mounted
     const timer = setTimeout(() => {
       const cleanup = setupScrollLock();
-      // Also lock scroll immediately if we're on a mobile device
-      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
-        document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
-      }
+      
+      // Clean up when component unmounts
       return () => {
         cleanup();
-        // Clean up styles when component unmounts
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-        document.body.style.height = '';
       };
     }, 100);
     
