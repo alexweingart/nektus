@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-import { db } from '../../../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+// Temporarily disabled Firebase imports
+// import { db } from '../../../lib/firebase';
+// import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY 
@@ -32,6 +33,21 @@ export async function POST(request: NextRequest) {
     }
     
     const userEmail = email;
+
+    // Temporarily disabled Firestore access
+    // const userDocRef = doc(db, 'users', email);
+    // const userDoc = await getDoc(userDocRef);
+    // 
+    // if (!userDoc.exists()) {
+    //   return NextResponse.json(
+    //     { error: 'User not found' },
+    //     { status: 404 }
+    //   );
+    // }
+    // 
+    // const userData = userDoc.data();
+    // const profile = userData.profile || {};
+    const profile = {}; // Temporary placeholder
 
     // Diagnosis results
     const results: any = {

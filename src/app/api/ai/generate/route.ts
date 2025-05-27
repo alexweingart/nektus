@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-import { db } from '../../../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+// Temporarily disabled Firebase imports
+// import { db } from '../../../lib/firebase';
+// import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Initialize OpenAI client with proper null check for the API key
 const openai = process.env.OPENAI_API_KEY 
@@ -75,22 +76,23 @@ export async function POST(request: NextRequest) {
     // Check if we've already generated AI content for this user
     if (profile?.userId) {
       try {
-        const aiContentRef = doc(db, 'ai_content', profile.userId);
-        const aiContentSnap = await getDoc(aiContentRef);
+        // Temporarily disabled Firestore access
+        // const aiContentRef = doc(db, 'ai_content', profile.userId);
+        // const aiContentSnap = await getDoc(aiContentRef);
         
-        if (aiContentSnap.exists()) {
-          const aiContent = aiContentSnap.data();
+        // if (aiContentSnap.exists()) {
+        //   const aiContent = aiContentSnap.data();
           
-          // If the requested type already exists in the stored AI content, return it
-          if (type === 'bio' && aiContent.bio) {
-            return NextResponse.json({ bio: aiContent.bio });
-          } else if (type === 'background' && aiContent.backgroundImage) {
-            return NextResponse.json({ imageUrl: aiContent.backgroundImage });
-          } else if (type === 'avatar' && aiContent.avatarImage) {
-            return NextResponse.json({ imageUrl: aiContent.avatarImage });
-          }
-          // If content doesn't exist for the specific type, continue to generate it
-        }
+        //   // If the requested type already exists in the stored AI content, return it
+        //   if (type === 'bio' && aiContent.bio) {
+        //     return NextResponse.json({ bio: aiContent.bio });
+        //   } else if (type === 'background' && aiContent.backgroundImage) {
+        //     return NextResponse.json({ imageUrl: aiContent.backgroundImage });
+        //   } else if (type === 'avatar' && aiContent.avatarImage) {
+        //     return NextResponse.json({ imageUrl: aiContent.avatarImage });
+        //   }
+        //   // If content doesn't exist for the specific type, continue to generate it
+        // }
       } catch (error) {
         console.error('Error checking for existing AI content:', error);
         // Continue with generation if there's an error checking
@@ -163,15 +165,15 @@ async function generateBio(profile: any) {
     const bio = response.choices[0]?.message?.content?.trim() || 
       'Connecting people through technology';
     
-    // Store the generated bio in Firestore
-    if (profile.userId) {
-      try {
-        const aiContentRef = doc(db, 'ai_content', profile.userId);
-        await setDoc(aiContentRef, { bio }, { merge: true });
-      } catch (error) {
-        console.error('Error storing AI bio content:', error);
-      }
-    }
+    // Temporarily disabled Firestore save
+    // if (profile.userId) {
+    //   try {
+    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
+    //     await setDoc(aiContentRef, { bio }, { merge: true });
+    //   } catch (error) {
+    //     console.error('Error storing AI bio content:', error);
+    //   }
+    // }
     
     return NextResponse.json({ bio });
   } catch (error) {
@@ -207,15 +209,15 @@ async function generateBackground(profile: any) {
 
     const imageUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : '/gradient-bg.jpg';
     
-    // Store the generated background image URL in Firestore
-    if (profile.userId) {
-      try {
-        const aiContentRef = doc(db, 'ai_content', profile.userId);
-        await setDoc(aiContentRef, { backgroundImage: imageUrl }, { merge: true });
-      } catch (error) {
-        console.error('Error storing AI background image content:', error);
-      }
-    }
+    // Temporarily disabled Firestore save
+    // if (profile.userId) {
+    //   try {
+    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
+    //     await setDoc(aiContentRef, { backgroundImage: imageUrl }, { merge: true });
+    //   } catch (error) {
+    //     console.error('Error storing AI background image content:', error);
+    //   }
+    // }
     
     return NextResponse.json({ imageUrl });
   } catch (error) {
@@ -257,15 +259,15 @@ async function generateAvatar(profile: any) {
 
     const avatarUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : (profile.picture || '/default-avatar.png');
     
-    // Store the generated avatar URL in Firestore
-    if (profile.userId) {
-      try {
-        const aiContentRef = doc(db, 'ai_content', profile.userId);
-        await setDoc(aiContentRef, { avatarImage: avatarUrl }, { merge: true });
-      } catch (error) {
-        console.error('Error storing AI avatar content:', error);
-      }
-    }
+    // Temporarily disabled Firestore save
+    // if (profile.userId) {
+    //   try {
+    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
+    //     await setDoc(aiContentRef, { avatarImage: avatarUrl }, { merge: true });
+    //   } catch (error) {
+    //     console.error('Error storing AI avatar content:', error);
+    //   }
+    // }
     
     return NextResponse.json({ imageUrl: avatarUrl });
   } catch (error) {
