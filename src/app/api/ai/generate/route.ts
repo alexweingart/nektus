@@ -129,6 +129,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Helper function to extract social profile URLs from profile
+function getSocialProfileUrls(profile: any): string[] {
+  if (!profile?.contactChannels) return [];
+  
+  const urls: string[] = [];
+  const socialPlatforms = [
+    'facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'linkedin'
+  ];
+
+  for (const platform of socialPlatforms) {
+    const channel = profile.contactChannels[platform];
+    if (channel?.url) {
+      urls.push(channel.url);
+    }
+  }
+
+  return urls;
+}
+
 async function generateBio(profile: any) {
   try {
     // Safety check for OpenAI client
@@ -138,32 +157,71 @@ async function generateBio(profile: any) {
       );
     }
 
-    // Extract social media information from profile
-    const socialLinks = extractSocialLinks(profile);
+    // Get social profile URLs
+    const socialProfileUrls = getSocialProfileUrls(profile);
     
-    const response = await openai.chat.completions.create({
+    // Create the prompt with social profile URLs if available
+    let promptText = `Generate a hyper-personalized, specific bio for a person named ${profile.name}. 
+    The bio should be no more than 20 words. Only return the bio text, nothing else. 
+    Do not mention their name in the bio.`;
+    
+    // Add social profile URLs to the prompt if available
+    if (socialProfileUrls.length > 0) {
+      promptText += `\n\nHere are some social media profiles that might be relevant:\n${socialProfileUrls.join('\n')}`;
+    }
+    
+    console.log('ChatGPT Prompt:', JSON.stringify({
+      type: 'bio',
+      prompt: promptText,
+      socialProfileUrls: socialProfileUrls
+    }, null, 2));
+    
+    // Configure web search tool
+    const tools = [{
+      type: 'web_search_preview' as const,
+      web_search_preview: {
+        search_context_size: 'high' as const
+      }
+    }];
+    
+    // Log the full request payload
+    const requestPayload = {
       model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that generates short, engaging personal bios.'
-        },
-        {
-          role: 'user',
-          content: `Generate a creative, engaging bio for a person named ${profile.name}. 
-          The bio should be no more than 10 words and should be personal and uplifting.
-          Only return the bio text, nothing else.
-          
-          ${socialLinks ? `Here are their social media profiles to help you understand them better:
-          ${socialLinks}` : ''}`
+      input: promptText,
+      instructions: 'You are an amazing copywriter that generates short, personalized, and specific personal bios. Use the provided tools to gather information if needed.',
+      max_output_tokens: 100,
+      temperature: 0.8,
+      tools: tools,
+      tool_choice: 'auto' as const,
+      text: {
+        format: {
+          type: 'text' as const
         }
-      ],
-      max_tokens: 50,
-      temperature: 0.7,
-    });
+      }
+    };
 
-    const bio = response.choices[0]?.message?.content?.trim() || 
-      'Connecting people through technology';
+    console.log('Sending request to OpenAI API:', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      request: requestPayload
+    }, null, 2));
+
+    let response;
+    try {
+      response = await openai.responses.create(requestPayload);
+      console.log('Received response from OpenAI API:', JSON.stringify({
+        timestamp: new Date().toISOString(),
+        response: response
+      }, null, 2));
+    } catch (error) {
+      console.error('Error calling OpenAI API:', error);
+      throw error;
+    }
+
+    // Extract the bio from the response
+    const bio = response.output[0].type === 'message' && 
+      response.output[0].content?.[0]?.type === 'output_text'
+      ? response.output[0].content[0].text.trim()
+      : 'Connecting people through technology';
     
     // Temporarily disabled Firestore save
     // if (profile.userId) {

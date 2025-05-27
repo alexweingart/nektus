@@ -76,29 +76,33 @@ const ProfileView: React.FC = () => {
 
       if (!hasSocialInfo) return;
 
+      // Prepare the prompt data for ChatGPT
+      const promptData = {
+        type: 'bio',
+        profile: {
+          ...profile,
+          // Map the contact channels to the format expected by the API
+          facebookUsername: profile.contactChannels.facebook.username,
+          instagramUsername: profile.contactChannels.instagram.username,
+          xUsername: profile.contactChannels.x.username,
+          linkedinUsername: profile.contactChannels.linkedin.username,
+          snapchatUsername: profile.contactChannels.snapchat.username,
+          whatsappUsername: profile.contactChannels.whatsapp.username,
+          telegramUsername: profile.contactChannels.telegram.username,
+          wechatUsername: profile.contactChannels.wechat.username,
+          email: profile.contactChannels.email.email,
+          phone: profile.contactChannels.phoneInfo.internationalPhone,
+          name: profile.name,
+        },
+      };
+      
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'bio',
-          profile: {
-            ...profile,
-            // Map the contact channels to the format expected by the API
-            facebookUsername: profile.contactChannels.facebook.username,
-            instagramUsername: profile.contactChannels.instagram.username,
-            xUsername: profile.contactChannels.x.username,
-            linkedinUsername: profile.contactChannels.linkedin.username,
-            snapchatUsername: profile.contactChannels.snapchat.username,
-            whatsappUsername: profile.contactChannels.whatsapp.username,
-            telegramUsername: profile.contactChannels.telegram.username,
-            wechatUsername: profile.contactChannels.wechat.username,
-            email: profile.contactChannels.email.email,
-            phone: profile.contactChannels.phoneInfo.internationalPhone,
-            name: profile.name,
-          },
-        }),
+        body: JSON.stringify(promptData),
+
       });
 
       if (!response.ok) {
@@ -108,8 +112,6 @@ const ProfileView: React.FC = () => {
       const { bio: generatedBio } = await response.json();
       
       if (generatedBio) {
-        console.log('Generated bio:', generatedBio);
-        
         // First, get the current profile from localStorage to ensure we have the latest data
         const currentProfile = localStorage.getItem('nektus_user_profile');
         let profileToUpdate = profile;
@@ -142,14 +144,11 @@ const ProfileView: React.FC = () => {
         }
         
         // Save the updated profile to localStorage
-        console.log('Saving updated profile to localStorage:', profileToUpdate);
         localStorage.setItem('nektus_user_profile', JSON.stringify(profileToUpdate));
         
         // Update the local state
         setLocalProfile(profileToUpdate);
         setBio(generatedBio);
-        
-        console.log('Bio generation and save complete');
       }
     } catch (error) {
       console.error('Error generating bio:', error);
@@ -157,12 +156,9 @@ const ProfileView: React.FC = () => {
     }
   }, []);
 
-  // Log the current local storage state when the component mounts
+  // Initialize component
   useEffect(() => {
-    console.log('Initial local storage state:', {
-      'nektus_user_profile': localStorage.getItem('nektus_user_profile'),
-      'entire local storage': {...localStorage}
-    });
+    // Initialization code can go here if needed
   }, []);
 
   // Track if we've attempted to generate a bio
@@ -173,7 +169,6 @@ const ProfileView: React.FC = () => {
     const loadProfile = () => {
       try {
         const savedProfile = localStorage.getItem('nektus_user_profile');
-        console.log('Loading profile from localStorage');
         
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
@@ -201,10 +196,8 @@ const ProfileView: React.FC = () => {
           
           // Handle bio - only generate if bio is empty and we haven't generated one yet
           if (parsedProfile.bio && parsedProfile.bio.trim() !== '') {
-            console.log('Using existing bio from profile');
             setBio(parsedProfile.bio);
           } else if (!hasGeneratedBio.current) {
-            console.log('No bio found, generating new one');
             hasGeneratedBio.current = true;
             generateBio(updatedProfile);
           }

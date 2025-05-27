@@ -15,6 +15,7 @@ type Country = {
   dialCode: string;
 };
 import { useProfile, UserProfile } from '../context/ProfileContext';
+import { setupScrollLock } from '../../lib/utils/scrollLock';
 
 export default function ProfileSetup() {
   const { data: session, status } = useSession({
@@ -36,6 +37,12 @@ export default function ProfileSetup() {
   });
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const adminModeProps = useAdminModeActivator();
+
+  // Set up scroll lock for mobile keyboard
+  useEffect(() => {
+    const cleanup = setupScrollLock();
+    return cleanup;
+  }, []);
 
   // Initialize profile on first load if it doesn't exist
   useEffect(() => {
@@ -142,7 +149,7 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div className="w-full max-w-[28rem] mx-auto flex flex-col items-center py-6 px-4 h-screen overflow-y-auto">
+    <div className="min-h-[calc(var(--vh,1vh)*100)] w-full bg-background flex flex-col items-center py-6 px-4 overflow-y-auto">
       <div className="w-full max-w-[320px] mx-auto flex flex-col items-center">
         {/* Profile Picture - Fixed height container */}
         <div className="relative mb-4 h-24">
