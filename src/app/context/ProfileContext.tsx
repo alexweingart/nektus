@@ -3,89 +3,45 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 
-// Define the structure of our contact channels
-type ContactChannel = 
-  | { type: 'phoneInfo'; internationalPhone: string; nationalPhone: string; userConfirmed: boolean }
-  | { type: 'email'; email: string; userConfirmed: boolean }
-  | { type: 'social'; platform: 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'wechat' | 'linkedin'; username: string; url: string; userConfirmed: boolean };
-
-// Define the structure of our profile data
-export type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'email' | 'phone';
-  username: string;
-  url?: string;
-  shareEnabled: boolean;
-  filled?: boolean;
-  userConfirmed?: boolean;
-  countryUserConfirmed?: boolean;
+// Define the structure of contact channels
+type PhoneInfo = {
+  internationalPhone: string;
+  nationalPhone: string;
+  userConfirmed: boolean;
 };
 
-// Define the structure of contact channels in the profile
-type ProfileContactChannels = {
-  phoneInfo: {
-    internationalPhone: string;
-    nationalPhone: string;
-    userConfirmed: boolean;
-  };
-  email: {
-    email: string;
-    userConfirmed: boolean;
-  };
-  facebook: { username: string; url: string; userConfirmed: boolean };
-  instagram: { username: string; url: string; userConfirmed: boolean };
-  x: { username: string; url: string; userConfirmed: boolean };
-  whatsapp: { username: string; url: string; userConfirmed: boolean };
-  snapchat: { username: string; url: string; userConfirmed: boolean };
-  telegram: { username: string; url: string; userConfirmed: boolean };
-  wechat: { username: string; url: string; userConfirmed: boolean };
-  linkedin: { username: string; url: string; userConfirmed: boolean };
+type EmailInfo = {
+  email: string;
+  userConfirmed: boolean;
+};
+
+type SocialChannel = {
+  username: string;
+  url: string;
+  userConfirmed: boolean;
 };
 
 export type UserProfile = {
-  userId: string;
+  // Basic profile info
   name: string;
-  nameUserConfirmed?: boolean;
-  email: string;
-  emailUserConfirmed?: boolean;
-  picture: string;
-  pictureUserConfirmed?: boolean;
-  internationalPhone: string;
-  nationalPhone: string;
-  internationalPhoneUserConfirmed?: boolean;
-  nationalPhoneUserConfirmed?: boolean;
-  country?: string;
-  countryUserConfirmed?: boolean;
-  handle: string;
-  socialProfiles: SocialProfile[];
-  bio?: string;
-  backgroundImage?: string;
-  lastUpdated: any;
+  bio: string;
+  profileImage: string;
+  backgroundImage: string;
+  lastUpdated: number;
   
-  // Social media fields
-  facebookUsername?: string;
-  facebookUrl?: string;
-  facebookUserConfirmed?: boolean;
-  instagramUsername?: string;
-  instagramUrl?: string;
-  instagramUserConfirmed?: boolean;
-  snapchatUsername?: string;
-  snapchatUrl?: string;
-  snapchatUserConfirmed?: boolean;
-  linkedinUsername?: string;
-  linkedinUrl?: string;
-  linkedinUserConfirmed?: boolean;
-  whatsappUsername?: string;
-  whatsappUrl?: string;
-  whatsappUserConfirmed?: boolean;
-  telegramUsername?: string;
-  telegramUrl?: string;
-  telegramUserConfirmed?: boolean;
-  wechatUsername?: string;
-  wechatUrl?: string;
-  wechatUserConfirmed?: boolean;
-  xUsername?: string;
-  xUrl?: string;
-  xUserConfirmed?: boolean;
+  // Contact channels
+  contactChannels: {
+    phoneInfo: PhoneInfo;
+    email: EmailInfo;
+    facebook: SocialChannel;
+    instagram: SocialChannel;
+    x: SocialChannel;
+    whatsapp: SocialChannel;
+    snapchat: SocialChannel;
+    telegram: SocialChannel;
+    wechat: SocialChannel;
+    linkedin: SocialChannel;
+  };
 };
 
 // Create a context for our profile data
@@ -137,24 +93,42 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // If no profile exists, create a new one
       if (session?.user) {
+        const defaultSocialChannel = {
+          username: '',
+          url: '',
+          userConfirmed: false
+        };
+
         const newProfile: UserProfile = {
-          userId,
-          name: session.user.name || '',
-          email: session.user.email || '',
-          picture: session.user.image || '',
-          internationalPhone: '',
-          nationalPhone: '',
-          internationalPhoneUserConfirmed: false,
-          nationalPhoneUserConfirmed: false,
-          country: 'US',
-          countryUserConfirmed: false,
-          handle: '',
-          socialProfiles: [],
+          name: session.user.name || 'New User',
+          bio: '',
+          profileImage: session.user.image || '/default-avatar.png',
+          backgroundImage: '',
           lastUpdated: Date.now(),
+          contactChannels: {
+            phoneInfo: {
+              internationalPhone: '',
+              nationalPhone: '',
+              userConfirmed: false
+            },
+            email: {
+              email: session.user.email || '',
+              userConfirmed: false
+            },
+            facebook: { ...defaultSocialChannel },
+            instagram: { ...defaultSocialChannel },
+            x: { ...defaultSocialChannel },
+            whatsapp: { ...defaultSocialChannel },
+            snapchat: { ...defaultSocialChannel },
+            telegram: { ...defaultSocialChannel },
+            wechat: { ...defaultSocialChannel },
+            linkedin: { ...defaultSocialChannel }
+          }
         };
         
         setProfile(newProfile);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+        return newProfile;
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -193,10 +167,70 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!session?.user?.email || !profile) return null;
     
     try {
+      // Create a new object with all fields from the current profile
       const updatedProfile: UserProfile = {
-        ...profile,
-        ...profileData,
-        lastUpdated: Date.now()
+        // Basic profile info
+        name: profileData.name ?? profile.name,
+        bio: profileData.bio ?? profile.bio,
+        profileImage: profileData.profileImage ?? profile.profileImage,
+        backgroundImage: profileData.backgroundImage ?? profile.backgroundImage,
+        lastUpdated: Date.now(),
+        
+        // Contact channels - merge existing with updates
+        contactChannels: {
+          // Phone info
+          phoneInfo: {
+            internationalPhone: profileData.contactChannels?.phoneInfo?.internationalPhone ?? profile.contactChannels.phoneInfo.internationalPhone,
+            nationalPhone: profileData.contactChannels?.phoneInfo?.nationalPhone ?? profile.contactChannels.phoneInfo.nationalPhone,
+            userConfirmed: profileData.contactChannels?.phoneInfo?.userConfirmed ?? profile.contactChannels.phoneInfo.userConfirmed
+          },
+          // Email
+          email: {
+            email: profileData.contactChannels?.email?.email ?? profile.contactChannels.email.email,
+            userConfirmed: profileData.contactChannels?.email?.userConfirmed ?? profile.contactChannels.email.userConfirmed
+          },
+          // Social channels
+          facebook: {
+            username: profileData.contactChannels?.facebook?.username ?? profile.contactChannels.facebook.username,
+            url: profileData.contactChannels?.facebook?.url ?? profile.contactChannels.facebook.url,
+            userConfirmed: profileData.contactChannels?.facebook?.userConfirmed ?? profile.contactChannels.facebook.userConfirmed
+          },
+          instagram: {
+            username: profileData.contactChannels?.instagram?.username ?? profile.contactChannels.instagram.username,
+            url: profileData.contactChannels?.instagram?.url ?? profile.contactChannels.instagram.url,
+            userConfirmed: profileData.contactChannels?.instagram?.userConfirmed ?? profile.contactChannels.instagram.userConfirmed
+          },
+          x: {
+            username: profileData.contactChannels?.x?.username ?? profile.contactChannels.x.username,
+            url: profileData.contactChannels?.x?.url ?? profile.contactChannels.x.url,
+            userConfirmed: profileData.contactChannels?.x?.userConfirmed ?? profile.contactChannels.x.userConfirmed
+          },
+          whatsapp: {
+            username: profileData.contactChannels?.whatsapp?.username ?? profile.contactChannels.whatsapp.username,
+            url: profileData.contactChannels?.whatsapp?.url ?? profile.contactChannels.whatsapp.url,
+            userConfirmed: profileData.contactChannels?.whatsapp?.userConfirmed ?? profile.contactChannels.whatsapp.userConfirmed
+          },
+          snapchat: {
+            username: profileData.contactChannels?.snapchat?.username ?? profile.contactChannels.snapchat.username,
+            url: profileData.contactChannels?.snapchat?.url ?? profile.contactChannels.snapchat.url,
+            userConfirmed: profileData.contactChannels?.snapchat?.userConfirmed ?? profile.contactChannels.snapchat.userConfirmed
+          },
+          telegram: {
+            username: profileData.contactChannels?.telegram?.username ?? profile.contactChannels.telegram.username,
+            url: profileData.contactChannels?.telegram?.url ?? profile.contactChannels.telegram.url,
+            userConfirmed: profileData.contactChannels?.telegram?.userConfirmed ?? profile.contactChannels.telegram.userConfirmed
+          },
+          wechat: {
+            username: profileData.contactChannels?.wechat?.username ?? profile.contactChannels.wechat.username,
+            url: profileData.contactChannels?.wechat?.url ?? profile.contactChannels.wechat.url,
+            userConfirmed: profileData.contactChannels?.wechat?.userConfirmed ?? profile.contactChannels.wechat.userConfirmed
+          },
+          linkedin: {
+            username: profileData.contactChannels?.linkedin?.username ?? profile.contactChannels.linkedin.username,
+            url: profileData.contactChannels?.linkedin?.url ?? profile.contactChannels.linkedin.url,
+            userConfirmed: profileData.contactChannels?.linkedin?.userConfirmed ?? profile.contactChannels.linkedin.userConfirmed
+          }
+        }
       };
       
       // Update local state
