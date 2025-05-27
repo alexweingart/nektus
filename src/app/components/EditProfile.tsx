@@ -74,7 +74,6 @@ const EditProfile: React.FC = () => {
       case 'instagram':
         return 'instagram.com/';
       case 'x':
-      case 'twitter':
         return 'x.com/';
       case 'snapchat':
         return 'snapchat.com/add/';
@@ -218,7 +217,7 @@ const EditProfile: React.FC = () => {
   };
   
   // Handle social profile input change
-  const handleSocialChange = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x', value: string) => {
+  const handleSocialChange = (platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat', value: string) => {
     setFormData(prev => {
       const updatedProfiles = [...prev.socialProfiles];
       const profileIndex = updatedProfiles.findIndex(p => p.platform === platform);
@@ -245,7 +244,7 @@ const EditProfile: React.FC = () => {
   };
   
   // Get social profile value
-  const getSocialProfileValue = (platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x'): string => {
+  const getSocialProfileValue = (platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat'): string => {
     const profile = formData.socialProfiles.find(p => p.platform === platform);
     return profile?.username || '';
   };
@@ -357,7 +356,7 @@ const EditProfile: React.FC = () => {
       });
       
       // Auto-populate other social profiles with email username if they're empty
-      const emailUsernameProfiles = ['facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'] as const;
+      const emailUsernameProfiles = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
       emailUsernameProfiles.forEach(platform => {
         if (!updatedProfile.socialProfiles) {
           updatedProfile.socialProfiles = [];
@@ -594,11 +593,10 @@ const EditProfile: React.FC = () => {
           <input
             type="text"
             id="x"
-            value={getSocialProfileValue('x') || getSocialProfileValue('twitter')}
+            value={getSocialProfileValue('x')}
             onChange={(e) => {
               handleSocialChange('x', e.target.value);
-              // Also update twitter for backwards compatibility
-              handleSocialChange('twitter', e.target.value);
+              // Update X profile
             }}
             placeholder="𝕏 username"
             className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"

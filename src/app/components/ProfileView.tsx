@@ -432,11 +432,11 @@ const ProfileView: React.FC = () => {
               />
             </div>
             
-            {/* X (formerly Twitter) Icon */}
+            {/* X Icon */}
             <div className="flex justify-center">
               <SocialIcon
                 platform="x"
-                username={localProfile.socialProfiles?.find(p => p.platform === 'x')?.username || localProfile.socialProfiles?.find(p => p.platform === 'twitter')?.username || ''}
+                username={localProfile.socialProfiles?.find(p => p.platform === 'x')?.username || ''}
                 size="md"
               />
             </div>

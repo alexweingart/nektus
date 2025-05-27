@@ -11,7 +11,7 @@ const XIcon = ({ className }: { className?: string }) => (
 );
 
 interface SocialIconProps {
-  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'twitter' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
+  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
   username?: string;
   size?: 'sm' | 'md' | 'lg';
   onClick?: () => void;
@@ -45,7 +45,6 @@ const SocialIcon: React.FC<SocialIconProps> = ({
         return <FaFacebook className={getIconClass()} />;
       case 'instagram':
         return <FaInstagram className={getIconClass()} />;
-      case 'twitter':
       case 'x':
         return <XIcon className={getIconClass()} />;
       case 'linkedin':

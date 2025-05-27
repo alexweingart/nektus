@@ -24,7 +24,7 @@ import { useProfile, SocialProfile as ProfileSocialProfile } from '../context/Pr
 
 // Extended social profile type with additional properties for UI state
 type SocialProfile = Omit<ProfileSocialProfile, 'platform'> & {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'email' | 'phone';
+  platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'email' | 'phone';
   confirmed?: boolean;
   autoFilled?: boolean;
 };
@@ -79,26 +79,106 @@ export default function ProfileSetup() {
 
   // Memoized platform order
   const platformOrder = useMemo<SocialProfile['platform'][]>(() => 
-    ['email', 'phone', 'facebook', 'instagram', 'twitter', 'snapchat', 'linkedin', 'whatsapp', 'telegram'], 
+    ['email', 'phone', 'facebook', 'instagram', 'x', 'snapchat', 'linkedin', 'whatsapp', 'telegram'], 
   []);
 
   // Initialize social profiles with email always confirmed (green)
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       const userEmail = session.user.email || '';
-      extractedUsernameRef.current = userEmail.split('@')[0] || '';
+      const emailPrefix = userEmail.split('@')[0] || '';
+      extractedUsernameRef.current = emailPrefix;
       
       // Email is immediately confirmed (green)
-      setSocialProfiles([{
+      const initialProfiles: SocialProfile[] = [{
         platform: 'email',
         username: userEmail,
         shareEnabled: true,
         filled: true,
         confirmed: true,
         countryUserConfirmed: true
-      }]);
+      }];
+
+      // Add social media profiles with autofilled usernames (email prefix)
+      const socialPlatforms: SocialProfile['platform'][] = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'];
+      socialPlatforms.forEach(platform => {
+        initialProfiles.push({
+          platform,
+          username: emailPrefix,
+          shareEnabled: true,
+          filled: !!emailPrefix,
+          confirmed: false,
+          autoFilled: !!emailPrefix,
+          countryUserConfirmed: true
+        });
+      });
+      
+      setSocialProfiles(initialProfiles);
+      
+      // Initialize the new profile format in local storage
+      const newProfile = {
+        name: session.user.name || '',
+        profileImage: session.user.image || '',
+        bio: '',
+        backgroundImage: '/gradient-bg.jpg',
+        lastUpdated: Date.now(),
+        contactChannels: {
+          phoneInfo: {
+            internationalPhone: '',
+            nationalPhone: '',
+            userConfirmed: false
+          },
+          email: {
+            email: userEmail,
+            userConfirmed: true
+          },
+          facebook: { 
+            username: emailPrefix, 
+            url: emailPrefix ? `https://facebook.com/${emailPrefix}` : '', 
+            userConfirmed: false 
+          },
+          instagram: { 
+            username: emailPrefix, 
+            url: emailPrefix ? `https://instagram.com/${emailPrefix}` : '', 
+            userConfirmed: false 
+          },
+          x: { 
+            username: emailPrefix, 
+            url: emailPrefix ? `https://x.com/${emailPrefix}` : '', 
+            userConfirmed: false 
+          },
+          whatsapp: { 
+            username: '', 
+            url: '', 
+            userConfirmed: false 
+          },
+          snapchat: { 
+            username: emailPrefix, 
+            url: emailPrefix ? `https://snapchat.com/add/${emailPrefix}` : '', 
+            userConfirmed: false 
+          },
+          telegram: { 
+            username: '', 
+            url: '', 
+            userConfirmed: false 
+          },
+          wechat: { 
+            username: '', 
+            url: '', 
+            userConfirmed: false 
+          },
+          linkedin: { 
+            username: emailPrefix, 
+            url: emailPrefix ? `https://linkedin.com/in/${emailPrefix}` : '', 
+            userConfirmed: false 
+          }
+        }
+      };
+      
+      // Save to local storage
+      localStorage.setItem('nektus_user_profile', JSON.stringify(newProfile));
     }
-  }, []); // Empty dependency array - run only once on mount
+  }, [status, session]);
   
   // Load profile data and initialize social profiles
   useEffect(() => {
@@ -206,7 +286,7 @@ export default function ProfileSetup() {
       }
       
       // Auto-fill all other profiles with light green
-      ['whatsapp', 'telegram', 'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'].forEach(platform => {
+      ['whatsapp', 'telegram', 'facebook', 'instagram', 'x', 'linkedin', 'snapchat'].forEach(platform => {
         const index = updatedProfiles.findIndex(p => p.platform === platform as SocialProfile['platform']);
         let value = extractedUsernameRef.current;
         
@@ -291,8 +371,8 @@ export default function ProfileSetup() {
         return 'facebook.com/';
       case 'instagram':
         return 'instagram.com/';
-      case 'twitter':
-        return 'twitter.com/';
+      case 'x':
+        return 'x.com/';
       case 'snapchat':
         return 'snapchat.com/add/';
       case 'linkedin':
@@ -360,7 +440,7 @@ export default function ProfileSetup() {
       });
       
       // Auto-populate other social profiles with email username if they're empty
-      const emailBasedPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'snapchat'] as const;
+      const emailBasedPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
       emailBasedPlatforms.forEach(platform => {
         const profileIndex = profilesForSaving.findIndex(p => p.platform === platform);
         

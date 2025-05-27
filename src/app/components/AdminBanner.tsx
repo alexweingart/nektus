@@ -91,7 +91,8 @@ export default function AdminBanner() {
       console.log('Step 5: Clearing localStorage items');
       localStorage.removeItem('nektus_force_account_selector'); // Remove old approach
       localStorage.removeItem('nektus_user');
-      localStorage.removeItem('nektus_user_profile_cache'); // Clear profile cache
+      localStorage.removeItem('nektus_user_profile_cache'); // Clear old profile cache
+      localStorage.removeItem('nektus_user_profile'); // Clear new profile data
       localStorage.removeItem('nektus_profile');
       
       // Show success status

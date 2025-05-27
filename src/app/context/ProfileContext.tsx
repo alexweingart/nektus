@@ -13,7 +13,7 @@ type ContactChannel =
 
 // Define the structure of our profile data
 export type SocialProfile = {
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'x' | 'email' | 'phone';
+  platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat' | 'email' | 'phone';
   username: string;
   url?: string;
   shareEnabled: boolean;
@@ -462,8 +462,71 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // Update local state
       setProfile(updatedProfile);
       
-      // Save to local storage
+      // Save to local storage in both old and new formats for backward compatibility
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheProfile));
+      
+      // Create the new profile format
+      const newProfileFormat = {
+        name: session.user.name || '',
+        profileImage: session.user.image || '',
+        bio: currentProfile.bio || '',
+        backgroundImage: currentProfile.backgroundImage || '/gradient-bg.jpg',
+        lastUpdated: Date.now(),
+        contactChannels: {
+          phoneInfo: {
+            internationalPhone: phoneNumber,
+            nationalPhone: nationalPhone,
+            userConfirmed: true
+          },
+          email: {
+            email: session.user.email,
+            userConfirmed: true
+          },
+          facebook: {
+            username: profileData.facebookUsername || '',
+            url: profileData.facebookUrl || `https://facebook.com/${profileData.facebookUsername || ''}`,
+            userConfirmed: !!profileData.facebookUserConfirmed
+          },
+          instagram: {
+            username: profileData.instagramUsername || '',
+            url: profileData.instagramUrl || `https://instagram.com/${profileData.instagramUsername || ''}`,
+            userConfirmed: !!profileData.instagramUserConfirmed
+          },
+          x: {
+            username: profileData.xUsername || '',
+            url: profileData.xUrl || `https://x.com/${profileData.xUsername || ''}`,
+            userConfirmed: !!profileData.xUserConfirmed
+          },
+          whatsapp: {
+            username: profileData.whatsappUsername || '',
+            url: profileData.whatsappUrl || `https://wa.me/${profileData.whatsappUsername || ''}`,
+            userConfirmed: !!profileData.whatsappUserConfirmed
+          },
+          snapchat: {
+            username: profileData.snapchatUsername || '',
+            url: profileData.snapchatUrl || `https://snapchat.com/add/${profileData.snapchatUsername || ''}`,
+            userConfirmed: !!profileData.snapchatUserConfirmed
+          },
+          telegram: {
+            username: profileData.telegramUsername || '',
+            url: profileData.telegramUrl || `https://t.me/${profileData.telegramUsername || ''}`,
+            userConfirmed: !!profileData.telegramUserConfirmed
+          },
+          wechat: {
+            username: profileData.wechatUsername || '',
+            url: profileData.wechatUrl || `weixin://contacts/profile/${profileData.wechatUsername || ''}`,
+            userConfirmed: !!profileData.wechatUserConfirmed
+          },
+          linkedin: {
+            username: profileData.linkedinUsername || '',
+            url: profileData.linkedinUrl || `https://linkedin.com/in/${profileData.linkedinUsername || ''}`,
+            userConfirmed: !!profileData.linkedinUserConfirmed
+          }
+        }
+      };
+      
+      // Save the new format to local storage
+      localStorage.setItem('nektus_user_profile', JSON.stringify(newProfileFormat));
       
       // Convert to legacy format for Firestore
       const legacyProfile = convertToLegacyProfile(cacheProfile);
