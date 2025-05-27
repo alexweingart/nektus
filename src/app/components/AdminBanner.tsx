@@ -87,13 +87,28 @@ export default function AdminBanner() {
         }
       });
       
-      // 5. Clear any Google OAuth related localStorage items to force new authorization
-      console.log('Step 5: Clearing localStorage items');
-      localStorage.removeItem('nektus_force_account_selector'); // Remove old approach
+      // 5. Clear all storage to ensure complete cleanup
+      console.log('Step 5: Clearing all storage items');
+      
+      // Clear localStorage
+      localStorage.removeItem('nektus_force_account_selector');
       localStorage.removeItem('nektus_user');
-      localStorage.removeItem('nektus_user_profile_cache'); // Clear old profile cache
-      localStorage.removeItem('nektus_user_profile'); // Clear new profile data
+      localStorage.removeItem('nektus_user_profile_cache');
+      localStorage.removeItem('nektus_user_profile');
       localStorage.removeItem('nektus_profile');
+      
+      // Clear sessionStorage
+      sessionStorage.removeItem('nektus_user_id');
+      sessionStorage.removeItem('nektus_session');
+      
+      // Clear all sessionStorage items (be more specific in production)
+      // sessionStorage.clear(); // Uncomment if you want to clear everything
+      
+      // Clear any other related storage
+      if (window.indexedDB) {
+        // Clear IndexedDB if needed
+        indexedDB.deleteDatabase('nektus');
+      }
       
       // Show success status
       console.log('Account deletion process completed successfully');

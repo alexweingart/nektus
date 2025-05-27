@@ -38,10 +38,29 @@ export default function ProfileSetup() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const adminModeProps = useAdminModeActivator();
 
-  // Set up scroll lock for mobile keyboard
+  // Set up scroll lock for mobile keyboard - more aggressive approach
   useEffect(() => {
-    const cleanup = setupScrollLock();
-    return cleanup;
+    // Add a small delay to ensure the component is fully mounted
+    const timer = setTimeout(() => {
+      const cleanup = setupScrollLock();
+      // Also lock scroll immediately if we're on a mobile device
+      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+      }
+      return () => {
+        cleanup();
+        // Clean up styles when component unmounts
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.height = '';
+      };
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Initialize profile on first load if it doesn't exist
@@ -149,8 +168,9 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div className="min-h-[calc(var(--vh,1vh)*100)] w-full bg-background flex flex-col items-center py-6 px-4 overflow-y-auto">
-      <div className="w-full max-w-[320px] mx-auto flex flex-col items-center">
+    <div className="fixed inset-0 w-full h-full bg-background overflow-y-auto">
+      <div className="min-h-full w-full flex flex-col items-center py-6 px-4">
+        <div className="w-full max-w-[320px] mx-auto flex flex-col items-center">
         {/* Profile Picture - Fixed height container */}
         <div className="relative mb-4 h-24">
           <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-md">
