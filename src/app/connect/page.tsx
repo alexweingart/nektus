@@ -150,7 +150,7 @@ export default function ConnectPage() {
       const initialLinks = generateSocialLinks(profile);
       setSocialLinks(initialLinks);
       setBio(getPlaceholderBio());
-      setAvatarImage(profile.picture || '/default-avatar.png');
+      setAvatarImage(profile.profileImage || '/default-avatar.png');
       
       // Start AI generation asynchronously
       const generateAIContent = async () => {
@@ -217,7 +217,12 @@ export default function ConnectPage() {
   }
   
   // Redirect to profile setup if profile is incomplete
-  if (!profile || !profile.internationalPhone) {
+  if (!profile) {
+    redirect('/setup');
+  }
+  
+  const phoneNumber = profile.contactChannels.phoneInfo.internationalPhone || '';
+  if (!phoneNumber) {
     redirect('/setup');
   }
   
