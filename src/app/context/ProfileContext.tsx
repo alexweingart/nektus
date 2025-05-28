@@ -254,20 +254,23 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         ...(profileData.contactChannels || {})
       };
       
-      // Never override a non-empty bio with an empty one, with improved logic
-      // This addresses the issue of bio being removed when updating other profile fields
-      const bioToUse = 
-        // If bio is explicitly included in the update but empty, AND we have an existing non-empty bio
-        ('bio' in profileData && (!profileData.bio || profileData.bio === '') && currentProfile.bio && currentProfile.bio !== '') 
-          ? currentProfile.bio  // Keep existing non-empty bio
-          // Otherwise if bio is explicitly included, use it, else keep the existing one
-          : ('bio' in profileData ? (profileData.bio || currentProfile.bio || '') : (currentProfile.bio || ''));
+      // FIXED BIO PRESERVATION LOGIC
+      // 1. If the update contains a non-empty bio, use it
+      // 2. If the update contains an empty bio but the current profile has a non-empty bio, keep the current bio
+      // 3. Otherwise, keep the current bio regardless of whether bio is in the update data
+      // This ensures we never lose a bio regardless of how saveProfile is called
+      let bioToUse = currentProfile.bio || '';
+      
+      // Only override the existing bio if the update contains an explicitly set non-empty bio
+      if ('bio' in profileData && profileData.bio && profileData.bio.trim() !== '') {
+        bioToUse = profileData.bio;
+      }
       
       // Create the updated profile with proper merging
       const updatedProfile: UserProfile = {
         ...currentProfile,
         ...profileData,
-        bio: bioToUse,  // Use our bio logic to ensure we don't lose bios
+        bio: bioToUse,  // Always use our preserved bio value
         lastUpdated: Date.now(),
         profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
         contactChannels: mergedContactChannels
@@ -280,7 +283,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         updateBioValue: profileData.bio || '[empty]',
         bioToUse: bioToUse || '[empty]',
         final: updatedProfile.bio || '[empty]',
-        bioPreservationApplied: 'bio' in profileData && (!profileData.bio || profileData.bio === '') && currentProfile.bio && currentProfile.bio !== ''
+        bioWasPreserved: bioToUse === currentProfile.bio
       });
       
       console.log('Profile saved successfully');
@@ -418,6 +421,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     
     if (isProfileView || isSetupPage) {
       try {
+        // Log the initial state of the profile for debugging
+        console.log('Initial profile state before content generation:', {
+          hasBio: Boolean(profile.bio),
+          bioLength: profile.bio?.length || 0,
+          hasBackgroundImage: Boolean(profile.backgroundImage)
+        });
+        
         // Check if background image generation is needed
         if (!profile.backgroundImage && !hasGeneratedBackground.current) {
           console.log('No background image found, generating one...');
@@ -427,12 +437,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           
           if (imageUrl) {
             console.log('Saving generated background image to profile');
-            // Only update the backgroundImage property, ensuring we don't send an empty bio
-            await saveProfile({ backgroundImage: imageUrl, bio: profile.bio });
+            // Create a proper update object that explicitly includes the current bio
+            // This ensures the bio won't be overwritten when saving the background image
+            const updateData = {
+              backgroundImage: imageUrl,
+              bio: profile.bio || '' // Explicitly preserve the current bio value
+            };
+            console.log('Background image update data:', updateData);
+            await saveProfile(updateData);
           }
         }
         
-        // Check if bio generation is needed
+        // Check if bio generation is needed - do this AFTER background image generation
+        // to ensure the bio doesn't get overwritten
         if (!profile.bio && !hasGeneratedBio.current) {
           console.log('No bio found, generating one...');
           hasGeneratedBio.current = true;
@@ -445,6 +462,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             await saveProfile({ bio });
           }
         }
+        
+        // Log the final state after content generation
+        console.log('Final profile state after content generation:', {
+          hasBio: Boolean(profile.bio),
+          bioLength: profile.bio?.length || 0,
+          hasBackgroundImage: Boolean(profile.backgroundImage)
+        });
       } catch (error) {
         console.error('Failed to generate content (bio or background):', error);
       }
