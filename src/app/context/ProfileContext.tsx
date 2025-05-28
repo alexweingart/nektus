@@ -409,7 +409,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Failed to generate background image:', error);
+        console.error('Failed to generate content (bio or background):', error);
       }
     }
   }, [profile, pathname, generateBackgroundImage, generateBio, saveProfile]);
