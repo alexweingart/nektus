@@ -50,6 +50,7 @@ type ProfileContextType = {
   saveProfile: (profileData: Partial<UserProfile>) => Promise<UserProfile | null>;
   clearProfile: () => Promise<void>;
   generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
+  generateBio: (profile: UserProfile) => Promise<string | null>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -229,7 +230,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Save profile to localStorage
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      console.log('Saving profile with data:', profileData);
+      // Single log for profile saves
       
       // If we don't have an existing profile, create a default one first
       const currentProfile = profile || createDefaultProfile(session);
@@ -249,7 +250,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         contactChannels: mergedContactChannels
       };
       
-      console.log('Saving updated profile to localStorage:', updatedProfile);
+      console.log('Profile saved successfully');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
       setProfile(updatedProfile);
       return updatedProfile;
@@ -314,6 +315,54 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return null;
     }
   }, []);
+  
+  // Generate bio for profile
+  const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    try {
+      // Only proceed if we have a valid profile with userId
+      if (!profile?.userId) {
+        console.error('Cannot generate bio: Invalid profile or missing userId');
+        return null;
+      }
+
+      console.log('Generating bio for profile:', profile.userId);
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          type: 'bio',
+          profile 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to generate bio:', response.status, errorText);
+        throw new Error(`Failed to generate bio: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Log the entire response for debugging
+      console.log('Bio generation response:', JSON.stringify(result, null, 2));
+      
+      // Extract bio from response
+      const bio = result.bio;
+      
+      if (!bio) {
+        console.error('Failed to generate bio: No bio in response');
+        throw new Error('Failed to generate bio');
+      }
+
+      console.log('Generated bio:', bio);
+      return bio;
+    } catch (error) {
+      console.error('Error generating bio:', error);
+      return null;
+    }
+  }, []);
 
   // Load profile on mount and when session changes
   useEffect(() => {
@@ -326,36 +375,38 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Get the current pathname using the usePathname hook
   const pathname = usePathname();
   
-  // Function to generate background image if needed
-  const generateBackgroundIfNeeded = useCallback(async () => {
+  // Function to generate content if needed (bio and background)
+  const generateContentIfNeeded = useCallback(async () => {
     if (!profile || hasGeneratedBackground.current || !pathname) return;
     
-    // Only generate if we're on the profile view page (which has a profile name) and background is empty
+    // Generate if we're on the setup page or profile view page
     const isProfileView = (pathname === '/' || pathname === '') && profile.name;
+    const isSetupPage = pathname.includes('/setup') || pathname.includes('/components/ProfileSetup');
     
-    if (isProfileView && !profile.backgroundImage) {
+    if (isProfileView || isSetupPage) {
       try {
-        console.log('No background image found, generating one...');
         hasGeneratedBackground.current = true;
-        const imageUrl = await generateBackgroundImage(profile);
         
-        if (imageUrl) {
-          console.log('Saving generated background image to profile');
-          await saveProfile({ ...profile, backgroundImage: imageUrl });
+        // Generate background if missing
+        if (!profile.backgroundImage) {
+          console.log('No background image found, generating one...');
+          const imageUrl = await generateBackgroundImage(profile);
+          
+          if (imageUrl) {
+            console.log('Saving generated background image to profile');
+            await saveProfile({ ...profile, backgroundImage: imageUrl });
+          }
         }
-      } catch (error) {
-        console.error('Failed to generate background image:', error);
-      }
-    }
-  }, [profile, pathname, generateBackgroundImage, saveProfile]);
-  
-  // Generate background image when profile loads and has no background
-  useEffect(() => {
-    if (profile && !isLoading) {
-      generateBackgroundIfNeeded();
-    }
-  }, [profile, isLoading, generateBackgroundIfNeeded]);
-
+        
+        // Generate bio if missing
+        if (!profile.bio) {
+          console.log('No bio found, generating one...');
+          const bio = await generateBio(profile);
+          
+          if (bio) {
+            console.log('Saving generated bio to profile');
+            await saveProfile({ ...profile, bio: bio });
+          }
   return (
     <ProfileContext.Provider
       value={{
@@ -363,7 +414,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         isLoading,
         saveProfile,
         clearProfile,
-        generateBackgroundImage
+        generateBackgroundImage,
+        generateBio
       }}
     >
       {children}

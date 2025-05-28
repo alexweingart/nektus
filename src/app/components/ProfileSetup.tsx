@@ -149,9 +149,9 @@ export default function ProfileSetup() {
             }
           };
           
-          console.log('Saving initial profile:', initialProfile);
+          // Only log essential profile operations
           await saveProfile(initialProfile);
-          console.log('Profile should be saved now');
+
         }
       } else {
         setIsLoading(false);
