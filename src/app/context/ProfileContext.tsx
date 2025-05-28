@@ -254,10 +254,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         ...(profileData.contactChannels || {})
       };
       
+      // Never override a non-empty bio with an empty one
+      const bioToUse = 
+        'bio' in profileData && !profileData.bio && currentProfile.bio
+          ? currentProfile.bio  // Keep existing non-empty bio
+          : ('bio' in profileData ? profileData.bio || '' : currentProfile.bio || '');
+      
       // Create the updated profile with proper merging
       const updatedProfile: UserProfile = {
         ...currentProfile,
         ...profileData,
+        bio: bioToUse,  // Use our bio logic to ensure we don't lose bios
         lastUpdated: Date.now(),
         profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
         contactChannels: mergedContactChannels
@@ -268,6 +275,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         console.log('Bio change:', {
           before: currentProfile.bio,
           new: profileData.bio,
+          bioToUse: bioToUse,
           final: updatedProfile.bio
         });
       }

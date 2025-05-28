@@ -86,21 +86,32 @@ const ProfileView: React.FC = () => {
   // Update local profile when the context profile changes
   useEffect(() => {
     if (profile) {
-      setLocalProfile(prev => ({
-        ...prev,
-        ...profile,
-        // Ensure we have a profile image
-        profileImage: profile.profileImage || session?.user?.image || '/default-avatar.png',
-        contactChannels: {
-          ...prev.contactChannels,
-          ...profile.contactChannels,
-          // Ensure email is properly set from session
-          email: {
-            ...prev.contactChannels.email,
-            ...(profile.contactChannels?.email || {})
+      setLocalProfile(prev => {
+        // Log for debugging
+        console.log('ProfileView: Updating local profile', {
+          prevBio: prev.bio,
+          profileBio: profile.bio,
+          hasProfileBio: !!profile.bio
+        });
+        
+        return {
+          ...prev,
+          ...profile,
+          // Don't overwrite existing bio with an empty one
+          bio: profile.bio || prev.bio, 
+          // Ensure we have a profile image
+          profileImage: profile.profileImage || session?.user?.image || '/default-avatar.png',
+          contactChannels: {
+            ...prev.contactChannels,
+            ...profile.contactChannels,
+            // Ensure email is properly set from session
+            email: {
+              ...prev.contactChannels.email,
+              ...(profile.contactChannels?.email || {})
+            }
           }
-        }
-      }));
+        };
+      });
     }
   }, [profile, session]);
   
