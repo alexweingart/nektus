@@ -254,11 +254,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         ...(profileData.contactChannels || {})
       };
       
-      // Never override a non-empty bio with an empty one
+      // Never override a non-empty bio with an empty one, with improved logic
+      // This addresses the issue of bio being removed when updating other profile fields
       const bioToUse = 
-        'bio' in profileData && !profileData.bio && currentProfile.bio
+        // If bio is explicitly included in the update but empty, AND we have an existing non-empty bio
+        ('bio' in profileData && (!profileData.bio || profileData.bio === '') && currentProfile.bio && currentProfile.bio !== '') 
           ? currentProfile.bio  // Keep existing non-empty bio
-          : ('bio' in profileData ? profileData.bio || '' : currentProfile.bio || '');
+          // Otherwise if bio is explicitly included, use it, else keep the existing one
+          : ('bio' in profileData ? (profileData.bio || currentProfile.bio || '') : (currentProfile.bio || ''));
       
       // Create the updated profile with proper merging
       const updatedProfile: UserProfile = {
@@ -270,15 +273,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         contactChannels: mergedContactChannels
       };
       
-      // Debug log for bio changes
-      if ('bio' in profileData || currentProfile.bio) {
-        console.log('Bio change:', {
-          before: currentProfile.bio,
-          new: profileData.bio,
-          bioToUse: bioToUse,
-          final: updatedProfile.bio
-        });
-      }
+      // Enhanced debug log for bio changes
+      console.log('Bio processing:', {
+        before: currentProfile.bio || '[empty]',
+        bioInUpdate: 'bio' in profileData,
+        updateBioValue: profileData.bio || '[empty]',
+        bioToUse: bioToUse || '[empty]',
+        final: updatedProfile.bio || '[empty]',
+        bioPreservationApplied: 'bio' in profileData && (!profileData.bio || profileData.bio === '') && currentProfile.bio && currentProfile.bio !== ''
+      });
       
       console.log('Profile saved successfully');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
@@ -424,7 +427,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           
           if (imageUrl) {
             console.log('Saving generated background image to profile');
-            await saveProfile({ backgroundImage: imageUrl });
+            // Only update the backgroundImage property, ensuring we don't send an empty bio
+            await saveProfile({ backgroundImage: imageUrl, bio: profile.bio });
           }
         }
         
@@ -437,6 +441,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           
           if (bio) {
             console.log('Saving generated bio to profile');
+            // Only update the bio property
             await saveProfile({ bio });
           }
         }

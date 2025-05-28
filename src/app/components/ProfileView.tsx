@@ -87,18 +87,23 @@ const ProfileView: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setLocalProfile(prev => {
-        // Log for debugging
+        // Enhanced logging for debugging bio preservation
         console.log('ProfileView: Updating local profile', {
-          prevBio: prev.bio,
-          profileBio: profile.bio,
-          hasProfileBio: !!profile.bio
+          prevBio: prev.bio || '[empty]',
+          profileBio: profile.bio || '[empty]',
+          hasProfileBio: !!profile.bio,
+          hasPrevBio: !!prev.bio,
+          willPreserveBio: !profile.bio && !!prev.bio
         });
         
-        return {
+        // Determine which bio to use with improved logic
+        const bioToUse = (!profile.bio && prev.bio) ? prev.bio : profile.bio || prev.bio || '';
+        
+        const updatedProfile = {
           ...prev,
           ...profile,
-          // Don't overwrite existing bio with an empty one
-          bio: profile.bio || prev.bio, 
+          // Always use the non-empty bio (improved logic)
+          bio: bioToUse,
           // Ensure we have a profile image
           profileImage: profile.profileImage || session?.user?.image || '/default-avatar.png',
           contactChannels: {
@@ -111,9 +116,12 @@ const ProfileView: React.FC = () => {
             }
           }
         };
+        
+        console.log('ProfileView: Final bio after update:', updatedProfile.bio || '[empty]');
+        return updatedProfile;
       });
     }
-  }, [profile, session]);
+  }, [profile, session?.user?.image]);
   
   // State for UI
   const [bio, setBio] = useState<string>('');
