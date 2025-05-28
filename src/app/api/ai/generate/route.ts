@@ -6,48 +6,63 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Extend the OpenAI type to include the responses API
-declare module 'openai' {
-  interface OpenAI {
-    responses: {
-      create: (params: {
-        model: string;
-        input: Array<{
-          role: 'system' | 'user' | 'assistant';
-          content: Array<{
-            type: string;
-            text: string;
-          }>;
-        }>;
-        tools?: Array<{
+// Create a custom type for our extended OpenAI client
+type ExtendedOpenAI = OpenAI & {
+  // Our custom responses API
+  responses: {
+    create: (params: {
+      model: string;
+      input: Array<{
+        role: 'system' | 'user' | 'assistant';
+        content: Array<{
           type: string;
-          user_location?: {
-            type: string;
-            country: string;
-            region?: string;
-            city?: string;
-          };
-          search_context_size?: string;
+          text: string;
         }>;
-        temperature?: number;
-        max_tokens?: number;
-        top_p?: number;
-        store?: boolean;
-      }) => Promise<any>;
-    };
-  }
-}
+      }>;
+      tools?: Array<{
+        type: string;
+        user_location?: {
+          type: string;
+          country: string;
+          region?: string;
+          city?: string;
+        };
+        search_context_size?: string;
+      }>;
+      temperature?: number;
+      max_tokens?: number;
+      top_p?: number;
+      store?: boolean;
+    }) => Promise<any>;
+  };
+  
+  // Custom images API with our implementation
+  images: {
+    generate: (params: {
+      model?: string;
+      prompt: string;
+      n?: number;
+      size?: '256x256' | '512x512' | '1024x1024' | '1024x1536' | '1536x1024' | '1792x1024' | '1024x1792' | 'auto';
+      quality?: 'standard' | 'hd' | 'medium';
+    }) => Promise<{
+      data: Array<{
+        url: string;
+      }>;
+    }>;
+  };
+};
 
-// Initialize OpenAI client with beta features
-let openai: OpenAI | null = null;
+// Initialize our extended OpenAI client
+let openai: ExtendedOpenAI | null = null;
+
 try {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not set in environment variables');
   }
   
-  openai = new OpenAI({
+  // Initialize the base client with all required configuration
+  const baseClient = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    // Use beta endpoint for responses API
     baseURL: 'https://api.openai.com/v1',
     defaultQuery: { 'api-version': '2024-02-15-preview' },
     defaultHeaders: { 
@@ -55,6 +70,9 @@ try {
       'Content-Type': 'application/json'
     }
   });
+  
+  // Cast to our extended type and add custom methods
+  openai = baseClient as unknown as ExtendedOpenAI;
   
   // Add the responses API to the client
   openai.responses = {
@@ -81,6 +99,43 @@ try {
       return response.json();
     }
   };
+  
+  // Add the images API with our custom implementation
+  openai.images = {
+    generate: async (params) => {
+      // Prepare the request body with proper typing
+      const requestBody: any = {
+        ...params,
+        model: params.model || 'dall-e-3',
+        n: params.n || 1,
+        size: params.size || '1024x1024'
+      };
+      
+      // Only add quality if it's a valid value
+      if (params.quality && ['standard', 'hd'].includes(params.quality)) {
+        requestBody.quality = params.quality;
+      } else if (params.quality === 'medium') {
+        // Map 'medium' to 'standard' if needed
+        requestBody.quality = 'standard';
+      }
+      
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(`OpenAI Image API error: ${response.status} ${response.statusText} - ${JSON.stringify(error)}`);
+      }
+      
+      return response.json();
+    }
+  } as ExtendedOpenAI['images'];
   
   console.log('OpenAI client with responses API initialized successfully');
 } catch (error) {
@@ -494,57 +549,111 @@ async function generateBio(profile: any) {
 
 async function generateBackground(profile: any) {
   try {
+    // Log the start of background generation
+    console.log('Starting background image generation for profile:', {
+      name: profile.name,
+      hasExistingBackground: !!profile.backgroundImage
+    });
+
+    // Return existing background image if it exists
+    if (profile.backgroundImage) {
+      console.log('Using existing background image:', profile.backgroundImage);
+      return NextResponse.json({ imageUrl: profile.backgroundImage });
+    }
+
     // Safety check for OpenAI client
     if (!openai) {
-      return NextResponse.json({ imageUrl: '/gradient-bg.jpg' });
+      console.error('OpenAI client is not initialized');
+      return NextResponse.json({ 
+        imageUrl: null,
+        error: 'OpenAI client not initialized' 
+      });
     }
 
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
+    console.log('Generating background image with prompt for:', profile.name);
+    
+    // Using type assertion for the size parameter to satisfy TypeScript
+    // Create a safer, more abstract prompt
+    const safePrompt = `Create a soft, abstract gradient background with subtle textures. 
+      Use a color palette that's professional and modern. No text, people, or recognizable objects. 
+      The style should be minimal and clean, suitable for a profile background.`;
+      
+    console.log('Using safe prompt for background image generation');
+    
+    console.log('Sending request to OpenAI with prompt:', safePrompt);
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: `Create an abstract, gradient background image that represents the essence of ${profile.name}. 
-      The image should be subtle, elegant, and suitable as a profile page background. 
-      Use soft colors that create a professional appearance. No text or people should be visible.
-      
-      ${socialLinks ? `Personalize based on these social media profiles:
-      ${socialLinks}` : ''}`,
+      prompt: safePrompt,
       n: 1,
-      size: '1024x1024',
-      quality: 'standard',
+      size: '1024x1536' as any, // Type assertion to bypass TypeScript error for gpt-image-1 model
+      quality: 'medium',
     });
 
-    const imageUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : '/gradient-bg.jpg';
+    // Log the raw response for debugging
+    console.log('OpenAI API response:', JSON.stringify({
+      hasData: !!response.data,
+      dataLength: response.data?.length,
+      firstItem: response.data?.[0] ? { 
+        hasUrl: !!response.data[0].url,
+        keys: Object.keys(response.data[0])
+      } : 'no items'
+    }, null, 2));
+
+    // Check if we got a valid image URL
+    const imageUrl = response.data?.[0]?.url;
     
-    // Temporarily disabled Firestore save
-    // if (profile.userId) {
-    //   try {
-    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
-    //     await setDoc(aiContentRef, { backgroundImage: imageUrl }, { merge: true });
-    //   } catch (error) {
-    //     console.error('Error storing AI background image content:', error);
-    //   }
-    // }
+    if (!imageUrl) {
+      const errorMessage = 'No image URL in response from OpenAI API';
+      console.error(errorMessage, 'Response structure:', JSON.stringify(response, null, 2));
+      return NextResponse.json({ 
+        imageUrl: null,
+        error: errorMessage,
+        responseStructure: JSON.stringify(response, null, 2)
+      }, { status: 500 });
+    }
     
-    return NextResponse.json({ imageUrl });
+    console.log('Successfully generated background image');
+    
+    // Return the generated image URL
+    return NextResponse.json({ 
+      imageUrl,
+      generated: true 
+    });
+    
   } catch (error) {
     console.error('Background generation error:', error);
-    return NextResponse.json({ imageUrl: '/gradient-bg.jpg' });
+    return NextResponse.json({ 
+      imageUrl: null,
+      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    });
   }
 }
 
 async function generateAvatar(profile: any) {
   try {
-    // Skip avatar generation if profile already has a picture from Google sign-in
-    if (profile.picture && profile.picture.includes('googleusercontent.com')) {
-      return NextResponse.json({ imageUrl: profile.picture });
+    console.log('Starting avatar generation for profile:', {
+      name: profile.name,
+      hasPicture: !!profile.picture,
+      hasProfileImage: !!profile.profileImage
+    });
+    
+    // Return existing profile image if it exists
+    if (profile.picture || profile.profileImage) {
+      const existingImage = profile.picture || profile.profileImage;
+      console.log('Using existing profile image:', existingImage);
+      return NextResponse.json({ 
+        imageUrl: existingImage,
+        generated: false
+      });
     }
     
     // Safety check for OpenAI client
     if (!openai) {
       return NextResponse.json({ 
-        imageUrl: profile.picture || '/default-avatar.png' 
+        imageUrl: '/default-avatar.png' 
       });
     }
 
@@ -556,13 +665,10 @@ async function generateAvatar(profile: any) {
       prompt: `Create a stylized, artistic profile picture based on the essence of a person named ${profile.name}. 
       The image should be a professional, friendly avatar suitable for a social network. 
       It should be a portrait-style image with a clean background. 
-      Ensure the design is simple, recognizable, and approachable.
-      
-      ${socialLinks ? `Personalize based on these social media profiles:
-      ${socialLinks}` : ''}`,
+      Ensure the design is simple, recognizable, and approachable`,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
+      quality: 'medium',
     });
 
     const avatarUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : (profile.picture || '/default-avatar.png');
