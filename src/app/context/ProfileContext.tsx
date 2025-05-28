@@ -55,6 +55,7 @@ type ProfileContextType = {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 const STORAGE_KEY = 'nektus_user_profile';
+const DELETED_FLAG_KEY = 'nektus_account_deleted';
 const DEFAULT_PROFILE_IMAGE = '/default-avatar.png';
 
 // Function to generate a GUID
@@ -159,6 +160,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
+      // Check if the account was deleted and not explicitly recreated
+      const wasDeleted = localStorage.getItem(DELETED_FLAG_KEY) === 'true';
+      if (wasDeleted) {
+        console.log('Account was previously deleted, preventing profile recreation');
+        setProfile(null);
+        setIsLoading(false);
+        return null;
+      }
+      
       const storedData = localStorage.getItem(STORAGE_KEY);
       
       if (storedData) {
@@ -330,8 +340,21 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Clear profile from localStorage
   const clearProfile = useCallback(async (): Promise<void> => {
     try {
+      // Set the deleted flag before removing the profile
+      localStorage.setItem(DELETED_FLAG_KEY, 'true');
+      
+      // Remove the profile from localStorage
       localStorage.removeItem(STORAGE_KEY);
+      
+      // Clear state
       setProfile(null);
+      
+      // Reset generation flags
+      hasGeneratedBackground.current = false;
+      hasGeneratedBio.current = false;
+      persistedBioRef.current = '';
+      
+      console.log('Profile cleared and deletion flag set');
     } catch (error) {
       console.error('Error clearing profile:', error);
     }

@@ -5,6 +5,7 @@ import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { useAdminMode } from '../providers/AdminModeProvider';
 import { useRouter } from 'next/navigation';
+import { useProfile } from '../context/ProfileContext';
 
 // The admin mode banner component
 export default function AdminBanner() {
@@ -12,6 +13,7 @@ export default function AdminBanner() {
   const { closeAdminMode } = useAdminMode();
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { clearProfile } = useProfile(); // Get the clearProfile function from ProfileContext
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   // Store a reference to the session data for direct access during deletion
@@ -265,6 +267,11 @@ export default function AdminBanner() {
           console.error('Error clearing IndexedDB:', e);
         }
       }
+      
+      // Use the ProfileContext's clearProfile function to properly clear the profile
+      // This will set the deleted flag to prevent automatic recreation
+      await clearProfile();
+      console.log('Profile cleared via ProfileContext');
       
       // Show success status
       console.log('Account deletion process completed successfully');
