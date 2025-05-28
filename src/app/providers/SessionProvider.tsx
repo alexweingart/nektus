@@ -26,9 +26,12 @@ export function SessionProvider({ children, session }: SessionProviderProps) {
     // Only log if session actually changed
     if (session !== prevSessionRef.current) {
       if (session) {
-        console.log('🔑 Session updated:', { 
+        // Calculate 30 days expiration if not defined
+        const expiresDate = session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        
+        console.log('🔑 Auth session updated:', { 
           user: session.user?.email || 'Unknown user',
-          expires: session.expires 
+          expires: expiresDate 
         });
       } else {
         console.log('🔒 No active session');
