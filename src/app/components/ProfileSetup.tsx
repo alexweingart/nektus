@@ -16,6 +16,7 @@ type Country = {
 };
 import { useProfile, UserProfile } from '../context/ProfileContext';
 import { setupScrollLock } from '../../lib/utils/scrollLock';
+import Avatar from './ui/Avatar';
 
 export default function ProfileSetup() {
   const { data: session, status } = useSession({
@@ -77,36 +78,76 @@ export default function ProfileSetup() {
       setIsLoading(false);
       
       if (!profile) {
-      const userEmail = session.user.email || '';
-      
-      // Create initial profile with all required fields
-      const initialProfile = {
-        name: session.user.name || '',
-        profileImage: session.user.image || '',
-        bio: '',
-        backgroundImage: '/gradient-bg.jpg',
-        lastUpdated: Date.now(),
-        contactChannels: {
-          phoneInfo: {
-            internationalPhone: '',
-            nationalPhone: '',
-            userConfirmed: false
-          },
-          email: {
-            email: userEmail,
-            userConfirmed: true
-          },
-          facebook: { username: '', url: '', userConfirmed: false },
-          instagram: { username: '', url: '', userConfirmed: false },
-          x: { username: '', url: '', userConfirmed: false },
-          whatsapp: { username: '', url: '', userConfirmed: false },
-          snapchat: { username: '', url: '', userConfirmed: false },
-          telegram: { username: '', url: '', userConfirmed: false },
-          wechat: { username: '', url: '', userConfirmed: false },
-          linkedin: { username: '', url: '', userConfirmed: false }
-        }
-      };
-      
+        const userEmail = session.user.email || '';
+        
+        // Store the Google image URL as-is without modification
+        const profileImage = session.user.image || '/default-avatar.png';
+        
+        // Extract username from email (everything before @) and sanitize it
+        const emailUsername = userEmail.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
+        
+        // Create initial profile with all required fields
+        const initialProfile: Partial<UserProfile> = {
+          name: session.user.name || '',
+          profileImage: profileImage,
+          bio: '',
+          backgroundImage: '/gradient-bg.jpg',
+          lastUpdated: Date.now(),
+          contactChannels: {
+            phoneInfo: {
+              internationalPhone: null,
+              nationalPhone: null,
+              userConfirmed: false
+            },
+            email: {
+              email: userEmail,
+              userConfirmed: true
+            },
+            // Social media with username from email
+            facebook: { 
+              username: emailUsername, 
+              url: emailUsername ? `https://facebook.com/${emailUsername}` : '', 
+              userConfirmed: false 
+            },
+            instagram: { 
+              username: emailUsername, 
+              url: emailUsername ? `https://instagram.com/${emailUsername}` : '', 
+              userConfirmed: false 
+            },
+            x: { 
+              username: emailUsername, 
+              url: emailUsername ? `https://x.com/${emailUsername}` : '', 
+              userConfirmed: false 
+            },
+            linkedin: { 
+              username: emailUsername, 
+              url: emailUsername ? `https://linkedin.com/in/${emailUsername}` : '', 
+              userConfirmed: false 
+            },
+            snapchat: { 
+              username: emailUsername, 
+              url: emailUsername ? `https://snapchat.com/add/${emailUsername}` : '', 
+              userConfirmed: false 
+            },
+            // Other services with empty defaults
+            whatsapp: { 
+              username: '', 
+              url: '', 
+              userConfirmed: false 
+            },
+            telegram: { 
+              username: '', 
+              url: '', 
+              userConfirmed: false 
+            },
+            wechat: { 
+              username: '', 
+              url: '', 
+              userConfirmed: false 
+            }
+          }
+        };
+        
         saveProfile(initialProfile);
       }
     } else {
@@ -165,16 +206,19 @@ export default function ProfileSetup() {
           whatsapp: {
             ...profile.contactChannels.whatsapp,
             username: nationalPhone,
+            url: `https://wa.me/${nationalPhone}`,
             userConfirmed: false
           },
           wechat: {
             ...profile.contactChannels.wechat,
             username: nationalPhone,
+            url: `weixin://dl/chat?${nationalPhone}`,
             userConfirmed: false
           },
           telegram: {
             ...profile.contactChannels.telegram,
             username: nationalPhone,
+            url: `https://t.me/${nationalPhone}`,
             userConfirmed: false
           }
         }
@@ -201,24 +245,13 @@ export default function ProfileSetup() {
     >
       <div className="w-full max-w-md flex flex-col items-center">
         {/* Profile Image */}
-        <div className="mb-4">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white">
-            {profile?.profileImage ? (
-              <img 
-                src={profile.profileImage} 
-                alt={profile.name || 'Profile'} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = '/default-avatar.png';
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-white">
-                <div className="w-16 h-16 rounded-full bg-gray-100"></div>
-              </div>
-            )}
+        <div className="mb-6">
+          <div className="border-4 border-white shadow-lg rounded-full">
+            <Avatar 
+              src={profile?.profileImage} 
+              alt={profile?.name || 'Profile'}
+              size="lg"
+            />
           </div>
         </div>
         
