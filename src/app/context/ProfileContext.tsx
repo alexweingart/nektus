@@ -407,6 +407,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             console.log('Saving generated bio to profile');
             await saveProfile({ ...profile, bio: bio });
           }
+        }
+      } catch (error) {
+        console.error('Failed to generate background image:', error);
+      }
+    }
+  }, [profile, pathname, generateBackgroundImage, generateBio, saveProfile]);
+  
+  // Generate background image when profile loads and has no background
+  useEffect(() => {
+    if (profile && !isLoading) {
+      generateContentIfNeeded();
+    }
+  }, [profile, isLoading, generateContentIfNeeded]);
+
   return (
     <ProfileContext.Provider
       value={{
