@@ -119,7 +119,7 @@ try {
             // Pass size as a string directly to avoid type conflicts
             size: size, 
             n: params.n || 1,
-            quality: params.quality || 'high'
+            quality: params.quality || 'medium'
           };
           
           console.log('Generating image with params:', JSON.stringify(finalParams, null, 2));
@@ -537,7 +537,7 @@ async function generateBackground(profile: any) {
     const response = await openai.images.generate({
       prompt: safePrompt,
       size: '1024x1536',
-      quality: 'high',
+      quality: 'medium',
       model: 'gpt-image-1'
       // Note: response_format is not needed and not supported by gpt-image-1
     });
@@ -636,7 +636,7 @@ async function generateAvatar(profile: any) {
               `Use a clean, professional style with a solid color background. ` +
               `The image should be suitable for a professional networking context.`,
       size: '1024x1024',
-      quality: 'high',
+      quality: 'medium',
       model: 'gpt-image-1'
       // Note: response_format is not needed and not supported by gpt-image-1
     });
