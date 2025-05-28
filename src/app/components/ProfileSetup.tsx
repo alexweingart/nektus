@@ -95,8 +95,8 @@ export default function ProfileSetup() {
           lastUpdated: Date.now(),
           contactChannels: {
             phoneInfo: {
-              internationalPhone: null,
-              nationalPhone: null,
+              internationalPhone: '',
+              nationalPhone: '',
               userConfirmed: false
             },
             email: {
