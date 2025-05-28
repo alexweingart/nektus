@@ -91,18 +91,17 @@ export default function AdminBanner() {
       console.log('Step 2: Revoking OAuth token with Google');
       console.log('About to fetch /api/auth/revoke');
       
-      // Send all possible identifying information to ensure the token gets revoked
+      // New approach: Instead of relying on the server to extract the token,
+      // we'll explicitly send all information we have from the client
       const revokePayload = {
         accessToken: userData.accessToken,
         email: userData.email,
         userId: userData.userId,
+        // Include a timestamp to prevent caching
+        timestamp: new Date().getTime()
       };
       
-      console.log('Sending revoke payload:', {
-        hasAccessToken: !!revokePayload.accessToken,
-        hasEmail: !!revokePayload.email,
-        hasUserId: !!revokePayload.userId
-      });
+      console.log('Sending revoke payload with token available:', !!revokePayload.accessToken);
       
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
@@ -117,150 +116,92 @@ export default function AdminBanner() {
       let revokeResult;
       try {
         revokeResult = await revokeResponse.json();
-        console.log('Revoke response status:', revokeResponse.status, revokeResponse.ok, revokeResult);
-      } catch (e) {
-        console.error('Error parsing revoke response:', e);
+        console.log('Revoke response status:', revokeResponse.status, revokeResponse.ok);
+        console.log('Revoke response data:', revokeResult);
+      } catch (parseError) {
+        console.error('Error parsing revoke response:', parseError);
         revokeResult = { error: 'Failed to parse response' };
       }
       
       if (!revokeResponse.ok) {
-        console.error('Failed to revoke Google token:', revokeResult);
-        // Continue with signout even if revocation fails
-        // This ensures the user can still disconnect their account locally
+        console.error('Failed to revoke token with Google:', revokeResult);
+        // Instead of throwing an error, we'll continue with the rest of the deletion
+        // This is a temporary fix to ensure users can still delete their accounts
+        console.warn('Continuing with account deletion despite token revocation failure');
       } else {
-        console.log('Successfully revoked Google token');
+        console.log('Successfully revoked token with Google');
       }
       
-      // 3. Explicitly sign out from NextAuth.js
-      console.log('Step 3: Signing out from NextAuth.js');
-      try {
-        // Force the signout with explicit options to ensure it works in production
-        await signOut({ 
-          redirect: false, 
-          callbackUrl: '/',
-        });
-        console.log('Successfully signed out from NextAuth.js');
-      } catch (e) {
-        console.error('Error during signOut:', e);
-        // Continue with cleanup even if signout fails
-      }
+      // 3. Sign out from NextAuth locally
+      console.log('Step 3: Signing out from NextAuth');
+      await signOut({ redirect: false });
       
-      // 4. Clear all client-side storage - localStorage, sessionStorage, cookies, indexedDB
-      console.log('Step 4: Clearing all client-side storage');
-      
-      // Clear localStorage - be extremely thorough
-      console.log('Clearing localStorage...');
-      try {
-        // First try to clear everything completely
-        localStorage.clear();
-        console.log('Cleared all localStorage');
-        
-        // Then also specifically target any keys that might not have been cleared
-        const localStorageKeys = [
-          // Next-auth keys
-          'next-auth.session-token',
-          'next-auth.callback-url',
-          'next-auth.csrf-token',
-          'next-auth.pkce-code-verifier',
-          // Our app keys
-          'nektus_profile',
-          'nektus_connections',
-          'nektus_theme',
-          'nektus_preferences',
-          'nektus_user',
-        ];
-        
-        // Clear known keys
-        localStorageKeys.forEach(key => localStorage.removeItem(key));
-        
-        // Also clear any keys with partial matches
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes('next-auth') || key.includes('nektus') || key.includes('session') || key.includes('token')) {
-            console.log(`Removing localStorage key: ${key}`);
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (e) {
-        console.error('Error clearing localStorage:', e);
-      }
-      
-      // Clear sessionStorage - be extremely thorough
-      console.log('Clearing sessionStorage...');
-      try {
-        // First try to clear everything completely
-        sessionStorage.clear();
-        console.log('Cleared all sessionStorage');
-        
-        // Then also specifically target any keys that might not have been cleared
-        const sessionStorageKeys = [
-          // Next-auth keys
-          'next-auth.message',
-          // Our app keys
-          'nektus_user_id',
-          'nektus_session',
-          'nektus-session',
-          'session'
-        ];
-        
-        // Clear known keys
-        sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
-        
-        // Also clear any keys with partial matches
-        Object.keys(sessionStorage).forEach(key => {
-          if (key.includes('next-auth') || key.includes('nektus') || key.includes('session') || key.includes('token')) {
-            console.log(`Removing sessionStorage key: ${key}`);
-            sessionStorage.removeItem(key);
-          }
-        });
-      } catch (e) {
-        console.error('Error clearing sessionStorage:', e);
-      }
-      
-      // Clear cookies via document.cookie
-      console.log('Clearing cookies...');
-      try {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i];
-          const eqPos = cookie.indexOf('=');
-          const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
-          // Set expiration to the past to remove the cookie
-          document.cookie = `${name}=;max-age=0;path=/;domain=${window.location.hostname}`;
-          console.log(`Removed cookie: ${name}`);
+      // 4. Clear all NextAuth cookies
+      console.log('Step 4: Clearing all NextAuth cookies');
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.trim().split('=');
+        if (name.includes('next-auth')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          console.log(`Cleared cookie: ${name}`);
         }
-      } catch (e) {
-        console.error('Error clearing cookies:', e);
-      }
+      });
       
-      // Clear IndexedDB
-      console.log('Clearing IndexedDB...');
+      // Clear all storage to ensure complete cleanup
+      console.log('Step 5: Clearing all storage items');
+      
+      // Clear localStorage - remove all known keys
+      const localStorageKeys = [
+        'nektus_force_account_selector',
+        'nektus_user',
+        'nektus_user_profile_cache',
+        'nektus_user_profile',
+        'nektus_profile',
+        'nektus-user-data',
+        'nektus_user_profile_v2',
+        'nektus-bio',
+        'nektus-profile',
+        'profile'
+      ];
+      
+      // Clear known keys
+      localStorageKeys.forEach(key => localStorage.removeItem(key));
+      
+      // Also clear any keys that start with 'nektus_'
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('nektus_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Clear sessionStorage
+      const sessionStorageKeys = [
+        'nektus_user_id',
+        'nektus_session',
+        'nektus-session',
+        'session'
+      ];
+      
+      // Clear known keys
+      sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
+      
+      // Also clear any keys that start with 'nektus_'
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('nektus_') || key.startsWith('nektus-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+      
+      // Clear any other related storage
       if (window.indexedDB) {
+        // Clear all IndexedDB databases that might be related to the app
         try {
-          // Try to get all database names
           const dbs = await window.indexedDB.databases();
-          console.log('Found IndexedDB databases:', dbs.length);
-          
-          // Delete each database
-          const deletePromises = dbs.map(db => {
-            if (db.name) {
+          dbs.forEach(db => {
+            if (db.name && (db.name.includes('nektus') || db.name.includes('firebase'))) {
               console.log(`Deleting IndexedDB: ${db.name}`);
-              return new Promise<void>((resolve) => {
-                const deleteRequest = window.indexedDB.deleteDatabase(db.name!);
-                deleteRequest.onsuccess = () => {
-                  console.log(`Successfully deleted IndexedDB: ${db.name}`);
-                  resolve();
-                };
-                deleteRequest.onerror = () => {
-                  console.error(`Error deleting IndexedDB: ${db.name}`);
-                  resolve(); // Still resolve to continue with other operations
-                };
-              });
+              window.indexedDB.deleteDatabase(db.name);
             }
-            return Promise.resolve();
           });
-          
-          // Wait for all deletions to complete
-          await Promise.all(deletePromises);
         } catch (e) {
           console.error('Error clearing IndexedDB:', e);
         }
@@ -277,9 +218,9 @@ export default function AdminBanner() {
         closeAdminMode();
         
         // Force a complete page reload instead of just a client-side navigation
-        // This ensures all state is completely cleared and triggers a new auth flow
-        window.location.href = '/?reload=' + new Date().getTime();
-      }, 1000);
+        // This ensures all state is completely cleared
+        window.location.replace('/?reload=' + new Date().getTime());
+      }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
       // Log more detailed error information
