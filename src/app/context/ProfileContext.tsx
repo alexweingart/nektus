@@ -153,8 +153,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const hasGeneratedBio = useRef(false);
   
   // Session storage keys for tracking whether generation has been attempted across page refreshes
-  const BG_GENERATION_ATTEMPTED_KEY = 'nektus_bg_generation_attempted';
-  const BIO_GENERATION_ATTEMPTED_KEY = 'nektus_bio_generation_attempted';
+  // We'll use the in-memory refs to track generation attempts
+  // No need for localStorage keys as we use in-memory refs
 
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile> => {
@@ -417,43 +417,27 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       try {
         // Check if background image generation is needed
         if (!profile.backgroundImage && !hasGeneratedBackground.current) {
-          // Check session storage to see if we've attempted generation before
-          const bgAttempted = localStorage.getItem(BG_GENERATION_ATTEMPTED_KEY);
+          console.log('No background image found, generating one...');
+          hasGeneratedBackground.current = true;
           
-          if (!bgAttempted) {
-            console.log('No background image found, generating one...');
-            hasGeneratedBackground.current = true;
-            
-            // Mark that we've attempted generation for this session
-            localStorage.setItem(BG_GENERATION_ATTEMPTED_KEY, 'true');
-            
-            const imageUrl = await generateBackgroundImage(profile);
-            
-            if (imageUrl) {
-              console.log('Saving generated background image to profile');
-              await saveProfile({ backgroundImage: imageUrl });
-            }
+          const imageUrl = await generateBackgroundImage(profile);
+          
+          if (imageUrl) {
+            console.log('Saving generated background image to profile');
+            await saveProfile({ backgroundImage: imageUrl });
           }
         }
         
         // Check if bio generation is needed
         if (!profile.bio && !hasGeneratedBio.current) {
-          // Check session storage to see if we've attempted generation before
-          const bioAttempted = localStorage.getItem(BIO_GENERATION_ATTEMPTED_KEY);
+          console.log('No bio found, generating one...');
+          hasGeneratedBio.current = true;
           
-          if (!bioAttempted) {
-            console.log('No bio found, generating one...');
-            hasGeneratedBio.current = true;
-            
-            // Mark that we've attempted generation for this session
-            localStorage.setItem(BIO_GENERATION_ATTEMPTED_KEY, 'true');
-            
-            const bio = await generateBio(profile);
-            
-            if (bio) {
-              console.log('Saving generated bio to profile');
-              await saveProfile({ bio });
-            }
+          const bio = await generateBio(profile);
+          
+          if (bio) {
+            console.log('Saving generated bio to profile');
+            await saveProfile({ bio });
           }
         }
       } catch (error) {
