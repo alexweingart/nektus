@@ -6,62 +6,35 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Create a custom type for our extended OpenAI client
-type ExtendedOpenAI = OpenAI & {
-  // Our custom responses API
-  responses: {
-    create: (params: {
-      model: string;
-      input: Array<{
-        role: 'system' | 'user' | 'assistant';
-        content: Array<{
-          type: string;
-          text: string;
-        }>;
-      }>;
-      tools?: Array<{
-        type: string;
-        user_location?: {
-          type: string;
-          country: string;
-          region?: string;
-          city?: string;
-        };
-        search_context_size?: string;
-      }>;
-      temperature?: number;
-      max_tokens?: number;
-      top_p?: number;
-      store?: boolean;
-    }) => Promise<any>;
-  };
-  
-  // Custom images API with our implementation
-  images: {
-    generate: (params: {
-      model?: string;
-      prompt: string;
-      n?: number;
-      size?: '256x256' | '512x512' | '1024x1024' | '1024x1536' | '1536x1024' | '1792x1024' | '1024x1792' | 'auto';
+// Extend the Images API type to include our custom quality values
+type CustomImagesAPI = Omit<OpenAI['images'], 'generate'> & {
+  generate: (
+    params: Omit<Parameters<OpenAI['images']['generate']>[0], 'quality'> & {
       quality?: 'low' | 'medium' | 'high' | 'auto';
-    }) => Promise<{
-      data: Array<{
-        url: string;
-      }>;
-    }>;
-  };
+    }
+  ) => ReturnType<OpenAI['images']['generate']>;
 };
 
-// Initialize our extended OpenAI client
-let openai: ExtendedOpenAI | null = null;
+// Custom type for the responses API
+type CustomResponsesAPI = {
+  create: (params: any) => Promise<any>;
+};
+
+type CustomOpenAI = Omit<OpenAI, 'images' | 'responses'> & {
+  images: CustomImagesAPI;
+  responses: CustomResponsesAPI;
+};
+
+// Initialize OpenAI client
+let openai: CustomOpenAI | null = null;
 
 try {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not set in environment variables');
   }
   
-  // Initialize the base client with all required configuration
-  const baseClient = new OpenAI({
+  // Initialize the OpenAI client
+  const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: 'https://api.openai.com/v1',
     defaultQuery: { 'api-version': '2024-02-15-preview' },
@@ -71,70 +44,38 @@ try {
     }
   });
   
-  // Cast to our extended type and add custom methods
-  openai = baseClient as unknown as ExtendedOpenAI;
-  
-  // Add the responses API to the client
-  openai.responses = {
-    create: async (params) => {
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        },
-        body: JSON.stringify({
-          ...params,
-          // Ensure we're using the latest model if not specified
-          model: params.model || 'gpt-4-turbo-preview'
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(error)}`);
+  // Add the responses API to our custom client
+  const customClient = {
+    ...client,
+    responses: {
+      create: async (params: any) => {
+        const response = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2'
+          },
+          body: JSON.stringify({
+            ...params,
+            model: params.model || 'gpt-4-turbo-preview'
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(error)}`);
+        }
+        
+        return response.json();
       }
-      
-      return response.json();
     }
   };
   
-  // Add the images API with our custom implementation
-  openai.images = {
-    generate: async (params) => {
-      // Prepare the request body with proper typing
-      const requestBody: any = {
-        ...params,
-        model: params.model || 'dall-e-3',
-        n: params.n || 1,
-        size: params.size || '1024x1024'
-      };
-      
-      // Only add quality if it's a valid value
-      if (params.quality && ['low', 'medium', 'high', 'auto'].includes(params.quality)) {
-        requestBody.quality = params.quality;
-      }
-      
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`OpenAI Image API error: ${response.status} ${response.statusText} - ${JSON.stringify(error)}`);
-      }
-      
-      return response.json();
-    }
-  } as ExtendedOpenAI['images'];
+  // Cast to our custom type with the extended images API
+  openai = customClient as unknown as CustomOpenAI;
   
-  console.log('OpenAI client with responses API initialized successfully');
+  console.log('OpenAI client with custom APIs initialized successfully');
 } catch (error) {
   console.error('Failed to initialize OpenAI client:', error);
   console.error('Please check your OPENAI_API_KEY in .env.local');
