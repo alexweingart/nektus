@@ -284,97 +284,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to extract social media links from profile
-function extractSocialLinks(profile: any): string | null {
-  if (!profile) return null;
-  
-  const socialLinks: string[] = [];
-  
-  // Extract individual social fields
-  const platforms = [
-    'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'x'
-  ];
-  
-  for (const platform of platforms) {
-    const usernameKey = `${platform}Username`;
-    const urlKey = `${platform}Url`;
 
-    if (!profile) {
-      return NextResponse.json(
-        { error: 'Profile data is required' },
-        { status: 400 }
-      );
-    }
-
-    // Handle different generation types
-    switch (type) {
-      case 'bio':
-        try {
-          return await generateBio(profile);
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error('Bio generation error:', errorMessage);
-          return NextResponse.json({ 
-            error: 'Failed to generate bio',
-            details: errorMessage
-          }, { status: 500 });
-        }
-      case 'background':
-        return await generateBackground(profile);
-      case 'avatar':
-        return await generateAvatar(profile);
-      default:
-        return NextResponse.json(
-          { error: 'Invalid generation type' },
-          { status: 400 }
-        );
-    }
-  } catch (error) {
-    const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.name : 'UnknownError';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    const openAiKey = process.env.OPENAI_API_KEY || '';
-    
-    const errorDetails = {
-      errorId,
-      message: errorMessage,
-      name: errorName,
-      stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
-      timestamp: new Date().toISOString(),
-      requestId,
-      durationMs: Date.now() - requestStartTime,
-      environment: process.env.NODE_ENV || 'development',
-      hasOpenAIKey: !!openAiKey,
-      openAiKeyPrefix: openAiKey 
-        ? `${openAiKey.substring(0, 5)}...${openAiKey.substring(-3)}` 
-        : 'Not set'
-    };
-
-    console.error(`[Request ${requestId}] AI generation error (${errorId}):`, JSON.stringify(errorDetails, null, 2));
-    
-    // Return detailed error in development, sanitized in production
-    return NextResponse.json(
-      { 
-        error: 'Failed to generate content',
-        errorId,
-        code: 'GENERATION_ERROR',
-        message: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? errorDetails : {
-          errorId,
-          message: errorMessage
-        }
-      },
-      { 
-        status: 500,
-        headers: {
-          'X-Request-ID': requestId,
-          'X-Error-ID': errorId
-        }
-      }
-    );
-  }
-}
 
 // Helper function to extract social profile URLs from profile
 function getSocialProfileUrls(profile: any): string[] {
@@ -575,7 +485,7 @@ async function generateBio(profile: any) {
   }
 }
 
-export async function generateBackground(profile: any) {
+async function generateBackground(profile: any) {
   try {
     // Log the start of background generation
     console.log('Starting background image generation for profile:', {
