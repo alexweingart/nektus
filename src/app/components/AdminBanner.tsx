@@ -149,59 +149,108 @@ export default function AdminBanner() {
       // Clear all storage to ensure complete cleanup
       console.log('Step 5: Clearing all storage items');
       
-      // Clear localStorage - remove all known keys
-      const localStorageKeys = [
-        'nektus_force_account_selector',
-        'nektus_user',
-        'nektus_user_profile_cache',
-        'nektus_user_profile',
-        'nektus_profile',
-        'nektus-user-data',
-        'nektus_user_profile_v2',
-        'nektus-bio',
-        'nektus-profile',
-        'profile'
-      ];
+      // Clear localStorage completely to ensure a clean slate
+      console.log('Clearing all localStorage items');
+      try {
+        // First, try to clear everything at once
+        localStorage.clear();
+        
+        // Then also explicitly target known keys to be extra thorough
+        const localStorageKeys = [
+          // NextAuth related
+          'next-auth.session-token',
+          'next-auth.callback-url',
+          'next-auth.csrf-token',
+          // App specific keys
+          'nektus_force_account_selector',
+          'nektus_user',
+          'nektus_user_profile_cache',
+          'nektus_user_profile',
+          'nektus_profile',
+          'nektus-user-data',
+          'nektus_user_profile_v2',
+          'nektus-bio',
+          'nektus-profile',
+          'profile'
+        ];
+        
+        // Clear known keys individually
+        localStorageKeys.forEach(key => localStorage.removeItem(key));
+        
+        // Also clear any keys with nektus or auth in their names
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('nektus') || key.includes('auth') || key.includes('profile') || key.includes('token')) {
+            console.log(`Removing localStorage key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (e) {
+        console.error('Error during localStorage clearing:', e);
+      }
       
-      // Clear known keys
-      localStorageKeys.forEach(key => localStorage.removeItem(key));
+      // Clear sessionStorage completely
+      console.log('Clearing all sessionStorage items');
+      try {
+        // First, try to clear everything at once
+        sessionStorage.clear();
+        
+        // Then also explicitly target known keys to be extra thorough
+        const sessionStorageKeys = [
+          'nektus_user_id',
+          'nektus_session',
+          'nektus-session',
+          'session',
+          'next-auth.message'
+        ];
+        
+        // Clear known keys individually
+        sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
+        
+        // Also clear any keys with nektus or auth in their names
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.includes('nektus') || key.includes('auth') || key.includes('session') || key.includes('token')) {
+            console.log(`Removing sessionStorage key: ${key}`);
+            sessionStorage.removeItem(key);
+          }
+        });
+      } catch (e) {
+        console.error('Error during sessionStorage clearing:', e);
+      }
       
-      // Also clear any keys that start with 'nektus_'
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('nektus_')) {
-          localStorage.removeItem(key);
-        }
-      });
+      // Clear cookies related to authentication
+      console.log('Clearing auth-related cookies');
+      try {
+        document.cookie.split(';').forEach(cookie => {
+          const [name] = cookie.trim().split('=');
+          if (name.includes('next-auth') || name.includes('nektus') || name.includes('session')) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            console.log(`Cleared cookie: ${name}`);
+          }
+        });
+      } catch (e) {
+        console.error('Error clearing cookies:', e);
+      }
       
-      // Clear sessionStorage
-      const sessionStorageKeys = [
-        'nektus_user_id',
-        'nektus_session',
-        'nektus-session',
-        'session'
-      ];
-      
-      // Clear known keys
-      sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
-      
-      // Also clear any keys that start with 'nektus_'
-      Object.keys(sessionStorage).forEach(key => {
-        if (key.startsWith('nektus_') || key.startsWith('nektus-')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-      
-      // Clear any other related storage
+      // Clear any IndexedDB databases
       if (window.indexedDB) {
-        // Clear all IndexedDB databases that might be related to the app
+        console.log('Clearing IndexedDB databases');
         try {
           const dbs = await window.indexedDB.databases();
-          dbs.forEach(db => {
-            if (db.name && (db.name.includes('nektus') || db.name.includes('firebase'))) {
-              console.log(`Deleting IndexedDB: ${db.name}`);
-              window.indexedDB.deleteDatabase(db.name);
+          if (dbs && dbs.length > 0) {
+            console.log(`Found ${dbs.length} IndexedDB databases`);
+            for (const db of dbs) {
+              if (db.name) {
+                console.log(`Deleting IndexedDB: ${db.name}`);
+                const deleteRequest = window.indexedDB.deleteDatabase(db.name);
+                
+                // Add event listeners for better error tracking
+                deleteRequest.onerror = () => console.error(`Error deleting IndexedDB: ${db.name}`);
+                deleteRequest.onsuccess = () => console.log(`Successfully deleted IndexedDB: ${db.name}`);
+              }
             }
-          });
+          } else {
+            console.log('No IndexedDB databases found');
+          }
         } catch (e) {
           console.error('Error clearing IndexedDB:', e);
         }
@@ -217,9 +266,9 @@ export default function AdminBanner() {
         console.log('Executing redirect now');
         closeAdminMode();
         
-        // Force a complete page reload instead of just a client-side navigation
-        // This ensures all state is completely cleared
-        window.location.replace('/?reload=' + new Date().getTime());
+        // Force a complete page reload with a hard navigation (not just a replace)
+        // This ensures all state is completely cleared and triggers a fresh auth flow
+        window.location.href = '/?deleted=true&t=' + new Date().getTime();
       }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
