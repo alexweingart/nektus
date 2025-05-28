@@ -6,30 +6,45 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { db } from '../../../lib/firebase';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Extend the Images API type to include our custom quality values
-type CustomImagesAPI = Omit<OpenAI['images'], 'generate'> & {
-  generate: (
-    params: Omit<Parameters<OpenAI['images']['generate']>[0], 'quality'> & {
-      quality?: 'low' | 'medium' | 'high' | 'auto';
-    }
-  ) => ReturnType<OpenAI['images']['generate']>;
-};
+// Custom types for our extended OpenAI client
+type ImageSize = '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+type ResponseFormat = 'url' | 'b64_json';
 
-// Custom type for the responses API
-type CustomResponsesAPI = {
+interface ImageGenerationParams {
+  prompt: string;
+  n?: number;
+  size?: ImageSize;
+  response_format?: ResponseFormat;
+  quality?: 'standard' | 'hd';
+  model?: string; // Making model optional since we'll set it in the wrapper
+}
+
+interface ImageGenerationResponse {
+  data: Array<{
+    b64_json?: string;
+    url?: string;
+  }>;
+}
+
+interface CustomImagesAPI {
+  generate: (params: ImageGenerationParams) => Promise<ImageGenerationResponse>;
+}
+
+interface CustomResponsesAPI {
   create: (params: any) => Promise<any>;
-};
+}
 
-type CustomOpenAI = Omit<OpenAI, 'images' | 'responses'> & {
+interface CustomOpenAI extends Omit<OpenAI, 'images' | 'responses'> {
   images: CustomImagesAPI;
   responses: CustomResponsesAPI;
-};
+}
 
 // Initialize OpenAI client
 let openai: CustomOpenAI | null = null;
 
 try {
-  if (!process.env.OPENAI_API_KEY) {
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  if (!openaiApiKey) {
     throw new Error('OPENAI_API_KEY is not set in environment variables');
   }
   
@@ -81,8 +96,33 @@ try {
     }
   };
   
-  // Cast to our custom type with the extended images API
-  openai = customClient as unknown as CustomOpenAI;
+  // Type assertion for our custom client
+  openai = {
+    ...customClient,
+    images: {
+      ...customClient.images,
+      async generate(params: ImageGenerationParams) {
+        try {
+          // Ensure we're using gpt-image-1 and proper response format
+          const finalParams = {
+            ...params,
+            model: 'gpt-image-1',
+            response_format: 'b64_json' as const,
+            size: (params.size || '1024x1024') as ImageSize,
+            n: params.n || 1,
+            quality: params.quality || 'standard'
+          };
+          
+          // Call the underlying implementation
+          const response = await customClient.images.generate(finalParams);
+          return response;
+        } catch (error) {
+          console.error('Error in image generation:', error);
+          throw error;
+        }
+      }
+    }
+  } as unknown as CustomOpenAI;
   
   console.log('OpenAI client with custom APIs initialized successfully');
 } catch (error) {
@@ -123,144 +163,141 @@ function extractSocialLinks(profile: any): string | null {
   return socialLinks.length > 0 ? socialLinks.join('\n') : null;
 }
 
-// Handle background image generation specifically
+// Handle AI generation requests
 export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+  const requestStartTime = Date.now();
+  
   try {
-    const requestBody = await request.json();
+    // Parse and validate request body
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (error) {
+      console.error(`[${requestId}] Failed to parse request body:`, error);
+      return NextResponse.json(
+        { 
+          error: 'Invalid JSON payload',
+          code: 'INVALID_JSON' 
+        },
+        { status: 400 }
+      );
+    }
+
     const { type, profile } = requestBody;
     
+    // Input validation
     if (!type) {
       return NextResponse.json(
-        { error: 'Type parameter is required' },
+        { 
+          error: 'Type parameter is required',
+          code: 'MISSING_TYPE' 
+        },
         { status: 400 }
       );
     }
     
     if (!profile) {
       return NextResponse.json(
-        { error: 'Profile data is required' },
+        { 
+          error: 'Profile data is required',
+          code: 'MISSING_PROFILE' 
+        },
         { status: 400 }
       );
     }
     
-    // Route to the appropriate generator based on type
+    // Verify OpenAI client is initialized
+    if (!openai) {
+      const error = 'OpenAI API key is not configured';
+      console.error(`[${requestId}] ${error}`);
+      return NextResponse.json(
+        { 
+          error,
+          code: 'OPENAI_NOT_CONFIGURED' 
+        },
+        { status: 500 }
+      );
+    }
+
+    // Route to the appropriate generator
     switch (type) {
       case 'background':
         return await generateBackground(profile);
       case 'bio':
         return await generateBio(profile);
-      // Add other generation types here
+      case 'avatar':
+        return await generateAvatar(profile);
       default:
         return NextResponse.json(
-          { error: `Invalid generation type: ${type}` },
+          { 
+            error: `Invalid generation type: ${type}`,
+            code: 'INVALID_GENERATION_TYPE'
+          },
           { status: 400 }
         );
     }
-  } catch (error: unknown) {
+  } catch (error) {
+    const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error in generation endpoint:', errorMessage);
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const openAiKey = process.env.OPENAI_API_KEY || '';
+    
+    const errorDetails = {
+      errorId,
+      message: errorMessage,
+      name: errorName,
+      stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+      timestamp: new Date().toISOString(),
+      requestId,
+      durationMs: Date.now() - requestStartTime,
+      environment: process.env.NODE_ENV || 'development',
+      hasOpenAIKey: !!openAiKey,
+      openAiKeyPrefix: openAiKey 
+        ? `${openAiKey.substring(0, 5)}...${openAiKey.substring(-3)}` 
+        : 'Not set'
+    };
+
+    console.error(`[Request ${requestId}] AI generation error (${errorId}):`, JSON.stringify(errorDetails, null, 2));
+    
+    // Return detailed error in development, sanitized in production
     return NextResponse.json(
-      { error: `Failed to process generation request: ${errorMessage}` },
-      { status: 500 }
+      { 
+        error: 'Failed to generate content',
+        errorId,
+        code: 'GENERATION_ERROR',
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorDetails : {
+          errorId,
+          message: errorMessage
+        }
+      },
+      { 
+        status: 500,
+        headers: {
+          'X-Request-ID': requestId,
+          'X-Error-ID': errorId
+        }
+      }
     );
   }
+}
 
-  // Original POST handler for other generation types
-  const requestId = Math.random().toString(36).substring(2, 8);
-  const requestStartTime = Date.now();
+// Helper function to extract social media links from profile
+function extractSocialLinks(profile: any): string | null {
+  if (!profile) return null;
   
-  console.log(`[${new Date().toISOString()}] [Request ${requestId}] Starting API request`);
+  const socialLinks: string[] = [];
   
-  try {
-    // Log request headers for debugging
-    const headers = Object.fromEntries(request.headers.entries());
-    console.log(`[Request ${requestId}] Headers:`, JSON.stringify(headers, null, 2));
-    
-    // Verify OpenAI client is initialized
-    if (!openai) {
-      const error = 'OpenAI API key is not configured';
-      console.error(`[Request ${requestId}] ${error}`);
-      return NextResponse.json(
-        { error, code: 'OPENAI_NOT_CONFIGURED' },
-        { status: 500 }
-      );
-    }
-
-    // Verify user is authenticated - Note: getServerSession usage in Next.js App Router
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Parse and validate request body
-    let requestBody;
-    try {
-      requestBody = await request.json();
-      console.log(`[Request ${requestId}] Request body:`, JSON.stringify({
-        type: requestBody?.type,
-        hasProfile: !!requestBody?.profile,
-        profileKeys: requestBody?.profile ? Object.keys(requestBody.profile) : []
-      }, null, 2));
-    } catch (e) {
-      const error = 'Failed to parse request body';
-      console.error(`[Request ${requestId}] ${error}:`, e);
-      return NextResponse.json(
-        { error, code: 'INVALID_REQUEST_BODY' },
-        { status: 400 }
-      );
-    }
-    
-    const { type, profile } = requestBody;
-    
-    // Validate request parameters
-    if (!type || typeof type !== 'string') {
-      const error = 'Missing or invalid type parameter';
-      console.error(`[Request ${requestId}] ${error}`);
-      return NextResponse.json(
-        { error, code: 'INVALID_TYPE_PARAMETER' },
-        { status: 400 }
-      );
-    }
-    
-    if (!profile || typeof profile !== 'object') {
-      const error = 'Missing or invalid profile data';
-      console.error(`[Request ${requestId}] ${error}`);
-      return NextResponse.json(
-        { error, code: 'INVALID_PROFILE_DATA' },
-        { status: 400 }
-      );
-    }
-    
-    console.log(`[Request ${requestId}] Processing request for type: ${type}`);
-    
-    // Check if we've already generated AI content for this user
-    if (profile?.userId) {
-      try {
-        // Temporarily disabled Firestore access
-        // const aiContentRef = doc(db, 'ai_content', profile.userId);
-        // const aiContentSnap = await getDoc(aiContentRef);
-        
-        // if (aiContentSnap.exists()) {
-        //   const aiContent = aiContentSnap.data();
-          
-        //   // If the requested type already exists in the stored AI content, return it
-        //   if (type === 'bio' && aiContent.bio) {
-        //     return NextResponse.json({ bio: aiContent.bio });
-        //   } else if (type === 'background' && aiContent.backgroundImage) {
-        //     return NextResponse.json({ imageUrl: aiContent.backgroundImage });
-        //   } else if (type === 'avatar' && aiContent.avatarImage) {
-        //     return NextResponse.json({ imageUrl: aiContent.avatarImage });
-        //   }
-        //   // If content doesn't exist for the specific type, continue to generate it
-        // }
-      } catch (error) {
-        console.error('Error checking for existing AI content:', error);
-        // Continue with generation if there's an error checking
-      }
-    }
+  // Extract individual social fields
+  const platforms = [
+    'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'x'
+  ];
+  
+  for (const platform of platforms) {
+    const usernameKey = `${platform}Username`;
+    const urlKey = `${platform}Url`;
 
     if (!profile) {
       return NextResponse.json(
@@ -292,11 +329,12 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: unknown) {
+  } catch (error) {
     const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.name : 'UnknownError';
     const errorStack = error instanceof Error ? error.stack : undefined;
+    const openAiKey = process.env.OPENAI_API_KEY || '';
     
     const errorDetails = {
       errorId,
@@ -306,12 +344,11 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
       requestId,
       durationMs: Date.now() - requestStartTime,
-      // Include additional context that might be helpful for debugging
-      environment: process.env.NODE_ENV,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-      openAiKeyPrefix: process.env.OPENAI_API_KEY ? 
-        `${process.env.OPENAI_API_KEY.substring(0, 5)}...${process.env.OPENAI_API_KEY.substring(-3)}` : 
-        'Not set'
+      environment: process.env.NODE_ENV || 'development',
+      hasOpenAIKey: !!openAiKey,
+      openAiKeyPrefix: openAiKey 
+        ? `${openAiKey.substring(0, 5)}...${openAiKey.substring(-3)}` 
+        : 'Not set'
     };
 
     console.error(`[Request ${requestId}] AI generation error (${errorId}):`, JSON.stringify(errorDetails, null, 2));
@@ -576,11 +613,9 @@ export async function generateBackground(profile: any) {
     
     console.log('Sending request to OpenAI with prompt:', safePrompt);
     const response = await openai.images.generate({
-      model: 'gpt-image-1',
       prompt: safePrompt,
-      n: 1,
       size: '1024x1024',
-      response_format: 'b64_json'
+      quality: 'standard'
     });
 
     // Log the raw response for debugging
@@ -622,13 +657,23 @@ export async function generateBackground(profile: any) {
       }
     });
     
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Background generation error:', errorMessage);
-    return NextResponse.json({ 
-      imageUrl: null,
-      error: `Background generation failed: ${errorMessage}`
-    });
+  } catch (error) {
+    try {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during background generation';
+      console.error('Background generation error:', error);
+      return NextResponse.json({ 
+        success: false,
+        error: `Background generation failed: ${errorMessage}`,
+        code: 'BACKGROUND_GENERATION_ERROR'
+      }, { status: 500 });
+    } catch (innerError) {
+      console.error('Error in error handler:', innerError);
+      return NextResponse.json({ 
+        success: false,
+        error: 'An unexpected error occurred',
+        code: 'UNEXPECTED_ERROR'
+      }, { status: 500 });
+    }
   }
 }
 
@@ -661,14 +706,12 @@ async function generateAvatar(profile: any) {
     const socialLinks = extractSocialLinks(profile);
     
     const response = await openai.images.generate({
-      model: 'gpt-image-1',
       prompt: `Create a professional profile picture for ${profile.name || 'a user'}. ` +
               `The image should be a simple, abstract, and modern avatar. ` +
               `Use a clean, professional style with a solid color background. ` +
               `The image should be suitable for a professional networking context.`,
-      n: 1,
       size: '1024x1024',
-      response_format: 'b64_json'
+      quality: 'standard'
     });
 
     // Check if we got a valid base64 image
