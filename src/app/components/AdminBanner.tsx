@@ -4,22 +4,29 @@ import React, { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { useAdminMode } from '../providers/AdminModeProvider';
+import { useRouter } from 'next/navigation';
 
 // The admin mode banner component
 export default function AdminBanner() {
   // Get the closeAdminMode function from our context
   const { closeAdminMode } = useAdminMode();
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  // Store a reference to the access token for direct access during deletion
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  // Store a reference to the session data for direct access during deletion
+  const [sessionData, setSessionData] = useState<any>(null);
   
-  // Extract the access token from the session when it loads
+  // Extract needed information from the session when it loads
   useEffect(() => {
-    if (session?.accessToken) {
-      setAccessToken(session.accessToken as string);
-      console.log('Access token saved from session');
+    if (session) {
+      // Store essential session data for account deletion
+      setSessionData({
+        email: session.user?.email,
+        accessToken: session.accessToken,
+        userId: session.user?.id
+      });
+      console.log('Session data saved for account deletion');
     }
   }, [session]);
   
@@ -35,20 +42,42 @@ export default function AdminBanner() {
     setDeleteStatus('loading');
     
     try {
+      // First, collect all the user information we might need for deletion
+      const userData = {
+        email: sessionData?.email || session?.user?.email,
+        userId: sessionData?.userId || session?.user?.id,
+        accessToken: sessionData?.accessToken || session?.accessToken
+      };
+      
+      console.log('User data collected for deletion:', {
+        hasEmail: !!userData.email,
+        hasUserId: !!userData.userId,
+        hasAccessToken: !!userData.accessToken
+      });
+      
       // 1. Delete user data from Firebase
       console.log('Step 1: Deleting user data from Firebase');
       console.log('About to fetch /api/delete-account');
+      
       const deleteDataResponse = await fetch('/api/delete-account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         // Add cache control to prevent potential caching issues in production
-        cache: 'no-store'
+        cache: 'no-store',
+        // Include user email as a fallback identifier
+        body: JSON.stringify({ email: userData.email, userId: userData.userId })
       });
       
-      const deleteDataResult = await deleteDataResponse.json();
-      console.log('Delete data response status:', deleteDataResponse.status, deleteDataResponse.ok);
+      let deleteDataResult;
+      try {
+        deleteDataResult = await deleteDataResponse.json();
+        console.log('Delete data response status:', deleteDataResponse.status, deleteDataResponse.ok);
+      } catch (e) {
+        console.error('Error parsing delete response:', e);
+        deleteDataResult = { error: 'Failed to parse response' };
+      }
       
       if (!deleteDataResponse.ok) {
         console.error('Failed to delete user data from Firebase:', deleteDataResult);
@@ -62,20 +91,17 @@ export default function AdminBanner() {
       console.log('Step 2: Revoking OAuth token with Google');
       console.log('About to fetch /api/auth/revoke');
       
-      // Add the access token to the request body for direct token revocation
-      // This helps when NextAuth session tokens aren't properly accessible in production
-      const tokenPayload: { accessToken?: string } = {};
+      // New approach: Instead of relying on the server to extract the token,
+      // we'll explicitly send all information we have from the client
+      const revokePayload = {
+        accessToken: userData.accessToken,
+        email: userData.email,
+        userId: userData.userId,
+        // Include a timestamp to prevent caching
+        timestamp: new Date().getTime()
+      };
       
-      // Check if we have the token from the session
-      if (accessToken) {
-        console.log('Using stored access token for revocation');
-        tokenPayload.accessToken = accessToken;
-      } else if (session?.accessToken) {
-        console.log('Using session access token for revocation');
-        tokenPayload.accessToken = session.accessToken as string;
-      } else {
-        console.log('No access token available from client side');
-      }
+      console.log('Sending revoke payload with token available:', !!revokePayload.accessToken);
       
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
@@ -84,7 +110,7 @@ export default function AdminBanner() {
         },
         // Add cache control to prevent potential caching issues in production
         cache: 'no-store',
-        body: JSON.stringify(tokenPayload)
+        body: JSON.stringify(revokePayload)
       });
       
       let revokeResult;
@@ -185,13 +211,15 @@ export default function AdminBanner() {
       console.log('Account deletion process completed successfully');
       setDeleteStatus('success');
       
-      // Turn off admin mode and reload page
+      // Turn off admin mode and redirect to home with a clean slate
       console.log('Preparing to redirect after successful deletion');
       setTimeout(() => {
         console.log('Executing redirect now');
         closeAdminMode();
-        // Use replace instead of setting href to ensure we break the history chain
-        window.location.replace('/');
+        
+        // Force a complete page reload instead of just a client-side navigation
+        // This ensures all state is completely cleared
+        window.location.replace('/?reload=' + new Date().getTime());
       }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
