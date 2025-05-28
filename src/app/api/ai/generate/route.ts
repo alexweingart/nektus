@@ -43,7 +43,7 @@ type ExtendedOpenAI = OpenAI & {
       prompt: string;
       n?: number;
       size?: '256x256' | '512x512' | '1024x1024' | '1024x1536' | '1536x1024' | '1792x1024' | '1024x1792' | 'auto';
-      quality?: 'standard' | 'hd' | 'medium';
+      quality?: 'low' | 'medium' | 'high' | 'auto';
     }) => Promise<{
       data: Array<{
         url: string;
@@ -112,11 +112,8 @@ try {
       };
       
       // Only add quality if it's a valid value
-      if (params.quality && ['standard', 'hd'].includes(params.quality)) {
+      if (params.quality && ['low', 'medium', 'high', 'auto'].includes(params.quality)) {
         requestBody.quality = params.quality;
-      } else if (params.quality === 'medium') {
-        // Map 'medium' to 'standard' if needed
-        requestBody.quality = 'standard';
       }
       
       const response = await fetch('https://api.openai.com/v1/images/generations', {
