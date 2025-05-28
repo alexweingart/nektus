@@ -16,7 +16,7 @@ interface ImageGenerationParams {
   n?: number;
   size?: CustomImageSize;
   response_format?: ResponseFormat;
-  quality?: 'standard' | 'hd';
+  quality?: 'low' | 'medium' | 'high' | 'auto';
   model?: string; // Making model optional since we'll set it in the wrapper
 }
 
@@ -119,7 +119,7 @@ try {
             // Pass size as a string directly to avoid type conflicts
             size: size, 
             n: params.n || 1,
-            quality: params.quality || 'standard'
+            quality: params.quality || 'high'
           };
           
           console.log('Generating image with params:', JSON.stringify(finalParams, null, 2));
@@ -537,7 +537,7 @@ async function generateBackground(profile: any) {
     const response = await openai.images.generate({
       prompt: safePrompt,
       size: '1024x1536',
-      quality: 'standard',
+      quality: 'high',
       model: 'gpt-image-1'
       // Note: response_format is not needed and not supported by gpt-image-1
     });
@@ -636,7 +636,7 @@ async function generateAvatar(profile: any) {
               `Use a clean, professional style with a solid color background. ` +
               `The image should be suitable for a professional networking context.`,
       size: '1024x1024',
-      quality: 'standard',
+      quality: 'high',
       model: 'gpt-image-1'
       // Note: response_format is not needed and not supported by gpt-image-1
     });
