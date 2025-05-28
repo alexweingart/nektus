@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { useAdminMode } from '../providers/AdminModeProvider';
@@ -12,6 +12,16 @@ export default function AdminBanner() {
   const { data: session, status } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // Store a reference to the access token for direct access during deletion
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  
+  // Extract the access token from the session when it loads
+  useEffect(() => {
+    if (session?.accessToken) {
+      setAccessToken(session.accessToken as string);
+      console.log('Access token saved from session');
+    }
+  }, [session]);
   
   // This component is conditionally rendered by ClientComponents when admin mode is active
 
@@ -51,13 +61,30 @@ export default function AdminBanner() {
       // 2. Revoke the OAuth token with Google - this is the critical step
       console.log('Step 2: Revoking OAuth token with Google');
       console.log('About to fetch /api/auth/revoke');
+      
+      // Add the access token to the request body for direct token revocation
+      // This helps when NextAuth session tokens aren't properly accessible in production
+      const tokenPayload: { accessToken?: string } = {};
+      
+      // Check if we have the token from the session
+      if (accessToken) {
+        console.log('Using stored access token for revocation');
+        tokenPayload.accessToken = accessToken;
+      } else if (session?.accessToken) {
+        console.log('Using session access token for revocation');
+        tokenPayload.accessToken = session.accessToken as string;
+      } else {
+        console.log('No access token available from client side');
+      }
+      
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         // Add cache control to prevent potential caching issues in production
-        cache: 'no-store'
+        cache: 'no-store',
+        body: JSON.stringify(tokenPayload)
       });
       
       let revokeResult;

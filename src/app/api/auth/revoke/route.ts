@@ -13,17 +13,44 @@ export async function POST(req: NextRequest) {
       authorization: requestHeaders.authorization ? '[REDACTED]' : undefined
     });
 
-    // Get the user's session token to extract their access token
+    // Production may handle cookies differently, so let's try alternative methods
     console.log('Attempting to get token from session');
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     
-    console.log('Token found:', !!token, 'Access token present:', !!(token?.accessToken));
+    // Try to parse the token from the request body first
+    let token = null;
+    let accessToken = null;
     
-    if (!token || !token.accessToken) {
-      console.error('No valid session or access token found');
+    try {
+      // First attempt: Get token from request body (client can send it directly)
+      const body = await req.json().catch(() => ({}));
+      if (body && body.accessToken) {
+        console.log('Found access token in request body');
+        accessToken = body.accessToken;
+      }
+    } catch (e) {
+      console.log('No token in request body:', e);
+    }
+    
+    // Second attempt: Get token from NextAuth
+    if (!accessToken) {
+      try {
+        token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+        console.log('Token from NextAuth:', !!token);
+        if (token?.accessToken) {
+          accessToken = token.accessToken;
+          console.log('Found access token in NextAuth token');
+        }
+      } catch (e) {
+        console.error('Error getting token from NextAuth:', e);
+      }
+    }
+    
+    // If we still don't have an access token, the user is not authenticated
+    if (!accessToken) {
+      console.error('No valid access token found through any method');
       return NextResponse.json(
         { 
-          error: "No valid session found", 
+          error: "No valid access token found", 
           environment: process.env.NODE_ENV,
           timestamp: new Date().toISOString()
         },
@@ -43,7 +70,7 @@ export async function POST(req: NextRequest) {
     
     console.log('Making request to Google to revoke token');  
     // Make the request to Google to revoke the token
-    const response = await fetch(`${revokeEndpoint}?token=${token.accessToken}`, {
+    const response = await fetch(`${revokeEndpoint}?token=${accessToken}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
