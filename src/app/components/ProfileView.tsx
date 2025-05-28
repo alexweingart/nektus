@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -54,7 +54,7 @@ type ExtendedUserProfile = UserProfile;
 
 const ProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile } = useProfile();
+  const { profile, saveProfile, generateBio, generateBackgroundImage } = useProfile();
   const [isLoading, setIsLoading] = useState(true);
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
@@ -106,163 +106,9 @@ const ProfileView: React.FC = () => {
   
   // State for UI
   const [bio, setBio] = useState<string>('');
-  
-  // Function to generate bio using AI
-  const generateBio = useCallback(async (profile: typeof localProfile) => {
-    try {
-      // Check if we have enough data to generate a meaningful bio
-      const hasSocialInfo = Object.values(profile.contactChannels).some(
-        (channel: any) => 
-          (channel.username && channel.username !== '') || 
-          (channel.email && channel.email !== '') ||
-          (channel.internationalPhone && channel.internationalPhone !== '')
-      );
 
-      if (!hasSocialInfo) return;
-
-      // Prepare the prompt data for ChatGPT
-      const promptData = {
-        type: 'bio',
-        profile: {
-          ...profile,
-          // Map the contact channels to the format expected by the API
-          facebookUsername: profile.contactChannels.facebook.username,
-          instagramUsername: profile.contactChannels.instagram.username,
-          xUsername: profile.contactChannels.x.username,
-          linkedinUsername: profile.contactChannels.linkedin.username,
-          snapchatUsername: profile.contactChannels.snapchat.username,
-          whatsappUsername: profile.contactChannels.whatsapp.username,
-          telegramUsername: profile.contactChannels.telegram.username,
-          wechatUsername: profile.contactChannels.wechat.username,
-          email: profile.contactChannels.email.email,
-          phone: profile.contactChannels.phoneInfo.internationalPhone,
-          name: profile.name,
-        },
-      };
-      
-      console.log('Sending request to generate bio with data:', JSON.stringify(promptData, null, 2));
-      
-      const response = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'bio',
-          profile: promptData
-        }),
-      });
-
-      let responseData;
-      let responseText;
-      
-      try {
-        responseText = await response.text();
-        responseData = responseText ? JSON.parse(responseText) : {};
-        console.log('API Response:', JSON.stringify(responseData, null, 2));
-      } catch (e: unknown) {
-        const error = e as Error;
-        console.error('Failed to parse JSON response:', error);
-        console.error('Raw response text:', responseText);
-        throw new Error(`Failed to parse API response: ${error.message}`);
-      }
-
-      if (!response.ok) {
-        console.error('API Error Response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseData
-        });
-        
-        const error = new Error(responseData?.error || `API request failed with status ${response.status}`);
-        (error as any).response = responseData;
-        throw error;
-      }
-
-      const generatedBio = responseData?.bio;
-      
-      if (!generatedBio) {
-        throw new Error('No bio was generated in the response');
-      }
-      
-      if (generatedBio) {
-        // First, get the current profile from localStorage to ensure we have the latest data
-        const currentProfile = localStorage.getItem('nektus_user_profile');
-        let profileToUpdate = profile;
-        
-        if (currentProfile) {
-          try {
-            // Parse the current profile and merge with the new bio
-            const parsedProfile = JSON.parse(currentProfile);
-            profileToUpdate = {
-              ...parsedProfile,
-              bio: generatedBio,
-              lastUpdated: Date.now()
-            };
-          } catch (e) {
-            console.error('Error parsing current profile:', e);
-            // If parsing fails, fall back to the current profile state
-            profileToUpdate = {
-              ...profile,
-              bio: generatedBio,
-              lastUpdated: Date.now()
-            };
-          }
-        } else {
-          // If no profile exists, create a new one with the bio
-          profileToUpdate = {
-            ...profile,
-            bio: generatedBio,
-            lastUpdated: Date.now()
-          };
-        }
-        
-        // Save the updated profile to localStorage
-        localStorage.setItem('nektus_user_profile', JSON.stringify(profileToUpdate));
-        
-        // Update the local state
-        setLocalProfile(profileToUpdate);
-        setBio(generatedBio);
-      }
-    } catch (err) {
-      // Handle different types of errors
-      const error = err as Error & {
-        response?: { data?: { details?: string } };
-        request?: any;
-      };
-      
-      // Log the error with type safety
-      console.error('Error generating bio:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        ...(error.response && { response: error.response }),
-        ...(error.request && { request: error.request }),
-      });
-      
-      // Get a user-friendly error message
-      const errorMessage = error.response?.data?.details || 
-                         error.message || 
-                         'Failed to generate bio. Please try again.';
-      
-      // Show error toast
-      toast.error(errorMessage);
-      
-      // Update loading state
-      setIsLoading(false);
-    }
-  }, [localProfile, profile]);
-
-  // Handle loading state
-  useEffect(() => {
-    if (profile) {
-      setIsLoading(false);
-    }
-  }, [profile]);
-
-  // Track if we've attempted to generate a bio
-  const hasGeneratedBio = React.useRef(false);
+  // Reference to track if we've loaded the bio in this session
+  const hasLoadedBio = useRef(false);
 
   // Handle loading state and bio generation
   useEffect(() => {
@@ -282,16 +128,14 @@ const ProfileView: React.FC = () => {
         if (currentProfile) {
           setLocalProfile(currentProfile);
           
-          // Set bio and background image if they exist
+          // Set bio from profile if it exists
           if (currentProfile.bio) {
             setBio(currentProfile.bio);
-          } else if (!hasGeneratedBio.current) {
-            // Only generate bio if we haven't tried before
-            hasGeneratedBio.current = true;
-            await generateBio(currentProfile);
+            hasLoadedBio.current = true;
+          } else {
+            // The bio will be generated by ProfileContext if needed
+            setBio(PLACEHOLDER_BIO);
           }
-          
-          // Background image is now handled by the ProfileProvider
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -302,7 +146,22 @@ const ProfileView: React.FC = () => {
 
     loadProfile();
   }, [profile]);
-  
+
+  // Effect to update bio state when profile changes
+  useEffect(() => {
+    if (profile?.bio && !hasLoadedBio.current) {
+      setBio(profile.bio);
+      hasLoadedBio.current = true;
+    }
+  }, [profile?.bio]);
+
+  // Handle loading state
+  useEffect(() => {
+    if (profile) {
+      setIsLoading(false);
+    }
+  }, [profile]);
+
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
     if (!phone) return '';

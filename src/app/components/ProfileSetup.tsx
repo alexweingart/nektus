@@ -26,7 +26,7 @@ export default function ProfileSetup() {
     },
   });
   
-  const { profile, saveProfile } = useProfile();
+  const { profile, saveProfile, generateBackgroundImage } = useProfile();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [digits, setDigits] = useState('');

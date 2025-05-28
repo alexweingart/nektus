@@ -147,7 +147,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Separate flags for tracking generation status in the current session
   const hasGeneratedBackground = useRef(false);
+  const hasGeneratedBio = useRef(false);
+  
+  // Session storage keys for tracking whether generation has been attempted across page refreshes
+  const BG_GENERATION_ATTEMPTED_KEY = 'nektus_bg_generation_attempted';
+  const BIO_GENERATION_ATTEMPTED_KEY = 'nektus_bio_generation_attempted';
 
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile> => {
@@ -377,7 +384,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   
   // Function to generate content if needed (bio and background)
   const generateContentIfNeeded = useCallback(async () => {
-    if (!profile || hasGeneratedBackground.current || !pathname) return;
+    if (!profile || !pathname) return;
     
     // Generate if we're on the setup page or profile view page
     const isProfileView = (pathname === '/' || pathname === '') && profile.name;
@@ -385,27 +392,45 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     
     if (isProfileView || isSetupPage) {
       try {
-        hasGeneratedBackground.current = true;
-        
-        // Generate background if missing
-        if (!profile.backgroundImage) {
-          console.log('No background image found, generating one...');
-          const imageUrl = await generateBackgroundImage(profile);
+        // Check if background image generation is needed
+        if (!profile.backgroundImage && !hasGeneratedBackground.current) {
+          // Check session storage to see if we've attempted generation before
+          const bgAttempted = localStorage.getItem(BG_GENERATION_ATTEMPTED_KEY);
           
-          if (imageUrl) {
-            console.log('Saving generated background image to profile');
-            await saveProfile({ ...profile, backgroundImage: imageUrl });
+          if (!bgAttempted) {
+            console.log('No background image found, generating one...');
+            hasGeneratedBackground.current = true;
+            
+            // Mark that we've attempted generation for this session
+            localStorage.setItem(BG_GENERATION_ATTEMPTED_KEY, 'true');
+            
+            const imageUrl = await generateBackgroundImage(profile);
+            
+            if (imageUrl) {
+              console.log('Saving generated background image to profile');
+              await saveProfile({ backgroundImage: imageUrl });
+            }
           }
         }
         
-        // Generate bio if missing
-        if (!profile.bio) {
-          console.log('No bio found, generating one...');
-          const bio = await generateBio(profile);
+        // Check if bio generation is needed
+        if (!profile.bio && !hasGeneratedBio.current) {
+          // Check session storage to see if we've attempted generation before
+          const bioAttempted = localStorage.getItem(BIO_GENERATION_ATTEMPTED_KEY);
           
-          if (bio) {
-            console.log('Saving generated bio to profile');
-            await saveProfile({ ...profile, bio: bio });
+          if (!bioAttempted) {
+            console.log('No bio found, generating one...');
+            hasGeneratedBio.current = true;
+            
+            // Mark that we've attempted generation for this session
+            localStorage.setItem(BIO_GENERATION_ATTEMPTED_KEY, 'true');
+            
+            const bio = await generateBio(profile);
+            
+            if (bio) {
+              console.log('Saving generated bio to profile');
+              await saveProfile({ bio });
+            }
           }
         }
       } catch (error) {
