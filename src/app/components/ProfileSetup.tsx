@@ -74,85 +74,91 @@ export default function ProfileSetup() {
 
   // Initialize profile on first load if it doesn't exist
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      setIsLoading(false);
-      
-      if (!profile) {
-        const userEmail = session.user.email || '';
+    const initializeProfile = async () => {
+      if (status === 'authenticated' && session?.user) {
+        setIsLoading(false);
         
-        // Store the Google image URL as-is without modification
-        const profileImage = session.user.image || '/default-avatar.png';
-        
-        // Extract username from email (everything before @) and sanitize it
-        const emailUsername = userEmail.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
-        
-        // Create initial profile with all required fields
-        const initialProfile: Partial<UserProfile> = {
-          name: session.user.name || '',
-          profileImage: profileImage,
-          bio: '',
-          backgroundImage: '/gradient-bg.jpg',
-          lastUpdated: Date.now(),
-          contactChannels: {
-            phoneInfo: {
-              internationalPhone: '',
-              nationalPhone: '',
-              userConfirmed: false
-            },
-            email: {
-              email: userEmail,
-              userConfirmed: true
-            },
-            // Social media with username from email
-            facebook: { 
-              username: emailUsername, 
-              url: emailUsername ? `https://facebook.com/${emailUsername}` : '', 
-              userConfirmed: false 
-            },
-            instagram: { 
-              username: emailUsername, 
-              url: emailUsername ? `https://instagram.com/${emailUsername}` : '', 
-              userConfirmed: false 
-            },
-            x: { 
-              username: emailUsername, 
-              url: emailUsername ? `https://x.com/${emailUsername}` : '', 
-              userConfirmed: false 
-            },
-            linkedin: { 
-              username: emailUsername, 
-              url: emailUsername ? `https://linkedin.com/in/${emailUsername}` : '', 
-              userConfirmed: false 
-            },
-            snapchat: { 
-              username: emailUsername, 
-              url: emailUsername ? `https://snapchat.com/add/${emailUsername}` : '', 
-              userConfirmed: false 
-            },
-            // Other services with empty defaults
-            whatsapp: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
-            },
-            telegram: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
-            },
-            wechat: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
+        if (!profile) {
+          const userEmail = session.user.email || '';
+          
+          // Store the Google image URL as-is without modification
+          const profileImage = session.user.image || '/default-avatar.png';
+          
+          // Extract username from email (everything before @) and sanitize it
+          const emailUsername = userEmail.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
+          
+          // Create initial profile with all required fields
+          const initialProfile: Partial<UserProfile> = {
+            name: session.user.name || '',
+            profileImage: profileImage,
+            bio: '',
+            backgroundImage: '/gradient-bg.jpg',
+            lastUpdated: Date.now(),
+            contactChannels: {
+              phoneInfo: {
+                internationalPhone: '',
+                nationalPhone: '',
+                userConfirmed: false
+              },
+              email: {
+                email: userEmail,
+                userConfirmed: true
+              },
+              // Social media with username from email
+              facebook: { 
+                username: emailUsername, 
+                url: emailUsername ? `https://facebook.com/${emailUsername}` : '', 
+                userConfirmed: false 
+              },
+              instagram: { 
+                username: emailUsername, 
+                url: emailUsername ? `https://instagram.com/${emailUsername}` : '', 
+                userConfirmed: false 
+              },
+              x: { 
+                username: emailUsername, 
+                url: emailUsername ? `https://x.com/${emailUsername}` : '', 
+                userConfirmed: false 
+              },
+              linkedin: { 
+                username: emailUsername, 
+                url: emailUsername ? `https://linkedin.com/in/${emailUsername}` : '', 
+                userConfirmed: false 
+              },
+              snapchat: { 
+                username: emailUsername, 
+                url: emailUsername ? `https://snapchat.com/add/${emailUsername}` : '', 
+                userConfirmed: false 
+              },
+              // Other services with empty defaults
+              whatsapp: { 
+                username: '', 
+                url: '', 
+                userConfirmed: false 
+              },
+              telegram: { 
+                username: '', 
+                url: '', 
+                userConfirmed: false 
+              },
+              wechat: { 
+                username: '', 
+                url: '', 
+                userConfirmed: false 
+              }
             }
-          }
-        };
-        
-        saveProfile(initialProfile);
+          };
+          
+          console.log('Saving initial profile:', initialProfile);
+          await saveProfile(initialProfile);
+          console.log('Profile should be saved now');
+        }
+      } else {
+        setIsLoading(false);
       }
-    } else {
-      setIsLoading(false);
-    }
+    };
+
+    initializeProfile();
   }, [status, session, profile, saveProfile]);
   
   // Load phone number if it exists in the profile

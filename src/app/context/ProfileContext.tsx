@@ -1,9 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
+import { toast } from 'react-hot-toast';
 
-// Define the structure of contact channels
+// Types
 type PhoneInfo = {
   internationalPhone: string;
   nationalPhone: string;
@@ -21,25 +22,13 @@ type SocialChannel = {
   userConfirmed: boolean;
 };
 
-// Function to generate a GUID
-const generateGuid = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
-
 export type UserProfile = {
-  // Basic profile info
-  userId: string; 
+  userId: string;
   name: string;
   bio: string;
   profileImage: string;
   backgroundImage: string;
   lastUpdated: number;
-  
-  // Contact channels
   contactChannels: {
     phoneInfo: PhoneInfo;
     email: EmailInfo;
@@ -54,23 +43,96 @@ export type UserProfile = {
   };
 };
 
-// Create a context for our profile data
 type ProfileContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
   saveProfile: (profileData: Partial<UserProfile>) => Promise<UserProfile | null>;
   clearProfile: () => Promise<void>;
+  generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
 };
 
-const ProfileContext = createContext<ProfileContextType>({
-  profile: null,
-  isLoading: true,
-  saveProfile: async () => null,
-  clearProfile: async () => {},
-});
+const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
+const STORAGE_KEY = 'nektus_user_profile';
+const DEFAULT_PROFILE_IMAGE = '/default-avatar.png';
 
-// Hook to use the profile context
-export const useProfile = () => {
+// Function to generate a GUID
+const generateGuid = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+// Function to create a default profile with empty strings
+const createDefaultProfile = (session?: any): UserProfile => {
+  const email = session?.user?.email || '';
+  // Sanitize the email username to only allow letters, numbers, dots, underscores, and hyphens
+  const emailUsername = email.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
+
+  return {
+    userId: generateGuid(),
+    name: session?.user?.name || '',
+    bio: '',
+    profileImage: '',
+    backgroundImage: '',
+    lastUpdated: Date.now(),
+    contactChannels: {
+      phoneInfo: {
+        internationalPhone: '',
+        nationalPhone: '',
+        userConfirmed: false
+      },
+      email: {
+        email: email,
+        userConfirmed: !!email
+      },
+      facebook: { 
+        username: emailUsername, 
+        url: emailUsername ? `https://facebook.com/${emailUsername}` : '', 
+        userConfirmed: false 
+      },
+      instagram: { 
+        username: emailUsername, 
+        url: emailUsername ? `https://instagram.com/${emailUsername}` : '', 
+        userConfirmed: false 
+      },
+      x: { 
+        username: emailUsername, 
+        url: emailUsername ? `https://x.com/${emailUsername}` : '', 
+        userConfirmed: false 
+      },
+      linkedin: { 
+        username: emailUsername, 
+        url: emailUsername ? `https://linkedin.com/in/${emailUsername}` : '', 
+        userConfirmed: false 
+      },
+      snapchat: { 
+        username: emailUsername, 
+        url: emailUsername ? `https://snapchat.com/add/${emailUsername}` : '', 
+        userConfirmed: false 
+      },
+      whatsapp: { 
+        username: '', 
+        url: '', 
+        userConfirmed: false 
+      },
+      telegram: { 
+        username: '', 
+        url: '', 
+        userConfirmed: false 
+      },
+      wechat: { 
+        username: '', 
+        url: '', 
+        userConfirmed: false 
+      }
+    }
+  };
+};
+
+// Export the hook to use the profile context
+export const useProfile = (): ProfileContextType => {
   const context = useContext(ProfileContext);
   if (context === undefined) {
     throw new Error('useProfile must be used within a ProfileProvider');
@@ -78,200 +140,126 @@ export const useProfile = () => {
   return context;
 };
 
-// Key for localStorage
-const STORAGE_KEY = 'nektus_user_profile';
-
-// Provider component that makes profile data available throughout the app
-export function ProfileProvider({ children }: { children: React.ReactNode }) {
+// Provider component
+export function ProfileProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const sessionEmail = session?.user?.email;
+  const hasGeneratedBackground = useRef(false);
 
   // Load profile from localStorage
-  const loadProfile = useCallback(async (userId: string) => {
-    setIsLoading(true);
+  const loadProfile = useCallback(async (): Promise<UserProfile> => {
     try {
-      const cachedProfile = localStorage.getItem(STORAGE_KEY);
-      if (cachedProfile) {
-        const parsed = JSON.parse(cachedProfile);
-        // Always use the existing userId from localStorage if it exists
-        const userIdToUse = parsed.userId || userId;
-        setProfile(parsed);
-        return parsed;
-      }
+      const storedData = localStorage.getItem(STORAGE_KEY);
       
-      // If no profile exists, create a new one
-      if (session?.user) {
-        const userEmail = session.user.email || '';
-        const usernameFromEmail = userEmail.split('@')[0] || '';
-        
-        // Check if we already have a userId in sessionStorage to maintain consistency
-        const existingUserId = sessionStorage.getItem('nektus_user_id') || generateGuid();
-        sessionStorage.setItem('nektus_user_id', existingUserId);
-        
-        const newProfile: UserProfile = {
-          userId: existingUserId,
-          name: session.user.name || 'New User',
-          bio: '',
-          profileImage: session.user.image || '/default-avatar.png',
-          backgroundImage: '',
-          lastUpdated: Date.now(),
-          contactChannels: {
-            phoneInfo: {
-              internationalPhone: '',
-              nationalPhone: '',
-              userConfirmed: false
-            },
-            email: {
-              email: userEmail,
-              userConfirmed: true
-            },
-            facebook: { 
-              username: usernameFromEmail, 
-              url: `https://facebook.com/${usernameFromEmail}`, 
-              userConfirmed: false 
-            },
-            instagram: { 
-              username: usernameFromEmail, 
-              url: `https://instagram.com/${usernameFromEmail}`, 
-              userConfirmed: false 
-            },
-            x: { 
-              username: usernameFromEmail, 
-              url: `https://x.com/${usernameFromEmail}`, 
-              userConfirmed: false 
-            },
-            whatsapp: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
-            },
-            snapchat: { 
-              username: usernameFromEmail, 
-              url: `https://snapchat.com/add/${usernameFromEmail}`, 
-              userConfirmed: false 
-            },
-            telegram: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
-            },
-            wechat: { 
-              username: '', 
-              url: '', 
-              userConfirmed: false 
-            },
-            linkedin: { 
-              username: usernameFromEmail, 
-              url: `https://linkedin.com/in/${usernameFromEmail}`, 
-              userConfirmed: false 
+      if (storedData) {
+        const parsedProfile = JSON.parse(storedData) as UserProfile;
+        let needsUpdate = false;
+
+        // Update profile with session data if available
+        if (session?.user) {
+          let profileChanged = false;
+          
+          if (session.user.image && parsedProfile.profileImage !== session.user.image) {
+            parsedProfile.profileImage = session.user.image;
+            profileChanged = true;
+          }
+          
+          if (session.user.name && parsedProfile.name !== session.user.name) {
+            parsedProfile.name = session.user.name;
+            profileChanged = true;
+          }
+          
+          if (session.user.email) {
+            // Update email if it's different
+            if (parsedProfile.contactChannels.email.email !== session.user.email) {
+              parsedProfile.contactChannels.email = {
+                email: session.user.email,
+                userConfirmed: true
+              };
+              profileChanged = true;
+            }
+            
+            // Initialize social media usernames from email if they're empty
+            const emailUsername = session.user.email.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
+            const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
+            
+            for (const platform of socialPlatforms) {
+              const channel = parsedProfile.contactChannels[platform];
+              if (channel && (!channel.username || channel.username === '')) {
+                channel.username = emailUsername;
+                // Only update URL if it's empty to preserve any custom URLs
+                if (!channel.url || channel.url === '') {
+                  channel.url = `https://${platform === 'x' ? 'x.com' : platform}${platform === 'linkedin' ? '/in/' : platform === 'snapchat' ? '/add/' : '/'}${emailUsername}`;
+                }
+                channel.userConfirmed = false;
+                profileChanged = true;
+              }
             }
           }
-        };
-        
-        setProfile(newProfile);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-        return newProfile;
+        }
+
+        // Ensure required fields are set
+        // Removed default profile image assignment to keep it as empty string
+
+        if (needsUpdate) {
+          parsedProfile.lastUpdated = Date.now();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedProfile));
+          console.log('Updated profile in localStorage:', parsedProfile);
+        }
+
+        setProfile(parsedProfile);
+        return parsedProfile;
       }
+
+      // Create new profile if none exists
+      const newProfile = createDefaultProfile(session);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+      setProfile(newProfile);
+      return newProfile;
     } catch (error) {
       console.error('Error loading profile:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-    return null;
   }, [session]);
 
   // Save profile to localStorage
-  const saveProfile = useCallback(async (profileData: Partial<UserProfile>) => {
-    if (!profile) return null;
-    
+  const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      // Debug log the incoming profile data
-      console.log('Saving profile with data:', {
-        incomingPhoneInfo: profileData.contactChannels?.phoneInfo,
-        existingPhoneInfo: profile.contactChannels.phoneInfo,
-        hasPhoneInfo: !!profileData.contactChannels?.phoneInfo,
-        profileDataKeys: Object.keys(profileData)
-      });
-
-      const updatedProfile = {
-        ...profile,
-        ...profileData,
-        lastUpdated: Date.now(),
-        contactChannels: {
-          ...profile.contactChannels, // Preserve all existing contact channels
-          ...(profileData.contactChannels || {}), // Apply updates
-          
-          // Ensure phone info is properly preserved
-          phoneInfo: {
-            ...profile.contactChannels.phoneInfo, // Keep existing phone info
-            ...(profileData.contactChannels?.phoneInfo || {}), // Apply updates
-            // Ensure we don't overwrite with empty strings
-            internationalPhone: profileData.contactChannels?.phoneInfo?.internationalPhone || profile.contactChannels.phoneInfo.internationalPhone,
-            nationalPhone: profileData.contactChannels?.phoneInfo?.nationalPhone || profile.contactChannels.phoneInfo.nationalPhone,
-            userConfirmed: profileData.contactChannels?.phoneInfo?.userConfirmed ?? profile.contactChannels.phoneInfo.userConfirmed
-          },
-          // Email
-          email: {
-            email: profileData.contactChannels?.email?.email ?? profile.contactChannels.email.email,
-            userConfirmed: profileData.contactChannels?.email?.userConfirmed ?? profile.contactChannels.email.userConfirmed
-          },
-          // Social channels
-          facebook: {
-            username: profileData.contactChannels?.facebook?.username ?? profile.contactChannels.facebook.username,
-            url: profileData.contactChannels?.facebook?.url ?? profile.contactChannels.facebook.url,
-            userConfirmed: profileData.contactChannels?.facebook?.userConfirmed ?? profile.contactChannels.facebook.userConfirmed
-          },
-          instagram: {
-            username: profileData.contactChannels?.instagram?.username ?? profile.contactChannels.instagram.username,
-            url: profileData.contactChannels?.instagram?.url ?? profile.contactChannels.instagram.url,
-            userConfirmed: profileData.contactChannels?.instagram?.userConfirmed ?? profile.contactChannels.instagram.userConfirmed
-          },
-          x: {
-            username: profileData.contactChannels?.x?.username ?? profile.contactChannels.x.username,
-            url: profileData.contactChannels?.x?.url ?? profile.contactChannels.x.url,
-            userConfirmed: profileData.contactChannels?.x?.userConfirmed ?? profile.contactChannels.x.userConfirmed
-          },
-          whatsapp: {
-            username: profileData.contactChannels?.whatsapp?.username ?? profile.contactChannels.whatsapp.username,
-            url: profileData.contactChannels?.whatsapp?.url ?? profile.contactChannels.whatsapp.url,
-            userConfirmed: profileData.contactChannels?.whatsapp?.userConfirmed ?? profile.contactChannels.whatsapp.userConfirmed
-          },
-          snapchat: {
-            username: profileData.contactChannels?.snapchat?.username ?? profile.contactChannels.snapchat.username,
-            url: profileData.contactChannels?.snapchat?.url ?? profile.contactChannels.snapchat.url,
-            userConfirmed: profileData.contactChannels?.snapchat?.userConfirmed ?? profile.contactChannels.snapchat.userConfirmed
-          },
-          telegram: {
-            username: profileData.contactChannels?.telegram?.username ?? profile.contactChannels.telegram.username,
-            url: profileData.contactChannels?.telegram?.url ?? profile.contactChannels.telegram.url,
-            userConfirmed: profileData.contactChannels?.telegram?.userConfirmed ?? profile.contactChannels.telegram.userConfirmed
-          },
-          wechat: {
-            username: profileData.contactChannels?.wechat?.username ?? profile.contactChannels.wechat.username,
-            url: profileData.contactChannels?.wechat?.url ?? profile.contactChannels.wechat.url,
-            userConfirmed: profileData.contactChannels?.wechat?.userConfirmed ?? profile.contactChannels.wechat.userConfirmed
-          },
-          linkedin: {
-            username: profileData.contactChannels?.linkedin?.username ?? profile.contactChannels.linkedin.username,
-            url: profileData.contactChannels?.linkedin?.url ?? profile.contactChannels.linkedin.url,
-            userConfirmed: profileData.contactChannels?.linkedin?.userConfirmed ?? profile.contactChannels.linkedin.userConfirmed
-          }
-        }
+      console.log('Saving profile with data:', profileData);
+      
+      // If we don't have an existing profile, create a default one first
+      const currentProfile = profile || createDefaultProfile(session);
+      
+      // Deep merge contactChannels to preserve any existing values
+      const mergedContactChannels = {
+        ...currentProfile.contactChannels,
+        ...(profileData.contactChannels || {})
       };
       
-      setProfile(updatedProfile);
+      // Create the updated profile with proper merging
+      const updatedProfile: UserProfile = {
+        ...currentProfile,
+        ...profileData,
+        lastUpdated: Date.now(),
+        profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
+        contactChannels: mergedContactChannels
+      };
+      
+      console.log('Saving updated profile to localStorage:', updatedProfile);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
+      setProfile(updatedProfile);
       return updatedProfile;
     } catch (error) {
       console.error('Error saving profile:', error);
-      return null;
+      throw error;
     }
   }, [profile]);
 
   // Clear profile from localStorage
-  const clearProfile = useCallback(async () => {
+  const clearProfile = useCallback(async (): Promise<void> => {
     try {
       localStorage.removeItem(STORAGE_KEY);
       setProfile(null);
@@ -280,26 +268,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load profile when session changes
-  useEffect(() => {
-    if (sessionEmail) {
-      loadProfile(sessionEmail);
-    } else {
-      setProfile(null);
-      setIsLoading(false);
+  // Generate background image
+  const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    try {
+      // Implementation for generating background image
+      return null;
+    } catch (error) {
+      console.error('Error generating background image:', error);
+      return null;
     }
-  }, [sessionEmail, loadProfile]);
+  }, []);
 
-  // Memoize the context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    profile,
-    isLoading,
-    saveProfile,
-    clearProfile
-  }), [profile, isLoading, saveProfile, clearProfile]);
+  // Load profile on mount and when session changes
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   return (
-    <ProfileContext.Provider value={contextValue}>
+    <ProfileContext.Provider
+      value={{
+        profile,
+        isLoading,
+        saveProfile,
+        clearProfile,
+        generateBackgroundImage
+      }}
+    >
       {children}
     </ProfileContext.Provider>
   );
