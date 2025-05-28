@@ -20,18 +20,21 @@ export default function AdminBanner() {
       return;
     }
 
-    console.log('Starting account deletion process');
+    console.log('Starting account deletion process', { env: process.env.NODE_ENV, isProduction: process.env.NODE_ENV === 'production' });
     setIsDeleting(true);
     setDeleteStatus('loading');
     
     try {
       // 1. Delete user data from Firebase
       console.log('Step 1: Deleting user data from Firebase');
+      console.log('About to fetch /api/delete-account');
       const deleteDataResponse = await fetch('/api/delete-account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        // Add cache control to prevent potential caching issues in production
+        cache: 'no-store'
       });
       
       const deleteDataResult = await deleteDataResponse.json();
@@ -47,11 +50,14 @@ export default function AdminBanner() {
       
       // 2. Revoke the OAuth token with Google - this is the critical step
       console.log('Step 2: Revoking OAuth token with Google');
+      console.log('About to fetch /api/auth/revoke');
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        // Add cache control to prevent potential caching issues in production
+        cache: 'no-store'
       });
       
       let revokeResult;
@@ -153,12 +159,21 @@ export default function AdminBanner() {
       setDeleteStatus('success');
       
       // Turn off admin mode and reload page
+      console.log('Preparing to redirect after successful deletion');
       setTimeout(() => {
+        console.log('Executing redirect now');
         closeAdminMode();
-        window.location.href = '/';
-      }, 1000);
+        // Use replace instead of setting href to ensure we break the history chain
+        window.location.replace('/');
+      }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
+      // Log more detailed error information
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       setDeleteStatus('error');
       setIsDeleting(false);
     }
@@ -187,7 +202,11 @@ export default function AdminBanner() {
       
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button
-          onClick={handleDeleteAccount}
+          onClick={(e) => {
+            e.preventDefault();
+            console.log('Delete account button clicked');
+            handleDeleteAccount();
+          }}
           disabled={isDeleting}
           style={{
             backgroundColor: 'white',
