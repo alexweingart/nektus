@@ -98,7 +98,7 @@ const EditProfile: React.FC = () => {
     const name = profileData.name || session?.user?.name || '';
     const email = profileData.contactChannels?.email?.email || session?.user?.email || '';
     const picture = profileData.profileImage || session?.user?.image || '/default-avatar.png';
-    const backgroundImage = profileData.backgroundImage || '/gradient-bg.jpg';
+    const backgroundImage = profileData.backgroundImage || '';
     
     // Initialize social profiles from contactChannels
     const socialProfiles: Array<SocialProfile & { filled?: boolean }> = [];
@@ -376,12 +376,41 @@ const EditProfile: React.FC = () => {
               // Automatically trigger click on mobile
               document.getElementById('avatar-upload')?.click();
             }}>
-              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300">
-                <img 
-                  src={formData.picture || '/default-avatar.png'} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300 relative">
+                {formData.picture ? (
+                  <>
+                    <img 
+                      src={formData.picture} 
+                      alt="Profile" 
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.style.display = 'none';
+                        const fallback = document.getElementById('edit-avatar-fallback');
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                      onLoad={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.opacity = '1';
+                      }}
+                      style={{
+                        opacity: 0,
+                        transition: 'opacity 0.3s ease-in-out'
+                      }}
+                    />
+                    <div 
+                      id="edit-avatar-fallback"
+                      className="w-full h-full flex items-center justify-center bg-white hidden"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-gray-100"></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-white">
+                    <div className="w-6 h-6 rounded-full bg-gray-100"></div>
+                  </div>
+                )}
               </div>
               <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
                 <MdEdit size={8} />

@@ -34,8 +34,13 @@ try {
   }
   
   // Initialize the OpenAI client
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
+  
   const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey,
     baseURL: 'https://api.openai.com/v1',
     defaultQuery: { 'api-version': '2024-02-15-preview' },
     defaultHeaders: { 
@@ -49,7 +54,11 @@ try {
     ...client,
     responses: {
       create: async (params: any) => {
-        const response = await fetch('https://api.openai.com/v1/responses', {
+        if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not set in environment variables');
+    }
+    
+    const response = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -114,7 +123,49 @@ function extractSocialLinks(profile: any): string | null {
   return socialLinks.length > 0 ? socialLinks.join('\n') : null;
 }
 
+// Handle background image generation specifically
 export async function POST(request: NextRequest) {
+  try {
+    const requestBody = await request.json();
+    const { type, profile } = requestBody;
+    
+    if (!type) {
+      return NextResponse.json(
+        { error: 'Type parameter is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Profile data is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Route to the appropriate generator based on type
+    switch (type) {
+      case 'background':
+        return await generateBackground(profile);
+      case 'bio':
+        return await generateBio(profile);
+      // Add other generation types here
+      default:
+        return NextResponse.json(
+          { error: `Invalid generation type: ${type}` },
+          { status: 400 }
+        );
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error in generation endpoint:', errorMessage);
+    return NextResponse.json(
+      { error: `Failed to process generation request: ${errorMessage}` },
+      { status: 500 }
+    );
+  }
+
+  // Original POST handler for other generation types
   const requestId = Math.random().toString(36).substring(2, 8);
   const requestStartTime = Date.now();
   
@@ -223,11 +274,12 @@ export async function POST(request: NextRequest) {
       case 'bio':
         try {
           return await generateBio(profile);
-        } catch (error) {
-          console.error('Bio generation error:', error);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error('Bio generation error:', errorMessage);
           return NextResponse.json({ 
             error: 'Failed to generate bio',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            details: errorMessage
           }, { status: 500 });
         }
       case 'background':
@@ -240,15 +292,16 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error) {
+  } catch (error: unknown) {
     const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
     const errorStack = error instanceof Error ? error.stack : undefined;
     
     const errorDetails = {
       errorId,
       message: errorMessage,
-      name: error instanceof Error ? error.name : 'UnknownError',
+      name: errorName,
       stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
       timestamp: new Date().toISOString(),
       requestId,
@@ -485,7 +538,7 @@ async function generateBio(profile: any) {
   }
 }
 
-async function generateBackground(profile: any) {
+export async function generateBackground(profile: any) {
   try {
     // Log the start of background generation
     console.log('Starting background image generation for profile:', {
@@ -526,8 +579,8 @@ async function generateBackground(profile: any) {
       model: 'gpt-image-1',
       prompt: safePrompt,
       n: 1,
-      size: '1024x1536' as any, // Type assertion to bypass TypeScript error for gpt-image-1 model
-      quality: 'medium',
+      size: '1024x1024',
+      response_format: 'b64_json'
     });
 
     // Log the raw response for debugging
@@ -535,37 +588,46 @@ async function generateBackground(profile: any) {
       hasData: !!response.data,
       dataLength: response.data?.length,
       firstItem: response.data?.[0] ? { 
-        hasUrl: !!response.data[0].url,
+        hasB64Json: !!response.data[0].b64_json,
         keys: Object.keys(response.data[0])
       } : 'no items'
     }, null, 2));
 
-    // Check if we got a valid image URL
-    const imageUrl = response.data?.[0]?.url;
+    // Check if we got a valid base64 image
+    const imageB64 = response.data?.[0]?.b64_json;
+    if (!imageB64) {
+      throw new Error('No base64 image data in response');
+    }
+    
+    // Convert base64 to data URL
+    const imageUrl = `data:image/png;base64,${imageB64}`;
     
     if (!imageUrl) {
       const errorMessage = 'No image URL in response from OpenAI API';
       console.error(errorMessage, 'Response structure:', JSON.stringify(response, null, 2));
       return NextResponse.json({ 
-        imageUrl: null,
+        success: false,
         error: errorMessage,
         responseStructure: JSON.stringify(response, null, 2)
       }, { status: 500 });
     }
     
-    console.log('Successfully generated background image');
+    console.log('Successfully generated background image:', imageUrl);
     
-    // Return the generated image URL
+    // Return the generated image URL in a consistent format
     return NextResponse.json({ 
-      imageUrl,
-      generated: true 
+      success: true,
+      data: {
+        imageUrl: imageUrl
+      }
     });
     
-  } catch (error) {
-    console.error('Background generation error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Background generation error:', errorMessage);
     return NextResponse.json({ 
       imageUrl: null,
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      error: `Background generation failed: ${errorMessage}`
     });
   }
 }
@@ -600,16 +662,23 @@ async function generateAvatar(profile: any) {
     
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: `Create a stylized, artistic profile picture based on the essence of a person named ${profile.name}. 
-      The image should be a professional, friendly avatar suitable for a social network. 
-      It should be a portrait-style image with a clean background. 
-      Ensure the design is simple, recognizable, and approachable`,
+      prompt: `Create a professional profile picture for ${profile.name || 'a user'}. ` +
+              `The image should be a simple, abstract, and modern avatar. ` +
+              `Use a clean, professional style with a solid color background. ` +
+              `The image should be suitable for a professional networking context.`,
       n: 1,
       size: '1024x1024',
-      quality: 'medium',
+      response_format: 'b64_json'
     });
 
-    const avatarUrl = response.data && response.data[0] && response.data[0].url ? response.data[0].url : (profile.picture || '/default-avatar.png');
+    // Check if we got a valid base64 image
+    const imageB64 = response.data?.[0]?.b64_json;
+    if (!imageB64) {
+      throw new Error('No base64 image data in response');
+    }
+    
+    // Convert base64 to data URL
+    const avatarUrl = `data:image/png;base64,${imageB64}`;
     
     // Temporarily disabled Firestore save
     // if (profile.userId) {

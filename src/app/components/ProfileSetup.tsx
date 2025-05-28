@@ -92,7 +92,7 @@ export default function ProfileSetup() {
             name: session.user.name || '',
             profileImage: profileImage,
             bio: '',
-            backgroundImage: '/gradient-bg.jpg',
+            backgroundImage: '',
             lastUpdated: Date.now(),
             contactChannels: {
               phoneInfo: {
@@ -243,7 +243,7 @@ export default function ProfileSetup() {
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-6"
       style={{
-        backgroundImage: 'url(/gradient-bg.jpg)',
+        backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import Avatar from './ui/Avatar';
 import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
 import { toast } from 'react-hot-toast';
@@ -57,16 +58,20 @@ const ProfileView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
-  const [localProfile, setLocalProfile] = useState<UserProfile>({
+  // Initialize local profile with session data if available
+  const [localProfile, setLocalProfile] = useState<UserProfile>(() => ({
     userId: `user-${Date.now()}`,
-    name: 'New User',
+    name: session?.user?.name || 'New User',
     bio: '',
-    profileImage: '/default-avatar.png',
+    profileImage: session?.user?.image || '/default-avatar.png',
     backgroundImage: '',
     lastUpdated: Date.now(),
     contactChannels: {
       phoneInfo: { internationalPhone: '', nationalPhone: '', userConfirmed: false },
-      email: { email: '', userConfirmed: false },
+      email: { 
+        email: session?.user?.email || '', 
+        userConfirmed: !!session?.user?.email 
+      },
       facebook: { username: '', url: '', userConfirmed: false },
       instagram: { username: '', url: '', userConfirmed: false },
       x: { username: '', url: '', userConfirmed: false },
@@ -76,11 +81,31 @@ const ProfileView: React.FC = () => {
       wechat: { username: '', url: '', userConfirmed: false },
       linkedin: { username: '', url: '', userConfirmed: false }
     }
-  });
+  }));
+
+  // Update local profile when the context profile changes
+  useEffect(() => {
+    if (profile) {
+      setLocalProfile(prev => ({
+        ...prev,
+        ...profile,
+        // Ensure we have a profile image
+        profileImage: profile.profileImage || session?.user?.image || '/default-avatar.png',
+        contactChannels: {
+          ...prev.contactChannels,
+          ...profile.contactChannels,
+          // Ensure email is properly set from session
+          email: {
+            ...prev.contactChannels.email,
+            ...(profile.contactChannels?.email || {})
+          }
+        }
+      }));
+    }
+  }, [profile, session]);
   
   // State for UI
   const [bio, setBio] = useState<string>('');
-  const [bgImage, setBgImage] = useState<string>('/gradient-bg.jpg');
   
   // Function to generate bio using AI
   const generateBio = useCallback(async (profile: typeof localProfile) => {
@@ -122,7 +147,10 @@ const ProfileView: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(promptData),
+        body: JSON.stringify({
+          type: 'bio',
+          profile: promptData
+        }),
       });
 
       let responseData;
@@ -174,7 +202,7 @@ const ProfileView: React.FC = () => {
             };
           } catch (e) {
             console.error('Error parsing current profile:', e);
-            // Fallback to the passed profile if parsing fails
+            // If parsing fails, fall back to the current profile state
             profileToUpdate = {
               ...profile,
               bio: generatedBio,
@@ -263,9 +291,7 @@ const ProfileView: React.FC = () => {
             await generateBio(currentProfile);
           }
           
-          if (currentProfile.backgroundImage) {
-            setBgImage(currentProfile.backgroundImage);
-          }
+          // Background image is now handled by the ProfileProvider
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -306,7 +332,7 @@ const ProfileView: React.FC = () => {
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-6"
       style={{
-        backgroundImage: `url(${bgImage})`,
+        ...(localProfile.backgroundImage ? { backgroundImage: `url(${localProfile.backgroundImage})` } : { backgroundColor: '#f4f9f4' }),
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -317,11 +343,11 @@ const ProfileView: React.FC = () => {
       <div className="w-full max-w-md flex flex-col items-center">
         {/* Profile Image */}
         <div className="mb-4">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
-            <img 
-              src={localProfile.profileImage} 
-              alt={localProfile.name} 
-              className="w-full h-full object-cover"
+          <div className="border-4 border-white shadow-lg rounded-full">
+            <Avatar 
+              src={profile?.profileImage || localProfile?.profileImage} 
+              alt={profile?.name || localProfile?.name || 'Profile'}
+              size="lg"
             />
           </div>
         </div>

@@ -8,7 +8,6 @@ import Image from 'next/image';
 import { useProfile } from '../context/ProfileContext';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp, 
          FaSnapchat, FaTelegram, FaLinkedin, FaPen, FaExclamation, FaMagic } from 'react-icons/fa';
-import { BluetoothConnector } from '../utils/bluetooth';
 
 // Single instructional placeholder bio
 const PLACEHOLDER_BIO = "AI will create a bio here for you, or tap edit profile to write your own";
@@ -62,7 +61,7 @@ const generateAIBackground = async (profile: any) => {
     return data.imageUrl;
   } catch (error) {
     console.error('Error generating background:', error);
-    return '/gradient-bg.jpg';
+    return ''; // Return empty string to indicate no background
   }
 };
 
@@ -135,7 +134,6 @@ export default function ConnectPage() {
   const [bio, setBio] = useState<string>('');
   const [bgImage, setBgImage] = useState<string>('/gradient-bg.jpg');
   const [avatarImage, setAvatarImage] = useState<string>('/default-avatar.png');
-  const [bluetoothConnector, setBluetoothConnector] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
   // Redirect to login if not authenticated
@@ -181,30 +179,10 @@ export default function ConnectPage() {
     }
   }, [profile]);
   
-  // Initialize Bluetooth connector
-  useEffect(() => {
-    if (profile) {
-      const connector = new BluetoothConnector(
-        (connected: boolean) => {}, // Connection handler
-        (data: any) => {}  // Data handler
-      );
-      setBluetoothConnector(connector);
-      
-      return () => {
-        if (connector) {
-          connector.disconnect();
-        }
-      };
-    }
-  }, [profile]);
-  
-  // Handle Nekt button click - start Bluetooth scanning
+  // Handle Nekt button click
   const handleNektClick = () => {
-    if (bluetoothConnector && bluetoothConnector.isSupported()) {
-      bluetoothConnector.startScanning();
-    } else {
-      alert('Bluetooth is not supported on this device');
-    }
+    // TODO: Implement Nekt functionality
+    console.log('Nekt button clicked');
   };
   
   // Show loading state while checking authentication or profile

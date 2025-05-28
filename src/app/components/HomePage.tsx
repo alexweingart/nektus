@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './AdminBanner';
-import { getOrCreateUserId } from '../utils/bluetooth';
 
 // Standard button style shared across the application
 const standardButtonStyle = {
@@ -28,12 +27,8 @@ const standardButtonStyle = {
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
-  // Ensure user ID is created on initial load
+  // Prevent scrolling on welcome screen
   useEffect(() => {
-    // This will create a user ID if one doesn't exist
-    getOrCreateUserId();
-    
-    // Prevent scrolling on welcome screen
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
@@ -96,8 +91,6 @@ const HomePage: React.FC = () => {
         
         <button 
           onClick={() => {
-            // Set flag to indicate we want to focus the phone input after redirect
-            sessionStorage.setItem("wantsPhoneFocus", "1");
             // We'll use the auth callback to determine where to go
             // Redirect back to profile setup after Google auth so new users can complete onboarding
             signIn('google', { callbackUrl: '/setup' });

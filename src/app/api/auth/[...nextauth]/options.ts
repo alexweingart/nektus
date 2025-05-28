@@ -105,10 +105,15 @@ export const authOptions: AuthOptions = {
       console.log('Sign in callback:', { user, account, profile });
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
       // Initial sign in
       if (account && user) {
-        console.log('JWT callback:', { token, user, account });
+        console.log('JWT callback:', { token, user, account, profile });
+        
+        // Use the profile picture from Google if available
+        const googleImage = (profile as any)?.picture || (profile as any)?.image;
+        const userImage = googleImage || user.image;
+        
         return {
           ...token,
           accessToken: account.access_token,
@@ -117,7 +122,7 @@ export const authOptions: AuthOptions = {
             id: user.id,
             name: user.name,
             email: user.email,
-            image: user.image
+            image: userImage
           }
         };
       }
@@ -126,7 +131,13 @@ export const authOptions: AuthOptions = {
     
     async session({ session, token }) {
       if (token.user) {
-        session.user = token.user;
+        session.user = {
+          ...session.user,
+          id: token.user.id,
+          name: token.user.name,
+          email: token.user.email,
+          image: token.user.image // Ensure the image is passed through
+        };
         session.accessToken = token.accessToken;
       }
       return session;

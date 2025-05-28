@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 
@@ -271,8 +272,43 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Generate background image
   const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
-      // Implementation for generating background image
-      return null;
+      // Only proceed if we have a valid profile with userId
+      if (!profile?.userId) {
+        console.error('Cannot generate background: Invalid profile or missing userId');
+        return null;
+      }
+
+      console.log('Generating background image for profile:', profile.userId);
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          type: 'background',
+          profile 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to generate background:', response.status, errorText);
+        throw new Error(`Failed to generate background: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Log the entire response for debugging
+      console.log('Background generation response:', JSON.stringify(result, null, 2));
+      
+      // Check if the request was successful and has the expected data structure
+      if (!result.success || !result.data?.imageUrl) {
+        console.error('Failed to generate background image:', result.error || 'Unknown error');
+        throw new Error(result.error || 'Failed to generate background image');
+      }
+
+      console.log('Generated background image URL:', result.data.imageUrl);
+      return result.data.imageUrl;
     } catch (error) {
       console.error('Error generating background image:', error);
       return null;
@@ -281,8 +317,44 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   // Load profile on mount and when session changes
   useEffect(() => {
-    loadProfile();
+    const initializeProfile = async () => {
+      await loadProfile();
+    };
+    initializeProfile();
   }, [loadProfile]);
+
+  // Get the current pathname using the usePathname hook
+  const pathname = usePathname();
+  
+  // Function to generate background image if needed
+  const generateBackgroundIfNeeded = useCallback(async () => {
+    if (!profile || hasGeneratedBackground.current || !pathname) return;
+    
+    // Only generate if we're on the profile view page (which has a profile name) and background is empty
+    const isProfileView = (pathname === '/' || pathname === '') && profile.name;
+    
+    if (isProfileView && !profile.backgroundImage) {
+      try {
+        console.log('No background image found, generating one...');
+        hasGeneratedBackground.current = true;
+        const imageUrl = await generateBackgroundImage(profile);
+        
+        if (imageUrl) {
+          console.log('Saving generated background image to profile');
+          await saveProfile({ ...profile, backgroundImage: imageUrl });
+        }
+      } catch (error) {
+        console.error('Failed to generate background image:', error);
+      }
+    }
+  }, [profile, pathname, generateBackgroundImage, saveProfile]);
+  
+  // Generate background image when profile loads and has no background
+  useEffect(() => {
+    if (profile && !isLoading) {
+      generateBackgroundIfNeeded();
+    }
+  }, [profile, isLoading, generateBackgroundIfNeeded]);
 
   return (
     <ProfileContext.Provider
