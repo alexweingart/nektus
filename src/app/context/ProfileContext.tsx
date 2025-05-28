@@ -157,7 +157,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // No need for localStorage keys as we use in-memory refs
 
   // Load profile from localStorage
-  const loadProfile = useCallback(async (): Promise<UserProfile> => {
+  const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
       const storedData = localStorage.getItem(STORAGE_KEY);
       
@@ -234,6 +234,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, [session]);
 
+  // Ref to persist bio between profile saves
+  const persistedBioRef = useRef<string>('');
+
   // Save profile to localStorage
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
@@ -242,11 +245,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         profileDataKeys: Object.keys(profileData),
         hasBio: 'bio' in profileData,
         bioValue: profileData.bio,
-        currentBio: profile?.bio
+        currentBio: profile?.bio,
+        persistedBio: persistedBioRef.current || '[none]'
       }));
       
       // If we don't have an existing profile, create a default one first
       const currentProfile = profile || createDefaultProfile(session);
+
+      // Store any non-empty bio in our ref for persistence across operations
+      if (currentProfile.bio && currentProfile.bio.trim() !== '') {
+        persistedBioRef.current = currentProfile.bio;
+        console.log('Storing non-empty bio in ref:', currentProfile.bio);
+      }
       
       // Deep merge contactChannels to preserve any existing values
       const mergedContactChannels = {
@@ -254,39 +264,60 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         ...(profileData.contactChannels || {})
       };
       
-      // FIXED BIO PRESERVATION LOGIC
-      // 1. If the update contains a non-empty bio, use it
-      // 2. If the update contains an empty bio but the current profile has a non-empty bio, keep the current bio
-      // 3. Otherwise, keep the current bio regardless of whether bio is in the update data
-      // This ensures we never lose a bio regardless of how saveProfile is called
-      let bioToUse = currentProfile.bio || '';
+      // IMPROVED BIO PRESERVATION LOGIC
+      // Use highest priority non-empty bio source in this order:
+      // 1. New non-empty bio from profileData update
+      // 2. Existing non-empty bio from current profile
+      // 3. Previously persisted non-empty bio from ref
+      // 4. Empty string as last resort
+      let bioToUse = '';
       
-      // Only override the existing bio if the update contains an explicitly set non-empty bio
       if ('bio' in profileData && profileData.bio && profileData.bio.trim() !== '') {
+        // Case 1: New non-empty bio from update - use it and store in ref
         bioToUse = profileData.bio;
+        persistedBioRef.current = bioToUse;
+        console.log('Using new bio from update:', bioToUse);
+      } else if (currentProfile.bio && currentProfile.bio.trim() !== '') {
+        // Case 2: Current profile has non-empty bio - preserve it
+        bioToUse = currentProfile.bio;
+        console.log('Preserving existing bio from profile:', bioToUse);
+      } else if (persistedBioRef.current && persistedBioRef.current.trim() !== '') {
+        // Case 3: Fall back to our persisted ref if available
+        bioToUse = persistedBioRef.current;
+        console.log('Restoring bio from persistence ref:', bioToUse);
+      } else {
+        // Case 4: No bio found anywhere, use empty string
+        console.log('No bio found in any source, using empty string');
       }
       
-      // Create the updated profile with proper merging
+      // Create the updated profile with proper merging but EXPLICITLY keep our bio
       const updatedProfile: UserProfile = {
         ...currentProfile,
         ...profileData,
-        bio: bioToUse,  // Always use our preserved bio value
+        // CRITICAL: Override any potential empty bio with our preserved value
+        bio: bioToUse,
         lastUpdated: Date.now(),
         profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
         contactChannels: mergedContactChannels
       };
+      
+      // If we managed to preserve a non-empty bio, also update our ref
+      if (bioToUse && bioToUse.trim() !== '') {
+        persistedBioRef.current = bioToUse;
+      }
       
       // Enhanced debug log for bio changes
       console.log('Bio processing:', {
         before: currentProfile.bio || '[empty]',
         bioInUpdate: 'bio' in profileData,
         updateBioValue: profileData.bio || '[empty]',
+        persistedBioRef: persistedBioRef.current || '[empty]',
         bioToUse: bioToUse || '[empty]',
         final: updatedProfile.bio || '[empty]',
-        bioWasPreserved: bioToUse === currentProfile.bio
+        bioWasPreserved: bioToUse !== '' && bioToUse === (currentProfile.bio || persistedBioRef.current)
       });
       
-      console.log('Profile saved successfully');
+      console.log('Profile saved successfully with bio:', updatedProfile.bio || '[empty]');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
       setProfile(updatedProfile);
       return updatedProfile;
@@ -294,7 +325,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       console.error('Error saving profile:', error);
       throw error;
     }
-  }, [profile]);
+  }, [profile, session]);
 
   // Clear profile from localStorage
   const clearProfile = useCallback(async (): Promise<void> => {
@@ -425,50 +456,95 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         console.log('Initial profile state before content generation:', {
           hasBio: Boolean(profile.bio),
           bioLength: profile.bio?.length || 0,
-          hasBackgroundImage: Boolean(profile.backgroundImage)
+          hasBackgroundImage: Boolean(profile.backgroundImage),
+          persistedBio: persistedBioRef.current || '[none]'
         });
         
-        // Check if background image generation is needed
-        if (!profile.backgroundImage && !hasGeneratedBackground.current) {
+        // Ensure we have the latest profile state for operations
+        const currentProfile = await loadProfile();
+        
+        // Guard against null profile
+        if (!currentProfile) {
+          console.error('Failed to load profile, aborting content generation');
+          return;
+        }
+        
+        // Process operations in sequence to avoid race conditions
+        let updatedProfile = currentProfile;
+        
+        // Step 1: Generate background image if needed
+        if (!updatedProfile.backgroundImage && !hasGeneratedBackground.current) {
           console.log('No background image found, generating one...');
           hasGeneratedBackground.current = true;
           
-          const imageUrl = await generateBackgroundImage(profile);
-          
-          if (imageUrl) {
-            console.log('Saving generated background image to profile');
-            // Create a proper update object that explicitly includes the current bio
-            // This ensures the bio won't be overwritten when saving the background image
-            const updateData = {
-              backgroundImage: imageUrl,
-              bio: profile.bio || '' // Explicitly preserve the current bio value
-            };
-            console.log('Background image update data:', updateData);
-            await saveProfile(updateData);
+          try {
+            const imageUrl = await generateBackgroundImage(updatedProfile);
+            
+            if (imageUrl) {
+              console.log('Background image generated successfully:', imageUrl);
+              
+              // Make sure we're not losing any existing bio
+              const existingBio = updatedProfile.bio || persistedBioRef.current || '';
+              
+              // Create an update object with ONLY the background image change
+              // We'll explicitly preserve the bio in the saveProfile function
+              console.log('Saving generated background image to profile with bio:', existingBio || '[empty]');
+              const result = await saveProfile({
+                backgroundImage: imageUrl,
+                // Including bio here helps the saveProfile function prioritize it
+                bio: existingBio
+              });
+              
+              // Update our reference if the save was successful
+              if (result) {
+                updatedProfile = result;
+              }
+            }
+          } catch (bgError) {
+            console.error('Error generating background image:', bgError);
           }
         }
         
-        // Check if bio generation is needed - do this AFTER background image generation
-        // to ensure the bio doesn't get overwritten
-        if (!profile.bio && !hasGeneratedBio.current) {
+        // Step 2: Generate bio if needed - only AFTER handling background
+        // This ensures bio generation won't be overwritten by background image saving
+        if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
+            !hasGeneratedBio.current && 
+            !persistedBioRef.current) {
           console.log('No bio found, generating one...');
           hasGeneratedBio.current = true;
           
-          const bio = await generateBio(profile);
-          
-          if (bio) {
-            console.log('Saving generated bio to profile');
-            // Only update the bio property
-            await saveProfile({ bio });
+          try {
+            const generatedBio = await generateBio(updatedProfile);
+            
+            if (generatedBio) {
+              console.log('Bio generated successfully:', generatedBio);
+              // Update both the profile and our persistence ref
+              persistedBioRef.current = generatedBio;
+              // Use a separate save call to avoid mixing with background image updates
+              await saveProfile({ bio: generatedBio });
+            }
+          } catch (bioError) {
+            console.error('Error generating bio:', bioError);
           }
         }
         
-        // Log the final state after content generation
-        console.log('Final profile state after content generation:', {
-          hasBio: Boolean(profile.bio),
-          bioLength: profile.bio?.length || 0,
-          hasBackgroundImage: Boolean(profile.backgroundImage)
-        });
+        // Log the final state after all content generation
+        const finalProfile = await loadProfile();
+        
+        // Handle null case for final profile
+        if (finalProfile) {
+          console.log('Final profile state after content generation:', {
+            hasBio: Boolean(finalProfile.bio),
+            bioLength: finalProfile.bio?.length || 0,
+            bioContent: finalProfile.bio || '[empty]',
+            hasBackgroundImage: Boolean(finalProfile.backgroundImage),
+            persistedBio: persistedBioRef.current || '[none]'
+          });
+        } else {
+          console.log('Final profile is null after content generation', {
+            persistedBio: persistedBioRef.current || '[none]'
+          });
+        }
       } catch (error) {
         console.error('Failed to generate content (bio or background):', error);
       }
