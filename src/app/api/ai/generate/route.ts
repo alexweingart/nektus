@@ -108,13 +108,14 @@ try {
           const size = params.size || '1024x1024';
           
           // Remove size from params to avoid type conflicts
-          const { size: _, ...restParams } = params;
+          const { size: _, response_format: __, ...restParams } = params;
           
-          // Ensure we're using correct model and proper response format
+          // Ensure we're using correct model and parameters compatible with gpt-image-1
           const finalParams = {
             ...restParams,
             model: params.model || 'gpt-image-1',
-            response_format: 'b64_json' as const,
+            // Remove response_format as it's not supported with gpt-image-1
+            // The API now returns b64_json by default
             // Pass size as a string directly to avoid type conflicts
             size: size, 
             n: params.n || 1,
@@ -532,11 +533,13 @@ async function generateBackground(profile: any) {
     console.log('Using safe prompt for background image generation');
     
     console.log('Sending request to OpenAI with prompt:', safePrompt);
+    console.log('Generating background image with gpt-image-1 model');
     const response = await openai.images.generate({
       prompt: safePrompt,
       size: '1024x1536',
       quality: 'standard',
       model: 'gpt-image-1'
+      // Note: response_format is not needed and not supported by gpt-image-1
     });
 
     // Log the raw response for debugging
@@ -626,13 +629,16 @@ async function generateAvatar(profile: any) {
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
+    console.log('Generating avatar with gpt-image-1 model');
     const response = await openai.images.generate({
       prompt: `Create a professional profile picture for ${profile.name || 'a user'}. ` +
               `The image should be a simple, abstract, and modern avatar. ` +
               `Use a clean, professional style with a solid color background. ` +
               `The image should be suitable for a professional networking context.`,
       size: '1024x1024',
-      quality: 'standard'
+      quality: 'standard',
+      model: 'gpt-image-1'
+      // Note: response_format is not needed and not supported by gpt-image-1
     });
 
     // Check if we got a valid base64 image
