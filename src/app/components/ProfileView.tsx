@@ -217,6 +217,12 @@ const ProfileView: React.FC = () => {
     }
   }, [profile]);
 
+  // Memoize the bio content to prevent re-renders
+  // Important: This must be before any conditional returns to avoid breaking React's rules of hooks
+  const bioContent = useMemo(() => {
+    return bio || getPlaceholderBio();
+  }, [bio]);
+
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
     if (!phone) return '';
@@ -241,11 +247,6 @@ const ProfileView: React.FC = () => {
       </div>
     );
   }
-  
-  // Memoize the bio content to prevent re-renders
-  const bioContent = useMemo(() => {
-    return bio || getPlaceholderBio();
-  }, [bio]);
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-6">
