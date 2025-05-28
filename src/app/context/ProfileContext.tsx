@@ -444,116 +444,134 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   
   // Function to generate content if needed (bio and background)
   const generateContentIfNeeded = useCallback(async () => {
-    if (!profile || !pathname) return;
+    // Skip if no profile, pathname, or we're still loading
+    if (!profile || !pathname || isLoading) {
+      console.log('Skipping content generation: missing profile, pathname, or still loading');
+      return;
+    }
     
-    // Generate if we're on the setup page or profile view page
-    const isProfileView = (pathname === '/' || pathname === '') && profile.name;
-    const isSetupPage = pathname.includes('/setup') || pathname.includes('/components/ProfileSetup');
+    // Skip if not on a user-facing page
+    if (pathname.startsWith('/admin') || pathname.startsWith('/api')) {
+      console.log('Skipping content generation: not on a user-facing page');
+      return;
+    }
     
-    if (isProfileView || isSetupPage) {
-      try {
-        // Log the initial state of the profile for debugging
-        console.log('Initial profile state before content generation:', {
-          hasBio: Boolean(profile.bio),
-          bioLength: profile.bio?.length || 0,
-          hasBackgroundImage: Boolean(profile.backgroundImage),
+    // Skip if we've already tried to generate both background and bio
+    if (hasGeneratedBackground.current && hasGeneratedBio.current) {
+      console.log('Skipping content generation: already attempted both background and bio generation');
+      return;
+    }
+    
+    try {
+      // Log initial profile state for debugging (once)
+      console.log('Initial profile state before content generation:', {
+        hasBio: Boolean(profile.bio),
+        bioLength: profile.bio?.length || 0,
+        hasBackgroundImage: Boolean(profile.backgroundImage),
+        persistedBio: persistedBioRef.current || '[none]'
+      });
+      
+      // Ensure we have the latest profile state for operations
+      const currentProfile = await loadProfile();
+      
+      // Guard against null profile
+      if (!currentProfile) {
+        console.error('Failed to load profile, aborting content generation');
+        return;
+      }
+      
+      // Process operations in sequence to avoid race conditions
+      let updatedProfile: UserProfile = currentProfile;
+      
+      // Step 1: Generate background image if needed
+      if (!updatedProfile.backgroundImage && !hasGeneratedBackground.current) {
+        console.log('No background image found, generating one...');
+        hasGeneratedBackground.current = true;
+        
+        try {
+          const imageUrl = await generateBackgroundImage(updatedProfile);
+          
+          if (imageUrl) {
+            console.log('Background image generated successfully:', imageUrl);
+            
+            // Make sure we're not losing any existing bio
+            const existingBio = updatedProfile.bio || persistedBioRef.current || '';
+            
+            // Create an update object with ONLY the background image change
+            // We'll explicitly preserve the bio in the saveProfile function
+            console.log('Saving generated background image to profile with bio:', existingBio || '[empty]');
+            const result = await saveProfile({
+              backgroundImage: imageUrl,
+              // Including bio here helps the saveProfile function prioritize it
+              bio: existingBio
+            });
+            
+            // Update our reference if the save was successful
+            if (result) {
+              updatedProfile = result;
+            }
+          }
+        } catch (bgError) {
+          console.error('Error generating background image:', bgError);
+        }
+      }
+      
+      // Step 2: Generate bio if needed - only AFTER handling background
+      // This ensures bio generation won't be overwritten by background image saving
+      if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
+          !hasGeneratedBio.current && 
+          !persistedBioRef.current) {
+        console.log('No bio found, generating one...');
+        hasGeneratedBio.current = true;
+        
+        try {
+          const generatedBio = await generateBio(updatedProfile);
+          
+          if (generatedBio) {
+            console.log('Bio generated successfully:', generatedBio);
+            // Update both the profile and our persistence ref
+            persistedBioRef.current = generatedBio;
+            // Use a separate save call to avoid mixing with background image updates
+            await saveProfile({ bio: generatedBio });
+          }
+        } catch (bioError) {
+          console.error('Error generating bio:', bioError);
+        }
+      }
+      
+      // Log the final state after all content generation
+      const finalProfile = await loadProfile();
+      
+      // Handle null case for final profile
+      if (finalProfile) {
+        console.log('Final profile state after content generation:', {
+          hasBio: Boolean(finalProfile.bio),
+          bioLength: finalProfile.bio?.length || 0,
+          bioContent: finalProfile.bio || '[empty]',
+          hasBackgroundImage: Boolean(finalProfile.backgroundImage),
           persistedBio: persistedBioRef.current || '[none]'
         });
-        
-        // Ensure we have the latest profile state for operations
-        const currentProfile = await loadProfile();
-        
-        // Guard against null profile
-        if (!currentProfile) {
-          console.error('Failed to load profile, aborting content generation');
-          return;
-        }
-        
-        // Process operations in sequence to avoid race conditions
-        let updatedProfile = currentProfile;
-        
-        // Step 1: Generate background image if needed
-        if (!updatedProfile.backgroundImage && !hasGeneratedBackground.current) {
-          console.log('No background image found, generating one...');
-          hasGeneratedBackground.current = true;
-          
-          try {
-            const imageUrl = await generateBackgroundImage(updatedProfile);
-            
-            if (imageUrl) {
-              console.log('Background image generated successfully:', imageUrl);
-              
-              // Make sure we're not losing any existing bio
-              const existingBio = updatedProfile.bio || persistedBioRef.current || '';
-              
-              // Create an update object with ONLY the background image change
-              // We'll explicitly preserve the bio in the saveProfile function
-              console.log('Saving generated background image to profile with bio:', existingBio || '[empty]');
-              const result = await saveProfile({
-                backgroundImage: imageUrl,
-                // Including bio here helps the saveProfile function prioritize it
-                bio: existingBio
-              });
-              
-              // Update our reference if the save was successful
-              if (result) {
-                updatedProfile = result;
-              }
-            }
-          } catch (bgError) {
-            console.error('Error generating background image:', bgError);
-          }
-        }
-        
-        // Step 2: Generate bio if needed - only AFTER handling background
-        // This ensures bio generation won't be overwritten by background image saving
-        if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
-            !hasGeneratedBio.current && 
-            !persistedBioRef.current) {
-          console.log('No bio found, generating one...');
-          hasGeneratedBio.current = true;
-          
-          try {
-            const generatedBio = await generateBio(updatedProfile);
-            
-            if (generatedBio) {
-              console.log('Bio generated successfully:', generatedBio);
-              // Update both the profile and our persistence ref
-              persistedBioRef.current = generatedBio;
-              // Use a separate save call to avoid mixing with background image updates
-              await saveProfile({ bio: generatedBio });
-            }
-          } catch (bioError) {
-            console.error('Error generating bio:', bioError);
-          }
-        }
-        
-        // Log the final state after all content generation
-        const finalProfile = await loadProfile();
-        
-        // Handle null case for final profile
-        if (finalProfile) {
-          console.log('Final profile state after content generation:', {
-            hasBio: Boolean(finalProfile.bio),
-            bioLength: finalProfile.bio?.length || 0,
-            bioContent: finalProfile.bio || '[empty]',
-            hasBackgroundImage: Boolean(finalProfile.backgroundImage),
-            persistedBio: persistedBioRef.current || '[none]'
-          });
-        } else {
-          console.log('Final profile is null after content generation', {
-            persistedBio: persistedBioRef.current || '[none]'
-          });
-        }
-      } catch (error) {
-        console.error('Failed to generate content (bio or background):', error);
+      } else {
+        console.log('Final profile is null after content generation', {
+          persistedBio: persistedBioRef.current || '[none]'
+        });
       }
+    } catch (error) {
+      console.error('Failed to generate content (bio or background):', error);
     }
-  }, [profile, pathname, generateBackgroundImage, generateBio, saveProfile]);
+  }, [profile, pathname, isLoading, generateBackgroundImage, generateBio, saveProfile, loadProfile]);
   
   // Generate background image when profile loads and has no background
+  // Using a ref to track whether we've already initiated content generation for this profile
+  const contentGenerationInitiated = useRef(false);
+  
   useEffect(() => {
-    if (profile && !isLoading) {
+    // Only attempt to generate content if:
+    // 1. We have a profile
+    // 2. We're not loading
+    // 3. We haven't already initiated content generation for this profile instance
+    if (profile && !isLoading && !contentGenerationInitiated.current) {
+      contentGenerationInitiated.current = true;
       generateContentIfNeeded();
     }
   }, [profile, isLoading, generateContentIfNeeded]);
