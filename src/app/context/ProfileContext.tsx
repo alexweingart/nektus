@@ -237,7 +237,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Save profile to localStorage
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      // Single log for profile saves
+      // Enhanced logging for profile saves
+      console.log('saveProfile called with:', JSON.stringify({
+        profileDataKeys: Object.keys(profileData),
+        hasBio: 'bio' in profileData,
+        bioValue: profileData.bio,
+        currentBio: profile?.bio
+      }));
       
       // If we don't have an existing profile, create a default one first
       const currentProfile = profile || createDefaultProfile(session);
@@ -256,6 +262,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
         contactChannels: mergedContactChannels
       };
+      
+      // Debug log for bio changes
+      if ('bio' in profileData || currentProfile.bio) {
+        console.log('Bio change:', {
+          before: currentProfile.bio,
+          new: profileData.bio,
+          final: updatedProfile.bio
+        });
+      }
       
       console.log('Profile saved successfully');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
