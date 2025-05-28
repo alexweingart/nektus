@@ -7,13 +7,14 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 // import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Custom types for our extended OpenAI client
-type ImageSize = '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+// Define our custom sizes which may include ones not supported natively by the OpenAI SDK
+type CustomImageSize = '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792' | '1024x1536';
 type ResponseFormat = 'url' | 'b64_json';
 
 interface ImageGenerationParams {
   prompt: string;
   n?: number;
-  size?: ImageSize;
+  size?: CustomImageSize;
   response_format?: ResponseFormat;
   quality?: 'standard' | 'hd';
   model?: string; // Making model optional since we'll set it in the wrapper
@@ -103,18 +104,27 @@ try {
       ...customClient.images,
       async generate(params: ImageGenerationParams) {
         try {
-          // Ensure we're using gpt-image-1 and proper response format
+          // Extract the size parameter before creating finalParams
+          const size = params.size || '1024x1024';
+          
+          // Remove size from params to avoid type conflicts
+          const { size: _, ...restParams } = params;
+          
+          // Ensure we're using correct model and proper response format
           const finalParams = {
-            ...params,
-            model: 'gpt-image-1',
+            ...restParams,
+            model: params.model || 'gpt-image-1',
             response_format: 'b64_json' as const,
-            size: (params.size || '1024x1024') as ImageSize,
+            // Pass size as a string directly to avoid type conflicts
+            size: size, 
             n: params.n || 1,
             quality: params.quality || 'standard'
           };
           
+          console.log('Generating image with params:', JSON.stringify(finalParams, null, 2));
+          
           // Call the underlying implementation
-          const response = await customClient.images.generate(finalParams);
+          const response = await customClient.images.generate(finalParams as any);
           return response;
         } catch (error) {
           console.error('Error in image generation:', error);
@@ -524,8 +534,9 @@ async function generateBackground(profile: any) {
     console.log('Sending request to OpenAI with prompt:', safePrompt);
     const response = await openai.images.generate({
       prompt: safePrompt,
-      size: '1024x1024',
-      quality: 'standard'
+      size: '1024x1536',
+      quality: 'standard',
+      model: 'gpt-image-1'
     });
 
     // Log the raw response for debugging
