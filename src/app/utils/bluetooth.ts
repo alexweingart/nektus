@@ -39,23 +39,51 @@ interface BluetoothDevice {
   removeEventListener(type: string, listener: EventListener): void;
 }
 
-// Generate a unique ID for the user
-export const generateUserId = (): string => {
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
+// Generate a UUID v4
+const generateUUID = (): string => {
+  // @ts-ignore - crypto.randomUUID is available in all modern browsers
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    // @ts-ignore
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers or non-browser environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 };
 
 // Store the user ID persistently
-export const getUserId = (): string => {
+export const getOrCreateUserId = (): string => {
   if (typeof window !== 'undefined') {
-    let userId = localStorage.getItem('nektus-user-id');
+    // Check if we already have a user ID in local storage
+    let userId = localStorage.getItem('nektus_user_id');
+    
+    // If no user ID exists, generate a new one and store it
     if (!userId) {
-      userId = generateUserId();
+      userId = generateUUID();
+      localStorage.setItem('nektus_user_id', userId);
+    }
+    
+    // For backward compatibility, also set the old key
+    if (!localStorage.getItem('nektus-user-id')) {
       localStorage.setItem('nektus-user-id', userId);
     }
+    
     return userId;
   }
-  return generateUserId(); // Fallback for SSR
+  
+  // For server-side rendering, return a placeholder
+  return 'temp-user-id';
+};
+
+// Alias for backward compatibility
+export const getUserId = getOrCreateUserId;
+
+// Generate a unique ID for the user (deprecated - use getOrCreateUserId instead)
+export const generateUserId = (): string => {
+  return getOrCreateUserId();
 };
 
 // Class to handle Bluetooth functionality

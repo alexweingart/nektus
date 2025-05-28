@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './AdminBanner';
+import { getOrCreateUserId } from '../utils/bluetooth';
 
 // Standard button style shared across the application
 const standardButtonStyle = {
@@ -27,8 +28,12 @@ const standardButtonStyle = {
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
-  // Prevent scrolling on welcome screen
+  // Ensure user ID is created on initial load
   useEffect(() => {
+    // This will create a user ID if one doesn't exist
+    getOrCreateUserId();
+    
+    // Prevent scrolling on welcome screen
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
