@@ -541,8 +541,8 @@ async function generateBackground(profile: any) {
             text: `Generate a prompt for creating a background image for a user with the following bio: ${profile.bio || 'No bio available'}.
             The background should be simple and abstract, but still relate to the personal details of the person.
             ${profile.profileImage ? 'The user has a profile picture, so suggest colors that would be complementary to it.' : 'Use a professional color palette.'}
-            The style should be minimal, modern, and suitable for a professional profile background.
-            No text, people, or recognizable objects should be in the image.
+            The style should be minimal, modern, and suitable for a profile background.
+            No text or people should be in the image.
             Return only the prompt text, nothing else.`
           }
         ]
@@ -560,9 +560,12 @@ async function generateBackground(profile: any) {
     };
 
     console.log('Sending prompt generation request to OpenAI');
+    console.log('Request params:', JSON.stringify(promptRequestParams, null, 2));
     
     // Call GPT-4.1 to generate a personalized prompt
     const promptResponse = await openai.responses.create(promptRequestParams);
+    
+    console.log('Raw GPT-4.1 response received:', JSON.stringify(promptResponse, null, 2));
     
     // Extract the generated prompt from the response
     let customPrompt = '';
