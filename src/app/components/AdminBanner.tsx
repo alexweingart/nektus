@@ -138,12 +138,23 @@ export default function AdminBanner() {
       
       // 4. Clear all NextAuth cookies
       console.log('Step 4: Clearing all NextAuth cookies');
+      // Clear all cookies, not just next-auth ones
+      console.log('Clearing all cookies...');
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
-        if (name.includes('next-auth')) {
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-          console.log(`Cleared cookie: ${name}`);
+        // Clear cookie with multiple path variations to ensure complete removal
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        // Also try with domain attribute for cross-subdomain cookies
+        const domain = window.location.hostname;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${domain};`;
+        // Handle potential www subdomain
+        if (domain.startsWith('www.')) {
+          const rootDomain = domain.substring(4);
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${rootDomain};`;
+        } else {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${domain};`;
         }
+        console.log(`Cleared cookie: ${name}`);
       });
       
       // More thorough localStorage cleanup
