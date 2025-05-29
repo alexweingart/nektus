@@ -51,6 +51,7 @@ type ProfileContextType = {
   clearProfile: () => Promise<void>;
   generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
   generateBio: (profile: UserProfile) => Promise<string | null>;
+  generateProfileImage: (profile: UserProfile) => Promise<string | null>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -143,6 +144,48 @@ export const useProfile = (): ProfileContextType => {
 };
 
 // Provider component
+// Add a function to generate profile image (avatar)
+const generateProfileImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
+  try {
+    // Only proceed if we have a valid profile with userId
+    if (!profile?.userId) {
+      console.error('Cannot generate profile image: Invalid profile or missing userId');
+      return null;
+    }
+
+    console.log('Generating profile image for profile:', profile.userId);
+    const response = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        type: 'avatar',
+        profile 
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to generate profile image:', response.status, errorText);
+      throw new Error(`Failed to generate profile image: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.imageUrl) {
+      console.error('Failed to generate profile image: No imageUrl in response');
+      throw new Error('Failed to generate profile image');
+    }
+
+    console.log('Generated profile image URL:', result.imageUrl);
+    return result.imageUrl;
+  } catch (error) {
+    console.error('Error generating profile image:', error);
+    return null;
+  }
+}, []);
+
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -151,10 +194,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Separate flags for tracking generation status in the current session
   const hasGeneratedBackground = useRef(false);
   const hasGeneratedBio = useRef(false);
-  
-  // Session storage keys for tracking whether generation has been attempted across page refreshes
-  // We'll use the in-memory refs to track generation attempts
-  // No need for localStorage keys as we use in-memory refs
+  const hasGeneratedProfileImage = useRef(false);
+  const bioGenerationComplete = useRef(false);
 
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
@@ -442,7 +483,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Get the current pathname using the usePathname hook
   const pathname = usePathname();
   
-  // Function to generate content if needed (bio and background)
+  // Function to generate content if needed (bio, profile image, and background)
   const generateContentIfNeeded = useCallback(async () => {
     // Skip if no profile, pathname, or we're still loading
     if (!profile || !pathname || isLoading) {
@@ -456,9 +497,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Skip if we've already tried to generate both background and bio
-    if (hasGeneratedBackground.current && hasGeneratedBio.current) {
-      console.log('Skipping content generation: already attempted both background and bio generation');
+    // Check if user is signed in (required for all generation)
+    if (!session?.user) {
+      console.log('Skipping content generation: user not signed in');
       return;
     }
     
@@ -467,6 +508,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       console.log('Initial profile state before content generation:', {
         hasBio: Boolean(profile.bio),
         bioLength: profile.bio?.length || 0,
+        hasProfileImage: Boolean(profile.profileImage),
         hasBackgroundImage: Boolean(profile.backgroundImage),
         persistedBio: persistedBioRef.current || '[none]'
       });
@@ -483,9 +525,82 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // Process operations in sequence to avoid race conditions
       let updatedProfile: UserProfile = currentProfile;
       
-      // Step 1: Generate background image if needed
-      if (!updatedProfile.backgroundImage && !hasGeneratedBackground.current) {
-        console.log('No background image found, generating one...');
+      // Step 1: Generate bio if needed
+      // Only when: signed in, bio is empty, and no attempt this session
+      if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
+          !hasGeneratedBio.current) {
+        console.log('No bio found, generating one...');
+        hasGeneratedBio.current = true;
+        
+        try {
+          const generatedBio = await generateBio(updatedProfile);
+          
+          if (generatedBio) {
+            console.log('Bio generated successfully:', generatedBio);
+            // Update both the profile and our persistence ref
+            persistedBioRef.current = generatedBio;
+            // Use a separate save call to avoid mixing with other updates
+            const result = await saveProfile({ bio: generatedBio });
+            if (result) {
+              updatedProfile = result;
+            }
+          }
+        } catch (bioError) {
+          console.error('Error generating bio:', bioError);
+        } finally {
+          // Mark bio generation as complete whether it succeeded or failed
+          bioGenerationComplete.current = true;
+        }
+      } else {
+        // If bio already exists or was attempted, mark as complete
+        bioGenerationComplete.current = true;
+      }
+      
+      // Step 2: Generate profile image if needed
+      // Only when: signed in, profileImage is empty, and no attempt this session
+      if (!updatedProfile.profileImage && !hasGeneratedProfileImage.current) {
+        console.log('No profile image found, generating one...');
+        hasGeneratedProfileImage.current = true;
+        
+        try {
+          // Call the API and pass the profile data
+          const response = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              type: 'avatar',
+              profile: updatedProfile 
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to generate profile image: ${response.statusText}`);
+          }
+          
+          const result = await response.json();
+          
+          if (result.imageUrl) {
+            console.log('Profile image generated successfully');
+            const imageResult = await saveProfile({
+              profileImage: result.imageUrl
+            });
+            if (imageResult) {
+              updatedProfile = imageResult;
+            }
+          }
+        } catch (avatarError) {
+          console.error('Error generating profile image:', avatarError);
+        }
+      }
+      
+      // Step 3: Generate background image if needed
+      // Only when: bio generation is completed (success or failure) and no attempt this session
+      if (!updatedProfile.backgroundImage && 
+          !hasGeneratedBackground.current && 
+          bioGenerationComplete.current) {
+        console.log('No background image found and bio generation complete, generating background...');
         hasGeneratedBackground.current = true;
         
         try {
@@ -505,37 +620,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               // Including bio here helps the saveProfile function prioritize it
               bio: existingBio
             });
-            
-            // Update our reference if the save was successful
-            if (result) {
-              updatedProfile = result;
-            }
           }
         } catch (bgError) {
           console.error('Error generating background image:', bgError);
-        }
-      }
-      
-      // Step 2: Generate bio if needed - only AFTER handling background
-      // This ensures bio generation won't be overwritten by background image saving
-      if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
-          !hasGeneratedBio.current && 
-          !persistedBioRef.current) {
-        console.log('No bio found, generating one...');
-        hasGeneratedBio.current = true;
-        
-        try {
-          const generatedBio = await generateBio(updatedProfile);
-          
-          if (generatedBio) {
-            console.log('Bio generated successfully:', generatedBio);
-            // Update both the profile and our persistence ref
-            persistedBioRef.current = generatedBio;
-            // Use a separate save call to avoid mixing with background image updates
-            await saveProfile({ bio: generatedBio });
-          }
-        } catch (bioError) {
-          console.error('Error generating bio:', bioError);
         }
       }
       
@@ -584,7 +671,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         saveProfile,
         clearProfile,
         generateBackgroundImage,
-        generateBio
+        generateBio,
+        generateProfileImage
       }}
     >
       {children}

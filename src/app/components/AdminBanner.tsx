@@ -146,17 +146,20 @@ export default function AdminBanner() {
         }
       });
       
-      // Clear all storage to ensure complete cleanup
-      console.log('Step 5: Clearing all storage items');
+      // More thorough localStorage cleanup
+      console.log('Clearing localStorage');
+      console.log(`Found ${localStorage.length} items in localStorage`);
       
-      // Clear localStorage completely to ensure a clean slate
-      console.log('Clearing all localStorage items');
       try {
-        // First, try to clear everything at once
-        localStorage.clear();
+        // First collect all dynamically found keys
+        const dynamicKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) dynamicKeys.push(key);
+        }
         
-        // Then also explicitly target known keys to be extra thorough
-        const localStorageKeys = [
+        // Also include known keys we want to explicitly target
+        const knownKeys = [
           // NextAuth related
           'next-auth.session-token',
           'next-auth.callback-url',
@@ -174,16 +177,23 @@ export default function AdminBanner() {
           'profile'
         ];
         
-        // Clear known keys individually
-        localStorageKeys.forEach(key => localStorage.removeItem(key));
+        // Clear all collected keys
+        console.log(`Clearing ${dynamicKeys.length} dynamic keys and ${knownKeys.length} known keys`);
+        [...dynamicKeys, ...knownKeys].forEach(key => {
+          console.log(`Removing localStorage key: ${key}`);
+          localStorage.removeItem(key);
+        });
         
-        // Also clear any keys with nektus or auth in their names
+        // Also do a general sweep for any keys with specific patterns
         Object.keys(localStorage).forEach(key => {
           if (key.includes('nektus') || key.includes('auth') || key.includes('profile') || key.includes('token')) {
-            console.log(`Removing localStorage key: ${key}`);
+            console.log(`Removing pattern-matched localStorage key: ${key}`);
             localStorage.removeItem(key);
           }
         });
+        
+        // Final clear for good measure
+        localStorage.clear();
       } catch (e) {
         console.error('Error during localStorage clearing:', e);
       }
@@ -260,15 +270,28 @@ export default function AdminBanner() {
       console.log('Account deletion process completed successfully');
       setDeleteStatus('success');
       
+      // Unregister any service workers to prevent cached resources
+      if (navigator.serviceWorker) {
+        console.log('Unregistering service workers');
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.unregister();
+            console.log('Service worker unregistered');
+          }
+        }).catch(err => {
+          console.error('Error unregistering service workers:', err);
+        });
+      }
+
       // Turn off admin mode and redirect to home with a clean slate
       console.log('Preparing to redirect after successful deletion');
       setTimeout(() => {
         console.log('Executing redirect now');
         closeAdminMode();
         
-        // Force a complete page reload with a hard navigation (not just a replace)
-        // This ensures all state is completely cleared and triggers a fresh auth flow
-        window.location.href = '/';
+        // Force a complete page reload with cache busting
+        // The random timestamp prevents any cached state from being used
+        window.location.href = `/?nocache=${Date.now()}`;
       }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
