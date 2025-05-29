@@ -590,17 +590,31 @@ async function generateBackground(profile: any) {
     // Extract the generated prompt from the response
     let customPrompt = '';
     
-    // Check if responseData.text exists and use that
-    if (responseData.text) {
+    // Handle various response formats from the OpenAI API
+    if (typeof responseData.text === 'string') {
+      // Direct text property (string)
       customPrompt = responseData.text.trim();
-    } else {
-      // Fallback to looking for the assistant's response if text property not available
-      const assistantResponse = responseData.output?.find((item: any) => item.role === 'assistant');
+    } else if (responseData.text && typeof responseData.text.value === 'string') {
+      // Nested text.value property
+      customPrompt = responseData.text.value.trim();
+    } else if (responseData.output && Array.isArray(responseData.output)) {
+      // Try to find the assistant's response in the output array
+      const assistantResponse = responseData.output.find((item: any) => item.role === 'assistant');
       if (assistantResponse?.content) {
-        const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
+        // Try to find text content in the assistant's response
+        const textContent = assistantResponse.content.find((c: any) => 
+          c.type === 'output_text' || c.type === 'text');
         if (textContent?.text) {
           customPrompt = textContent.text.trim();
         }
+      }
+    } else if (responseData.choices && Array.isArray(responseData.choices) && responseData.choices.length > 0) {
+      // Handle format from completion API
+      const choice = responseData.choices[0];
+      if (choice.message && choice.message.content) {
+        customPrompt = choice.message.content.trim();
+      } else if (choice.text) {
+        customPrompt = choice.text.trim();
       }
     }
     
