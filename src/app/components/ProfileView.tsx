@@ -9,7 +9,7 @@ import SocialIcon from './SocialIcon';
 import { useAdminModeActivator } from './AdminBanner';
 import { toast } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
-import BackgroundImage from './BackgroundImage';
+
 
 // Import types from ProfileContext
 import { UserProfile } from '../context/ProfileContext';
@@ -234,12 +234,16 @@ const ProfileView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-6">
-      {/* Separate background component to prevent re-rendering the entire page */}
-      <BackgroundImage 
-        imageUrl={localProfile.backgroundImage} 
-        fallbackColor="#f4f9f4" 
-      />
+    <div 
+      className="min-h-screen flex flex-col items-center px-4 py-6"
+      style={{
+        backgroundImage: localProfile.backgroundImage ? `url(${localProfile.backgroundImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#f4f9f4'
+      }}
+    >
       {/* Admin Mode is now triggered by double-clicking on the name */}
       
       <div className="w-full max-w-md flex flex-col items-center">
