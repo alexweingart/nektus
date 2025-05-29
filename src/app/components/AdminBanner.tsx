@@ -157,8 +157,6 @@ export default function AdminBanner() {
         
         // Then also explicitly target known keys to be extra thorough
         const localStorageKeys = [
-          // Nekt.Us profile data
-          'nektus_user_profile',
           // NextAuth related
           'next-auth.session-token',
           'next-auth.callback-url',
