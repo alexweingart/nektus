@@ -56,7 +56,7 @@ const BackgroundImage: React.FC<BackgroundImageProps> = ({
   
   return (
     <div 
-      className="fixed top-0 left-0 w-full h-full z-[-1] transition-opacity duration-500"
+      className="fixed top-0 left-0 w-full h-full transition-opacity duration-500"
       style={{
         ...(backgroundImage ? { 
           backgroundImage: `url(${backgroundImage})`,
@@ -68,7 +68,8 @@ const BackgroundImage: React.FC<BackgroundImageProps> = ({
           backgroundColor: fallbackColor,
           opacity: 1
         }),
-        pointerEvents: 'none' // Ensure it doesn't interfere with clicks
+        pointerEvents: 'none', // Ensure it doesn't interfere with clicks
+        zIndex: -1 // Use standard CSS z-index instead of Tailwind class
       }}
     />
   );
