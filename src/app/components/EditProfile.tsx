@@ -41,7 +41,7 @@ const EditProfile: React.FC = () => {
     email: '',
     picture: '',
     socialProfiles: [],
-    backgroundImage: '/gradient-bg.jpg',
+    backgroundImage: '',
   });
   
   const [digits, setDigits] = useState('');

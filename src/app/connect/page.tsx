@@ -132,7 +132,7 @@ export default function ConnectPage() {
   const router = useRouter();
   const [socialLinks, setSocialLinks] = useState<any>(null);
   const [bio, setBio] = useState<string>('');
-  const [bgImage, setBgImage] = useState<string>('/gradient-bg.jpg');
+  const [bgImage, setBgImage] = useState<string>('');
   const [avatarImage, setAvatarImage] = useState<string>('/default-avatar.png');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
