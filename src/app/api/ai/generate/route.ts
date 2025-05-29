@@ -600,9 +600,9 @@ async function generateBackground(profile: any) {
         The style should be minimal and clean, suitable for a profile background.`;
     }
     
-    console.log('=== GENERATED PROMPT FROM GPT-4.1 ===');
-    console.log(customPrompt);
-    console.log('====================================');
+    console.error('======== GENERATED PROMPT FROM GPT-4.1 ========');
+    console.error(customPrompt);
+    console.error('==============================================');
     
     // Second step: Use the generated prompt to create the background image
     console.log('Generating background image with gpt-image-1 model using custom prompt');
