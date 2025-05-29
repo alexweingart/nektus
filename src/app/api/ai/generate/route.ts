@@ -546,7 +546,7 @@ async function generateBackground(profile: any) {
             {
               "type": "input_text",
               "text": `Generate a prompt for creating a background image for a user with the following bio: ${profile.bio || 'No bio available'}.
-              ${profile.profileImage ? 'In the prompt, what is in the attached picture, the colors, and then suggest the specific colors to use directly in the prompt for the image generator.' : 'Use a professional color palette.'} The background should be simple and abstract, but still relate to the personal details of the person. The style should be minimal, modern, and suitable for a profile background. No text or people should be in the image. Return only the prompt text, nothing else.`
+              ${profile.profileImage ? 'In the prompt, describe the main features of the attached picture in this message to help inform the type of background image, the main colors this attached picture has, and then suggest the specific colors to use directly in the prompt for the image to be generated.' : 'Use a professional color palette.'} The background should be simple and abstract, but still relate to the personal details of the person. The style should be minimal, modern, and suitable for a profile background. No text or people should be in the image. Return only the prompt text, nothing else.`
             },
             ...(profile.profileImage ? [{
               "type": "input_image",
