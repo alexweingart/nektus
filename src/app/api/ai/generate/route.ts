@@ -497,8 +497,6 @@ async function generateBio(profile: any) {
 }
 
 async function generateBackground(profile: any) {
-  // TEST LOG - THIS SHOULD BE VISIBLE!
-  console.error('⭐⭐⭐ BACKGROUND GENERATION FUNCTION CALLED ⭐⭐⭐');
   try {
     // Return existing background image if it exists
     if (profile.backgroundImage) {
