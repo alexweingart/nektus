@@ -282,13 +282,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
       // Enhanced logging for profile saves
-      console.log('saveProfile called with:', JSON.stringify({
-        profileDataKeys: Object.keys(profileData),
-        hasBio: 'bio' in profileData,
-        bioValue: profileData.bio,
-        currentBio: profile?.bio,
-        persistedBio: persistedBioRef.current || '[none]'
-      }));
+
       
       // If we don't have an existing profile, create a default one first
       const currentProfile = profile || createDefaultProfile(session);
@@ -317,7 +311,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         // Case 1: New non-empty bio from update - use it and store in ref
         bioToUse = profileData.bio;
         persistedBioRef.current = bioToUse;
-        console.log('Using new bio from update:', bioToUse);
+
       } else if (currentProfile.bio && currentProfile.bio.trim() !== '') {
         // Case 2: Current profile has non-empty bio - preserve it
         bioToUse = currentProfile.bio;
@@ -374,7 +368,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('Generating background image for profile:', profile.userId);
+
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -573,7 +567,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (!updatedProfile.backgroundImage && 
           !hasGeneratedBackground.current && 
           bioGenerationComplete.current) {
-        console.log('No background image found and bio generation complete, generating background...');
+
         hasGeneratedBackground.current = true;
         
         try {
