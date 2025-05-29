@@ -144,48 +144,6 @@ export const useProfile = (): ProfileContextType => {
 };
 
 // Provider component
-// Add a function to generate profile image (avatar)
-const generateProfileImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
-  try {
-    // Only proceed if we have a valid profile with userId
-    if (!profile?.userId) {
-      console.error('Cannot generate profile image: Invalid profile or missing userId');
-      return null;
-    }
-
-    console.log('Generating profile image for profile:', profile.userId);
-    const response = await fetch('/api/ai/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        type: 'avatar',
-        profile 
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to generate profile image:', response.status, errorText);
-      throw new Error(`Failed to generate profile image: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    
-    if (!result.imageUrl) {
-      console.error('Failed to generate profile image: No imageUrl in response');
-      throw new Error('Failed to generate profile image');
-    }
-
-    console.log('Generated profile image URL:', result.imageUrl);
-    return result.imageUrl;
-  } catch (error) {
-    console.error('Error generating profile image:', error);
-    return null;
-  }
-}, []);
-
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -195,6 +153,48 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const hasGeneratedBackground = useRef(false);
   const hasGeneratedBio = useRef(false);
   const hasGeneratedProfileImage = useRef(false);
+  
+  // Add a function to generate profile image (avatar)
+  const generateProfileImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    try {
+      // Only proceed if we have a valid profile with userId
+      if (!profile?.userId) {
+        console.error('Cannot generate profile image: Invalid profile or missing userId');
+        return null;
+      }
+
+      console.log('Generating profile image for profile:', profile.userId);
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          type: 'avatar',
+          profile 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to generate profile image:', response.status, errorText);
+        throw new Error(`Failed to generate profile image: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.imageUrl) {
+        console.error('Failed to generate profile image: No imageUrl in response');
+        throw new Error('Failed to generate profile image');
+      }
+
+      console.log('Generated profile image URL:', result.imageUrl);
+      return result.imageUrl;
+    } catch (error) {
+      console.error('Error generating profile image:', error);
+      return null;
+    }
+  }, []);
   const bioGenerationComplete = useRef(false);
 
   // Load profile from localStorage
