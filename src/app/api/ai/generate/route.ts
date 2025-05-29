@@ -645,11 +645,16 @@ async function generateBackground(profile: any) {
     
     // Successfully generated background image
     
-    // Return the generated image URL in a consistent format
+    // Return the generated image URL with debug information for the GPT-4.1 call
     return NextResponse.json({ 
       success: true,
       data: {
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        debug: {
+          gpt41Request: promptRequestParams,
+          gpt41Response: promptResponse,
+          generatedPrompt: customPrompt
+        }
       }
     });
     
