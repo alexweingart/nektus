@@ -328,7 +328,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         console.log('Restoring bio from persistence ref:', bioToUse);
       } else {
         // Case 4: No bio found anywhere, use empty string
-        console.log('No bio found in any source, using empty string');
       }
       
       // Create the updated profile with proper merging but EXPLICITLY keep our bio
@@ -347,18 +346,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         persistedBioRef.current = bioToUse;
       }
       
-      // Enhanced debug log for bio changes
-      console.log('Bio processing:', {
-        before: currentProfile.bio || '[empty]',
-        bioInUpdate: 'bio' in profileData,
-        updateBioValue: profileData.bio || '[empty]',
-        persistedBioRef: persistedBioRef.current || '[empty]',
-        bioToUse: bioToUse || '[empty]',
-        final: updatedProfile.bio || '[empty]',
-        bioWasPreserved: bioToUse !== '' && bioToUse === (currentProfile.bio || persistedBioRef.current)
-      });
-      
-      console.log('Profile saved successfully with bio:', updatedProfile.bio || '[empty]');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
       setProfile(updatedProfile);
       return updatedProfile;
@@ -433,7 +420,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('Generating bio for profile:', profile.userId);
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -454,7 +440,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const result = await response.json();
       
       // Log the entire response for debugging
-      console.log('Bio generation response:', JSON.stringify(result, null, 2));
       
       // Extract bio from response
       const bio = result.bio;
@@ -464,7 +449,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         throw new Error('Failed to generate bio');
       }
 
-      console.log('Generated bio:', bio);
       return bio;
     } catch (error) {
       console.error('Error generating bio:', error);
@@ -503,15 +487,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      // Log initial profile state for debugging (once)
-      console.log('Initial profile state before content generation:', {
-        hasBio: Boolean(profile.bio),
-        bioLength: profile.bio?.length || 0,
-        hasProfileImage: Boolean(profile.profileImage),
-        hasBackgroundImage: Boolean(profile.backgroundImage),
-        persistedBio: persistedBioRef.current || '[none]'
-      });
-      
       // Ensure we have the latest profile state for operations
       const currentProfile = await loadProfile();
       
@@ -528,7 +503,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // Only when: signed in, bio is empty, and no attempt this session
       if ((!updatedProfile.bio || updatedProfile.bio.trim() === '') && 
           !hasGeneratedBio.current) {
-        console.log('No bio found, generating one...');
         hasGeneratedBio.current = true;
         
         try {
