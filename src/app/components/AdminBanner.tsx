@@ -26,7 +26,7 @@ export default function AdminBanner() {
         accessToken: session.accessToken,
         userId: session.user?.id
       });
-      console.log('Session data saved for account deletion');
+      // Session data saved for account deletion
     }
   }, [session]);
   
@@ -37,7 +37,7 @@ export default function AdminBanner() {
       return;
     }
 
-    console.log('Starting account deletion process', { env: process.env.NODE_ENV, isProduction: process.env.NODE_ENV === 'production' });
+    // Starting account deletion process
     setIsDeleting(true);
     setDeleteStatus('loading');
     
@@ -49,15 +49,10 @@ export default function AdminBanner() {
         accessToken: sessionData?.accessToken || session?.accessToken
       };
       
-      console.log('User data collected for deletion:', {
-        hasEmail: !!userData.email,
-        hasUserId: !!userData.userId,
-        hasAccessToken: !!userData.accessToken
-      });
+      // User data collected for deletion
       
       // 1. Delete user data from Firebase
-      console.log('Step 1: Deleting user data from Firebase');
-      console.log('About to fetch /api/delete-account');
+      // Step 1: Deleting user data from Firebase
       
       const deleteDataResponse = await fetch('/api/delete-account', {
         method: 'POST',
@@ -73,23 +68,22 @@ export default function AdminBanner() {
       let deleteDataResult;
       try {
         deleteDataResult = await deleteDataResponse.json();
-        console.log('Delete data response status:', deleteDataResponse.status, deleteDataResponse.ok);
+        // Delete data response status processed
       } catch (e) {
-        console.error('Error parsing delete response:', e);
+        // Error parsing delete response
         deleteDataResult = { error: 'Failed to parse response' };
       }
       
       if (!deleteDataResponse.ok) {
-        console.error('Failed to delete user data from Firebase:', deleteDataResult);
+        // Failed to delete user data from Firebase
         // Continue with other steps even if Firebase deletion fails
         // This ensures the user can still disconnect their account
       } else {
-        console.log('Successfully deleted user data from Firebase');
+        // Successfully deleted user data from Firebase
       }
       
       // 2. Revoke the OAuth token with Google - this is the critical step
-      console.log('Step 2: Revoking OAuth token with Google');
-      console.log('About to fetch /api/auth/revoke');
+      // Step 2: Revoking OAuth token with Google
       
       // New approach: Instead of relying on the server to extract the token,
       // we'll explicitly send all information we have from the client
@@ -127,9 +121,9 @@ export default function AdminBanner() {
         console.error('Failed to revoke token with Google:', revokeResult);
         // Instead of throwing an error, we'll continue with the rest of the deletion
         // This is a temporary fix to ensure users can still delete their accounts
-        console.warn('Continuing with account deletion despite token revocation failure');
+        // Continuing with account deletion despite token revocation failure
       } else {
-        console.log('Successfully revoked token with Google');
+        // Successfully revoked token with Google
       }
       
       // 3. Sign out from NextAuth locally
@@ -265,39 +259,39 @@ export default function AdminBanner() {
                 const deleteRequest = window.indexedDB.deleteDatabase(db.name);
                 
                 // Add event listeners for better error tracking
-                deleteRequest.onerror = () => console.error(`Error deleting IndexedDB: ${db.name}`);
-                deleteRequest.onsuccess = () => console.log(`Successfully deleted IndexedDB: ${db.name}`);
+                deleteRequest.onerror = () => { /* Error deleting IndexedDB */ };
+                deleteRequest.onsuccess = () => { /* Successfully deleted IndexedDB */ };
               }
             }
           } else {
-            console.log('No IndexedDB databases found');
+            // No IndexedDB databases found
           }
         } catch (e) {
-          console.error('Error clearing IndexedDB:', e);
+          // Error clearing IndexedDB
         }
       }
       
       // Show success status
-      console.log('Account deletion process completed successfully');
+      // Account deletion process completed successfully
       setDeleteStatus('success');
       
       // Unregister any service workers to prevent cached resources
       if (navigator.serviceWorker) {
-        console.log('Unregistering service workers');
+        // Unregistering service workers
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (let registration of registrations) {
             registration.unregister();
-            console.log('Service worker unregistered');
+            // Service worker unregistered
           }
         }).catch(err => {
-          console.error('Error unregistering service workers:', err);
+          // Error unregistering service workers
         });
       }
 
       // Turn off admin mode and redirect to home with a clean slate
-      console.log('Preparing to redirect after successful deletion');
+      // Preparing to redirect after successful deletion
       setTimeout(() => {
-        console.log('Executing redirect now');
+        // Executing redirect now
         closeAdminMode();
         
         // Force a complete page reload with cache busting
@@ -305,13 +299,8 @@ export default function AdminBanner() {
         window.location.href = `/?nocache=${Date.now()}`;
       }, 1500);
     } catch (error) {
-      console.error('Error during account deletion:', error);
-      // Log more detailed error information
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      // Error during account deletion
+      // Detailed error information intentionally not logged
       setDeleteStatus('error');
       setIsDeleting(false);
     }
@@ -342,7 +331,7 @@ export default function AdminBanner() {
         <button
           onClick={(e) => {
             e.preventDefault();
-            console.log('Delete account button clicked');
+            // Delete account button clicked
             handleDeleteAccount();
           }}
           disabled={isDeleting}

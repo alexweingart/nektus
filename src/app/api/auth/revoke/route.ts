@@ -4,20 +4,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../[...nextauth]/options";
 
 export async function POST(req: NextRequest) {
-  console.log('TOKEN REVOCATION API CALLED - Environment:', process.env.NODE_ENV);
-  console.log('Request URL:', req.url);
+  // TOKEN REVOCATION API CALLED
 
   try {
     // Clone the request for multiple uses
     const reqClone = req.clone();
     
-    // Log request headers (excluding sensitive data)
-    const requestHeaders = Object.fromEntries(req.headers);
-    console.log('Request headers:', {
-      ...requestHeaders,
-      cookie: requestHeaders.cookie ? '[REDACTED]' : undefined,
-      authorization: requestHeaders.authorization ? '[REDACTED]' : undefined
-    });
+    // Request headers omitted for privacy
 
     // We'll try all possible methods to get a valid access token
     let accessToken: string | null = null;
@@ -27,35 +20,35 @@ export async function POST(req: NextRequest) {
     // Method 1: Get data from request body
     try {
       const body = await reqClone.json();
-      console.log('Request body parsed successfully');
+      // Request body parsed successfully
       
       if (body?.accessToken) {
-        console.log('Found access token in request body');
+        // Found access token in request body
         accessToken = body.accessToken;
       }
       
       if (body?.userId) {
-        console.log('Found userId in request body');
+        // Found userId in request body
         userId = body.userId;
       }
       
       if (body?.email) {
-        console.log('Found email in request body');
+        // Found email in request body
         email = body.email;
       }
     } catch (e) {
-      console.log('Error parsing request body:', e);
+      // Error parsing request body
     }
     
     // Method 2: Get token from NextAuth token
     if (!accessToken) {
       try {
         const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-        console.log('Token from NextAuth JWT:', !!token);
+        // Token from NextAuth JWT checked
         
         if (token?.accessToken) {
           accessToken = token.accessToken;
-          console.log('Found access token in NextAuth JWT token');
+          // Found access token in NextAuth JWT token
         }
         
         // Also try to get user info from token if we don't have it yet
@@ -67,7 +60,7 @@ export async function POST(req: NextRequest) {
           email = token.user.email;
         }
       } catch (e) {
-        console.error('Error getting JWT token from NextAuth:', e);
+        // Error getting JWT token from NextAuth
       }
     }
     
@@ -75,11 +68,11 @@ export async function POST(req: NextRequest) {
     if (!accessToken) {
       try {
         const session = await getServerSession(authOptions);
-        console.log('Server session found:', !!session);
+        // Server session checked
         
         if (session?.accessToken) {
           accessToken = session.accessToken;
-          console.log('Found access token in server session');
+          // Found access token in server session
         }
         
         // Also try to get user info from session if we don't have it yet
@@ -91,21 +84,16 @@ export async function POST(req: NextRequest) {
           email = session.user.email;
         }
       } catch (e) {
-        console.error('Error getting server session:', e);
+        // Error getting server session
       }
     }
     
-    // Log what we found
-    console.log('Token retrieval summary:', {
-      accessTokenFound: !!accessToken,
-      userIdFound: !!userId,
-      emailFound: !!email
-    });
+    // Token retrieval summary completed
     
     // For production, if we have no token but have a userId or email, we'll proceed anyway
     // and just log that the account was disconnected
     if (!accessToken && (userId || email)) {
-      console.log('No access token found, but user identified. Proceeding with account cleanup.');
+      // No access token found, but user identified. Proceeding with account cleanup.
       return NextResponse.json(
         { 
           success: true,
@@ -125,7 +113,7 @@ export async function POST(req: NextRequest) {
     
     // If we still don't have any means to identify the user, return an error
     if (!accessToken && !userId && !email) {
-      console.error('No valid user identification found through any method');
+      // No valid user identification found through any method
       return NextResponse.json(
         { 
           error: "No valid user identification found", 
@@ -151,7 +139,7 @@ export async function POST(req: NextRequest) {
     let revokeData = { success: true };
     
     if (accessToken) {
-      console.log('Making request to Google to revoke token');  
+      // Making request to Google to revoke token  
       try {
         // Make the request to Google to revoke the token
         const response = await fetch(`${revokeEndpoint}?token=${accessToken}`, {
@@ -164,21 +152,21 @@ export async function POST(req: NextRequest) {
         });
         
         revokeResponse = response;
-        console.log('Google revocation response status:', response.status);
+        // Google revocation response status processed
         
         try {
           revokeData = await response.json();
         } catch (e) {
           // Google's revocation endpoint returns an empty response on success
           // so this might throw, which is fine
-          console.log('No JSON in Google response (expected for success case)');
+          // No JSON in Google response (expected for success case)
         }
       } catch (e) {
-        console.error('Network error during token revocation:', e);
+        // Network error during token revocation
         // We'll continue despite the error to ensure the user can still delete their account
       }
     } else {
-      console.log('Skipping token revocation - no token available');
+      // Skipping token revocation - no token available
     }
 
     // Always return success to the client, even if token revocation failed
@@ -201,14 +189,8 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (error) {
-    console.error("Error revoking token:", error);
-    
-    // More detailed error logging
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
+    // Error revoking token
+    // Detailed error information intentionally not logged
     
     return NextResponse.json(
       { 

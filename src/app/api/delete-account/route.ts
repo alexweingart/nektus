@@ -8,19 +8,13 @@ import { cookies } from 'next/headers';
  * API route to handle account deletion
  */
 export async function POST(req: NextRequest) {
-  console.log('DELETE ACCOUNT API CALLED - Environment:', process.env.NODE_ENV);
+  // DELETE ACCOUNT API CALLED
   
   try {
     // Clone the request for multiple uses
     const reqClone = req.clone();
     
-    // Explicitly log the request headers to check for auth tokens
-    const requestHeaders = Object.fromEntries(req.headers);
-    console.log('Request headers:', {
-      ...requestHeaders,
-      cookie: requestHeaders.cookie ? '[REDACTED]' : undefined,
-      authorization: requestHeaders.authorization ? '[REDACTED]' : undefined
-    });
+    // Request headers omitted for privacy
     
     // We'll try multiple methods to identify the user
     let userId: string | null = null;
@@ -29,40 +23,40 @@ export async function POST(req: NextRequest) {
     // Method 1: Try to get user info from request body
     try {
       const body = await reqClone.json();
-      console.log('Request body parsed successfully');
+      // Request body parsed successfully
       
       if (body?.userId) {
-        console.log('Found userId in request body');
+        // Found userId in request body
         userId = body.userId;
       }
       
       if (body?.email) {
-        console.log('Found email in request body');
+        // Found email in request body
         userEmail = body.email;
       }
     } catch (e) {
-      console.log('Error parsing request body:', e);
+      // Error parsing request body
     }
     
     // Method 2: Try to get user info from session
     if (!userId || !userEmail) {
       try {
         const session = await getServerSession(authOptions);
-        console.log('Session found:', !!session, 'User found:', !!(session?.user));
+        // Session check completed
         
         if (session?.user) {
           if (!userId && session.user.id) {
             userId = session.user.id;
-            console.log('Found userId from session:', userId);
+            // Found userId from session
           }
           
           if (!userEmail && session.user.email) {
             userEmail = session.user.email;
-            console.log('Found email from session:', userEmail);
+            // Found email from session
           }
         }
       } catch (e) {
-        console.error('Error getting session:', e);
+        // Error getting session
       }
     }
     
@@ -70,33 +64,29 @@ export async function POST(req: NextRequest) {
     if (!userId || !userEmail) {
       try {
         const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-        console.log('JWT token found:', !!token);
+        // JWT token check completed
         
         if (token?.user) {
           if (!userId && token.user.id) {
             userId = token.user.id;
-            console.log('Found userId from JWT token:', userId);
+            // Found userId from JWT token
           }
           
           if (!userEmail && token.user.email) {
             userEmail = token.user.email;
-            console.log('Found email from JWT token:', userEmail);
+            // Found email from JWT token
           }
         }
       } catch (e) {
-        console.error('Error getting JWT token:', e);
+        // Error getting JWT token
       }
     }
     
-    // Log what we found
-    console.log('User identification summary:', {
-      userIdFound: !!userId,
-      userEmailFound: !!userEmail
-    });
+    // User identification summary completed
     
     // If we couldn't identify the user at all, return an error
     if (!userId && !userEmail) {
-      console.error('Could not identify user for account deletion');
+      // Could not identify user for account deletion
       return NextResponse.json({ 
         error: 'User identification failed', 
         details: 'No valid user ID or email found through any method'
@@ -106,7 +96,7 @@ export async function POST(req: NextRequest) {
     // We'll use email as the primary identifier since it's the most reliable
     const userIdentifier = userEmail || userId;
     
-    console.log('Processing account deletion for user:', userIdentifier);
+    // Processing account deletion for user
     
     // In a real implementation, we would actually delete user data here
     // For this example, we're just simulating the deletion process
@@ -126,7 +116,7 @@ export async function POST(req: NextRequest) {
       cookie.name.includes('token')
     );
     
-    console.log('Found auth cookies to be cleared client-side:', authCookies.map(c => c.name));
+    // Auth cookies identified for client-side clearing
     
     // Set headers to prevent caching
     return NextResponse.json({ 
@@ -143,13 +133,8 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error processing account deletion:', error);
-    // More detailed error logging
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
+    // Error processing account deletion
+    // Detailed error information intentionally not logged
     
     // Always return 200 status to ensure client process completes
     // In production, we want account deletion to succeed even if there are some errors
