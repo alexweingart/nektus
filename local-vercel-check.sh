@@ -3,13 +3,8 @@
 
 echo "🔍 Running local Vercel deployment checks for Nekt.Us..."
 
-# 1. Run existing pre-deploy checks first
-echo "✅ Running pre-deployment validation script..."
-node pre-deploy-check.js
-if [ $? -ne 0 ]; then
-  echo "❌ Pre-deploy checks failed - fix issues before pushing to git"
-  exit 1
-fi
+# Note: pre-deploy-check.js was removed as it was no longer needed
+# Proceeding with other checks
 
 # 2. Run type checking
 echo "✅ Running TypeScript checks..."

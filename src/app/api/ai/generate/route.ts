@@ -526,7 +526,7 @@ async function generateBackground(profile: any) {
     
     // Using type assertion for the size parameter to satisfy TypeScript
     // Create a safer, more abstract prompt
-    const safePrompt = `Create a soft, abstract gradient background with subtle textures. 
+    const safePrompt = `Create a simple, abstract background with subtle textures. 
       Use a color palette that's professional and modern. No text, people, or recognizable objects. 
       The style should be minimal and clean, suitable for a profile background.`;
       
