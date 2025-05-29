@@ -499,7 +499,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     
     // Check if user is signed in (required for all generation)
     if (!session?.user) {
-      console.log('Skipping content generation: user not signed in');
       return;
     }
     
