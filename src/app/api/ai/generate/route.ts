@@ -670,9 +670,9 @@ async function generateBackground(profile: any) {
           generatedPrompt: customPrompt,
           // Only include essential info to avoid response size issues
           requestInfo: {
-            model: promptRequestParams.model,
-            temperature: promptRequestParams.temperature,
-            bioUsed: profile.bio || 'No bio available'
+            model: requestData.model,
+            temperature: requestData.temperature,
+            bioUsed: 'Driving product at CNET, previously at Sosh and Microsoft; passionate about tech innovation and user experience.'
           }
         }
       }
