@@ -135,7 +135,7 @@ try {
     }
   } as unknown as CustomOpenAI;
   
-  console.log('OpenAI client with custom APIs initialized successfully');
+  // OpenAI client initialized
 } catch (error) {
   console.error('Failed to initialize OpenAI client:', error);
   console.error('Please check your OPENAI_API_KEY in .env.local');
@@ -317,7 +317,7 @@ function getSocialProfileUrls(profile: any): string[] {
 }
 
 async function generateBio(profile: any) {
-  console.log('Starting bio generation for profile:', profile?.name || 'unknown');
+  // Bio generation started
 
   // Safety check for OpenAI client
   if (!openai) {
@@ -498,15 +498,9 @@ async function generateBio(profile: any) {
 
 async function generateBackground(profile: any) {
   try {
-    // Log the start of background generation
-    console.log('Starting background image generation for profile:', {
-      name: profile.name,
-      hasExistingBackground: !!profile.backgroundImage
-    });
-
     // Return existing background image if it exists
     if (profile.backgroundImage) {
-      console.log('Using existing background image:', profile.backgroundImage);
+      // Using existing background image
       return NextResponse.json({ imageUrl: profile.backgroundImage });
     }
 
@@ -522,7 +516,7 @@ async function generateBackground(profile: any) {
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
-    console.log('Generating background image with prompt for:', profile.name);
+    // Generating background image
     
     // Using type assertion for the size parameter to satisfy TypeScript
     // Create a safer, more abstract prompt
@@ -530,7 +524,7 @@ async function generateBackground(profile: any) {
       Use a color palette that's professional and modern. No text, people, or recognizable objects. 
       The style should be minimal and clean, suitable for a profile background.`;
       
-    console.log('Using safe prompt for background image generation');
+    // Using safe prompt
     
     console.log('Sending request to OpenAI with prompt:', safePrompt);
     console.log('Generating background image with gpt-image-1 model');
@@ -571,7 +565,7 @@ async function generateBackground(profile: any) {
       }, { status: 500 });
     }
     
-    console.log('Successfully generated background image:', imageUrl);
+    // Successfully generated background image
     
     // Return the generated image URL in a consistent format
     return NextResponse.json({ 
@@ -603,16 +597,12 @@ async function generateBackground(profile: any) {
 
 async function generateAvatar(profile: any) {
   try {
-    console.log('Starting avatar generation for profile:', {
-      name: profile.name,
-      hasPicture: !!profile.picture,
-      hasProfileImage: !!profile.profileImage
-    });
+    // Avatar generation started
     
     // Return existing profile image if it exists
     if (profile.picture || profile.profileImage) {
       const existingImage = profile.picture || profile.profileImage;
-      console.log('Using existing profile image:', existingImage);
+      // Using existing profile image
       return NextResponse.json({ 
         imageUrl: existingImage,
         generated: false
