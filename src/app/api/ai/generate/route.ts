@@ -504,12 +504,12 @@ async function generateBackground(profile: any) {
       return NextResponse.json({ imageUrl: profile.backgroundImage });
     }
 
-    // Safety check for OpenAI client
-    if (!openai) {
-      console.error('OpenAI client is not initialized');
+    // Safety check for OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not set in environment variables');
       return NextResponse.json({ 
         imageUrl: null,
-        error: 'OpenAI client not initialized' 
+        error: 'OpenAI API key not configured' 
       });
     }
 
@@ -519,75 +519,67 @@ async function generateBackground(profile: any) {
     // First step: Generate a personalized prompt using GPT-4.1
     console.log('Generating personalized background prompt with GPT-4.1');
     
-    // Prepare the input for the responses API to generate a personalized prompt
-    const input: Array<{
-      role: 'system' | 'user' | 'assistant';
-      content: Array<{ type: string; text: string }>;
-    }> = [
-      {
-        role: 'system',
-        content: [
-          {
-            type: 'input_text',
-            text: 'You are an expert at creating prompts for AI image generation. Your task is to create a highly personalized prompt for a background image that matches the user\'s profile.'
-          }
-        ]
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `Generate a prompt for creating a background image for a user with the following bio: ${profile.bio || 'No bio available'}.
-            The background should be simple and abstract, but still relate to the personal details of the person.
-            ${profile.profileImage ? 'The user has a profile picture, so describe what is in the picture, the colors, and then suggest the specific colors to use directly in the prompt for the image generator.' : 'Use a professional color palette.'}
-            The style should be minimal, modern, and suitable for a profile background.
-            No text or people should be in the image.
-            Return only the prompt text, nothing else.`
-          }
-        ]
-      }
-    ];
+    // Create a new instance of the OpenAI client
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
-    // Prepare the request for the responses API
-    const promptRequestParams = {
-      model: 'gpt-4.1',
-      input,
-      temperature: 0.7,
-      max_output_tokens: 1024,
+    // Call the OpenAI API to generate a personalized prompt
+    const response = await openai.responses.create({
+      model: "gpt-4.1",
+      input: [
+        {
+          "role": "system",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "You are an expert at creating prompts for AI image generation. Your task is to create a highly personalized prompt for a background image that matches the user's profile."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": `Generate a prompt for creating a background image for a user with the following bio: Driving product at CNET, previously at Sosh and Microsoft; passionate about tech innovation and user experience.
+              ${profile.profileImage ? 'In the prompt, what is in the attached picture, the colors, and then suggest the specific colors to use directly in the prompt for the image generator.' : 'Use a professional color palette.'} The background should be simple and abstract, but still relate to the personal details of the person. The style should be minimal, modern, and suitable for a profile background. No text or people should be in the image. Return only the prompt text, nothing else.`
+            },
+            ...(profile.profileImage ? [{
+              "type": "input_image",
+              "image_url": profile.profileImage
+            }] : [])
+          ]
+        }
+      ],
+      text: {
+        "format": {
+          "type": "text"
+        }
+      },
+      reasoning: {},
+      tools: [],
+      temperature: 1,
+      max_output_tokens: 2048,
       top_p: 1,
       store: true
-    };
-
-    console.log('Sending prompt generation request to OpenAI');
-    console.log('Request params:', JSON.stringify(promptRequestParams, null, 2));
+    });
     
-    // Call GPT-4.1 to generate a personalized prompt
-    const promptResponse = await openai.responses.create(promptRequestParams);
-    
-    console.log('Raw GPT-4.1 response received:', JSON.stringify(promptResponse, null, 2));
+    console.log('Raw GPT-4.1 response received:', JSON.stringify(response, null, 2));
     
     // Extract the generated prompt from the response
     let customPrompt = '';
     
-    // Try to find the assistant's response with the generated prompt
-    const assistantResponse = promptResponse.output?.find((item: any) => item.role === 'assistant');
-    if (assistantResponse?.content) {
-      const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
-      if (textContent?.text) {
-        customPrompt = textContent.text.trim();
-      }
-    }
-    
-    // Fallback to the first text content if no assistant response found
-    if (!customPrompt && promptResponse.output) {
-      for (const item of promptResponse.output) {
-        if (item.content) {
-          const textContent = item.content.find((c: any) => c.type === 'output_text' || c.type === 'text');
-          if (textContent?.text) {
-            customPrompt = textContent.text.trim();
-            break;
-          }
+    // Check if response.text exists and use that
+    if (response.text) {
+      customPrompt = response.text.trim();
+    } else {
+      // Fallback to looking for the assistant's response if text property not available
+      const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
+      if (assistantResponse?.content) {
+        const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
+        if (textContent?.text) {
+          customPrompt = textContent.text.trim();
         }
       }
     }
@@ -606,7 +598,7 @@ async function generateBackground(profile: any) {
     
     // Second step: Use the generated prompt to create the background image
     console.log('Generating background image with gpt-image-1 model using custom prompt');
-    const response = await openai.images.generate({
+    const imageResponse = await openai.images.generate({
       prompt: customPrompt,
       size: '1024x1536',
       quality: 'medium',
