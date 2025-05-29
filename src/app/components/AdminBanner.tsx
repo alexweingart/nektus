@@ -157,6 +157,8 @@ export default function AdminBanner() {
         
         // Then also explicitly target known keys to be extra thorough
         const localStorageKeys = [
+          // Nekt.Us profile data
+          'nektus_user_profile',
           // NextAuth related
           'next-auth.session-token',
           'next-auth.callback-url',
@@ -268,7 +270,7 @@ export default function AdminBanner() {
         
         // Force a complete page reload with a hard navigation (not just a replace)
         // This ensures all state is completely cleared and triggers a fresh auth flow
-        window.location.href = '/?t=' + new Date().getTime();
+        window.location.href = '/';
       }, 1500);
     } catch (error) {
       console.error('Error during account deletion:', error);
