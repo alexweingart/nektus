@@ -519,13 +519,16 @@ async function generateBackground(profile: any) {
     // First step: Generate a personalized prompt using GPT-4.1
     console.log('Generating personalized background prompt with GPT-4.1');
     
-    // Create a new instance of the OpenAI client
-    const openai = new OpenAI({
+    // Create new OpenAI instance
+    const customOpenai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-
-    // Call the OpenAI API to generate a personalized prompt
-    const response = await openai.responses.create({
+    
+    // Instead of using the responses API directly, we'll use a direct fetch call
+    console.log('Using direct fetch to OpenAI API for GPT-4.1');
+    
+    // Prepare the request data
+    const requestData = {
       model: "gpt-4.1",
       input: [
         {
@@ -563,19 +566,36 @@ async function generateBackground(profile: any) {
       max_output_tokens: 2048,
       top_p: 1,
       store: true
+    };
+    
+    // Call the OpenAI API to generate a personalized prompt using fetch
+    const responseRaw = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify(requestData)
     });
     
-    console.log('Raw GPT-4.1 response received:', JSON.stringify(response, null, 2));
+    if (!responseRaw.ok) {
+      const errorText = await responseRaw.text();
+      throw new Error(`OpenAI API error: ${responseRaw.status} ${responseRaw.statusText} - ${errorText}`);
+    }
+    
+    const responseData = await responseRaw.json();
+    console.log('Raw GPT-4.1 response received:', JSON.stringify(responseData, null, 2));
     
     // Extract the generated prompt from the response
     let customPrompt = '';
     
-    // Check if response.text exists and use that
-    if (response.text) {
-      customPrompt = response.text.trim();
+    // Check if responseData.text exists and use that
+    if (responseData.text) {
+      customPrompt = responseData.text.trim();
     } else {
       // Fallback to looking for the assistant's response if text property not available
-      const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
+      const assistantResponse = responseData.output?.find((item: any) => item.role === 'assistant');
       if (assistantResponse?.content) {
         const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
         if (textContent?.text) {
@@ -598,6 +618,10 @@ async function generateBackground(profile: any) {
     
     // Second step: Use the generated prompt to create the background image
     console.log('Generating background image with gpt-image-1 model using custom prompt');
+    if (!openai) {
+      throw new Error('OpenAI client is not initialized for image generation');
+    }
+    
     const imageResponse = await openai.images.generate({
       prompt: customPrompt,
       size: '1024x1536',
@@ -608,16 +632,16 @@ async function generateBackground(profile: any) {
 
     // Log the raw response for debugging
     console.log('OpenAI API response:', JSON.stringify({
-      hasData: !!response.data,
-      dataLength: response.data?.length,
-      firstItem: response.data?.[0] ? { 
-        hasB64Json: !!response.data[0].b64_json,
-        keys: Object.keys(response.data[0])
+      hasData: !!imageResponse.data,
+      dataLength: imageResponse.data?.length,
+      firstItem: imageResponse.data?.[0] ? { 
+        hasB64Json: !!imageResponse.data[0].b64_json,
+        keys: Object.keys(imageResponse.data[0]) 
       } : 'no items'
     }, null, 2));
 
     // Check if we got a valid base64 image
-    const imageB64 = response.data?.[0]?.b64_json;
+    const imageB64 = imageResponse.data?.[0]?.b64_json;
     if (!imageB64) {
       throw new Error('No base64 image data in response');
     }
@@ -627,11 +651,11 @@ async function generateBackground(profile: any) {
     
     if (!imageUrl) {
       const errorMessage = 'No image URL in response from OpenAI API';
-      console.error(errorMessage, 'Response structure:', JSON.stringify(response, null, 2));
+      console.error(errorMessage, 'Response structure:', JSON.stringify(imageResponse, null, 2));
       return NextResponse.json({ 
         success: false,
         error: errorMessage,
-        responseStructure: JSON.stringify(response, null, 2)
+        responseStructure: JSON.stringify(imageResponse, null, 2)
       }, { status: 500 });
     }
     
