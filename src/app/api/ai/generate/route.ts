@@ -731,6 +731,10 @@ async function generateBackground(profile: ProfileData) {
               try {
                 const eventData = JSON.parse(eventLine.substring(6));
                 
+                // Debug: Log all event types and structure
+                console.log(`OpenAI event type: ${eventData.type}`);
+                console.log('Event data structure:', JSON.stringify(eventData, null, 2).substring(0, 500));
+                
                 if (eventData.type === "response.image_generation_call.partial_image") {
                   const idx = eventData.partial_image_index;
                   const imageBase64 = eventData.partial_image_b64;
