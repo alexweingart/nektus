@@ -375,8 +375,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-
-
 // Helper function to extract social profile URLs from profile
 function getSocialProfileUrls(profile: ProfileData): string[] {
   if (!profile?.contactChannels) return [];
@@ -630,7 +628,7 @@ async function generateBackground(profile: ProfileData) {
       console.warn('No custom prompt was generated, using fallback prompt');
       customPrompt = `Create a simple, abstract background with subtle textures. 
         Use a color palette that's professional and modern. No text, people, or recognizable objects. 
-        The style should be minimal and clean, suitable for a profile background.`;
+        The image should be suitable for a professional networking context.`;
     }
     
     // Log shorter version of the prompt for debugging
@@ -644,35 +642,25 @@ async function generateBackground(profile: ProfileData) {
     
     // Use the responses API with streaming for image generation
     console.log('Using responses API with streaming for image generation');
-    
-    // Function to save image to localStorage on the client side
-    const saveImageToLocalStorage = (imageBase64: string, index: number) => {
-      // Always use index in the filename for consistency
-      const key = `backgroundImageResponse${index}.png`;
-      return `
-        if (typeof window !== 'undefined') {
-          try {
-            // Get existing user profile from localStorage
-            const profileJson = localStorage.getItem('nektus_user_profile');
-            if (profileJson) {
-              const profile = JSON.parse(profileJson);
-              
-              // Update the backgroundImage property
-              profile.backgroundImage = 'data:image/png;base64,${imageBase64}';
-              
-              // Save back to localStorage
-              localStorage.setItem('nektus_user_profile', JSON.stringify(profile));
-              console.log('Updated nektus_user_profile with new backgroundImage: ${key}');
-            } else {
-              console.warn('nektus_user_profile not found in localStorage');
-            }
-          } catch (error) {
-            console.error('Error updating backgroundImage in localStorage:', error);
-          }
-        }
-      `;
-    };
-    
+
+    // Array to collect client-side script portions
+    const clientScripts: string[] = [];
+    let imageUrl = ''; // Will hold the final image URL
+    let lastReceivedIndex = -1; // Track the highest index received
+
+    // Text decoder and buffer for incremental SSE parsing
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    // Helper to create a client-side script that dispatches a CustomEvent for the generated image
+    const emitPartialToClient = (imageBase64: string, index: number) => `
+      try {
+        window.dispatchEvent(new CustomEvent('nektus_partial_bg', { detail: { index: ${index}, b64: '${imageBase64}' } }));
+      } catch (e) {
+        console.error('Error dispatching partial background event', e);
+      }
+    `;
+
     try {
       console.log('Using responses API with image generation streaming');
       
@@ -687,30 +675,16 @@ async function generateBackground(profile: ProfileData) {
         },
         body: JSON.stringify({
           model: 'gpt-4.1',
-          input: [{
-            role: 'user',
-            content: [{
-              type: 'text',
-              text: customPrompt
-            }]
-          }],
+          input: customPrompt,
           stream: true,
-          tools: [{ type: 'image_generation', background: 'auto', partial_images: true }]
+          tools: [{ type: 'image_generation', partial_images: 3 }]
         }),
       });
       
       console.log(`Responses API status: ${fetchResponse.status}`);
       
       if (!fetchResponse.ok) {
-        let errorText = '';
-        try {
-          // Try to get detailed error as JSON first
-          const errorJson = await fetchResponse.json();
-          errorText = JSON.stringify(errorJson);
-        } catch (e) {
-          // Fallback to plain text if JSON parsing fails
-          errorText = await fetchResponse.text();
-        }
+        const errorText = await fetchResponse.text();
         console.error(`OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
         throw new Error(`OpenAI Responses API error: ${fetchResponse.status}`);
       }
@@ -719,149 +693,32 @@ async function generateBackground(profile: ProfileData) {
         throw new Error('No response body from OpenAI API');
       }
       
-      // Get a reader for the streaming response
-      const reader = fetchResponse.body.getReader();
-      
-      // Array to collect client-side script portions
-      const clientScripts: string[] = [];
-      let imageUrl = ''; // Will hold the final image URL
-      let lastReceivedIndex = -1; // Track the highest index received
-      
-      // Process the streaming response
-      let done = false;
-      try {
-        while (!done) {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
-          
-          if (done) break;
-          
-          // Process the chunk directly - this is a ReadableStream of event data
-          // The format will be "data: {JSON object}\n\n"
-          const chunk = new TextDecoder().decode(value);
-          
-          // Log raw chunk data to see what's actually coming back
-          console.log('Raw chunk data:', chunk.substring(0, 100) + (chunk.length > 100 ? '...' : ''));
-          
-          // Using a more robust approach to splitting SSE lines
-          // Handle different line ending formats and empty data lines
-          const eventLines = chunk.split(/\r?\n/).filter(line => line.trim() !== '');
-          
-          // Log event lines count to see if we're parsing correctly
-          console.log(`Found ${eventLines.length} event lines in chunk`);
-          
-          for (const eventLine of eventLines) {
-            if (eventLine.startsWith('data: ')) {
-              try {
-                // Skip empty data lines
-                if (eventLine === 'data: ') continue;
-                if (eventLine === 'data: [DONE]') continue;
-                
-                const jsonStr = eventLine.substring(6);
-                const eventData = JSON.parse(jsonStr);
-                
-                // Log event type for debugging
-                console.log(`OpenAI event type: ${eventData.type || 'unknown'}`);
-                
-                // Check for various potential partial image formats
-                // Format 1: response.image_generation_call.partial_image
-                if (eventData.type === "response.image_generation_call.partial_image") {
-                  const idx = eventData.partial_image_index || 0;
-                  const imageBase64 = eventData.partial_image_b64;
-                  
-                  if (imageBase64) {
-                    console.log(`Received partial image ${idx}`);
-                    clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
-                    
-                    if (!imageUrl || idx > lastReceivedIndex) {
-                      lastReceivedIndex = idx;
-                      imageUrl = `data:image/png;base64,${imageBase64}`;
-                      console.log(`Using partial image ${idx} as the response image`);
-                    }
-                  }
-                }
-                
-                // Format 2: tool_calls array with image_generation type
-                if (eventData.tool_calls && Array.isArray(eventData.tool_calls)) {
-                  for (const toolCall of eventData.tool_calls) {
-                    if (toolCall.type === 'image_generation' && toolCall.image) {
-                      const idx = toolCall.index || 0;
-                      const imageBase64 = toolCall.image.b64_json;
-                      
-                      if (imageBase64) {
-                        console.log(`Received image from tool_calls ${idx}`);
-                        clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
-                        
-                        if (!imageUrl || idx > lastReceivedIndex) {
-                          lastReceivedIndex = idx;
-                          imageUrl = `data:image/png;base64,${imageBase64}`;
-                          console.log(`Using tool_call image ${idx} as the response image`);
-                        }
-                      }
-                    }
-                  }
-                }
-                
-                // Format 3: Check for any direct partial_images array
-                if (eventData.partial_images && Array.isArray(eventData.partial_images)) {
-                  eventData.partial_images.forEach((image: { b64_json?: string }, idx: number) => {
-                    if (image && image.b64_json) {
-                      console.log(`Received image from partial_images array ${idx}`);
-                      clientScripts.push(saveImageToLocalStorage(image.b64_json, idx));
-                      
-                      if (!imageUrl || idx > lastReceivedIndex) {
-                        lastReceivedIndex = idx;
-                        imageUrl = `data:image/png;base64,${image.b64_json}`;
-                        console.log(`Using partial_images array image ${idx} as the response image`);
-                      }
-                    }
-                  });
-                }
-                
-                // Format 4: direct image in the response
-                if (eventData.image && eventData.image.b64_json) {
-                  const imageBase64 = eventData.image.b64_json;
-                  const idx = lastReceivedIndex + 1;
-                  
-                  console.log(`Received direct image in response`);
-                  clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
-                  
-                  lastReceivedIndex = idx;
-                  imageUrl = `data:image/png;base64,${imageBase64}`;
-                  console.log(`Using direct image as the response image`);
-                }
-              } catch (e) {
-                console.error('Error parsing event data:', e);
-              }
-            }
+      // Directly pipe OpenAI SSE to the client
+      if (fetchResponse.body) {
+        return new NextResponse(fetchResponse.body as any, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive'
           }
-        }
-      } catch (streamError: unknown) {
-        console.error('Error processing stream:', streamError);
-        const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown stream processing error';
-        throw new Error(`Error processing image stream: ${errorMessage}`);
-      } finally {
-        reader.releaseLock();
+        });
       }
-      
-      // Check if we got at least one image
+
+      // Only fallback if we didn't get any image data
       if (!imageUrl) {
+        // Log the final state for debugging
+        console.log('No image URL captured from events');
+        console.log('Final buffer state:', buffer.slice(0, 500)); // First 500 chars of remaining buffer
+        console.log('Streaming did not return image data, falling back to standard image generation');
         // Fallback to standard image generation if streaming failed
         if (!openai) {
           throw new Error('OpenAI client is not initialized for fallback image generation');
         }
         
         console.log('Streaming failed, falling back to standard image generation');
-        
-        // Try with a simpler prompt for the fallback to ensure it works
-        const fallbackPrompt = customPrompt.length > 500 
-          ? customPrompt.substring(0, 500) + '...' // Truncate very long prompts
-          : customPrompt;
-          
-        console.log('Using fallback prompt:', fallbackPrompt.substring(0, 100) + '...');
-        
         const response = await openai.images.generate({
-          prompt: fallbackPrompt,
+          prompt: customPrompt,
           size: '1024x1536',
           quality: 'medium',
           model: 'gpt-image-1',
@@ -879,7 +736,7 @@ async function generateBackground(profile: ProfileData) {
         // Create simulated partial images with the fallback image
         clientScripts.length = 0; // Clear any partial scripts
         for (let i = 0; i < 3; i++) {
-          clientScripts.push(saveImageToLocalStorage(imageB64, i));
+          clientScripts.push(emitPartialToClient(imageB64, i));
           console.log(`Created simulated partial image ${i} using fallback`);
         }
       }
@@ -887,17 +744,15 @@ async function generateBackground(profile: ProfileData) {
       // Return the image URL with client scripts
       return NextResponse.json({ 
         success: true,
-        data: {
-          imageUrl: imageUrl,
-          clientScripts: clientScripts.join('\n'),
-          debug: {
-            generatedPrompt: customPrompt,
-            // Only include essential info to avoid response size issues
-            requestInfo: {
-              model: requestData.model,
-              temperature: requestData.temperature,
-              bioUsed: profile.bio || 'No bio available'
-            }
+        imageUrl: imageUrl,
+        clientScripts: clientScripts.join('\n'),
+        debug: {
+          generatedPrompt: customPrompt,
+          // Only include essential info to avoid response size issues
+          requestInfo: {
+            model: requestData.model,
+            temperature: requestData.temperature,
+            bioUsed: profile.bio || 'No bio available'
           }
         }
       });
@@ -918,8 +773,6 @@ async function generateBackground(profile: ProfileData) {
     }
   }
 }
-
-
 
 async function generateAvatar(profile: ProfileData) {
   try {

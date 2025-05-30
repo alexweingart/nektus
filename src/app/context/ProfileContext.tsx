@@ -362,53 +362,84 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Generate background image
   const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
-      // Only proceed if we have a valid profile with userId
       if (!profile?.userId) {
         console.error('Cannot generate background: Invalid profile or missing userId');
         return null;
       }
 
-
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           type: 'background',
-          profile 
-        }),
+          profile
+        })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to generate background:', response.status, errorText);
-        throw new Error(`Failed to generate background: ${response.statusText}`);
+      if (!response.body) {
+        console.error('No stream body');
+        return null;
       }
 
-      const result = await response.json();
-      
-      // Log the entire response for debugging
-      // Background generation completed
-      
-      // Check if the request was successful and has the expected data structure
-      if (!result.success || !result.data?.imageUrl) {
-        console.error('Failed to generate background image:', result.error || 'Unknown error');
-        throw new Error(result.error || 'Failed to generate background image');
+      const decoder = new TextDecoder();
+      const reader = response.body.getReader();
+      let buffer = '';
+      let finalB64: string | null = null;
+
+      const updateBackground = (b64: string) => {
+        setProfile(prev => {
+          if (!prev) return prev;
+          return { ...prev, backgroundImage: `data:image/png;base64,${b64}` };
+        });
+      };
+
+      const extractB64 = (obj: any): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (typeof obj.b64_json === 'string') return obj.b64_json;
+        if (typeof obj.partial_image_b64 === 'string') return obj.partial_image_b64;
+        for (const k in obj) {
+          const found = extractB64(obj[k]);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
+
+        for (const blk of blocks) {
+          const dataLines = blk.split('\n').filter(l => l.startsWith('data:')).map(l => l.substring(5));
+          if (dataLines.length === 0) continue;
+          const jsonStr = dataLines.join('');
+          try {
+            const evt = JSON.parse(jsonStr);
+            const b64 = extractB64(evt);
+            if (b64) {
+              updateBackground(b64);
+              finalB64 = b64; // keep last
+            }
+          } catch {}
+        }
       }
 
-      // Background image URL generated
-      return result.data.imageUrl;
-    } catch (error) {
-      console.error('Error generating background image:', error);
+      return finalB64 ? `data:image/png;base64,${finalB64}` : null;
+    } catch (e) {
+      console.error('Streaming background error', e);
       return null;
     }
   }, []);
-  
+
   // Generate bio for profile
   const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
-      // Only proceed if we have a valid profile with userId
       if (!profile?.userId) {
         console.error('Cannot generate bio: Invalid profile or missing userId');
         return null;
@@ -417,35 +448,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           type: 'bio',
-          profile 
-        }),
+          profile
+        })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to generate bio:', response.status, errorText);
-        throw new Error(`Failed to generate bio: ${response.statusText}`);
+        const txt = await response.text();
+        console.error('Failed to generate bio', txt);
+        return null;
       }
 
       const result = await response.json();
-      
-      // Log the entire response for debugging
-      
-      // Extract bio from response
-      const bio = result.bio;
-      
-      if (!bio) {
-        console.error('Failed to generate bio: No bio in response');
-        throw new Error('Failed to generate bio');
-      }
-
-      return bio;
-    } catch (error) {
-      console.error('Error generating bio:', error);
+      return result.bio || null;
+    } catch (e) {
+      console.error('generateBio error', e);
       return null;
     }
   }, []);
