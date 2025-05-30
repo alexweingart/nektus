@@ -95,7 +95,7 @@ export default function AdminBanner() {
         timestamp: new Date().getTime()
       };
       
-      console.log('Sending revoke payload with token available:', !!revokePayload.accessToken);
+      // Access token availability check
       
       const revokeResponse = await fetch('/api/auth/revoke', {
         method: 'POST',
@@ -110,15 +110,15 @@ export default function AdminBanner() {
       let revokeResult;
       try {
         revokeResult = await revokeResponse.json();
-        console.log('Revoke response status:', revokeResponse.status, revokeResponse.ok);
-        console.log('Revoke response data:', revokeResult);
+        // Process revoke response status
+        // Process revoke response data
       } catch (parseError) {
-        console.error('Error parsing revoke response:', parseError);
+        // Error parsing revoke response
         revokeResult = { error: 'Failed to parse response' };
       }
       
       if (!revokeResponse.ok) {
-        console.error('Failed to revoke token with Google:', revokeResult);
+        // Failed to revoke token with Google
         // Instead of throwing an error, we'll continue with the rest of the deletion
         // This is a temporary fix to ensure users can still delete their accounts
         // Continuing with account deletion despite token revocation failure
@@ -127,13 +127,13 @@ export default function AdminBanner() {
       }
       
       // 3. Sign out from NextAuth locally
-      console.log('Step 3: Signing out from NextAuth');
+      // Step 3: Signing out from NextAuth
       await signOut({ redirect: false });
       
       // 4. Clear all NextAuth cookies
-      console.log('Step 4: Clearing all NextAuth cookies');
+      // Step 4: Clearing all NextAuth cookies
       // Clear all cookies, not just next-auth ones
-      console.log('Clearing all cookies...');
+      // Clearing all cookies
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
         // Clear cookie with multiple path variations to ensure complete removal
@@ -148,12 +148,12 @@ export default function AdminBanner() {
         } else {
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${domain};`;
         }
-        console.log(`Cleared cookie: ${name}`);
+        // Cookie cleared
       });
       
       // More thorough localStorage cleanup
-      console.log('Clearing localStorage');
-      console.log(`Found ${localStorage.length} items in localStorage`);
+      // Clearing localStorage
+      // Check localStorage items count
       
       try {
         // First collect all dynamically found keys
@@ -183,16 +183,16 @@ export default function AdminBanner() {
         ];
         
         // Clear all collected keys
-        console.log(`Clearing ${dynamicKeys.length} dynamic keys and ${knownKeys.length} known keys`);
+        // Clearing collected localStorage keys
         [...dynamicKeys, ...knownKeys].forEach(key => {
-          console.log(`Removing localStorage key: ${key}`);
+          // Remove localStorage key
           localStorage.removeItem(key);
         });
         
         // Also do a general sweep for any keys with specific patterns
         Object.keys(localStorage).forEach(key => {
           if (key.includes('nektus') || key.includes('auth') || key.includes('profile') || key.includes('token')) {
-            console.log(`Removing pattern-matched localStorage key: ${key}`);
+            // Remove pattern-matched localStorage key
             localStorage.removeItem(key);
           }
         });
@@ -200,11 +200,11 @@ export default function AdminBanner() {
         // Final clear for good measure
         localStorage.clear();
       } catch (e) {
-        console.error('Error during localStorage clearing:', e);
+        // Error during localStorage clearing
       }
       
       // Clear sessionStorage completely
-      console.log('Clearing all sessionStorage items');
+      // Clearing all sessionStorage items
       try {
         // First, try to clear everything at once
         sessionStorage.clear();
@@ -224,38 +224,38 @@ export default function AdminBanner() {
         // Also clear any keys with nektus or auth in their names
         Object.keys(sessionStorage).forEach(key => {
           if (key.includes('nektus') || key.includes('auth') || key.includes('session') || key.includes('token')) {
-            console.log(`Removing sessionStorage key: ${key}`);
+            // Remove sessionStorage key
             sessionStorage.removeItem(key);
           }
         });
       } catch (e) {
-        console.error('Error during sessionStorage clearing:', e);
+        // Error during sessionStorage clearing
       }
       
       // Clear cookies related to authentication
-      console.log('Clearing auth-related cookies');
+      // Clearing auth-related cookies
       try {
         document.cookie.split(';').forEach(cookie => {
           const [name] = cookie.trim().split('=');
           if (name.includes('next-auth') || name.includes('nektus') || name.includes('session')) {
             document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-            console.log(`Cleared cookie: ${name}`);
+            // Cookie cleared
           }
         });
       } catch (e) {
-        console.error('Error clearing cookies:', e);
+        // Error clearing cookies
       }
       
       // Clear any IndexedDB databases
       if (window.indexedDB) {
-        console.log('Clearing IndexedDB databases');
+        // Clearing IndexedDB databases
         try {
           const dbs = await window.indexedDB.databases();
           if (dbs && dbs.length > 0) {
-            console.log(`Found ${dbs.length} IndexedDB databases`);
+            // Found IndexedDB databases
             for (const db of dbs) {
               if (db.name) {
-                console.log(`Deleting IndexedDB: ${db.name}`);
+                // Deleting IndexedDB
                 const deleteRequest = window.indexedDB.deleteDatabase(db.name);
                 
                 // Add event listeners for better error tracking
