@@ -666,117 +666,151 @@ async function generateBackground(profile: any) {
         }
       `;
     };
-
-
-    // Initialize a variable to store the final image URL
-    let imageUrl = '';
-    let finalImageBase64 = '';
     
-    // Direct fetch call to the responses API with streaming
-    const fetchResponse = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1',
-        input: customPrompt,
-        stream: true,
-        tools: [{ type: 'image_generation', partial_images: 3 }]
-      }),
-    });
-    
-    if (!fetchResponse.ok) {
-      const errorText = await fetchResponse.text();
-      throw new Error(`OpenAI API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
-    }
-    
-    if (!fetchResponse.body) {
-      throw new Error('No response body from OpenAI API');
-    }
-    
-    // Get a reader for the streaming response
-    const reader = fetchResponse.body.getReader();
-    const decoder = new TextDecoder();
-    
-    // Array to collect client-side script portions
-    const clientScripts: string[] = [];
-    
-    // Process the streaming response
-    let done = false;
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      if (done) break;
+    try {
+      console.log('Using responses API with image generation streaming');
       
-      const chunk = decoder.decode(value, { stream: true });
+      // Direct fetch call to the responses API with streaming
+      const fetchResponse = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1',
+          input: customPrompt,
+          stream: true,
+          tools: [{ type: 'image_generation', partial_images: 3 }]
+        }),
+      });
       
-      // Split by lines and process each event
-      const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+      console.log(`Responses API status: ${fetchResponse.status}`);
       
-      for (const line of lines) {
-        try {
-          // Parse the event data
-          const eventData = JSON.parse(line.substring(5).trim());
+      if (!fetchResponse.ok) {
+        const errorText = await fetchResponse.text();
+        console.error(`OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
+        throw new Error(`OpenAI Responses API error: ${fetchResponse.status}`);
+      }
+      
+      if (!fetchResponse.body) {
+        throw new Error('No response body from OpenAI API');
+      }
+      
+      // Get a reader for the streaming response
+      const reader = fetchResponse.body.getReader();
+      
+      // Array to collect client-side script portions
+      const clientScripts: string[] = [];
+      let imageUrl = ''; // Will hold the final image URL
+      
+      // Process the streaming response
+      let done = false;
+      try {
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
           
-          if (eventData.type === "response.image_generation_call.partial_image") {
-            const idx = eventData.partial_image_index;
-            const imageBase64 = eventData.partial_image_b64;
-            
-            console.log(`Received partial image ${idx}`);
-            
-            // Add script to update localStorage on client side
-            clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
-            
-            // If this is the final image, save it for the response
-            if (idx === 2) { // Final image (0-indexed, so 2 is the 3rd and final image)
-              finalImageBase64 = imageBase64;
-              imageUrl = `data:image/png;base64,${imageBase64}`;
+          if (done) break;
+          
+          // Process the chunk directly - this is a ReadableStream of event data
+          // The format will be "data: {JSON object}\n\n"
+          const chunk = new TextDecoder().decode(value);
+          const eventLines = chunk.split('\n\n');
+          
+          for (const eventLine of eventLines) {
+            if (eventLine.startsWith('data: ')) {
+              try {
+                const eventData = JSON.parse(eventLine.substring(6));
+                
+                if (eventData.type === "response.image_generation_call.partial_image") {
+                  const idx = eventData.partial_image_index;
+                  const imageBase64 = eventData.partial_image_b64;
+                  
+                  console.log(`Received partial image ${idx}`);
+                  
+                  // Add script to update localStorage on client side
+                  clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
+                  
+                  // If this is the final image (index 2), save it for the response
+                  if (idx === 2) {
+                    imageUrl = `data:image/png;base64,${imageBase64}`;
+                  }
+                }
+              } catch (e) {
+                console.error('Error parsing event data:', e);
+              }
             }
           }
-        } catch (e) {
-          console.error('Error parsing event data:', e);
+        }
+      } catch (streamError: unknown) {
+        console.error('Error processing stream:', streamError);
+        const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown stream processing error';
+        throw new Error(`Error processing image stream: ${errorMessage}`);
+      } finally {
+        reader.releaseLock();
+      }
+      
+      // Check if we got at least one image
+      if (!imageUrl) {
+        // Fallback to standard image generation if streaming failed
+        if (!openai) {
+          throw new Error('OpenAI client is not initialized for fallback image generation');
+        }
+        
+        console.log('Streaming failed, falling back to standard image generation');
+        const response = await openai.images.generate({
+          prompt: customPrompt,
+          size: '1024x1536',
+          quality: 'medium',
+          model: 'gpt-image-1',
+          response_format: 'b64_json'
+        });
+        
+        const imageB64 = response.data?.[0]?.b64_json;
+        if (!imageB64) {
+          throw new Error('No base64 image data in fallback response');
+        }
+        
+        // Set the final image
+        imageUrl = `data:image/png;base64,${imageB64}`;
+        
+        // Create simulated partial images with the fallback image
+        clientScripts.length = 0; // Clear any partial scripts
+        for (let i = 0; i < 3; i++) {
+          clientScripts.push(saveImageToLocalStorage(imageB64, i));
+          console.log(`Created simulated partial image ${i} using fallback`);
         }
       }
-    }
-    
-    // Log completion of streaming
-    console.log('Completed streaming response for image generation');
-    
-    if (!finalImageBase64) {
-      throw new Error('No final image was generated in the streaming response');
-    }
-    
-    if (!imageUrl) {
-      const errorMessage = 'No image URL in response from OpenAI API';
-      console.error(errorMessage);
+      
+      // Return the image URL with client scripts
       return NextResponse.json({ 
-        success: false,
-        error: errorMessage
-      }, { status: 500 });
-    }
-    
-    // Successfully generated background image
-    
-    // Return the generated image URL with limited debug information and client scripts
-    return NextResponse.json({ 
-      success: true,
-      data: {
-        imageUrl: imageUrl,
-        clientScripts: clientScripts.join('\n'),
-        debug: {
-          generatedPrompt: customPrompt,
-          // Only include essential info to avoid response size issues
-          requestInfo: {
-            model: requestData.model,
-            temperature: requestData.temperature,
-            bioUsed: profile.bio || 'No bio available'
+        success: true,
+        data: {
+          imageUrl: imageUrl,
+          clientScripts: clientScripts.join('\n'),
+          debug: {
+            generatedPrompt: customPrompt,
+            // Only include essential info to avoid response size issues
+            requestInfo: {
+              model: requestData.model,
+              temperature: requestData.temperature,
+              bioUsed: profile.bio || 'No bio available'
+            }
           }
         }
-      }
-    });
+      });
+    } catch (error) {
+      // Handle any errors during image generation
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error generating background image';
+      console.error('Background image generation failed:', error);
+      return NextResponse.json({ 
+        success: false,
+        error: `Background generation failed: ${errorMessage}`,
+        code: 'BACKGROUND_GENERATION_ERROR'
+      }, { status: 500 });
+    }
     
   } catch (error) {
     try {
@@ -797,6 +831,8 @@ async function generateBackground(profile: any) {
     }
   }
 }
+
+
 
 async function generateAvatar(profile: any) {
   try {
