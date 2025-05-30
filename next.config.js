@@ -3,6 +3,13 @@ const withPWA = require('next-pwa');
 // PWA configuration is only applied in production to reduce logs
 
 const nextConfig = {
+  // Explicitly use only App Router
+  useFileSystemPublicRoutes: true,
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  experimental: {
+    appDir: true,
+    serverComponentsExternalPackages: ['next-pwa']
+  },
   reactStrictMode: true,
   swcMinify: true,
   images: {
