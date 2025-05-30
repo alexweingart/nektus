@@ -29,12 +29,15 @@ export function SessionProvider({ children, session }: SessionProviderProps) {
         // Calculate 30 days expiration if not defined
         const expiresDate = session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         
-        console.log('🔑 Auth session updated:', { 
-          user: session.user?.email || 'Unknown user',
-          expires: expiresDate 
-        });
+        // Only log in development environment
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔑 Session:', session.user?.email || 'Unknown user');
+        }
       } else {
-        console.log('🔒 No active session');
+        // Only log in development environment
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔒 No session');
+        }
       }
       prevSessionRef.current = session;
     }

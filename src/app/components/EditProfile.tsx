@@ -170,13 +170,13 @@ const EditProfile: React.FC = () => {
           setDigits(cleanedNumber);
           setPhoneCountry('US'); // Default to US if no country is set
         } else {
-          console.log('Skipping phone number update, already has value:', digits);
+          // Skip phone number update as it already has a value
         }
       } else {
-        console.log('No valid phone number found in phoneInfo');
+        // No valid phone number found in phoneInfo
       }
     } else {
-      console.log('No phoneInfo found in profile data');
+      // No phoneInfo found in profile data
     }
   };
   
@@ -248,7 +248,7 @@ const EditProfile: React.FC = () => {
       let phoneNumber = '';
       let nationalNumber = '';
       
-      console.log('Saving phone number, digits:', digits);
+      // Process phone number if available
       
       if (digits) {
         try {
@@ -279,7 +279,7 @@ const EditProfile: React.FC = () => {
             }
           }
           
-          console.log('Formatted phone number:', { phoneNumber, nationalNumber, digits });
+          // Phone number successfully formatted
           
         } catch (error) {
           console.error('Error formatting phone:', error);
@@ -341,7 +341,7 @@ const EditProfile: React.FC = () => {
         });
       }
       
-      console.log('Saving profile:', updatedProfile);
+      // Save the updated profile
       
       // Save to context (which will save to localStorage)
       await saveProfile(updatedProfile);

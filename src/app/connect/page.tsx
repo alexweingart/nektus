@@ -182,7 +182,7 @@ export default function ConnectPage() {
   // Handle Nekt button click
   const handleNektClick = () => {
     // TODO: Implement Nekt functionality
-    console.log('Nekt button clicked');
+    // Handle Nekt button click action
   };
   
   // Show loading state while checking authentication or profile
@@ -410,7 +410,7 @@ export default function ConnectPage() {
                   setAvatarImage(aiAvatar);
                   setBio(aiBio);
                 } catch (error) {
-                  console.error('Error regenerating AI content:', error);
+                  // Handle error in AI content regeneration
                 } finally {
                   setIsGenerating(false);
                 }

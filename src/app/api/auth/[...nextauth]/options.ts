@@ -6,7 +6,10 @@ import { JWT } from "next-auth/jwt";
 const getEnv = (key: string): string => {
   const value = process.env[key];
   if (!value && process.env.NODE_ENV !== 'test') {
-    console.warn(`Warning: Missing environment variable: ${key}`);
+    // Log warning only in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Missing environment variable: ${key}`);
+    }
   }
   return value || '';
 };
@@ -102,13 +105,16 @@ export const authOptions: AuthOptions = {
   // Callbacks
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
-      console.log('Sign in callback:', { user, account, profile });
+      // Process sign in callback
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Sign in:', user?.email);
+      }
       return true;
     },
     async jwt({ token, user, account, profile }) {
       // Initial sign in
       if (account && user) {
-        console.log('JWT callback:', { token, user, account, profile });
+        // Process JWT callback
         
         // Use the profile picture from Google if available
         const googleImage = (profile as any)?.picture || (profile as any)?.image;
@@ -152,7 +158,7 @@ export const authOptions: AuthOptions = {
           return `${baseUrl}/`; // Redirect to homepage
         }
       } catch (e) {
-        console.error('Error parsing token in redirect callback:', e);
+        // Error parsing token in redirect callback
       }
       
       // Default to setup page if no profile exists or we couldn't determine
@@ -163,11 +169,11 @@ export const authOptions: AuthOptions = {
   // Events
   events: {
     async signIn({ user, account }) {
-      console.log("SIGN_IN_EVENT", { user, account });
+      // Handle sign in event
       // No need to check profile here as events don't affect redirection
     },
     async signOut() {
-      console.log(`SIGN_OUT_EVENT: User signed out`);
+      // Handle sign out event
     },
   },
   
@@ -177,13 +183,19 @@ export const authOptions: AuthOptions = {
   // Add logger for debugging
   logger: {
     error(code, metadata) {
-      console.error('Auth error:', code, metadata);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auth error:', code);
+      }
     },
     warn(code) {
-      console.warn('Auth warning:', code);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Auth warning:', code);
+      }
     },
     debug(code, metadata) {
-      console.log('Auth debug:', code, metadata);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Auth debug:', code);
+      }
     }
   },
   

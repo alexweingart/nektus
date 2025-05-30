@@ -110,12 +110,7 @@ try {
             quality: params.quality || 'medium'
           };
           
-          // Log only essential parameters for debugging
-          console.log('Generating image:', {
-            model: finalParams.model,
-            size: finalParams.size,
-            quality: finalParams.quality
-          });
+          // Image generation with model, size, and quality parameters
           
           // Call the underlying implementation
           const response = await customClient.images.generate(finalParams as any);
@@ -128,10 +123,9 @@ try {
     }
   } as unknown as CustomOpenAI;
   
-  console.log('OpenAI client initialized successfully');
+  // OpenAI client initialized successfully
 } catch (error) {
   console.error('Failed to initialize OpenAI client:', error);
-  console.error('Please check your OPENAI_API_KEY in .env.local');
 }
 
 // Helper function to extract social media links from profile
@@ -459,13 +453,8 @@ async function generateBio(profile: ProfileData) {
       store: true
     };
 
-    // Log only essential parameters for debugging
-    console.log('Generating bio with model:', requestParams.model);
-    
+    // Generate bio with specified model
     const response = await openai.responses.create(requestParams);
-    
-    // Log response received
-    console.log('Bio generation completed with model:', requestParams.model);
     
     // Use our module-level helper function to extract the text
     
@@ -543,16 +532,16 @@ async function generateBackground(profile: ProfileData) {
     const socialLinks = extractSocialLinks(profile);
     
     // First step: Generate a personalized prompt using GPT-4.1
-    console.log('Generating personalized background prompt with GPT-4.1');
-    
-    // Create new OpenAI instance
+    // Generate personalized background prompt with GPT-4.1
+
+    // Get social media information from profile
     // Use existing OpenAI client instead of creating a new one
     if (!openai) {
       throw new Error('OpenAI client not initialized');
     }
     
     // Use our custom responses API client
-    console.log('Using OpenAI client responses API for GPT-4.1');
+    // Using OpenAI client responses API for GPT-4.1
     
     // Prepare the request data
     const requestData = {
@@ -597,7 +586,7 @@ async function generateBackground(profile: ProfileData) {
     
     // Call the OpenAI API using our client
     const responseData = await openai.responses.create(requestData);
-    console.log('Prompt generation completed with model: GPT-4.1');
+    // Prompt generation completed
     
     // Extract the generated prompt from the response
     let customPrompt = '';
@@ -625,14 +614,14 @@ async function generateBackground(profile: ProfileData) {
     
     // Use a fallback prompt if no custom prompt was generated
     if (!customPrompt) {
-      console.warn('No custom prompt was generated, using fallback prompt');
+      // No custom prompt was generated, using fallback prompt
       customPrompt = `Create a simple, abstract background with subtle textures. 
         Use a color palette that's professional and modern. No text, people, or recognizable objects. 
         The image should be suitable for a professional networking context.`;
     }
     
     // Log shorter version of the prompt for debugging
-    console.log('Generated prompt:', customPrompt.substring(0, 100) + (customPrompt.length > 100 ? '...' : ''));
+    // Generated prompt ready for image creation
     
     // Second step: Use the generated prompt to create the background image
     console.log('Generating background image with gpt-image-1 model using custom prompt');
@@ -716,7 +705,7 @@ async function generateBackground(profile: ProfileData) {
           throw new Error('OpenAI client is not initialized for fallback image generation');
         }
         
-        console.log('Streaming failed, falling back to standard image generation');
+        // Streaming failed, falling back to standard image generation
         const response = await openai.images.generate({
           prompt: customPrompt,
           size: '1024x1536',
@@ -737,7 +726,7 @@ async function generateBackground(profile: ProfileData) {
         clientScripts.length = 0; // Clear any partial scripts
         for (let i = 0; i < 3; i++) {
           clientScripts.push(emitPartialToClient(imageB64, i));
-          console.log(`Created simulated partial image ${i} using fallback`);
+          // Created simulated partial image using fallback
         }
       }
       
@@ -798,7 +787,7 @@ async function generateAvatar(profile: ProfileData) {
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
-    console.log('Generating avatar with gpt-image-1 model');
+    // Generating avatar with gpt-image-1 model
     const response = await openai.images.generate({
       prompt: `Create a professional profile picture for ${profile.name || 'a user'}. ` +
               `The image should be a simple, abstract, and modern avatar. ` +
