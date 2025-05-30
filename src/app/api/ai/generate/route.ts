@@ -44,17 +44,12 @@ interface CustomOpenAI extends Omit<OpenAI, 'images' | 'responses'> {
 let openai: CustomOpenAI | null = null;
 
 try {
-  const openaiApiKey = process.env.OPENAI_API_KEY;
-  if (!openaiApiKey) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not set in environment variables');
   }
   
-  // Initialize the OpenAI client
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is not set');
-  }
-  
+  // Initialize the basic OpenAI client
   const client = new OpenAI({
     apiKey,
     baseURL: 'https://api.openai.com/v1',
@@ -65,20 +60,16 @@ try {
     }
   });
   
-  // Add the responses API to our custom client
+  // Create custom client with extended functionality
   const customClient = {
     ...client,
     responses: {
       create: async (params: any) => {
-        if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set in environment variables');
-    }
-    
-    const response = await fetch('https://api.openai.com/v1/responses', {
+        const response = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
             'OpenAI-Beta': 'assistants=v2'
           },
           body: JSON.stringify({
@@ -97,7 +88,7 @@ try {
     }
   };
   
-  // Type assertion for our custom client
+  // Type assertion for our custom client with extended image generation
   openai = {
     ...customClient,
     images: {
@@ -135,7 +126,7 @@ try {
     }
   } as unknown as CustomOpenAI;
   
-  // OpenAI client initialized
+  console.log('OpenAI client initialized successfully');
 } catch (error) {
   console.error('Failed to initialize OpenAI client:', error);
   console.error('Please check your OPENAI_API_KEY in .env.local');
