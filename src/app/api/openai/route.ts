@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/options';
+import { authOptions } from '../auth/[...nextauth]/options';
 
 // Custom types for our extended OpenAI client
 // Define our custom sizes which may include ones not supported natively by the OpenAI SDK
