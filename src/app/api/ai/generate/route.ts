@@ -641,14 +641,32 @@ async function generateBackground(profile: any) {
     
     // Function to save image to localStorage on the client side
     const saveImageToLocalStorage = (imageBase64: string, index: number) => {
-      const key = index === 2 ? 'backgroundImageResponse.png' : `backgroundImageResponse${index}.png`;
+      // Always use index in the filename for consistency
+      const key = `backgroundImageResponse${index}.png`;
       return `
         if (typeof window !== 'undefined') {
-          localStorage.setItem('${key}', 'data:image/png;base64,${imageBase64}');
-          console.log('Saved image to localStorage with key:', '${key}');
+          try {
+            // Get existing user profile from localStorage
+            const profileJson = localStorage.getItem('nektus_user_profile');
+            if (profileJson) {
+              const profile = JSON.parse(profileJson);
+              
+              // Update the backgroundImage property
+              profile.backgroundImage = 'data:image/png;base64,${imageBase64}';
+              
+              // Save back to localStorage
+              localStorage.setItem('nektus_user_profile', JSON.stringify(profile));
+              console.log('Updated nektus_user_profile with new backgroundImage: ${key}');
+            } else {
+              console.warn('nektus_user_profile not found in localStorage');
+            }
+          } catch (error) {
+            console.error('Error updating backgroundImage in localStorage:', error);
+          }
         }
       `;
     };
+
 
     // Initialize a variable to store the final image URL
     let imageUrl = '';
