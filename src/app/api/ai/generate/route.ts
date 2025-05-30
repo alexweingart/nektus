@@ -724,9 +724,17 @@ async function generateBackground(profile: ProfileData) {
           // Process the chunk directly - this is a ReadableStream of event data
           // The format will be "data: {JSON object}\n\n"
           const chunk = new TextDecoder().decode(value);
+          
+          // Log raw chunk data to see what's actually coming back
+          console.log('Raw chunk data:', chunk);
+          
           const eventLines = chunk.split('\n\n');
           
+          // Log event lines count to see if we're parsing correctly
+          console.log(`Found ${eventLines.length} event lines in chunk`);
+          
           for (const eventLine of eventLines) {
+            console.log('Event line:', eventLine);
             if (eventLine.startsWith('data: ')) {
               try {
                 const eventData = JSON.parse(eventLine.substring(6));
