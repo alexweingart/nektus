@@ -495,9 +495,9 @@ async function generateBackground(profile: any) {
       return NextResponse.json({ imageUrl: profile.backgroundImage });
     }
 
-    // Safety check for OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY is not set in environment variables');
+    // Check if OpenAI client is initialized
+    if (!openai) {
+      console.error('OpenAI client is not initialized');
       return NextResponse.json({ 
         imageUrl: null,
         error: 'OpenAI API key not configured' 
@@ -511,9 +511,10 @@ async function generateBackground(profile: any) {
     console.log('Generating personalized background prompt with GPT-4.1');
     
     // Create new OpenAI instance
-    const customOpenai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Use existing OpenAI client instead of creating a new one
+    if (!openai) {
+      throw new Error('OpenAI client not initialized');
+    }
     
     // Instead of using the responses API directly, we'll use a direct fetch call
     console.log('Using direct fetch to OpenAI API for GPT-4.1');
