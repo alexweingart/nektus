@@ -135,8 +135,24 @@ try {
 }
 
 // Helper function to extract social media links from profile
+// Define a more specific type for OpenAI responses
+interface OpenAIResponse {
+  output?: Array<{
+    role?: string;
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
+  }>;
+  text?: string | { value?: string };
+  choices?: Array<{
+    message?: { content?: string };
+    text?: string;
+  }>;
+}
+
 // Helper function to extract text content from OpenAI response
-function extractTextFromResponse(response: any): string {
+function extractTextFromResponse(response: OpenAIResponse): string {
   // Check for assistant's response first
   const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
   if (assistantResponse?.content) {
@@ -163,8 +179,24 @@ function extractTextFromResponse(response: any): string {
   return '';
 }
 
+// Define a type for profile data
+interface ProfileData {
+  name?: string;
+  bio?: string;
+  picture?: string;
+  profileImage?: string;
+  userId?: string;
+  socialProfiles?: Array<{
+    platform: string;
+    username: string;
+    url?: string;
+  }>;
+  contactChannels?: Record<string, { url?: string }>;
+  [key: string]: any; // For dynamic access to social media fields
+}
+
 // Helper function to extract social media links from profile
-function extractSocialLinks(profile: any): string | null {
+function extractSocialLinks(profile: ProfileData): string | null {
   if (!profile) return null;
   
   const socialLinks: string[] = [];
@@ -196,8 +228,24 @@ function extractSocialLinks(profile: any): string | null {
   return socialLinks.length > 0 ? socialLinks.join('\n') : null;
 }
 
+// Define interface for error details
+interface ErrorDetails {
+  requestId?: string;
+  durationMs?: number;
+  environment?: string;
+  hasOpenAIKey?: boolean;
+  openAiKeyPrefix?: string;
+  profile?: {
+    name?: string;
+    hasContactChannels?: boolean;
+    contactChannels?: string[];
+  };
+  source?: string;
+  [key: string]: any; // Allow for additional properties
+}
+
 // Helper function for consistent error responses
-function createErrorResponse(error: unknown, code: string, message: string, status = 500, requestDetails?: any) {
+function createErrorResponse(error: unknown, code: string, message: string, status = 500, requestDetails?: ErrorDetails) {
   const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   const errorName = error instanceof Error ? error.name : 'UnknownError';
@@ -240,6 +288,12 @@ function createErrorResponse(error: unknown, code: string, message: string, stat
   );
 }
 
+// Define interface for request body
+interface AIGenerationRequest {
+  type: 'background' | 'bio' | 'avatar';
+  profile: ProfileData;
+}
+
 // Handle AI generation requests
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(2, 8);
@@ -255,7 +309,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse(error, 'INVALID_JSON', 'Invalid JSON payload', 400, { requestId });
     }
 
-    const { type, profile } = requestBody;
+    const { type, profile } = requestBody as AIGenerationRequest;
     
     // Input validation
     if (!type) {
@@ -324,7 +378,7 @@ export async function POST(request: NextRequest) {
 
 
 // Helper function to extract social profile URLs from profile
-function getSocialProfileUrls(profile: any): string[] {
+function getSocialProfileUrls(profile: ProfileData): string[] {
   if (!profile?.contactChannels) return [];
   
   const urls: string[] = [];
@@ -342,7 +396,7 @@ function getSocialProfileUrls(profile: any): string[] {
   return urls;
 }
 
-async function generateBio(profile: any) {
+async function generateBio(profile: ProfileData) {
   // Bio generation started
 
   // Safety check for OpenAI client
@@ -470,7 +524,7 @@ async function generateBio(profile: any) {
   }
 }
 
-async function generateBackground(profile: any) {
+async function generateBackground(profile: ProfileData) {
   try {
     // Return existing background image if it exists
     if (profile.backgroundImage) {
@@ -775,7 +829,7 @@ async function generateBackground(profile: any) {
 
 
 
-async function generateAvatar(profile: any) {
+async function generateAvatar(profile: ProfileData) {
   try {
     // Avatar generation started
     
