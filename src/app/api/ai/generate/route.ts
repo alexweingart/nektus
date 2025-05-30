@@ -113,7 +113,12 @@ try {
             quality: params.quality || 'medium'
           };
           
-          console.log('Generating image with params:', JSON.stringify(finalParams, null, 2));
+          // Log only essential parameters for debugging
+          console.log('Generating image:', {
+            model: finalParams.model,
+            size: finalParams.size,
+            quality: finalParams.quality
+          });
           
           // Call the underlying implementation
           const response = await customClient.images.generate(finalParams as any);
@@ -181,7 +186,14 @@ function createErrorResponse(error: unknown, code: string, message: string, stat
     ...requestDetails
   };
 
-  console.error(`Error ${errorId}: ${code} - ${message}`, JSON.stringify(errorDetails, null, 2));
+  // Log error in a consistent format
+  console.error(`[ERROR:${code}] ${errorId}: ${message}`, 
+    // Only log essential details to keep logs clean
+    JSON.stringify({
+      message: errorMessage,
+      details: Object.keys(requestDetails || {}).length ? '...' : 'none',
+      timestamp: new Date().toISOString()
+    }));
   
   return NextResponse.json(
     { 
@@ -369,29 +381,13 @@ async function generateBio(profile: any) {
       store: true
     };
 
-    console.log('Sending request to OpenAI API:', JSON.stringify({
-      model: requestParams.model,
-      input: requestParams.input.map(i => ({
-        role: i.role,
-        content: i.content.map(c => ({
-          type: c.type,
-          text: c.text.substring(0, 50) + (c.text.length > 50 ? '...' : '')
-        }))
-      })),
-      tools: requestParams.tools
-    }, null, 2));
+    // Log only essential parameters for debugging
+    console.log('Generating bio with model:', requestParams.model);
     
     const response = await openai.responses.create(requestParams);
     
-    console.log('Received response from OpenAI API:', JSON.stringify({
-      output: response.output?.map((o: any) => ({
-        role: o.role,
-        content: o.content?.map((c: any) => ({
-          type: c.type,
-          text: c.text ? c.text.substring(0, 100) + (c.text.length > 100 ? '...' : '') : undefined
-        }))
-      }))
-    }, null, 2));
+    // Log response received
+    console.log('Bio generation completed with model:', requestParams.model);
     
     // Extract the generated bio from the response
     // The response format may vary, so we need to handle different possible structures
@@ -542,7 +538,7 @@ async function generateBackground(profile: any) {
     
     // Call the OpenAI API using our client
     const responseData = await openai.responses.create(requestData);
-    console.log('Raw GPT-4.1 response received:', JSON.stringify(responseData, null, 2));
+    console.log('Prompt generation completed with model: GPT-4.1');
     
     // Extract the generated prompt from the response
     let customPrompt = '';
@@ -583,9 +579,8 @@ async function generateBackground(profile: any) {
         The style should be minimal and clean, suitable for a profile background.`;
     }
     
-    console.error('======== GENERATED PROMPT FROM GPT-4.1 ========');
-    console.error(customPrompt);
-    console.error('==============================================');
+    // Log shorter version of the prompt for debugging
+    console.log('Generated prompt:', customPrompt.substring(0, 100) + (customPrompt.length > 100 ? '...' : ''));
     
     // Second step: Use the generated prompt to create the background image
     console.log('Generating background image with gpt-image-1 model using custom prompt');
@@ -686,6 +681,7 @@ async function generateBackground(profile: any) {
                   const idx = eventData.partial_image_index;
                   const imageBase64 = eventData.partial_image_b64;
                   
+                  // Only log the index of the received partial image to reduce noise
                   console.log(`Received partial image ${idx}`);
                   
                   // Add script to update localStorage on client side
