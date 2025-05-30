@@ -711,6 +711,7 @@ async function generateBackground(profile: ProfileData) {
       // Array to collect client-side script portions
       const clientScripts: string[] = [];
       let imageUrl = ''; // Will hold the final image URL
+      let lastReceivedIndex = -1; // Track the highest index received
       
       // Process the streaming response
       let done = false;
@@ -753,9 +754,12 @@ async function generateBackground(profile: ProfileData) {
                   // Add script to update localStorage on client side
                   clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
                   
-                  // If this is the final image (index 2), save it for the response
-                  if (idx === 2) {
+                  // Use any valid partial image, with preference for higher indexes
+                  // This handles the case where OpenAI doesn't send index 2 as expected
+                  if (!imageUrl || idx > lastReceivedIndex) {
+                    lastReceivedIndex = idx;
                     imageUrl = `data:image/png;base64,${imageBase64}`;
+                    console.log(`Using partial image ${idx} as the response image`);
                   }
                 }
               } catch (e) {
