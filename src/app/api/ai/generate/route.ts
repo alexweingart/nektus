@@ -135,6 +135,35 @@ try {
 }
 
 // Helper function to extract social media links from profile
+// Helper function to extract text content from OpenAI response
+function extractTextFromResponse(response: any): string {
+  // Check for assistant's response first
+  const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
+  if (assistantResponse?.content) {
+    const textContent = assistantResponse.content.find((c: any) => 
+      c.type === 'output_text' || c.type === 'text');
+    if (textContent?.text) {
+      return textContent.text.trim();
+    }
+  }
+  
+  // Fallback to any text content in the output
+  if (response.output) {
+    for (const item of response.output) {
+      if (item.content) {
+        const textContent = item.content.find((c: any) => 
+          c.type === 'output_text' || c.type === 'text');
+        if (textContent?.text) {
+          return textContent.text.trim();
+        }
+      }
+    }
+  }
+  
+  return '';
+}
+
+// Helper function to extract social media links from profile
 function extractSocialLinks(profile: any): string | null {
   if (!profile) return null;
   
@@ -386,33 +415,14 @@ async function generateBio(profile: any) {
     // Log response received
     console.log('Bio generation completed with model:', requestParams.model);
     
+    // Use our module-level helper function to extract the text
+    
     // Extract the generated bio from the response
-    // The response format may vary, so we need to handle different possible structures
-    let bio = '';
-    
-    // Try to find the assistant's response with the generated bio
-    const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
-    if (assistantResponse?.content) {
-      const textContent = assistantResponse.content.find((c: any) => c.type === 'output_text');
-      if (textContent?.text) {
-        bio = textContent.text.trim();
-      }
-    }
-    
-    // Fallback to the first text content if no assistant response found
-    if (!bio && response.output) {
-      for (const item of response.output) {
-        if (item.content) {
-          const textContent = item.content.find((c: any) => c.type === 'output_text' || c.type === 'text');
-          if (textContent?.text) {
-            bio = textContent.text.trim();
-            break;
-          }
-        }
-      }
-    }
+    const bio = extractTextFromResponse(response);
     
     if (!bio) {
+      // Get the assistant response again for error reporting
+      const assistantResponse = response.output?.find((item: any) => item.role === 'assistant');
       const errorMessage = 'No bio was generated in the response';
       const errorDetails = {
         responseSummary: {
@@ -540,24 +550,17 @@ async function generateBackground(profile: any) {
     // Extract the generated prompt from the response
     let customPrompt = '';
     
-    // Handle various response formats from the OpenAI API
-    if (typeof responseData.text === 'string') {
+    // Use the previously defined helper function if the response has the same structure
+    if (responseData.output && Array.isArray(responseData.output)) {
+      customPrompt = extractTextFromResponse(responseData);
+    } 
+    // Handle various other response formats from the OpenAI API
+    else if (typeof responseData.text === 'string') {
       // Direct text property (string)
       customPrompt = responseData.text.trim();
     } else if (responseData.text && typeof responseData.text.value === 'string') {
       // Nested text.value property
       customPrompt = responseData.text.value.trim();
-    } else if (responseData.output && Array.isArray(responseData.output)) {
-      // Try to find the assistant's response in the output array
-      const assistantResponse = responseData.output.find((item: any) => item.role === 'assistant');
-      if (assistantResponse?.content) {
-        // Try to find text content in the assistant's response
-        const textContent = assistantResponse.content.find((c: any) => 
-          c.type === 'output_text' || c.type === 'text');
-        if (textContent?.text) {
-          customPrompt = textContent.text.trim();
-        }
-      }
     } else if (responseData.choices && Array.isArray(responseData.choices) && responseData.choices.length > 0) {
       // Handle format from completion API
       const choice = responseData.choices[0];
