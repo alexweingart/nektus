@@ -7,7 +7,6 @@ const nextConfig = {
   useFileSystemPublicRoutes: true,
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   experimental: {
-    appDir: true,
     serverComponentsExternalPackages: ['next-pwa']
   },
   reactStrictMode: true,
