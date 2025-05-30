@@ -165,6 +165,43 @@ function extractSocialLinks(profile: any): string | null {
   return socialLinks.length > 0 ? socialLinks.join('\n') : null;
 }
 
+// Helper function for consistent error responses
+function createErrorResponse(error: unknown, code: string, message: string, status = 500, requestDetails?: any) {
+  const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  const errorName = error instanceof Error ? error.name : 'UnknownError';
+  const errorStack = error instanceof Error ? error.stack : undefined;
+  
+  const errorDetails = {
+    errorId,
+    message: errorMessage,
+    name: errorName,
+    stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+    timestamp: new Date().toISOString(),
+    ...requestDetails
+  };
+
+  console.error(`Error ${errorId}: ${code} - ${message}`, JSON.stringify(errorDetails, null, 2));
+  
+  return NextResponse.json(
+    { 
+      error: message,
+      errorId,
+      code,
+      details: process.env.NODE_ENV === 'development' ? errorDetails : {
+        errorId,
+        message: errorMessage
+      }
+    },
+    { 
+      status,
+      headers: {
+        'X-Error-ID': errorId
+      }
+    }
+  );
+}
+
 // Handle AI generation requests
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(2, 8);
@@ -177,13 +214,7 @@ export async function POST(request: NextRequest) {
       requestBody = await request.json();
     } catch (error) {
       console.error(`[${requestId}] Failed to parse request body:`, error);
-      return NextResponse.json(
-        { 
-          error: 'Invalid JSON payload',
-          code: 'INVALID_JSON' 
-        },
-        { status: 400 }
-      );
+      return createErrorResponse(error, 'INVALID_JSON', 'Invalid JSON payload', 400, { requestId });
     }
 
     const { type, profile } = requestBody;
@@ -240,49 +271,15 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.name : 'UnknownError';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    const openAiKey = process.env.OPENAI_API_KEY || '';
-    
-    const errorDetails = {
-      errorId,
-      message: errorMessage,
-      name: errorName,
-      stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
-      timestamp: new Date().toISOString(),
+    return createErrorResponse(error, 'GENERATION_ERROR', 'Failed to generate content', 500, {
       requestId,
       durationMs: Date.now() - requestStartTime,
       environment: process.env.NODE_ENV || 'development',
-      hasOpenAIKey: !!openAiKey,
-      openAiKeyPrefix: openAiKey 
-        ? `${openAiKey.substring(0, 5)}...${openAiKey.substring(-3)}` 
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      openAiKeyPrefix: process.env.OPENAI_API_KEY 
+        ? `${process.env.OPENAI_API_KEY.substring(0, 5)}...` 
         : 'Not set'
-    };
-
-    console.error(`[Request ${requestId}] AI generation error (${errorId}):`, JSON.stringify(errorDetails, null, 2));
-    
-    // Return detailed error in development, sanitized in production
-    return NextResponse.json(
-      { 
-        error: 'Failed to generate content',
-        errorId,
-        code: 'GENERATION_ERROR',
-        message: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? errorDetails : {
-          errorId,
-          message: errorMessage
-        }
-      },
-      { 
-        status: 500,
-        headers: {
-          'X-Request-ID': requestId,
-          'X-Error-ID': errorId
-        }
-      }
-    );
+    });
   }
 }
 
@@ -460,30 +457,13 @@ async function generateBio(profile: any) {
     return NextResponse.json({ bio });
     
   } catch (error) {
-    const errorDetails = {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : 'UnknownError',
+    return createErrorResponse(error, 'BIO_GENERATION_ERROR', 'Failed to generate bio', 500, {
       profile: {
         name: profile?.name,
         hasContactChannels: !!profile?.contactChannels,
         contactChannels: profile?.contactChannels ? Object.keys(profile.contactChannels) : []
-      },
-      timestamp: new Date().toISOString(),
-      errorType: 'BIO_GENERATION_ERROR'
-    };
-
-    console.error('Error in generateBio:', JSON.stringify(errorDetails, null, 2));
-    
-    // Return a more detailed error response
-    return NextResponse.json(
-      { 
-        error: 'Failed to generate bio',
-        details: errorDetails.message,
-        code: 'BIO_GENERATION_ERROR'
-      },
-      { status: 500 }
-    );
+      }
+    });
   }
 }
 
@@ -794,32 +774,19 @@ async function generateBackground(profile: any) {
         }
       });
     } catch (error) {
-      // Handle any errors during image generation
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error generating background image';
-      console.error('Background image generation failed:', error);
-      return NextResponse.json({ 
-        success: false,
-        error: `Background generation failed: ${errorMessage}`,
-        code: 'BACKGROUND_GENERATION_ERROR'
-      }, { status: 500 });
+      return createErrorResponse(error, 'BACKGROUND_GENERATION_ERROR', 'Background generation failed', 500, {
+        source: 'image_generation'
+      });
     }
     
   } catch (error) {
     try {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error during background generation';
-      console.error('Background generation error:', error);
-      return NextResponse.json({ 
-        success: false,
-        error: `Background generation failed: ${errorMessage}`,
-        code: 'BACKGROUND_GENERATION_ERROR'
-      }, { status: 500 });
+      return createErrorResponse(error, 'BACKGROUND_GENERATION_ERROR', 'Background generation failed', 500, {
+        source: 'background_generation'
+      });
     } catch (innerError) {
       console.error('Error in error handler:', innerError);
-      return NextResponse.json({ 
-        success: false,
-        error: 'An unexpected error occurred',
-        code: 'UNEXPECTED_ERROR'
-      }, { status: 500 });
+      return createErrorResponse(innerError, 'UNEXPECTED_ERROR', 'An unexpected error occurred', 500);
     }
   }
 }
@@ -884,8 +851,11 @@ async function generateAvatar(profile: any) {
     return NextResponse.json({ imageUrl: avatarUrl });
   } catch (error) {
     console.error('Avatar generation error:', error);
+    // In avatar generation, we fail gracefully by returning a default image
     return NextResponse.json({ 
-      imageUrl: profile.picture || '/default-avatar.png' 
+      imageUrl: profile.picture || '/default-avatar.png',
+      generated: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
