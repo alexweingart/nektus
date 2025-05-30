@@ -1,23 +1,6 @@
 const withPWA = require('next-pwa');
 
-// Silence PWA logs in development
-const originalConsoleLog = console.log;
-let hasLoggedPWAStatus = false;
-
-console.log = function(...args) {
-  // Check if this is a PWA status message
-  if (args[0] && typeof args[0] === 'string' && args[0].includes('[PWA] PWA support is')) {
-    if (!hasLoggedPWAStatus) {
-      hasLoggedPWAStatus = true;
-      originalConsoleLog.apply(console, args);
-    }
-    // Skip duplicate logs
-    return;
-  }
-  
-  // Pass through all other logs
-  originalConsoleLog.apply(console, args);
-};
+// PWA configuration is only applied in production to reduce logs
 
 const nextConfig = {
   reactStrictMode: true,
@@ -58,18 +41,14 @@ const nextConfig = {
   },
 };
 
-// Apply PWA configuration
-const pwaConfig = withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development"
-});
-
-// Apply the configuration
-const config = pwaConfig(nextConfig);
-
-// Restore original console.log
-console.log = originalConsoleLog;
+// Only apply PWA in production, use regular config in development
+const config = process.env.NODE_ENV === 'production' 
+  ? withPWA({
+      dest: "public",
+      register: true,
+      skipWaiting: true,
+      disable: false
+    })(nextConfig)
+  : nextConfig;
 
 module.exports = config;
