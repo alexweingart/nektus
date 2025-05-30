@@ -496,8 +496,8 @@ async function generateBackground(profile: any) {
       throw new Error('OpenAI client not initialized');
     }
     
-    // Instead of using the responses API directly, we'll use a direct fetch call
-    console.log('Using direct fetch to OpenAI API for GPT-4.1');
+    // Use our custom responses API client
+    console.log('Using OpenAI client responses API for GPT-4.1');
     
     // Prepare the request data
     const requestData = {
@@ -540,23 +540,8 @@ async function generateBackground(profile: any) {
       store: true
     };
     
-    // Call the OpenAI API to generate a personalized prompt using fetch
-    const responseRaw = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    if (!responseRaw.ok) {
-      const errorText = await responseRaw.text();
-      throw new Error(`OpenAI API error: ${responseRaw.status} ${responseRaw.statusText} - ${errorText}`);
-    }
-    
-    const responseData = await responseRaw.json();
+    // Call the OpenAI API using our client
+    const responseData = await openai.responses.create(requestData);
     console.log('Raw GPT-4.1 response received:', JSON.stringify(responseData, null, 2));
     
     // Extract the generated prompt from the response
@@ -642,7 +627,8 @@ async function generateBackground(profile: any) {
     try {
       console.log('Using responses API with image generation streaming');
       
-      // Direct fetch call to the responses API with streaming
+      // We still need direct fetch for streaming functionality
+      // as the OpenAI SDK doesn't fully support this specific streaming use case
       const fetchResponse = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
