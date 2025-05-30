@@ -687,16 +687,30 @@ async function generateBackground(profile: ProfileData) {
         },
         body: JSON.stringify({
           model: 'gpt-4.1',
-          input: customPrompt,
+          input: [{
+            role: 'user',
+            content: [{
+              type: 'text',
+              text: customPrompt
+            }]
+          }],
           stream: true,
-          tools: [{ type: 'image_generation', partial_images: 3 }]
+          tools: [{ type: 'image_generation', background: 'auto', partial_images: true }]
         }),
       });
       
       console.log(`Responses API status: ${fetchResponse.status}`);
       
       if (!fetchResponse.ok) {
-        const errorText = await fetchResponse.text();
+        let errorText = '';
+        try {
+          // Try to get detailed error as JSON first
+          const errorJson = await fetchResponse.json();
+          errorText = JSON.stringify(errorJson);
+        } catch (e) {
+          // Fallback to plain text if JSON parsing fails
+          errorText = await fetchResponse.text();
+        }
         console.error(`OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
         throw new Error(`OpenAI Responses API error: ${fetchResponse.status}`);
       }
@@ -727,40 +741,94 @@ async function generateBackground(profile: ProfileData) {
           const chunk = new TextDecoder().decode(value);
           
           // Log raw chunk data to see what's actually coming back
-          console.log('Raw chunk data:', chunk);
+          console.log('Raw chunk data:', chunk.substring(0, 100) + (chunk.length > 100 ? '...' : ''));
           
-          const eventLines = chunk.split('\n\n');
+          // Using a more robust approach to splitting SSE lines
+          // Handle different line ending formats and empty data lines
+          const eventLines = chunk.split(/\r?\n/).filter(line => line.trim() !== '');
           
           // Log event lines count to see if we're parsing correctly
           console.log(`Found ${eventLines.length} event lines in chunk`);
           
           for (const eventLine of eventLines) {
-            console.log('Event line:', eventLine);
             if (eventLine.startsWith('data: ')) {
               try {
-                const eventData = JSON.parse(eventLine.substring(6));
+                // Skip empty data lines
+                if (eventLine === 'data: ') continue;
+                if (eventLine === 'data: [DONE]') continue;
                 
-                // Debug: Log all event types and structure
-                console.log(`OpenAI event type: ${eventData.type}`);
-                console.log('Event data structure:', JSON.stringify(eventData, null, 2).substring(0, 500));
+                const jsonStr = eventLine.substring(6);
+                const eventData = JSON.parse(jsonStr);
                 
+                // Log event type for debugging
+                console.log(`OpenAI event type: ${eventData.type || 'unknown'}`);
+                
+                // Check for various potential partial image formats
+                // Format 1: response.image_generation_call.partial_image
                 if (eventData.type === "response.image_generation_call.partial_image") {
-                  const idx = eventData.partial_image_index;
+                  const idx = eventData.partial_image_index || 0;
                   const imageBase64 = eventData.partial_image_b64;
                   
-                  // Only log the index of the received partial image to reduce noise
-                  console.log(`Received partial image ${idx}`);
+                  if (imageBase64) {
+                    console.log(`Received partial image ${idx}`);
+                    clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
+                    
+                    if (!imageUrl || idx > lastReceivedIndex) {
+                      lastReceivedIndex = idx;
+                      imageUrl = `data:image/png;base64,${imageBase64}`;
+                      console.log(`Using partial image ${idx} as the response image`);
+                    }
+                  }
+                }
+                
+                // Format 2: tool_calls array with image_generation type
+                if (eventData.tool_calls && Array.isArray(eventData.tool_calls)) {
+                  for (const toolCall of eventData.tool_calls) {
+                    if (toolCall.type === 'image_generation' && toolCall.image) {
+                      const idx = toolCall.index || 0;
+                      const imageBase64 = toolCall.image.b64_json;
+                      
+                      if (imageBase64) {
+                        console.log(`Received image from tool_calls ${idx}`);
+                        clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
+                        
+                        if (!imageUrl || idx > lastReceivedIndex) {
+                          lastReceivedIndex = idx;
+                          imageUrl = `data:image/png;base64,${imageBase64}`;
+                          console.log(`Using tool_call image ${idx} as the response image`);
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                // Format 3: Check for any direct partial_images array
+                if (eventData.partial_images && Array.isArray(eventData.partial_images)) {
+                  eventData.partial_images.forEach((image: { b64_json?: string }, idx: number) => {
+                    if (image && image.b64_json) {
+                      console.log(`Received image from partial_images array ${idx}`);
+                      clientScripts.push(saveImageToLocalStorage(image.b64_json, idx));
+                      
+                      if (!imageUrl || idx > lastReceivedIndex) {
+                        lastReceivedIndex = idx;
+                        imageUrl = `data:image/png;base64,${image.b64_json}`;
+                        console.log(`Using partial_images array image ${idx} as the response image`);
+                      }
+                    }
+                  });
+                }
+                
+                // Format 4: direct image in the response
+                if (eventData.image && eventData.image.b64_json) {
+                  const imageBase64 = eventData.image.b64_json;
+                  const idx = lastReceivedIndex + 1;
                   
-                  // Add script to update localStorage on client side
+                  console.log(`Received direct image in response`);
                   clientScripts.push(saveImageToLocalStorage(imageBase64, idx));
                   
-                  // Use any valid partial image, with preference for higher indexes
-                  // This handles the case where OpenAI doesn't send index 2 as expected
-                  if (!imageUrl || idx > lastReceivedIndex) {
-                    lastReceivedIndex = idx;
-                    imageUrl = `data:image/png;base64,${imageBase64}`;
-                    console.log(`Using partial image ${idx} as the response image`);
-                  }
+                  lastReceivedIndex = idx;
+                  imageUrl = `data:image/png;base64,${imageBase64}`;
+                  console.log(`Using direct image as the response image`);
                 }
               } catch (e) {
                 console.error('Error parsing event data:', e);
@@ -784,8 +852,16 @@ async function generateBackground(profile: ProfileData) {
         }
         
         console.log('Streaming failed, falling back to standard image generation');
+        
+        // Try with a simpler prompt for the fallback to ensure it works
+        const fallbackPrompt = customPrompt.length > 500 
+          ? customPrompt.substring(0, 500) + '...' // Truncate very long prompts
+          : customPrompt;
+          
+        console.log('Using fallback prompt:', fallbackPrompt.substring(0, 100) + '...');
+        
         const response = await openai.images.generate({
-          prompt: customPrompt,
+          prompt: fallbackPrompt,
           size: '1024x1536',
           quality: 'medium',
           model: 'gpt-image-1',
