@@ -164,7 +164,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
 
       // Profile image generation initiated
-      const response = await fetch('/api/ai/generate', {
+      const response = await fetch('/api/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -367,7 +367,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      const response = await fetch('/api/ai/generate', {
+      const response = await fetch('/api/openai', {
         method: 'POST',
         headers: {
           'Accept': 'text/event-stream',
@@ -445,7 +445,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      const response = await fetch('/api/ai/generate', {
+      const response = await fetch('/api/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -551,7 +551,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         
         try {
           // Call the API and pass the profile data
-          const response = await fetch('/api/ai/generate', {
+          const response = await fetch('/api/openai', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

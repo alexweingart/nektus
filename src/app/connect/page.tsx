@@ -20,7 +20,7 @@ const getPlaceholderBio = () => {
 // AI-powered bio generation
 const generateAIBio = async (profile: any) => {
   try {
-    const response = await fetch('/api/ai/generate', {
+    const response = await fetch('/api/openai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ const generateAIBio = async (profile: any) => {
 // AI-powered background image generation
 const generateAIBackground = async (profile: any) => {
   try {
-    const response = await fetch('/api/ai/generate', {
+    const response = await fetch('/api/openai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ const generateAIBackground = async (profile: any) => {
 // AI-powered avatar generation
 const generateAIAvatar = async (profile: any) => {
   try {
-    const response = await fetch('/api/ai/generate', {
+    const response = await fetch('/api/openai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
