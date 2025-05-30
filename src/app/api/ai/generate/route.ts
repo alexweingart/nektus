@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-// Temporarily disabled Firebase imports
-// import { db } from '../../../lib/firebase';
-// import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Custom types for our extended OpenAI client
 // Define our custom sizes which may include ones not supported natively by the OpenAI SDK
@@ -820,15 +817,7 @@ async function generateAvatar(profile: any) {
     // Convert base64 to data URL
     const avatarUrl = `data:image/png;base64,${imageB64}`;
     
-    // Temporarily disabled Firestore save
-    // if (profile.userId) {
-    //   try {
-    //     const aiContentRef = doc(db, 'ai_content', profile.userId);
-    //     await setDoc(aiContentRef, { avatarImage: avatarUrl }, { merge: true });
-    //   } catch (error) {
-    //     console.error('Error storing AI avatar content:', error);
-    //   }
-    // }
+    // Avatar image generated successfully
     
     return NextResponse.json({ imageUrl: avatarUrl });
   } catch (error) {
