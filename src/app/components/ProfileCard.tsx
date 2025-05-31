@@ -2,10 +2,24 @@
 
 import React from 'react';
 import SocialIcon from './SocialIcon';
-import { UserData } from '../context/UserContext';
+import { UserProfile } from '../context/ProfileContext';
+
+type SocialPlatform = 'facebook' | 'instagram' | 'x' | 'whatsapp' | 'snapchat' | 'telegram' | 'linkedin';
+
+interface SocialProfile {
+  platform: SocialPlatform;
+  username: string;
+  shareEnabled: boolean;
+}
 
 interface ProfileCardProps {
-  userData: UserData;
+  userData: {
+    name: string;
+    title?: string;
+    company?: string;
+    location?: string;
+    contactChannels: UserProfile['contactChannels'];
+  };
   isCurrentUser?: boolean;
   onNektClick?: () => void;
 }
@@ -15,7 +29,18 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   isCurrentUser = false,
   onNektClick
 }) => {
-  const { name, title, company, location, socialProfiles } = userData;
+  const { name, title, company, location, contactChannels } = userData;
+  
+  // Convert contactChannels to the expected format for SocialIcon
+  const socialProfiles: SocialProfile[] = [
+    { platform: 'facebook' as const, username: contactChannels.facebook.username, shareEnabled: contactChannels.facebook.userConfirmed },
+    { platform: 'instagram' as const, username: contactChannels.instagram.username, shareEnabled: contactChannels.instagram.userConfirmed },
+    { platform: 'x' as const, username: contactChannels.x.username, shareEnabled: contactChannels.x.userConfirmed },
+    { platform: 'whatsapp' as const, username: contactChannels.whatsapp.username, shareEnabled: contactChannels.whatsapp.userConfirmed },
+    { platform: 'snapchat' as const, username: contactChannels.snapchat.username, shareEnabled: contactChannels.snapchat.userConfirmed },
+    { platform: 'telegram' as const, username: contactChannels.telegram.username, shareEnabled: contactChannels.telegram.userConfirmed },
+    { platform: 'linkedin' as const, username: contactChannels.linkedin.username, shareEnabled: contactChannels.linkedin.userConfirmed },
+  ];
   
   // Filter social profiles to only show ones with usernames and that are enabled for sharing
   const visibleSocialProfiles = socialProfiles.filter(
