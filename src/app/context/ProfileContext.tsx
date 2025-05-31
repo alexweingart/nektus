@@ -76,8 +76,6 @@ interface Session {
   user?: SessionUser | null;
 }
 
-type SessionOrNull = Session | null;
-
 // Function to create a default profile with empty strings
 const createDefaultProfile = (session?: Session | null): UserProfile => {
   const email = session?.user?.email || '';
