@@ -20,7 +20,7 @@ try {
   
   // List of critical dependencies the app requires
   const requiredDependencies = [
-    'next', 'react', 'react-dom', 'next-auth', 'firebase', 'react-input-mask', 'react-phone-number-input'
+    'next', 'react', 'react-dom', 'next-auth', 'firebase', 'react-phone-number-input'
   ];
   
   // CSS-related dependencies that should be present (usually as dev dependencies)
@@ -30,9 +30,8 @@ try {
   
   const missingDeps = [];
   requiredDependencies.forEach(dep => {
-    // Special case: Always skip react-input-mask and react-phone-number-input
-    // as we know they're installed but for some reason the check isn't detecting them
-    if (dep === 'react-input-mask' || dep === 'react-phone-number-input') {
+    // Special case: Skip react-phone-number-input as we know it's installed but for some reason the check isn't detecting it
+    if (dep === 'react-phone-number-input') {
       console.log(`   ✓ Skipping dependency check for ${dep} (known issue)`); 
       return;
     }
@@ -50,11 +49,11 @@ try {
     }
   });
   
-  // EMERGENCY OVERRIDE: Filter out react-input-mask from missing deps
+  // Filter out any dependencies we want to skip
   const filteredMissingDeps = missingDeps.filter(dep => 
-    dep !== 'react-input-mask' && dep !== 'react-phone-number-input'
+    dep !== 'react-phone-number-input'
   );
-  
+
   if (filteredMissingDeps.length > 0) {
     throw new Error(`Missing critical dependencies: ${filteredMissingDeps.join(', ')}`);
   } else if (missingDeps.length > 0) {
@@ -118,7 +117,7 @@ try {
   };
   
   // Make sure we verify these packages
-  const criticalPackages = ['react-input-mask', 'react-phone-number-input', '@radix-ui/react-dialog'];
+  const criticalPackages = ['react-phone-number-input', '@radix-ui/react-dialog'];
   for (const pkg of criticalPackages) {
     if (!ensureDependency(pkg)) {
       if (pkg.startsWith('@radix-ui/')) {
