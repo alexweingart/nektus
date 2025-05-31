@@ -20,9 +20,17 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icons/icon-192x192.svg', type: 'image/svg+xml' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/icons/icon-192x192.png',
+    apple: [
+      { url: '/icons/icon-192x192.png' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Nekt.Us',
   },
 };
 
