@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
     
     // We'll use email as the primary identifier since it's the most reliable
-    const userIdentifier = userEmail || userId;
+    const _userIdentifier = userEmail || userId;  // Unused but kept for future use
     
     // Processing account deletion for user
     
@@ -104,15 +104,8 @@ export async function POST(req: NextRequest) {
     // Simulate some deletion work
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Get auth cookies for logging purposes
-    // In Next.js 15.3, the cookies API has changed
-    // We'll just log that we're processing cookies without actually accessing them
-    const authCookies = [];
-    
     // Note: In a production app, you would implement proper cookie handling
     // compatible with Next.js 15.3's cookies API
-    
-    // Auth cookies identified for client-side clearing
     
     // Set headers to prevent caching
     return NextResponse.json({ 
