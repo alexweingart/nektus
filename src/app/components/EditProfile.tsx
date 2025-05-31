@@ -16,7 +16,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-import SocialIcon from './SocialIcon';
+import SocialIcon from './ui/SocialIcon';
 import { MdEdit } from 'react-icons/md';
 
 // Extend the ProfileContextUserProfile type with our additional fields

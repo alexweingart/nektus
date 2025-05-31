@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
 import Avatar from './ui/Avatar';
-import SocialIcon from './SocialIcon';
+import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { toast } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
