@@ -266,7 +266,7 @@ const ProfileView: React.FC = () => {
         
         {/* Bio with markdown support */}
         <div className="text-sm text-black mb-6 text-center max-w-xs">
-          <style jsx>{`
+          <style>{`
             .bio-content a {
               color: #16a34a; /* green-600 */
               text-decoration: none;
