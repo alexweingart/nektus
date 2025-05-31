@@ -64,7 +64,7 @@ input[type="tel"] {
 @layer base {
   :root {
     /* Original color palette */
-    --background: #f4f9f4; /* Softer light green background */
+    --background: #118541; /* Softer light green background */
     --background-secondary: #e8f5e9; /* Slightly darker green for sections */
     --foreground: #2d3748; /* Softer black for better readability */
     --primary: #4caf50; /* Green primary color */
@@ -144,8 +144,8 @@ html, body {
   padding: 0;
   margin: 0;
   color: var(--foreground);
-  background: var(--background, #f4f9f4) !important;
-  background-color: #f4f9f4 !important;
+  background: var(--background, #118541) !important;
+  background-color: #118541 !important;
   min-height: 100vh;
   height: 100%;
   width: 100%;

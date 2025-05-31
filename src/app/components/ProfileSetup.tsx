@@ -178,7 +178,8 @@ export default function ProfileSetup() {
 
 
   // Handle saving the profile with phone number
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!session?.user?.email || !profile || isSaving) return;
     
     setIsSaving(true);
@@ -197,6 +198,7 @@ export default function ProfileSetup() {
           nationalPhone = parsed.nationalNumber;
         } else {
           console.error('Invalid phone number');
+          setIsSaving(false);
           return;
         }
       }
@@ -244,68 +246,86 @@ export default function ProfileSetup() {
   // Handle loading and unauthenticated states
   if (status === 'loading' || isLoading || status !== 'authenticated') {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f4f9f4]">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#118541]">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div 
-      className="min-h-screen w-full flex flex-col items-center px-4 py-6"
-      style={{
-        backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: '#f4f9f4'
-      }}
-    >
-      <div className="w-full max-w-md flex flex-col items-center">
-        {/* Profile Image */}
-        <div className="mb-4">
-          <div className="border-4 border-white shadow-lg rounded-full">
-            <Avatar 
-              src={profile?.profileImage} 
-              alt={profile?.name || 'Profile'}
-              size="lg"
-            />
+    <div className="min-h-screen w-full bg-[#118541] relative">
+      {/* Background Image - Using a full-screen fixed div */}
+      {profile?.backgroundImage && (
+        <div 
+          className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${profile.backgroundImage})`,
+          }}
+        />
+      )}
+      
+      {/* Semi-transparent overlay to ensure text is readable */}
+      <div className="fixed inset-0 -z-10 bg-white/30 backdrop-blur-sm" />
+      
+      {/* Main Content */}
+      <div className="min-h-screen flex flex-col items-center px-4 py-6 relative z-10">
+        <div className="w-full max-w-md flex flex-col items-center">
+          {/* Profile Image */}
+          <div className="mb-4">
+            <div className="border-4 border-white shadow-lg rounded-full">
+              <Avatar 
+                src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
+                alt={profile?.name || session?.user?.name || 'Profile'}
+                size="lg"
+              />
+            </div>
           </div>
-        </div>
-        
-        {/* Profile Name - Double click to activate admin mode */}
-        <h1 
-          className="text-2xl font-bold mb-1 text-center text-black cursor-pointer" 
-          {...adminModeProps}
-        >
-          {profile?.name || session?.user?.name || 'Profile'}
-        </h1>
-        
-        {/* Phone Input Section */}
-        <div className="mb-8 w-full max-w-xs mx-auto">
-          <div className="w-full space-y-4">
-            <label className="sr-only">Phone Number</label>
-            <CustomPhoneInput
-              ref={phoneInputRef}
-              value={digits}
-              onChange={setDigits}
-              placeholder="Enter phone number"
-              className="w-full"
-              inputProps={{
-                className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              }}
-            />
-            
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-full shadow-md transition-colors ${
-                isSaving ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSaving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
+          
+          {/* Profile Name - Double click to activate admin mode */}
+          <h1 
+            className="text-2xl font-bold mb-6 text-center text-black cursor-pointer" 
+            {...adminModeProps}
+          >
+            {profile?.name || session?.user?.name || 'Profile'}
+          </h1>
+          
+          {/* Phone Input Section */}
+          <form onSubmit={handleSave} className="w-full max-w-xs mx-auto">
+            <div className="w-full space-y-4">
+              <CustomPhoneInput
+                ref={phoneInputRef}
+                value={digits}
+                onChange={setDigits}
+                placeholder="Enter phone number"
+                className="w-full"
+                inputProps={{
+                  className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white/90",
+                  required: true,
+                  'aria-label': 'Phone number',
+                  disabled: isSaving
+                }}
+              />
+              
+              <button
+                type="submit"
+                disabled={isSaving}
+                className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-full shadow-md transition-colors ${
+                  isSaving ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
+                aria-busy={isSaving}
+              >
+                {isSaving ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </span>
+                ) : 'Save'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
