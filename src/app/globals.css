@@ -98,7 +98,7 @@ input[type="tel"] {
     --radius: 0.5rem;
     
     /* Colors for shadcn components */
-    --background: 104 35% 95%;
+    --background: 118 41% 30%; /* Using HSL equivalent of #118541 */
     --foreground: 214 32% 23%;
     --muted: 210 20% 98%;
     --muted-foreground: 215 16% 47%;
