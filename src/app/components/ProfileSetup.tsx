@@ -38,7 +38,7 @@ export default function ProfileSetup() {
   const [digits, setDigits] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   // Keep selectedCountry for phone number formatting
-  const [selectedCountry, setSelectedCountry] = useState<Country>({
+  const [selectedCountry] = useState<Country>({
     name: 'United States',
     code: 'US',
     flag: '🇺🇸',
