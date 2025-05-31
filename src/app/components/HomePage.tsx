@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './ui/AdminBanner';
+import Image from 'next/image';
 
 // Standard button style shared across the application - defined here for reference
 // but not used in this component to avoid unused variable warning
@@ -76,14 +77,16 @@ const HomePage: React.FC = () => {
           }}
           {...adminModeProps} // Apply the double-click handler
         >
-          <img 
+          <Image 
             src="/nektus-logo.svg" 
             alt="Nekt.Us Logo" 
+            width={230}
+            height={80}
             style={{ 
-              width: '230px',
-              height: 'auto',
-              maxWidth: '90%'
+              maxWidth: '90%',
+              height: 'auto'
             }} 
+            priority
           />
         </div>
         <p 
