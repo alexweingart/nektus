@@ -7,7 +7,8 @@ import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { useProfile, UserProfile } from '../context/ProfileContext';
-import { setupScrollLock } from '../../lib/utils/scrollLock';
+// setupScrollLock is not used but kept for future reference
+// import { setupScrollLock } from '../../lib/utils/scrollLock';
 import Avatar from './ui/Avatar';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
@@ -36,6 +37,7 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [digits, setDigits] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  // Keep selectedCountry for phone number formatting
   const [selectedCountry, setSelectedCountry] = useState<Country>({
     name: 'United States',
     code: 'US',

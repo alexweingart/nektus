@@ -1,6 +1,10 @@
 import GoogleProvider from "next-auth/providers/google";
-import type { NextAuthOptions, DefaultSession, User } from "next-auth";
-import { JWT } from "next-auth/jwt";
+import type { DefaultSession, User, Profile } from "next-auth";
+
+interface GoogleProfile extends Profile {
+  picture?: string;
+  image?: string;
+}
 
 // Helper to get environment variables with better error handling
 const getEnv = (key: string): string => {
@@ -104,10 +108,10 @@ export const authOptions: AuthOptions = {
   
   // Callbacks
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
+    async signIn(params) {
       // Process sign in callback
       if (process.env.NODE_ENV === 'development') {
-        console.log('Sign in:', user?.email);
+        console.log('Sign in:', params.user?.email);
       }
       return true;
     },
@@ -117,7 +121,7 @@ export const authOptions: AuthOptions = {
         // Process JWT callback
         
         // Use the profile picture from Google if available
-        const googleImage = (profile as any)?.picture || (profile as any)?.image;
+        const googleImage = (profile as GoogleProfile)?.picture || (profile as GoogleProfile)?.image;
         const userImage = googleImage || user.image;
         
         return {
@@ -157,8 +161,8 @@ export const authOptions: AuthOptions = {
         if (token.profileWithPhoneExists) {
           return `${baseUrl}/`; // Redirect to homepage
         }
-      } catch (e) {
-        // Error parsing token in redirect callback
+      } catch {
+        // Error parsing token in redirect callback - intentionally ignored
       }
       
       // Default to setup page if no profile exists or we couldn't determine
@@ -168,7 +172,7 @@ export const authOptions: AuthOptions = {
   
   // Events
   events: {
-    async signIn({ user, account }) {
+    async signIn() {
       // Handle sign in event
       // No need to check profile here as events don't affect redirection
     },
@@ -182,19 +186,15 @@ export const authOptions: AuthOptions = {
   
   // Add logger for debugging
   logger: {
-    error(code, metadata) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Auth error:', code);
-      }
+    async error(code: string, metadata: unknown) {
+      console.error('Auth error:', code, metadata);
     },
-    warn(code) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Auth warning:', code);
-      }
+    async warn(code: string) {
+      console.warn('Auth warning:', code);
     },
-    debug(code, metadata) {
+    async debug(code: string, metadata: unknown) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Auth debug:', code);
+        console.debug('Auth debug:', code, metadata);
       }
     }
   },

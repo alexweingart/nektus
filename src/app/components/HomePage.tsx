@@ -4,24 +4,25 @@ import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './ui/AdminBanner';
 
-// Standard button style shared across the application
-const standardButtonStyle = {
-  display: 'block',
-  width: '100%',
-  backgroundColor: 'var(--primary)',
-  color: 'white',
-  fontSize: '22px',
-  fontWeight: '500',
-  padding: '16px 24px',
-  borderRadius: '100px',
-  boxShadow: 'var(--shadow-md)',
-  transition: 'all 0.2s ease-in-out',
-  textDecoration: 'none',
-  textAlign: 'center' as const, // Type assertion to fix TypeScript error
-  border: 'none',
-  cursor: 'pointer',
-  marginTop: '10px'
-};
+// Standard button style shared across the application - defined here for reference
+// but not used in this component to avoid unused variable warning
+// const standardButtonStyle = {
+//   display: 'block',
+//   width: '100%',
+//   backgroundColor: 'var(--primary)',
+//   color: 'white',
+//   fontSize: '22px',
+//   fontWeight: '500',
+//   padding: '16px 24px',
+//   borderRadius: '100px',
+//   boxShadow: 'var(--shadow-md)',
+//   transition: 'all 0.2s ease-in-out',
+//   textDecoration: 'none',
+//   textAlign: 'center' as const, // Type assertion to fix TypeScript error
+//   border: 'none',
+//   cursor: 'pointer',
+//   marginTop: '10px'
+// };
 
 // Component handles just the welcome screen
 const HomePage: React.FC = () => {
@@ -130,7 +131,7 @@ const HomePage: React.FC = () => {
         </button>
         
         <div style={{ fontSize: '16px', color: '#555', textAlign: 'center', marginTop: '4px', marginBottom: '20px' }}>
-          to start nekt'ing
+          to start nekt&apos;ing
         </div>
       </div>
     </div>

@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
         // Found email in request body
         email = body.email;
       }
-    } catch (e) {
-      // Error parsing request body
+    } catch {
+      // Error parsing request body - continue to next method
     }
     
     // Method 2: Get token from NextAuth token
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         if (!email && token?.user?.email) {
           email = token.user.email;
         }
-      } catch (e) {
+      } catch (_e) {
         // Error getting JWT token from NextAuth
       }
     }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         if (!email && session?.user?.email) {
           email = session.user.email;
         }
-      } catch (e) {
+      } catch (_e) {
         // Error getting server session
       }
     }
@@ -136,7 +136,6 @@ export async function POST(req: NextRequest) {
     
     // Only attempt to revoke the token if we have one
     let revokeResponse = { ok: true, status: 200 }; // Default to success
-    let revokeData = { success: true };
     
     if (accessToken) {
       // Making request to Google to revoke token  
@@ -155,13 +154,13 @@ export async function POST(req: NextRequest) {
         // Google revocation response status processed
         
         try {
-          revokeData = await response.json();
-        } catch (e) {
+          await response.json();
+        } catch {
           // Google's revocation endpoint returns an empty response on success
           // so this might throw, which is fine
           // No JSON in Google response (expected for success case)
         }
-      } catch (e) {
+      } catch {
         // Network error during token revocation
         // We'll continue despite the error to ensure the user can still delete their account
       }

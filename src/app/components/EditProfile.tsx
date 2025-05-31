@@ -1,8 +1,42 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import CustomPhoneInput from './ui/CustomPhoneInput';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import SocialIcon from './ui/SocialIcon';
+import { MdEdit } from 'react-icons/md';
+
+// Define the social platform type
+type SocialPlatform = 
+  | 'facebook' 
+  | 'instagram' 
+  | 'x' 
+  | 'linkedin' 
+  | 'snapchat' 
+  | 'whatsapp' 
+  | 'telegram' 
+  | 'wechat' 
+  | 'email' 
+  | 'phone';
+
+// Array of all social platforms for type-safe iteration
+const ALL_SOCIAL_PLATFORMS: SocialPlatform[] = [
+  'facebook',
+  'instagram',
+  'x',
+  'linkedin',
+  'snapchat',
+  'whatsapp',
+  'telegram',
+  'wechat',
+  'email',
+  'phone'
+];
 
 // Define the SocialProfile type for the form
 type SocialProfile = {
@@ -12,17 +46,62 @@ type SocialProfile = {
   filled?: boolean;
   confirmed?: boolean;
 };
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import CustomPhoneInput from './ui/CustomPhoneInput';
-import { parsePhoneNumberFromString } from 'libphonenumber-js';
-import SocialIcon from './ui/SocialIcon';
-import { MdEdit } from 'react-icons/md';
 
-// Extend the ProfileContextUserProfile type with our additional fields
-type UserProfile = ProfileContextUserProfile & {
+// Define the form data interface
+interface FormDataState {
+  name: string;
+  email: string;
+  picture: string;
   socialProfiles: Array<SocialProfile & { filled?: boolean }>;
-};
+  backgroundImage: string;
+}
+
+// Define the base social channel type
+interface BaseSocialChannel {
+  username?: string;
+  url?: string;
+  userConfirmed?: boolean;
+}
+
+// Define the contact channels interface
+interface ContactChannels {
+  email?: {
+    email?: string;
+    userConfirmed?: boolean;
+  };
+  phoneInfo?: {
+    nationalPhone?: string;
+    internationalPhone?: string;
+    phoneNumber?: string;
+    phone?: string;
+    userConfirmed?: boolean;
+    countryCode?: string;
+  };
+  // Social platforms
+  facebook?: BaseSocialChannel;
+  instagram?: BaseSocialChannel;
+  x?: BaseSocialChannel;
+  whatsapp?: BaseSocialChannel;
+  snapchat?: BaseSocialChannel;
+  telegram?: BaseSocialChannel;
+  wechat?: BaseSocialChannel;
+  linkedin?: BaseSocialChannel;
+  // Index signature for dynamic access
+  [key: string]: 
+    | { email?: string; userConfirmed?: boolean }
+    | { username?: string; url?: string; userConfirmed?: boolean }
+    | { nationalPhone?: string; internationalPhone?: string; userConfirmed?: boolean }
+    | undefined;
+}
+
+// Define the profile data interface
+interface ProfileData {
+  name?: string;
+  contactChannels?: ContactChannels;
+  profileImage?: string;
+  backgroundImage?: string;
+  socialProfiles?: SocialProfile[];
+}
 
 const EditProfile: React.FC = () => {
   const { data: session } = useSession();
@@ -31,13 +110,7 @@ const EditProfile: React.FC = () => {
   const nameInputRef = useRef<HTMLInputElement>(null);
   
   // State for form data
-  const [formData, setFormData] = useState<{
-    name: string;
-    email: string;
-    picture: string;
-    socialProfiles: Array<SocialProfile & { filled?: boolean }>;
-    backgroundImage: string;
-  }>({
+  const [formData, setFormData] = useState<FormDataState>({
     name: '',
     email: '',
     picture: '',
@@ -49,52 +122,8 @@ const EditProfile: React.FC = () => {
   const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
   
-  // Load profile data
-  useEffect(() => {
-    // Load from profile context which uses the correct storage key
-    if (profile) {
-      initializeFormData(profile);
-    }
-  }, [profile]);
-  
-  // Initialize form with session data if profile is empty
-  useEffect(() => {
-    if (session?.user && !profile) {
-      setFormData(prev => ({
-        ...prev,
-        name: session.user?.name || '',
-        email: session.user?.email || '',
-        picture: session.user?.image || ''
-      }));
-    }
-  }, [session, profile]);
-  
-  // Helper function to get social prefix for a platform
-  const getSocialPrefix = (platform: string) => {
-    switch (platform) {
-      case 'facebook':
-        return 'facebook.com/';
-      case 'instagram':
-        return 'instagram.com/';
-      case 'x':
-        return 'x.com/';
-      case 'snapchat':
-        return 'snapchat.com/add/';
-      case 'linkedin':
-        return 'linkedin.com/in/';
-      case 'whatsapp':
-        return '+';
-      case 'telegram':
-        return 't.me/';
-      case 'wechat':
-        return '';
-      default:
-        return '';
-    }
-  };
-
   // Helper function to initialize form data from profile
-  const initializeFormData = (profileData: any) => {
+  const initializeFormData = useCallback((profileData: ProfileData) => {
     // Initialize form data with profile data
     const name = profileData.name || session?.user?.name || '';
     const email = profileData.contactChannels?.email?.email || session?.user?.email || '';
@@ -127,16 +156,16 @@ const EditProfile: React.FC = () => {
     }
     
     // Add social profiles
-    const socialPlatforms = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
+    const socialPlatforms: SocialPlatform[] = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
     socialPlatforms.forEach(platform => {
-      const channel = profileData.contactChannels?.[platform];
-      if (channel?.username) {
+      const channel = profileData.contactChannels?.[platform] as { username?: string; userConfirmed?: boolean } | undefined;
+      if (channel?.username !== undefined) {
         socialProfiles.push({
-          platform: platform as any,
-          username: channel.username,
+          platform,
+          username: channel.username || '',
           shareEnabled: true,
           filled: !!channel.username,
-          confirmed: channel.userConfirmed
+          confirmed: channel.userConfirmed || false
         });
       }
     });
@@ -151,7 +180,8 @@ const EditProfile: React.FC = () => {
     
     // Check if we have phone info in the expected location
     const phoneInfo = profileData.contactChannels?.phoneInfo || 
-                    (profileData as any).phoneInfo; // Fallback to root level
+                    (profileData && 'phoneInfo' in profileData ? 
+                      profileData.phoneInfo as ContactChannels['phoneInfo'] : undefined);
     
     if (phoneInfo) {
       // Try to get the phone number from various possible locations
@@ -179,33 +209,84 @@ const EditProfile: React.FC = () => {
     } else {
       // No phoneInfo found in profile data
     }
-  };
+  }, [session?.user?.name, session?.user?.email, session?.user?.image, digits]);
   
+  // Load profile data
+  useEffect(() => {
+    if (profile) {
+      initializeFormData(profile);
+    }
+  }, [profile, initializeFormData]);
+  
+  // Initialize form with session data if profile is empty
+  useEffect(() => {
+    if (session?.user && !profile) {
+      setFormData((prev: FormDataState) => ({
+        ...prev,
+        name: session.user?.name || '',
+        email: session.user?.email || '',
+        picture: session.user?.image || '',
+      }));
+    }
+  }, [session, profile, setFormData]);
+  
+  // Helper function to get social prefix for a platform
+  const getSocialPrefix = (platform: SocialPlatform): string => {
+    const prefixMap: Record<SocialPlatform, string> = {
+      'facebook': 'facebook.com/',
+      'instagram': 'instagram.com/',
+      'x': 'x.com/',
+      'snapchat': 'snapchat.com/add/',
+      'linkedin': 'linkedin.com/in/',
+      'whatsapp': '+',
+      'telegram': 't.me/',
+      'wechat': '',
+      'email': '',
+      'phone': ''
+    };
+    
+    return prefixMap[platform] || '';
+  };
+
+  useEffect(() => {
+    if (session?.user && !profile) {
+      setFormData((prev) => ({
+        ...prev,
+        name: session.user?.name || '',
+        email: session.user?.email || '',
+        picture: session.user?.image || '',
+      }));
+    }
+  }, [session, profile]);
+
   // Auto-focus name input on mount for mobile convenience
   useEffect(() => {
     nameInputRef.current?.focus();
   }, []);
-  
+
   // Handle image upload
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'background') => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       const result = e.target?.result as string;
       if (type === 'avatar') {
-        setFormData(prev => ({ ...prev, picture: result }));
+        setFormData((prev: FormDataState) => ({ ...prev, picture: result }));
       } else {
-        setFormData(prev => ({ ...prev, backgroundImage: result }));
+        setFormData((prev: FormDataState) => ({ ...prev, backgroundImage: result }));
       }
+    };
+    reader.onerror = (e) => {
+      console.error('Error reading file:', e);
     };
     reader.readAsDataURL(file);
   };
   
   // Handle social profile input change
-  const handleSocialChange = (platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat', value: string) => {
-    setFormData(prev => {
+  const handleSocialChange = (platform: SocialPlatform, value: string) => {
+    setFormData((prev: FormDataState) => {
       const updatedProfiles = [...prev.socialProfiles];
       const profileIndex = updatedProfiles.findIndex(p => p.platform === platform);
       
@@ -231,18 +312,23 @@ const EditProfile: React.FC = () => {
   };
   
   // Get social profile value
-  const getSocialProfileValue = (platform: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat'): string => {
+  const getSocialProfileValue = (platform: SocialPlatform): string => {
     const profile = formData.socialProfiles.find(p => p.platform === platform);
     return profile?.username || '';
   };
   
   // Handle save profile
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
+    if (!setIsSaving) {
+      console.warn('setIsSaving is not available');
+      return;
+    }
+    
     setIsSaving(true);
     
     try {
       if (!session?.user?.email) {
-        throw new Error('No user session');
+        throw new Error('No user session found');
       }
       
       // Format phone number with country code
@@ -250,7 +336,6 @@ const EditProfile: React.FC = () => {
       let nationalNumber = '';
       
       // Process phone number if available
-      
       if (digits) {
         try {
           // Clean the digits first (remove any non-digit characters except +)
@@ -260,8 +345,8 @@ const EditProfile: React.FC = () => {
           if (cleanedDigits.startsWith('+')) {
             const parsed = parsePhoneNumberFromString(cleanedDigits);
             if (parsed?.isValid()) {
-              phoneNumber = parsed.format('E.164');
-              nationalNumber = parsed.nationalNumber;
+              phoneNumber = parsed.format('E.164') || '';
+              nationalNumber = parsed.nationalNumber || '';
             } else {
               // If parsing fails, use the cleaned digits as is
               phoneNumber = cleanedDigits;
@@ -269,10 +354,10 @@ const EditProfile: React.FC = () => {
             }
           } else {
             // For national numbers, use the selected country code
-            const parsed = parsePhoneNumberFromString(cleanedDigits, phoneCountry as any);
+            const parsed = parsePhoneNumberFromString(cleanedDigits, phoneCountry);
             if (parsed?.isValid()) {
-              phoneNumber = parsed.format('E.164');
-              nationalNumber = parsed.nationalNumber;
+              phoneNumber = parsed.format('E.164') || '';
+              nationalNumber = parsed.nationalNumber || '';
             } else {
               // Fallback to raw digits if parsing fails
               phoneNumber = `+${cleanedDigits}`;
@@ -290,8 +375,44 @@ const EditProfile: React.FC = () => {
         }
       }
       
+      // Define the social channel type for the form
+      type FormSocialChannel = {
+        username: string;
+        url: string;
+        userConfirmed: boolean;
+      };
+
+      // Define the contact channels type for the form
+      interface FormContactChannels {
+        phoneInfo: {
+          internationalPhone: string;
+          nationalPhone: string;
+          userConfirmed: boolean;
+        };
+        email: {
+          email: string;
+          userConfirmed: boolean;
+        };
+        facebook: FormSocialChannel;
+        instagram: FormSocialChannel;
+        x: FormSocialChannel;
+        whatsapp: FormSocialChannel;
+        snapchat: FormSocialChannel;
+        telegram: FormSocialChannel;
+        wechat: FormSocialChannel;
+        linkedin: FormSocialChannel;
+        [key: string]: FormSocialChannel | {
+          email: string;
+          userConfirmed: boolean;
+        } | {
+          internationalPhone: string;
+          nationalPhone: string;
+          userConfirmed: boolean;
+        };
+      }
+
       // Create the updated profile with the correct structure for UserProfile
-      const updatedProfile: Partial<ProfileContextUserProfile> & { contactChannels: any } = {
+      const updatedProfile: Partial<ProfileContextUserProfile> & { contactChannels: FormContactChannels } = {
         name: formData.name,
         profileImage: formData.picture,
         backgroundImage: formData.backgroundImage,
@@ -319,41 +440,71 @@ const EditProfile: React.FC = () => {
       };
       
       // Update social profiles from form data
-      if (updatedProfile.contactChannels) {
-        formData.socialProfiles.forEach(profile => {
-          const platform = profile.platform;
-          if (platform === 'email') {
-            updatedProfile.contactChannels.email = {
-              email: profile.username,
-              userConfirmed: true
-            };
-          } else if (platform === 'phone') {
-            // Already handled above
-          } else if (['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'].includes(platform)) {
-            const socialPlatform = platform as keyof typeof updatedProfile.contactChannels;
-            if (socialPlatform in updatedProfile.contactChannels) {
-              (updatedProfile.contactChannels as any)[socialPlatform] = {
-                username: profile.username,
-                url: profile.username ? `${getSocialPrefix(platform as any)}${profile.username}` : '',
-                userConfirmed: true
-              };
-            }
+      formData.socialProfiles.forEach(profile => {
+        const { platform, username } = profile;
+        
+        // Handle email separately
+        if (platform === 'email') {
+          updatedProfile.contactChannels.email = {
+            email: username,
+            userConfirmed: true
+          };
+          return;
+        }
+        
+        // Skip phone as it's handled separately
+        if (platform === 'phone') {
+          return;
+        }
+        
+        // Handle other social platforms
+        if (ALL_SOCIAL_PLATFORMS.includes(platform as SocialPlatform)) {
+          const socialKey = platform as keyof typeof updatedProfile.contactChannels;
+          const socialPlatform = platform as SocialPlatform;
+          const url = username ? `${getSocialPrefix(socialPlatform)}${username}` : '';
+          
+          // Update the social channel with type safety
+          const updatedChannel: FormSocialChannel = {
+            username,
+            url,
+            userConfirmed: true
+          };
+          
+          // Type-safe assignment
+          if (socialKey in updatedProfile.contactChannels) {
+            (updatedProfile.contactChannels[socialKey] as FormSocialChannel) = updatedChannel;
           }
-        });
-      }
+        }
+      });
       
       // Save the updated profile
+      if (!saveProfile) {
+        throw new Error('saveProfile function is not available');
+      }
       
       // Save to context (which will save to localStorage)
       await saveProfile(updatedProfile);
       
       // Redirect to profile view
-      router.push('/');
+      if (router) {
+        router.push('/');
+      } else {
+        console.warn('Router is not available');
+        // Fallback to window.location if router is not available
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile. Please try again.');
+      // Use a more user-friendly error handling approach
+      if (error instanceof Error) {
+        alert(`Error saving profile: ${error.message}`);
+      } else {
+        alert('An unknown error occurred while saving the profile');
+      }
     } finally {
-      setIsSaving(false);
+      if (setIsSaving) {
+        setIsSaving(false);
+      }
     }
   };
   
@@ -380,26 +531,29 @@ const EditProfile: React.FC = () => {
               <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300 relative">
                 {formData.picture ? (
                   <>
-                    <img 
-                      src={formData.picture} 
-                      alt="Profile" 
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.style.display = 'none';
-                        const fallback = document.getElementById('edit-avatar-fallback');
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                      onLoad={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.opacity = '1';
-                      }}
-                      style={{
-                        opacity: 0,
-                        transition: 'opacity 0.3s ease-in-out'
-                      }}
-                    />
+                    <div className="absolute inset-0 w-full h-full">
+                      <Image
+                        src={formData.picture}
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.style.display = 'none';
+                          const fallback = document.getElementById('edit-avatar-fallback');
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                        onLoadingComplete={(img) => {
+                          img.style.opacity = '1';
+                        }}
+                        style={{
+                          opacity: 0,
+                          transition: 'opacity 0.3s ease-in-out'
+                        }}
+                        unoptimized={formData.picture.startsWith('data:')}
+                      />
+                    </div>
                     <div 
                       id="edit-avatar-fallback"
                       className="w-full h-full flex items-center justify-center bg-white hidden"

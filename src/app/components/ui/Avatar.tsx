@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 interface AvatarProps {
   src?: string;
@@ -30,11 +31,13 @@ const Avatar: React.FC<AvatarProps> = ({
     <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
       <div className="absolute inset-0 bg-gray-100 rounded-full">
         <div className="w-full h-full flex items-center justify-center">
-          <img
+          <Image
             src={imgSrc || '/default-avatar.png'}
             alt={alt}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
             onError={() => setImgSrc('/default-avatar.png')}
+            unoptimized={imgSrc?.startsWith('data:')}
           />
         </div>
       </div>

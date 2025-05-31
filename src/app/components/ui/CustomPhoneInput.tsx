@@ -315,11 +315,8 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     };
   }, []);
   
-  // Handle blur only for autofill case, focus state is managed by document click handler
-  const handleInputBlur = () => {
-    // For autofill and browser suggestions, we don't want to remove focus state
-    // since user will likely tap back in - managed by document click instead
-  };
+  // Focus state is managed by document click handler
+  // No need for separate blur handler as it's handled by the document click
 
   return (
     <div 
