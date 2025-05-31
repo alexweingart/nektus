@@ -192,7 +192,7 @@ const ProfileView: React.FC = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundColor: '#118541'
+        backgroundColor: 'var(--background)'
       }}
     >
       {/* Admin Mode is now triggered by double-clicking on the name */}

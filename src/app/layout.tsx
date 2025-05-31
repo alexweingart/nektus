@@ -53,7 +53,7 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content" />
-        <meta name="theme-color" content="#f4f9f4" />
+        <meta name="theme-color" content="#118541" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -61,7 +61,7 @@ export default async function RootLayout({
       </head>
       <body
         className={`${inter.variable} antialiased bg-background`}
-        style={{ backgroundColor: 'var(--background, #f4f9f4)' }}
+        style={{ backgroundColor: 'var(--background)' }}
       >
         <SessionProvider session={session}>
           <ProfileProvider>

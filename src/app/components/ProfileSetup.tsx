@@ -246,14 +246,14 @@ export default function ProfileSetup() {
   // Handle loading and unauthenticated states
   if (status === 'loading' || isLoading || status !== 'authenticated') {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#118541]">
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#118541] relative">
+    <div className="min-h-screen w-full bg-background relative">
       {/* Background Image - Using a full-screen fixed div */}
       {profile?.backgroundImage && (
         <div 
