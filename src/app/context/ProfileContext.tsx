@@ -67,8 +67,21 @@ const generateGuid = (): string => {
   });
 };
 
+// Define session user type
+interface SessionUser {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
+interface Session {
+  user?: SessionUser | null;
+}
+
+type SessionOrNull = Session | null;
+
 // Function to create a default profile with empty strings
-const createDefaultProfile = (session?: any): UserProfile => {
+const createDefaultProfile = (session?: Session | null): UserProfile => {
   const email = session?.user?.email || '';
   // Sanitize the email username to only allow letters, numbers, dots, underscores, and hyphens
   const emailUsername = email.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
@@ -263,10 +276,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
 
       // Create new profile if none exists
-      const newProfile = createDefaultProfile(session);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-      setProfile(newProfile);
-      return newProfile;
+      const defaultProfile = createDefaultProfile(session || undefined);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProfile));
+      setProfile(defaultProfile);
+      return defaultProfile;
     } catch (error) {
       console.error('Error loading profile:', error);
       throw error;
@@ -396,13 +409,25 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         });
       };
 
-      const extractB64 = (obj: any): string | null => {
+      interface B64Object {
+        b64_json?: string;
+        partial_image_b64?: string;
+        [key: string]: unknown;
+      }
+
+      const extractB64 = (obj: unknown): string | null => {
         if (!obj || typeof obj !== 'object') return null;
-        if (typeof obj.b64_json === 'string') return obj.b64_json;
-        if (typeof obj.partial_image_b64 === 'string') return obj.partial_image_b64;
-        for (const k in obj) {
-          const found = extractB64(obj[k]);
-          if (found) return found;
+        
+        const b64Obj = obj as B64Object;
+        if (b64Obj.b64_json && typeof b64Obj.b64_json === 'string') return b64Obj.b64_json;
+        if (b64Obj.partial_image_b64 && typeof b64Obj.partial_image_b64 === 'string') return b64Obj.partial_image_b64;
+        
+        // Recursively search in object values
+        for (const key in b64Obj) {
+          if (Object.prototype.hasOwnProperty.call(b64Obj, key)) {
+            const found = extractB64(b64Obj[key]);
+            if (found) return found;
+          }
         }
         return null;
       };

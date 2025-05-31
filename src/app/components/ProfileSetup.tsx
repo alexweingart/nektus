@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { useProfile, UserProfile } from '../context/ProfileContext';
@@ -187,7 +187,7 @@ export default function ProfileSetup() {
       
       // Format phone number if digits are provided
       if (digits) {
-        const countryCode = selectedCountry?.code as any;
+        const countryCode = selectedCountry?.code as CountryCode | undefined;
         const parsed = parsePhoneNumberFromString(digits, { defaultCountry: countryCode });
         
         if (parsed?.isValid()) {
@@ -276,8 +276,11 @@ export default function ProfileSetup() {
           </div>
         </div>
         
-        {/* Profile Name */}
-        <h1 className="text-2xl font-bold mb-1 text-center text-black">
+        {/* Profile Name - Double click to activate admin mode */}
+        <h1 
+          className="text-2xl font-bold mb-1 text-center text-black cursor-pointer" 
+          {...adminModeProps}
+        >
           {profile?.name || session?.user?.name || 'Profile'}
         </h1>
         

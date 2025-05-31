@@ -1,5 +1,10 @@
 'use client';
 
+// Extend the CSSStyleDeclaration interface to include webkit-prefixed properties
+interface ExtendedCSSStyleDeclaration extends CSSStyleDeclaration {
+  webkitOverflowScrolling: string;
+}
+
 let scrollY = 0;
 let isLocked = false;
 let isIOS = false;
@@ -57,8 +62,7 @@ export function setupScrollLock() {
       document.body.style.right = '0';
       document.body.style.bottom = '0';
       document.body.style.overflow = 'hidden';
-      // Using bracket notation to avoid TypeScript errors with webkit-prefixed properties
-      document.body.style['WebkitOverflowScrolling' as any] = 'touch';
+      (document.body.style as ExtendedCSSStyleDeclaration).webkitOverflowScrolling = 'touch';
       
       // Add a class to the body for iOS-specific styling
       document.body.classList.add('ios-keyboard-visible');
@@ -111,8 +115,7 @@ export function setupScrollLock() {
     document.body.style.right = '';
     document.body.style.bottom = '';
     document.body.style.overflow = '';
-    // Using bracket notation to avoid TypeScript errors with webkit-prefixed properties
-    document.body.style['WebkitOverflowScrolling' as any] = '';
+    (document.body.style as ExtendedCSSStyleDeclaration).webkitOverflowScrolling = '';
     document.body.style.overscrollBehavior = '';
     document.documentElement.style.overscrollBehavior = '';
     

@@ -124,7 +124,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     
     // Make sure the country selector doesn't show focus styling on initial load
     setIsInputFocused(false);
-  }, [value]); // Add value to dependency array to update when value changes
+  }, [value, phoneInput, setSelectedCountry, setIsInputFocused]); // Add value to dependency array to update when value changes
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
@@ -201,7 +201,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         // Update the input value
         requestAnimationFrame(() => {
-          setPhoneInput(prev => formattedPhone);
+          setPhoneInput(formattedPhone);
           
           // Restore cursor position if possible
           if (inputRef.current) {
@@ -286,14 +286,14 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [dropdownRef]);
 
   // Auto-focus on the input when component mounts
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
-  }, []);
+  }, [inputRef]);
 
   // Add global document click handler to detect clicks outside both inputs
   useEffect(() => {

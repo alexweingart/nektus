@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
@@ -8,55 +8,23 @@ import Link from 'next/link';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
-import { toast } from 'react-hot-toast';
+import type { UserProfile } from '../context/ProfileContext';
 import ReactMarkdown from 'react-markdown';
 
-
-// Import types from ProfileContext
-import { UserProfile } from '../context/ProfileContext';
-
-// Hardcoded profile data for now
-const HARDCODED_PROFILE: UserProfile = {
-  userId: 'temp-user-id',
-  name: 'User',
-  bio: '',
-  profileImage: '/default-avatar.png',
-  backgroundImage: '',
-  lastUpdated: Date.now(),
-  contactChannels: {
-    phoneInfo: {
-      internationalPhone: '',
-      nationalPhone: '',
-      userConfirmed: false
-    },
-    email: {
-      email: 'user@example.com',
-      userConfirmed: false
-    },
-    facebook: { username: '', url: '', userConfirmed: false },
-    instagram: { username: '', url: '', userConfirmed: false },
-    x: { username: '', url: '', userConfirmed: false },
-    whatsapp: { username: '', url: '', userConfirmed: false },
-    snapchat: { username: '', url: '', userConfirmed: false },
-    telegram: { username: '', url: '', userConfirmed: false },
-    wechat: { username: '', url: '', userConfirmed: false },
-    linkedin: { username: '', url: '', userConfirmed: false }
-  }
-};
+// Removed unused HARDCODED_PROFILE
 
 // Single instructional placeholder bio
-const PLACEHOLDER_BIO = "Generating your personalized bio...";
+const PLACEHOLDER_BIO = 'Generating your personalized bio...';
 
 const getPlaceholderBio = () => {
   return PLACEHOLDER_BIO;
 };
 
-// Define extended UserProfile type with AI content fields
-type ExtendedUserProfile = UserProfile;
+// Removed unused ExtendedUserProfile type
 
 const ProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, generateBio, generateBackgroundImage } = useProfile();
+  const { profile } = useProfile();
   const [isLoading, setIsLoading] = useState(true);
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
@@ -68,7 +36,7 @@ const ProfileView: React.FC = () => {
   
   // Initialize local profile with session data if available
   const [localProfile, setLocalProfile] = useState<UserProfile>(() => ({
-    userId: `user-${Date.now()}`,
+    userId: session?.user?.id || `user-${Date.now()}`,
     name: session?.user?.name || 'New User',
     bio: '',
     profileImage: session?.user?.image || '/default-avatar.png',
@@ -203,29 +171,11 @@ const ProfileView: React.FC = () => {
     }
   }, [profile]);
 
-  // Memoize the bio content to prevent re-renders
   // Important: This must be before any conditional returns to avoid breaking React's rules of hooks
   const bioContent = useMemo(() => {
     return bio || getPlaceholderBio();
   }, [bio]);
 
-  // Format phone number for display
-  const formatPhoneNumber = (phone: string) => {
-    if (!phone) return '';
-    
-    // For US numbers, format as (123) 456-7890
-    if (phone.startsWith('+1') && phone.length === 12) {
-      const cleaned = phone.replace(/\D/g, '').substring(1); // Remove +1
-      const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-      if (match) {
-        return `(${match[1]}) ${match[2]}-${match[3]}`;
-      }
-    }
-    
-    // For other numbers, just use as-is
-    return phone;
-  };
-  
   if (isLoading || !profile) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-green-400 to-blue-500">
@@ -278,7 +228,7 @@ const ProfileView: React.FC = () => {
           <div className="bio-content">
             <ReactMarkdown 
               components={{
-                a: ({node, ...props}) => (
+                a: ({ node: _node, ...props }) => (
                   <a {...props} target="_blank" rel="noopener noreferrer" />
                 )
               }}

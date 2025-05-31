@@ -18,8 +18,39 @@ const getPlaceholderBio = () => {
   return PLACEHOLDER_BIO;
 };
 
+// Define profile interface
+interface Profile {
+  name?: string;
+  email?: string;
+  phone?: string;
+  bio?: string;
+  picture?: string;
+  // Social media usernames
+  facebook?: string;
+  instagram?: string;
+  x?: string;
+  whatsapp?: string;
+  snapchat?: string;
+  telegram?: string;
+  linkedin?: string;
+  // Add other profile properties as needed
+}
+
+// Define social link interface
+interface SocialLink {
+  username: string;
+  url: string;
+  userConfirmed: boolean;
+  auto?: boolean; // For internal use only
+}
+
+// Define social links interface
+interface SocialLinks {
+  [key: string]: SocialLink;
+}
+
 // AI-powered bio generation
-const generateAIBio = async (profile: any) => {
+const generateAIBio = async (profile: Profile) => {
   try {
     const response = await fetch('/api/openai', {
       method: 'POST',
@@ -37,13 +68,17 @@ const generateAIBio = async (profile: any) => {
     const data = await response.json();
     return data.bio;
   } catch (error) {
-    console.error('Error generating bio:', error);
+    const handleError = (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('Connection error:', errorMessage);
+    };
+    handleError(error);
     return getPlaceholderBio();
   }
 };
 
 // AI-powered background image generation
-const generateAIBackground = async (profile: any) => {
+const generateAIBackground = async (profile: Profile) => {
   try {
     const response = await fetch('/api/openai', {
       method: 'POST',
@@ -61,13 +96,17 @@ const generateAIBackground = async (profile: any) => {
     const data = await response.json();
     return data.imageUrl;
   } catch (error) {
-    console.error('Error generating background:', error);
+    const handleError = (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('Connection error:', errorMessage);
+    };
+    handleError(error);
     return ''; // Return empty string to indicate no background
   }
 };
 
 // AI-powered avatar generation
-const generateAIAvatar = async (profile: any) => {
+const generateAIAvatar = async (profile: Profile) => {
   try {
     const response = await fetch('/api/openai', {
       method: 'POST',
@@ -85,62 +124,109 @@ const generateAIAvatar = async (profile: any) => {
     const data = await response.json();
     return data.imageUrl;
   } catch (error) {
-    console.error('Error generating avatar:', error);
+    const handleError = (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('Connection error:', errorMessage);
+    };
+    handleError(error);
     return profile.picture || '/default-avatar.png';
   }
 };
 
 // Function to generate social links based on profile data
-const generateSocialLinks = (profile: any) => {
-  const links = {
-    phone: { url: `tel:${profile.phone}`, auto: false },
-    email: { url: `mailto:${profile.email}`, auto: false }
-  };
-  
-  // Extract username from email (text before @)
-  const username = profile.email.split('@')[0];
-  
-  // Generate social links with auto-generation flags
-  return {
-    ...links,
-    facebook: { url: `https://facebook.com/${username}`, auto: true, valid: true },
-    instagram: { url: `https://instagram.com/${username}`, auto: true, valid: true },
-    snapchat: { url: `https://snapchat.com/add/${username}`, auto: true, valid: true },
-    linkedin: { url: `https://linkedin.com/in/${username}`, auto: true, valid: true },
-    whatsapp: { url: `https://wa.me/${profile.phone.replace(/[^0-9]/g, '')}`, auto: true, valid: true },
-    telegram: { url: `https://t.me/${profile.phone.replace(/[^0-9]/g, '')}`, auto: true, valid: true }
-  };
+const generateSocialLinks = (profile: Profile): SocialLinks => {
+  const links: SocialLinks = {};
+
+  // Add phone link if phone exists
+  if (profile.phone) {
+    links.phone = { 
+      username: profile.phone, 
+      url: `tel:${profile.phone}`, 
+      userConfirmed: false,
+      auto: false 
+    };
+  }
+
+  // Add email link if email exists
+  if (profile.email) {
+    links.email = { 
+      username: profile.email.split('@')[0] || '', 
+      url: `mailto:${profile.email}`, 
+      userConfirmed: false,
+      auto: true 
+    };
+  }
+
+  // Add social media links if they exist in the profile
+  const socialPlatforms = [
+    { key: 'facebook', url: 'facebook.com' },
+    { key: 'instagram', url: 'instagram.com' },
+    { key: 'x', url: 'x.com' },
+    { key: 'whatsapp', url: 'wa.me' },
+    { key: 'snapchat', url: 'snapchat.com/add' },
+    { key: 'telegram', url: 't.me' },
+    { key: 'linkedin', url: 'linkedin.com/in' }
+  ] as const;
+
+  socialPlatforms.forEach(({ key, url }) => {
+    const username = profile[key as keyof Profile] as string | undefined;
+    if (username) {
+      links[key] = { 
+        username,
+        url: `https://${url}/${username}`, 
+        userConfirmed: false,
+        auto: true 
+      };
+    }
+  });
+
+  return links;
 };
 
 // Validate social links (in a real app, this would make API calls to verify accounts)
-const validateSocialLinks = async (links: any) => {
-  // Simulate API validation by returning the same links with some randomly set to invalid
-  // In a real implementation, this would call APIs to check if the profiles exist
-  return Object.entries(links).reduce((acc: any, [key, value]: [string, any]) => {
-    if (value.auto) {
-      // 70% chance of a link being valid for demo purposes
-      acc[key] = { ...value, valid: Math.random() > 0.3 };
-    } else {
-      acc[key] = value;
-    }
-    return acc;
-  }, {});
+const validateSocialLinks = async (links: SocialLinks): Promise<SocialLinks> => {
+  // Create a new object to store validated links
+  const validatedLinks: SocialLinks = {};
+
+  // Process each link
+  for (const [platform, link] of Object.entries(links)) {
+    // In a real app, we would make API calls here to validate each link
+    // For now, we'll simulate validation with a random chance
+    const isValid = Math.random() > 0.3; // 70% chance of being valid
+    
+    // Create a new link object with the validation result
+    validatedLinks[platform] = {
+      ...link,
+      userConfirmed: isValid,
+      // Remove the auto flag as it's only for internal use
+      auto: undefined
+    };
+    
+    // Remove the auto property to keep the object clean
+    delete (validatedLinks[platform] as Partial<SocialLink>).auto;
+  }
+
+  return validatedLinks;
 };
 
 export default function ConnectPage() {
   const { status } = useSession();
-  const { profile, isLoading } = useProfile();
   const router = useRouter();
-  const [socialLinks, setSocialLinks] = useState<any>(null);
+  const { profile, isLoading: isProfileLoading } = useProfile();
+  
+  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [bio, setBio] = useState<string>('');
   const [bgImage, setBgImage] = useState<string>('');
   const [avatarImage, setAvatarImage] = useState<string>('/default-avatar.png');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
   // Redirect to login if not authenticated
-  if (status === 'unauthenticated') {
-    redirect('/');
-  }
+  React.useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+    }
+  }, [status, router]);
   
   // Generate initial content when profile is loaded
   useEffect(() => {
@@ -154,6 +240,7 @@ export default function ConnectPage() {
       // Start AI generation asynchronously
       const generateAIContent = async () => {
         try {
+          setIsLoading(true);
           setIsGenerating(true);
           
           // Generate and validate all content in parallel
@@ -172,7 +259,7 @@ export default function ConnectPage() {
         } catch (error) {
           console.error('Error generating AI content:', error);
         } finally {
-          setIsGenerating(false);
+          setIsLoading(false);
         }
       };
       
@@ -187,7 +274,7 @@ export default function ConnectPage() {
   };
   
   // Show loading state while checking authentication or profile
-  if (status === 'loading' || isLoading) {
+  if (status === 'loading' || isProfileLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -230,7 +317,7 @@ export default function ConnectPage() {
             className="object-cover"
             priority
           />
-          {isGenerating && (
+          {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
               <LoadingSpinner size="md" className="text-white" />
             </div>
@@ -243,7 +330,7 @@ export default function ConnectPage() {
         {/* Bio - AI generated */}
         <div className="relative">
           <p className="text-white/90 text-sm mb-8 text-center">{bio}</p>
-          {isGenerating && (
+          {isLoading && (
             <div className="absolute -top-1 -right-5 w-4 h-4 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
               <FaMagic size={10} className="text-yellow-400" />
             </div>
@@ -277,7 +364,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.facebook.valid && socialLinks?.facebook.auto && (
+              {!socialLinks?.facebook.userConfirmed && socialLinks?.facebook.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -295,7 +382,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.instagram.valid && socialLinks?.instagram.auto && (
+              {!socialLinks?.instagram.userConfirmed && socialLinks?.instagram.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -313,7 +400,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.whatsapp.valid && socialLinks?.whatsapp.auto && (
+              {!socialLinks?.whatsapp.userConfirmed && socialLinks?.whatsapp.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -331,7 +418,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.snapchat.valid && socialLinks?.snapchat.auto && (
+              {!socialLinks?.snapchat.userConfirmed && socialLinks?.snapchat.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -349,7 +436,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.telegram.valid && socialLinks?.telegram.auto && (
+              {!socialLinks?.telegram.userConfirmed && socialLinks?.telegram.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -367,7 +454,7 @@ export default function ConnectPage() {
                   <FaExclamation size={8} color="#000" />
                 </div>
               )}
-              {!socialLinks?.linkedin.valid && socialLinks?.linkedin.auto && (
+              {!socialLinks?.linkedin.userConfirmed && socialLinks?.linkedin.auto && (
                 <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-75">
                   <span className="text-white text-[8px]">!</span>
                 </div>
@@ -410,8 +497,8 @@ export default function ConnectPage() {
                   setBgImage(aiBackground);
                   setAvatarImage(aiAvatar);
                   setBio(aiBio);
-                } catch (error) {
-                  // Handle error in AI content regeneration
+                } catch (err) {
+                  console.error('Error regenerating AI content:', err);
                 } finally {
                   setIsGenerating(false);
                 }
