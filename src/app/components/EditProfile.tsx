@@ -14,7 +14,7 @@ type SocialProfile = {
 };
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import CustomPhoneInput from './CustomPhoneInput';
+import CustomPhoneInput from './ui/CustomPhoneInput';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './SocialIcon';
 import { MdEdit } from 'react-icons/md';

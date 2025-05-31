@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useAdminModeActivator } from './AdminBanner';
+import { useAdminModeActivator } from './ui/AdminBanner';
 
 // Standard button style shared across the application
 const standardButtonStyle = {

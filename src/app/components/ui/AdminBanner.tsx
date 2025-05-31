@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
-import { useAdminMode } from '../providers/AdminModeProvider';
+import { useAdminMode } from '../../providers/AdminModeProvider';
 import { useRouter } from 'next/navigation';
 
 // The admin mode banner component
