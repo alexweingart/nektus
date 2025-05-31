@@ -5,8 +5,31 @@ const withPWA = require('next-pwa');
 const nextConfig = {
   // Next.js 15.3 configuration
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
-  serverExternalPackages: ['next-pwa'],
+  serverExternalPackages: ['next-pwa', 'openai'],
   reactStrictMode: true,
+  webpack: (config, { isServer }) => {
+    // This makes sure the OpenAI module is only bundled server-side
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+        crypto: false,
+        stream: false,
+        http: false,
+        https: false,
+        zlib: false,
+        net: false,
+        tls: false,
+        dns: false,
+        child_process: false,
+        dgram: false,
+        module: false,
+      };
+    }
+    return config;
+  },
   images: {
     domains: ['lh3.googleusercontent.com', 'lh4.googleusercontent.com', 'lh5.googleusercontent.com', 'lh6.googleusercontent.com'],
     remotePatterns: [
