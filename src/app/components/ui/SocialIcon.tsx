@@ -19,7 +19,7 @@ interface SocialIconProps {
 
 const SocialIcon: React.FC<SocialIconProps> = ({ 
   platform, 
-  username, 
+  username,
   size = 'md',
   onClick 
 }) => {
@@ -82,6 +82,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     <div 
       className="cursor-pointer"
       onClick={handleClick}
+      title={username || platform}
+      aria-label={`${platform} ${username ? `(${username})` : ''}`}
     >
       <div 
         className={`
