@@ -251,22 +251,17 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#f4f9f4]">
-      {/* Background Image */}
-      <div 
-        className="fixed inset-0 -z-10"
-        style={{
-          backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundColor: profile?.backgroundImage ? 'transparent' : '#f4f9f4'
-        }}
-      />
-      
-      {/* Main Content */}
-      <div className="min-h-screen flex flex-col items-center px-4 py-6">
-        <div className="w-full max-w-md flex flex-col items-center">
+    <div 
+      className="min-h-screen w-full flex flex-col items-center px-4 py-6"
+      style={{
+        backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#f4f9f4'
+      }}
+    >
+      <div className="w-full max-w-md flex flex-col items-center">
         {/* Profile Image */}
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">
@@ -311,7 +306,6 @@ export default function ProfileSetup() {
               {isSaving ? 'Saving...' : 'Save'}
             </button>
           </div>
-        </div>
         </div>
       </div>
     </div>
