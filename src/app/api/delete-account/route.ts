@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { getToken } from 'next-auth/jwt';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { cookies } from 'next/headers';
 
 /**
  * API route to handle account deletion
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
         // Found email in request body
         userEmail = body.email;
       }
-    } catch (e) {
+    } catch (_e) {
       // Error parsing request body
     }
     
@@ -55,7 +54,7 @@ export async function POST(req: NextRequest) {
             // Found email from session
           }
         }
-      } catch (e) {
+} catch (_e) {
         // Error getting session
       }
     }
@@ -77,7 +76,7 @@ export async function POST(req: NextRequest) {
             // Found email from JWT token
           }
         }
-      } catch (e) {
+} catch (_e) {
         // Error getting JWT token
       }
     }
