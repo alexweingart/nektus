@@ -6,6 +6,7 @@ import { redirect, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useProfile } from '../context/ProfileContext';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaWhatsapp, 
          FaSnapchat, FaTelegram, FaLinkedin, FaPen, FaExclamation, FaMagic } from 'react-icons/fa';
 
@@ -188,8 +189,8 @@ export default function ConnectPage() {
   // Show loading state while checking authentication or profile
   if (status === 'loading' || isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen p-5">
-        <div className="w-10 h-10 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -231,7 +232,7 @@ export default function ConnectPage() {
           />
           {isGenerating && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-              <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <LoadingSpinner size="md" className="text-white" />
             </div>
           )}
         </div>

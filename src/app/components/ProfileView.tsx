@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
 import Avatar from './ui/Avatar';
 import SocialIcon from './SocialIcon';
@@ -228,7 +229,7 @@ const ProfileView: React.FC = () => {
   if (isLoading || !profile) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-green-400 to-blue-500">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        <LoadingSpinner size="lg" className="text-white" />
       </div>
     );
   }

@@ -3,13 +3,14 @@
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Dynamically import components to prevent hydration issues
 const HomePage = dynamic(() => import('./components/HomePage'), { 
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="w-12 h-12 border-4 border-t-4 border-gray-200 rounded-full animate-spin border-t-primary"></div>
+      <LoadingSpinner size="lg" />
     </div>
   )
 });
@@ -18,7 +19,7 @@ const ProfileView = dynamic(() => import('./components/ProfileView'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="w-12 h-12 border-4 border-t-4 border-gray-200 rounded-full animate-spin border-t-primary"></div>
+      <LoadingSpinner size="lg" />
     </div>
   )
 });
@@ -46,7 +47,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-12 h-12 border-4 border-t-4 border-gray-200 rounded-full animate-spin border-t-primary"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }

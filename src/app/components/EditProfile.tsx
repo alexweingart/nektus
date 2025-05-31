@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 // Define the SocialProfile type for the form
 type SocialProfile = {
@@ -651,7 +652,7 @@ const EditProfile: React.FC = () => {
         >
           {isSaving ? (
             <>
-              <span className="inline-block mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              <LoadingSpinner size="sm" className="inline-block mr-2 text-white" />
               Saving...
             </>
           ) : 'Save Changes'}

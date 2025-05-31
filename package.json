@@ -38,7 +38,6 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/react-input-mask": "^3.0.6",
     "autoprefixer": "^10.4.21",
     "canvas": "^3.1.0",
     "eslint": "^9",
