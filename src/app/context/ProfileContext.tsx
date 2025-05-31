@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
 
 // Types
 type PhoneInfo = {
@@ -56,7 +55,6 @@ type ProfileContextType = {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 const STORAGE_KEY = 'nektus_user_profile';
-const DEFAULT_PROFILE_IMAGE = '/default-avatar.png';
 
 // Function to generate a GUID
 const generateGuid = (): string => {
