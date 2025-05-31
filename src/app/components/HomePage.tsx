@@ -80,8 +80,8 @@ const HomePage: React.FC = () => {
           <Image 
             src="/nektus-logo.svg" 
             alt="Nekt.Us Logo" 
-            width={230}
-            height={80}
+            width={320}
+            height={110}
             style={{ 
               maxWidth: '90%',
               height: 'auto'
