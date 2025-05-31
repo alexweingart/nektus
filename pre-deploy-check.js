@@ -58,7 +58,11 @@ const requiredEnvVars = [
   'NEXTAUTH_URL',
   'NEXTAUTH_SECRET',
   'GOOGLE_CLIENT_ID',
-  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_CLIENT_SECRET'
+];
+
+// Optional environment variables (will be checked but not required)
+const optionalEnvVars = [
   'FIREBASE_PROJECT_ID',
   'FIREBASE_CLIENT_EMAIL',
   'FIREBASE_PRIVATE_KEY'
@@ -67,19 +71,31 @@ const requiredEnvVars = [
 const missingVars = [];
 const invalidVars = [];
 
+// Check required environment variables
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
     missingVars.push(envVar);
   } else if (process.env[envVar].trim() === '') {
     invalidVars.push(envVar);
   } else {
-    console.log(`   ✓ Found environment variable: ${envVar}`);
+    console.log(`   ✓ Found required environment variable: ${envVar}`);
+  }
+});
+
+// Check optional environment variables but don't fail the build if they're missing
+optionalEnvVars.forEach(envVar => {
+  if (process.env[envVar] === undefined) {
+    console.log(`   ℹ️  Optional environment variable not set: ${envVar}`);
+  } else if (process.env[envVar]?.trim() === '') {
+    console.warn(`   ⚠️  Empty optional environment variable: ${envVar}`);
+  } else {
+    console.log(`   ✓ Found optional environment variable: ${envVar}`);
   }
 });
 
 if (missingVars.length > 0) {
   console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`);
-  console.log('   ℹ️  Please check your .env.local file');
+  console.log('   ℹ️  Please check your environment configuration');
   process.exit(1);
 }
 
@@ -89,16 +105,19 @@ if (invalidVars.length > 0) {
 }
 
 // Mask sensitive values for logging
-const maskedVars = requiredEnvVars.map(envVar => {
-  const value = process.env[envVar] || '';
-  const maskedValue = value.length > 8 
-    ? `${value.substring(0, 2)}...${value.substring(value.length - 2)}`
-    : '***';
-  return `${envVar}=${maskedValue}`;
-});
+const allVars = [...requiredEnvVars, ...optionalEnvVars];
+const maskedVars = allVars
+  .filter(envVar => process.env[envVar])
+  .map(envVar => {
+    const value = process.env[envVar] || '';
+    const maskedValue = value.length > 8 
+      ? `${value.substring(0, 2)}...${value.substring(value.length - 2)}`
+      : '***';
+    return `${envVar}=${maskedValue}`;
+  });
 
 console.log('   ✓ All required environment variables are set and valid');
-console.log('   ℹ️  Variables found:', maskedVars.join(', '));
+console.log('   ℹ️  Configured variables:', maskedVars.join(', '));
 
 console.log('\n🚀 All pre-deployment checks passed!');
 console.log('   You can now proceed with the build process.');
