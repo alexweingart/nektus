@@ -72,7 +72,23 @@ const config = process.env.NODE_ENV === 'production'
       dest: "public",
       register: true,
       skipWaiting: true,
-      disable: false
+      disable: false,
+      cacheOnFrontEndNav: true,
+      disableDevLogs: true,
+      buildExcludes: [/middleware-manifest\.json$/, /_middleware\.js$/, /_error\.js$/, /chunks\/pages\/api\//],
+      runtimeCaching: [
+        {
+          urlPattern: /\/favicon\.(ico|svg|png)$/,
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'favicon-cache',
+            expiration: {
+              maxEntries: 1,
+              maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+            },
+          },
+        },
+      ]
     })(nextConfig)
   : nextConfig;
 
