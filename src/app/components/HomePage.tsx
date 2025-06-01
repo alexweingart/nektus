@@ -51,7 +51,7 @@ const HomePage: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'var(--background)',
+        backgroundColor: '#118541', /* Direct hex value */
         paddingTop: '10vh' // Position elements higher on the screen
       }}
     >
