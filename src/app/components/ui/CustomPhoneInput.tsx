@@ -320,7 +320,9 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div 
-      className={`flex w-full bg-white border-2 ${isInputFocused || isDropdownOpen ? 'border-white ring-2 ring-primary' : 'border-white'} rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
+      className={`flex w-full bg-white border-2 ${
+        isInputFocused || isDropdownOpen ? 'border-theme' : 'border-white'
+      } rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
       onFocus={() => setIsInputFocused(true)}
       onBlur={() => setIsInputFocused(false)}
       style={{ 

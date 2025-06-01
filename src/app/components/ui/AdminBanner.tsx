@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
+import { Button } from './Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
 
 // The admin mode banner component
@@ -87,16 +88,18 @@ export default function AdminBanner() {
           <p className="text-yellow-700 text-sm">You are in admin mode. This gives you access to additional controls.</p>
         </div>
         <div className="flex items-center space-x-4">
-          <button
+          <Button
             onClick={handleDeleteAccount}
             disabled={deleteStatus === 'loading'}
-            className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="destructive"
+            size="sm"
+            className="text-red-700 bg-red-100 hover:bg-red-200"
           >
             {deleteStatus === 'loading' ? 'Deleting...' : 'Delete Account'}
-          </button>
+          </Button>
           <button
             onClick={closeAdminMode}
-            className="p-2 text-yellow-600 hover:text-yellow-800"
+            className="p-2 text-yellow-600 hover:text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors"
             aria-label="Close admin mode"
           >
             <FaTimes />

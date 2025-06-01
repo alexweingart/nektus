@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from './components/ui/Button';
 
 export default function Error({
   error,
@@ -27,15 +28,17 @@ export default function Error({
           {error.message || 'An unexpected error occurred'}
         </p>
         <div className="mt-6">
-          <button
+          <Button
             onClick={() => {
               reset();
               router.push('/');
             }}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            variant="theme"
+            size="lg"
+            className="w-full"
           >
             Go back home
-          </button>
+          </Button>
         </div>
       </div>
     </div>

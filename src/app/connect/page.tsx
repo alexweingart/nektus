@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useRouter } from 'next/navigation';
+import { Button } from '../components/ui/Button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useProfile } from '../context/ProfileContext';
@@ -465,12 +466,14 @@ export default function ConnectPage() {
         </div>
         
         {/* Nekt button */}
-        <button 
+        <Button 
           onClick={handleNektClick}
-          className="w-full max-w-xs bg-green-500 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg hover:bg-green-600 transition mb-4"
+          variant="theme"
+          size="lg"
+          className="w-full max-w-xs font-bold text-lg mb-4 px-8 py-3"
         >
           Nekt
-        </button>
+        </Button>
         
         {/* Edit link */}
         <Link href="/profile" className="text-green-400 hover:text-green-300 transition flex items-center">

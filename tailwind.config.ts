@@ -8,12 +8,21 @@ export default {
   ],
   theme: {
     extend: {
-      backgroundColor: {
-        background: "#004D40",
-      },
       colors: {
         background: "#004D40",
         foreground: "var(--foreground)",
+        theme: {
+          light: '#E7FED2',
+          DEFAULT: '#71E454',
+          dark: '#5BBF45',
+        },
+      },
+      backgroundColor: {
+        background: "#004D40",
+      },
+      gradientColorStops: {
+        'theme-start': '#E7FED2',
+        'theme-end': '#71E454',
       },
     },
   },

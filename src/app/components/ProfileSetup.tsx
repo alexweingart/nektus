@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { Button } from './ui/Button';
 import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
@@ -306,12 +307,12 @@ export default function ProfileSetup() {
                 }}
               />
               
-              <button
+              <Button
                 type="submit"
+                variant="theme"
+                size="lg"
+                className="w-full font-medium"
                 disabled={isSaving}
-                className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-full shadow-md transition-colors ${
-                  isSaving ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
                 aria-busy={isSaving}
               >
                 {isSaving ? (
@@ -323,7 +324,7 @@ export default function ProfileSetup() {
                     Saving...
                   </span>
                 ) : 'Save'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { Button } from './ui/Button';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -799,10 +800,12 @@ const EditProfile: React.FC = () => {
       
       {/* Save Button */}
       <div className="w-full max-w-md">
-        <button 
+        <Button 
           onClick={handleSave}
+          variant="theme"
+          size="lg"
           disabled={isSaving}
-          className="w-full py-3 px-4 bg-primary text-white rounded-full font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+          className="w-full font-medium"
         >
           {isSaving ? (
             <>
@@ -810,7 +813,7 @@ const EditProfile: React.FC = () => {
               Saving...
             </>
           ) : 'Save Changes'}
-        </button>
+        </Button>
       </div>
     </div>
   );
