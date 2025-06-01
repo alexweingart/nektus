@@ -5,11 +5,13 @@ import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
+import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import type { UserProfile } from '../context/ProfileContext';
 import ReactMarkdown from 'react-markdown';
+import { Heading } from './ui/typography';
 
 // Removed unused HARDCODED_PROFILE
 
@@ -210,19 +212,19 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Profile Name - Double click to activate admin mode */}
-        <h1 className="text-2xl font-bold mb-1 text-center text-black cursor-pointer" {...adminModeProps}>
-          {localProfile.name}
-        </h1>
+        <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
+          <Heading as="h1">{localProfile.name}</Heading>
+        </div>
         
         {/* Bio with markdown support */}
         <div className="text-sm text-black mb-6 text-center max-w-xs">
           <style>{`
             .bio-content a {
-              color: #16a34a; /* green-600 */
-              text-decoration: none;
+              color: #71E454; /* Using theme color */
+              text-decoration: underline;
             }
             .bio-content a:hover {
-              color: #166534; /* green-800 */
+              color: #5BBF45; /* Using theme dark color */
             }
           `}</style>
           <div className="bio-content">
@@ -388,16 +390,19 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Action Buttons */}
-        <div style={{ width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <Link 
-            href="/connect"
-            className="nekt-button w-full text-center"
-          >
-            Nekt
+        <div className="w-full max-w-xs flex flex-col gap-3">
+          <Link href="/connect" className="w-full">
+            <Button 
+              variant="theme"
+              size="lg"
+              className="w-full font-bold text-lg"
+            >
+              Nekt
+            </Button>
           </Link>
           <Link 
             href="/edit" 
-            className="w-full text-center py-2 px-4 text-sm font-medium text-green-600 hover:text-green-700"
+            className="w-full text-center py-2 px-4 text-sm font-medium text-green-600 hover:text-green-700 transition-colors"
           >
             Edit Profile
           </Link>
