@@ -461,9 +461,11 @@ const EditProfile: React.FC = () => {
 
       // Create the updated profile
       const updatedProfile: Partial<UserProfile> = {
+        ...profile, // Preserve existing profile data
         name: formData.name,
         profileImage: formData.picture,
-        backgroundImage: formData.backgroundImage,
+        // Only update backgroundImage if there's a new one, otherwise preserve existing
+        backgroundImage: formData.backgroundImage || profile?.backgroundImage || '',
         lastUpdated: Date.now(),
         contactChannels: baseContactChannels
       } as UserProfile;
