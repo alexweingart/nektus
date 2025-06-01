@@ -6,7 +6,7 @@ import { HTMLAttributes } from 'react';
 
 // Define heading styles
 const headingStyles = {
-  h1: 'text-2xl font-bold',
+  h1: 'text-2xl font-bold text-white',
   h2: 'text-xl font-semibold text-white',
   h3: 'text-lg font-medium',
 } as const;
@@ -43,8 +43,8 @@ export function Text({
   ...props 
 }: TextProps) {
   const variants = {
-    base: 'text-base',
-    small: 'text-sm',
+    base: 'text-base text-white',
+    small: 'text-sm text-white',
     muted: 'text-sm text-muted-foreground',
   } as const;
   

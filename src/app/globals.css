@@ -2,117 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Basic iOS fixes */
-@supports (-webkit-touch-callout: none) {
-  /* Prevent zoom on input focus */
-  input, textarea, [contenteditable] {
-    font-size: 16px;
-  }
-  
-  /* Fix for position fixed elements */
-  @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    body {
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-bottom: constant(safe-area-inset-bottom); /* For older iOS versions */
-    }
-  }
-}
-
-/* Fallback for older iOS versions */
-@supports (-webkit-touch-callout: none) and (not (color: light-dark(red, red))) {
-  /* Similar styles as above but without iOS 18 specific features */
-  html, body {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    overflow: hidden !important;
-    overscroll-behavior: none !important;
-  }
-
-  .ios-scroll-container {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-}
-
-/* Mobile Safari Input Fix */
-input,
-select,
-textarea {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-color: inherit;
-  border-radius: 0.375rem;
-}
-
-/* Fix for mobile Safari showing red background */
-input[type="tel"] {
-  background-color: inherit !important;
-  -webkit-text-fill-color: inherit;
-}
-
 @layer base {
   :root {
-    /* Color palette - all colors defined here */
-    /* Using HSL format for all colors for consistency */
-    --background-secondary: #e8f5e9; /* Slightly darker green for sections */
-    --foreground: #2d3748; /* Softer black for better readability */
-    --primary: #4caf50; /* Green primary color */
-    --primary-dark: #388e3c; /* Darker green for hover states */
-    --primary-light: #81c784; /* Light green for subtle highlights */
-    --secondary: #81c784; /* Secondary green */
-    --secondary-dark: #519657; /* Darker secondary for contrast */
-    --accent: #66bb6a; /* Accent green */
-    --card-bg: #ffffff; /* Clean white for cards */
-    --card-border: #e0e0e0; /* Subtle border color */
-    --success: #43a047; /* Success green */
-    --error: #e53e3e; /* Error red */
-    --warning: #f6ad55; /* Warning orange */
-    --info: #63b3ed; /* Info blue */
+    /* Core color palette in HSL format */
+    --background: 118 41% 30%;  /* Primary green background */
+    --foreground: 0 0% 100%;    /* White text for light theme */
     
-    /* Shadow values */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05), 0 4px 6px rgba(0, 0, 0, 0.05);
+    /* Primary colors */
+    --primary: 122 39% 49%;     /* Brand green */
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 114 39% 42%;  /* Slightly darker for hover */
+    --primary-light: 122 39% 90%; /* For subtle backgrounds */
     
-    /* Border radius values */
+    /* Secondary colors */
+    --secondary: 114 25% 29%;    /* Darker green */
+    --secondary-foreground: 0 0% 100%; 
+    
+    /* UI colors */
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
+    
+    /* State colors */
+    --success: 142 76% 36%;     /* Green */
+    --warning: 38 92% 50%;      /* Amber */
+    --error: 0 84% 60%;         /* Red */
+    --info: 199 89% 48%;        /* Blue */
+    
+    /* Muted colors */
+    --muted: 210 20% 98%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Border and input */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 122 39% 49%;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Border radius */
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
     --radius-full: 9999px;
-    
-    /* shadcn variables */
-    --border: 219.1 13.7% 75.1%;
-    --input: 219.1 13.7% 75.1%;
-    --ring: 66 93% 42%;
-    --radius: 0.5rem;
-    
-    /* Primary brand colors */
-    --background: 118 41% 30%; /* Green background: #118541 */
-    --foreground: 214 32% 23%;
-    --muted: 210 20% 98%;
-    --muted-foreground: 215 16% 47%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 28% 17%;
-    --accent: 114 39% 56%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 122 39% 49%;
   }
 
   .dark {
@@ -138,65 +74,126 @@ input[type="tel"] {
   }
 }
 
-/* Removed dark mode override to ensure consistent light green background */
-
-html, body {
-  padding: 0;
-  margin: 0;
-  color: white;
-  background: var(--background) !important;
-  min-height: 100vh;
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+/* Base styles */
+:root {
+  color-scheme: light dark;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Reset and base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
   line-height: 1.6;
-  font-size: 16px;
-  letter-spacing: -0.011em;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   overflow-x: hidden;
 }
 
-/* Fix for mobile Safari viewport issue */
-:root {
-  background-color: var(--background);
-  height: 100%;
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Prevent zoom on input focus in iOS < 13 */
+  input[type='color'],
+  input[type='date'],
+  input[type='datetime'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='month'],
+  input[type='number'],
+  input[type='password'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='text'],
+  input[type='time'],
+  input[type='url'],
+  input[type='week'],
+  textarea,
+  select,
+  [contenteditable] {
+    font-size: 1rem;
+  }
+
+  /* Safe area insets */
+  @supports (padding: max(0px)) {
+    body {
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+  }
 }
 
-/* Ensure viewport is fully covered */
-#__next, main {
-  min-height: 100vh;
-  background: var(--background);
+/* Form elements reset */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  appearance: none;
 }
 
-body * {
-  box-sizing: border-box;
+/* Focus styles for keyboard navigation */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
+/* Remove default focus styles for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Card component */
 @layer components {
   .card {
-    @apply rounded-xl shadow-md p-6 m-4 transition-all duration-200;
-    background-color: var(--card-bg);
-    border: 1px solid var(--card-border);
+    @apply rounded-lg p-6 transition-all duration-200;
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-md);
   }
   
   .card:hover {
     box-shadow: var(--shadow-lg);
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
   
   .btn-primary {
-    @apply font-medium py-3 px-6 rounded-full transition-all duration-200 flex items-center justify-center;
-    background-color: var(--primary);
-    color: white;
+    @apply font-medium py-3 px-6 rounded-full transition-all duration-200 
+           flex items-center justify-center gap-2;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
     box-shadow: var(--shadow-sm);
   }
   
   .btn-primary:hover {
-    background-color: var(--primary-dark);
+    background-color: hsl(var(--primary-dark));
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
   }

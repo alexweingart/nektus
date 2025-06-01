@@ -1,7 +1,8 @@
 'use client';
+/** @jsxImportSource react */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
+import { useProfile, UserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Button } from "@/components/ui/Button";
 import { useSession } from 'next-auth/react';
@@ -122,7 +123,8 @@ const EditProfile: React.FC = () => {
   const [digits, setDigits] = useState('');
   const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [showFallback, setShowFallback] = useState(false);
+
   // Helper function to initialize form data from profile
   const initializeFormData = useCallback((profileData: ProfileData) => {
     // Initialize form data with profile data
@@ -413,7 +415,7 @@ const EditProfile: React.FC = () => {
       }
 
       // Create the updated profile with the correct structure for UserProfile
-      const updatedProfile: Partial<ProfileContextUserProfile> & { contactChannels: FormContactChannels } = {
+      const updatedProfile: Partial<UserProfile> & { contactChannels: FormContactChannels } = {
         name: formData.name,
         profileImage: formData.picture,
         backgroundImage: formData.backgroundImage,
@@ -543,8 +545,7 @@ const EditProfile: React.FC = () => {
                           const target = e.target as HTMLImageElement;
                           target.onerror = null;
                           target.style.display = 'none';
-                          const fallback = document.getElementById('edit-avatar-fallback');
-                          if (fallback) fallback.style.display = 'flex';
+                          setShowFallback(true);
                         }}
                         onLoadingComplete={(img) => {
                           img.style.opacity = '1';
@@ -558,7 +559,7 @@ const EditProfile: React.FC = () => {
                     </div>
                     <div 
                       id="edit-avatar-fallback"
-                      className="w-full h-full flex items-center justify-center bg-white hidden"
+                      className={`w-full h-full bg-white ${showFallback ? 'flex' : 'hidden'} items-center justify-center`}
                     >
                       <div className="w-6 h-6 rounded-full bg-gray-100"></div>
                     </div>
@@ -820,5 +821,4 @@ const EditProfile: React.FC = () => {
   );
 };
 
-export { EditProfile };
 export default EditProfile;
