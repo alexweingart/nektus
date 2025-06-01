@@ -48,22 +48,22 @@ try {
     }
     console.log(`   ✓ Found dependency: ${dep}`);
   });
-
-  // 4. Perform a build check
-  console.log('\n🚀 Running build check...');
-  try {
-    console.log('   Running "next build"...');
-    execSync('next build', { stdio: 'inherit' });
-    console.log('   ✓ Build check passed!');
-  } catch (buildError) {
-    console.error('\n❌ Build check failed:');
-    console.error('   Please fix the build errors before committing.');
-    console.error('   Run "npm run build" locally to debug the build issues.');
-    process.exit(1);
-  }
 } catch (error) {
-  console.error('\n❌ Pre-deployment checks failed:');
+  console.error('\n❌ Package.json validation failed:');
   console.error(error.message);
+  process.exit(1);
+}
+
+// 3. Perform a build check
+console.log('\n🚀 Running build check...');
+try {
+  console.log('   Running "next build"...');
+  execSync('next build', { stdio: 'inherit' });
+  console.log('   ✓ Build check passed!');
+} catch (buildError) {
+  console.error('\n❌ Build check failed:');
+  console.error('   Please fix the build errors before committing.');
+  console.error('   Run "npm run build" locally to debug the build issues.');
   process.exit(1);
 }
 
