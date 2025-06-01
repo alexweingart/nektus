@@ -9,7 +9,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
+        // Define colors directly in the Tailwind config
+        background: "#118541", // Green background
         foreground: "var(--foreground)",
       },
     },
