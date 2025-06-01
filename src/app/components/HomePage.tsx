@@ -85,7 +85,7 @@ const HomePage: React.FC = () => {
             width: '100%'
           }}
         >
-          Less typing. More connecting.
+          Bump to Connect
         </p>
         
         <button 
