@@ -81,7 +81,7 @@ export default function AdminBanner() {
     <div className="fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-4 z-50">
       <div className="max-w-4xl mx-auto flex justify-between items-center">
         <div className="flex-1">
-          <h3 className="font-medium text-yellow-800">Admin Mode Active</h3>
+          <h3 className="font-medium text-yellow-800">Admin mode</h3>
         </div>
         <div className="flex items-center space-x-4">
           <Button
