@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile, UserProfile as ProfileContextUserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { Button } from './ui/Button';
+import { Button } from "@/components/ui/Button";
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -513,10 +513,11 @@ const EditProfile: React.FC = () => {
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-10"
       style={{
-        backgroundImage: `url(${formData.backgroundImage})`,
+        backgroundImage: formData.backgroundImage ? `url(${formData.backgroundImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#004D40' // Theme background color that shows while image loads
       }}
     >
       <h1 className="text-2xl font-bold mb-6 text-center text-black">Edit Profile</h1>

@@ -5,13 +5,13 @@ import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
-import { Button } from './ui/Button';
+import { Button } from '@/components/ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import type { UserProfile } from '../context/ProfileContext';
 import ReactMarkdown from 'react-markdown';
-import { Heading } from './ui/typography';
+import { Heading, Text } from './ui/typography';
 
 // Removed unused HARDCODED_PROFILE
 
@@ -194,7 +194,7 @@ const ProfileView: React.FC = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundColor: 'var(--background)'
+        backgroundColor: '#004D40' // Theme background color that shows while image loads
       }}
     >
       {/* Admin Mode is now triggered by double-clicking on the name */}
@@ -217,7 +217,7 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Bio with markdown support */}
-        <div className="text-sm text-black mb-6 text-center max-w-xs">
+        <div className="mb-6 text-center max-w-xs">
           <style>{`
             .bio-content a {
               color: #71E454; /* Using theme color */
@@ -227,9 +227,10 @@ const ProfileView: React.FC = () => {
               color: #5BBF45; /* Using theme dark color */
             }
           `}</style>
-          <div className="bio-content">
+          <div className="bio-content text-white">
             <ReactMarkdown 
               components={{
+                p: ({node, ...props}) => <p className="text-sm text-white" {...props} />,
                 a: ({ node: _node, ...props }) => (
                   <a {...props} target="_blank" rel="noopener noreferrer" />
                 )

@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import Image from 'next/image';
-import { Button } from './ui/Button';
+import { Button } from '@/components/ui/Button';
 import { Heading } from './ui/typography';
 
 // Google icon SVG component

@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Button } from './ui/Button';
+import { Button } from '@/components/ui/Button';
 import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
+import { Heading } from './ui/typography';
 import { useProfile, UserProfile } from '../context/ProfileContext';
 // setupScrollLock is not used but kept for future reference
 // import { setupScrollLock } from '../../lib/utils/scrollLock';
@@ -254,22 +255,18 @@ export default function ProfileSetup() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-background relative">
-      {/* Background Image - Using a full-screen fixed div */}
-      {profile?.backgroundImage && (
-        <div 
-          className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${profile.backgroundImage})`,
-          }}
-        />
-      )}
-      
-      {/* Semi-transparent overlay to ensure text is readable */}
-      <div className="fixed inset-0 -z-10 bg-white/30 backdrop-blur-sm" />
-      
+    <div 
+      className="min-h-screen w-full flex flex-col items-center px-4 py-6"
+      style={{
+        backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#004D40' // Theme background color that shows while image loads
+      }}
+    >
       {/* Main Content */}
-      <div className="min-h-screen flex flex-col items-center px-4 py-6 relative z-10">
+      <div className="w-full max-w-md flex flex-col items-center">
         <div className="w-full max-w-md flex flex-col items-center">
           {/* Profile Image */}
           <div className="mb-4">
@@ -283,12 +280,15 @@ export default function ProfileSetup() {
           </div>
           
           {/* Profile Name - Double click to activate admin mode */}
-          <h1 
-            className="text-2xl font-bold mb-6 text-center text-black cursor-pointer" 
-            {...adminModeProps}
-          >
-            {profile?.name || session?.user?.name || 'Profile'}
-          </h1>
+          <div className="mb-6 text-center">
+            <Heading 
+              as="h1"
+              className="cursor-pointer"
+              {...adminModeProps}
+            >
+              {profile?.name || session?.user?.name || 'Profile'}
+            </Heading>
+          </div>
           
           {/* Phone Input Section */}
           <form onSubmit={handleSave} className="w-full max-w-xs mx-auto">
