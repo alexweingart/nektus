@@ -9,7 +9,7 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 const HomePage = dynamic(() => import('./components/HomePage'), { 
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen bg-[#118541]">
       <LoadingSpinner size="lg" />
     </div>
   )
@@ -18,7 +18,7 @@ const HomePage = dynamic(() => import('./components/HomePage'), {
 const ProfileView = dynamic(() => import('./components/ProfileView'), { 
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen bg-[#118541]">
       <LoadingSpinner size="lg" />
     </div>
   )
@@ -46,7 +46,7 @@ export default function Home() {
   // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#118541]">
         <LoadingSpinner size="lg" />
       </div>
     );
