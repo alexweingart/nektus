@@ -532,7 +532,30 @@ const EditProfile: React.FC = () => {
       });
       
       // Update the profile with the merged contact channels
-      updatedProfile.contactChannels = updatedContactChannels;
+      // Ensure all required fields are present with defaults if needed
+      updatedProfile.contactChannels = {
+        // Start with default values for required fields
+        phoneInfo: {
+          internationalPhone: '',
+          nationalPhone: '',
+          userConfirmed: false,
+          ...(updatedContactChannels.phoneInfo || {})
+        },
+        email: {
+          email: '',
+          userConfirmed: false,
+          ...(updatedContactChannels.email || {})
+        },
+        // Include all social channels with defaults
+        facebook: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.facebook || {}) },
+        instagram: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.instagram || {}) },
+        x: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.x || {}) },
+        whatsapp: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.whatsapp || {}) },
+        snapchat: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.snapchat || {}) },
+        telegram: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.telegram || {}) },
+        wechat: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.wechat || {}) },
+        linkedin: { username: '', url: '', userConfirmed: false, ...(updatedContactChannels.linkedin || {}) },
+      };
       
       // Save the updated profile
       if (!saveProfile) {

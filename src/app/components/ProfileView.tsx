@@ -268,7 +268,7 @@ const ProfileView: React.FC = () => {
                 href={`https://facebook.com/${localProfile.contactChannels.facebook.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
+                className="text-white hover:text-blue-400 transition-colors"
               >
                 <SocialIcon platform="facebook" username={localProfile.contactChannels.facebook.username} size="md" />
               </a>
@@ -279,7 +279,7 @@ const ProfileView: React.FC = () => {
                 href={`https://instagram.com/${localProfile.contactChannels.instagram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-pink-600 transition-colors"
+                className="text-white hover:text-pink-400 transition-colors"
               >
                 <SocialIcon platform="instagram" username={localProfile.contactChannels.instagram.username} size="md" />
               </a>
@@ -290,7 +290,7 @@ const ProfileView: React.FC = () => {
                 href={`https://x.com/${localProfile.contactChannels.x.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-black transition-colors"
+                className="text-white hover:text-gray-300 transition-colors"
               >
                 <SocialIcon platform="x" username={localProfile.contactChannels.x.username} size="md" />
               </a>
@@ -301,7 +301,7 @@ const ProfileView: React.FC = () => {
                 href={`https://wa.me/${localProfile.contactChannels.whatsapp.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="text-white hover:text-green-400 transition-colors"
               >
                 <SocialIcon platform="whatsapp" username={localProfile.contactChannels.whatsapp.username} size="md" />
               </a>
@@ -312,7 +312,7 @@ const ProfileView: React.FC = () => {
                 href={`https://www.snapchat.com/add/${localProfile.contactChannels.snapchat.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-yellow-400 transition-colors"
+                className="text-white hover:text-yellow-300 transition-colors"
               >
                 <SocialIcon platform="snapchat" username={localProfile.contactChannels.snapchat.username} size="md" />
               </a>
@@ -323,7 +323,7 @@ const ProfileView: React.FC = () => {
                 href={`https://t.me/${localProfile.contactChannels.telegram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-blue-400 transition-colors"
+                className="text-white hover:text-blue-300 transition-colors"
               >
                 <SocialIcon platform="telegram" username={localProfile.contactChannels.telegram.username} size="md" />
               </a>
@@ -334,7 +334,7 @@ const ProfileView: React.FC = () => {
                 href={`https://linkedin.com/in/${localProfile.contactChannels.linkedin.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-blue-700 transition-colors"
+                className="text-white hover:text-blue-300 transition-colors"
               >
                 <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" />
               </a>
