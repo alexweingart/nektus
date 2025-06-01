@@ -9,7 +9,7 @@ import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { Heading } from './ui/typography';
 import { useProfile, UserProfile } from '../context/ProfileContext';
-import { useFreezeScrollOnFocus } from '../../lib/utils/useFreezeScrollOnFocus';
+import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
 // setupScrollLock is not used but kept for future reference
 // import { setupScrollLock } from '../../lib/utils/scrollLock';
 import Avatar from './ui/Avatar';

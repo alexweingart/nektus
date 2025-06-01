@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
+import type { RefObject } from 'react';
 
 /**
  * useFreezeScrollOnFocus – Prevents mobile browsers from auto-scrolling the page
  * when a referenced input element gains focus.
+ * 
+ * @param ref - React ref object pointing to the input element
  */
 export const useFreezeScrollOnFocus = (
-  ref: React.RefObject<HTMLElement>
-) => {
+  ref: RefObject<HTMLElement | null>
+): void => {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -21,7 +24,7 @@ export const useFreezeScrollOnFocus = (
       setTimeout(restore, 300);
     };
 
-    el.addEventListener('focus', onFocus);
-    return () => el.removeEventListener('focus', onFocus);
+    el.addEventListener('focus', onFocus, true);
+    return () => el.removeEventListener('focus', onFocus, true);
   }, [ref]);
 };
