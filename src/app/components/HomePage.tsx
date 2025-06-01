@@ -39,21 +39,7 @@ const HomePage: React.FC = () => {
   
   return (
     <div 
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        height: '100vh',
-        width: '100vw',
-        overflow: 'hidden',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'var(--background)',
-        paddingTop: '10vh' // Position elements higher on the screen
-      }}
+      className="flex items-start justify-center fixed inset-0 h-screen w-screen overflow-hidden bg-background pt-[10vh]"
     >
       {/* Welcome screen content remains the same */}
       <div
