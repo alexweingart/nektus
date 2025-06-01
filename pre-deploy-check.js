@@ -2,11 +2,12 @@
 
 /**
  * Pre-deployment check script for Nekt.Us
- * Validates required files, dependencies, and environment variables
+ * Validates required files, dependencies, environment variables, and performs a build check
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 require('dotenv').config({ path: '.env.local' });
 
 console.log('🔍 Running pre-deployment checks for Nekt.Us...');
@@ -47,8 +48,22 @@ try {
     }
     console.log(`   ✓ Found dependency: ${dep}`);
   });
+
+  // 4. Perform a build check
+  console.log('\n🚀 Running build check...');
+  try {
+    console.log('   Running "next build"...');
+    execSync('next build --no-lint', { stdio: 'inherit' });
+    console.log('   ✓ Build check passed!');
+  } catch (buildError) {
+    console.error('\n❌ Build check failed:');
+    console.error('   Please fix the build errors before committing.');
+    console.error('   Run "npm run build" locally to debug the build issues.');
+    process.exit(1);
+  }
 } catch (error) {
-  console.error('❌ Error reading package.json:', error.message);
+  console.error('\n❌ Pre-deployment checks failed:');
+  console.error(error.message);
   process.exit(1);
 }
 
