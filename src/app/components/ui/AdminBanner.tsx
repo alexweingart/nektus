@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
-import { Button } from '@/ui/Button';
+import { Button } from './Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
 
 // The admin mode banner component

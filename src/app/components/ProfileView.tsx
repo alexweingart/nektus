@@ -5,7 +5,7 @@ import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
-import { Button } from '@/ui/Button';
+import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
