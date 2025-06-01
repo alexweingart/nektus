@@ -2,6 +2,7 @@ const withPWA = require('next-pwa');
 
 // PWA configuration is only applied in production to reduce logs
 
+// Using App Router configuration - prevents _document error
 const nextConfig = {
   // Next.js 15.3 configuration
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
@@ -75,7 +76,13 @@ const config = process.env.NODE_ENV === 'production'
       disable: false,
       cacheOnFrontEndNav: true,
       disableDevLogs: true,
-      buildExcludes: [/middleware-manifest\.json$/, /_middleware\.js$/, /_error\.js$/, /chunks\/pages\/api\//],
+      buildExcludes: [
+        /middleware-manifest\.json$/,
+        /_middleware\.js$/,
+        /_error\.js$/,
+        /_document\.js$/,  // Exclude _document.js reference to avoid build errors
+        /chunks\/pages\/api\//
+      ],
       runtimeCaching: [
         {
           urlPattern: /\/favicon\.(ico|svg|png)$/,
