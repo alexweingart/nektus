@@ -8,9 +8,11 @@ export default {
   ],
   theme: {
     extend: {
+      backgroundColor: {
+        background: "#004D40",
+      },
       colors: {
-        // Define colors directly in the Tailwind config
-        background: "#118541", // Green background
+        background: "#004D40",
         foreground: "var(--foreground)",
       },
     },
