@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Use dynamic import to ensure component is loaded correctly
-const EditProfile = dynamic(() => import('../components/EditProfile'), {
+const EditProfile = dynamic(() => import('../components/EditProfileNew'), {
   ssr: false,
   loading: () => (
     <div className="flex h-screen items-center justify-center">
