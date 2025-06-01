@@ -9,6 +9,7 @@ import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { Heading } from './ui/typography';
 import { useProfile, UserProfile } from '../context/ProfileContext';
+import { useFreezeScrollOnFocus } from '../../lib/utils/useFreezeScrollOnFocus';
 // setupScrollLock is not used but kept for future reference
 // import { setupScrollLock } from '../../lib/utils/scrollLock';
 import Avatar from './ui/Avatar';
@@ -49,38 +50,12 @@ export default function ProfileSetup() {
   
   // Refs
   const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  // freeze auto-scroll on focus
+  useFreezeScrollOnFocus(phoneInputRef);
   
   // Admin mode
   const adminModeProps = useAdminModeActivator();
-
-  // Handle scroll behavior for mobile
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const handleFocus = (e: FocusEvent) => {
-      const target = e.target as HTMLElement;
-      setTimeout(() => {
-        target.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest' 
-        });
-      }, 100);
-    };
-    
-    // Add event listeners for all inputs
-    const inputs = document.querySelectorAll('input, textarea, [contenteditable]');
-    inputs.forEach(input => {
-      input.addEventListener('focus', handleFocus as EventListener);
-    });
-    
-    // Clean up event listeners
-    return () => {
-      inputs.forEach(input => {
-        input.removeEventListener('focus', handleFocus as EventListener);
-      });
-    };
-  }, []);
 
   // Main initialization effect
   useEffect(() => {
@@ -291,7 +266,7 @@ export default function ProfileSetup() {
           </div>
           
           {/* Phone Input Section */}
-          <form onSubmit={handleSave} className="w-full max-w-xs mx-auto">
+          <form onSubmit={handleSave} className="w-full max-w-xs mx-auto setup-form">
             <div className="w-full space-y-4">
               <CustomPhoneInput
                 ref={phoneInputRef}
