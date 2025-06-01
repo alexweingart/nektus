@@ -197,7 +197,31 @@ const ProfileView: React.FC = () => {
         backgroundColor: '#004D40' // Theme background color that shows while image loads
       }}
     >
-      {/* Admin Mode is now triggered by double-clicking on the name */}
+      {/* Top Navigation Buttons */}
+      <div className="w-full max-w-xs flex justify-between items-center mb-6">
+        <Button 
+          variant="circle"
+          size="icon"
+          className="w-12 h-12"
+          onClick={() => {}}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+          </svg>
+        </Button>
+        
+        <Link href="/edit">
+          <Button 
+            variant="circle"
+            size="icon"
+            className="w-12 h-12"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
+          </Button>
+        </Link>
+      </div>
       
       <div className="w-full max-w-md flex flex-col items-center">
         {/* Profile Image */}
@@ -400,12 +424,6 @@ const ProfileView: React.FC = () => {
             >
               Nekt
             </Button>
-          </Link>
-          <Link 
-            href="/edit" 
-            className="w-full text-center py-2 px-4 text-sm font-medium text-green-600 hover:text-green-700 transition-colors"
-          >
-            Edit Profile
           </Link>
         </div>
       </div>

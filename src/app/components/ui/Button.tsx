@@ -22,12 +22,13 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         theme: "bg-gradient-to-r from-theme-light to-theme text-gray-900 hover:from-theme-light/90 hover:to-theme/90 transition-all duration-200 active:scale-95 rounded-full shadow-md",
         white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full",
+        circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 shadow-md",
       },
       size: {
         default: "h-12 px-6 text-base",
         sm: "h-10 px-4 text-sm",
         lg: "h-14 px-8 text-lg",
-        icon: "h-12 w-12",
+        icon: "h-12 w-12 p-0",
       },
     },
     defaultVariants: {
@@ -43,6 +44,7 @@ export interface ButtonProps
   asChild?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "theme" | "white" | "circle";
 }
  
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
