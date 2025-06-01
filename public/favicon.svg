@@ -6,7 +6,7 @@
 <rect x="39.9186" y="76.2487" width="50" height="261.357" rx="25" transform="rotate(-45 39.9186 76.2487)" fill="url(#paint0_linear_5889_12884)"/>
 <defs>
 <linearGradient id="paint0_linear_5889_12884" x1="64.9186" y1="76.2487" x2="64.9186" y2="337.606" gradientUnits="userSpaceOnUse">
-<stop offset="0.192308" stop-color="#118541"/>
+<stop offset="0.192308" stop-color="#E7FED2"/>
 <stop offset="0.802885" stop-color="#71E454"/>
 </linearGradient>
 </defs>
