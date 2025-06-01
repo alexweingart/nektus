@@ -320,16 +320,23 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 
   return (
     <div 
-      className={`flex w-full bg-white border ${isInputFocused || isDropdownOpen ? 'border-primary ring-2 ring-primary' : 'border-gray-300'} rounded-md relative transition-all duration-200 ${className}`}
+      className={`flex w-full bg-white border-2 ${isInputFocused || isDropdownOpen ? 'border-white ring-2 ring-primary' : 'border-white'} rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
       onFocus={() => setIsInputFocused(true)}
       onBlur={() => setIsInputFocused(false)}
-      style={{ width: '100%' }}
+      style={{ 
+        width: '100%',
+        height: '3.5rem',
+        minHeight: '3.5rem',
+        display: 'flex',
+        alignItems: 'center'
+      }}
     >
       {/* Country selector */}
       <div className="relative z-10" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-3 py-2 bg-white text-gray-700 h-full focus:outline-none border-0 rounded-l-md"
+          className="flex items-center justify-between px-4 bg-white text-gray-900 h-full focus:outline-none border-0 rounded-l-full text-base"
+          style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
           onClick={() => {
             setIsDropdownOpen(!isDropdownOpen);
             setIsInputFocused(true);
@@ -345,7 +352,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         {/* Country dropdown */}
         {isDropdownOpen && (
-          <div className="absolute z-50 mt-1 w-60 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="absolute z-50 top-full left-0 mt-3 w-60 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full" style={{ top: 'calc(100% + 0.5rem)' }}>
             {countries.map((country) => (
               <div
                 key={country.code}
@@ -377,10 +384,10 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
           border: 'none', 
           outline: 'none', 
           boxShadow: 'none',
-          borderTopRightRadius: '0.375rem',
-          borderBottomRightRadius: '0.375rem'
+          borderTopRightRadius: '9999px',
+          borderBottomRightRadius: '9999px'
         }}
-        className="flex-1 px-3 py-2 bg-white focus:outline-none"
+        className="flex-1 px-4 h-full bg-white focus:outline-none text-gray-800 font-medium text-base rounded-r-full"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
