@@ -12,9 +12,6 @@ export default function AdminBanner() {
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   const handleDeleteAccount = useCallback(async () => {
-    if (!confirm('This will fully disconnect Nekt.Us from your Google account and delete all your data from our database. You will need to re-authorize the app next time you sign in. Continue?')) {
-      return;
-    }
 
     setDeleteStatus('loading');
     
@@ -85,7 +82,6 @@ export default function AdminBanner() {
       <div className="max-w-4xl mx-auto flex justify-between items-center">
         <div className="flex-1">
           <h3 className="font-medium text-yellow-800">Admin Mode Active</h3>
-          <p className="text-yellow-700 text-sm">You are in admin mode. This gives you access to additional controls.</p>
         </div>
         <div className="flex items-center space-x-4">
           <Button

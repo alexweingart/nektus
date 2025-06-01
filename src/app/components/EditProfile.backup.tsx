@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile, UserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Button } from '@/ui/Button';
-import Input from './ui/Input';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -90,7 +89,11 @@ interface ContactChannels {
   wechat?: BaseSocialChannel;
   linkedin?: BaseSocialChannel;
   // Index signature for dynamic access
-  [key: string]: any;
+  [key: string]: 
+    | { email?: string; userConfirmed?: boolean }
+    | { username?: string; url?: string; userConfirmed?: boolean }
+    | { nationalPhone?: string; internationalPhone?: string; userConfirmed?: boolean }
+    | undefined;
 }
 
 // Define the profile data interface
@@ -312,7 +315,7 @@ const EditProfile: React.FC = () => {
   };
   
   // Get social profile value
-  const getSocialProfileValue = (platform: string): string => {
+  const getSocialProfileValue = (platform: SocialPlatform): string => {
     const profile = formData.socialProfiles.find(p => p.platform === platform);
     return profile?.username || '';
   };
@@ -412,35 +415,31 @@ const EditProfile: React.FC = () => {
       }
 
       // Create the base contact channels with all required fields
-      const baseContactChannels: ContactChannels = {
-        ...(profile?.contactChannels || {})
-      };
-      
-      // Initialize required fields if they don't exist
-      if (!baseContactChannels.phoneInfo) {
-        baseContactChannels.phoneInfo = {
+      const baseContactChannels = {
+        phoneInfo: {
           internationalPhone: '',
           nationalPhone: '',
-          phoneNumber: '',
-          phone: '',
-          userConfirmed: false
-        };
-      }
-      
-      if (!baseContactChannels.email) {
-        baseContactChannels.email = {
+          userConfirmed: false,
+          // Add any additional required fields from PhoneInfo type
+          ...(profile?.contactChannels?.phoneInfo || {})
+        },
+        email: {
           email: '',
-          userConfirmed: false
-        };
-      }
-      
-      // Initialize social channels with empty values if they don't exist
-      const socialPlatforms = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
-      socialPlatforms.forEach(platform => {
-        if (!baseContactChannels[platform]) {
-          baseContactChannels[platform] = { username: '', url: '', userConfirmed: false };
-        }
-      });
+          userConfirmed: false,
+          ...(profile?.contactChannels?.email || {})
+        },
+        // Social channels with required fields
+        facebook: { username: '', url: '', userConfirmed: false },
+        instagram: { username: '', url: '', userConfirmed: false },
+        x: { username: '', url: '', userConfirmed: false },
+        whatsapp: { username: '', url: '', userConfirmed: false },
+        snapchat: { username: '', url: '', userConfirmed: false },
+        telegram: { username: '', url: '', userConfirmed: false },
+        wechat: { username: '', url: '', userConfirmed: false },
+        linkedin: { username: '', url: '', userConfirmed: false },
+        // Merge with existing channels to preserve any existing data
+        ...(profile?.contactChannels || {})
+      };
 
       // Update with form data
       if (formData.email) {
@@ -606,80 +605,52 @@ const EditProfile: React.FC = () => {
       
       {/* Name Input */}
       <div className="mb-5 w-full max-w-md">
-        <Input
-          ref={nameInputRef}
-          type="text"
-          id="name"
-          value={formData.name}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="Full Name"
-          className="w-full"
-          inputClassName="pl-12"
-          label={
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-600 text-sm">👤</span>
-              </div>
-            </div>
-          }
-        />
-      </div>
-
-      {/* Avatar Upload */}
-      <div className="mb-5 w-full max-w-md">
         <div className="flex items-center">
-          <label htmlFor="avatar-upload" className="relative cursor-pointer" onClick={() => {
-            // Automatically trigger click on mobile
-            document.getElementById('avatar-upload')?.click();
-          }}>
-            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300 relative">
-              {formData.picture ? (
-                <>
-                  <div className="absolute inset-0 w-full h-full">
-                    <Image
-                      src={formData.picture}
-                      alt="Profile"
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.style.display = 'none';
-                        setShowFallback(true);
-                      }}
-                      onLoadingComplete={(img) => {
-                        img.style.opacity = '1';
-                      }}
-                      style={{
-                        opacity: 0,
-                        transition: 'opacity 0.3s ease-in-out'
-                      }}
-                      unoptimized={formData.picture.startsWith('data:')}
-                    />
-                  </div>
-                  <div 
-                    id="edit-avatar-fallback"
-                    className={`w-full h-full bg-white ${showFallback ? 'flex' : 'hidden'} items-center justify-center`}
-                  >
+          <div className="mr-3 pointer-events-none">
+            <label htmlFor="avatar-upload" className="relative cursor-pointer" onClick={() => {
+              // Automatically trigger click on mobile
+              document.getElementById('avatar-upload')?.click();
+            }}>
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300 relative">
+                {formData.picture ? (
+                  <>
+                    <div className="absolute inset-0 w-full h-full">
+                      <Image
+                        src={formData.picture}
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.style.display = 'none';
+                          setShowFallback(true);
+                        }}
+                        onLoadingComplete={(img) => {
+                          img.style.opacity = '1';
+                        }}
+                        style={{
+                          opacity: 0,
+                          transition: 'opacity 0.3s ease-in-out'
+                        }}
+                        unoptimized={formData.picture.startsWith('data:')}
+                      />
+                    </div>
+                    <div 
+                      id="edit-avatar-fallback"
+                      className={`w-full h-full bg-white ${showFallback ? 'flex' : 'hidden'} items-center justify-center`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-gray-100"></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-white">
                     <div className="w-6 h-6 rounded-full bg-gray-100"></div>
                   </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-white">
-                  <div className="w-6 h-6 rounded-full bg-gray-100"></div>
-                </div>
-              )}
-            </div>
-            <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
-              <MdEdit size={8} />
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Phone Input */}
-      <div className="mb-5 w-full max-w-md">
-        <div className="flex items-center">
+                )}
+              </div>
+              <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
+                <MdEdit size={8} />
           <div className="mr-3 pointer-events-none">
             <SocialIcon platform="phone" size="sm" />
           </div>
@@ -694,39 +665,146 @@ const EditProfile: React.FC = () => {
               inputProps={{
                 id: "phone-input",
                 autoComplete: "tel",
-                className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                className: "w-full p-2 border border-gray-300 rounded-none bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
               }}
             />
           </div>
-        </div>
-      </div>
-
-      {/* Social Media Inputs */}
-      {['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'].map((platform) => (
-        <div key={platform} className="mb-5 w-full max-w-md">
-          <Input
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="facebook" size="sm" />
+          </div>
+          <input
             type="text"
-            id={platform}
-            value={getSocialProfileValue(platform)}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              handleSocialChange(platform as SocialPlatform, e.target.value);
-            }}
-            placeholder={
-              platform === 'x' ? 'X username' : 
-              platform === 'wechat' ? 'WeChat ID' :
-              platform === 'whatsapp' ? 'WhatsApp number' :
-              `${platform.charAt(0).toUpperCase() + platform.slice(1)} username`
-            }
-            className="w-full"
-            inputClassName="pl-12"
-            label={
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <SocialIcon platform={platform as SocialPlatform} size="sm" />
-              </div>
-            }
+            id="facebook"
+            value={getSocialProfileValue('facebook')}
+            onChange={(e) => handleSocialChange('facebook', e.target.value)}
+            placeholder="Facebook username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-      ))}
+      </div>
+      
+      {/* Instagram */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="instagram" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="instagram"
+            value={getSocialProfileValue('instagram')}
+            onChange={(e) => handleSocialChange('instagram', e.target.value)}
+            placeholder="Instagram username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* X (formerly Twitter) */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="x" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="x"
+            value={getSocialProfileValue('x')}
+            onChange={(e) => {
+              handleSocialChange('x', e.target.value);
+              // Update X profile
+            }}
+            placeholder="𝕏 username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* LinkedIn */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="linkedin" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="linkedin"
+            value={getSocialProfileValue('linkedin')}
+            onChange={(e) => handleSocialChange('linkedin', e.target.value)}
+            placeholder="LinkedIn username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* Snapchat */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="snapchat" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="snapchat"
+            value={getSocialProfileValue('snapchat')}
+            onChange={(e) => handleSocialChange('snapchat', e.target.value)}
+            placeholder="Snapchat username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* WhatsApp */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="whatsapp" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="whatsapp"
+            value={getSocialProfileValue('whatsapp')}
+            onChange={(e) => handleSocialChange('whatsapp', e.target.value)}
+            placeholder="WhatsApp number"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* Telegram */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="telegram" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="telegram"
+            value={getSocialProfileValue('telegram')}
+            onChange={(e) => handleSocialChange('telegram', e.target.value)}
+            placeholder="Telegram username"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      {/* WeChat */}
+      <div className="mb-5 w-full max-w-md">
+        <div className="flex items-center">
+          <div className="mr-3 pointer-events-none">
+            <SocialIcon platform="wechat" size="sm" />
+          </div>
+          <input
+            type="text"
+            id="wechat"
+            value={getSocialProfileValue('wechat')}
+            onChange={(e) => handleSocialChange('wechat', e.target.value)}
+            placeholder="WeChat ID"
+            className="w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
       
       {/* Edit Background */}
       <div className="mb-6 text-center w-full max-w-md">
