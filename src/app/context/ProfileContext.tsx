@@ -156,6 +156,8 @@ export const useProfile = (): ProfileContextType => {
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const profileRef = useRef<UserProfile | null>(null);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Separate flags for tracking generation status in the current session
@@ -204,7 +206,176 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return null;
     }
   }, []);
-  const bioGenerationComplete = useRef(false);
+
+  // Generic deep merge helper: merges only non-empty incoming values (recursively)
+  const mergeNonEmpty = <T extends Record<string, any>>(base: T, incoming: Partial<T>): T => {
+    const result: any = { ...base };
+    Object.entries(incoming || {}).forEach(([k, v]) => {
+      if (v === undefined || v === null) return;
+      if (typeof v === 'object' && !Array.isArray(v)) {
+        result[k] = mergeNonEmpty(result[k] || {}, v as Record<string, any>);
+      } else if (typeof v === 'string') {
+        if (v.trim() !== '') result[k] = v;
+      } else {
+        result[k] = v;
+      }
+    });
+    return result as T;
+  };
+
+  // Save profile to localStorage
+  const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
+    try {
+      console.log('=== SAVE PROFILE STARTED ===');
+      console.log('Incoming partial update:', JSON.stringify(profileData, null, 2));
+
+      const current = profileRef.current || createDefaultProfile(session);
+      const merged = mergeNonEmpty(current, profileData);
+      merged.lastUpdated = Date.now();
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      }
+
+      setProfile(merged);
+      console.log('Profile successfully saved');
+      return merged;
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      throw err;
+    }
+  }, [session]);
+
+  // Clear profile from localStorage
+  const clearProfile = useCallback(async (): Promise<void> => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      setProfile(null);
+    } catch (error) {
+      console.error('Error clearing profile:', error);
+    }
+  }, []);
+
+  // Generate background image
+  const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    try {
+      if (!profile?.userId) {
+        console.error('Cannot generate background: Invalid profile or missing userId');
+        return null;
+      }
+
+      const response = await fetch('/api/openai', {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/event-stream',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'background',
+          profile
+        })
+      });
+
+      if (!response.body) {
+        console.error('No stream body');
+        return null;
+      }
+
+      const decoder = new TextDecoder();
+      const reader = response.body.getReader();
+      let buffer = '';
+      let finalB64: string | null = null;
+
+      const updateBackground = (b64: string) => {
+        // Delegate to saveProfile so we reuse the same merge logic
+        void saveProfile({ backgroundImage: `data:image/png;base64,${b64}` });
+      };
+
+      interface B64Object {
+        b64_json?: string;
+        partial_image_b64?: string;
+        [key: string]: unknown;
+      }
+
+      const extractB64 = (obj: unknown): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+        
+        const b64Obj = obj as B64Object;
+        if (b64Obj.b64_json && typeof b64Obj.b64_json === 'string') return b64Obj.b64_json;
+        if (b64Obj.partial_image_b64 && typeof b64Obj.partial_image_b64 === 'string') return b64Obj.partial_image_b64;
+        
+        // Recursively search in object values
+        for (const key in b64Obj) {
+          if (Object.prototype.hasOwnProperty.call(b64Obj, key)) {
+            const found = extractB64(b64Obj[key]);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
+
+        for (const blk of blocks) {
+          const dataLines = blk.split('\n').filter(l => l.startsWith('data:')).map(l => l.substring(5));
+          if (dataLines.length === 0) continue;
+          const jsonStr = dataLines.join('');
+          try {
+            const evt = JSON.parse(jsonStr);
+            const b64 = extractB64(evt);
+            if (b64) {
+              updateBackground(b64);
+              finalB64 = b64; // keep last
+            }
+          } catch {}
+        }
+      }
+
+      return finalB64 ? `data:image/png;base64,${finalB64}` : null;
+    } catch (e) {
+      console.error('Streaming background error', e);
+      return null;
+    }
+  }, []);
+
+  // Generate bio for profile
+  const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    try {
+      if (!profile?.userId) {
+        console.error('Cannot generate bio: Invalid profile or missing userId');
+        return null;
+      }
+
+      const response = await fetch('/api/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'bio',
+          profile
+        })
+      });
+
+      if (!response.ok) {
+        const txt = await response.text();
+        console.error('Failed to generate bio', txt);
+        return null;
+      }
+
+      const result = await response.json();
+      return result.bio || null;
+    } catch (e) {
+      console.error('generateBio error', e);
+      return null;
+    }
+  }, []);
 
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
@@ -334,223 +505,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, [session]);
 
-  // Ref to persist bio between profile saves
-  const persistedBioRef = useRef<string>('');
-
-  // Save profile to localStorage
-  const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
-    try {
-      console.log('=== SAVE PROFILE STARTED ===');
-      console.log('Profile data to save:', JSON.stringify(profileData, null, 2));
-      
-      // If we don't have an existing profile, create a default one first
-      const currentProfile = profile || createDefaultProfile(session);
-      
-      // Store any non-empty bio in our ref for persistence across operations
-      if (currentProfile.bio && currentProfile.bio.trim() !== '') {
-        persistedBioRef.current = currentProfile.bio;
-      }
-      
-      // Determine which bio to use (in order of priority):
-      // 1. New bio from profileData if provided
-      // 2. Existing bio from current profile
-      // 3. Bio from ref
-      let bioToUse = '';
-      
-      if (profileData.bio !== undefined && profileData.bio.trim() !== '') {
-        bioToUse = profileData.bio;
-        persistedBioRef.current = bioToUse;
-      } else if (currentProfile.bio && currentProfile.bio.trim() !== '') {
-        bioToUse = currentProfile.bio;
-      } else if (persistedBioRef.current && persistedBioRef.current.trim() !== '') {
-        bioToUse = persistedBioRef.current;
-      }
-      
-      // Create the updated profile with proper merging
-      const updatedProfile: UserProfile = {
-        ...currentProfile,  // Start with existing profile
-        ...profileData,    // Apply updates from profileData
-        bio: bioToUse,     // Use the determined bio
-        lastUpdated: Date.now(),
-        // Preserve profile image if not being updated
-        profileImage: profileData.profileImage !== undefined 
-          ? profileData.profileImage 
-          : (currentProfile.profileImage || ''),
-        // Preserve all existing contact channels and merge with any updates
-        contactChannels: {
-          ...currentProfile.contactChannels,
-          ...(profileData.contactChannels || {})
-        }
-      };
-      
-      console.log('Updated profile to save:', JSON.stringify(updatedProfile, null, 2));
-      
-      // Safely save to localStorage
-      if (typeof window !== 'undefined') {
-        try {
-          const profileString = JSON.stringify(updatedProfile);
-          localStorage.setItem(STORAGE_KEY, profileString);
-          console.log('Profile saved to localStorage');
-          
-          // Verify the save by reading it back
-          const savedProfile = localStorage.getItem(STORAGE_KEY);
-          if (savedProfile) {
-            const parsedSaved = JSON.parse(savedProfile);
-            console.log('Contact channels after save:', parsedSaved.contactChannels);
-          }
-          
-          console.log('Successfully saved to localStorage');
-        } catch (storageError) {
-          console.error('Error saving to localStorage:', storageError);
-          throw new Error('Failed to save profile to storage');
-        }
-      } else {
-        console.warn('localStorage is not available (server-side rendering)');
-      }
-      
-      // Update the state
-      setProfile(updatedProfile);
-      console.log('Profile state updated');
-      return updatedProfile;
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      throw error;
-    }
-  }, [profile, session]);
-
-  // Clear profile from localStorage
-  const clearProfile = useCallback(async (): Promise<void> => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      setProfile(null);
-    } catch (error) {
-      console.error('Error clearing profile:', error);
-    }
-  }, []);
-
-  // Generate background image
-  const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
-    try {
-      if (!profile?.userId) {
-        console.error('Cannot generate background: Invalid profile or missing userId');
-        return null;
-      }
-
-      const response = await fetch('/api/openai', {
-        method: 'POST',
-        headers: {
-          'Accept': 'text/event-stream',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'background',
-          profile
-        })
-      });
-
-      if (!response.body) {
-        console.error('No stream body');
-        return null;
-      }
-
-      const decoder = new TextDecoder();
-      const reader = response.body.getReader();
-      let buffer = '';
-      let finalB64: string | null = null;
-
-      const updateBackground = (b64: string) => {
-        setProfile(prev => {
-          if (!prev) return prev;
-          return { ...prev, backgroundImage: `data:image/png;base64,${b64}` };
-        });
-      };
-
-      interface B64Object {
-        b64_json?: string;
-        partial_image_b64?: string;
-        [key: string]: unknown;
-      }
-
-      const extractB64 = (obj: unknown): string | null => {
-        if (!obj || typeof obj !== 'object') return null;
-        
-        const b64Obj = obj as B64Object;
-        if (b64Obj.b64_json && typeof b64Obj.b64_json === 'string') return b64Obj.b64_json;
-        if (b64Obj.partial_image_b64 && typeof b64Obj.partial_image_b64 === 'string') return b64Obj.partial_image_b64;
-        
-        // Recursively search in object values
-        for (const key in b64Obj) {
-          if (Object.prototype.hasOwnProperty.call(b64Obj, key)) {
-            const found = extractB64(b64Obj[key]);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const blocks = buffer.split('\n\n');
-        buffer = blocks.pop() || '';
-
-        for (const blk of blocks) {
-          const dataLines = blk.split('\n').filter(l => l.startsWith('data:')).map(l => l.substring(5));
-          if (dataLines.length === 0) continue;
-          const jsonStr = dataLines.join('');
-          try {
-            const evt = JSON.parse(jsonStr);
-            const b64 = extractB64(evt);
-            if (b64) {
-              updateBackground(b64);
-              finalB64 = b64; // keep last
-            }
-          } catch {}
-        }
-      }
-
-      return finalB64 ? `data:image/png;base64,${finalB64}` : null;
-    } catch (e) {
-      console.error('Streaming background error', e);
-      return null;
-    }
-  }, []);
-
-  // Generate bio for profile
-  const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
-    try {
-      if (!profile?.userId) {
-        console.error('Cannot generate bio: Invalid profile or missing userId');
-        return null;
-      }
-
-      const response = await fetch('/api/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'bio',
-          profile
-        })
-      });
-
-      if (!response.ok) {
-        const txt = await response.text();
-        console.error('Failed to generate bio', txt);
-        return null;
-      }
-
-      const result = await response.json();
-      return result.bio || null;
-    } catch (e) {
-      console.error('generateBio error', e);
-      return null;
-    }
-  }, []);
-
   // Load profile on mount and when session changes
   useEffect(() => {
     const initializeProfile = async () => {
@@ -606,7 +560,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           if (generatedBio) {
             // Bio generated successfully
             // Update both the profile and our persistence ref
-            persistedBioRef.current = generatedBio;
             // Use a separate save call to avoid mixing with other updates
             const result = await saveProfile({ bio: generatedBio });
             if (result) {
@@ -617,11 +570,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           console.error('Error generating bio:', bioError);
         } finally {
           // Mark bio generation as complete whether it succeeded or failed
-          bioGenerationComplete.current = true;
+          // bioGenerationComplete.current = true;
         }
       } else {
         // If bio already exists or was attempted, mark as complete
-        bioGenerationComplete.current = true;
+        // bioGenerationComplete.current = true;
       }
       
       // Step 2: Generate profile image if needed
@@ -666,8 +619,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // Step 3: Generate background image if needed
       // Only when: bio generation is completed (success or failure) and no attempt this session
       if (!updatedProfile.backgroundImage && 
-          !hasGeneratedBackground.current && 
-          bioGenerationComplete.current) {
+          !hasGeneratedBackground.current) {
 
         hasGeneratedBackground.current = true;
         
@@ -678,7 +630,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             // Background image generated successfully
             
             // Make sure we're not losing any existing bio
-            const existingBio = updatedProfile.bio || persistedBioRef.current || '';
+            const existingBio = updatedProfile.bio || '';
             
             // Create an update object with ONLY the background image change
             // We'll explicitly preserve the bio in the saveProfile function

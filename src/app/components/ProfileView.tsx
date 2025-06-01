@@ -229,40 +229,42 @@ const ProfileView: React.FC = () => {
           </div>
         </div>
         
-        {/* Profile Name - Double click to activate admin mode */}
-        <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
-          <Heading as="h1">{localProfile.name}</Heading>
-        </div>
-        
-        {/* Bio with markdown support */}
-        <div className="mb-6 text-center max-w-xs">
-          <style>{`
-            .bio-content a {
-              color: #71E454; /* Using theme color */
-              text-decoration: underline;
-            }
-            .bio-content a:hover {
-              color: #5BBF45; /* Using theme dark color */
-            }
-          `}</style>
-          <div className="bio-content text-white">
-            <ReactMarkdown 
-              components={{
-                p: ({node, ...props}) => <p className="text-sm text-white" {...props} />,
-                a: ({ node: _node, ...props }) => (
-                  <a {...props} target="_blank" rel="noopener noreferrer" />
-                )
-              }}
-            >
-              {bioContent}
-            </ReactMarkdown>
+        {/* Content with blur background */}
+        <div className="w-full max-w-xs bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl">
+          {/* Profile Name - Double click to activate admin mode */}
+          <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
+            <Heading as="h1">{localProfile.name}</Heading>
           </div>
-        </div>
-        
-        {/* Contact Icons */}
-        <div className="mb-8 w-full max-w-xs mx-auto">
-          {/* First row - 5 icons with equal spacing */}
-          <div className="flex flex-wrap justify-center gap-4 mb-5">
+          
+          {/* Bio with markdown support */}
+          <div className="mb-4 text-center">
+            <style>{`
+              .bio-content a {
+                color: #71E454; /* Using theme color */
+                text-decoration: underline;
+              }
+              .bio-content a:hover {
+                color: #5BBF45; /* Using theme dark color */
+              }
+            `}</style>
+            <div className="bio-content text-white">
+              <ReactMarkdown 
+                components={{
+                  p: ({node, ...props}) => <p className="text-sm text-white" {...props} />,
+                  a: ({ node: _node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
+                  )
+                }}
+              >
+                {bioContent}
+              </ReactMarkdown>
+            </div>
+          </div>
+          
+          {/* Contact Icons */}
+          <div className="w-full">
+            {/* First row - 5 icons with equal spacing */}
+            <div className="flex flex-wrap justify-center gap-4">
             {localProfile.contactChannels.facebook.username && (
               <a 
                 href={`https://facebook.com/${localProfile.contactChannels.facebook.username}`} 
@@ -339,11 +341,12 @@ const ProfileView: React.FC = () => {
                 <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" />
               </a>
             )}
+            </div>
           </div>
         </div>
         
         {/* Action Buttons */}
-        <div className="w-full max-w-xs flex flex-col gap-3">
+        <div className="w-full max-w-xs mt-4">
           <Link href="/connect" className="w-full">
             <Button 
               variant="theme"
