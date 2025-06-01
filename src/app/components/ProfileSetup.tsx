@@ -157,8 +157,25 @@ export default function ProfileSetup() {
   // Handle saving the profile with phone number
   const handleSave = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!session?.user?.email || !profile || isSaving) return;
+    console.log('=== Starting save process ===');
+    console.log('Raw digits from input:', digits);
     
+    if (!session?.user?.email) {
+      console.error('Cannot save: No user session');
+      return;
+    }
+    
+    if (!profile) {
+      console.error('Cannot save: No profile data');
+      return;
+    }
+    
+    if (isSaving) {
+      console.log('Save already in progress');
+      return;
+    }
+    
+    console.log('Starting save process...');
     setIsSaving(true);
     
     try {
@@ -167,16 +184,43 @@ export default function ProfileSetup() {
       
       // Format phone number if digits are provided
       if (digits) {
-        const countryCode = selectedCountry?.code as CountryCode | undefined;
-        const parsed = parsePhoneNumberFromString(digits, { defaultCountry: countryCode });
+        // Clean the digits to remove any non-numeric characters
+        const cleanedDigits = digits.replace(/\D/g, '');
+        console.log('Cleaned digits:', cleanedDigits);
         
-        if (parsed?.isValid()) {
-          internationalPhone = parsed.format('E.164');
-          nationalPhone = parsed.nationalNumber;
+        // For US/Canada numbers (10 digits or 11 digits starting with 1)
+        if (cleanedDigits.length === 10 || (cleanedDigits.length === 11 && cleanedDigits.startsWith('1'))) {
+          console.log('Processing as US/Canada number');
+          const nationalNum = cleanedDigits.length === 11 ? cleanedDigits.slice(1) : cleanedDigits;
+          internationalPhone = `+1${nationalNum}`; // E.164 format for US/Canada
+          nationalPhone = nationalNum;
+          console.log('US/Canada - National:', nationalPhone, 'International:', internationalPhone);
+        } 
+        // For international numbers
+        else if (cleanedDigits.length > 10) {
+          console.log('Processing as international number');
+          // Try to parse with country code
+          const countryCode = selectedCountry?.code as CountryCode | undefined;
+          console.log('Using country code for parsing:', countryCode);
+          const parsed = parsePhoneNumberFromString(`+${cleanedDigits}`, { defaultCountry: countryCode });
+          
+          if (parsed?.isValid()) {
+            internationalPhone = parsed.format('E.164');
+            nationalPhone = parsed.nationalNumber;
+            console.log('Valid international number - National:', nationalPhone, 'International:', internationalPhone);
+          } else {
+            // If parsing fails, just use the raw digits
+            console.warn('Could not parse international number, using raw digits');
+            internationalPhone = `+${cleanedDigits}`;
+            nationalPhone = cleanedDigits;
+            console.log('Fallback - National:', nationalPhone, 'International:', internationalPhone);
+          }
         } else {
-          console.error('Invalid phone number');
-          setIsSaving(false);
-          return;
+          // For numbers that are too short to be valid, just use them as is
+          console.log('Number too short, using as is');
+          internationalPhone = `+${cleanedDigits}`;
+          nationalPhone = cleanedDigits;
+          console.log('Short number - National:', nationalPhone, 'International:', internationalPhone);
         }
       }
       
@@ -211,11 +255,20 @@ export default function ProfileSetup() {
         }
       };
       
-      await saveProfile(updatedProfile);
-      router.push('/');
+      console.log('Saving updated profile:', JSON.stringify(updatedProfile, null, 2));
+      
+      try {
+        await saveProfile(updatedProfile);
+        console.log('Profile saved successfully');
+        router.push('/');
+      } catch (saveError) {
+        console.error('Error in saveProfile call:', saveError);
+        throw saveError; // Re-throw to be caught by the outer catch
+      }
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('Error in handleSave:', error);
     } finally {
+      console.log('=== Save process completed ===');
       setIsSaving(false);
     }
   }, [digits, isSaving, profile, saveProfile, router, selectedCountry.code, session?.user?.email]);

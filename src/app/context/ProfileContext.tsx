@@ -209,22 +209,53 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
+      console.log('=== LOAD PROFILE STARTED ===');
+      
+      // Only access localStorage on the client side
+      if (typeof window === 'undefined') {
+        console.log('Running on server side, returning null');
+        return null;
+      }
+      
+      console.log('LocalStorage available, checking for existing profile...');
+
       const storedData = localStorage.getItem(STORAGE_KEY);
       
       if (storedData) {
-        const parsedProfile = JSON.parse(storedData) as UserProfile;
-        let needsUpdate = false;
+        console.log('Found stored profile data');
+        console.log('Raw stored data:', storedData);
+        
+        let parsedProfile: UserProfile;
+        try {
+          parsedProfile = JSON.parse(storedData) as UserProfile;
+          console.log('Successfully parsed stored profile');
+        } catch (parseError) {
+          console.error('Error parsing stored profile data:', parseError);
+          console.log('Creating a new profile due to parse error');
+          const defaultProfile = createDefaultProfile(session || undefined);
+          setProfile(defaultProfile);
+          return defaultProfile;
+        }
+        
+        console.log('Parsed profile:', JSON.stringify(parsedProfile, null, 2));
+        let needsUpdate = false; 
+        
+        // Log the current session info
+        console.log('Current session user:', session?.user);
 
         // Update profile with session data if available
         if (session?.user) {
+          console.log('Updating profile with session data');
           let profileChanged = false;
           
           if (session.user.image && parsedProfile.profileImage !== session.user.image) {
+            console.log('Updating profile image from session');
             parsedProfile.profileImage = session.user.image;
             profileChanged = true;
           }
           
           if (session.user.name && parsedProfile.name !== session.user.name) {
+            console.log('Updating name from session');
             parsedProfile.name = session.user.name;
             profileChanged = true;
           }
@@ -232,6 +263,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           if (session.user.email) {
             // Update email if it's different
             if (parsedProfile.contactChannels.email.email !== session.user.email) {
+              console.log('Updating email from session');
               parsedProfile.contactChannels.email = {
                 email: session.user.email,
                 userConfirmed: true
@@ -246,6 +278,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             for (const platform of socialPlatforms) {
               const channel = parsedProfile.contactChannels[platform];
               if (channel && (!channel.username || channel.username === '')) {
+                console.log(`Initializing ${platform} username from email`);
                 channel.username = emailUsername;
                 // Only update URL if it's empty to preserve any custom URLs
                 if (!channel.url || channel.url === '') {
@@ -258,23 +291,40 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Ensure required fields are set
-        // Removed default profile image assignment to keep it as empty string
-
         if (needsUpdate) {
+          console.log('Profile needs update, saving changes');
           parsedProfile.lastUpdated = Date.now();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedProfile));
-          // Profile updated in localStorage
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedProfile));
+          } catch (error) {
+            console.error('Error saving updated profile to localStorage:', error);
+          }
         }
 
+        console.log('Returning parsed profile:', parsedProfile);
         setProfile(parsedProfile);
         return parsedProfile;
       }
 
       // Create new profile if none exists
+      console.log('No stored profile found, creating default profile');
       const defaultProfile = createDefaultProfile(session || undefined);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProfile));
+      console.log('Created default profile:', JSON.stringify(defaultProfile, null, 2));
+      
+      try {
+        const profileString = JSON.stringify(defaultProfile);
+        console.log('Saving default profile to localStorage with key:', STORAGE_KEY);
+        localStorage.setItem(STORAGE_KEY, profileString);
+        
+        // Verify the save
+        const savedProfile = localStorage.getItem(STORAGE_KEY);
+        console.log('Default profile read back from localStorage:', savedProfile);
+      } catch (error) {
+        console.error('Error saving default profile to localStorage:', error);
+      }
+      
       setProfile(defaultProfile);
+      console.log('Default profile set in state');
       return defaultProfile;
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -290,67 +340,77 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Save profile to localStorage
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      // Enhanced logging for profile saves
-
+      console.log('=== SAVE PROFILE STARTED ===');
+      console.log('Profile data to save:', JSON.stringify(profileData, null, 2));
       
       // If we don't have an existing profile, create a default one first
       const currentProfile = profile || createDefaultProfile(session);
-
+      
       // Store any non-empty bio in our ref for persistence across operations
       if (currentProfile.bio && currentProfile.bio.trim() !== '') {
         persistedBioRef.current = currentProfile.bio;
-        // Bio stored in ref
       }
       
-      // Deep merge contactChannels to preserve any existing values
-      const mergedContactChannels = {
-        ...currentProfile.contactChannels,
-        ...(profileData.contactChannels || {})
-      };
-      
-      // IMPROVED BIO PRESERVATION LOGIC
-      // Use highest priority non-empty bio source in this order:
-      // 1. New non-empty bio from profileData update
-      // 2. Existing non-empty bio from current profile
-      // 3. Previously persisted non-empty bio from ref
-      // 4. Empty string as last resort
+      // Determine which bio to use (in order of priority):
+      // 1. New bio from profileData if provided
+      // 2. Existing bio from current profile
+      // 3. Bio from ref
       let bioToUse = '';
       
-      if ('bio' in profileData && profileData.bio && profileData.bio.trim() !== '') {
-        // Case 1: New non-empty bio from update - use it and store in ref
+      if (profileData.bio !== undefined && profileData.bio.trim() !== '') {
         bioToUse = profileData.bio;
         persistedBioRef.current = bioToUse;
-
       } else if (currentProfile.bio && currentProfile.bio.trim() !== '') {
-        // Case 2: Current profile has non-empty bio - preserve it
         bioToUse = currentProfile.bio;
-        // Preserving existing bio
       } else if (persistedBioRef.current && persistedBioRef.current.trim() !== '') {
-        // Case 3: Fall back to our persisted ref if available
         bioToUse = persistedBioRef.current;
-        // Restoring bio from ref
-      } else {
-        // Case 4: No bio found anywhere, use empty string
       }
       
-      // Create the updated profile with proper merging but EXPLICITLY keep our bio
+      // Create the updated profile with proper merging
       const updatedProfile: UserProfile = {
-        ...currentProfile,
-        ...profileData,
-        // CRITICAL: Override any potential empty bio with our preserved value
-        bio: bioToUse,
+        ...currentProfile,  // Start with existing profile
+        ...profileData,    // Apply updates from profileData
+        bio: bioToUse,     // Use the determined bio
         lastUpdated: Date.now(),
-        profileImage: profileData.profileImage !== undefined ? profileData.profileImage : (currentProfile.profileImage || ''),
-        contactChannels: mergedContactChannels
+        // Preserve profile image if not being updated
+        profileImage: profileData.profileImage !== undefined 
+          ? profileData.profileImage 
+          : (currentProfile.profileImage || ''),
+        // Preserve all existing contact channels and merge with any updates
+        contactChannels: {
+          ...currentProfile.contactChannels,
+          ...(profileData.contactChannels || {})
+        }
       };
       
-      // If we managed to preserve a non-empty bio, also update our ref
-      if (bioToUse && bioToUse.trim() !== '') {
-        persistedBioRef.current = bioToUse;
+      console.log('Updated profile to save:', JSON.stringify(updatedProfile, null, 2));
+      
+      // Safely save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const profileString = JSON.stringify(updatedProfile);
+          localStorage.setItem(STORAGE_KEY, profileString);
+          console.log('Profile saved to localStorage');
+          
+          // Verify the save by reading it back
+          const savedProfile = localStorage.getItem(STORAGE_KEY);
+          if (savedProfile) {
+            const parsedSaved = JSON.parse(savedProfile);
+            console.log('Contact channels after save:', parsedSaved.contactChannels);
+          }
+          
+          console.log('Successfully saved to localStorage');
+        } catch (storageError) {
+          console.error('Error saving to localStorage:', storageError);
+          throw new Error('Failed to save profile to storage');
+        }
+      } else {
+        console.warn('localStorage is not available (server-side rendering)');
       }
       
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
+      // Update the state
       setProfile(updatedProfile);
+      console.log('Profile state updated');
       return updatedProfile;
     } catch (error) {
       console.error('Error saving profile:', error);

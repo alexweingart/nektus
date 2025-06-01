@@ -62,16 +62,9 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     }
   };
 
-  const getContainerSize = () => {
-    switch (size) {
-      case 'sm': return 'w-8 h-8';
-      case 'lg': return 'w-14 h-14';
-      case 'md':
-      default: return 'w-12 h-12';
-    }
-  };
-
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsActive(!isActive);
     if (onClick) {
       onClick();
@@ -80,23 +73,13 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
   return (
     <div 
-      className="cursor-pointer"
+      className="inline-flex items-center justify-center"
       onClick={handleClick}
       title={username || platform}
       aria-label={`${platform} ${username ? `(${username})` : ''}`}
     >
-      <div 
-        className={`
-          ${getContainerSize()} 
-          flex items-center justify-center 
-          rounded-full 
-          transition-colors duration-200
-          ${isActive ? 'bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'}
-        `}
-      >
-        <div className={`${isActive ? 'text-green-500' : 'text-white'}`}>
-          {renderIcon()}
-        </div>
+      <div className="transition-colors duration-200">
+        {renderIcon()}
       </div>
     </div>
   );

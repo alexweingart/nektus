@@ -65,48 +65,42 @@ const ProfileView: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setLocalProfile(prev => {
-
-        
         // Improved bio preservation logic:
-        // 1. Use profile.bio if it exists
+        // 1. Use profile.bio if it exists and is not empty
         // 2. Otherwise use the current bio state if it's not a placeholder
         // 3. Otherwise use prev.bio
-        // 4. If all else fails, use empty string
-        let bioToUse = '';
+        let bioToUse = prev.bio; // Default to previous bio
         
         if (profile.bio && profile.bio.trim() !== '') {
           bioToUse = profile.bio;
         } else if (bio && bio !== PLACEHOLDER_BIO) {
           bioToUse = bio;
-        } else if (prev.bio && prev.bio.trim() !== '') {
-          bioToUse = prev.bio;
         }
         
-        // If we're keeping a non-empty bio, update the state too
+        // If we have a new bio to use, update the state
         if (bioToUse && bioToUse !== bio) {
           setBio(bioToUse);
           hasLoadedBio.current = true;
         }
         
+        // Create the updated profile by carefully merging the profile data
+        // while preserving the existing contact channels
         const updatedProfile = {
           ...prev,
-          ...profile,
-          // Always use our carefully preserved bio
-          bio: bioToUse,
-          // Ensure we have a profile image
-          profileImage: profile.profileImage || session?.user?.image || '/default-avatar.png',
+          // Only update the bio if we have a new one to use
+          ...(bioToUse ? { bio: bioToUse } : {}),
+          // Update other profile fields
+          name: profile.name || prev.name,
+          profileImage: profile.profileImage || session?.user?.image || prev.profileImage || '/default-avatar.png',
+          backgroundImage: profile.backgroundImage || prev.backgroundImage,
+          lastUpdated: profile.lastUpdated || prev.lastUpdated,
+          // Preserve all existing contact channels and merge with any new ones
           contactChannels: {
             ...prev.contactChannels,
-            ...profile.contactChannels,
-            // Ensure email is properly set from session
-            email: {
-              ...prev.contactChannels.email,
-              ...(profile.contactChannels?.email || {})
-            }
+            ...(profile.contactChannels || {})
           }
         };
         
-
         return updatedProfile;
       });
     }
@@ -268,149 +262,83 @@ const ProfileView: React.FC = () => {
         {/* Contact Icons */}
         <div className="mb-8 w-full max-w-xs mx-auto">
           {/* First row - 5 icons with equal spacing */}
-          <div className="flex justify-between mb-5">
-            {/* Phone Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {!localProfile.contactChannels.phoneInfo.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="phone"
-                  username={localProfile.contactChannels.phoneInfo.internationalPhone}
-                  size="md"
-                />
-              </div>
-            </div>
+          <div className="flex flex-wrap justify-center gap-4 mb-5">
+            {localProfile.contactChannels.facebook.username && (
+              <a 
+                href={`https://facebook.com/${localProfile.contactChannels.facebook.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                <SocialIcon platform="facebook" username={localProfile.contactChannels.facebook.username} size="md" />
+              </a>
+            )}
             
-            {/* Email Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {!localProfile.contactChannels.email.userConfirmed && localProfile.contactChannels.email.email && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="email"
-                  username={localProfile.contactChannels.email.email}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.instagram.username && (
+              <a 
+                href={`https://instagram.com/${localProfile.contactChannels.instagram.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-pink-600 transition-colors"
+              >
+                <SocialIcon platform="instagram" username={localProfile.contactChannels.instagram.username} size="md" />
+              </a>
+            )}
             
-            {/* Facebook Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.facebook.username && !localProfile.contactChannels.facebook.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="facebook"
-                  username={localProfile.contactChannels.facebook.username}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.x.username && (
+              <a 
+                href={`https://x.com/${localProfile.contactChannels.x.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-black transition-colors"
+              >
+                <SocialIcon platform="x" username={localProfile.contactChannels.x.username} size="md" />
+              </a>
+            )}
             
-            {/* Instagram Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.instagram.username && !localProfile.contactChannels.instagram.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="instagram"
-                  username={localProfile.contactChannels.instagram.username}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.whatsapp.username && (
+              <a 
+                href={`https://wa.me/${localProfile.contactChannels.whatsapp.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-green-600 transition-colors"
+              >
+                <SocialIcon platform="whatsapp" username={localProfile.contactChannels.whatsapp.username} size="md" />
+              </a>
+            )}
             
-            {/* X Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.x.username && !localProfile.contactChannels.x.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="x"
-                  username={localProfile.contactChannels.x.username}
-                  size="md"
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Second row - 5 icons with equal spacing */}
-          <div className="flex justify-between">
-            {/* WhatsApp Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.whatsapp.username && !localProfile.contactChannels.whatsapp.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="whatsapp"
-                  username={localProfile.contactChannels.whatsapp.username}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.snapchat.username && (
+              <a 
+                href={`https://www.snapchat.com/add/${localProfile.contactChannels.snapchat.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-yellow-400 transition-colors"
+              >
+                <SocialIcon platform="snapchat" username={localProfile.contactChannels.snapchat.username} size="md" />
+              </a>
+            )}
             
-            {/* Snapchat Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.snapchat.username && !localProfile.contactChannels.snapchat.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="snapchat"
-                  username={localProfile.contactChannels.snapchat.username}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.telegram.username && (
+              <a 
+                href={`https://t.me/${localProfile.contactChannels.telegram.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-blue-400 transition-colors"
+              >
+                <SocialIcon platform="telegram" username={localProfile.contactChannels.telegram.username} size="md" />
+              </a>
+            )}
             
-            {/* Telegram Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.telegram.username && !localProfile.contactChannels.telegram.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="telegram"
-                  username={localProfile.contactChannels.telegram.username}
-                  size="md"
-                />
-              </div>
-            </div>
-            
-            {/* WeChat Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.wechat.username && !localProfile.contactChannels.wechat.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="wechat"
-                  username={localProfile.contactChannels.wechat.username}
-                  size="md"
-                />
-              </div>
-            </div>
-            
-            {/* LinkedIn Icon */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {localProfile.contactChannels.linkedin.username && !localProfile.contactChannels.linkedin.userConfirmed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-                <SocialIcon
-                  platform="linkedin"
-                  username={localProfile.contactChannels.linkedin.username}
-                  size="md"
-                />
-              </div>
-            </div>
+            {localProfile.contactChannels.linkedin.username && (
+              <a 
+                href={`https://linkedin.com/in/${localProfile.contactChannels.linkedin.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-blue-700 transition-colors"
+              >
+                <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" />
+              </a>
+            )}
           </div>
         </div>
         

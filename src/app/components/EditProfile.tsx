@@ -414,41 +414,70 @@ const EditProfile: React.FC = () => {
         };
       }
 
-      // Create the updated profile with the correct structure for UserProfile
-      const updatedProfile: Partial<UserProfile> & { contactChannels: FormContactChannels } = {
+      // Create the base contact channels with all required fields
+      const baseContactChannels = {
+        phoneInfo: {
+          internationalPhone: '',
+          nationalPhone: '',
+          userConfirmed: false,
+          // Add any additional required fields from PhoneInfo type
+          ...(profile?.contactChannels?.phoneInfo || {})
+        },
+        email: {
+          email: '',
+          userConfirmed: false,
+          ...(profile?.contactChannels?.email || {})
+        },
+        // Social channels with required fields
+        facebook: { username: '', url: '', userConfirmed: false },
+        instagram: { username: '', url: '', userConfirmed: false },
+        x: { username: '', url: '', userConfirmed: false },
+        whatsapp: { username: '', url: '', userConfirmed: false },
+        snapchat: { username: '', url: '', userConfirmed: false },
+        telegram: { username: '', url: '', userConfirmed: false },
+        wechat: { username: '', url: '', userConfirmed: false },
+        linkedin: { username: '', url: '', userConfirmed: false },
+        // Merge with existing channels to preserve any existing data
+        ...(profile?.contactChannels || {})
+      };
+
+      // Update with form data
+      if (formData.email) {
+        baseContactChannels.email = {
+          ...baseContactChannels.email,
+          email: formData.email,
+          userConfirmed: true
+        };
+      }
+
+      if (digits) {
+        baseContactChannels.phoneInfo = {
+          ...baseContactChannels.phoneInfo,
+          internationalPhone: phoneNumber,
+          nationalPhone: nationalNumber,
+          userConfirmed: true
+        };
+      }
+
+      // Create the updated profile
+      const updatedProfile: Partial<UserProfile> = {
         name: formData.name,
         profileImage: formData.picture,
         backgroundImage: formData.backgroundImage,
         lastUpdated: Date.now(),
-        contactChannels: {
-          phoneInfo: {
-            internationalPhone: phoneNumber,
-            nationalPhone: nationalNumber,
-            userConfirmed: true
-          },
-          email: {
-            email: formData.email,
-            userConfirmed: true
-          },
-          // Initialize all social channels with empty data
-          facebook: { username: '', url: '', userConfirmed: false },
-          instagram: { username: '', url: '', userConfirmed: false },
-          x: { username: '', url: '', userConfirmed: false },
-          whatsapp: { username: '', url: '', userConfirmed: false },
-          snapchat: { username: '', url: '', userConfirmed: false },
-          telegram: { username: '', url: '', userConfirmed: false },
-          wechat: { username: '', url: '', userConfirmed: false },
-          linkedin: { username: '', url: '', userConfirmed: false }
-        }
-      };
+        contactChannels: baseContactChannels
+      } as UserProfile;
       
       // Update social profiles from form data
+      const updatedContactChannels = { ...updatedProfile.contactChannels } as ContactChannels;
+      
       formData.socialProfiles.forEach(profile => {
         const { platform, username } = profile;
         
         // Handle email separately
         if (platform === 'email') {
-          updatedProfile.contactChannels.email = {
+          updatedContactChannels.email = {
+            ...(updatedContactChannels.email || {}),
             email: username,
             userConfirmed: true
           };
@@ -462,23 +491,48 @@ const EditProfile: React.FC = () => {
         
         // Handle other social platforms
         if (ALL_SOCIAL_PLATFORMS.includes(platform as SocialPlatform)) {
-          const socialKey = platform as keyof typeof updatedProfile.contactChannels;
           const socialPlatform = platform as SocialPlatform;
           const url = username ? `${getSocialPrefix(socialPlatform)}${username}` : '';
           
           // Update the social channel with type safety
-          const updatedChannel: FormSocialChannel = {
+          const socialChannel: BaseSocialChannel = {
             username,
             url,
             userConfirmed: true
           };
           
-          // Type-safe assignment
-          if (socialKey in updatedProfile.contactChannels) {
-            (updatedProfile.contactChannels[socialKey] as FormSocialChannel) = updatedChannel;
+          // Type-safe way to update the social channel
+          switch (platform) {
+            case 'facebook':
+              updatedContactChannels.facebook = socialChannel;
+              break;
+            case 'instagram':
+              updatedContactChannels.instagram = socialChannel;
+              break;
+            case 'x':
+              updatedContactChannels.x = socialChannel;
+              break;
+            case 'whatsapp':
+              updatedContactChannels.whatsapp = socialChannel;
+              break;
+            case 'snapchat':
+              updatedContactChannels.snapchat = socialChannel;
+              break;
+            case 'telegram':
+              updatedContactChannels.telegram = socialChannel;
+              break;
+            case 'wechat':
+              updatedContactChannels.wechat = socialChannel;
+              break;
+            case 'linkedin':
+              updatedContactChannels.linkedin = socialChannel;
+              break;
           }
         }
       });
+      
+      // Update the profile with the merged contact channels
+      updatedProfile.contactChannels = updatedContactChannels;
       
       // Save the updated profile
       if (!saveProfile) {
