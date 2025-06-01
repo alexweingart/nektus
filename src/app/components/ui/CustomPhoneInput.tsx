@@ -97,7 +97,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   const [phoneInput, setPhoneInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries.find(c => c.code === 'US') || countries[0]);
-  const [isInputFocused, setIsInputFocused] = useState(false);
   
   // Create refs
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -121,10 +120,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         }
       }
     }
-    
-    // Make sure the country selector doesn't show focus styling on initial load
-    setIsInputFocused(false);
-  }, [value, phoneInput, setSelectedCountry, setIsInputFocused]); // Add value to dependency array to update when value changes
+  }, [value, phoneInput, setSelectedCountry]); // Add value to dependency array to update when value changes
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
@@ -223,7 +219,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     
     // Update the input value in a way that preserves cursor position
     requestAnimationFrame(() => {
-      setPhoneInput(prev => {
+      setPhoneInput((prev: string) => {
         // Only update if the formatted value is different
         if (prev !== formattedPhone) {
           return formattedPhone;
@@ -295,36 +291,13 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     }
   }, [inputRef]);
 
-  // Add global document click handler to detect clicks outside both inputs
-  useEffect(() => {
-    const handleDocumentClick = (event: MouseEvent) => {
-      // Check if click is outside both phone input and country selector
-      const isOutsideComponent = (
-        !inputRef.current?.contains(event.target as Node) && 
-        !dropdownRef.current?.contains(event.target as Node)
-      );
-      
-      if (isOutsideComponent) {
-        setIsInputFocused(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleDocumentClick);
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentClick);
-    };
-  }, []);
-  
-  // Focus state is managed by document click handler
-  // No need for separate blur handler as it's handled by the document click
+  // Focus management is now handled by CSS focus-within
 
   return (
     <div 
       className={`flex w-full bg-white border-2 ${
-        isInputFocused || isDropdownOpen ? 'border-theme' : 'border-white'
-      } rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
-      onFocus={() => setIsInputFocused(true)}
-      onBlur={() => setIsInputFocused(false)}
+        isDropdownOpen ? 'border-theme' : 'border-white'
+      } focus-within:border-theme rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
       style={{ 
         width: '100%',
         height: '3.5rem',
@@ -341,7 +314,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
           style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
           onClick={() => {
             setIsDropdownOpen(!isDropdownOpen);
-            setIsInputFocused(true);
           }}
           aria-label="Select country"
         >
@@ -393,8 +365,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
-        onFocus={() => setIsInputFocused(true)}
-        onBlur={() => setIsInputFocused(false)}
         maxLength={14}
         disabled={isDisabled}
         {...inputProps}
