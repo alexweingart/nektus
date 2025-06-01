@@ -53,7 +53,7 @@ try {
   console.log('\n🚀 Running build check...');
   try {
     console.log('   Running "next build"...');
-    execSync('next build --no-lint', { stdio: 'inherit' });
+    execSync('next build', { stdio: 'inherit' });
     console.log('   ✓ Build check passed!');
   } catch (buildError) {
     console.error('\n❌ Build check failed:');
