@@ -63,8 +63,8 @@ input[type="tel"] {
 
 @layer base {
   :root {
-    /* Original color palette */
-    --background: #118541; /* Softer light green background */
+    /* Color palette - all colors defined here */
+    /* Using HSL format for all colors for consistency */
     --background-secondary: #e8f5e9; /* Slightly darker green for sections */
     --foreground: #2d3748; /* Softer black for better readability */
     --primary: #4caf50; /* Green primary color */
@@ -97,8 +97,8 @@ input[type="tel"] {
     --ring: 66 93% 42%;
     --radius: 0.5rem;
     
-    /* Colors for shadcn components */
-    --background: 118 41% 30%; /* Using HSL equivalent of #118541 */
+    /* Primary brand colors */
+    --background: 118 41% 30%; /* Green background: #118541 */
     --foreground: 214 32% 23%;
     --muted: 210 20% 98%;
     --muted-foreground: 215 16% 47%;

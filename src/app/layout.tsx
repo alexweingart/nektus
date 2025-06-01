@@ -61,7 +61,6 @@ export default async function RootLayout({
       </head>
       <body
         className={`${inter.variable} antialiased bg-background`}
-        style={{ backgroundColor: 'var(--background)' }}
       >
         <SessionProvider session={session}>
           <ProfileProvider>
