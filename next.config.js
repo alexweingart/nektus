@@ -1,4 +1,5 @@
 const withPWA = require('next-pwa');
+const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
 
 // PWA configuration is only applied in production to reduce logs
 
@@ -8,7 +9,7 @@ const nextConfig = {
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   serverExternalPackages: ['next-pwa', 'openai'],
   reactStrictMode: true,
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // This makes sure the OpenAI module is only bundled server-side
     if (!isServer) {
       config.resolve.fallback = {
@@ -29,6 +30,12 @@ const nextConfig = {
         module: false,
       };
     }
+    
+    // Add case sensitive paths check in development
+    if (dev) {
+      config.plugins.push(new CaseSensitivePathsPlugin());
+    }
+    
     return config;
   },
   images: {
