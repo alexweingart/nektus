@@ -11,7 +11,7 @@ import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import type { UserProfile } from '../context/ProfileContext';
 import ReactMarkdown from 'react-markdown';
-import { Heading, Text } from './ui/typography';
+import { Heading, Text } from './ui/Typography';
 
 // Removed unused HARDCODED_PROFILE
 
@@ -192,7 +192,7 @@ const ProfileView: React.FC = () => {
       }}
     >
       {/* Top Navigation Buttons */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center mb-6 px-4">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center mb-6">
         <Button 
           variant="circle"
           size="icon"

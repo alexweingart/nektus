@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile, UserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Button } from '@/ui/Button';
-import Input from './ui/Input';
 import CustomInput from './ui/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';

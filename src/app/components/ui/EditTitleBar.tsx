@@ -3,7 +3,7 @@
 import React from 'react';
 import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import { Button } from '@/app/components/ui/Button';
-import { Heading } from '@/app/components/ui/typography';
+import { Heading } from '@/app/components/ui/Typography';
 import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner';
 
 interface EditTitleBarProps {

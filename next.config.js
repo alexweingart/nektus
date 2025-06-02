@@ -39,7 +39,6 @@ const nextConfig = {
     return config;
   },
   images: {
-    domains: ['lh3.googleusercontent.com', 'lh4.googleusercontent.com', 'lh5.googleusercontent.com', 'lh6.googleusercontent.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -48,6 +47,18 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '*.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh4.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh5.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh6.googleusercontent.com',
       },
     ],
   },

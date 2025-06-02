@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
-import { Heading } from './ui/typography';
+import { Heading } from './ui/Typography';
 import { useProfile, UserProfile } from '../context/ProfileContext';
 import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
 // setupScrollLock is not used but kept for future reference
