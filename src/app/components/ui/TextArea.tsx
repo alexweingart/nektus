@@ -30,20 +30,20 @@ const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="flex">
           <textarea
             ref={ref}
             data-resize="true"
             className={`
-              w-full bg-white border-2 border-white focus:border-theme rounded-[1.75rem]
-              text-gray-800 font-medium text-base px-6 py-4 resize-none
+              flex-1 bg-white border-2 border-white focus:border-theme rounded-[1.75rem]
+              text-gray-800 font-medium text-base px-6 py-3 resize-none
               focus:outline-none focus:rounded-[1.75rem] transition-all duration-200
               ${inputClassName}
             `}
             style={{
-              minHeight: '3.5rem',
               boxSizing: 'border-box',
               overflow: 'hidden',
+              lineHeight: '1.25',
             }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
