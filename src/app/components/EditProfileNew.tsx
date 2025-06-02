@@ -108,30 +108,32 @@ export default function EditProfileNew() {
           value={draft.bio || ''}
           onChange={(e) => setField('bio', e.target.value)}
           placeholder="Your bio"
-          className="w-full"
+          className="w-full rounded-full"
         />
       </EditFieldRow>
 
       {/* Phone row */}
-      <EditPhoneRow
-        value={draft.contactChannels.phoneInfo?.nationalPhone || ''}
-        onChange={(val) =>
-          setDraft((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  contactChannels: {
-                    ...prev.contactChannels,
-                    phoneInfo: {
-                      ...prev.contactChannels.phoneInfo,
-                      nationalPhone: val,
+      <div className="w-full">
+        <EditPhoneRow
+          value={draft.contactChannels.phoneInfo?.nationalPhone || ''}
+          onChange={(val) =>
+            setDraft((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    contactChannels: {
+                      ...prev.contactChannels,
+                      phoneInfo: {
+                        ...prev.contactChannels.phoneInfo,
+                        nationalPhone: val,
+                      },
                     },
-                  },
-                }
-              : prev,
-          )
-        }
-      />
+                  }
+                : prev,
+            )
+          }
+        />
+      </div>
 
       {/* Social rows */}
       {SOCIAL_PLATFORMS.map((platform) => {
