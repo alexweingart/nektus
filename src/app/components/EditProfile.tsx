@@ -6,6 +6,7 @@ import { useProfile, UserProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Button } from '@/ui/Button';
 import Input from './ui/Input';
+import CustomInput from './ui/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,6 +14,8 @@ import CustomPhoneInput from './ui/CustomPhoneInput';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './ui/SocialIcon';
 import { MdEdit } from 'react-icons/md';
+import EditTitleBar from './ui/EditTitleBar';
+import TextArea from './ui/TextArea';
 
 // Define the social platform type
 type SocialPlatform = 
@@ -53,6 +56,7 @@ type SocialProfile = {
 // Define the form data interface
 interface FormDataState {
   name: string;
+  bio: string;
   email: string;
   picture: string;
   socialProfiles: Array<SocialProfile & { filled?: boolean }>;
@@ -96,6 +100,7 @@ interface ContactChannels {
 // Define the profile data interface
 interface ProfileData {
   name?: string;
+  bio?: string;
   contactChannels?: ContactChannels;
   profileImage?: string;
   backgroundImage?: string;
@@ -105,12 +110,13 @@ interface ProfileData {
 const EditProfile: React.FC = () => {
   const { data: session } = useSession();
   const { profile, saveProfile } = useProfile();
-  const router = useRouter();
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   
   // State for form data
   const [formData, setFormData] = useState<FormDataState>({
     name: '',
+    bio: '',
     email: '',
     picture: '',
     socialProfiles: [],
@@ -126,6 +132,7 @@ const EditProfile: React.FC = () => {
   const initializeFormData = useCallback((profileData: ProfileData) => {
     // Initialize form data with profile data
     const name = profileData.name || session?.user?.name || '';
+    const bio = profileData.bio || '';
     const email = profileData.contactChannels?.email?.email || session?.user?.email || '';
     const picture = profileData.profileImage || session?.user?.image || '/default-avatar.png';
     const backgroundImage = profileData.backgroundImage || '';
@@ -172,6 +179,7 @@ const EditProfile: React.FC = () => {
     
     setFormData({
       name,
+      bio,
       email,
       picture,
       socialProfiles,
@@ -593,7 +601,7 @@ const EditProfile: React.FC = () => {
   
   return (
     <div 
-      className="min-h-screen flex flex-col items-center px-4 py-10"
+      className="min-h-screen flex flex-col items-center px-4 py-4"
       style={{
         backgroundImage: formData.backgroundImage ? `url(${formData.backgroundImage})` : 'none',
         backgroundSize: 'cover',
@@ -602,135 +610,130 @@ const EditProfile: React.FC = () => {
         backgroundColor: '#004D40' // Theme background color that shows while image loads
       }}
     >
-      <h1 className="text-2xl font-bold mb-6 text-center text-white">Edit Profile</h1>
+      <div className="w-full max-w-md mb-6">
+        <EditTitleBar 
+          onBack={() => router.back()}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
+      </div>
       
-      {/* Name Input */}
+      {/* Name Input with Profile Image */}
       <div className="mb-5 w-full max-w-md">
-        <Input
+        <CustomInput
           ref={nameInputRef}
           type="text"
           id="name"
           value={formData.name}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+            setFormData(prev => ({ ...prev, name: e.target.value }))
+          }
           placeholder="Full Name"
           className="w-full"
-          inputClassName="pl-12"
-          label={
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-600 text-sm">👤</span>
-              </div>
-            </div>
+          icon={
+            <label className="cursor-pointer flex items-center justify-center w-full h-full">
+              {formData.picture ? (
+                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
+                  <Image
+                    src={formData.picture}
+                    alt="Profile"
+                    width={32}
+                    height={32}
+                    className="object-cover w-full h-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      target.style.display = 'none';
+                      setFormData(prev => ({ ...prev, picture: '' }));
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                  <span className="text-gray-400 text-xl">👤</span>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImageUpload(e, 'avatar')}
+              />
+            </label>
           }
         />
       </div>
 
-      {/* Avatar Upload */}
+      {/* Bio Input */}
       <div className="mb-5 w-full max-w-md">
-        <div className="flex items-center">
-          <label htmlFor="avatar-upload" className="relative cursor-pointer" onClick={() => {
-            // Automatically trigger click on mobile
-            document.getElementById('avatar-upload')?.click();
-          }}>
-            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-300 relative">
-              {formData.picture ? (
-                <>
-                  <div className="absolute inset-0 w-full h-full">
-                    <Image
-                      src={formData.picture}
-                      alt="Profile"
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.style.display = 'none';
-                        setShowFallback(true);
-                      }}
-                      onLoadingComplete={(img) => {
-                        img.style.opacity = '1';
-                      }}
-                      style={{
-                        opacity: 0,
-                        transition: 'opacity 0.3s ease-in-out'
-                      }}
-                      unoptimized={formData.picture.startsWith('data:')}
-                    />
-                  </div>
-                  <div 
-                    id="edit-avatar-fallback"
-                    className={`w-full h-full bg-white ${showFallback ? 'flex' : 'hidden'} items-center justify-center`}
-                  >
-                    <div className="w-6 h-6 rounded-full bg-gray-100"></div>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-white">
-                  <div className="w-6 h-6 rounded-full bg-gray-100"></div>
-                </div>
-              )}
-            </div>
-            <div className="absolute bottom-0 right-0 bg-primary text-white p-0.5 rounded-full">
-              <MdEdit size={8} />
-            </div>
-          </label>
-        </div>
+        <TextArea
+          id="bio"
+          value={formData.bio}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+            setFormData(prev => ({ ...prev, bio: e.target.value }))
+          }
+          placeholder="Add a short bio..."
+          className="w-full"
+          maxLength={280}
+        />
       </div>
 
       {/* Phone Input */}
       <div className="mb-5 w-full max-w-md">
-        <div className="flex items-center">
-          <div className="mr-3 pointer-events-none">
-            <SocialIcon platform="phone" size="sm" />
-          </div>
-          <div className="flex-1">
-            <CustomPhoneInput
-              onChange={(value) => {
-                setDigits(value);
-              }}
-              value={digits}
-              placeholder="Phone number"
-              className="w-full"
-              inputProps={{
-                id: "phone-input",
-                autoComplete: "tel",
-                className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-              }}
-            />
-          </div>
-        </div>
+        <CustomPhoneInput
+          onChange={(value) => {
+            setDigits(value);
+          }}
+          value={digits}
+          placeholder="Phone number"
+          className="w-full"
+          inputProps={{
+            id: "phone-input",
+            autoComplete: "tel",
+            className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          }}
+        />
       </div>
 
       {/* Social Media Inputs */}
-      {['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'].map((platform) => (
-        <div key={platform} className="mb-5 w-full max-w-md">
-          <Input
-            type="text"
-            id={platform}
-            value={getSocialProfileValue(platform)}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              handleSocialChange(platform as SocialPlatform, e.target.value);
-            }}
-            placeholder={
-              platform === 'x' ? 'X username' : 
-              platform === 'wechat' ? 'WeChat ID' :
-              platform === 'whatsapp' ? 'WhatsApp number' :
-              `${platform.charAt(0).toUpperCase() + platform.slice(1)} username`
-            }
-            className="w-full"
-            inputClassName="pl-12"
-            label={
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <SocialIcon platform={platform as SocialPlatform} size="sm" />
-              </div>
-            }
-          />
-        </div>
-      ))}
+      {['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'].map((platform) => {
+        const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+        const placeholder = 
+          platform === 'x' ? 'X username' : 
+          platform === 'wechat' ? 'WeChat ID' :
+          platform === 'whatsapp' ? 'WhatsApp number' :
+          `${platformName} username`;
+          
+        return (
+          <div key={platform} className="mb-5 w-full max-w-md">
+            <CustomInput
+              type="text"
+              id={platform}
+              value={getSocialProfileValue(platform)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                handleSocialChange(platform as SocialPlatform, e.target.value);
+              }}
+              placeholder={placeholder}
+              className="w-full"
+              inputClassName="pl-2 text-base"
+              icon={
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <SocialIcon 
+                    platform={platform as SocialPlatform} 
+                    username={getSocialProfileValue(platform)}
+                    size="sm" 
+                  />
+                </div>
+              }
+              iconClassName="text-gray-600"
+            />
+          </div>
+        );
+      })}
       
       {/* Edit Background */}
       <div className="mb-6 text-center w-full max-w-md">
-        <label htmlFor="background-upload" className="text-green-600 hover:text-green-800 font-medium cursor-pointer transition-colors">
+        <label htmlFor="background-upload" className="text-theme hover:text-theme-dark font-medium cursor-pointer transition-colors">
           Edit Background
         </label>
         <input 
@@ -746,23 +749,7 @@ const EditProfile: React.FC = () => {
         />
       </div>
       
-      {/* Save Button */}
-      <div className="w-full max-w-md">
-        <Button 
-          onClick={handleSave}
-          variant="theme"
-          size="lg"
-          disabled={isSaving}
-          className="w-full font-medium"
-        >
-          {isSaving ? (
-            <>
-              <LoadingSpinner size="sm" className="inline-block mr-2 text-white" />
-              Saving...
-            </>
-          ) : 'Save Changes'}
-        </Button>
-      </div>
+
     </div>
   );
 };
