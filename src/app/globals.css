@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    /* Core dimensions */
+    --max-content-width: 448px;  /* Standard max-width for content */
+    
     /* Core color palette in HSL format */
     --background: 118 41% 30%;  /* Primary green background */
     --foreground: 0 0% 100%;    /* White text for light theme */

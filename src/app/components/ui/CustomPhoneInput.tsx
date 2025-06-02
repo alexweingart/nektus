@@ -297,27 +297,27 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     <div 
       className={`flex w-full bg-white border-2 ${
         isDropdownOpen ? 'border-theme' : 'border-white'
-      } focus-within:border-theme rounded-full relative transition-all duration-200 text-black text-base ${className} h-12`}
+      } focus-within:border-theme rounded-full relative transition-all duration-200 text-black text-base ${className}`}
       style={{ 
         width: '100%',
-        height: '3.5rem',
-        minHeight: '3.5rem',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        height: '3.5rem',
+        minHeight: '3.5rem'
       }}
     >
       {/* Country selector */}
       <div className="relative z-10" ref={dropdownRef}>
         <button
           type="button"
-          className="flex items-center justify-between px-4 bg-white text-gray-900 h-full focus:outline-none border-0 rounded-l-full text-base"
+          className="flex items-center justify-between pr-0 pl-4 bg-white text-gray-900 h-full focus:outline-none border-0 rounded-l-full text-base"
           style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
           onClick={() => {
             setIsDropdownOpen(!isDropdownOpen);
           }}
           aria-label="Select country"
         >
-          <span className="mr-2">{selectedCountry.flag}</span>
+          <span className="mr-1">{selectedCountry.flag}</span>
           <div className="flex flex-col text-primary">
             <FaChevronUp className="h-3 w-3" />
             <FaChevronDown className="h-3 w-3" />
@@ -361,7 +361,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
           borderTopRightRadius: '9999px',
           borderBottomRightRadius: '9999px'
         }}
-        className="flex-1 px-4 h-full bg-white focus:outline-none text-gray-800 font-medium text-base rounded-r-full"
+        className="flex-1 pr-3 pl-0 h-full bg-white focus:outline-none text-gray-800 font-medium text-base rounded-r-full"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}

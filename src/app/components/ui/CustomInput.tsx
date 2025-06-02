@@ -28,7 +28,7 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
             alignItems: 'center'
           }}
         >
-          <div className={`flex items-center justify-center pl-4 pr-2 h-full ${iconClassName}`}>
+          <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 ${iconClassName}`}>
             {icon}
           </div>
           <input

@@ -42,19 +42,34 @@ const ImageCircleUpload: React.FC<ImageCircleUploadProps> = ({ src, onChange, la
   const diameter = `${sizeRem}rem`;
 
   return (
-    <button
-      type="button"
-      onClick={() => inputRef.current?.click()}
-      className="relative flex items-center justify-center bg-white rounded-full overflow-hidden hover:bg-gray-100 active:bg-gray-200 transition shadow-md"
-      style={{ width: diameter, height: diameter }}
-      aria-label={label}
-    >
-      {/* Preview image */}
-      {preview ? (
-        <Avatar src={preview} size="sm" className="!w-full !h-full" />
-      ) : (
-        <span className="w-6 h-6 rounded-full bg-gray-200" />
-      )}
+    <div className="relative" style={{ width: diameter, height: diameter }}>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="absolute inset-0 w-full h-full p-0 m-0 bg-transparent border-0 rounded-full overflow-hidden"
+        aria-label={label}
+      >
+        {/* Preview image */}
+        {preview ? (
+          <img 
+            src={preview} 
+            alt="" 
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center center',
+              display: 'block'
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.src = '/default-avatar.png';
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gray-200" />
+        )}
+      </button>
 
       {/* Hidden file input */}
       <input
@@ -64,7 +79,7 @@ const ImageCircleUpload: React.FC<ImageCircleUploadProps> = ({ src, onChange, la
         className="hidden"
         onChange={handleSelect}
       />
-    </button>
+    </div>
   );
 };
 

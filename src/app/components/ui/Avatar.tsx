@@ -29,20 +29,16 @@ const Avatar: React.FC<AvatarProps> = ({
 
   return (
     <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
-      <div className="absolute inset-0 bg-gray-100 rounded-full">
-        <div className="w-full h-full flex items-center justify-center relative">
-          <Image
-            src={imgSrc || '/default-avatar.png'}
-            alt={alt}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority={size === 'lg'}
-            className="object-cover"
-            onError={() => setImgSrc('/default-avatar.png')}
-            unoptimized={imgSrc?.startsWith('data:')}
-          />
-        </div>
-      </div>
+      <Image
+        src={imgSrc || '/default-avatar.png'}
+        alt={alt}
+        fill
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        priority={size === 'lg'}
+        className="object-cover"
+        onError={() => setImgSrc('/default-avatar.png')}
+        unoptimized={imgSrc?.startsWith('data:')}
+      />
     </div>
   );
 };

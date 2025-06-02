@@ -37,12 +37,13 @@ const HomePage: React.FC = () => {
       <div
         style={{
           width: '100%',
-          maxWidth: '320px',
+          maxWidth: 'var(--max-content-width, 448px)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
           alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards'
+          animation: 'fadeIn 0.3s ease-out forwards',
+          padding: '0 1rem'
         }}
       >
         <div 

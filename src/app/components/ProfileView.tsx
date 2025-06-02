@@ -192,7 +192,7 @@ const ProfileView: React.FC = () => {
       }}
     >
       {/* Top Navigation Buttons */}
-      <div className="w-full max-w-xs flex justify-between items-center mb-6">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center mb-6 px-4">
         <Button 
           variant="circle"
           size="icon"
@@ -217,7 +217,7 @@ const ProfileView: React.FC = () => {
         </Link>
       </div>
       
-      <div className="w-full max-w-md flex flex-col items-center">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center">
         {/* Profile Image */}
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">
@@ -230,7 +230,7 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Content with blur background */}
-        <div className="w-full max-w-xs bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl">
+        <div className="w-full bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           {/* Profile Name - Double click to activate admin mode */}
           <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
             <Heading as="h1">{localProfile.name}</Heading>
@@ -272,7 +272,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-400 transition-colors"
               >
-                <SocialIcon platform="facebook" username={localProfile.contactChannels.facebook.username} size="md" />
+                <SocialIcon platform="facebook" username={localProfile.contactChannels.facebook.username} size="md" variant="white" />
               </a>
             )}
             
@@ -283,7 +283,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-pink-400 transition-colors"
               >
-                <SocialIcon platform="instagram" username={localProfile.contactChannels.instagram.username} size="md" />
+                <SocialIcon platform="instagram" username={localProfile.contactChannels.instagram.username} size="md" variant="white" />
               </a>
             )}
             
@@ -294,7 +294,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-gray-300 transition-colors"
               >
-                <SocialIcon platform="x" username={localProfile.contactChannels.x.username} size="md" />
+                <SocialIcon platform="x" username={localProfile.contactChannels.x.username} size="md" variant="white" />
               </a>
             )}
             
@@ -305,7 +305,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-green-400 transition-colors"
               >
-                <SocialIcon platform="whatsapp" username={localProfile.contactChannels.whatsapp.username} size="md" />
+                <SocialIcon platform="whatsapp" username={localProfile.contactChannels.whatsapp.username} size="md" variant="white" />
               </a>
             )}
             
@@ -316,7 +316,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-yellow-300 transition-colors"
               >
-                <SocialIcon platform="snapchat" username={localProfile.contactChannels.snapchat.username} size="md" />
+                <SocialIcon platform="snapchat" username={localProfile.contactChannels.snapchat.username} size="md" variant="white" />
               </a>
             )}
             
@@ -327,7 +327,18 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="telegram" username={localProfile.contactChannels.telegram.username} size="md" />
+                <SocialIcon platform="telegram" username={localProfile.contactChannels.telegram.username} size="md" variant="white" />
+              </a>
+            )}
+            
+            {localProfile.contactChannels.wechat?.username && (
+              <a 
+                href={`weixin://dl/chat?${localProfile.contactChannels.wechat.username}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white hover:text-green-400 transition-colors"
+              >
+                <SocialIcon platform="wechat" username={localProfile.contactChannels.wechat.username} size="md" variant="white" />
               </a>
             )}
             
@@ -338,7 +349,7 @@ const ProfileView: React.FC = () => {
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" />
+                <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" variant="white" />
               </a>
             )}
             </div>
@@ -346,7 +357,7 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Action Buttons */}
-        <div className="w-full max-w-xs mt-4">
+        <div className="w-full mt-4" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           <Link href="/connect" className="w-full">
             <Button 
               variant="theme"

@@ -20,7 +20,7 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-full",
         ghost: "hover:bg-accent hover:text-accent-foreground rounded-full",
         link: "text-primary underline-offset-4 hover:underline",
-        theme: "bg-gradient-to-r from-theme-light to-theme text-gray-900 hover:from-theme-light/90 hover:to-theme/90 transition-all duration-200 active:scale-95 rounded-full shadow-md",
+        theme: "bg-gradient-to-r from-theme-light to-theme text-gray-900 hover:from-theme-light/90 hover:to-theme/90 transition-all duration-200 active:scale-95 rounded-full shadow-md bg-clip-padding",
         white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full",
         circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 shadow-md",
       },

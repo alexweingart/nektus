@@ -294,8 +294,8 @@ export default function ProfileSetup() {
       }}
     >
       {/* Main Content */}
-      <div className="w-full max-w-md flex flex-col items-center">
-        <div className="w-full max-w-md flex flex-col items-center">
+      <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
+        <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center">
           {/* Profile Image */}
           <div className="mb-4">
             <div className="border-4 border-white shadow-lg rounded-full">
@@ -319,7 +319,7 @@ export default function ProfileSetup() {
           </div>
           
           {/* Phone Input Section */}
-          <form onSubmit={handleSave} className="w-full max-w-xs mx-auto setup-form">
+          <form onSubmit={handleSave} className="w-full max-w-[var(--max-content-width)] mx-auto setup-form">
             <div className="w-full space-y-4">
               <CustomPhoneInput
                 ref={phoneInputRef}

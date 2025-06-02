@@ -15,7 +15,7 @@ interface EditPhoneRowProps {
  */
 const EditPhoneRow: React.FC<EditPhoneRowProps> = ({ value, onChange }) => {
   return (
-    <EditFieldRow icon={<SocialIcon platform="phone" size="md" />} label="Phone number">
+    <EditFieldRow icon={<SocialIcon platform="phone" size="md" />} label="Phone number" className="w-full">
       <CustomPhoneInput
         value={value}
         onChange={onChange}

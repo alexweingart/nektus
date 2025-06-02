@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
 
 // Custom X logo component (formerly Twitter)
 const XIcon = ({ className }: { className?: string }) => (
@@ -14,31 +15,103 @@ interface SocialIconProps {
   platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
   username?: string;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'white';
   onClick?: () => void;
+  className?: string;
+  disabled?: boolean;
 }
 
 const SocialIcon: React.FC<SocialIconProps> = ({ 
   platform, 
   username,
   size = 'md',
-  onClick 
+  variant = 'default',
+  onClick,
+  className = '',
+  disabled = false
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
+  const router = useRouter();
   
   const getIconClass = () => {
-    switch (size) {
-      case 'sm': return 'w-4 h-4';
-      case 'lg': return 'w-7 h-7';
-      case 'md':
-      default: return 'w-5 h-5';
-    }
+    const baseSize = (() => {
+      switch (size) {
+        case 'sm': return 'w-6 h-6';
+        case 'lg': return 'w-16 h-16 p-3';
+        case 'md':
+        default: return 'w-10 h-10 p-2';
+      }
+    })();
+    
+    const variantStyles = variant === 'white' 
+      ? 'text-white hover:bg-white/20' 
+      : 'text-black hover:bg-gray-100';
+    
+    return `${baseSize} transition-colors duration-200 rounded-full ${
+      disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:opacity-100 active:opacity-90 ${variantStyles}`
+    }`;
   };
 
-  // Get the icon component based on platform
-  const renderIcon = () => {
+  // Generate platform URL based on username
+  const getPlatformUrl = useCallback((platform: string, username: string): string | null => {
+    if (!username) return null;
+    
+    const usernameFormatted = username.startsWith('@') ? username.substring(1) : username;
+    
+    switch (platform) {
+      case 'facebook':
+        return `https://facebook.com/${usernameFormatted}`;
+      case 'instagram':
+        return `https://instagram.com/${usernameFormatted}`;
+      case 'x':
+        return `https://x.com/${usernameFormatted}`;
+      case 'linkedin':
+        return `https://linkedin.com/in/${usernameFormatted}`;
+      case 'snapchat':
+        return `https://snapchat.com/add/${usernameFormatted}`;
+      case 'whatsapp':
+        return `https://wa.me/${usernameFormatted.replace(/[^0-9]/g, '')}`;
+      case 'telegram':
+        return `https://t.me/${usernameFormatted}`;
+      case 'wechat':
+        return `weixin://dl/chat?${usernameFormatted}`;
+      case 'email':
+        return `mailto:${usernameFormatted}`;
+      case 'phone':
+        return `tel:${usernameFormatted}`;
+      default:
+        return null;
+    }
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (disabled) return;
+    
+    setIsActive(true);
+    
+    // If there's a custom click handler, use that
+    if (onClick) {
+      onClick();
+      return;
+    }
+    
+    // Otherwise, handle default platform behavior
+    if (username) {
+      const url = getPlatformUrl(platform, username);
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    }
+  }, [disabled, onClick, platform, username, getPlatformUrl]);
+
+  const iconElement = (() => {
     switch (platform) {
       case 'phone':
-        return <FaPhone className={getIconClass()} />;
+        return <FaPhone className={getIconClass()} style={{ position: 'relative', top: '1px' }} />;
       case 'email':
         return <FaEnvelope className={getIconClass()} />;
       case 'facebook':
@@ -60,26 +133,30 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       default:
         return null;
     }
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsActive(!isActive);
-    if (onClick) {
-      onClick();
-    }
-  };
+  })();
 
   return (
     <div 
-      className="inline-flex items-center justify-center"
+      className={`inline-block ${className} ${disabled ? 'opacity-50' : ''}`}
       onClick={handleClick}
-      title={username || platform}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
+      onMouseLeave={() => !disabled && setIsHovered(false)}
+      onMouseDown={() => !disabled && setIsActive(true)}
+      onMouseUp={() => !disabled && setIsActive(false)}
+      onMouseOut={() => !disabled && setIsActive(false)}
+      title={username ? `${platform}: ${username}` : platform}
       aria-label={`${platform} ${username ? `(${username})` : ''}`}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      style={{
+        transform: isActive ? 'scale(0.95)' : 'scale(1)',
+        transition: 'transform 0.1s ease-in-out',
+      }}
     >
-      <div className="transition-colors duration-200">
-        {renderIcon()}
+      <div className="flex items-center justify-center w-full h-full">
+        <div className="relative">
+          {iconElement}
+        </div>
       </div>
     </div>
   );
