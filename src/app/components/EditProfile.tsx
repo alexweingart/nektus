@@ -627,7 +627,7 @@ const EditProfile: React.FC = () => {
         backgroundColor: '#004D40' // Theme background color that shows while image loads
       }}
     >
-      <div className="w-full max-w-md mb-6">
+      <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 
           onBack={() => router.back()}
           onSave={handleSave}
@@ -722,7 +722,7 @@ const EditProfile: React.FC = () => {
           `${platformName} username`;
           
         return (
-          <div key={platform} className="mb-5 w-full max-w-md">
+          <div key={platform} className="mb-5 w-full max-w-[var(--max-content-width,448px)]">
             <CustomInput
               type="text"
               id={platform}
@@ -749,7 +749,7 @@ const EditProfile: React.FC = () => {
       })}
       
       {/* Edit Background */}
-      <div className="mb-6 text-center w-full max-w-md">
+      <div className="mb-6 text-center w-full max-w-[var(--max-content-width,448px)]">
         <label htmlFor="background-upload" className="text-theme hover:text-theme-dark font-medium cursor-pointer transition-colors">
           Edit Background
         </label>
