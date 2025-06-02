@@ -66,7 +66,7 @@ export default function EditProfileNew() {
   }
 
   return (
-    <div className="flex flex-col items-center px-4 w-full max-w-[320px] mx-auto text-white">
+    <div className="flex flex-col items-center px-4 w-full max-w-[320px] mx-auto text-white box-border">
       {/* Title bar */}
       <EditTitleBar onBack={() => router.back()} onSave={handleSave} isSaving={isSaving} />
 
