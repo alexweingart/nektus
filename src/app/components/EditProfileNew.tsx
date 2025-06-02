@@ -103,6 +103,7 @@ export default function EditProfileNew() {
           </div>
         }
         label="Bio"
+        className="mb-0"
       >
         <TextArea
           value={draft.bio || ''}
@@ -113,26 +114,26 @@ export default function EditProfileNew() {
       </EditFieldRow>
 
       {/* Phone row */}
-      <div className="w-full">
-        <EditPhoneRow
-          value={draft.contactChannels.phoneInfo?.nationalPhone || ''}
-          onChange={(val) =>
-            setDraft((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    contactChannels: {
-                      ...prev.contactChannels,
-                      phoneInfo: {
-                        ...prev.contactChannels.phoneInfo,
-                        nationalPhone: val,
-                      },
+      <div className="-mt-3">
+      <EditPhoneRow
+        value={draft.contactChannels.phoneInfo?.nationalPhone || ''}
+        onChange={(val) =>
+          setDraft((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  contactChannels: {
+                    ...prev.contactChannels,
+                    phoneInfo: {
+                      ...prev.contactChannels.phoneInfo,
+                      nationalPhone: val,
                     },
-                  }
-                : prev,
-            )
-          }
-        />
+                  },
+                }
+              : prev,
+          )
+        }
+      />
       </div>
 
       {/* Social rows */}
