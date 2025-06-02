@@ -96,8 +96,9 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
 ) => {
   const [phoneInput, setPhoneInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState(countries.find(c => c.code === 'US') || countries[0]);
-  
+  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]);
+  const [isFocused, setIsFocused] = useState(false);
+
   // Create refs
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -303,14 +304,19 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       }}
     >
       <div 
-        className="absolute inset-0 rounded-full border-0 transition-all duration-200"
+        className={`absolute inset-0 rounded-full border-2 transition-all duration-200 ${
+          isFocused ? 'bg-white border-white shadow-2xl' : 'bg-white/80 border-white/80'
+        }`}
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(4px)'
+          backdropFilter: 'blur(4px)',
+          transition: 'all 0.2s ease-in-out'
         }}
       />
-      <div className="relative z-10 flex items-center h-full w-full"
-    >
+      <div 
+        className="relative z-10 flex items-center h-full w-full"
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+      >
       {/* Country selector */}
       <div className="relative z-10" ref={dropdownRef}>
         <button

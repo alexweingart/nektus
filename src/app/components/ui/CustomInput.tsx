@@ -20,12 +20,13 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
           </label>
         )}
         <div 
-          className={`flex w-full bg-white border-2 border-white focus-within:border-theme rounded-full transition-all duration-200 text-black text-base h-12`}
+          className={`flex w-full bg-white/80 border-2 border-white/80 rounded-full transition-all duration-200 text-black text-base h-12 focus-within:bg-white focus-within:border-white focus-within:shadow-2xl`}
           style={{
             height: '3.5rem',
             minHeight: '3.5rem',
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            backdropFilter: 'blur(4px)'
           }}
         >
           <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 ${iconClassName}`}>

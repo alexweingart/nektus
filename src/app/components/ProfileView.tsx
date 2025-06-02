@@ -182,7 +182,7 @@ const ProfileView: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center px-4 py-6"
+      className="min-h-screen flex flex-col items-center px-4 py-4"
       style={{
         backgroundImage: localProfile.backgroundImage ? `url(${localProfile.backgroundImage})` : 'none',
         backgroundSize: 'cover',
@@ -192,7 +192,7 @@ const ProfileView: React.FC = () => {
       }}
     >
       {/* Top Navigation Buttons */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center mb-6">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-6">
         <Button 
           variant="circle"
           size="icon"

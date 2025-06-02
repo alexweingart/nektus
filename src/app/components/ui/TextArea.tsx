@@ -35,9 +35,9 @@ const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
             ref={ref}
             data-resize="true"
             className={`
-              flex-1 bg-white border-2 border-white focus:border-theme rounded-[1.75rem]
+              flex-1 bg-white/80 border-2 border-white/80 rounded-[1.75rem]
               text-gray-800 font-medium text-base px-6 py-3 resize-none
-              focus:outline-none focus:rounded-[1.75rem] transition-all duration-200
+              focus:outline-none focus:bg-white focus:border-white focus:rounded-[1.75rem] focus:shadow-2xl transition-all duration-200
               ${inputClassName}
             `}
             style={{
