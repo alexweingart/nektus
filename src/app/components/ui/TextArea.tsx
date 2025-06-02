@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, TextareaHTMLAttributes } from 'react';
+import React, { forwardRef, TextareaHTMLAttributes, useEffect } from 'react';
 
 interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -10,10 +10,19 @@ interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 
 /**
  * Auto-resizing textarea that matches the Input component's styling.
- * Grows with content up to max-height 200px, then scrolls.
+ * Grows with content, no scrollbar, with consistent rounded corners.
  */
 const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
   ({ label, className = '', inputClassName = '', ...props }, ref) => {
+    // Auto-resize effect
+    useEffect(() => {
+      const textarea = document.querySelector('textarea[data-resize]') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      }
+    }, [props.value]);
+
     return (
       <div className={`w-full ${className}`}>
         {label && (
@@ -24,22 +33,24 @@ const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
         <div className="relative">
           <textarea
             ref={ref}
+            data-resize="true"
             className={`
-              w-full bg-white border-2 border-white focus:border-theme rounded-2xl transition-all duration-200
-              text-gray-800 font-medium text-base p-3 resize-none min-h-[3.5rem] max-h-[200px]
-              focus:outline-none ${inputClassName}
+              w-full bg-white border-2 border-white focus:border-theme rounded-full
+              text-gray-800 font-medium text-base px-6 py-4 resize-none
+              focus:outline-none focus:rounded-full transition-all duration-200
+              ${inputClassName}
             `}
             style={{
+              minHeight: '3.5rem',
               boxSizing: 'border-box',
-              overflowY: 'auto',
+              overflow: 'hidden',
             }}
-            {...props}
             onInput={(e) => {
-              // Auto-resize
               const target = e.target as HTMLTextAreaElement;
               target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+              target.style.height = `${target.scrollHeight}px`;
             }}
+            {...props}
           />
         </div>
       </div>
