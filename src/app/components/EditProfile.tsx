@@ -482,6 +482,18 @@ const EditProfile: React.FC = () => {
       // Update social profiles from form data
       const updatedContactChannels = { ...updatedProfile.contactChannels } as ContactChannels;
       
+      // First, collect all social platforms that are present in the form data
+      const presentPlatforms = new Set(formData.socialProfiles.map(p => p.platform));
+      
+      // Process all known social platforms
+      ALL_SOCIAL_PLATFORMS.forEach(platform => {
+        // If platform is not in present platforms, set it to empty
+        if (!presentPlatforms.has(platform)) {
+          updatedContactChannels[platform] = { username: '', url: '', userConfirmed: false };
+        }
+      });
+      
+      // Then process the ones that are in the form data
       formData.socialProfiles.forEach(profile => {
         const { platform, username } = profile;
         
@@ -505,9 +517,9 @@ const EditProfile: React.FC = () => {
           const socialPlatform = platform as SocialPlatform;
           const url = username ? `${getSocialPrefix(socialPlatform)}${username}` : '';
           
-          // Update the social channel with type safety
+          // For empty usernames, explicitly set to empty string to ensure they're removed
           const socialChannel: BaseSocialChannel = {
-            username,
+            username: username || '',  // Explicitly set empty string for empty usernames
             url,
             userConfirmed: true
           };
@@ -573,8 +585,14 @@ const EditProfile: React.FC = () => {
         throw new Error('saveProfile function is not available');
       }
       
+      console.log('=== EDIT PROFILE SAVE START ===');
+      console.log('Updated profile before save:', JSON.parse(JSON.stringify(updatedProfile)));
+      
       // Save to context (which will save to localStorage)
-      await saveProfile(updatedProfile);
+      // Use directUpdate: true to ensure we do a direct update
+      await saveProfile(updatedProfile, { directUpdate: true });
+      
+      console.log('=== EDIT PROFILE SAVE COMPLETE ===');
       
       // Redirect to profile view
       if (router) {

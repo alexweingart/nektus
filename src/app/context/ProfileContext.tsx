@@ -46,7 +46,7 @@ export type UserProfile = {
 type ProfileContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
-  saveProfile: (profileData: Partial<UserProfile>) => Promise<UserProfile | null>;
+  saveProfile: (profileData: Partial<UserProfile>, options?: { directUpdate?: boolean }) => Promise<UserProfile | null>;
   clearProfile: () => Promise<void>;
   generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
   generateBio: (profile: UserProfile) => Promise<string | null>;
@@ -224,24 +224,68 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   };
 
   // Save profile to localStorage
-  const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
+  const saveProfile = useCallback(async (
+    profileData: Partial<UserProfile>,
+    options: { directUpdate?: boolean } = {}
+  ): Promise<UserProfile | null> => {
     try {
-      // Saving profile with updates
-
+      console.log('=== SAVING PROFILE ===');
+      console.log('Options:', options);
+      console.log('Incoming profile data:', JSON.parse(JSON.stringify(profileData)));
+      
+      // Get current profile or create a new one
       const current = profileRef.current || createDefaultProfile(session);
-      const merged = mergeNonEmpty(current, profileData);
-      merged.lastUpdated = Date.now();
+      console.log('Current profile before save:', JSON.parse(JSON.stringify(current)));
+      
+      let merged: UserProfile;
+      
+      if (options.directUpdate) {
+        console.log('Performing direct update (from Edit Profile)');
+        // For direct updates, do a direct spread
+        merged = {
+          ...current,
+          ...profileData,
+          lastUpdated: Date.now()
+        } as UserProfile;
+        
+        // Ensure contactChannels is properly merged if it exists in profileData
+        if (profileData.contactChannels) {
+          merged.contactChannels = {
+            ...(current.contactChannels || {}),
+            ...profileData.contactChannels
+          };
+        }
+      } else {
+        console.log('Performing normal merge');
+        // For other updates, use the mergeNonEmpty logic
+        merged = {
+          ...mergeNonEmpty(current, profileData),
+          lastUpdated: Date.now()
+        } as UserProfile;
+      }
+      
+      console.log('Merged profile to be saved:', JSON.parse(JSON.stringify(merged)));
 
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        console.log('Profile saved to localStorage');
       }
 
       setProfile(merged);
-      // Profile saved successfully
+      console.log('Profile state updated');
+      
+      // Verify the saved data
+      if (typeof window !== 'undefined') {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        console.log('Verified saved data:', savedData ? JSON.parse(savedData) : 'No data found');
+      }
+      
       return merged;
     } catch (err) {
-      // Error saving profile
+      console.error('Error saving profile:', err);
       throw err;
+    } finally {
+      console.log('=== SAVE PROFILE COMPLETE ===');
     }
   }, [session]);
 
