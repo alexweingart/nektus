@@ -77,6 +77,7 @@ export default function EditProfileNew() {
             src={draft.profileImage || '/default-avatar.png'}
             onChange={(data) => setField('profileImage', data)}
             label="Profile photo"
+            sizeRem={3}
           />
         }
         label="Name"
@@ -92,11 +93,14 @@ export default function EditProfileNew() {
       {/* Background + Bio */}
       <EditFieldRow
         icon={
-          <ImageCircleUpload
-            src={draft.backgroundImage || '/default-bg.png'}
-            onChange={(data) => setField('backgroundImage', data)}
-            label="Background image"
-          />
+          <div className="self-center">
+            <ImageCircleUpload
+              src={draft.backgroundImage || '/default-bg.png'}
+              onChange={(data) => setField('backgroundImage', data)}
+              label="Background image"
+              sizeRem={3}
+            />
+          </div>
         }
         label="Bio"
       >
