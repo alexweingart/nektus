@@ -20,7 +20,7 @@ interface EditFieldRowProps {
  */
 const EditFieldRow: React.FC<EditFieldRowProps> = ({ icon, label, children, className }) => {
   return (
-    <div className={cn('grid grid-cols-[3rem_1fr] gap-4 items-center w-full', className)}>
+    <div className={cn('grid grid-cols-[3rem_1fr] gap-4 items-center w-full mb-4 last:mb-0', className)}>
       <div className="flex items-center justify-center w-12 h-12 bg-white rounded-full hover:bg-gray-100 active:bg-gray-200 transition">
         {/* Icon is expected to be sized appropriately (w-6 h-6 etc.) */}
         <span aria-hidden="true">{icon}</span>
