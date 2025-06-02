@@ -202,7 +202,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // Profile image URL generated
       return result.imageUrl;
     } catch (error) {
-      console.error('Error generating profile image:', error);
+      // Error generating profile image
       return null;
     }
   }, []);
@@ -226,8 +226,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Save profile to localStorage
   const saveProfile = useCallback(async (profileData: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      console.log('=== SAVE PROFILE STARTED ===');
-      console.log('Incoming partial update:', JSON.stringify(profileData, null, 2));
+      // Saving profile with updates
 
       const current = profileRef.current || createDefaultProfile(session);
       const merged = mergeNonEmpty(current, profileData);
@@ -238,10 +237,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
 
       setProfile(merged);
-      console.log('Profile successfully saved');
+      // Profile saved successfully
       return merged;
     } catch (err) {
-      console.error('Error saving profile:', err);
+      // Error saving profile
       throw err;
     }
   }, [session]);
@@ -252,7 +251,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEY);
       setProfile(null);
     } catch (error) {
-      console.error('Error clearing profile:', error);
+      // Error clearing profile
     }
   }, []);
 
@@ -380,53 +379,34 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Load profile from localStorage
   const loadProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
-      console.log('=== LOAD PROFILE STARTED ===');
-      
       // Only access localStorage on the client side
       if (typeof window === 'undefined') {
-        console.log('Running on server side, returning null');
         return null;
       }
       
-      console.log('LocalStorage available, checking for existing profile...');
-
       const storedData = localStorage.getItem(STORAGE_KEY);
       
       if (storedData) {
-        console.log('Found stored profile data');
-        console.log('Raw stored data:', storedData);
-        
         let parsedProfile: UserProfile;
         try {
           parsedProfile = JSON.parse(storedData) as UserProfile;
-          console.log('Successfully parsed stored profile');
         } catch (parseError) {
-          console.error('Error parsing stored profile data:', parseError);
-          console.log('Creating a new profile due to parse error');
           const defaultProfile = createDefaultProfile(session || undefined);
           setProfile(defaultProfile);
           return defaultProfile;
         }
         
-        console.log('Parsed profile:', JSON.stringify(parsedProfile, null, 2));
         let needsUpdate = false; 
+        let profileChanged = false;
         
-        // Log the current session info
-        console.log('Current session user:', session?.user);
-
         // Update profile with session data if available
         if (session?.user) {
-          console.log('Updating profile with session data');
-          let profileChanged = false;
-          
           if (session.user.image && parsedProfile.profileImage !== session.user.image) {
-            console.log('Updating profile image from session');
             parsedProfile.profileImage = session.user.image;
             profileChanged = true;
           }
           
           if (session.user.name && parsedProfile.name !== session.user.name) {
-            console.log('Updating name from session');
             parsedProfile.name = session.user.name;
             profileChanged = true;
           }
@@ -434,7 +414,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           if (session.user.email) {
             // Update email if it's different
             if (parsedProfile.contactChannels.email.email !== session.user.email) {
-              console.log('Updating email from session');
+              // Updating email from session
               parsedProfile.contactChannels.email = {
                 email: session.user.email,
                 userConfirmed: true
@@ -449,7 +429,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             for (const platform of socialPlatforms) {
               const channel = parsedProfile.contactChannels[platform];
               if (channel && (!channel.username || channel.username === '')) {
-                console.log(`Initializing ${platform} username from email`);
+                // Initializing social media username from email
                 channel.username = emailUsername;
                 // Only update URL if it's empty to preserve any custom URLs
                 if (!channel.url || channel.url === '') {
@@ -463,42 +443,34 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         }
 
         if (needsUpdate) {
-          console.log('Profile needs update, saving changes');
+          // Profile needs update, saving changes
           parsedProfile.lastUpdated = Date.now();
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedProfile));
           } catch (error) {
-            console.error('Error saving updated profile to localStorage:', error);
+            // Error saving updated profile to localStorage
           }
         }
 
-        console.log('Returning parsed profile:', parsedProfile);
+        // Returning parsed profile
         setProfile(parsedProfile);
         return parsedProfile;
       }
 
       // Create new profile if none exists
-      console.log('No stored profile found, creating default profile');
       const defaultProfile = createDefaultProfile(session || undefined);
-      console.log('Created default profile:', JSON.stringify(defaultProfile, null, 2));
       
       try {
         const profileString = JSON.stringify(defaultProfile);
-        console.log('Saving default profile to localStorage with key:', STORAGE_KEY);
         localStorage.setItem(STORAGE_KEY, profileString);
-        
-        // Verify the save
-        const savedProfile = localStorage.getItem(STORAGE_KEY);
-        console.log('Default profile read back from localStorage:', savedProfile);
       } catch (error) {
-        console.error('Error saving default profile to localStorage:', error);
+        // Error saving default profile to localStorage
       }
       
       setProfile(defaultProfile);
-      console.log('Default profile set in state');
       return defaultProfile;
     } catch (error) {
-      console.error('Error loading profile:', error);
+      // Error loading profile
       throw error;
     } finally {
       setIsLoading(false);

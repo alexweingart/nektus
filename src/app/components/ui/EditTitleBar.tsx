@@ -21,19 +21,23 @@ interface EditTitleBarProps {
  */
 const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = false }) => {
   return (
-    <div className="flex items-center justify-between w-full py-4 px-4">
+    <div className="relative flex items-center justify-between w-full py-4">
       {/* Back button */}
       <Button
         variant="circle"
         size="icon"
         aria-label="Go back"
         onClick={onBack}
+        className="z-10"
       >
         <FaArrowLeft className="h-5 w-5" />
       </Button>
 
-      {/* Centered title – negative margin centers between equal-width buttons */}
-      <Heading as="h1" className="flex-1 text-center text-white text-lg -ml-12">
+      {/* Centered title absolutely to keep perfect center */}
+      <Heading
+        as="h1"
+        className="absolute left-1/2 -translate-x-1/2 text-white text-2xl font-bold"
+      >
         Edit Profile
       </Heading>
 
@@ -44,6 +48,7 @@ const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = 
         aria-label="Save profile"
         onClick={onSave}
         disabled={isSaving}
+        className="z-10"
       >
         {isSaving ? <LoadingSpinner size="sm" /> : <FaSave className="h-5 w-5" />}
       </Button>

@@ -8,8 +8,8 @@ import EditFieldRow from './ui/EditFieldRow';
 import ImageCircleUpload from './ui/ImageCircleUpload';
 import EditPhoneRow from './ui/EditPhoneRow';
 import Input from './ui/Input';
+import TextArea from './ui/TextArea';
 import SocialIcon from './ui/SocialIcon';
-import { Button } from '@/ui/Button';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
 // Supported social platforms in the UI order
@@ -66,7 +66,7 @@ export default function EditProfileNew() {
   }
 
   return (
-    <div className="flex flex-col items-center px-4 py-2 w-full max-w-lg mx-auto text-white">
+    <div className="flex flex-col items-center px-4 w-full max-w-[320px] mx-auto text-white">
       {/* Title bar */}
       <EditTitleBar onBack={() => router.back()} onSave={handleSave} isSaving={isSaving} />
 
@@ -80,7 +80,6 @@ export default function EditProfileNew() {
           />
         }
         label="Name"
-        className="mb-6"
       >
         <Input
           value={draft.name}
@@ -100,14 +99,12 @@ export default function EditProfileNew() {
           />
         }
         label="Bio"
-        className="mb-6"
       >
-        <textarea
+        <TextArea
           value={draft.bio || ''}
           onChange={(e) => setField('bio', e.target.value)}
           placeholder="Your bio"
-          rows={3}
-          className="w-full resize-none rounded-xl p-3 text-gray-800 text-base focus:outline-none"
+          className="w-full"
         />
       </EditFieldRow>
 
@@ -138,9 +135,12 @@ export default function EditProfileNew() {
         return (
           <EditFieldRow
             key={platform}
-            icon={<SocialIcon platform={platform as any} size="md" />}
+            icon={
+              <div className="flex items-center justify-center w-full h-full">
+                <SocialIcon platform={platform as any} size="md" />
+              </div>
+            }
             label={platform}
-            className="mt-6"
           >
             <Input
               value={channel?.username || ''}
@@ -166,20 +166,6 @@ export default function EditProfileNew() {
           </EditFieldRow>
         );
       })}
-
-      {/* Save button for wider screens (mobile relies on title bar) */}
-      <div className="mt-10 w-full">
-        <Button
-          className="w-full"
-          size="lg"
-          variant="theme"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? <LoadingSpinner size="sm" className="mr-2" /> : null}
-          Save
-        </Button>
-      </div>
     </div>
   );
 }
