@@ -8,7 +8,8 @@ import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { Heading } from './ui/Typography';
-import { useProfile, UserProfile } from '../context/ProfileContext';
+import { useProfile } from '../context/ProfileContext';
+import type { UserProfile } from '@/types/profile';
 import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
 // setupScrollLock is not used but kept for future reference
 // import { setupScrollLock } from '../../lib/utils/scrollLock';
@@ -25,21 +26,18 @@ type Country = {
 
 export default function ProfileSetup() {
   // Session and authentication
-  const { data: session, status } = useSession({
+  const { data: session, status: sessionStatus } = useSession({
     required: true,
-    onUnauthenticated() {
-      window.location.href = '/';
-    },
   });
   
   // Profile and routing
-  const { profile, saveProfile } = useProfile();
+  const { profile, saveProfile, isLoading, getLatestProfile } = useProfile();
   const router = useRouter();
   
   // Component state
   const [isSaving, setIsSaving] = useState(false);
   const [digits, setDigits] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  
   // Keep selectedCountry for phone number formatting
   const [selectedCountry] = useState<Country>({
     name: 'United States',
@@ -47,112 +45,12 @@ export default function ProfileSetup() {
     flag: '🇺🇸',
     dialCode: '1'
   });
-  
   // Refs
   const phoneInputRef = useRef<HTMLInputElement>(null);
-
   // freeze auto-scroll on focus
   useFreezeScrollOnFocus(phoneInputRef);
-  
   // Admin mode
   const adminModeProps = useAdminModeActivator();
-
-  // Main initialization effect
-  useEffect(() => {
-    const initializeProfile = async () => {
-      if (status === 'loading') {
-        setIsLoading(true);
-        return;
-      }
-
-      try {
-        if (status === 'authenticated' && session?.user) {
-          // If we have a profile, update the phone number if needed
-          if (profile) {
-            if (profile.contactChannels?.phoneInfo?.nationalPhone) {
-              setDigits(profile.contactChannels.phoneInfo.nationalPhone);
-            }
-            setIsLoading(false);
-          } else {
-            // No profile exists, create a new one
-            const userEmail = session.user.email || '';
-            const profileImage = session.user.image || '/default-avatar.png';
-            const emailUsername = userEmail.split('@')[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, '') || '';
-            
-            const initialProfile: Partial<UserProfile> = {
-              name: session.user.name || '',
-              profileImage: profileImage,
-              bio: '',
-              backgroundImage: '',
-              lastUpdated: Date.now(),
-              contactChannels: {
-                phoneInfo: {
-                  internationalPhone: '',
-                  nationalPhone: '',
-                  userConfirmed: false
-                },
-                email: {
-                  email: userEmail,
-                  userConfirmed: true
-                },
-                facebook: { 
-                  username: emailUsername, 
-                  url: emailUsername ? `https://facebook.com/${emailUsername}` : '', 
-                  userConfirmed: false 
-                },
-                instagram: { 
-                  username: emailUsername, 
-                  url: emailUsername ? `https://instagram.com/${emailUsername}` : '', 
-                  userConfirmed: false 
-                },
-                x: { 
-                  username: emailUsername, 
-                  url: emailUsername ? `https://x.com/${emailUsername}` : '', 
-                  userConfirmed: false 
-                },
-                linkedin: { 
-                  username: emailUsername, 
-                  url: emailUsername ? `https://linkedin.com/in/${emailUsername}` : '', 
-                  userConfirmed: false 
-                },
-                snapchat: { 
-                  username: emailUsername, 
-                  url: emailUsername ? `https://snapchat.com/add/${emailUsername}` : '', 
-                  userConfirmed: false 
-                },
-                whatsapp: { 
-                  username: '', 
-                  url: '', 
-                  userConfirmed: false 
-                },
-                telegram: { 
-                  username: '', 
-                  url: '', 
-                  userConfirmed: false 
-                },
-                wechat: { 
-                  username: '', 
-                  url: '', 
-                  userConfirmed: false 
-                }
-              }
-            };
-            
-            await saveProfile(initialProfile);
-          }
-        } else {
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error in profile initialization:', error);
-        setIsLoading(false);
-      }
-    };
-
-    initializeProfile();
-  }, [status, session, profile, saveProfile]);
-  
-
 
   // Handle saving the profile with phone number
   const handleSave = useCallback(async (e?: React.FormEvent) => {
@@ -195,9 +93,7 @@ export default function ProfileSetup() {
           internationalPhone = `+1${nationalNum}`; // E.164 format for US/Canada
           nationalPhone = nationalNum;
           console.log('US/Canada - National:', nationalPhone, 'International:', internationalPhone);
-        } 
-        // For international numbers
-        else if (cleanedDigits.length > 10) {
+        } else if (cleanedDigits.length > 10) {
           console.log('Processing as international number');
           // Try to parse with country code
           const countryCode = selectedCountry?.code as CountryCode | undefined;
@@ -224,30 +120,48 @@ export default function ProfileSetup() {
         }
       }
       
-      // Update the profile with phone info and set as username for messaging apps
-      const updatedProfile = {
-        ...profile,
+      console.log('Saving phone info:', { internationalPhone, nationalPhone });
+      console.log('Current profile bio before phone save:', profile?.bio);
+      console.log('Current profile state:', { 
+        hasBio: !!profile?.bio, 
+        bioLength: profile?.bio?.length || 0,
+        bioPreview: profile?.bio?.substring(0, 50) || 'NO BIO'
+      });
+      
+      // Get the most up-to-date profile data (including any background-generated bio)
+      const latestProfile = getLatestProfile() || profile;
+      console.log('Latest profile bio:', latestProfile?.bio);
+      console.log('Latest profile state:', { 
+        hasBio: !!latestProfile?.bio, 
+        bioLength: latestProfile?.bio?.length || 0,
+        bioPreview: latestProfile?.bio?.substring(0, 50) || 'NO BIO'
+      });
+      
+      // Only update phone-related fields, preserve all other profile data (including bio)
+      const phoneUpdateData = {
+        // Explicitly preserve bio if it exists
+        ...(latestProfile?.bio ? { bio: latestProfile.bio } : {}),
         contactChannels: {
-          ...profile.contactChannels,
+          ...(latestProfile?.contactChannels || {}), // Preserve existing contact channels
           phoneInfo: {
             internationalPhone,
             nationalPhone,
-            userConfirmed: true
+            userConfirmed: true // Explicitly set to true when user saves the form
           },
           whatsapp: {
-            ...profile.contactChannels.whatsapp,
+            ...(latestProfile?.contactChannels?.whatsapp || {}),
             username: nationalPhone,
             url: `https://wa.me/${nationalPhone}`,
             userConfirmed: false
           },
           wechat: {
-            ...profile.contactChannels.wechat,
+            ...(latestProfile?.contactChannels?.wechat || {}),
             username: nationalPhone,
             url: `weixin://dl/chat?${nationalPhone}`,
             userConfirmed: false
           },
           telegram: {
-            ...profile.contactChannels.telegram,
+            ...(latestProfile?.contactChannels?.telegram || {}),
             username: nationalPhone,
             url: `https://t.me/${nationalPhone}`,
             userConfirmed: false
@@ -255,10 +169,14 @@ export default function ProfileSetup() {
         }
       };
       
-      console.log('Saving updated profile:', JSON.stringify(updatedProfile, null, 2));
+      console.log('Saving phone update data:', JSON.stringify(phoneUpdateData, null, 2));
       
       try {
-        await saveProfile(updatedProfile);
+        // Small delay to ensure any background bio save completes first
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Save only the phone-related fields (preserves bio and other data)
+        await saveProfile(phoneUpdateData);
         console.log('Profile saved successfully');
         router.push('/');
       } catch (saveError) {
@@ -273,10 +191,10 @@ export default function ProfileSetup() {
     }
   }, [digits, isSaving, profile, saveProfile, router, selectedCountry.code, session?.user?.email]);
 
-  // Handle loading and unauthenticated states
-  if (status === 'loading' || isLoading || status !== 'authenticated') {
+  // Show loading state while checking auth status or loading profile
+  if (sessionStatus === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
+import { UserProfile, SocialProfile } from '@/types/profile';
 
 // Custom types for our extended OpenAI client
 // Define our custom sizes which may include ones not supported natively by the OpenAI SDK
@@ -128,7 +129,6 @@ try {
   console.error('Failed to initialize OpenAI client:', error);
 }
 
-// Helper function to extract social media links from profile
 // Define a more specific type for OpenAI responses
 interface OpenAIResponse {
   output?: Array<{
@@ -173,200 +173,39 @@ function extractTextFromResponse(response: OpenAIResponse): string {
   return '';
 }
 
-// Define a type for profile data
-interface ProfileData {
-  name?: string;
-  bio?: string;
-  picture?: string;
-  profileImage?: string;
-  userId?: string;
-  socialProfiles?: Array<{
-    platform: string;
-    username: string;
-    url?: string;
-  }>;
-  contactChannels?: Record<string, { url?: string }>;
-  [key: string]: any; // For dynamic access to social media fields
-}
-
 // Helper function to extract social media links from profile
 function extractSocialLinks(profile: ProfileData): string | null {
-  if (!profile) return null;
+  if (!profile?.contactChannels) return null;
   
   const socialLinks: string[] = [];
   
-  // Extract individual social fields
-  const platforms = [
-    'facebook', 'instagram', 'twitter', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'x'
+  // Extract from contactChannels structure
+  const platforms: (keyof typeof profile.contactChannels)[] = [
+    'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'
   ];
   
   for (const platform of platforms) {
-    const usernameKey = `${platform}Username`;
-    const urlKey = `${platform}Url`;
+    if (platform === 'phoneInfo' || platform === 'email') continue; // Skip non-social channels
     
-    if (profile[usernameKey] && profile[usernameKey].trim() !== '') {
-      socialLinks.push(`${platform}: ${profile[usernameKey]}${profile[urlKey] ? ` (${profile[urlKey]})` : ''}`);
+    const channel = profile.contactChannels[platform as keyof typeof profile.contactChannels] as SocialProfile;
+    if (channel?.username && channel.username.trim() !== '') {
+      socialLinks.push(`${platform}: ${channel.username}${channel.url ? ` (${channel.url})` : ''}`);
     }
   }
   
-  // Also check socialProfiles array for backward compatibility
+  // Also check legacy socialProfiles array for backward compatibility
   if (profile.socialProfiles && Array.isArray(profile.socialProfiles)) {
-    profile.socialProfiles.forEach((social: any) => {
-      if (social.platform && social.username && social.username.trim() !== '' && 
-          !socialLinks.some(link => link.startsWith(social.platform))) {
-        socialLinks.push(`${social.platform}: ${social.username}${social.url ? ` (${social.url})` : ''}`);
+    profile.socialProfiles.forEach((social: SocialProfile) => {
+      // Add platform property check since SocialProfile doesn't have platform
+      const socialWithPlatform = social as SocialProfile & { platform?: string };
+      if (socialWithPlatform.platform && social.username && social.username.trim() !== '' && 
+          !socialLinks.some(link => link.startsWith(socialWithPlatform.platform!))) {
+        socialLinks.push(`${socialWithPlatform.platform}: ${social.username}${social.url ? ` (${social.url})` : ''}`);
       }
     });
   }
   
   return socialLinks.length > 0 ? socialLinks.join('\n') : null;
-}
-
-// Define interface for error details
-interface ErrorDetails {
-  requestId?: string;
-  durationMs?: number;
-  environment?: string;
-  hasOpenAIKey?: boolean;
-  openAiKeyPrefix?: string;
-  profile?: {
-    name?: string;
-    hasContactChannels?: boolean;
-    contactChannels?: string[];
-  };
-  source?: string;
-  [key: string]: any; // Allow for additional properties
-}
-
-// Helper function for consistent error responses
-function createErrorResponse(error: unknown, code: string, message: string, status = 500, requestDetails?: ErrorDetails) {
-  const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-  const errorName = error instanceof Error ? error.name : 'UnknownError';
-  const errorStack = error instanceof Error ? error.stack : undefined;
-  
-  const errorDetails = {
-    errorId,
-    message: errorMessage,
-    name: errorName,
-    stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
-    timestamp: new Date().toISOString(),
-    ...requestDetails
-  };
-
-  // Log error in a consistent format
-  console.error(`[ERROR:${code}] ${errorId}: ${message}`, 
-    // Only log essential details to keep logs clean
-    JSON.stringify({
-      message: errorMessage,
-      details: Object.keys(requestDetails || {}).length ? '...' : 'none',
-      timestamp: new Date().toISOString()
-    }));
-  
-  return NextResponse.json(
-    { 
-      error: message,
-      errorId,
-      code,
-      details: process.env.NODE_ENV === 'development' ? errorDetails : {
-        errorId,
-        message: errorMessage
-      }
-    },
-    { 
-      status,
-      headers: {
-        'X-Error-ID': errorId
-      }
-    }
-  );
-}
-
-// Define interface for request body
-interface AIGenerationRequest {
-  type: 'background' | 'bio' | 'avatar';
-  profile: ProfileData;
-}
-
-// Handle AI generation requests
-export async function POST(request: NextRequest) {
-  const requestId = Math.random().toString(36).substring(2, 8);
-  const requestStartTime = Date.now();
-  
-  try {
-    // Parse and validate request body
-    let requestBody;
-    try {
-      requestBody = await request.json();
-    } catch (error) {
-      console.error(`[${requestId}] Failed to parse request body:`, error);
-      return createErrorResponse(error, 'INVALID_JSON', 'Invalid JSON payload', 400, { requestId });
-    }
-
-    const { type, profile } = requestBody as AIGenerationRequest;
-    
-    // Input validation
-    if (!type) {
-      return NextResponse.json(
-        { 
-          error: 'Type parameter is required',
-          code: 'MISSING_TYPE' 
-        },
-        { status: 400 }
-      );
-    }
-    
-    if (!profile) {
-      return NextResponse.json(
-        { 
-          error: 'Profile data is required',
-          code: 'MISSING_PROFILE' 
-        },
-        { status: 400 }
-      );
-    }
-    
-    // Verify OpenAI client is initialized
-    if (!openai) {
-      const error = 'OpenAI API key is not configured';
-      console.error(`[${requestId}] ${error}`);
-      return NextResponse.json(
-        { 
-          error,
-          code: 'OPENAI_NOT_CONFIGURED' 
-        },
-        { status: 500 }
-      );
-    }
-
-    // Route to the appropriate generator
-    switch (type) {
-      case 'background':
-        return await generateBackground(profile);
-      case 'bio':
-        return await generateBio(profile);
-      case 'avatar':
-        return await generateAvatar(profile);
-      default:
-        return NextResponse.json(
-          { 
-            error: `Invalid generation type: ${type}`,
-            code: 'INVALID_GENERATION_TYPE'
-          },
-          { status: 400 }
-        );
-    }
-  } catch (error) {
-    return createErrorResponse(error, 'GENERATION_ERROR', 'Failed to generate content', 500, {
-      requestId,
-      durationMs: Date.now() - requestStartTime,
-      environment: process.env.NODE_ENV || 'development',
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-      openAiKeyPrefix: process.env.OPENAI_API_KEY 
-        ? `${process.env.OPENAI_API_KEY.substring(0, 5)}...` 
-        : 'Not set'
-    });
-  }
 }
 
 // Helper function to extract social profile URLs from profile
@@ -379,7 +218,7 @@ function getSocialProfileUrls(profile: ProfileData): string[] {
   ];
 
   for (const platform of socialPlatforms) {
-    const channel = profile.contactChannels[platform];
+    const channel = profile.contactChannels[platform as keyof typeof profile.contactChannels] as SocialProfile;
     if (channel?.url) {
       urls.push(channel.url);
     }
@@ -390,6 +229,7 @@ function getSocialProfileUrls(profile: ProfileData): string[] {
 
 async function generateBio(profile: ProfileData) {
   // Bio generation started
+  console.log('[generateBio] Received profile data:', JSON.stringify(profile, null, 2));
 
   // Safety check for OpenAI client
   if (!openai) {
@@ -399,7 +239,12 @@ async function generateBio(profile: ProfileData) {
   try {
     // Get social profile URLs
     const socialProfileUrls = getSocialProfileUrls(profile);
+    console.log('[generateBio] Extracted social profile URLs:', socialProfileUrls);
     
+    // Also check extractSocialLinks
+    const socialLinks = extractSocialLinks(profile);
+    console.log('[generateBio] Extracted social links:', socialLinks);
+
     // Prepare the input for the responses API with proper typing
     const input: Array<{
       role: 'system' | 'user' | 'assistant';
@@ -428,8 +273,10 @@ async function generateBio(profile: ProfileData) {
     // Add social profile URLs to the prompt if available
     if (socialProfileUrls.length > 0) {
       const socialLinksText = socialProfileUrls.join(', ');
-      input[1].content[0].text += `Please follow these web links to read about ${profile.name}: ${socialLinksText}. If the webpage was updated more recently, that information is more important.`;
+      input[1].content[0].text += ` Please follow these web links to read about ${profile.name}: ${socialLinksText}. If the webpage was updated more recently, that information is more important.`;
     }
+
+    console.log('[generateBio] Final prompt being sent:', input[1].content[0].text);
 
     // Prepare the request for the responses API
     const requestParams = {
@@ -818,6 +665,159 @@ async function generateAvatar(profile: ProfileData) {
       imageUrl: profile.picture || '/default-avatar.png',
       generated: false,
       error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+// Define a type for profile data
+interface ProfileData extends UserProfile {
+  // Legacy fields for backward compatibility  
+  picture?: string; // Maps to profileImage
+  socialProfiles?: Array<SocialProfile>; // Legacy social profiles array
+}
+// Define interface for error details
+interface ErrorDetails {
+  requestId?: string;
+  durationMs?: number;
+  environment?: string;
+  hasOpenAIKey?: boolean;
+  openAiKeyPrefix?: string;
+  profile?: {
+    name?: string;
+    hasContactChannels?: boolean;
+    contactChannels?: string[];
+  };
+  source?: string;
+  [key: string]: any; // Allow for additional properties
+}
+
+// Helper function for consistent error responses
+function createErrorResponse(error: unknown, code: string, message: string, status = 500, requestDetails?: ErrorDetails) {
+  const errorId = `err_${Math.random().toString(36).substring(2, 8)}`;
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  const errorName = error instanceof Error ? error.name : 'UnknownError';
+  const errorStack = error instanceof Error ? error.stack : undefined;
+  
+  const errorDetails = {
+    errorId,
+    message: errorMessage,
+    name: errorName,
+    stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+    timestamp: new Date().toISOString(),
+    ...requestDetails
+  };
+
+  // Log error in a consistent format
+  console.error(`[ERROR:${code}] ${errorId}: ${message}`, 
+    // Only log essential details to keep logs clean
+    JSON.stringify({
+      message: errorMessage,
+      details: Object.keys(requestDetails || {}).length ? '...' : 'none',
+      timestamp: new Date().toISOString()
+    }));
+  
+  return NextResponse.json(
+    { 
+      error: message,
+      errorId,
+      code,
+      details: process.env.NODE_ENV === 'development' ? errorDetails : {
+        errorId,
+        message: errorMessage
+      }
+    },
+    { 
+      status,
+      headers: {
+        'X-Error-ID': errorId
+      }
+    }
+  );
+}
+
+// Define a type for request body
+interface AIGenerationRequest {
+  type: 'background' | 'bio' | 'avatar';
+  profile: ProfileData;
+}
+
+// Handle AI generation requests
+export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+  const requestStartTime = Date.now();
+  
+  try {
+    // Parse and validate request body
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (error) {
+      console.error(`[${requestId}] Failed to parse request body:`, error);
+      return createErrorResponse(error, 'INVALID_JSON', 'Invalid JSON payload', 400, { requestId });
+    }
+
+    const { type, profile } = requestBody as AIGenerationRequest;
+    
+    // Input validation
+    if (!type) {
+      return NextResponse.json(
+        { 
+          error: 'Type parameter is required',
+          code: 'MISSING_TYPE' 
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (!profile) {
+      return NextResponse.json(
+        { 
+          error: 'Profile data is required',
+          code: 'MISSING_PROFILE' 
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify OpenAI client is initialized
+    if (!openai) {
+      const error = 'OpenAI API key is not configured';
+      console.error(`[${requestId}] ${error}`);
+      return NextResponse.json(
+        { 
+          error,
+          code: 'OPENAI_NOT_CONFIGURED' 
+        },
+        { status: 500 }
+      );
+    }
+
+    // Route to the appropriate generator
+    switch (type) {
+      case 'background':
+        return await generateBackground(profile);
+      case 'bio':
+        return await generateBio(profile);
+      case 'avatar':
+        return await generateAvatar(profile);
+      default:
+        return NextResponse.json(
+          { 
+            error: `Invalid generation type: ${type}`,
+            code: 'INVALID_GENERATION_TYPE'
+          },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    return createErrorResponse(error, 'GENERATION_ERROR', 'Failed to generate content', 500, {
+      requestId,
+      durationMs: Date.now() - requestStartTime,
+      environment: process.env.NODE_ENV || 'development',
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      openAiKeyPrefix: process.env.OPENAI_API_KEY 
+        ? `${process.env.OPENAI_API_KEY.substring(0, 5)}...` 
+        : 'Not set'
     });
   }
 }

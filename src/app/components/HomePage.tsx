@@ -57,17 +57,20 @@ const HomePage: React.FC = () => {
           }}
           {...adminModeProps} // Apply the double-click handler
         >
-          <Image 
-            src="/nektus-logo.svg" 
-            alt="Nekt.Us Logo" 
-            width={320}
-            height={110}
-            style={{ 
-              maxWidth: '90%',
-              height: 'auto'
-            }} 
-            priority
-          />
+          <div style={{ maxWidth: '448px', width: '100%' }}>
+            <Image 
+              src="/nektus-logo.svg" 
+              alt="Nekt.Us Logo" 
+              width={448}
+              height={154} // 448 * (original height/width ratio 110/320 = 0.34375)
+              style={{ 
+                width: '100%',
+                height: 'auto',
+                maxWidth: '100%'
+              }} 
+              priority
+            />
+          </div>
         </div>
         <Heading as="h1" className="text-center w-full mb-6">
           Bump to Connect

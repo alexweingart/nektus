@@ -91,16 +91,16 @@ const config = process.env.NODE_ENV === 'production'
       dest: "public",
       register: true,
       skipWaiting: true,
-      disable: false,
+      disable: true, // Temporarily disable PWA
       cacheOnFrontEndNav: true,
       disableDevLogs: true,
-      buildExcludes: [
-        /middleware-manifest\.json$/,
-        /_middleware\.js$/,
-        /_error\.js$/,
-        /_document\.js$/,  // Exclude _document.js reference to avoid build errors
-        /chunks\/pages\/api\//
-      ],
+      // buildExcludes: [
+      //   /middleware-manifest\.json$/,
+      //   /_middleware\.js$/,
+      //   /_error\.js$/,
+      //   /_document\.js$/,  // Exclude _document.js reference to avoid build errors
+      //   /chunks\/pages\/api\//
+      // ],
       runtimeCaching: [
         {
           urlPattern: /\/favicon\.(ico|svg|png)$/,

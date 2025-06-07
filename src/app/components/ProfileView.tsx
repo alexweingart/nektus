@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useProfile } from '../context/ProfileContext';
+import { useProfile, profileHasPhone } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
@@ -9,182 +9,74 @@ import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
-import type { UserProfile } from '../context/ProfileContext';
+import type { UserProfile } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from './ui/Typography';
-
-// Removed unused HARDCODED_PROFILE
-
-// Single instructional placeholder bio
-const PLACEHOLDER_BIO = 'Generating your personalized bio...';
-
-const getPlaceholderBio = () => {
-  return PLACEHOLDER_BIO;
-};
-
-// Removed unused ExtendedUserProfile type
+import { useRouter } from 'next/navigation';
 
 const ProfileView: React.FC = () => {
-  const { data: session } = useSession();
-  const { profile } = useProfile();
-  const [isLoading, setIsLoading] = useState(true);
+  console.log('[ProfileView] Rendering ProfileView');
+  
+  const { data: session, status: sessionStatus } = useSession();
+  
+  const { profile, isLoading: isProfileLoading } = useProfile();
+  console.log('[ProfileView] Profile state:', {
+    hasProfile: !!profile,
+    isProfileLoading,
+    sessionStatus,
+    hasSession: !!session
+  });
+
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
-  // State for UI
-  const [bio, setBio] = useState<string>('');
-  
-  // Reference to track if we've loaded the bio in this session
-  const hasLoadedBio = useRef(false);
-  
-  // Initialize local profile with session data if available
-  const [localProfile, setLocalProfile] = useState<UserProfile>(() => ({
-    userId: session?.user?.id || `user-${Date.now()}`,
-    name: session?.user?.name || 'New User',
-    bio: '',
-    profileImage: session?.user?.image || '/default-avatar.png',
-    backgroundImage: '',
-    lastUpdated: Date.now(),
-    contactChannels: {
-      phoneInfo: { internationalPhone: '', nationalPhone: '', userConfirmed: false },
-      email: { 
-        email: session?.user?.email || '', 
-        userConfirmed: !!session?.user?.email 
-      },
-      facebook: { username: '', url: '', userConfirmed: false },
-      instagram: { username: '', url: '', userConfirmed: false },
-      x: { username: '', url: '', userConfirmed: false },
-      whatsapp: { username: '', url: '', userConfirmed: false },
-      snapchat: { username: '', url: '', userConfirmed: false },
-      telegram: { username: '', url: '', userConfirmed: false },
-      wechat: { username: '', url: '', userConfirmed: false },
-      linkedin: { username: '', url: '', userConfirmed: false }
-    }
-  }));
+  const router = useRouter();
 
-  // Update local profile when the context profile changes
-  useEffect(() => {
-    if (profile) {
-      setLocalProfile(prev => {
-        // Improved bio preservation logic:
-        // 1. Use profile.bio if it exists and is not empty
-        // 2. Otherwise use the current bio state if it's not a placeholder
-        // 3. Otherwise use prev.bio
-        let bioToUse = prev.bio; // Default to previous bio
-        
-        if (profile.bio && profile.bio.trim() !== '') {
-          bioToUse = profile.bio;
-        } else if (bio && bio !== PLACEHOLDER_BIO) {
-          bioToUse = bio;
-        }
-        
-        // If we have a new bio to use, update the state
-        if (bioToUse && bioToUse !== bio) {
-          setBio(bioToUse);
-          hasLoadedBio.current = true;
-        }
-        
-        // Create the updated profile by carefully merging the profile data
-        // while preserving the existing contact channels
-        const updatedProfile = {
-          ...prev,
-          // Only update the bio if we have a new one to use
-          ...(bioToUse ? { bio: bioToUse } : {}),
-          // Update other profile fields
-          name: profile.name || prev.name,
-          profileImage: profile.profileImage || session?.user?.image || prev.profileImage || '/default-avatar.png',
-          backgroundImage: profile.backgroundImage || prev.backgroundImage,
-          lastUpdated: profile.lastUpdated || prev.lastUpdated,
-          // Preserve all existing contact channels and merge with any new ones
-          contactChannels: {
-            ...prev.contactChannels,
-            ...(profile.contactChannels || {})
-          }
-        };
-        
-        return updatedProfile;
-      });
-    }
-  }, [profile, session?.user?.image, bio]);
-  
-
-
-  // Handle loading state and bio generation
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        let currentProfile = profile;
-        
-        // If no profile in context, try loading from localStorage
-        if (!currentProfile) {
-          const savedProfile = localStorage.getItem('nektus_user_profile');
-          if (savedProfile) {
-            currentProfile = JSON.parse(savedProfile);
-          }
-        }
-
-        // If we have a profile, update the state
-        if (currentProfile) {
-          setLocalProfile(currentProfile);
-          
-          // Set bio from profile if it exists
-          if (currentProfile.bio) {
-
-            setBio(currentProfile.bio);
-            hasLoadedBio.current = true;
-          } else {
-            // The bio will be generated by ProfileContext if needed
-            setBio(PLACEHOLDER_BIO);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [profile]);
-
-  // Effect to update bio state when profile changes
-  useEffect(() => {
-    // Only update bio if we have a non-empty profile bio and either:
-    // 1. We haven't loaded a bio yet, or
-    // 2. The current bio is the placeholder
-    if (profile?.bio && (bio === PLACEHOLDER_BIO || !hasLoadedBio.current)) {
-
-      setBio(profile.bio);
-      hasLoadedBio.current = true;
-    } else if (profile?.bio) {
-      // We're not updating the bio because it already exists
-    }
-  }, [profile?.bio, bio]);
-
-  // Handle loading state
-  useEffect(() => {
-    if (profile) {
-      setIsLoading(false);
-    }
-  }, [profile]);
-
-  // Important: This must be before any conditional returns to avoid breaking React's rules of hooks
-  const bioContent = useMemo(() => {
-    return bio || getPlaceholderBio();
-  }, [bio]);
-
-  if (isLoading || !profile) {
+  // Show loading state while checking auth status or loading profile
+  if (isProfileLoading || sessionStatus === 'loading') {
+    console.log('[ProfileView] Showing loading state:', {
+      sessionStatus,
+      isProfileLoading
+    });
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-green-400 to-blue-500">
-        <LoadingSpinner size="lg" className="text-white" />
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white">Loading profile...</p>
+        </div>
       </div>
     );
   }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-white mb-4">Unable to load profile</p>
+          <Button onClick={() => router.push('/setup')}>
+            Go to Setup
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple bio display - just show what's in the profile
+  const bioContent = useMemo(() => {
+    return profile.bio || 'Welcome to my profile!';
+  }, [profile.bio]);
+
+  const markdownComponents = useMemo(() => ({
+    p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
+    a: ({ node: _node, ...props }: any) => (
+      <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
+    ),
+  }), []);
 
   return (
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-4"
       style={{
-        backgroundImage: localProfile.backgroundImage ? `url(${localProfile.backgroundImage})` : 'none',
+        backgroundImage: profile.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -222,8 +114,8 @@ const ProfileView: React.FC = () => {
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">
             <Avatar 
-              src={profile?.profileImage || localProfile?.profileImage} 
-              alt={profile?.name || localProfile?.name || 'Profile'}
+              src={profile.profileImage} 
+              alt={profile.name || 'Profile'}
               size="lg"
             />
           </div>
@@ -233,18 +125,18 @@ const ProfileView: React.FC = () => {
         <div className="w-full bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           {/* Profile Name - Double click to activate admin mode */}
           <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
-            <Heading as="h1">{localProfile.name}</Heading>
+            <Heading as="h1">{profile.name}</Heading>
           </div>
           
           {/* Bio with markdown support */}
           <div className="mb-4 text-center">
             <style>{`
               .bio-content a {
-                color: #71E454; /* Using theme color */
+                color: hsl(var(--background)); /* Using CSS variable */
                 text-decoration: underline;
               }
               .bio-content a:hover {
-                color: #5BBF45; /* Using theme dark color */
+                color: hsl(var(--background)); /* Using CSS variable */
               }
             `}</style>
             <div className="bio-content text-white">
@@ -265,91 +157,91 @@ const ProfileView: React.FC = () => {
           <div className="w-full">
             {/* First row - 5 icons with equal spacing */}
             <div className="flex flex-wrap justify-center gap-4">
-            {localProfile.contactChannels.facebook.username && (
+            {profile.contactChannels.facebook.username && (
               <a 
-                href={`https://facebook.com/${localProfile.contactChannels.facebook.username}`} 
+                href={`https://facebook.com/${profile.contactChannels.facebook.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-400 transition-colors"
               >
-                <SocialIcon platform="facebook" username={localProfile.contactChannels.facebook.username} size="md" variant="white" />
+                <SocialIcon platform="facebook" username={profile.contactChannels.facebook.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.instagram.username && (
+            {profile.contactChannels.instagram.username && (
               <a 
-                href={`https://instagram.com/${localProfile.contactChannels.instagram.username}`} 
+                href={`https://instagram.com/${profile.contactChannels.instagram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-pink-400 transition-colors"
               >
-                <SocialIcon platform="instagram" username={localProfile.contactChannels.instagram.username} size="md" variant="white" />
+                <SocialIcon platform="instagram" username={profile.contactChannels.instagram.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.x.username && (
+            {profile.contactChannels.x.username && (
               <a 
-                href={`https://x.com/${localProfile.contactChannels.x.username}`} 
+                href={`https://x.com/${profile.contactChannels.x.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
+                className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="x" username={localProfile.contactChannels.x.username} size="md" variant="white" />
+                <SocialIcon platform="x" username={profile.contactChannels.x.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.whatsapp.username && (
+            {profile.contactChannels.whatsapp.username && (
               <a 
-                href={`https://wa.me/${localProfile.contactChannels.whatsapp.username}`} 
+                href={`https://wa.me/${profile.contactChannels.whatsapp.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-white hover:text-green-400 transition-colors"
+                className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="whatsapp" username={localProfile.contactChannels.whatsapp.username} size="md" variant="white" />
+                <SocialIcon platform="whatsapp" username={profile.contactChannels.whatsapp.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.snapchat.username && (
+            {profile.contactChannels.snapchat.username && (
               <a 
-                href={`https://www.snapchat.com/add/${localProfile.contactChannels.snapchat.username}`} 
+                href={`https://www.snapchat.com/add/${profile.contactChannels.snapchat.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-yellow-300 transition-colors"
               >
-                <SocialIcon platform="snapchat" username={localProfile.contactChannels.snapchat.username} size="md" variant="white" />
+                <SocialIcon platform="snapchat" username={profile.contactChannels.snapchat.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.telegram.username && (
+            {profile.contactChannels.telegram.username && (
               <a 
-                href={`https://t.me/${localProfile.contactChannels.telegram.username}`} 
+                href={`https://t.me/${profile.contactChannels.telegram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="telegram" username={localProfile.contactChannels.telegram.username} size="md" variant="white" />
+                <SocialIcon platform="telegram" username={profile.contactChannels.telegram.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.wechat?.username && (
+            {profile.contactChannels.wechat?.username && (
               <a 
-                href={`weixin://dl/chat?${localProfile.contactChannels.wechat.username}`} 
+                href={`weixin://dl/chat?${profile.contactChannels.wechat.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-white hover:text-green-400 transition-colors"
+                className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="wechat" username={localProfile.contactChannels.wechat.username} size="md" variant="white" />
+                <SocialIcon platform="wechat" username={profile.contactChannels.wechat.username} size="md" variant="white" />
               </a>
             )}
             
-            {localProfile.contactChannels.linkedin.username && (
+            {profile.contactChannels.linkedin.username && (
               <a 
-                href={`https://linkedin.com/in/${localProfile.contactChannels.linkedin.username}`} 
+                href={`https://linkedin.com/in/${profile.contactChannels.linkedin.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="linkedin" username={localProfile.contactChannels.linkedin.username} size="md" variant="white" />
+                <SocialIcon platform="linkedin" username={profile.contactChannels.linkedin.username} size="md" variant="white" />
               </a>
             )}
             </div>

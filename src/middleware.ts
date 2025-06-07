@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+
+console.log('✅ MIDDLEWARE FILE LOADED - Full Version');
 
 const PUBLIC_PATHS = [
-  '/',
   '/setup',
   '/api/auth/signin',
   '/api/auth/signin/google',
@@ -15,51 +17,53 @@ const PUBLIC_PATHS = [
   '/favicon.ico'
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  console.log('✅ MIDDLEWARE EXECUTING:', request.nextUrl.pathname);
+  
   const { pathname } = request.nextUrl;
-  // Check for both development and production session tokens
-  const sessionToken = 
-    request.cookies.get('__Secure-next-auth.session-token')?.value ||
-    request.cookies.get('next-auth.session-token')?.value;
 
   // Skip middleware for public paths and static files
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path)) || 
       pathname.includes('.') || 
       pathname === '/favicon.ico' ||
       pathname.startsWith('/_next')) {
+    console.log('Skipping middleware for public path:', pathname);
     return NextResponse.next();
   }
 
-  // If no session token, allow access to public paths only
-  if (!sessionToken) {
-    const isPublicPath = PUBLIC_PATHS.some(path => 
-      pathname === path || pathname.startsWith(path + '/') || 
-      pathname === '/api/auth/signin/google' ||
-      pathname.startsWith('/_next')
-    );
-    
-    if (!isPublicPath) {
-      return NextResponse.redirect(new URL('/', request.url));
+  // Get the JWT token to check authentication and profile
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  
+  console.log('Token exists:', !!token);
+  console.log('Token profile:', token?.profile);
+
+  // If no token (unauthenticated user)
+  if (!token) {
+    // Allow access to home page for authentication
+    if (pathname === '/') {
+      console.log('Allowing unauthenticated user to access home page for auth');
+      return NextResponse.next();
     }
-    return NextResponse.next();
+    // For other protected routes, redirect to home for authentication
+    console.log('Redirecting unauthenticated user to home for auth:', pathname);
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   // For authenticated users
-  if (sessionToken) {
+  if (token) {
     // If on root path, check if profile is complete
     if (pathname === '/') {
-      const profileStr = request.cookies.get('nektus_profile_cache');
-      
       try {
-        if (profileStr) {
-          const profile = JSON.parse(profileStr.value);
-          // If profile has phone number, allow access to root
-          if (profile?.contactChannels?.phoneInfo?.internationalPhone) {
-            return NextResponse.next();
-          }
+        const hasPhone = token.profile?.contactChannels?.phoneInfo?.internationalPhone &&
+                        token.profile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+        
+        if (hasPhone) {
+          console.log('User has complete profile, allowing access to root');
+          return NextResponse.next();
+        } else {
+          console.log('User missing phone number, redirecting to setup');
+          return NextResponse.redirect(new URL('/setup', request.url));
         }
-        // If no phone number, redirect to setup
-        return NextResponse.redirect(new URL('/setup', request.url));
       } catch (e) {
         console.error('Error checking profile:', e);
         return NextResponse.redirect(new URL('/setup', request.url));
@@ -68,13 +72,13 @@ export function middleware(request: NextRequest) {
     
     // If on setup page but already has profile, redirect to home
     if (pathname === '/setup') {
-      const profileStr = request.cookies.get('nektus_profile_cache');
       try {
-        if (profileStr) {
-          const profile = JSON.parse(profileStr.value);
-          if (profile?.contactChannels?.phoneInfo?.internationalPhone) {
-            return NextResponse.redirect(new URL('/', request.url));
-          }
+        const hasPhone = token.profile?.contactChannels?.phoneInfo?.internationalPhone &&
+                        token.profile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+        
+        if (hasPhone) {
+          console.log('User has complete profile, redirecting from setup to home');
+          return NextResponse.redirect(new URL('/', request.url));
         }
       } catch (e) {
         console.error('Error checking profile:', e);
@@ -87,20 +91,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\..*).*)',
-  ],
-  // Required for handling OAuth callbacks
-  unstable_allowDynamic: [
-    '/node_modules/next-auth/core/lib/security/csrf-token-handler.js',
-    '/node_modules/next-auth/core/lib/security/nonce.js',
-    '/node_modules/next-auth/core/lib/security/pkce.js',
-    '/node_modules/next-auth/core/lib/security/csrf.js',
   ],
 };

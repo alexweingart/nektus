@@ -2,7 +2,8 @@
 /** @jsxImportSource react */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useProfile, UserProfile } from '../context/ProfileContext';
+import { useProfile } from '../context/ProfileContext';
+import type { UserProfile } from '@/types/profile';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Button } from '@/ui/Button';
 import CustomInput from './ui/CustomInput';
@@ -237,24 +238,6 @@ const EditProfile: React.FC = () => {
     }
   }, [session, profile, setFormData]);
   
-  // Helper function to get social prefix for a platform
-  const getSocialPrefix = (platform: SocialPlatform): string => {
-    const prefixMap: Record<SocialPlatform, string> = {
-      'facebook': 'facebook.com/',
-      'instagram': 'instagram.com/',
-      'x': 'x.com/',
-      'snapchat': 'snapchat.com/add/',
-      'linkedin': 'linkedin.com/in/',
-      'whatsapp': '+',
-      'telegram': 't.me/',
-      'wechat': '',
-      'email': '',
-      'phone': ''
-    };
-    
-    return prefixMap[platform] || '';
-  };
-
   useEffect(() => {
     if (session?.user && !profile) {
       setFormData((prev) => ({
@@ -291,6 +274,24 @@ const EditProfile: React.FC = () => {
     reader.readAsDataURL(file);
   };
   
+  // Helper function to get social prefix for a platform
+  const getSocialPrefix = (platform: SocialPlatform): string => {
+    const prefixMap: Record<SocialPlatform, string> = {
+      'facebook': 'facebook.com/',
+      'instagram': 'instagram.com/',
+      'x': 'x.com/',
+      'snapchat': 'snapchat.com/add/',
+      'linkedin': 'linkedin.com/in/',
+      'whatsapp': '+',
+      'telegram': 't.me/',
+      'wechat': '',
+      'email': '',
+      'phone': ''
+    };
+    
+    return prefixMap[platform] || '';
+  };
+
   // Handle social profile input change
   const handleSocialChange = (platform: SocialPlatform, value: string) => {
     setFormData((prev: FormDataState) => {
@@ -376,9 +377,12 @@ const EditProfile: React.FC = () => {
           
         } catch (error) {
           console.error('Error formatting phone:', error);
-          // Fallback to raw digits
-          phoneNumber = digits.startsWith('+') ? digits : `+${digits}`;
-          nationalNumber = digits;
+          // Use a more user-friendly error handling approach
+          if (error instanceof Error) {
+            alert(`Error formatting phone: ${error.message}`);
+          } else {
+            alert('An unknown error occurred while formatting the phone number');
+          }
         }
       }
       
@@ -428,16 +432,16 @@ const EditProfile: React.FC = () => {
         baseContactChannels.phoneInfo = {
           internationalPhone: '',
           nationalPhone: '',
-          phoneNumber: '',
-          phone: '',
-          userConfirmed: false
+          userConfirmed: false,
+          ...(profile?.phoneInfo || {})
         };
       }
       
       if (!baseContactChannels.email) {
         baseContactChannels.email = {
           email: '',
-          userConfirmed: false
+          userConfirmed: false,
+          ...(profile?.email || {})
         };
       }
       
@@ -449,25 +453,31 @@ const EditProfile: React.FC = () => {
         }
       });
 
-      // Update with form data
-      if (formData.email) {
-        baseContactChannels.email = {
-          ...baseContactChannels.email,
-          email: formData.email,
-          userConfirmed: true
-        };
-      }
-
       if (digits) {
         baseContactChannels.phoneInfo = {
-          ...baseContactChannels.phoneInfo,
           internationalPhone: phoneNumber,
           nationalPhone: nationalNumber,
           userConfirmed: true
         };
+      } else {
+        // Preserve existing phone info structure
+        baseContactChannels.phoneInfo = {
+          internationalPhone: '',
+          nationalPhone: '',
+          userConfirmed: false,
+          ...(profile?.contactChannels?.phoneInfo || {})
+        };
       }
 
-      // Create the updated profile
+      if (formData.email) {
+        baseContactChannels.email = {
+          email: formData.email,
+          userConfirmed: false,
+          ...(profile?.contactChannels?.email || {})
+        };
+      }
+
+      // Create the updated profile with required UserProfile structure
       const updatedProfile: Partial<UserProfile> = {
         ...profile, // Preserve existing profile data
         name: formData.name,
@@ -475,8 +485,62 @@ const EditProfile: React.FC = () => {
         // Only update backgroundImage if there's a new one, otherwise preserve existing
         backgroundImage: formData.backgroundImage || profile?.backgroundImage || '',
         lastUpdated: Date.now(),
-        contactChannels: baseContactChannels
-      } as UserProfile;
+        contactChannels: {
+          ...profile?.contactChannels,
+          ...baseContactChannels,
+          // Ensure required fields are present
+          phoneInfo: {
+            internationalPhone: baseContactChannels.phoneInfo?.internationalPhone || '',
+            nationalPhone: baseContactChannels.phoneInfo?.nationalPhone || '',
+            userConfirmed: baseContactChannels.phoneInfo?.userConfirmed || false
+          },
+          email: {
+            email: baseContactChannels.email?.email || '',
+            userConfirmed: baseContactChannels.email?.userConfirmed || false
+          },
+          // Initialize all social profiles with required fields
+          facebook: {
+            username: baseContactChannels.facebook?.username || '',
+            url: baseContactChannels.facebook?.url || '',
+            userConfirmed: baseContactChannels.facebook?.userConfirmed || false
+          },
+          instagram: {
+            username: baseContactChannels.instagram?.username || '',
+            url: baseContactChannels.instagram?.url || '',
+            userConfirmed: baseContactChannels.instagram?.userConfirmed || false
+          },
+          x: {
+            username: baseContactChannels.x?.username || '',
+            url: baseContactChannels.x?.url || '',
+            userConfirmed: baseContactChannels.x?.userConfirmed || false
+          },
+          linkedin: {
+            username: baseContactChannels.linkedin?.username || '',
+            url: baseContactChannels.linkedin?.url || '',
+            userConfirmed: baseContactChannels.linkedin?.userConfirmed || false
+          },
+          snapchat: {
+            username: baseContactChannels.snapchat?.username || '',
+            url: baseContactChannels.snapchat?.url || '',
+            userConfirmed: baseContactChannels.snapchat?.userConfirmed || false
+          },
+          whatsapp: {
+            username: baseContactChannels.whatsapp?.username || '',
+            url: baseContactChannels.whatsapp?.url || '',
+            userConfirmed: baseContactChannels.whatsapp?.userConfirmed || false
+          },
+          telegram: {
+            username: baseContactChannels.telegram?.username || '',
+            url: baseContactChannels.telegram?.url || '',
+            userConfirmed: baseContactChannels.telegram?.userConfirmed || false
+          },
+          wechat: {
+            username: baseContactChannels.wechat?.username || '',
+            url: baseContactChannels.wechat?.url || '',
+            userConfirmed: baseContactChannels.wechat?.userConfirmed || false
+          }
+        }
+      };
       
       // Update social profiles from form data
       const updatedContactChannels = { ...updatedProfile.contactChannels } as ContactChannels;

@@ -20,7 +20,8 @@ const getEnv = (key: string): string => {
 
 // Set NEXTAUTH_URL if not set
 if (!process.env.NEXTAUTH_URL) {
-  process.env.NEXTAUTH_URL = "http://localhost:3000";
+  // Let Next.js handle the URL dynamically based on current port
+  // process.env.NEXTAUTH_URL = "http://localhost:3000";
 }
 
 // Get required environment variables with fallbacks
@@ -28,16 +29,30 @@ const NEXTAUTH_SECRET = getEnv('NEXTAUTH_SECRET');
 const GOOGLE_CLIENT_ID = getEnv('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = getEnv('GOOGLE_CLIENT_SECRET');
 
-// Extend the default session type
+// Extend the default session and user types
 declare module "next-auth" {
   interface Session extends DefaultSession {
     accessToken?: string;
+    profile?: {
+      contactChannels: {
+        phoneInfo: {
+          internationalPhone: string;
+          nationalPhone: string;
+          userConfirmed: boolean;
+        };
+      };
+    };
     user: {
       id: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      phone?: string | null;
     };
+  }
+
+  interface User {
+    phone?: string | null;
   }
 }
 
@@ -46,158 +61,230 @@ declare module "next-auth/jwt" {
     accessToken?: string;
     refreshToken?: string;
     user?: User;
+    profile?: {
+      contactChannels: {
+        phoneInfo: {
+          internationalPhone: string;
+          nationalPhone: string;
+          userConfirmed: boolean;
+        };
+      };
+    };
   }
 }
 
-import { AuthOptions } from 'next-auth';
+import { getServerSession, type NextAuthOptions } from "next-auth";
 
-// Only include Google provider if credentials are available
+// Check if we have the required environment variables
+const hasGoogleCredentials = 
+  process.env.GOOGLE_CLIENT_ID && 
+  process.env.GOOGLE_CLIENT_SECRET;
+
+if (!hasGoogleCredentials) {
+  console.warn('Google OAuth credentials are missing. Google Sign-In will be disabled.');
+}
+
+// Configure authentication providers
 const providers = [];
-if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+
+// Only add Google provider if credentials are available
+if (hasGoogleCredentials) {
   providers.push(
     GoogleProvider({
-      clientId: GOOGLE_CLIENT_ID,
-      clientSecret: GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
           prompt: "consent",
           access_type: "offline",
-          response_type: "code",
-          scope: 'openid email profile',
-        },
-      },
-      httpOptions: {
-        timeout: 10000, // 10 second timeout
-      },
+          response_type: "code"
+        }
+      }
     })
   );
 }
 
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   // Configure authentication providers
   providers,
   
   // Session configuration
-  secret: NEXTAUTH_SECRET || 'your-secret-key-here-change-in-production',
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
-  },
-  
-  // Cookie settings
-  useSecureCookies: process.env.NODE_ENV === "production",
-  cookies: {
-    sessionToken: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === 'production' ? '.nekt.us' : undefined,
-      },
-    },
-  },
-  
-  // Pages configuration
-  pages: {
-    signIn: "/setup",
-    error: "/setup"
   },
   
   // Callbacks
   callbacks: {
-    async signIn(params) {
-      // Process sign in callback
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Sign in:', params.user?.email);
-      }
-      return true;
-    },
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, account, user, trigger, session }): Promise<any> {
+      console.log('JWT callback triggered:', { 
+        trigger, 
+        hasSessionProfile: !!session?.profile,
+        hasAccount: !!account,
+        hasUser: !!user
+      });
+      
       // Initial sign in
-      if (account && user) {
-        // Process JWT callback
+      if (account?.id_token) {
+        token.idToken = account.id_token;
+        console.log('JWT: Added idToken to token');
         
-        // Use the profile picture from Google if available
-        const googleImage = (profile as GoogleProfile)?.picture || (profile as GoogleProfile)?.image;
-        const userImage = googleImage || user.image;
+        // --- Persist Google access_token for revocation ---
+        if (account?.provider === 'google' && account?.access_token) {
+          token.accessToken = account.access_token;
+          console.log('JWT: Persisted Google access_token for revoke');
+        }
         
-        return {
-          ...token,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            image: userImage
+        // Ensure we have the user ID in the token
+        if (user?.id) {
+          token.sub = user.id;
+          console.log('JWT: Set sub from user.id:', user.id);
+        } else if (token.sub) {
+          console.log('JWT: Using existing sub from token:', token.sub);
+        } else {
+          console.warn('JWT: No user ID available in token');
+        }
+      }
+      
+      // Define empty profile structure
+      const emptyProfile = {
+        contactChannels: {
+          phoneInfo: {
+            internationalPhone: '',
+            nationalPhone: '',
+            userConfirmed: false
           }
+        }
+      };
+
+      // Initialize token profile if it doesn't exist
+      if (!token.profile) {
+        token.profile = { ...emptyProfile };
+      }
+      
+      // Ensure contactChannels exists
+      if (!token.profile.contactChannels) {
+        token.profile.contactChannels = { ...emptyProfile.contactChannels };
+      }
+
+      // Ensure phoneInfo exists
+      if (!token.profile.contactChannels.phoneInfo) {
+        token.profile.contactChannels.phoneInfo = { ...emptyProfile.contactChannels.phoneInfo };
+      }
+
+      // Update with user's phone if available
+      if (user?.phone) {
+        token.profile.contactChannels.phoneInfo = {
+          internationalPhone: user.phone,
+          nationalPhone: user.phone,
+          userConfirmed: true
         };
       }
+
+      // Update with session data if available
+      if (trigger === 'update' && session?.profile) {
+        console.log('JWT: Updating with new profile data:', session.profile);
+        
+        // Use session data directly instead of merging with potentially stale token data
+        token.profile = {
+          ...emptyProfile,
+          ...session.profile,
+          contactChannels: {
+            ...emptyProfile.contactChannels,
+            ...(session.profile.contactChannels || {}),
+            phoneInfo: {
+              ...emptyProfile.contactChannels.phoneInfo,
+              ...(session.profile.contactChannels?.phoneInfo || {})
+            }
+          }
+        };
+      } else if (trigger === 'update' && !session?.profile) {
+        // If session update but no profile data, reset to empty profile
+        console.log('JWT: Session update with no profile data, resetting to empty profile');
+        token.profile = { ...emptyProfile };
+      }
+      
+      // Log final token state for debugging
+      const logToken = { ...token };
+      if (logToken.profile) {
+        console.log('JWT: Final token profile:', JSON.stringify({
+          internationalPhone: logToken.profile.contactChannels?.phoneInfo?.internationalPhone,
+          nationalPhone: logToken.profile.contactChannels?.phoneInfo?.nationalPhone,
+          userConfirmed: logToken.profile.contactChannels?.phoneInfo?.userConfirmed
+        }, null, 2));
+      }
+      
       return token;
     },
     
     async session({ session, token }) {
-      if (token.user) {
-        session.user = {
-          ...session.user,
-          id: token.user.id,
-          name: token.user.name,
-          email: token.user.email,
-          image: token.user.image // Ensure the image is passed through
-        };
-        session.accessToken = token.accessToken;
+      // Ensure user ID is included in the session
+      if (token.sub) {
+        session.user = session.user || {};
+        session.user.id = token.sub;
       }
+      // --- Persist Google accessToken in session for revoke ---
+      if (token.accessToken) {
+        session.accessToken = token.accessToken;
+        console.log('Session: Persisted Google accessToken:', token.accessToken);
+      }
+      // -------------------------------------------------------
+      // Add the Firebase token and profile to the session
+      if (token.idToken) {
+        session.idToken = token.idToken as string;
+        
+        // Add profile to session from token
+        if (token.profile) {
+          session.profile = {
+            contactChannels: {
+              phoneInfo: {
+                internationalPhone: token.profile.contactChannels?.phoneInfo?.internationalPhone || '',
+                nationalPhone: token.profile.contactChannels?.phoneInfo?.nationalPhone || '',
+                userConfirmed: token.profile.contactChannels?.phoneInfo?.userConfirmed || false
+              }
+            }
+          };
+        }
+        
+        // TODO: Move Firebase Auth logic to client-side hook/context
+        // Firebase Auth integration should happen client-side only
+      }
+      
       return session;
     },
     
     async redirect({ url, baseUrl }) {
-      // If the token has profileExists flag, redirect to homepage
-      try {
-        // This is a bit of a hack, but we can extract the token from the URL
-        const token = JSON.parse(decodeURIComponent(url.split('token=')[1]?.split('&')[0] || '{}'));
-        if (token.profileWithPhoneExists) {
-          return `${baseUrl}/`; // Redirect to homepage
-        }
-      } catch {
-        // Error parsing token in redirect callback - intentionally ignored
-      }
-      
-      // Default to setup page if no profile exists or we couldn't determine
-      return `${baseUrl}/setup`;
+      // Always redirect to the base URL to avoid redirect loops
+      return baseUrl;
     },
   },
   
   // Events
   events: {
-    async signIn() {
-      // Handle sign in event
-      // No need to check profile here as events don't affect redirection
+    async signIn(message) {
+      console.log('Sign in event:', message);
     },
     async signOut() {
-      // Handle sign out event
+      console.log('User signed out');
     },
+    // @ts-expect-error - Error event is not in the type definition but is supported
+    async error(error: unknown) {
+      console.error('Auth error:', error);
+    }
   },
   
-  // Debug mode
-  debug: process.env.NODE_ENV === "development",
-  
-  // Add logger for debugging
+  // Logger for debugging
   logger: {
-    async error(code: string, metadata: unknown) {
+    error(code: string, metadata: unknown) {
       console.error('Auth error:', code, metadata);
     },
-    async warn(code: string) {
+    warn(code: string) {
       console.warn('Auth warning:', code);
     },
-    async debug(code: string, metadata: unknown) {
+    debug(code: string, metadata: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.debug('Auth debug:', code, metadata);
       }
     }
-  },
-  
-  // Error handling is already defined above in the events object
+  }
 };
