@@ -433,7 +433,7 @@ const EditProfile: React.FC = () => {
           internationalPhone: '',
           nationalPhone: '',
           userConfirmed: false,
-          ...(profile?.phoneInfo || {})
+          ...(profile?.contactChannels?.phoneInfo || {})
         };
       }
       
@@ -441,7 +441,7 @@ const EditProfile: React.FC = () => {
         baseContactChannels.email = {
           email: '',
           userConfirmed: false,
-          ...(profile?.email || {})
+          ...(profile?.contactChannels?.email || {})
         };
       }
       
