@@ -121,7 +121,7 @@ const ProfileView: React.FC = () => {
         </Link>
       </div>
       
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center min-h-screen">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center">
         {/* Profile Image */}
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">

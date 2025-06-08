@@ -137,14 +137,6 @@ body {
   [contenteditable] {
     font-size: 1rem;
   }
-
-  /* Safe area insets */
-  @supports (padding: max(0px)) {
-    body {
-      padding: env(safe-area-inset-top) env(safe-area-inset-right)
-        env(safe-area-inset-bottom) env(safe-area-inset-left);
-    }
-  }
 }
 
 /* Form elements reset */
