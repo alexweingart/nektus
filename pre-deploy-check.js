@@ -2,7 +2,7 @@
 
 /**
  * Pre-deployment check script for Nekt.Us
- * Validates required files, dependencies, environment variables, and performs a build check
+ * Validates required files, dependencies, environment variables
  */
 
 const fs = require('fs');
@@ -48,24 +48,6 @@ try {
     }
     console.log(`   ✓ Found dependency: ${dep}`);
   });
-
-  // 4. Perform a build check
-  console.log('\n🚀 Running build check...');
-  try {
-    console.log('   Running "next build"...');
-    execSync('next build --no-lint', { stdio: 'inherit' });
-    console.log('   ✓ Build check passed!');
-  } catch (buildError) {
-    console.error('\n❌ Build check failed:');
-    console.error('   Please fix the build errors before committing.');
-    console.error('   Run "npm run build" locally to debug the build issues.');
-    process.exit(1);
-  }
-} catch (error) {
-  console.error('\n❌ Pre-deployment checks failed:');
-  console.error(error.message);
-  process.exit(1);
-}
 
 // 3. Validate environment variables
 console.log('\n✓ Validating environment variables...');
@@ -134,5 +116,11 @@ const maskedVars = allVars
 console.log('   ✓ All required environment variables are set and valid');
 console.log('   ℹ️  Configured variables:', maskedVars.join(', '));
 
-console.log('\n🚀 All pre-deployment checks passed!');
-console.log('   You can now proceed with the build process.');
+console.log('\n✅ All pre-deployment checks passed!');
+console.log('🔍 Dependencies and environment variables validated successfully.');
+  
+} catch (error) {
+  console.error('\n❌ Pre-deployment checks failed:');
+  console.error(error.message);
+  process.exit(1);
+}
