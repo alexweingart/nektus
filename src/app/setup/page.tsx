@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import ProfileSetup from '../components/ProfileSetup';
+import { isNewUser, logNewUserDetection } from '@/lib/services/newUserService';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -17,28 +18,13 @@ function SetupPageContent() {
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   
-  // Check for new user immediately to prevent loading spinner flash
-  const isNewUser = session?.isNewUser;
-  const shouldShowSetupImmediately = !!(isNewUser && sessionStatus === 'authenticated' && session);
+  // Use the service to check for new user
+  const userIsNew = isNewUser(session);
+  const shouldShowSetupImmediately = !!(userIsNew && sessionStatus === 'authenticated' && session);
   
   const [checkingProfile, setCheckingProfile] = useState<boolean>(!shouldShowSetupImmediately);
   const [shouldShowSetup, setShouldShowSetup] = useState<boolean>(shouldShowSetupImmediately);
-  
-  // Trigger background profile creation for new users after form loads
-  useEffect(() => {
-    if (shouldShowSetupImmediately && sessionStatus === 'authenticated' && session) {
-      console.log('[SetupPage] Triggering background profile creation for new user');
-      
-      // Trigger ProfileContext to create profile and generate content in background
-      // This will happen after the form is already visible
-      setTimeout(() => {
-        console.log('[SetupPage] Starting background profile operations');
-        // The ProfileContext setup effect should now run since we're not skipping it
-        window.dispatchEvent(new CustomEvent('triggerProfileCreation'));
-      }, 100); // Small delay to ensure form is rendered first
-    }
-  }, [shouldShowSetupImmediately, sessionStatus, session]);
-  
+
   // Proactive profile check to avoid setup page flash
   useEffect(() => {
     const checkProfileStatus = async () => {
@@ -55,16 +41,13 @@ function SetupPageContent() {
       }
       
       if (sessionStatus === 'authenticated' && session?.user) {
-        console.log('[SetupPage] Session data:', {
-          isNewUser: session.isNewUser,
-          sessionKeys: Object.keys(session),
-          userKeys: Object.keys(session.user || {})
-        });
+        // Log user detection using the service
+        logNewUserDetection(session, '/setup');
         
-        // NEW USER OPTIMIZATION: Check NextAuth flag first
-        if (session.isNewUser) {
-          console.log('[SetupPage] New user detected via NextAuth flag - showing setup immediately');
-          console.log('[SetupPage] ProfileContext will create default profile in background');
+        // NEW USER OPTIMIZATION: Check using service
+        if (userIsNew) {
+          console.log('[SetupPage] New user detected - showing setup immediately');
+          console.log('[SetupPage] ProfileContext will handle profile creation and AI generation');
           setShouldShowSetup(true);
           setCheckingProfile(false);
           return;
@@ -104,8 +87,8 @@ function SetupPageContent() {
     };
     
     checkProfileStatus();
-  }, [sessionStatus, isLoading, session, profile, getLatestProfile, router]);
-  
+  }, [sessionStatus, isLoading, session, profile, getLatestProfile, router, userIsNew]);
+
   // Show loading while checking profile status
   if (checkingProfile) {
     console.log('[SetupPage] Still checking profile status, showing loading spinner');
