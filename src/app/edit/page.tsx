@@ -1,14 +1,21 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { redirect } from 'next/navigation';
 import { useProfile } from '../context/ProfileContext';
 
+// Force dynamic rendering to prevent static generation issues with auth
+export const dynamic = 'force-dynamic';
+
 // Use dynamic import to ensure component is loaded correctly
-const EditProfile = dynamic(() => import('../components/EditProfile'), {
+const EditProfile = dynamicImport(() => import('../components/EditProfile'), {
   ssr: false,
-  loading: () => <div className="min-h-screen" /> // No background color - let parent handle it
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  ),
 });
 
 export default function EditPage() {

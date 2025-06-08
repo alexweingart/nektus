@@ -1,9 +1,21 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import ProfileSetup from '../components/ProfileSetup';
+import dynamicImport from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { useProfile } from '../context/ProfileContext';
+
+// Force dynamic rendering to prevent static generation issues with auth
+export const dynamic = 'force-dynamic';
+
+// Dynamic import with loading state
+const ProfileSetup = dynamicImport(() => import('../components/ProfileSetup'), {
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  ),
+});
 
 function SetupPageContent() {
   const searchParams = useSearchParams();

@@ -1,8 +1,11 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+
+// Force dynamic rendering to prevent static generation issues with auth
+export const dynamic = 'force-dynamic';
 
 export default function ConnectPage() {
   console.log('CLIENT CONNECT PAGE LOADING');

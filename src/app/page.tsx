@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -72,7 +72,11 @@ export default function Home() {
       className="min-h-screen"
       style={backgroundStyle}
     >
-      {session ? <ProfileView /> : <HomePage />}
+      <Suspense fallback={<div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>}>
+        {session ? <ProfileView /> : <HomePage />}
+      </Suspense>
     </div>
   );
 }
