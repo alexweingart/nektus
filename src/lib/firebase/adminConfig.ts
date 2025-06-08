@@ -1,12 +1,35 @@
 // Firebase Admin SDK setup - isolated to avoid jose.js conflicts
-import type { ServiceAccount } from 'firebase-admin';
+import admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
-let adminApp: any = null;
-let adminDb: any = null;
+interface FirebaseAdminConfig {
+  type: string;
+  projectId: string;
+  privateKeyId: string;
+  privateKey: string;
+  clientEmail: string;
+  clientId: string;
+  authUri: string;
+  tokenUri: string;
+  authProviderX509CertUrl: string;
+  clientX509CertUrl: string;
+  universeDomain: string;
+}
 
-export async function getFirebaseAdmin() {
-  if (adminApp && adminDb) {
-    return { app: adminApp, db: adminDb };
+interface AdminServices {
+  auth: admin.auth.Auth;
+  db: admin.firestore.Firestore;
+  storage: admin.storage.Storage;
+  adminApp: admin.app.App;
+}
+
+let adminServices: AdminServices | null = null;
+
+export async function getFirebaseAdmin(): Promise<AdminServices> {
+  if (adminServices) {
+    return adminServices;
   }
 
   try {
@@ -39,85 +62,77 @@ export async function getFirebaseAdmin() {
       throw new Error('Missing FIREBASE_CLIENT_EMAIL environment variable');
     }
 
-    // Dynamic import to avoid conflicts during build
-    const admin = await import('firebase-admin');
-    
-    if (!admin.default.apps.length) {
-      const serviceAccount: ServiceAccount = {
-        projectId: projectId,
-        privateKey: privateKey.replace(/\\n/g, '\n'),
-        clientEmail: clientEmail,
-      };
+    const serviceAccount: FirebaseAdminConfig = {
+      type: 'service_account',
+      projectId: projectId,
+      privateKeyId: '',
+      privateKey: privateKey.replace(/\\n/g, '\n'),
+      clientEmail: clientEmail,
+      clientId: '',
+      authUri: '',
+      tokenUri: '',
+      authProviderX509CertUrl: '',
+      clientX509CertUrl: '',
+      universeDomain: '',
+    };
 
-      console.log('[Firebase Admin] Initializing Firebase Admin with project:', serviceAccount.projectId);
+    console.log('[Firebase Admin] Initializing with project ID:', serviceAccount.projectId);
 
-      const adminConfig: any = {
-        credential: admin.default.credential.cert(serviceAccount),
-        projectId: projectId,
-      };
+    const adminApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
 
-      // Only add storageBucket if it's defined in environment variables
-      if (storageBucket) {
-        adminConfig.storageBucket = storageBucket;
-        console.log('[Firebase Admin] Storage bucket configured:', storageBucket);
-      } else {
-        console.warn('[Firebase Admin] No storage bucket configured - storage operations may fail');
-        console.warn('[Firebase Admin] Please set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET in your environment');
-      }
+    console.log('[Firebase Admin] Firebase Admin initialized successfully');
+    console.log('[Firebase Admin] Admin app options:', adminApp.options);
 
-      adminApp = admin.default.initializeApp(adminConfig);
-      
-      console.log('[Firebase Admin] Firebase Admin initialized successfully');
-      console.log('[Firebase Admin] Admin app options:', adminApp.options);
-    } else {
-      adminApp = admin.default.apps[0];
-      console.log('[Firebase Admin] Using existing Firebase Admin app');
-    }
+    const auth = getAuth(adminApp);
+    const db = getFirestore(adminApp);
+    const storage = getStorage(adminApp);
 
-    adminDb = admin.default.firestore();
-    console.log('[Firebase Admin] Firestore instance created');
-    
-    return { app: adminApp, db: adminDb };
+    adminServices = {
+      auth,
+      db,
+      storage,
+      adminApp,
+    };
+
+    return adminServices;
   } catch (error) {
     console.error('[Firebase Admin] Failed to initialize Firebase Admin:', error);
     throw error;
   }
 }
 
-// Export adminApp for use in other modules
-export { adminApp };
-
 export async function deleteUserProfile(userId: string): Promise<void> {
   try {
-    const { app, db } = await getFirebaseAdmin();
+    const { auth, db, storage, adminApp } = await getFirebaseAdmin();
     const profileRef = db.collection('profiles').doc(userId);
-    
+
     // First check if the document exists
     const doc = await profileRef.get();
     if (!doc.exists) {
       console.log(`[deleteUserProfile] Profile ${userId} does not exist, nothing to delete`);
       return;
     }
-    
+
     // Log the profile data before deletion for debugging
     const profileData = doc.data();
     console.log(`[deleteUserProfile] Found profile for user ${userId}, deleting...`);
     console.log(`[deleteUserProfile] Profile data contains phone: ${!!profileData?.contactChannels?.phoneInfo?.internationalPhone}`);
-    
+
     // Delete Firebase Storage files for this user
     try {
-      const { getStorage } = await import('firebase-admin/storage');
-      const bucket = getStorage(app).bucket();
       const userStoragePrefix = `users/${userId}/`;
-      
+
       console.log(`[deleteUserProfile] Deleting storage files with prefix: ${userStoragePrefix}`);
-      
+
       // List all files in the user's storage folder
-      const [files] = await bucket.getFiles({ prefix: userStoragePrefix });
-      
+      const [files] = await storage.bucket().getFiles({ prefix: userStoragePrefix });
+
       if (files.length > 0) {
         console.log(`[deleteUserProfile] Found ${files.length} storage files to delete`);
-        
+
         // Delete all files in parallel
         const deletePromises = files.map(async (file) => {
           try {
@@ -127,7 +142,7 @@ export async function deleteUserProfile(userId: string): Promise<void> {
             console.warn(`[deleteUserProfile] Failed to delete storage file ${file.name}:`, error);
           }
         });
-        
+
         await Promise.allSettled(deletePromises);
         console.log(`[deleteUserProfile] Completed storage cleanup for user ${userId}`);
       } else {
@@ -137,11 +152,11 @@ export async function deleteUserProfile(userId: string): Promise<void> {
       console.error(`[deleteUserProfile] Error cleaning up storage for user ${userId}:`, storageError);
       // Don't fail the entire deletion if storage cleanup fails
     }
-    
+
     // Delete the profile document from Firestore
     await profileRef.delete();
     console.log(`[deleteUserProfile] Successfully deleted profile for user: ${userId}`);
-    
+
     // Verify deletion by checking if document still exists
     const verifyDoc = await profileRef.get();
     if (verifyDoc.exists) {
@@ -149,7 +164,6 @@ export async function deleteUserProfile(userId: string): Promise<void> {
     } else {
       console.log(`[deleteUserProfile] Deletion verified - profile ${userId} no longer exists`);
     }
-    
   } catch (error) {
     console.error(`[deleteUserProfile] Error deleting profile for user ${userId}:`, error);
     throw error; // Re-throw to be handled by the API route

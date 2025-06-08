@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     
     // Get user's profile image from Firebase
     console.log('[Background Image API] Fetching user profile image...');
-    const { app } = await getFirebaseAdmin();
-    const db = getFirestore(app);
+    const { adminApp, storage } = await getFirebaseAdmin();
+    const db = getFirestore(adminApp);
     
     let profileImageUrl = null;
     try {
@@ -151,16 +151,11 @@ export async function POST(request: NextRequest) {
             if (finalImageUrl) {
               console.log('[Background Image API] Image generated, uploading to storage...');
               
-              // Get Firebase Admin Storage using the admin SDK
-              const { app } = await getFirebaseAdmin();
-              
               // Upload to Firebase Storage using Admin SDK
-              const { getStorage } = await import('firebase-admin/storage');
-              
               const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
               console.log('[Background Image API] Storage bucket from env:', storageBucket);
               
-              const bucket = storageBucket ? getStorage(app).bucket(storageBucket) : getStorage(app).bucket();
+              const bucket = storageBucket ? storage.bucket(storageBucket) : storage.bucket();
               console.log('[Background Image API] Using bucket name:', bucket.name);
               
               const fileName = `users/${userId}/background-image.png`;

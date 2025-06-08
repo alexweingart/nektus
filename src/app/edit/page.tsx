@@ -2,7 +2,6 @@
 
 import React, { Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { useProfile } from '../context/ProfileContext';
 
@@ -13,7 +12,6 @@ const EditProfile = dynamic(() => import('../components/EditProfile'), {
 });
 
 export default function EditPage() {
-  const { data: session, status } = useSession();
   const { profile, getLatestProfile } = useProfile();
   
   // Get the latest profile including streaming background image
@@ -29,20 +27,6 @@ export default function EditPage() {
   } : {
     backgroundColor: '#004D40' // Theme background for welcome screen
   };
-  
-  // Show loading state while session is loading
-  if (status === 'loading') {
-    return (
-      <div className="flex h-screen items-center justify-center" style={backgroundStyle}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
-    );
-  }
-  
-  // Redirect to login if not authenticated
-  if (status === 'unauthenticated') {
-    redirect('/');
-  }
   
   // Wrap in error boundary for better debugging
   return (

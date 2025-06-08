@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { ProfileService } from '@/lib/firebase/profileService';
 import { UserProfile, SocialProfile } from '@/types/profile';
 import { generateSocialProfilesFromEmail, processSocialProfile } from '@/lib/utils/socialMedia';
@@ -105,83 +105,86 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Single effect to handle profile loading
   useEffect(() => {
-    if (authStatus !== 'authenticated' || !session?.user?.id) {
-      if (authStatus === 'unauthenticated') {
-        setProfile(null);
-      }
-      setIsLoading(false);
-      return;
-    }
-
-    const userId = session.user.id;
-    
-    // Skip if we already loaded for this user
-    if (lastUserIdRef.current === userId && profile?.userId === userId) {
-      setIsLoading(false);
-      return;
-    }
-
-    console.log('[ProfileContext] Loading profile for user:', userId);
-    setIsLoading(true);
-    
-    // Only reset bio generation flag when switching to a different user
-    if (lastUserIdRef.current !== userId) {
-      console.log('[ProfileContext] New user detected, resetting bioGeneratedRef');
-      bioGeneratedRef.current = false;
-      backgroundImageGeneratedRef.current = false;
-      generatingBackgroundImageRef.current = false; // Reset generating flag for new user
-      sessionUpdatedRef.current = false; // Reset session update flag for new user
-    }
-    lastUserIdRef.current = userId;
-    
-    loadProfile(userId).then(async (loadedProfile) => {
-      if (loadedProfile) {
-        console.log('[ProfileContext] Profile loaded from Firebase:', {
-          userId: loadedProfile.userId,
-          hasPhone: !!loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
-          phoneNumber: loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
-          whatsappUsername: loadedProfile.contactChannels?.whatsapp?.username,
-          telegramUsername: loadedProfile.contactChannels?.telegram?.username,
-          wechatUsername: loadedProfile.contactChannels?.wechat?.username,
-          hasBio: !!loadedProfile.bio,
-          bioLength: loadedProfile.bio?.length || 0,
-          bioPreview: loadedProfile.bio ? loadedProfile.bio.substring(0, 50) + '...' : 'No bio',
-          hasBackgroundImage: !!loadedProfile.backgroundImage
-        });
-        setProfile(loadedProfile);
-        profileRef.current = loadedProfile;
-        
-        // If profile already has a bio, mark as generated to prevent regeneration
-        if (loadedProfile.bio && loadedProfile.bio.trim() !== '') {
-          console.log('[ProfileContext] Profile already has bio, marking as generated');
-          bioGeneratedRef.current = true;
+    const loadProfileForUser = async () => {
+      if (authStatus !== 'authenticated' || !session?.user?.id) {
+        if (authStatus === 'unauthenticated') {
+          setProfile(null);
         }
-        
-        console.log('[ProfileContext] Profile loaded and state updated - no session update needed');
-      } else {
-        // Create default profile
-        console.log('[ProfileContext] Creating new default profile for session:', {
-          userId: session?.user?.id,
-          email: session?.user?.email,
-          name: session?.user?.name
-        });
-        const newProfile = createDefaultProfile(session);
-        console.log('[ProfileContext] New default profile created:', {
-          hasPhone: !!newProfile.contactChannels?.phoneInfo?.internationalPhone,
-          phoneNumber: newProfile.contactChannels?.phoneInfo?.internationalPhone,
-          whatsappUsername: newProfile.contactChannels?.whatsapp?.username,
-          telegramUsername: newProfile.contactChannels?.telegram?.username,
-          wechatUsername: newProfile.contactChannels?.wechat?.username
-        });
-        setProfile(newProfile);
-        profileRef.current = newProfile;
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
-    }).catch((error) => {
-      console.error('[ProfileContext] Error loading profile:', error);
-      setIsLoading(false);
-    });
-  }, [authStatus, session?.user?.id, loadProfile]);
+
+      const userId = session.user.id;
+      
+      // Skip if we already loaded for this user
+      if (lastUserIdRef.current === userId && profile?.userId === userId) {
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('[ProfileContext] Loading profile for user:', userId);
+      setIsLoading(true);
+      
+      // Only reset bio generation flag when switching to a different user
+      if (lastUserIdRef.current !== userId) {
+        console.log('[ProfileContext] New user detected, resetting bioGeneratedRef');
+        bioGeneratedRef.current = false;
+        backgroundImageGeneratedRef.current = false;
+        generatingBackgroundImageRef.current = false; // Reset generating flag for new user
+        sessionUpdatedRef.current = false; // Reset session update flag for new user
+      }
+      lastUserIdRef.current = userId;
+      
+      loadProfile(userId).then(async (loadedProfile) => {
+        if (loadedProfile) {
+          console.log('[ProfileContext] Profile loaded from Firebase:', {
+            userId: loadedProfile.userId,
+            hasPhone: !!loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
+            phoneNumber: loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
+            whatsappUsername: loadedProfile.contactChannels?.whatsapp?.username,
+            telegramUsername: loadedProfile.contactChannels?.telegram?.username,
+            wechatUsername: loadedProfile.contactChannels?.wechat?.username,
+            hasBio: !!loadedProfile.bio,
+            bioLength: loadedProfile.bio?.length || 0,
+            bioPreview: loadedProfile.bio ? loadedProfile.bio.substring(0, 50) + '...' : 'No bio',
+            hasBackgroundImage: !!loadedProfile.backgroundImage
+          });
+          setProfile(loadedProfile);
+          profileRef.current = loadedProfile;
+          
+          // If profile already has a bio, mark as generated to prevent regeneration
+          if (loadedProfile.bio && loadedProfile.bio.trim() !== '') {
+            console.log('[ProfileContext] Profile already has bio, marking as generated');
+            bioGeneratedRef.current = true;
+          }
+          
+          console.log('[ProfileContext] Profile loaded and state updated - no session update needed');
+        } else {
+          // Create default profile
+          console.log('[ProfileContext] Creating new default profile for session:', {
+            userId: session?.user?.id,
+            email: session?.user?.email,
+            name: session?.user?.name
+          });
+          const newProfile = createDefaultProfile(session);
+          console.log('[ProfileContext] New default profile created:', {
+            hasPhone: !!newProfile.contactChannels?.phoneInfo?.internationalPhone,
+            phoneNumber: newProfile.contactChannels?.phoneInfo?.internationalPhone,
+            whatsappUsername: newProfile.contactChannels?.whatsapp?.username,
+            telegramUsername: newProfile.contactChannels?.telegram?.username,
+            wechatUsername: newProfile.contactChannels?.wechat?.username
+          });
+          setProfile(newProfile);
+          profileRef.current = newProfile;
+        }
+        setIsLoading(false);
+      }).catch((error) => {
+        console.error('[ProfileContext] Error loading profile:', error);
+        setIsLoading(false);
+      });
+    };
+    loadProfileForUser();
+  }, [session?.user?.id, session?.user?.email, loadProfile, authStatus]);
 
   useEffect(() => {
     profileRef.current = profile;
@@ -267,7 +270,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                                   merged.contactChannels.phoneInfo.internationalPhone &&
                                   !sessionUpdatedRef.current;
                                   
-        if (update && shouldUpdateSession) {
+        if (shouldUpdateSession && update) {
           const phoneData = {
             profile: {
               contactChannels: {
@@ -309,7 +312,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setIsSaving(false);
       }
     }
-  }, [session?.user?.id, profile, update]);
+  }, [session]);
 
   // Silent save function for background operations - bypasses all React state management
   const silentSaveToFirebase = useCallback(async (data: Partial<UserProfile>) => {
@@ -330,7 +333,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
       console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     }
-  }, [session?.user?.id]);
+  }, [session]);
 
   // Silent update for streaming background image - no React state changes
   const silentUpdateStreamingBackground = useCallback((imageUrl: string | null) => {
@@ -672,7 +675,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Handle setup page onboarding - auto-generate social media profiles
-  useEffect(() => {
+  const setupPageEffect = useCallback(async () => {
     console.log('[ProfileContext] === SETUP EFFECT RUNNING ===');
     console.log('[ProfileContext] pathname:', pathname);
     console.log('[ProfileContext] profile exists:', !!profileRef.current);
@@ -799,24 +802,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (!session?.user?.email) console.log('[ProfileContext] No user email');
       if (isSaving) console.log('[ProfileContext] Saving in progress');
     }
-  }, [pathname, session?.user?.email, saveProfile, generateBio, isSaving]);
-  
+  }, [pathname, session?.user?.email, saveProfile, generateBio, isSaving, checkAndGenerateBio, checkAndGenerateBackgroundImage]);
+
+  useEffect(() => {
+    if (pathname === '/setup') {
+      setupPageEffect();
+    }
+  }, [pathname, setupPageEffect]);
+
   // Get the latest profile (for external use)
   const getLatestProfile = useCallback((): UserProfile | null => {
     const currentProfile = profileRef.current || profile;
     if (!currentProfile) return null;
     
-    // If there's a streaming background image, use it
-    if (streamingBackgroundImage) {
-      return {
-        ...currentProfile,
-        backgroundImage: streamingBackgroundImage
-      };
-    }
-    
-    // Otherwise, use the profile with its saved background image (from ref which is most up-to-date)
-    return profileRef.current || currentProfile;
-  }, [streamingBackgroundImage]);
+    return {
+      ...currentProfile,
+      backgroundImage: streamingBackgroundImage || currentProfile.backgroundImage
+    };
+  }, [profile, streamingBackgroundImage]);
 
   return (
     <ProfileContext.Provider

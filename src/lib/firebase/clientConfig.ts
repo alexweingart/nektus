@@ -1,12 +1,20 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
+  connectFirestoreEmulator,
+  enableNetwork, 
+  disableNetwork,
   Firestore, 
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
   CACHE_SIZE_UNLIMITED,
-  FirestoreSettings
+  FirestoreSettings,
+  doc, 
+  setDoc, 
+  getDoc, 
+  onSnapshot,
+  updateDoc 
 } from 'firebase/firestore';
 import { getAuth, Auth, signInWithCustomToken } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
@@ -129,12 +137,3 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
 
 // Export initialized instances
 export { app, db, auth, storage };
-
-// Re-export commonly used Firestore functions
-export { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  onSnapshot,
-  updateDoc 
-} from 'firebase/firestore';
