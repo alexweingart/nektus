@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { ProfileService } from '@/lib/firebase/profileService';
-import { UserProfile } from '@/types/profile';
+import { UserProfile, SocialProfile } from '@/types/profile';
 import { generateSocialProfilesFromEmail, processSocialProfile } from '@/lib/utils/socialMedia';
 
 // Types
@@ -12,6 +12,8 @@ type ProfileContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
   isSaving: boolean;
+  isDeletingAccount: boolean;
+  streamingBackgroundImage: string | null;
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
   clearProfile: () => Promise<void>;
   generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
@@ -56,16 +58,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
   const loadingRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
   const pathname = usePathname();
   const bioGeneratedRef = useRef(false);
   const backgroundImageGeneratedRef = useRef(false);
+  const generatingBackgroundImageRef = useRef(false); // Add this to prevent concurrent background image generations
+  const sessionUpdatedRef = useRef(false); // Add this to prevent circular updates
+  const savingRef = useRef(false); // Add mutex for save operations
   
   // Ref to store the latest profile data without triggering re-renders
   const profileRef = useRef<UserProfile | null>(null);
 
-  console.log('[ProfileContext] Status:', authStatus, 'User ID:', session?.user?.id);
+  // Log auth status changes only when they actually change
+  useEffect(() => {
+    console.log('[ProfileContext] Status:', authStatus, 'User ID:', session?.user?.id);
+  }, [authStatus, session?.user?.id]);
 
   // Load profile from Firebase
   const loadProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
@@ -118,6 +128,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (lastUserIdRef.current !== userId) {
       console.log('[ProfileContext] New user detected, resetting bioGeneratedRef');
       bioGeneratedRef.current = false;
+      backgroundImageGeneratedRef.current = false;
+      generatingBackgroundImageRef.current = false; // Reset generating flag for new user
+      sessionUpdatedRef.current = false; // Reset session update flag for new user
     }
     lastUserIdRef.current = userId;
     
@@ -130,7 +143,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           whatsappUsername: loadedProfile.contactChannels?.whatsapp?.username,
           telegramUsername: loadedProfile.contactChannels?.telegram?.username,
           wechatUsername: loadedProfile.contactChannels?.wechat?.username,
-          hasBio: !!loadedProfile.bio
+          hasBio: !!loadedProfile.bio,
+          bioLength: loadedProfile.bio?.length || 0,
+          bioPreview: loadedProfile.bio ? loadedProfile.bio.substring(0, 50) + '...' : 'No bio',
+          hasBackgroundImage: !!loadedProfile.backgroundImage
         });
         setProfile(loadedProfile);
         profileRef.current = loadedProfile;
@@ -141,25 +157,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           bioGeneratedRef.current = true;
         }
         
-        // Update session with phone info (ONLY ONCE, no circular updates)
-        if (update && loadedProfile.contactChannels?.phoneInfo) {
-          try {
-            await update({
-              profile: {
-                contactChannels: {
-                  phoneInfo: {
-                    internationalPhone: loadedProfile.contactChannels.phoneInfo.internationalPhone || '',
-                    nationalPhone: loadedProfile.contactChannels.phoneInfo.nationalPhone || '',
-                    userConfirmed: loadedProfile.contactChannels.phoneInfo.userConfirmed || false
-                  }
-                }
-              }
-            });
-            console.log('[ProfileContext] Session updated with profile data');
-          } catch (error) {
-            console.warn('[ProfileContext] Could not update session:', error);
-          }
-        }
+        console.log('[ProfileContext] Profile loaded and state updated - no session update needed');
       } else {
         // Create default profile
         console.log('[ProfileContext] Creating new default profile for session:', {
@@ -183,7 +181,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.error('[ProfileContext] Error loading profile:', error);
       setIsLoading(false);
     });
-  }, [authStatus, session?.user?.id, loadProfile, update]);
+  }, [authStatus, session?.user?.id, loadProfile]);
 
   useEffect(() => {
     profileRef.current = profile;
@@ -192,11 +190,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Save profile to Firestore
   const saveProfile = useCallback(async (data: Partial<UserProfile>, options: { directUpdate?: boolean; skipUIUpdate?: boolean } = {}): Promise<UserProfile | null> => {
     console.log('[ProfileContext] saveProfile called with data:', data);
+    console.log('[ProfileContext] saveProfile options:', options);
     
     if (!session?.user?.id) {
       console.error('[ProfileContext] No authenticated user');
       return null;
     }
+
+    // Wait for any ongoing save operations to complete
+    while (savingRef.current) {
+      console.log('[ProfileContext] Waiting for ongoing save operation to complete...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Set saving lock
+    savingRef.current = true;
 
     // Set saving state to prevent setup effects from running during form submission
     const wasFormSubmission = !options.directUpdate && data.contactChannels?.phoneInfo;
@@ -205,7 +213,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const current = profile || createDefaultProfile(session);
+      const current = profileRef.current || profile || createDefaultProfile(session);
       const merged = options.directUpdate 
         ? { ...current, ...data, userId: session.user.id, lastUpdated: Date.now() }
         : { ...mergeNonEmpty(current, data), userId: session.user.id, lastUpdated: Date.now() };
@@ -228,13 +236,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Skip React state updates for:
       // 1. Form submissions (navigating away immediately)  
       // 2. Background operations (directUpdate - bio generation, social media generation)
-      const skipReactUpdate = wasFormSubmission || options.directUpdate || options.skipUIUpdate;
+      // 3. Explicit skipUIUpdate requests
+      const skipReactUpdate = wasFormSubmission || options.skipUIUpdate;
       
       if (!skipReactUpdate) {
         console.log('[ProfileContext] Updating React state for UI updates');
         setProfile(merged);
       } else {
         console.log('[ProfileContext] Skipping React state update - background operation or form submission');
+        // However, if this is a background operation and the current profile state is stale (empty userId),
+        // we should update it to prevent UI showing empty data during streaming
+        if (options.directUpdate && (!profile || !profile.userId) && merged.userId) {
+          console.log('[ProfileContext] Updating stale profile state with background operation data');
+          setProfile(merged);
+        }
       }
       
       // Save to Firebase
@@ -242,8 +257,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         await ProfileService.saveProfile(merged);
         console.log('[ProfileContext] Profile saved to Firebase');
         
-        // Update session with new phone info (only if phone changed AND it's not a background operation)
-        if (update && merged.contactChannels?.phoneInfo && !options.directUpdate) {
+        // Update the ref with the latest saved data
+        profileRef.current = merged;
+        
+        // Update session with new phone info ONLY for form submissions
+        // This prevents session update cascades that cause profile reloads
+        const shouldUpdateSession = wasFormSubmission && 
+                                  merged.contactChannels?.phoneInfo &&
+                                  merged.contactChannels.phoneInfo.internationalPhone &&
+                                  !sessionUpdatedRef.current;
+                                  
+        if (update && shouldUpdateSession) {
           const phoneData = {
             profile: {
               contactChannels: {
@@ -257,13 +281,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           };
           
           try {
+            console.log('[ProfileContext] Updating session with phone data from form submission');
             await update(phoneData);
+            sessionUpdatedRef.current = true; // Mark as updated to prevent repeated updates
             console.log('[ProfileContext] Session updated with new profile data');
           } catch (error) {
             console.error('[ProfileContext] Error updating session:', error);
           }
         } else {
-          console.log('[ProfileContext] Skipping session update - background operation or no phone change');
+          console.log('[ProfileContext] Skipping session update - not form submission or already updated');
         }
       } catch (error) {
         console.warn('[ProfileContext] Could not save to Firebase:', error);
@@ -272,16 +298,52 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return merged;
     } catch (error) {
       console.error('[ProfileContext] Error saving profile:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       throw error;
     } finally {
+      // Always release the saving lock
+      savingRef.current = false;
       if (wasFormSubmission) {
         setIsSaving(false);
       }
     }
   }, [session?.user?.id, profile, update]);
 
+  // Silent save function for background operations - bypasses all React state management
+  const silentSaveToFirebase = useCallback(async (data: Partial<UserProfile>) => {
+    try {
+      if (!session?.user?.id) return;
+      
+      const current = profileRef.current;
+      if (!current || !current.userId) return;
+      
+      const merged = { ...current, ...data, userId: session.user.id };
+      profileRef.current = merged; // Update ref only, no React state
+      
+      await ProfileService.saveProfile(merged);
+      console.log('[ProfileContext] Silent save to Firebase completed:', Object.keys(data));
+    } catch (error) {
+      console.error('[ProfileContext] Silent save failed:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    }
+  }, [session?.user?.id]);
+
+  // Silent update for streaming background image - no React state changes
+  const silentUpdateStreamingBackground = useCallback((imageUrl: string | null) => {
+    if (profileRef.current) {
+      // Store streaming image separately in ref without triggering React re-renders
+      (profileRef.current as any).__streamingBackgroundImage = imageUrl;
+    }
+    setStreamingBackgroundImage(imageUrl);
+  }, []);
+
   // Clear profile
   const clearProfile = useCallback(async (): Promise<void> => {
+    setIsDeletingAccount(true);
     try {
       console.log('[ProfileContext] Starting profile deletion...');
       
@@ -307,28 +369,47 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.log('[ProfileContext] Local profile state cleared');
       
       console.log('[ProfileContext] Account deletion completed successfully');
+      // Clear isDeletingAccount since deletion is complete
+      setIsDeletingAccount(false);
       
     } catch (error) {
       console.error('[ProfileContext] Error clearing profile:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      setIsDeletingAccount(false); // Reset on error
       throw error; // Re-throw to be handled by the UI
     }
   }, []);
 
-  // Placeholder generation functions
+  // Generate background image with completely isolated save
   const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
+    if (!profile || !profile.userId) {
+      console.error('Cannot generate background image: Invalid profile or missing userId');
+      return null;
+    }
+
+    // Clear any previous streaming state when starting new generation
+    setStreamingBackgroundImage(null);
+
     try {
       console.log('Generating background image for profile:', profile.name);
+      console.log('[ProfileContext] Profile image available:', !!profile.profileImage);
+      console.log('[ProfileContext] About to call /api/background-image...');
       
       const response = await fetch('/api/background-image', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bio: profile.bio,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure session cookies are included
+        body: JSON.stringify({ 
+          bio: profile.bio, 
           name: profile.name,
+          profileImage: profile.profileImage // Pass profile image for enhanced personalization
         }),
       });
+
+      console.log('[ProfileContext] Background image API response status:', response.status);
+      console.log('[ProfileContext] Background image API response ok:', response.ok);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -336,15 +417,96 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      const result = await response.json();
-      console.log('Background image generation result:', result);
-      
-      return result.imageUrl || null;
+      // Handle streaming response
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('text/event-stream')) {
+        console.log('[ProfileContext] Processing streaming background image response');
+        return await handleStreamingBackgroundImage(response);
+      } else {
+        // Fallback for regular JSON response
+        const result = await response.json();
+        const imageUrl = result.imageUrl;
+        
+        if (imageUrl) {
+          console.log('[ProfileContext] Background image generated, saving silently...');
+          // Use silent save to avoid any React state updates
+          await silentSaveToFirebase({ backgroundImage: imageUrl });
+          console.log('[ProfileContext] Background image saved silently');
+        }
+        
+        return imageUrl || null;
+      }
     } catch (error) {
-      console.error('Background image generation error:', error);
+      console.error('[ProfileContext] Background image generation error:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return null;
     }
-  }, []);
+  }, [silentSaveToFirebase]);
+
+  // Handle streaming background image responses with silent saves
+  const handleStreamingBackgroundImage = useCallback(async (response: Response): Promise<string | null> => {
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+
+    try {
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalUrl: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'partial_image' && data.imageUrl) {
+                console.log('[ProfileContext] Received partial background image');
+                // Update streaming state for UI to show partial images
+                setStreamingBackgroundImage(data.imageUrl);
+              } else if (data.type === 'completed' && data.imageUrl) {
+                console.log('[ProfileContext] Background image generation completed');
+                finalUrl = data.imageUrl;
+                
+                // Save to Firebase silently - NO React state updates to avoid triggering effects
+                await silentSaveToFirebase({ backgroundImage: data.imageUrl });
+                console.log('[ProfileContext] Final background image saved silently');
+                
+                // Update ref only (no React state) for getLatestProfile consistency
+                if (profileRef.current) {
+                  profileRef.current = { ...profileRef.current, backgroundImage: data.imageUrl };
+                }
+                
+                // DON'T clear streaming state or call setProfile - this prevents the flash
+                // The streaming image stays visible until next generation or navigation
+                console.log('[ProfileContext] Keeping streaming image visible to prevent flash');
+              }
+            } catch (e) {
+              console.warn('[ProfileContext] Failed to parse streaming data:', e);
+            }
+          }
+        }
+      }
+
+      return finalUrl;
+    } catch (error) {
+      console.error('[ProfileContext] Error handling streaming background image:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      return null;
+    } finally {
+      reader.releaseLock();
+    }
+  }, [silentSaveToFirebase]);
 
   const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
     if (!profile || !profile.userId) {
@@ -378,6 +540,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return result.bio || null;
     } catch (error) {
       console.error('Bio generation error:', error);
+      console.error('[ProfileContext] Error type:', typeof error);
+      console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return null;
     }
   }, []);
@@ -413,9 +578,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const generatedBio = await generateBio(profileWithUserId);
         if (generatedBio) {
           console.log('[ProfileContext] Successfully generated bio:', generatedBio.substring(0, 100) + '...');
+          console.log('[ProfileContext] Full bio length:', generatedBio.length);
+          console.log('[ProfileContext] About to save bio to Firebase with saveProfile...');
           // Save the generated bio to Firebase
           const updatedProfile = await saveProfile({ bio: generatedBio }, { directUpdate: true, skipUIUpdate: true });
           console.log('[ProfileContext] === BIO SAVED TO FIREBASE ===');
+          console.log('[ProfileContext] Updated profile bio length:', updatedProfile?.bio?.length || 0);
+          console.log('[ProfileContext] Updated profile bio preview:', updatedProfile?.bio ? updatedProfile.bio.substring(0, 50) + '...' : 'No bio');
           
           // After bio is generated and saved, check if background image should be generated
           if (updatedProfile) {
@@ -428,6 +597,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('[ProfileContext] Error generating bio:', error);
+        console.error('[ProfileContext] Error type:', typeof error);
+        console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         // Reset ref if generation failed
         bioGeneratedRef.current = false;
       }
@@ -449,6 +621,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Check if generation is already in progress
+    if (generatingBackgroundImageRef.current) {
+      console.log('[ProfileContext] Background image generation already in progress, skipping');
+      return;
+    }
+    
     if ((!profileToCheck.backgroundImage || profileToCheck.backgroundImage.trim() === '') && 
         profileToCheck.bio && profileToCheck.bio.trim() !== '') {
       console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION TRIGGERED ===');
@@ -456,25 +634,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.log('[ProfileContext] Profile userId:', profileToCheck.userId);
       console.log('[ProfileContext] Bio preview:', profileToCheck.bio.substring(0, 100) + '...');
       
-      // Mark as generated immediately to prevent duplicate calls
-      backgroundImageGeneratedRef.current = true;
+      // Mark as generating immediately to prevent concurrent calls
+      generatingBackgroundImageRef.current = true;
       
       try {
         const generatedBackgroundImage = await generateBackgroundImage(profileToCheck);
         if (generatedBackgroundImage) {
           console.log('[ProfileContext] Successfully generated background image');
-          // Save the generated background image to Firebase
-          await saveProfile({ backgroundImage: generatedBackgroundImage }, { directUpdate: true, skipUIUpdate: true });
-          console.log('[ProfileContext] === BACKGROUND IMAGE SAVED TO FIREBASE ===');
+          // Mark as generated AFTER successful generation
+          backgroundImageGeneratedRef.current = true;
+          // Note: Firebase save and UI update is now handled by the streaming generateBackgroundImage function
+          console.log('[ProfileContext] === BACKGROUND IMAGE GENERATED AND SAVED ===');
         } else {
           console.warn('[ProfileContext] Failed to generate background image');
-          // Reset ref if generation failed
-          backgroundImageGeneratedRef.current = false;
+          // Don't mark as generated if it failed
         }
       } catch (error) {
         console.error('[ProfileContext] Error generating background image:', error);
-        // Reset ref if generation failed
-        backgroundImageGeneratedRef.current = false;
+        console.error('[ProfileContext] Error type:', typeof error);
+        console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        // Don't mark as generated if there was an error
+      } finally {
+        // Always clear the generating flag
+        generatingBackgroundImageRef.current = false;
       }
     } else {
       if (profileToCheck.backgroundImage && profileToCheck.backgroundImage.trim() !== '') {
@@ -492,50 +675,51 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('[ProfileContext] === SETUP EFFECT RUNNING ===');
     console.log('[ProfileContext] pathname:', pathname);
-    console.log('[ProfileContext] profile exists:', !!profile);
+    console.log('[ProfileContext] profile exists:', !!profileRef.current);
     console.log('[ProfileContext] session email:', session?.user?.email);
     console.log('[ProfileContext] bioGeneratedRef.current:', bioGeneratedRef.current);
     console.log('[ProfileContext] backgroundImageGeneratedRef.current:', backgroundImageGeneratedRef.current);
-    console.log('[ProfileContext] profile data:', profile);
+    console.log('[ProfileContext] profile data:', profileRef.current);
     
     // Reset generation tracking when user changes
     if (session?.user?.id !== lastUserIdRef.current) {
       bioGeneratedRef.current = false;
       backgroundImageGeneratedRef.current = false;
+      generatingBackgroundImageRef.current = false; // Reset generating flag for new user
       lastUserIdRef.current = session?.user?.id || null;
     }
 
     // Check if profile already has bio/background image and mark as generated
-    if (profile) {
-      if (profile.bio && profile.bio.trim() !== '') {
+    if (profileRef.current) {
+      if (profileRef.current.bio && profileRef.current.bio.trim() !== '') {
         console.log('[ProfileContext] Profile already has bio, marking bioGeneratedRef as true');
         bioGeneratedRef.current = true;
       }
-      if (profile.backgroundImage && profile.backgroundImage.trim() !== '') {
+      if (profileRef.current.backgroundImage && profileRef.current.backgroundImage.trim() !== '') {
         console.log('[ProfileContext] Profile already has background image, marking backgroundImageGeneratedRef as true');
         backgroundImageGeneratedRef.current = true;
       }
     }
     
-    if (pathname === '/setup' && profile && session?.user?.email && !isSaving) {
+    if (pathname === '/setup' && profileRef.current && session?.user?.email && !isSaving) {
       console.log('[ProfileContext] === SETUP CONDITIONS MET ===');
       const email = session.user.email;
-      const phone = profile.contactChannels?.phoneInfo?.internationalPhone;
+      const phone = profileRef.current.contactChannels?.phoneInfo?.internationalPhone;
       
       console.log('[ProfileContext] email:', email);
       console.log('[ProfileContext] phone:', phone);
-      console.log('[ProfileContext] current bio:', profile.bio);
-      console.log('[ProfileContext] current backgroundImage:', profile.backgroundImage);
+      console.log('[ProfileContext] current bio:', profileRef.current.bio);
+      console.log('[ProfileContext] current backgroundImage:', profileRef.current.backgroundImage);
       
       // Check if bio already exists - if so, mark as generated to prevent future attempts
-      if (profile.bio && profile.bio.trim() !== '') {
+      if (profileRef.current.bio && profileRef.current.bio.trim() !== '') {
         console.log('[ProfileContext] Bio already exists in profile, marking as generated');
         bioGeneratedRef.current = true;
         
         // Always check if background image should be generated when bio exists
         console.log('[ProfileContext] Checking background image generation since bio exists...');
         (async () => {
-          await checkAndGenerateBackgroundImage(profile);
+          await checkAndGenerateBackgroundImage(profileRef.current!);
         })();
         
         // If bio generation hasn't been attempted yet, we still need to continue with the setup flow
@@ -552,74 +736,87 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         console.log('[ProfileContext] === SETUP CONDITIONS MET ===');
         console.log('[ProfileContext] Setup conditions met, checking social media fields...');
         
-        // Check if social media fields are empty (indicating first-time setup)
-        const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'] as const;
+        // Get current social media fields
+        const currentSocialFields = profileRef.current.contactChannels;
         
-        // Debug: show actual social media field values
-        console.log('[ProfileContext] Current social media fields:');
-        socialPlatforms.forEach(platform => {
-          const channel = profile.contactChannels?.[platform];
-          console.log(`  ${platform}:`, channel);
+        // Check if all social media fields are empty (excluding phone and email)
+        const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
+        const allSocialFieldsEmpty = socialPlatforms.every(platform => {
+          const field = currentSocialFields[platform as keyof typeof currentSocialFields] as SocialProfile;
+          return !field?.username || field.username.trim() === '';
         });
         
-        const allSocialEmpty = socialPlatforms.every(platform => {
-          const channel = profile.contactChannels?.[platform];
-          return !channel?.username || channel.username === '';
-        });
-        
-        console.log('[ProfileContext] All social media fields empty:', allSocialEmpty);
-        
-        // Execute the logic
-        (async () => {
-          if (allSocialEmpty) {
-            console.log('[ProfileContext] === SOCIAL MEDIA GENERATION TRIGGERED ===');
-            console.log('[ProfileContext] Setup page: Auto-generating social media profiles from email:', email);
-            const generatedProfiles = generateSocialProfilesFromEmail(email, phone);
-            console.log('[ProfileContext] Generated social profiles:', generatedProfiles);
-            
-            // Update the profile with auto-generated social media data
-            const updatedContactChannels = {
-              ...profile.contactChannels,
-              ...generatedProfiles
-            };
-            
-            console.log('[ProfileContext] About to save updated contact channels to Firebase:', updatedContactChannels);
-            
-            // Save the updated profile
+        if (allSocialFieldsEmpty) {
+          console.log('[ProfileContext] Generating social media profiles from email...');
+          
+          // Generate social media profiles from email - wrap in async function
+          (async () => {
             try {
-              const savedProfile = await saveProfile({ contactChannels: updatedContactChannels }, { directUpdate: true });
-              console.log('[ProfileContext] === SOCIAL MEDIA SAVED SUCCESSFULLY ===');
-              console.log('[ProfileContext] Successfully saved social media data to Firebase:', savedProfile?.contactChannels);
+              // Generate social media profiles from email
+              const socialProfiles = generateSocialProfilesFromEmail(email);
               
-              // After social media is saved, check if bio should be generated
-              await checkAndGenerateBio(savedProfile || profile);
+              // Update profile with generated social media data
+              const updatedProfile = {
+                ...profileRef.current!,
+                contactChannels: {
+                  ...profileRef.current!.contactChannels,
+                  ...socialProfiles
+                }
+              };
+              
+              await saveProfile(updatedProfile, { directUpdate: true, skipUIUpdate: true });
+              console.log('[ProfileContext] Social media profiles saved successfully');
+              
+              // After saving social media, check if we should generate bio
+              await checkAndGenerateBio(updatedProfile);
+              
             } catch (error) {
-              console.error('[ProfileContext] Failed to save social media data to Firebase:', error);
+              console.error('[ProfileContext] Error saving social media profiles:', error);
+              console.error('[ProfileContext] Error type:', typeof error);
+              console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
+              console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
             }
-          } else {
-            console.log('[ProfileContext] === SOCIAL MEDIA ALREADY EXISTS ===');
-            console.log('[ProfileContext] Social media fields are not empty, checking if bio should be generated...');
-            
-            // Social media exists, check if bio should be generated
-            await checkAndGenerateBio(profile);
-          }
-        })();
+          })();
+        } else {
+          // Social media already exists, proceed to bio generation
+          (async () => {
+            await checkAndGenerateBio(profileRef.current!);
+          })();
+        }
       } else {
         console.log('[ProfileContext] === BIO ALREADY GENERATED ===');
         console.log('[ProfileContext] Bio already generated, only checking background image...');
+        
+        // Wrap in async function
+        (async () => {
+          await checkAndGenerateBackgroundImage(profileRef.current!);
+        })();
       }
     } else {
       console.log('[ProfileContext] === SETUP CONDITIONS NOT MET ===');
       if (pathname !== '/setup') console.log('[ProfileContext] Not on setup page');
-      if (!profile) console.log('[ProfileContext] No profile');
+      if (!profileRef.current) console.log('[ProfileContext] No profile');
       if (!session?.user?.email) console.log('[ProfileContext] No user email');
       if (isSaving) console.log('[ProfileContext] Saving in progress');
     }
-  }, [pathname, profile, session?.user?.email, saveProfile, generateBio, isSaving]);
-
-  const getLatestProfile = useCallback(() => {
-    return profileRef.current;
-  }, []);
+  }, [pathname, session?.user?.email, saveProfile, generateBio, isSaving]);
+  
+  // Get the latest profile (for external use)
+  const getLatestProfile = useCallback((): UserProfile | null => {
+    const currentProfile = profileRef.current || profile;
+    if (!currentProfile) return null;
+    
+    // If there's a streaming background image, use it
+    if (streamingBackgroundImage) {
+      return {
+        ...currentProfile,
+        backgroundImage: streamingBackgroundImage
+      };
+    }
+    
+    // Otherwise, use the profile with its saved background image (from ref which is most up-to-date)
+    return profileRef.current || currentProfile;
+  }, [streamingBackgroundImage]);
 
   return (
     <ProfileContext.Provider
@@ -627,12 +824,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         profile,
         isLoading,
         isSaving,
+        isDeletingAccount,
+        streamingBackgroundImage,
         saveProfile,
         clearProfile,
         generateBackgroundImage,
         generateBio,
         generateProfileImage,
-        getLatestProfile,
+        getLatestProfile
       }}
     >
       {children}

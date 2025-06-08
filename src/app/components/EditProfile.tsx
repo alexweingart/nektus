@@ -15,7 +15,7 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './ui/SocialIcon';
 import { MdEdit } from 'react-icons/md';
 import EditTitleBar from './ui/EditTitleBar';
-import TextArea from './ui/TextArea';
+import CustomExpandingInput from './ui/CustomExpandingInput';
 
 // Define the social platform type
 type SocialPlatform = 
@@ -109,7 +109,7 @@ interface ProfileData {
 
 const EditProfile: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile } = useProfile();
+  const { profile, saveProfile, getLatestProfile } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -127,6 +127,7 @@ const EditProfile: React.FC = () => {
   const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
+  const [hasNewBackgroundImage, setHasNewBackgroundImage] = useState(false);
 
   // Helper function to initialize form data from profile
   const initializeFormData = useCallback((profileData: ProfileData) => {
@@ -166,6 +167,7 @@ const EditProfile: React.FC = () => {
     const socialPlatforms: SocialPlatform[] = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
     socialPlatforms.forEach(platform => {
       const channel = profileData.contactChannels?.[platform] as { username?: string; userConfirmed?: boolean } | undefined;
+      console.log(`[EditProfile] ${platform} channel:`, channel); // Debug log
       if (channel?.username !== undefined) {
         socialProfiles.push({
           platform,
@@ -177,6 +179,8 @@ const EditProfile: React.FC = () => {
       }
     });
     
+    console.log('[EditProfile] Final social profiles:', socialProfiles); // Debug log
+    
     setFormData({
       name,
       bio,
@@ -186,6 +190,9 @@ const EditProfile: React.FC = () => {
       backgroundImage
     });
     
+    // Reset new background image flag since we're initializing with saved data
+    setHasNewBackgroundImage(false);
+
     // Check if we have phone info in the expected location
     const phoneInfo = profileData.contactChannels?.phoneInfo || 
                     (profileData && 'phoneInfo' in profileData ? 
@@ -204,27 +211,21 @@ const EditProfile: React.FC = () => {
         // Clean the phone number to remove any non-digit characters
         const cleanedNumber = phoneNumber.replace(/\D/g, '');
         
-        // Only update digits if we don't already have a value (to prevent overwriting user input)
-        if (!digits) {
-          setDigits(cleanedNumber);
-          setPhoneCountry('US'); // Default to US if no country is set
-        } else {
-          // Skip phone number update as it already has a value
-        }
-      } else {
-        // No valid phone number found in phoneInfo
+        // Always update digits with the profile phone number
+        setDigits(cleanedNumber);
+        setPhoneCountry('US'); // Default to US if no country is set
       }
-    } else {
-      // No phoneInfo found in profile data
     }
-  }, [session?.user?.name, session?.user?.email, session?.user?.image, digits]);
+  }, [session?.user?.name, session?.user?.email, session?.user?.image]);
   
   // Load profile data
   useEffect(() => {
-    if (profile) {
-      initializeFormData(profile);
+    const currentProfile = getLatestProfile() || profile;
+    if (currentProfile) {
+      console.log('[EditProfile] Using profile data:', currentProfile); // Debug log
+      initializeFormData(currentProfile);
     }
-  }, [profile, initializeFormData]);
+  }, [profile, initializeFormData, getLatestProfile]);
   
   // Initialize form with session data if profile is empty
   useEffect(() => {
@@ -266,6 +267,7 @@ const EditProfile: React.FC = () => {
         setFormData((prev: FormDataState) => ({ ...prev, picture: result }));
       } else {
         setFormData((prev: FormDataState) => ({ ...prev, backgroundImage: result }));
+        setHasNewBackgroundImage(true);
       }
     };
     reader.onerror = (e) => {
@@ -483,7 +485,7 @@ const EditProfile: React.FC = () => {
         name: formData.name,
         profileImage: formData.picture,
         // Only update backgroundImage if there's a new one, otherwise preserve existing
-        backgroundImage: formData.backgroundImage || profile?.backgroundImage || '',
+        backgroundImage: hasNewBackgroundImage ? formData.backgroundImage : profile?.backgroundImage || '',
         lastUpdated: Date.now(),
         contactChannels: {
           ...profile?.contactChannels,
@@ -683,13 +685,17 @@ const EditProfile: React.FC = () => {
   return (
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-4"
-      style={{
-        backgroundImage: formData.backgroundImage ? `url(${formData.backgroundImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: '#004D40' // Theme background color that shows while image loads
-      }}
+      style={
+        // Only apply background styling when user has uploaded a NEW background image for preview
+        // Otherwise let the parent container handle the saved background image
+        hasNewBackgroundImage ? {
+          backgroundImage: `url(${formData.backgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#004D40' // Theme background color that shows while image loads
+        } : undefined
+      }
     >
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 
@@ -747,7 +753,7 @@ const EditProfile: React.FC = () => {
 
       {/* Bio Input */}
       <div className="mb-5 w-full max-w-md">
-        <TextArea
+        <CustomExpandingInput
           id="bio"
           value={formData.bio}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 

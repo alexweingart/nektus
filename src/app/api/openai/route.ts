@@ -378,130 +378,87 @@ async function generateBackground(profile: ProfileData) {
     // Extract social media information from profile
     const socialLinks = extractSocialLinks(profile);
     
-    // First step: Generate a personalized prompt using GPT-4.1
-    // Generate personalized background prompt with GPT-4.1
+    console.log('Generating background image with simplified responses API approach');
+    
+    // Create content array for the prompt
+    const content: Array<{
+      type: "input_text";
+      text: string;
+    } | {
+      type: "input_image";
+      image_url: string;
+    }> = [
+      {
+        type: "input_text",
+        text: `Create a prompt for generating a personalized background image for a user with the following details:
 
-    // Get social media information from profile
-    // Use existing OpenAI client instead of creating a new one
-    if (!openai) {
-      throw new Error('OpenAI client not initialized');
+Bio: ${profile.bio || 'No bio available'}
+Name: ${profile.name || 'User'}
+${socialLinks ? `Social Media: ${socialLinks}` : ''}
+
+${profile.profileImage ? 
+  'Analyze the attached profile image to understand the person\'s style, main colors, and aesthetic preferences. Create a background that complements these colors and style.' : 
+  'Use a professional and modern color palette.'}
+
+The background should be:
+- Simple and abstract
+- Suitable for a professional profile
+- No text, people, or recognizable objects
+- Minimal and modern design
+- Colors that complement the overall aesthetic
+
+Return only a detailed image generation prompt, nothing else.`
+      }
+    ];
+
+    // Add profile image if available
+    if (profile.profileImage) {
+      content.push({
+        type: "input_image",
+        image_url: profile.profileImage
+      });
     }
-    
-    // Use our custom responses API client
-    // Using OpenAI client responses API for GPT-4.1
-    
-    // Prepare the request data
-    const requestData = {
-      model: "gpt-4.1",
-      input: [
-        {
-          "role": "system",
-          "content": [
-            {
-              "type": "input_text",
-              "text": "You are an expert at creating prompts for AI image generation. Your task is to create a highly personalized prompt for a background image that matches the user's profile."
-            }
-          ]
-        },
-        {
-          "role": "user",
-          "content": [
-            {
-              "type": "input_text",
-              "text": `Generate a prompt for creating a background image for a user with the following bio: ${profile.bio || 'No bio available'}.
-              ${profile.profileImage ? 'In the prompt, describe the main features of the attached picture in this message to help inform the type of background image, the main colors this attached picture has, and then suggest the specific colors to use directly in the prompt for the image to be generated.' : 'Use a professional color palette.'} The background should be simple and abstract, but still relate to the personal details of the person. The style should be minimal, modern, and suitable for a profile background. No text or people should be in the image. Return only the prompt text, nothing else.`
-            },
-            ...(profile.profileImage ? [{
-              "type": "input_image",
-              "image_url": profile.profileImage
-            }] : [])
-          ]
-        }
-      ],
+
+    // Use responses API directly to generate the background prompt
+    const promptResponse = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: content
+      }],
       text: {
-        "format": {
-          "type": "text"
+        format: {
+          type: "text"
         }
       },
-      reasoning: {},
-      tools: [],
       temperature: 1,
-      max_output_tokens: 2048,
-      top_p: 1,
-      store: true
-    };
-    
-    // Call the OpenAI API using our client
-    const responseData = await openai.responses.create(requestData);
-    // Prompt generation completed
-    
-    // Extract the generated prompt from the response
+      max_output_tokens: 1024,
+      top_p: 1
+    });
+
+    // Extract the generated prompt
     let customPrompt = '';
-    
-    // Use the previously defined helper function if the response has the same structure
-    if (responseData.output && Array.isArray(responseData.output)) {
-      customPrompt = extractTextFromResponse(responseData);
-    } 
-    // Handle various other response formats from the OpenAI API
-    else if (typeof responseData.text === 'string') {
-      // Direct text property (string)
-      customPrompt = responseData.text.trim();
-    } else if (responseData.text && typeof responseData.text.value === 'string') {
-      // Nested text.value property
-      customPrompt = responseData.text.value.trim();
-    } else if (responseData.choices && Array.isArray(responseData.choices) && responseData.choices.length > 0) {
-      // Handle format from completion API
-      const choice = responseData.choices[0];
-      if (choice.message && choice.message.content) {
-        customPrompt = choice.message.content.trim();
-      } else if (choice.text) {
-        customPrompt = choice.text.trim();
-      }
+    if (promptResponse.output_text) {
+      customPrompt = promptResponse.output_text.trim();
+    } else if (promptResponse.output && Array.isArray(promptResponse.output)) {
+      customPrompt = extractTextFromResponse(promptResponse);
     }
-    
-    // Use a fallback prompt if no custom prompt was generated
+
+    // Use fallback prompt if generation failed
     if (!customPrompt) {
-      // No custom prompt was generated, using fallback prompt
+      console.log('No custom prompt generated, using fallback');
       customPrompt = `Create a simple, abstract background with subtle textures. 
         Use a color palette that's professional and modern. No text, people, or recognizable objects. 
         The image should be suitable for a professional networking context.`;
     }
+
+    console.log('Generated prompt preview:', customPrompt.substring(0, 150) + '...');
+
+    // Generate the background image using the custom prompt with streaming
+    console.log('Generating background image with streaming using responses API');
     
-    // Log shorter version of the prompt for debugging
-    // Generated prompt ready for image creation
-    
-    // Second step: Use the generated prompt to create the background image
-    console.log('Generating background image with gpt-image-1 model using custom prompt');
-    if (!openai) {
-      throw new Error('OpenAI client is not initialized for image generation');
-    }
-    
-    // Use the responses API with streaming for image generation
-    console.log('Using responses API with streaming for image generation');
-
-    // Array to collect client-side script portions
-    const clientScripts: string[] = [];
-    let imageUrl = ''; // Will hold the final image URL
-    let lastReceivedIndex = -1; // Track the highest index received
-
-    // Text decoder and buffer for incremental SSE parsing
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    // Helper to create a client-side script that dispatches a CustomEvent for the generated image
-    const emitPartialToClient = (imageBase64: string, index: number) => `
-      try {
-        window.dispatchEvent(new CustomEvent('nektus_partial_bg', { detail: { index: ${index}, b64: '${imageBase64}' } }));
-      } catch (e) {
-        console.error('Error dispatching partial background event', e);
-      }
-    `;
-
     try {
-      console.log('Using responses API with image generation streaming');
-      
-      // We still need direct fetch for streaming functionality
-      // as the OpenAI SDK doesn't fully support this specific streaming use case
+      // Use the responses API with streaming for image generation
       const fetchResponse = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
@@ -517,11 +474,11 @@ async function generateBackground(profile: ProfileData) {
         }),
       });
       
-      console.log(`Responses API status: ${fetchResponse.status}`);
+      console.log(`[Background Generation] Responses API status: ${fetchResponse.status}`);
       
       if (!fetchResponse.ok) {
         const errorText = await fetchResponse.text();
-        console.error(`OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
+        console.error(`[Background Generation] OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
         throw new Error(`OpenAI Responses API error: ${fetchResponse.status}`);
       }
       
@@ -529,84 +486,54 @@ async function generateBackground(profile: ProfileData) {
         throw new Error('No response body from OpenAI API');
       }
       
-      // Directly pipe OpenAI SSE to the client
-      if (fetchResponse.body) {
-        return new NextResponse(fetchResponse.body as any, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive'
-          }
-        });
-      }
-
-      // Only fallback if we didn't get any image data
-      if (!imageUrl) {
-        // Log the final state for debugging
-        console.log('No image URL captured from events');
-        console.log('Final buffer state:', buffer.slice(0, 500)); // First 500 chars of remaining buffer
-        console.log('Streaming did not return image data, falling back to standard image generation');
-        // Fallback to standard image generation if streaming failed
-        if (!openai) {
-          throw new Error('OpenAI client is not initialized for fallback image generation');
+      // Directly pipe OpenAI SSE to the client with proper streaming
+      return new NextResponse(fetchResponse.body as any, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive'
         }
-        
-        // Streaming failed, falling back to standard image generation
-        const response = await openai.images.generate({
-          prompt: customPrompt,
-          size: '1024x1536',
-          quality: 'medium',
-          model: 'gpt-image-1',
-          response_format: 'b64_json'
-        });
-        
-        const imageB64 = response.data?.[0]?.b64_json;
-        if (!imageB64) {
-          throw new Error('No base64 image data in fallback response');
-        }
-        
-        // Set the final image
-        imageUrl = `data:image/png;base64,${imageB64}`;
-        
-        // Create simulated partial images with the fallback image
-        clientScripts.length = 0; // Clear any partial scripts
-        for (let i = 0; i < 3; i++) {
-          clientScripts.push(emitPartialToClient(imageB64, i));
-          // Created simulated partial image using fallback
-        }
+      });
+      
+    } catch (streamError) {
+      console.error('[Background Generation] Streaming failed, falling back to standard generation:', streamError);
+      
+      // Fallback to standard image generation if streaming failed
+      const response = await openai.images.generate({
+        prompt: customPrompt,
+        size: '1024x1024',
+        quality: 'medium',
+        model: 'gpt-image-1',
+        response_format: 'b64_json'
+      });
+      
+      const imageB64 = response.data?.[0]?.b64_json;
+      if (!imageB64) {
+        throw new Error('No base64 image data in fallback response');
       }
       
-      // Return the image URL with client scripts
+      const imageUrl = `data:image/png;base64,${imageB64}`;
+      console.log('[Background Generation] Fallback image generated successfully');
+      
       return NextResponse.json({ 
         success: true,
         imageUrl: imageUrl,
-        clientScripts: clientScripts.join('\n'),
         debug: {
           generatedPrompt: customPrompt,
-          // Only include essential info to avoid response size issues
-          requestInfo: {
-            model: requestData.model,
-            temperature: requestData.temperature,
-            bioUsed: profile.bio || 'No bio available'
-          }
+          fallbackUsed: true
         }
       });
-    } catch (error) {
-      return createErrorResponse(error, 'BACKGROUND_GENERATION_ERROR', 'Background generation failed', 500, {
-        source: 'image_generation'
-      });
     }
-    
   } catch (error) {
-    try {
-      return createErrorResponse(error, 'BACKGROUND_GENERATION_ERROR', 'Background generation failed', 500, {
-        source: 'background_generation'
-      });
-    } catch (innerError) {
-      console.error('Error in error handler:', innerError);
-      return createErrorResponse(innerError, 'UNEXPECTED_ERROR', 'An unexpected error occurred', 500);
-    }
+    console.error('Error in generateBackground:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to generate background image',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -623,7 +550,7 @@ async function generateAvatar(profile: ProfileData) {
         generated: false
       });
     }
-    
+
     // Safety check for OpenAI client
     if (!openai) {
       return NextResponse.json({ 

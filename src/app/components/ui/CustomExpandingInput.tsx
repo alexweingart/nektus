@@ -2,7 +2,7 @@
 
 import React, { forwardRef, TextareaHTMLAttributes, useEffect } from 'react';
 
-interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface CustomExpandingInputProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   className?: string;
   inputClassName?: string;
@@ -12,7 +12,7 @@ interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
  * Auto-resizing textarea that matches the Input component's styling.
  * Grows with content, no scrollbar, with consistent rounded corners.
  */
-const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
+const CustomExpandingInput = forwardRef<HTMLTextAreaElement, CustomExpandingInputProps>(
   ({ label, className = '', inputClassName = '', ...props }, ref) => {
     // Auto-resize effect
     useEffect(() => {
@@ -58,6 +58,6 @@ const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
   },
 );
 
-TextArea.displayName = 'TextArea';
+CustomExpandingInput.displayName = 'CustomExpandingInput';
 
-export default TextArea;
+export default CustomExpandingInput;

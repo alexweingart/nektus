@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { deleteUserProfile } from '@/lib/firebase/admin';
+import { deleteUserProfile } from '@/lib/firebase/adminConfig';
 
 /**
  * API route to handle account deletion

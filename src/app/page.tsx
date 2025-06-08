@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { useEffect } from 'react';
-import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { useProfile } from './context/ProfileContext';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -11,25 +11,21 @@ export const dynamic = 'force-dynamic';
 // Dynamically import components to prevent hydration issues
 const HomePage = dynamicImport(() => import('./components/HomePage'), { 
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <LoadingSpinner size="lg" />
-    </div>
-  )
+  loading: () => <div className="min-h-screen" /> // No background color - let parent handle it
 });
 
 const ProfileView = dynamicImport(() => import('./components/ProfileView'), { 
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <LoadingSpinner size="lg" />
-    </div>
-  )
+  loading: () => <div className="min-h-screen" /> // No background color - let parent handle it
 });
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const { profile, getLatestProfile } = useProfile();
   const isLoading = status === 'loading';
+  
+  // Get the latest profile including streaming background image
+  const currentProfile = getLatestProfile() || profile;
 
   // Handle scroll behavior based on authentication state
   useEffect(() => {
@@ -46,15 +42,37 @@ export default function Home() {
     };
   }, [session, isLoading]);
 
-  // Show loading state while checking auth status
+  // Determine background style - use profile background if authenticated
+  const backgroundStyle = session && currentProfile?.backgroundImage ? {
+    backgroundImage: `url(${currentProfile.backgroundImage})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: '#004D40' // Theme background color that shows while image loads
+  } : {
+    backgroundColor: '#004D40' // Theme background for welcome screen
+  };
+
+  // Show loading state while checking auth status with consistent background
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
+      <div 
+        className="flex items-center justify-center min-h-screen"
+        style={backgroundStyle}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
 
   // Show profile view if authenticated, otherwise show welcome screen
-  return session ? <ProfileView /> : <HomePage />;
+  // Apply background style to the container to ensure it persists during dynamic loading
+  return (
+    <div 
+      className="min-h-screen"
+      style={backgroundStyle}
+    >
+      {session ? <ProfileView /> : <HomePage />}
+    </div>
+  );
 }

@@ -13,8 +13,8 @@ export default {
         foreground: "var(--foreground)",
         theme: {
           light: '#E7FED2',
-          DEFAULT: '#71E454',
-          dark: '#5BBF45',
+          DEFAULT: '#ffffff',
+          dark: '#f5f5f5',
         },
       },
       backgroundColor: {

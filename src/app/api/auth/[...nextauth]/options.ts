@@ -20,8 +20,8 @@ const getEnv = (key: string): string => {
 
 // Set NEXTAUTH_URL if not set
 if (!process.env.NEXTAUTH_URL) {
-  // Let Next.js handle the URL dynamically based on current port
-  // process.env.NEXTAUTH_URL = "http://localhost:3000";
+  // Default to localhost:3000 for development
+  process.env.NEXTAUTH_URL = "http://localhost:3000";
 }
 
 // Get required environment variables with fallbacks
@@ -112,6 +112,12 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  
+  // Custom pages
+  pages: {
+    signIn: '/', // Redirect to homepage for sign-in
+    error: '/', // Redirect to homepage for errors (including cancellation)
   },
   
   // Callbacks
@@ -254,7 +260,23 @@ export const authOptions: NextAuthOptions = {
     },
     
     async redirect({ url, baseUrl }) {
-      // Always redirect to the base URL to avoid redirect loops
+      // Handle cancellation and errors by redirecting to homepage
+      if (url.includes('error=Callback') || url.includes('error=')) {
+        console.log('Auth error detected, redirecting to homepage:', url);
+        return baseUrl;
+      }
+      
+      // If it's a relative URL, make it absolute
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+      
+      // Only allow redirects to same origin for security
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      
+      // Default to homepage
       return baseUrl;
     },
   },

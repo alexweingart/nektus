@@ -78,13 +78,9 @@ export default function AdminBanner() {
         console.error('Error clearing storage:', err);
       }
       
-      // Clear IndexedDB databases with timeout protection
+      // Clear IndexedDB databases with timeout protection (non-blocking)
       if ('indexedDB' in window) {
         try {
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('IndexedDB cleanup timeout')), 5000) // Increased to 5 seconds
-          );
-          
           const clearIndexedDB = async () => {
             if ('databases' in indexedDB) {
               const databases = await indexedDB.databases();
@@ -92,59 +88,85 @@ export default function AdminBanner() {
               
               const deletePromises = databases.map(async (db) => {
                 if (db.name) {
-                  return new Promise<void>((resolve, reject) => {
+                  return new Promise<void>((resolve) => {
                     const deleteReq = indexedDB.deleteDatabase(db.name!);
                     deleteReq.onsuccess = () => {
-                      console.log(`IndexedDB ${db.name} deleted`);
+                      console.log(`IndexedDB ${db.name} deleted successfully`);
                       resolve();
                     };
                     deleteReq.onerror = () => {
                       console.warn(`Failed to delete IndexedDB ${db.name}:`, deleteReq.error);
-                      reject(deleteReq.error);
+                      resolve(); // Don't fail the entire process
                     };
                     deleteReq.onblocked = () => {
-                      console.warn(`IndexedDB ${db.name} deletion blocked - may have open connections`);
-                      // For blocked deletions, we'll still consider it a success after a delay
-                      setTimeout(() => resolve(), 1000);
+                      console.warn(`IndexedDB ${db.name} deletion blocked - continuing anyway`);
+                      resolve(); // Don't fail the entire process
                     };
                     
-                    // Longer timeout for individual databases, especially Firebase ones
-                    const timeout = (db.name && db.name.includes('firebase')) ? 4000 : 2000;
+                    // Timeout for individual databases (non-blocking)
                     setTimeout(() => {
-                      console.warn(`Timeout deleting IndexedDB ${db.name} after ${timeout}ms`);
-                      reject(new Error(`Timeout deleting ${db.name}`));
-                    }, timeout);
+                      console.warn(`IndexedDB ${db.name} cleanup timed out - continuing anyway`);
+                      resolve();
+                    }, 2000);
                   });
                 }
               });
               
-              // Use allSettled to not fail the entire process if some databases can't be deleted
-              const results = await Promise.allSettled(deletePromises);
-              const failures = results.filter(r => r.status === 'rejected');
-              if (failures.length > 0) {
-                console.warn(`${failures.length} IndexedDB databases failed to delete, but continuing...`);
-              }
+              // Use allSettled to not fail the entire process
+              await Promise.allSettled(deletePromises);
             }
           };
           
-          // Race between cleanup and timeout
+          // Run IndexedDB cleanup with overall timeout (non-blocking)
+          const timeoutPromise = new Promise<void>((resolve) => 
+            setTimeout(() => {
+              console.log('IndexedDB cleanup timeout reached - continuing...');
+              resolve();
+            }, 3000)
+          );
+          
           await Promise.race([clearIndexedDB(), timeoutPromise]);
           console.log('IndexedDB cleanup completed');
+          
         } catch (err) {
-          console.warn('IndexedDB cleanup failed or timed out:', err);
-          // Don't let this stop the rest of the deletion process
+          console.warn('IndexedDB cleanup failed, but continuing:', err);
+        }
+      }
+
+      // Use NextAuth signOut with proper error handling
+      console.log('Account deletion complete, signing out...');
+      try {
+        await signOut({ 
+          callbackUrl: '/',
+          redirect: true 
+        });
+      } catch (signOutError) {
+        console.warn('NextAuth signOut failed, using fallback approach:', signOutError);
+        
+        // Fallback: Manual cleanup and redirect
+        try {
+          // Clear any remaining NextAuth cookies manually
+          document.cookie.split(";").forEach((c) => {
+            const eqPos = c.indexOf("=");
+            const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+            if (name.includes('next-auth') || name.includes('__Secure-next-auth') || name.includes('__Host-next-auth')) {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure;samesite=lax`;
+            }
+          });
+          
+          // Force redirect to home page
+          console.log('Forcing redirect to home page...');
+          window.location.href = window.location.origin;
+          
+        } catch (fallbackError) {
+          console.error('All signout methods failed:', fallbackError);
+          // Last resort: reload the page
+          window.location.reload();
         }
       }
       
       setDeleteStatus('success');
       closeAdminMode();
-      
-      // Use NextAuth signOut with redirect - this should work cleanly
-      console.log('Account deletion complete, signing out...');
-      signOut({ 
-        callbackUrl: '/',
-        redirect: true 
-      });
       
     } catch (err) {
       console.error('Error deleting account:', err);

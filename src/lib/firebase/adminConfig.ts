@@ -14,11 +14,13 @@ export async function getFirebaseAdmin() {
     const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
     console.log('[Firebase Admin] Checking environment variables...');
     console.log('[Firebase Admin] Project ID:', projectId ? `✓ ${projectId}` : '✗ Missing');
     console.log('[Firebase Admin] Private Key:', privateKey ? '✓ Set' : '✗ Missing');
     console.log('[Firebase Admin] Client Email:', clientEmail ? `✓ ${clientEmail}` : '✗ Missing');
+    console.log('[Firebase Admin] Storage Bucket:', storageBucket ? `✓ ${storageBucket}` : '✗ Missing');
 
     if (!projectId) {
       throw new Error('Missing FIREBASE_PROJECT_ID or NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable');
@@ -49,13 +51,24 @@ export async function getFirebaseAdmin() {
 
       console.log('[Firebase Admin] Initializing Firebase Admin with project:', serviceAccount.projectId);
 
-      adminApp = admin.default.initializeApp({
+      const adminConfig: any = {
         credential: admin.default.credential.cert(serviceAccount),
         projectId: projectId,
-        storageBucket: `${projectId}.firebasestorage.app`
-      });
+      };
+
+      // Only add storageBucket if it's defined in environment variables
+      if (storageBucket) {
+        adminConfig.storageBucket = storageBucket;
+        console.log('[Firebase Admin] Storage bucket configured:', storageBucket);
+      } else {
+        console.warn('[Firebase Admin] No storage bucket configured - storage operations may fail');
+        console.warn('[Firebase Admin] Please set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET in your environment');
+      }
+
+      adminApp = admin.default.initializeApp(adminConfig);
       
       console.log('[Firebase Admin] Firebase Admin initialized successfully');
+      console.log('[Firebase Admin] Admin app options:', adminApp.options);
     } else {
       adminApp = admin.default.apps[0];
       console.log('[Firebase Admin] Using existing Firebase Admin app');
@@ -76,7 +89,7 @@ export { adminApp };
 
 export async function deleteUserProfile(userId: string): Promise<void> {
   try {
-    const { db } = await getFirebaseAdmin();
+    const { app, db } = await getFirebaseAdmin();
     const profileRef = db.collection('profiles').doc(userId);
     
     // First check if the document exists
@@ -91,7 +104,41 @@ export async function deleteUserProfile(userId: string): Promise<void> {
     console.log(`[deleteUserProfile] Found profile for user ${userId}, deleting...`);
     console.log(`[deleteUserProfile] Profile data contains phone: ${!!profileData?.contactChannels?.phoneInfo?.internationalPhone}`);
     
-    // Delete the profile document
+    // Delete Firebase Storage files for this user
+    try {
+      const { getStorage } = await import('firebase-admin/storage');
+      const bucket = getStorage(app).bucket();
+      const userStoragePrefix = `users/${userId}/`;
+      
+      console.log(`[deleteUserProfile] Deleting storage files with prefix: ${userStoragePrefix}`);
+      
+      // List all files in the user's storage folder
+      const [files] = await bucket.getFiles({ prefix: userStoragePrefix });
+      
+      if (files.length > 0) {
+        console.log(`[deleteUserProfile] Found ${files.length} storage files to delete`);
+        
+        // Delete all files in parallel
+        const deletePromises = files.map(async (file) => {
+          try {
+            await file.delete();
+            console.log(`[deleteUserProfile] Deleted storage file: ${file.name}`);
+          } catch (error) {
+            console.warn(`[deleteUserProfile] Failed to delete storage file ${file.name}:`, error);
+          }
+        });
+        
+        await Promise.allSettled(deletePromises);
+        console.log(`[deleteUserProfile] Completed storage cleanup for user ${userId}`);
+      } else {
+        console.log(`[deleteUserProfile] No storage files found for user ${userId}`);
+      }
+    } catch (storageError) {
+      console.error(`[deleteUserProfile] Error cleaning up storage for user ${userId}:`, storageError);
+      // Don't fail the entire deletion if storage cleanup fails
+    }
+    
+    // Delete the profile document from Firestore
     await profileRef.delete();
     console.log(`[deleteUserProfile] Successfully deleted profile for user: ${userId}`);
     

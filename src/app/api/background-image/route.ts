@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { getFirebaseAdmin } from '@/lib/firebase/admin';
+import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,19 +20,46 @@ export async function POST(request: NextRequest) {
     console.log('[Background Image API] Authenticated user:', userId);
     
     const body = await request.json();
-    const { bio, name } = body;
+    const { bio, name, profileImage } = body;
     
     if (!bio || !name) {
       console.log('[Background Image API] Missing required data');
       return NextResponse.json({ error: 'Missing bio or name' }, { status: 400 });
     }
     
+    // Get user's profile image from Firebase
+    console.log('[Background Image API] Fetching user profile image...');
+    const { app } = await getFirebaseAdmin();
+    const db = getFirestore(app);
+    
+    let profileImageUrl = null;
+    try {
+      const profileDoc = await db.collection('profiles').doc(userId).get();
+      if (profileDoc.exists) {
+        const profileData = profileDoc.data();
+        profileImageUrl = profileData?.profileImage || null;
+        console.log('[Background Image API] Profile image found:', !!profileImageUrl);
+      }
+    } catch (error) {
+      console.log('[Background Image API] Could not fetch profile image:', error);
+      // Continue without profile image - it's optional
+    }
+
     console.log('[Background Image API] Generating background image for:', name);
     console.log('[Background Image API] Bio preview:', bio.substring(0, 100) + '...');
+    console.log('[Background Image API] Profile image from request:', !!profileImage);
+    console.log('[Background Image API] Profile image from Firebase:', !!profileImageUrl);
     
-    // Call OpenAI API - use absolute URL for server-side request
+    // Use profile image from request if provided, otherwise use the one from Firebase
+    const finalProfileImage = profileImage || profileImageUrl;
+    console.log('[Background Image API] Final profile image available:', !!finalProfileImage);
+    
+    // Call OpenAI API with simplified responses approach
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const openaiResponse = await fetch(`${baseUrl}/api/openai`, {
+    const openaiUrl = `${baseUrl}/api/openai`;
+    console.log('[Background Image API] Calling OpenAI API at:', openaiUrl);
+    
+    const openaiResponse = await fetch(openaiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,14 +69,17 @@ export async function POST(request: NextRequest) {
         profile: {
           name: name,
           bio: bio,
+          profileImage: finalProfileImage,
           userId: userId
         }
       })
     });
     
     if (!openaiResponse.ok) {
-      console.error('[Background Image API] OpenAI API failed');
-      return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 });
+      const errorText = await openaiResponse.text();
+      console.error('[Background Image API] OpenAI API failed with status:', openaiResponse.status);
+      console.error('[Background Image API] OpenAI API error:', errorText);
+      return NextResponse.json({ error: 'Failed to generate image', details: errorText }, { status: 500 });
     }
     
     // Handle streaming response from OpenAI
@@ -56,150 +87,136 @@ export async function POST(request: NextRequest) {
     if (contentType?.includes('text/event-stream')) {
       console.log('[Background Image API] Processing streaming response');
       
-      let finalImageUrl: string | null = null;
-      
-      const reader = openaiResponse.body?.getReader();
-      if (!reader) {
-        return NextResponse.json({ error: 'No reader available' }, { status: 500 });
-      }
-      
-      try {
-        const decoder = new TextDecoder();
-        let buffer = '';
-        
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // Create a stream to send partial images to client
+      const stream = new ReadableStream({
+        async start(controller) {
+          let finalImageUrl: string | null = null;
           
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          const reader = openaiResponse.body?.getReader();
+          if (!reader) {
+            controller.error(new Error('No reader available'));
+            return;
+          }
           
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const dataStr = line.slice(6);
-                const data = JSON.parse(dataStr);
-                
-                // Handle OpenAI partial images format
-                if (data.type === 'response.image_generation_call.partial_image' && data.partial_image_b64) {
-                  const imageData = data.partial_image_b64;
-                  console.log(`[Background Image API] Received partial image (index: ${data.partial_image_index})`);
-                  
-                  // Store the latest image (use the last one received)
-                  finalImageUrl = `data:image/png;base64,${imageData}`;
+          try {
+            const decoder = new TextDecoder();
+            let buffer = '';
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const dataStr = line.slice(6);
+                    const data = JSON.parse(dataStr);
+                    
+                    // Handle OpenAI partial images format
+                    if (data.type === 'response.image_generation_call.partial_image' && data.partial_image_b64) {
+                      const imageData = data.partial_image_b64;
+                      console.log(`[Background Image API] Received partial image (index: ${data.partial_image_index})`);
+                      
+                      // Stream partial image to client
+                      const partialImageUrl = `data:image/png;base64,${imageData}`;
+                      finalImageUrl = partialImageUrl; // Keep updating with latest
+                      
+                      // Send partial image update to client
+                      const eventData = `data: ${JSON.stringify({
+                        type: 'partial_image',
+                        imageUrl: partialImageUrl,
+                        index: data.partial_image_index
+                      })}\n\n`;
+                      
+                      controller.enqueue(new TextEncoder().encode(eventData));
+                    }
+                    
+                    // Handle completion
+                    if (data.type === 'response.completed') {
+                      console.log('[Background Image API] OpenAI response completed');
+                      break;
+                    }
+                  } catch (parseError) {
+                    console.warn('[Background Image API] Failed to parse streaming data:', parseError);
+                  }
                 }
-                
-                // Handle completion
-                if (data.type === 'response.completed') {
-                  console.log('[Background Image API] OpenAI response completed');
-                  break;
-                }
-              } catch (parseError) {
-                console.warn('[Background Image API] Failed to parse streaming data:', parseError);
               }
             }
+            
+            // After streaming is complete, upload final image to Firebase Storage
+            if (finalImageUrl) {
+              console.log('[Background Image API] Image generated, uploading to storage...');
+              
+              // Get Firebase Admin Storage using the admin SDK
+              const { app } = await getFirebaseAdmin();
+              
+              // Upload to Firebase Storage using Admin SDK
+              const { getStorage } = await import('firebase-admin/storage');
+              
+              const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+              console.log('[Background Image API] Storage bucket from env:', storageBucket);
+              
+              const bucket = storageBucket ? getStorage(app).bucket(storageBucket) : getStorage(app).bucket();
+              console.log('[Background Image API] Using bucket name:', bucket.name);
+              
+              const fileName = `users/${userId}/background-image.png`;
+              const file = bucket.file(fileName);
+              
+              console.log('[Background Image API] Uploading to storage path:', fileName);
+              
+              const base64WithoutPrefix = finalImageUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+              const buffer = Buffer.from(base64WithoutPrefix, 'base64');
+              
+              console.log('[Background Image API] Buffer size:', buffer.length, 'bytes');
+              
+              // Upload the buffer
+              await file.save(buffer, {
+                metadata: {
+                  contentType: 'image/png',
+                },
+              });
+              
+              console.log('[Background Image API] File uploaded successfully');
+              
+              // Make the file publicly readable
+              await file.makePublic();
+              console.log('[Background Image API] File made public');
+              
+              // Get the public URL using the bucket's configured name
+              const bucketName = bucket.name;
+              const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}?t=${Date.now()}`;
+              console.log('[Background Image API] Public URL generated:', publicUrl);
+              
+              // Send final result with Firebase Storage URL
+              const finalEventData = `data: ${JSON.stringify({
+                type: 'completed',
+                imageUrl: publicUrl
+              })}\n\n`;
+              
+              controller.enqueue(new TextEncoder().encode(finalEventData));
+            } else {
+              console.error('[Background Image API] No image received from OpenAI');
+              controller.error(new Error('No image generated'));
+            }
+            
+            controller.close();
+          } finally {
+            reader.releaseLock();
           }
         }
-      } finally {
-        reader.releaseLock();
-      }
+      });
       
-      if (!finalImageUrl) {
-        console.error('[Background Image API] No image received from OpenAI');
-        return NextResponse.json({ error: 'No image generated' }, { status: 500 });
-      }
-      
-      console.log('[Background Image API] Image generated, uploading to storage...');
-      
-      // Get Firebase Admin Storage using the admin SDK
-      const { app } = await getFirebaseAdmin();
-      
-      // Import Firebase Admin Storage module
-      const { getStorage } = await import('firebase-admin/storage');
-      
-      // Get the project ID to construct bucket name
-      const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      
-      // Try legacy bucket format first, then new format
-      let bucketName = `${projectId}.appspot.com`;
-      console.log('[Background Image API] Trying legacy bucket format:', bucketName);
-      
-      try {
-        const bucket = getStorage(app).bucket(bucketName);
-        const fileName = `users/${userId}/background-image.png`;
-        const file = bucket.file(fileName);
-        
-        console.log('[Background Image API] Uploading to storage path:', fileName);
-        
-        const base64WithoutPrefix = finalImageUrl.replace(/^data:image\/[a-z]+;base64,/, '');
-        const buffer = Buffer.from(base64WithoutPrefix, 'base64');
-        
-        console.log('[Background Image API] Buffer size:', buffer.length, 'bytes');
-        
-        // Upload the buffer
-        await file.save(buffer, {
-          metadata: {
-            contentType: 'image/png',
-          },
-        });
-        
-        console.log('[Background Image API] File uploaded successfully');
-        
-        // Make the file publicly readable
-        await file.makePublic();
-        console.log('[Background Image API] File made public');
-        
-        // Get the public URL
-        const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-        console.log('[Background Image API] Public URL generated:', publicUrl);
-        
-        return NextResponse.json({ 
-          success: true, 
-          imageUrl: publicUrl 
-        });
-        
-      } catch (legacyError) {
-        console.log('[Background Image API] Legacy bucket failed, trying new format...');
-        
-        // Try new bucket format
-        bucketName = `${projectId}.firebasestorage.app`;
-        console.log('[Background Image API] Trying new bucket format:', bucketName);
-        
-        const bucket = getStorage(app).bucket(bucketName);
-        const fileName = `users/${userId}/background-image.png`;
-        const file = bucket.file(fileName);
-        
-        console.log('[Background Image API] Uploading to storage path:', fileName);
-        
-        const base64WithoutPrefix = finalImageUrl.replace(/^data:image\/[a-z]+;base64,/, '');
-        const buffer = Buffer.from(base64WithoutPrefix, 'base64');
-        
-        console.log('[Background Image API] Buffer size:', buffer.length, 'bytes');
-        
-        // Upload the buffer
-        await file.save(buffer, {
-          metadata: {
-            contentType: 'image/png',
-          },
-        });
-        
-        console.log('[Background Image API] File uploaded successfully');
-        
-        // Make the file publicly readable
-        await file.makePublic();
-        console.log('[Background Image API] File made public');
-        
-        // Get the public URL
-        const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-        console.log('[Background Image API] Public URL generated:', publicUrl);
-        
-        return NextResponse.json({ 
-          success: true, 
-          imageUrl: publicUrl 
-        });
-      }
-      
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
     } else {
       // Handle regular JSON response (fallback)
       const result = await openaiResponse.json();

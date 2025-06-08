@@ -19,13 +19,19 @@ const ProfileView: React.FC = () => {
   
   const { data: session, status: sessionStatus } = useSession();
   
-  const { profile, isLoading: isProfileLoading } = useProfile();
+  const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile } = useProfile();
   console.log('[ProfileView] Profile state:', {
     hasProfile: !!profile,
     isProfileLoading,
+    isDeletingAccount,
     sessionStatus,
-    hasSession: !!session
+    hasSession: !!session,
+    profileUserId: profile?.userId,
+    sessionUserId: session?.user?.id,
   });
+
+  // Get the latest profile including streaming background image
+  const currentProfile = getLatestProfile() || profile;
 
   const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
   
@@ -33,8 +39,8 @@ const ProfileView: React.FC = () => {
 
   // Memoized values that need to be declared before conditional returns
   const bioContent = useMemo(() => {
-    return profile?.bio || 'Welcome to my profile!';
-  }, [profile?.bio]);
+    return currentProfile?.bio || 'Welcome to my profile!';
+  }, [currentProfile?.bio]);
 
   const markdownComponents = useMemo(() => ({
     p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
@@ -59,6 +65,19 @@ const ProfileView: React.FC = () => {
     );
   }
 
+  // Show loading state during account deletion to prevent "Unable to load profile" flash
+  if (isDeletingAccount) {
+    console.log('[ProfileView] Showing deletion loading state');
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white">Deleting account...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -75,13 +94,6 @@ const ProfileView: React.FC = () => {
   return (
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-4"
-      style={{
-        backgroundImage: profile.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: '#004D40' // Theme background color that shows while image loads
-      }}
     >
       {/* Top Navigation Buttons */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-6">
@@ -109,7 +121,7 @@ const ProfileView: React.FC = () => {
         </Link>
       </div>
       
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center min-h-screen">
         {/* Profile Image */}
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">
@@ -132,11 +144,11 @@ const ProfileView: React.FC = () => {
           <div className="mb-4 text-center">
             <style>{`
               .bio-content a {
-                color: hsl(var(--background)); /* Using CSS variable */
+                color: white;
                 text-decoration: underline;
               }
               .bio-content a:hover {
-                color: hsl(var(--background)); /* Using CSS variable */
+                color: rgba(255, 255, 255, 0.8);
               }
             `}</style>
             <div className="bio-content text-white">
@@ -157,91 +169,91 @@ const ProfileView: React.FC = () => {
           <div className="w-full">
             {/* First row - 5 icons with equal spacing */}
             <div className="flex flex-wrap justify-center gap-4">
-            {profile.contactChannels.facebook.username && (
+            {currentProfile?.contactChannels?.facebook?.username && (
               <a 
-                href={`https://facebook.com/${profile.contactChannels.facebook.username}`} 
+                href={`https://facebook.com/${currentProfile.contactChannels.facebook.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-400 transition-colors"
               >
-                <SocialIcon platform="facebook" username={profile.contactChannels.facebook.username} size="md" variant="white" />
+                <SocialIcon platform="facebook" username={currentProfile.contactChannels.facebook.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.instagram.username && (
+            {currentProfile?.contactChannels?.instagram?.username && (
               <a 
-                href={`https://instagram.com/${profile.contactChannels.instagram.username}`} 
+                href={`https://instagram.com/${currentProfile.contactChannels.instagram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-pink-400 transition-colors"
               >
-                <SocialIcon platform="instagram" username={profile.contactChannels.instagram.username} size="md" variant="white" />
+                <SocialIcon platform="instagram" username={currentProfile.contactChannels.instagram.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.x.username && (
+            {currentProfile?.contactChannels?.x?.username && (
               <a 
-                href={`https://x.com/${profile.contactChannels.x.username}`} 
+                href={`https://x.com/${currentProfile.contactChannels.x.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="x" username={profile.contactChannels.x.username} size="md" variant="white" />
+                <SocialIcon platform="x" username={currentProfile.contactChannels.x.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.whatsapp.username && (
+            {currentProfile?.contactChannels?.whatsapp?.username && (
               <a 
-                href={`https://wa.me/${profile.contactChannels.whatsapp.username}`} 
+                href={`https://wa.me/${currentProfile.contactChannels.whatsapp.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="whatsapp" username={profile.contactChannels.whatsapp.username} size="md" variant="white" />
+                <SocialIcon platform="whatsapp" username={currentProfile.contactChannels.whatsapp.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.snapchat.username && (
+            {currentProfile?.contactChannels?.snapchat?.username && (
               <a 
-                href={`https://www.snapchat.com/add/${profile.contactChannels.snapchat.username}`} 
+                href={`https://www.snapchat.com/add/${currentProfile.contactChannels.snapchat.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-yellow-300 transition-colors"
               >
-                <SocialIcon platform="snapchat" username={profile.contactChannels.snapchat.username} size="md" variant="white" />
+                <SocialIcon platform="snapchat" username={currentProfile.contactChannels.snapchat.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.telegram.username && (
+            {currentProfile?.contactChannels?.telegram?.username && (
               <a 
-                href={`https://t.me/${profile.contactChannels.telegram.username}`} 
+                href={`https://t.me/${currentProfile.contactChannels.telegram.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="telegram" username={profile.contactChannels.telegram.username} size="md" variant="white" />
+                <SocialIcon platform="telegram" username={currentProfile.contactChannels.telegram.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.wechat?.username && (
+            {currentProfile?.contactChannels?.wechat?.username && (
               <a 
-                href={`weixin://dl/chat?${profile.contactChannels.wechat.username}`} 
+                href={`weixin://dl/chat?${currentProfile.contactChannels.wechat.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-[hsl(var(--background))] transition-colors"
               >
-                <SocialIcon platform="wechat" username={profile.contactChannels.wechat.username} size="md" variant="white" />
+                <SocialIcon platform="wechat" username={currentProfile.contactChannels.wechat.username} size="md" variant="white" />
               </a>
             )}
             
-            {profile.contactChannels.linkedin.username && (
+            {currentProfile?.contactChannels?.linkedin?.username && (
               <a 
-                href={`https://linkedin.com/in/${profile.contactChannels.linkedin.username}`} 
+                href={`https://linkedin.com/in/${currentProfile.contactChannels.linkedin.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-white hover:text-blue-300 transition-colors"
               >
-                <SocialIcon platform="linkedin" username={profile.contactChannels.linkedin.username} size="md" variant="white" />
+                <SocialIcon platform="linkedin" username={currentProfile.contactChannels.linkedin.username} size="md" variant="white" />
               </a>
             )}
             </div>

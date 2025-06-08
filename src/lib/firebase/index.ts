@@ -1,7 +1,6 @@
 // Re-export all Firebase-related functionality
-export * from './config';
+export * from './clientConfig';
 export * from './profileService';
-export * from './sync';
 
 // For backward compatibility
 export const IndexedDB = {

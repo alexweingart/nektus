@@ -11,8 +11,6 @@ import { Heading } from './ui/Typography';
 import { useProfile } from '../context/ProfileContext';
 import type { UserProfile } from '@/types/profile';
 import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
-// setupScrollLock is not used but kept for future reference
-// import { setupScrollLock } from '../../lib/utils/scrollLock';
 import Avatar from './ui/Avatar';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
@@ -194,8 +192,24 @@ export default function ProfileSetup() {
   // Show loading state while checking auth status or loading profile
   if (sessionStatus === 'loading' || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
+  // Get the latest profile including streaming background image
+  const currentProfile = getLatestProfile() || profile;
+
+  // Check if profile is complete (has phone number) to prevent flash during navigation
+  const hasCompleteProfile = currentProfile?.contactChannels?.phoneInfo?.internationalPhone && 
+                            currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+
+  // If profile is complete and we're not currently saving, show minimal loading state to prevent flash
+  if (hasCompleteProfile && !isSaving) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
@@ -203,13 +217,6 @@ export default function ProfileSetup() {
   return (
     <div 
       className="min-h-screen w-full flex flex-col items-center px-4 py-6"
-      style={{
-        backgroundImage: profile?.backgroundImage ? `url(${profile.backgroundImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: '#004D40' // Theme background color that shows while image loads
-      }}
     >
       {/* Main Content */}
       <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">

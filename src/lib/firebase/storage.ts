@@ -1,4 +1,4 @@
-import { storage } from './config';
+import { storage } from './clientConfig';
 import { ref, uploadBytes, getDownloadURL, StorageReference } from 'firebase/storage';
 
 export async function uploadImageToStorage(
