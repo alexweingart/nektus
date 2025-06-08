@@ -23,19 +23,26 @@ type Country = {
 };
 
 export default function ProfileSetup() {
+  console.log('[ProfileSetup] Component rendering started');
+  
   // Session and authentication
   const { data: session, status: sessionStatus } = useSession({
     required: true,
   });
   
+  console.log('[ProfileSetup] useSession result:', { sessionStatus, hasSession: !!session });
+  
   // Profile and routing
-  const { profile, saveProfile, isLoading, getLatestProfile } = useProfile();
+  const { profile, saveProfile, isLoading, getLatestProfile, setNavigatingFromSetup } = useProfile();
   const router = useRouter();
+  
+  console.log('[ProfileSetup] useProfile result:', { isLoading, hasProfile: !!profile });
   
   // Component state
   const [isSaving, setIsSaving] = useState(false);
   const [digits, setDigits] = useState('');
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const navigationAttemptedRef = useRef(false);
   
   // Keep selectedCountry for phone number formatting
   const [selectedCountry] = useState<Country>({
@@ -178,7 +185,6 @@ export default function ProfileSetup() {
         // Save only the phone-related fields (preserves bio and other data)
         await saveProfile(phoneUpdateData);
         console.log('Profile saved successfully');
-        router.push('/');
       } catch (saveError) {
         console.error('Error in saveProfile call:', saveError);
         throw saveError; // Re-throw to be caught by the outer catch
@@ -189,7 +195,7 @@ export default function ProfileSetup() {
       console.log('=== Save process completed ===');
       setIsSaving(false);
     }
-  }, [digits, isSaving, profile, saveProfile, router, selectedCountry.code, session?.user?.email]);
+  }, [digits, isSaving, profile, saveProfile, selectedCountry.code, session?.user?.email]);
 
   // Get the latest profile including streaming background image - this must be after hooks
   const currentProfile = getLatestProfile() || profile;
@@ -200,16 +206,41 @@ export default function ProfileSetup() {
 
   // All useEffect and useCallback hooks must be called before any conditional returns
   useEffect(() => {
-    if (hasCompleteProfile && !isSaving && !isRedirecting) {
-      console.log('[ProfileSetup] Complete profile detected, redirecting to main page');
+    // Setup page now handles proactive redirect, so this component only needs to prevent ProfileContext interference
+    if (hasCompleteProfile && !isSaving && !isRedirecting && !navigationAttemptedRef.current) {
+      console.log('[ProfileSetup] Complete profile detected - setup page should have redirected already');
+      
+      // Set flags to prevent ProfileContext interference (belt and suspenders approach)
       setIsRedirecting(true);
-      router.push('/');
+      navigationAttemptedRef.current = true;
+      setNavigatingFromSetup(true);
     }
-  }, [hasCompleteProfile, isSaving, router, isRedirecting]);
+  }, [hasCompleteProfile, isSaving, isRedirecting, setNavigatingFromSetup]);
 
   // Show loading state while checking auth status or loading profile
   // Don't show loading if we have a valid session but status is temporarily 'loading' due to session updates
-  if ((sessionStatus === 'loading' && !session) || isLoading) {
+  // ALSO skip loading for new users since we want immediate setup form
+  const isNewUser = session?.isNewUser;
+  const shouldSkipLoading = !!(isNewUser && sessionStatus === 'authenticated' && session);
+  
+  console.log('[ProfileSetup] Loading check:', {
+    sessionStatus,
+    isLoading,
+    hasSession: !!session,
+    isNewUser,
+    shouldSkipLoading,
+    willShowSpinner: ((sessionStatus === 'loading' && !session) || isLoading) && !shouldSkipLoading
+  });
+  
+  if (((sessionStatus === 'loading' && !session) || isLoading) && !shouldSkipLoading) {
+    console.log('[ProfileSetup] Showing loading spinner:', { 
+      sessionStatus, 
+      hasSession: !!session, 
+      isLoading, 
+      isNewUser,
+      shouldSkipLoading 
+    });
+    
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -219,12 +250,26 @@ export default function ProfileSetup() {
 
   // If profile is complete and we're not currently saving, show minimal loading state during redirect
   if (hasCompleteProfile && !isSaving && !isRedirecting) {
+    console.log('[ProfileSetup] Showing loading spinner for complete profile redirect:', {
+      hasCompleteProfile,
+      isSaving,
+      isRedirecting
+    });
+    
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
+
+  console.log('[ProfileSetup] Rendering setup form:', {
+    hasCompleteProfile,
+    isSaving,
+    isRedirecting,
+    hasProfile: !!profile,
+    isNewUser: session?.isNewUser
+  });
 
   return (
     <div 

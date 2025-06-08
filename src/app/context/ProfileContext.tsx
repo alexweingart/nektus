@@ -13,6 +13,7 @@ type ProfileContextType = {
   isLoading: boolean;
   isSaving: boolean;
   isDeletingAccount: boolean;
+  isNavigatingFromSetup: boolean;
   streamingBackgroundImage: string | null;
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
   clearProfile: () => Promise<void>;
@@ -20,6 +21,7 @@ type ProfileContextType = {
   generateBio: (profile: UserProfile) => Promise<string | null>;
   generateProfileImage: (profile: UserProfile) => Promise<string | null>;
   getLatestProfile: () => UserProfile | null;
+  setNavigatingFromSetup: (navigating: boolean) => void;
 };
 
 // Create context
@@ -59,6 +61,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isNavigatingFromSetup, setIsNavigatingFromSetup] = useState(false);
   const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
   const loadingRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
@@ -103,115 +106,145 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loadProfileForUser = useCallback(async () => {
+    if (authStatus !== 'authenticated' || !session?.user?.id) {
+      if (authStatus === 'unauthenticated') {
+        setProfile(null);
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    const userId = session.user.id;
+
+    // Skip reload if already loaded for current user
+    if (lastUserIdRef.current === userId && profile?.userId === userId) {
+      console.log('[ProfileContext] Profile already loaded for current user:', userId);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    console.log('[ProfileContext] Loading profile for user:', userId);
+
+    // Check if this is a different user
+    if (lastUserIdRef.current && lastUserIdRef.current !== userId) {
+      console.log('[ProfileContext] New user detected, resetting bioGeneratedRef');
+      bioGeneratedRef.current = false;
+      backgroundImageGeneratedRef.current = false;
+    }
+
+    lastUserIdRef.current = userId;
+
+    try {
+      console.log('[ProfileContext] Loading profile for user:', userId);
+      const existingProfile = await loadProfile(userId);
+      
+      if (existingProfile) {
+        console.log('[ProfileContext] Profile loaded successfully');
+        console.log('[ProfileContext] Profile loaded from Firebase:', {
+          userId: existingProfile.userId,
+          hasPhone: !!existingProfile.contactChannels?.phoneInfo?.internationalPhone,
+          phoneNumber: existingProfile.contactChannels?.phoneInfo?.internationalPhone,
+          whatsappUsername: existingProfile.contactChannels?.whatsapp?.username,
+          telegramUsername: existingProfile.contactChannels?.telegram?.username,
+          wechatUsername: existingProfile.contactChannels?.wechat?.username
+        });
+        
+        // Mark as generated if bio already exists
+        if (existingProfile.bio && existingProfile.bio.trim() !== '') {
+          console.log('[ProfileContext] Profile already has bio, marking as generated');
+          bioGeneratedRef.current = true;
+        }
+        
+        // Mark as generated if background image already exists
+        if (existingProfile.backgroundImage && existingProfile.backgroundImage.trim() !== '') {
+          console.log('[ProfileContext] Profile already has background image, marking as generated');
+          backgroundImageGeneratedRef.current = true;
+        }
+        
+        setProfile(existingProfile);
+        profileRef.current = existingProfile;
+        
+        // Check if we need to update session with loaded profile phone data
+        if (existingProfile.contactChannels?.phoneInfo?.internationalPhone && 
+            (!session.profile?.contactChannels?.phoneInfo?.internationalPhone ||
+             session.profile.contactChannels.phoneInfo.internationalPhone !== existingProfile.contactChannels.phoneInfo.internationalPhone)) {
+          
+          console.log('[ProfileContext] Updating session with phone data from loaded profile');
+          try {
+            await update({
+              profile: existingProfile
+            });
+            console.log('[ProfileContext] Session updated successfully with loaded profile phone data');
+          } catch (updateError) {
+            console.error('[ProfileContext] Failed to update session with loaded profile:', updateError);
+          }
+        }
+      } else {
+        console.log('[ProfileContext] No existing profile found');
+        
+        // Create a new default profile  
+        console.log('[ProfileContext] Creating new default profile for session:', {
+          userId: session.user.id,
+          email: session.user.email,
+          name: session.user.name
+        });
+        console.log('[ProfileContext] Session user data available:', {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image,
+          allUserKeys: Object.keys(session.user || {})
+        });
+        
+        const newProfile = await createDefaultProfile(session);
+        console.log('[ProfileContext] New default profile created:', {
+          hasPhone: !!newProfile.contactChannels?.phoneInfo?.internationalPhone,
+          phoneNumber: newProfile.contactChannels?.phoneInfo?.internationalPhone,
+          whatsappUsername: newProfile.contactChannels?.whatsapp?.username,
+          telegramUsername: newProfile.contactChannels?.telegram?.username,
+          wechatUsername: newProfile.contactChannels?.wechat?.username
+        });
+        
+        setProfile(newProfile);
+        profileRef.current = newProfile;
+      }
+
+      console.log('[ProfileContext] Profile loaded and state updated');
+      
+    } catch (error) {
+      console.error('[ProfileContext] Error loading profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session, loadProfile, authStatus]);
+
   // Single effect to handle profile loading
   useEffect(() => {
-    const loadProfileForUser = async () => {
-      if (authStatus !== 'authenticated' || !session?.user?.id) {
-        if (authStatus === 'unauthenticated') {
-          setProfile(null);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      const userId = session.user.id;
+    const isNewUser = session?.isNewUser;
+    
+    if (isNewUser) {
+      console.log('[ProfileContext] New user detected - skipping initial profile loading for fast setup');
+      setIsLoading(false);
       
-      // Skip if we already loaded for this user
-      if (lastUserIdRef.current === userId && profile?.userId === userId) {
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('[ProfileContext] Loading profile for user:', userId);
-      setIsLoading(true);
+      // Listen for event to trigger background profile creation
+      const handleTriggerProfileCreation = () => {
+        console.log('[ProfileContext] Received trigger for background profile creation');
+        // Now load profile normally
+        loadProfileForUser();
+      };
       
-      // Only reset bio generation flag when switching to a different user
-      if (lastUserIdRef.current !== userId) {
-        console.log('[ProfileContext] New user detected, resetting bioGeneratedRef');
-        bioGeneratedRef.current = false;
-        backgroundImageGeneratedRef.current = false;
-        generatingBackgroundImageRef.current = false; // Reset generating flag for new user
-        sessionUpdatedRef.current = false; // Reset session update flag for new user
-      }
-      lastUserIdRef.current = userId;
+      window.addEventListener('triggerProfileCreation', handleTriggerProfileCreation);
       
-      loadProfile(userId).then(async (loadedProfile) => {
-        if (loadedProfile) {
-          console.log('[ProfileContext] Profile loaded from Firebase:', {
-            userId: loadedProfile.userId,
-            hasPhone: !!loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
-            phoneNumber: loadedProfile.contactChannels?.phoneInfo?.internationalPhone,
-            whatsappUsername: loadedProfile.contactChannels?.whatsapp?.username,
-            telegramUsername: loadedProfile.contactChannels?.telegram?.username,
-            wechatUsername: loadedProfile.contactChannels?.wechat?.username,
-            hasBio: !!loadedProfile.bio,
-            bioLength: loadedProfile.bio?.length || 0,
-            bioPreview: loadedProfile.bio ? loadedProfile.bio.substring(0, 50) + '...' : 'No bio',
-            hasBackgroundImage: !!loadedProfile.backgroundImage
-          });
-          setProfile(loadedProfile);
-          profileRef.current = loadedProfile;
-          
-          // If profile already has a bio, mark as generated to prevent regeneration
-          if (loadedProfile.bio && loadedProfile.bio.trim() !== '') {
-            console.log('[ProfileContext] Profile already has bio, marking as generated');
-            bioGeneratedRef.current = true;
-          }
-          
-          // Update session with phone data if profile is complete and session hasn't been updated
-          const hasPhoneData = loadedProfile.contactChannels?.phoneInfo?.internationalPhone && 
-                              loadedProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
-          
-          if (hasPhoneData && !sessionUpdatedRef.current && update) {
-            const phoneData = {
-              profile: {
-                contactChannels: {
-                  phoneInfo: {
-                    internationalPhone: loadedProfile.contactChannels.phoneInfo.internationalPhone,
-                    nationalPhone: loadedProfile.contactChannels.phoneInfo.nationalPhone,
-                    userConfirmed: loadedProfile.contactChannels.phoneInfo.userConfirmed
-                  }
-                }
-              }
-            };
-            
-            try {
-              console.log('[ProfileContext] Updating session with phone data from loaded profile');
-              await update(phoneData);
-              sessionUpdatedRef.current = true;
-              console.log('[ProfileContext] Session updated successfully with loaded profile phone data');
-            } catch (error) {
-              console.error('[ProfileContext] Error updating session with loaded profile:', error);
-            }
-          }
-          
-          console.log('[ProfileContext] Profile loaded and state updated');
-        } else {
-          // Create default profile
-          console.log('[ProfileContext] Creating new default profile for session:', {
-            userId: session?.user?.id,
-            email: session?.user?.email,
-            name: session?.user?.name
-          });
-          const newProfile = createDefaultProfile(session);
-          console.log('[ProfileContext] New default profile created:', {
-            hasPhone: !!newProfile.contactChannels?.phoneInfo?.internationalPhone,
-            phoneNumber: newProfile.contactChannels?.phoneInfo?.internationalPhone,
-            whatsappUsername: newProfile.contactChannels?.whatsapp?.username,
-            telegramUsername: newProfile.contactChannels?.telegram?.username,
-            wechatUsername: newProfile.contactChannels?.wechat?.username
-          });
-          setProfile(newProfile);
-          profileRef.current = newProfile;
-        }
-        setIsLoading(false);
-      }).catch((error) => {
-        console.error('[ProfileContext] Error loading profile:', error);
-        setIsLoading(false);
-      });
-    };
+      return () => {
+        window.removeEventListener('triggerProfileCreation', handleTriggerProfileCreation);
+      };
+    }
+    
+    // For existing users, load immediately
     loadProfileForUser();
-  }, [session?.user?.id, session?.user?.email, loadProfile, authStatus]);
+  }, [session, loadProfileForUser]);
 
   useEffect(() => {
     profileRef.current = profile;
@@ -657,6 +690,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Skip background image generation if we're about to redirect
+    if (isNavigatingFromSetup) {
+      console.log('[ProfileContext] Skipping background image generation - navigation in progress');
+      return;
+    }
+    
     if ((!profileToCheck.backgroundImage || profileToCheck.backgroundImage.trim() === '') && 
         profileToCheck.bio && profileToCheck.bio.trim() !== '') {
       console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION TRIGGERED ===');
@@ -731,7 +770,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    if (pathname === '/setup' && profileRef.current && session?.user?.email && !isSaving) {
+    if (pathname === '/setup' && profileRef.current && session?.user?.email && !isSaving && !isNavigatingFromSetup) {
       console.log('[ProfileContext] === SETUP CONDITIONS MET ===');
       const email = session.user.email;
       const phone = profileRef.current.contactChannels?.phoneInfo?.internationalPhone;
@@ -741,35 +780,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.log('[ProfileContext] current bio:', profileRef.current.bio);
       console.log('[ProfileContext] current backgroundImage:', profileRef.current.backgroundImage);
       
-      // Check if bio already exists - if so, mark as generated to prevent future attempts
-      if (profileRef.current.bio && profileRef.current.bio.trim() !== '') {
-        console.log('[ProfileContext] Bio already exists in profile, marking as generated');
-        bioGeneratedRef.current = true;
-        
-        // Always check if background image should be generated when bio exists
-        console.log('[ProfileContext] Checking background image generation since bio exists...');
-        (async () => {
-          await checkAndGenerateBackgroundImage(profileRef.current!);
-        })();
-        
-        // If bio generation hasn't been attempted yet, we still need to continue with the setup flow
-        if (!bioGeneratedRef.current) {
-          console.log('[ProfileContext] Bio generation not completed yet, continuing setup flow...');
-        } else {
-          console.log('[ProfileContext] Bio and background image check completed, setup flow finished');
-          return;
-        }
-      }
+      // Helper function to check if profile is complete (has phone)
+      const isProfileComplete = () => {
+        return profileRef.current?.contactChannels?.phoneInfo?.internationalPhone && 
+               profileRef.current.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+      };
       
-      // Only continue with bio generation if it hasn't been generated yet
-      if (!bioGeneratedRef.current) {
-        console.log('[ProfileContext] === SETUP CONDITIONS MET ===');
-        console.log('[ProfileContext] Setup conditions met, checking social media fields...');
+      // Helper function to check if bio should be generated
+      const shouldGenerateBio = () => {
+        return !profileRef.current?.bio || profileRef.current.bio.trim() === '';
+      };
+      
+      // Helper function to check if background image should be generated
+      const shouldGenerateBackground = () => {
+        const hasBackground = profileRef.current?.backgroundImage && profileRef.current.backgroundImage.trim() !== '';
+        const hasBio = profileRef.current?.bio && profileRef.current.bio.trim() !== '';
+        return !hasBackground && hasBio && !isProfileComplete();
+      };
+      
+      // Single flow: Handle bio generation if needed
+      if (shouldGenerateBio() && !bioGeneratedRef.current) {
+        console.log('[ProfileContext] Bio needs generation');
         
-        // Get current social media fields
+        // Check if social media needs to be generated first
         const currentSocialFields = profileRef.current.contactChannels;
-        
-        // Check if all social media fields are empty (excluding phone and email)
         const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
         const allSocialFieldsEmpty = socialPlatforms.every(platform => {
           const field = currentSocialFields[platform as keyof typeof currentSocialFields] as SocialProfile;
@@ -777,15 +811,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         });
         
         if (allSocialFieldsEmpty) {
-          console.log('[ProfileContext] Generating social media profiles from email...');
-          
-          // Generate social media profiles from email - wrap in async function
+          console.log('[ProfileContext] Generating social media profiles first...');
           (async () => {
             try {
-              // Generate social media profiles from email
               const socialProfiles = generateSocialProfilesFromEmail(email);
-              
-              // Update profile with generated social media data
               const updatedProfile = {
                 ...profileRef.current!,
                 contactChannels: {
@@ -796,31 +825,33 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               
               await saveProfile(updatedProfile, { directUpdate: true, skipUIUpdate: true });
               console.log('[ProfileContext] Social media profiles saved successfully');
-              
-              // After saving social media, check if we should generate bio
               await checkAndGenerateBio(updatedProfile);
-              
             } catch (error) {
-              console.error('[ProfileContext] Error saving social media profiles:', error);
-              console.error('[ProfileContext] Error type:', typeof error);
-              console.error('[ProfileContext] Error message:', error instanceof Error ? error.message : 'Unknown error');
-              console.error('[ProfileContext] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+              console.error('[ProfileContext] Error generating social media and bio:', error);
             }
           })();
         } else {
-          // Social media already exists, proceed to bio generation
+          console.log('[ProfileContext] Social media exists, generating bio...');
           (async () => {
             await checkAndGenerateBio(profileRef.current!);
           })();
         }
-      } else {
-        console.log('[ProfileContext] === BIO ALREADY GENERATED ===');
-        console.log('[ProfileContext] Bio already generated, only checking background image...');
-        
-        // Wrap in async function
+      } else if (profileRef.current.bio && profileRef.current.bio.trim() !== '') {
+        console.log('[ProfileContext] Bio already exists, marking as generated');
+        bioGeneratedRef.current = true;
+      }
+      
+      // Handle background image generation if needed (independent of bio generation)
+      if (shouldGenerateBackground()) {
+        console.log('[ProfileContext] Background image needs generation');
         (async () => {
           await checkAndGenerateBackgroundImage(profileRef.current!);
         })();
+      } else if (isProfileComplete()) {
+        console.log('[ProfileContext] Profile complete (has phone), skipping background generation - redirect will happen');
+      } else if (profileRef.current.backgroundImage && profileRef.current.backgroundImage.trim() !== '') {
+        console.log('[ProfileContext] Background image already exists, marking as generated');
+        backgroundImageGeneratedRef.current = true;
       }
     } else {
       console.log('[ProfileContext] === SETUP CONDITIONS NOT MET ===');
@@ -828,12 +859,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (!profileRef.current) console.log('[ProfileContext] No profile');
       if (!session?.user?.email) console.log('[ProfileContext] No user email');
       if (isSaving) console.log('[ProfileContext] Saving in progress');
+      if (isNavigatingFromSetup) console.log('[ProfileContext] Navigation in progress');
     }
   }, [pathname, session?.user?.email, saveProfile, generateBio, isSaving, checkAndGenerateBio, checkAndGenerateBackgroundImage]);
 
   useEffect(() => {
     if (pathname === '/setup') {
-      setupPageEffect();
+      // Check if any component is attempting to navigate away from setup
+      // If so, don't run setup effects to avoid blocking navigation
+      const isNavigatingAway = window.location.pathname !== '/setup' || 
+                               document.querySelector('[data-navigating="true"]');
+      
+      if (!isNavigatingAway) {
+        setupPageEffect();
+      } else {
+        console.log('[ProfileContext] Skipping setup effect - navigation in progress');
+      }
     }
   }, [pathname, setupPageEffect]);
 
@@ -848,6 +889,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [profile, streamingBackgroundImage]);
 
+  const setNavigatingFromSetup = useCallback((navigating: boolean) => {
+    setIsNavigatingFromSetup(navigating);
+  }, []);
+
   return (
     <ProfileContext.Provider
       value={{
@@ -855,13 +900,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isSaving,
         isDeletingAccount,
+        isNavigatingFromSetup,
         streamingBackgroundImage,
         saveProfile,
         clearProfile,
         generateBackgroundImage,
         generateBio,
         generateProfileImage,
-        getLatestProfile
+        getLatestProfile,
+        setNavigatingFromSetup
       }}
     >
       {children}

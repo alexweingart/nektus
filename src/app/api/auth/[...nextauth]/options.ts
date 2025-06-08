@@ -49,6 +49,7 @@ declare module "next-auth" {
       image?: string | null;
       phone?: string | null;
     };
+    isNewUser?: boolean;
   }
 
   interface User {
@@ -70,6 +71,7 @@ declare module "next-auth/jwt" {
         };
       };
     };
+    isNewUser?: boolean;
   }
 }
 
@@ -135,6 +137,10 @@ export const authOptions: NextAuthOptions = {
         token.idToken = account.id_token;
         console.log('JWT: Added idToken to token');
         
+        // Mark as new user for first-time sign-in optimization
+        token.isNewUser = true;
+        console.log('JWT: Marked as new user for setup page optimization');
+        
         // --- Persist Google access_token for revocation ---
         if (account?.provider === 'google' && account?.access_token) {
           token.accessToken = account.access_token;
@@ -190,6 +196,10 @@ export const authOptions: NextAuthOptions = {
       // Update with session data if available
       if (trigger === 'update' && session?.profile) {
         console.log('JWT: Updating with new profile data:', session.profile);
+        
+        // Clear new user flag since profile now exists
+        token.isNewUser = false;
+        console.log('JWT: Cleared isNewUser flag - profile now exists');
         
         // Use session data directly instead of merging with potentially stale token data
         token.profile = {
@@ -250,6 +260,11 @@ export const authOptions: NextAuthOptions = {
               }
             }
           };
+        }
+        
+        // Add isNewUser flag to session
+        if (token.isNewUser !== undefined) {
+          session.isNewUser = token.isNewUser;
         }
         
         // TODO: Move Firebase Auth logic to client-side hook/context
