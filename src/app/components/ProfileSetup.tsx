@@ -43,11 +43,12 @@ export default function ProfileSetup() {
     flag: '🇺🇸',
     dialCode: '1'
   });
+  
   // Refs
   const phoneInputRef = useRef<HTMLInputElement>(null);
-  // freeze auto-scroll on focus
+  
+  // Hooks must be called before any conditional returns
   useFreezeScrollOnFocus(phoneInputRef);
-  // Admin mode
   const adminModeProps = useAdminModeActivator();
 
   // Handle saving the profile with phone number
@@ -189,6 +190,21 @@ export default function ProfileSetup() {
     }
   }, [digits, isSaving, profile, saveProfile, router, selectedCountry.code, session?.user?.email]);
 
+  // Get the latest profile including streaming background image - this must be after hooks
+  const currentProfile = getLatestProfile() || profile;
+
+  // Check if profile is complete (has phone number) to prevent flash during navigation
+  const hasCompleteProfile = currentProfile?.contactChannels?.phoneInfo?.internationalPhone && 
+                            currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+
+  // All useEffect and useCallback hooks must be called before any conditional returns
+  useEffect(() => {
+    if (hasCompleteProfile && !isSaving) {
+      console.log('[ProfileSetup] Complete profile detected, redirecting to main page');
+      router.push('/');
+    }
+  }, [hasCompleteProfile, isSaving, router]);
+
   // Show loading state while checking auth status or loading profile
   if (sessionStatus === 'loading' || isLoading) {
     return (
@@ -198,14 +214,7 @@ export default function ProfileSetup() {
     );
   }
 
-  // Get the latest profile including streaming background image
-  const currentProfile = getLatestProfile() || profile;
-
-  // Check if profile is complete (has phone number) to prevent flash during navigation
-  const hasCompleteProfile = currentProfile?.contactChannels?.phoneInfo?.internationalPhone && 
-                            currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
-
-  // If profile is complete and we're not currently saving, show minimal loading state to prevent flash
+  // If profile is complete and we're not currently saving, show minimal loading state during redirect
   if (hasCompleteProfile && !isSaving) {
     return (
       <div className="min-h-screen flex items-center justify-center">

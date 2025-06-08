@@ -158,7 +158,34 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             bioGeneratedRef.current = true;
           }
           
-          console.log('[ProfileContext] Profile loaded and state updated - no session update needed');
+          // Update session with phone data if profile is complete and session hasn't been updated
+          const hasPhoneData = loadedProfile.contactChannels?.phoneInfo?.internationalPhone && 
+                              loadedProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+          
+          if (hasPhoneData && !sessionUpdatedRef.current && update) {
+            const phoneData = {
+              profile: {
+                contactChannels: {
+                  phoneInfo: {
+                    internationalPhone: loadedProfile.contactChannels.phoneInfo.internationalPhone,
+                    nationalPhone: loadedProfile.contactChannels.phoneInfo.nationalPhone,
+                    userConfirmed: loadedProfile.contactChannels.phoneInfo.userConfirmed
+                  }
+                }
+              }
+            };
+            
+            try {
+              console.log('[ProfileContext] Updating session with phone data from loaded profile');
+              await update(phoneData);
+              sessionUpdatedRef.current = true;
+              console.log('[ProfileContext] Session updated successfully with loaded profile phone data');
+            } catch (error) {
+              console.error('[ProfileContext] Error updating session with loaded profile:', error);
+            }
+          }
+          
+          console.log('[ProfileContext] Profile loaded and state updated');
         } else {
           // Create default profile
           console.log('[ProfileContext] Creating new default profile for session:', {
