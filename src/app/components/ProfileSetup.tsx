@@ -35,6 +35,7 @@ export default function ProfileSetup() {
   // Component state
   const [isSaving, setIsSaving] = useState(false);
   const [digits, setDigits] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   // Keep selectedCountry for phone number formatting
   const [selectedCountry] = useState<Country>({
@@ -199,14 +200,16 @@ export default function ProfileSetup() {
 
   // All useEffect and useCallback hooks must be called before any conditional returns
   useEffect(() => {
-    if (hasCompleteProfile && !isSaving) {
+    if (hasCompleteProfile && !isSaving && !isRedirecting) {
       console.log('[ProfileSetup] Complete profile detected, redirecting to main page');
+      setIsRedirecting(true);
       router.push('/');
     }
-  }, [hasCompleteProfile, isSaving, router]);
+  }, [hasCompleteProfile, isSaving, router, isRedirecting]);
 
   // Show loading state while checking auth status or loading profile
-  if (sessionStatus === 'loading' || isLoading) {
+  // Don't show loading if we have a valid session but status is temporarily 'loading' due to session updates
+  if ((sessionStatus === 'loading' && !session) || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -215,7 +218,7 @@ export default function ProfileSetup() {
   }
 
   // If profile is complete and we're not currently saving, show minimal loading state during redirect
-  if (hasCompleteProfile && !isSaving) {
+  if (hasCompleteProfile && !isSaving && !isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
