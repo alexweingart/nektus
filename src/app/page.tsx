@@ -1,12 +1,15 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { useEffect } from 'react';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
+// Force dynamic rendering to prevent static generation issues with auth
+export const dynamic = 'force-dynamic';
+
 // Dynamically import components to prevent hydration issues
-const HomePage = dynamic(() => import('./components/HomePage'), { 
+const HomePage = dynamicImport(() => import('./components/HomePage'), { 
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -15,7 +18,7 @@ const HomePage = dynamic(() => import('./components/HomePage'), {
   )
 });
 
-const ProfileView = dynamic(() => import('./components/ProfileView'), { 
+const ProfileView = dynamicImport(() => import('./components/ProfileView'), { 
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen bg-background">

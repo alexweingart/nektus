@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import ProfileSetup from '../components/ProfileSetup';
 import { useSearchParams } from 'next/navigation';
 
-export default function SetupPage() {
+function SetupPageContent() {
   const searchParams = useSearchParams();
   const error = searchParams?.get('error');
   
@@ -17,5 +17,13 @@ export default function SetupPage() {
       )}
       <ProfileSetup />
     </>
+  );
+}
+
+export default function SetupPage() {
+  return (
+    <Suspense fallback={<div className="p-4">Loading...</div>}>
+      <SetupPageContent />
+    </Suspense>
   );
 }
