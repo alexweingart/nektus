@@ -31,6 +31,18 @@ const ProfileView: React.FC = () => {
   
   const router = useRouter();
 
+  // Memoized values that need to be declared before conditional returns
+  const bioContent = useMemo(() => {
+    return profile?.bio || 'Welcome to my profile!';
+  }, [profile?.bio]);
+
+  const markdownComponents = useMemo(() => ({
+    p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
+    a: ({ node: _node, ...props }: any) => (
+      <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
+    ),
+  }), []);
+
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
     console.log('[ProfileView] Showing loading state:', {
@@ -59,18 +71,6 @@ const ProfileView: React.FC = () => {
       </div>
     );
   }
-
-  // Simple bio display - just show what's in the profile
-  const bioContent = useMemo(() => {
-    return profile.bio || 'Welcome to my profile!';
-  }, [profile.bio]);
-
-  const markdownComponents = useMemo(() => ({
-    p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
-    a: ({ node: _node, ...props }: any) => (
-      <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
-    ),
-  }), []);
 
   return (
     <div 
