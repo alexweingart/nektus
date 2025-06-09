@@ -16,7 +16,7 @@ const inter = Inter({
 const THEME_COLOR = '#004D40';
 
 export const metadata: Metadata = {
-  title: "Nekt.Us - Connect with a Bump",
+  title: "Nekt.Us - Bump to Connect",
   description: "Exchange contact info and social profiles by bumping phones",
   manifest: "/manifest.json",
   icons: {

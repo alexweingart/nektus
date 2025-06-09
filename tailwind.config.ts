@@ -12,7 +12,7 @@ export default {
         background: "#004D40",
         foreground: "var(--foreground)",
         theme: {
-          light: '#E7FED2',
+          light: '#004D40',
           DEFAULT: '#ffffff',
           dark: '#f5f5f5',
         },
@@ -21,8 +21,8 @@ export default {
         background: "#004D40",
       },
       gradientColorStops: {
-        'theme-start': '#E7FED2',
-        'theme-end': '#71E454',
+        'theme-start': '#004D40',
+        'theme-end': '#004D40',
       },
     },
   },

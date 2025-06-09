@@ -7,9 +7,9 @@
     /* Core dimensions */
     --max-content-width: 448px;  /* Standard max-width for content */
     
-    /* Core color palette in HSL format */
-    --background: 118 41% 30%;  /* Primary green background */
-    --foreground: 0 0% 100%;    /* White text for light theme */
+    /* Core color palette - using hex for consistency */
+    --background: #004D40;  /* Primary green background - consistent hex value */
+    --foreground: #ffffff;    /* White text for light theme */
     
     /* Primary colors */
     --primary: 122 39% 49%;     /* Brand green */
@@ -55,24 +55,24 @@
   }
 
   .dark {
-    --background: 162 17% 13%;
-    --foreground: 210 20% 98%;
-    --card: 145 18% 19%;
-    --card-foreground: 210 20% 98%;
-    --popover: 145 18% 19%;
-    --popover-foreground: 210 20% 98%;
+    --background: #004D40;
+    --foreground: #ffffff;
+    --card: #333333;
+    --card-foreground: #ffffff;
+    --popover: #333333;
+    --popover-foreground: #ffffff;
     --primary: 122 39% 49%;
     --primary-foreground: 0 0% 100%;
     --secondary: 114 25% 29%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 217 19% 16%;
-    --muted-foreground: 215 16% 65%;
+    --muted: #666666;
+    --muted-foreground: #ffffff;
     --accent: 142 25% 25%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 217 19% 27%;
-    --input: 217 19% 27%;
+    --destructive-foreground: #ffffff;
+    --border: #666666;
+    --input: #666666;
     --ring: 122 39% 49%;
   }
 }
@@ -80,8 +80,8 @@
 /* Base styles */
 :root {
   color-scheme: light dark;
-  color: hsl(var(--foreground));
-  background-color: hsl(var(--background));
+  color: var(--foreground);
+  background-color: var(--background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -111,8 +111,8 @@ body {
   min-height: 100dvh;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 /* iOS specific fixes */
