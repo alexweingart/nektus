@@ -21,9 +21,40 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { bio, name } = body;
+    const { bio, name, base64Data } = body;
     console.log('[Background Image API] Request received for user:', session.user.id);
     console.log('[Background Image API] Bio length:', bio?.length, 'Name:', name);
+    
+    if (base64Data) {
+      console.log('[Background Image API] Manual upload mode detected');
+      
+      // Upload to Firebase Storage
+      console.log('[Background Image API] Uploading to Firebase Storage...');
+      const { adminApp } = await getFirebaseAdmin();
+      const storage = getStorage(adminApp);
+      const bucket = storage.bucket();
+      const fileName = `users/${session.user.id}/background-image-${Date.now()}.png`;
+      const file = bucket.file(fileName);
+      
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+      await file.save(imageBuffer, {
+        metadata: {
+          contentType: 'image/png',
+        },
+      });
+      
+      // Make public
+      await file.makePublic();
+      
+      // Generate public URL
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      
+      console.log('[Background Image API] Image uploaded to:', publicUrl);
+      
+      return NextResponse.json({ 
+        imageUrl: publicUrl
+      });
+    }
     
     // Call OpenAI background generation API
     const openaiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/openai`;

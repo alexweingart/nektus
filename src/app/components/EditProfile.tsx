@@ -256,18 +256,41 @@ const EditProfile: React.FC = () => {
   }, []);
 
   // Handle image upload
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'background') => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'background') => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e: ProgressEvent<FileReader>) => {
+    reader.onload = async (e: ProgressEvent<FileReader>) => {
       const result = e.target?.result as string;
+      
       if (type === 'avatar') {
+        // For avatars, keep the existing client-side approach
         setFormData((prev: FormDataState) => ({ ...prev, picture: result }));
       } else {
-        setFormData((prev: FormDataState) => ({ ...prev, backgroundImage: result }));
-        setHasNewBackgroundImage(true);
+        // For background images, upload to Firebase Storage via API
+        try {
+          const base64Data = result.split(',')[1]; // Remove data:image/...;base64, prefix
+          
+          const response = await fetch('/api/background-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ base64Data }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to upload background image');
+          }
+
+          const { imageUrl } = await response.json();
+          setFormData((prev: FormDataState) => ({ ...prev, backgroundImage: imageUrl }));
+          setHasNewBackgroundImage(true);
+        } catch (error) {
+          console.error('Error uploading background image:', error);
+          alert('Failed to upload background image. Please try again.');
+        }
       }
     };
     reader.onerror = (e) => {
