@@ -265,7 +265,11 @@ export async function generateBackgroundImage(
                     if (data.response.output[0].result[0]) {
                       console.log('[AIGenerationService] FOUND IMAGE DATA in response.completed!');
                       console.log('[AIGenerationService] Final image URL:', data.response.output[0].result[0].substring(0, 50) + '...');
+                      console.log('[AIGenerationService] Full response.output[0].result[0] object:', data.response.output[0].result[0]);
+                      console.log('[AIGenerationService] Full response.output[0].result[0] keys:', Object.keys(data.response.output[0].result[0]));
+                      console.log('[AIGenerationService] Full response.output[0].result[0] values:', Object.values(data.response.output[0].result[0]));
                       const base64Data = data.response.output[0].result[0];
+                      console.log('[AIGenerationService] Base64 data length:', base64Data.length);
                       const dataUrl = `data:image/png;base64,${base64Data}`;
                       finalImageUrl = dataUrl;
                       
