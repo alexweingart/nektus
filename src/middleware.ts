@@ -5,7 +5,6 @@ import { getToken } from 'next-auth/jwt';
 console.log('✅ MIDDLEWARE FILE LOADED - Full Version');
 
 const PUBLIC_PATHS = [
-  '/setup',
   '/api/auth/signin',
   '/api/auth/signin/google',
   '/api/auth/error',
@@ -21,6 +20,11 @@ export async function middleware(request: NextRequest) {
   console.log('✅ MIDDLEWARE EXECUTING:', request.nextUrl.pathname);
   
   const { pathname } = request.nextUrl;
+
+  // Debug: Always log for setup path
+  if (pathname === '/setup') {
+    console.log('🔍 MIDDLEWARE: Processing /setup path specifically');
+  }
 
   // Skip middleware for public paths and static files
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path)) || 
@@ -79,7 +83,7 @@ export async function middleware(request: NextRequest) {
         if (hasPhone) {
           console.log('User has complete profile, redirecting from setup to home');
           return NextResponse.redirect(new URL('/', request.url));
-        }
+        } 
       } catch (e) {
         console.error('Error checking profile:', e);
       }
@@ -91,6 +95,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\..*).*)',
+    '/',
+    '/setup',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

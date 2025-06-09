@@ -25,7 +25,6 @@ function SetupPageContent() {
   const [checkingProfile, setCheckingProfile] = useState<boolean>(!userIsNew || sessionStatus !== 'authenticated');
   const [shouldShowSetup, setShouldShowSetup] = useState<boolean>(userIsNew && sessionStatus === 'authenticated');
   
-  // MOVE useEffect TO TOP LEVEL - No conditional useEffect calls
   useEffect(() => {
     // Only run complex logic for existing users
     if (userIsNew && sessionStatus === 'authenticated') {
@@ -81,7 +80,7 @@ function SetupPageContent() {
     
     checkProfileStatus();
   }, [sessionStatus, isLoading, session, getLatestProfile, router, userIsNew]);
-
+  
   // For new users, skip all the complex profile checking
   if (userIsNew && sessionStatus === 'authenticated') {
     console.log('[SetupPage] New user detected - showing setup immediately');

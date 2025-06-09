@@ -338,10 +338,17 @@ export async function generateAndSaveBackgroundImage(
     
     console.log('[AIGenerationService] Final background image saved silently');
     console.log('[AIGenerationService] === BACKGROUND IMAGE GENERATED AND SAVED ===');
+    console.log('[AIGenerationService] Keeping final streaming image visible for current session');
     backgroundImageGeneratedRef.current = true;
+    
+    // Note: We intentionally DO NOT clear setStreamingBackgroundImage(null) here
+    // The final streaming image remains visible for the current session
+    // Firebase save happens silently for future page loads/sessions
     
   } catch (error) {
     console.error('[AIGenerationService] Background image generation and save failed:', error);
+    // Clear streaming state immediately on error
+    setStreamingBackgroundImage(null);
     throw error;
   }
 }

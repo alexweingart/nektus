@@ -1,11 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User, Profile } from "next-auth";
-import { ProfileService } from "@/lib/firebase/profileService";
-
-interface GoogleProfile extends Profile {
-  picture?: string;
-  image?: string;
-}
+import { getFirebaseAdmin } from "@/lib/firebase/adminConfig";
 
 // Helper to get environment variables with better error handling
 const getEnv = (key: string): string => {
@@ -76,6 +71,11 @@ declare module "next-auth/jwt" {
   }
 }
 
+interface GoogleProfile extends Profile {
+  picture?: string;
+  image?: string;
+}
+
 import { getServerSession, type NextAuthOptions } from "next-auth";
 
 // Check if we have the required environment variables
@@ -138,9 +138,31 @@ export const authOptions: NextAuthOptions = {
         token.idToken = account.id_token;
         console.log('JWT: Added idToken to token');
         
-        // Mark as new user for first-time sign-in optimization
-        token.isNewUser = true;
-        console.log('JWT: Marked as new user for setup page optimization');
+        // Server-side Firebase check to determine if user is truly new or existing
+        // This happens once during authentication - result cached in JWT
+        if (token.sub) {
+          try {
+            console.log('JWT: Checking Firebase for existing profile during authentication, user:', token.sub);
+            const { db } = await getFirebaseAdmin();
+            const profileDoc = await db.collection('profiles').doc(token.sub).get();
+            
+            if (profileDoc.exists && profileDoc.data()?.contactChannels?.phoneInfo?.internationalPhone) {
+              token.isNewUser = false;
+              console.log('JWT: Found existing profile with phone data, user is not new');
+            } else {
+              token.isNewUser = true;
+              console.log('JWT: No existing profile with phone data found, user is new');
+            }
+          } catch (error) {
+            console.error('JWT: Error checking Firebase profile during authentication:', error);
+            // Default to new user if we can't check (safe fallback)
+            token.isNewUser = true;
+            console.log('JWT: Defaulting to new user due to Firebase error');
+          }
+        } else {
+          console.log('JWT: No user ID available, defaulting to new user');
+          token.isNewUser = true;
+        }
         
         // --- Persist Google access_token for revocation ---
         if (account?.provider === 'google' && account?.access_token) {
@@ -221,24 +243,6 @@ export const authOptions: NextAuthOptions = {
         token.profile = { ...emptyProfile };
       }
       
-      // Server-side Firebase check to determine if user is truly new or existing
-      if (account?.id_token && token.sub) {
-        try {
-          const existingProfile = await ProfileService.getProfile(token.sub);
-          if (existingProfile) {
-            token.isNewUser = false;
-            console.log('JWT: Found existing Firebase profile, user is not new');
-          } else {
-            token.isNewUser = true;
-            console.log('JWT: No existing Firebase profile found, user is new');
-          }
-        } catch (error) {
-          console.error('JWT: Error checking Firebase profile:', error);
-          // Default to new user if we can't check
-          token.isNewUser = true;
-        }
-      }
-      
       // Log final token state for debugging
       const logToken = { ...token };
       if (logToken.profile) {
@@ -284,6 +288,7 @@ export const authOptions: NextAuthOptions = {
         // Add isNewUser flag to session
         if (token.isNewUser !== undefined) {
           session.isNewUser = token.isNewUser;
+          console.log('Session: Set isNewUser flag to:', token.isNewUser);
         }
         
         // TODO: Move Firebase Auth logic to client-side hook/context
