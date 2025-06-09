@@ -98,45 +98,123 @@ export async function POST(request: NextRequest) {
             return;
           }
           
+          const decoder = new TextDecoder();
+          let buffer = '';
+          
           try {
-            const decoder = new TextDecoder();
-            let buffer = '';
-            
             while (true) {
               const { done, value } = await reader.read();
-              if (done) break;
+              if (done) {
+                console.log('[Background Image API] OpenAI streaming completed');
+                break;
+              }
+
+              const chunk = decoder.decode(value, { stream: true });
+              buffer += chunk;
               
-              buffer += decoder.decode(value, { stream: true });
+              // Process complete lines
               const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
+              buffer = lines.pop() || ''; // Keep incomplete line
               
               for (const line of lines) {
+                if (line.trim() === '') continue;
+                
+                console.log('[Background Image API] Processing line:', line.substring(0, 100) + '...');
+                
                 if (line.startsWith('data: ')) {
                   try {
-                    const dataStr = line.slice(6);
-                    const data = JSON.parse(dataStr);
-                    
-                    // Handle OpenAI partial images format
-                    if (data.type === 'response.image_generation_call.partial_image' && data.partial_image_b64) {
-                      const imageData = data.partial_image_b64;
-                      console.log(`[Background Image API] Received partial image (index: ${data.partial_image_index})`);
-                      
-                      // Stream partial image to client
-                      const partialImageUrl = `data:image/png;base64,${imageData}`;
-                      finalImageUrl = partialImageUrl; // Keep updating with latest
-                      
-                      // Send partial image update to client
-                      const eventData = `data: ${JSON.stringify({
-                        type: 'partial_image',
-                        imageUrl: partialImageUrl,
-                        index: data.partial_image_index
-                      })}\n\n`;
-                      
-                      controller.enqueue(new TextEncoder().encode(eventData));
+                    const jsonStr = line.slice(6).trim();
+                    if (jsonStr === '[DONE]') {
+                      console.log('[Background Image API] Received [DONE] signal');
+                      break;
                     }
                     
-                    // Handle completion
-                    if (data.type === 'response.completed') {
+                    const data = JSON.parse(jsonStr);
+                    console.log('[Background Image API] Parsed OpenAI data:', JSON.stringify(data, null, 2));
+                    
+                    // Handle different OpenAI response formats
+                    if (data.type === 'content.delta') {
+                      // Handle streaming content delta from OpenAI responses API  
+                      if (data.delta?.image?.url) {
+                        console.log('[Background Image API] Received partial image from OpenAI');
+                        const partialEventData = `data: ${JSON.stringify({
+                          type: 'partial_image',
+                          imageUrl: data.delta.image.url
+                        })}\n\n`;
+                        controller.enqueue(new TextEncoder().encode(partialEventData));
+                      }
+                    } else if (data.type === 'response.done' || data.type === 'content.done') {
+                      // Handle completion from OpenAI responses API
+                      if (data.response?.output?.[0]?.content?.[0]?.image?.url) {
+                        finalImageUrl = data.response.output[0].content[0].image.url;
+                        console.log('[Background Image API] Final image URL received from OpenAI');
+                      } else if (data.content?.[0]?.image?.url) {
+                        finalImageUrl = data.content[0].image.url;
+                        console.log('[Background Image API] Final image URL received from content');
+                      }
+                    } else if (data.image?.url || data.imageUrl) {
+                      // Handle direct image URL format
+                      const imageUrl = data.image?.url || data.imageUrl;
+                      if (data.type === 'partial' || data.partial) {
+                        console.log('[Background Image API] Received partial image (direct format)');
+                        const partialEventData = `data: ${JSON.stringify({
+                          type: 'partial_image',
+                          imageUrl: imageUrl
+                        })}\n\n`;
+                        controller.enqueue(new TextEncoder().encode(partialEventData));
+                      } else {
+                        console.log('[Background Image API] Received final image (direct format)');
+                        finalImageUrl = imageUrl;
+                      }
+                    }
+                    
+                    // Also check if this is a base64 image in any format
+                    if (data.b64_json && !finalImageUrl) {
+                      const base64ImageUrl = `data:image/png;base64,${data.b64_json}`;
+                      if (data.partial) {
+                        console.log('[Background Image API] Received partial base64 image');
+                        const partialEventData = `data: ${JSON.stringify({
+                          type: 'partial_image',
+                          imageUrl: base64ImageUrl
+                        })}\n\n`;
+                        controller.enqueue(new TextEncoder().encode(partialEventData));
+                      } else {
+                        console.log('[Background Image API] Received final base64 image');
+                        finalImageUrl = base64ImageUrl;
+                      }
+                    }
+                    
+                    // Broader pattern matching for any completion event
+                    if (!finalImageUrl) {
+                      // Check for any nested image URL patterns
+                      const checkForImageUrl = (obj: any, path: string = ''): string | null => {
+                        if (!obj || typeof obj !== 'object') return null;
+                        
+                        for (const [key, value] of Object.entries(obj)) {
+                          const currentPath = path ? `${path}.${key}` : key;
+                          
+                          if ((key === 'url' || key === 'imageUrl') && typeof value === 'string' && 
+                              (value.startsWith('data:image/') || value.startsWith('http'))) {
+                            console.log(`[Background Image API] Found image URL at ${currentPath}:`, value.substring(0, 50) + '...');
+                            return value;
+                          }
+                          
+                          if (typeof value === 'object') {
+                            const found = checkForImageUrl(value, currentPath);
+                            if (found) return found;
+                          }
+                        }
+                        return null;
+                      };
+                      
+                      const foundImageUrl = checkForImageUrl(data);
+                      if (foundImageUrl) {
+                        finalImageUrl = foundImageUrl;
+                        console.log('[Background Image API] Final image URL found via deep search');
+                      }
+                    }
+                    
+                    if (finalImageUrl) {
                       console.log('[Background Image API] OpenAI response completed');
                       break;
                     }
@@ -145,6 +223,8 @@ export async function POST(request: NextRequest) {
                   }
                 }
               }
+              
+              if (finalImageUrl) break;
             }
             
             // After streaming is complete, upload final image to Firebase Storage
