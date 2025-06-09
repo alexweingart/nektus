@@ -167,6 +167,13 @@ export async function POST(request: NextRequest) {
                         console.log('[Background Image API] Received final image (direct format)');
                         finalImageUrl = imageUrl;
                       }
+                    } else if (data.type === 'response.completed') {
+                      // Handle response.completed event type
+                      if (data.b64_json) {
+                        const base64ImageUrl = `data:image/png;base64,${data.b64_json}`;
+                        console.log('[Background Image API] Received final base64 image');
+                        finalImageUrl = base64ImageUrl;
+                      }
                     }
                     
                     // Also check if this is a base64 image in any format
@@ -198,6 +205,12 @@ export async function POST(request: NextRequest) {
                               (value.startsWith('data:image/') || value.startsWith('http'))) {
                             console.log(`[Background Image API] Found image URL at ${currentPath}:`, value.substring(0, 50) + '...');
                             return value;
+                          }
+                          
+                          // Also check for b64_json fields
+                          if (key === 'b64_json' && typeof value === 'string') {
+                            console.log(`[Background Image API] Found b64_json at ${currentPath}:`, value.substring(0, 50) + '...');
+                            return `data:image/png;base64,${value}`;
                           }
                           
                           if (typeof value === 'object') {
