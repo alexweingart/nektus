@@ -21,7 +21,7 @@ const ProfileView = dynamicImport(() => import('./components/ProfileView'), {
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const { profile, getLatestProfile } = useProfile();
+  const { profile, getLatestProfile, streamingBackgroundImage } = useProfile();
   const isLoading = status === 'loading';
   
   // Get the latest profile including streaming background image
@@ -42,9 +42,10 @@ export default function Home() {
     };
   }, [session, isLoading]);
 
-  // Determine background style - use profile background if authenticated
-  const backgroundStyle = session && currentProfile?.backgroundImage ? {
-    backgroundImage: `url(${currentProfile.backgroundImage})`,
+  // Determine background style - use streaming image first, then profile background
+  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+  const backgroundStyle = session && backgroundImageUrl ? {
+    backgroundImage: `url(${backgroundImageUrl})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',

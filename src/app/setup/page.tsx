@@ -101,8 +101,9 @@ function SetupPageContent() {
     });
     
     // Dynamic background - streaming images when available
-    const backgroundStyle = currentProfile?.backgroundImage ? {
-      backgroundImage: `url(${currentProfile.backgroundImage})`,
+    const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+    const backgroundStyle = backgroundImageUrl ? {
+      backgroundImage: `url(${backgroundImageUrl})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
@@ -150,14 +151,15 @@ function SetupPageContent() {
   
   // Debug streaming background image
   console.log('[SetupPage] Background image state:', {
-    hasStreamingImage: false,
+    hasStreamingImage: !!streamingBackgroundImage,
     hasProfileImage: !!currentProfile?.backgroundImage,
     finalImageUrl: currentProfile?.backgroundImage ? currentProfile.backgroundImage.substring(0, 50) + '...' : 'None'
   });
   
-  // Apply consistent background style
-  const backgroundStyle = currentProfile?.backgroundImage ? {
-    backgroundImage: `url(${currentProfile.backgroundImage})`,
+  // Dynamic background - streaming images when available
+  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+  const backgroundStyle = backgroundImageUrl ? {
+    backgroundImage: `url(${backgroundImageUrl})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
