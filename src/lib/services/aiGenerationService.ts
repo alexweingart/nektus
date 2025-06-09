@@ -232,9 +232,9 @@ export async function generateBackgroundImage(
                 console.log('[AIGenerationService] Background image generation completed');
                 console.log('[AIGenerationService] Final image URL:', data.imageUrl.substring(0, 50) + '...');
                 finalImageUrl = data.imageUrl;
-                console.log('[AIGenerationService] Keeping final image as streaming background (not clearing)');
-                // Don't clear streaming state - keep the final image visible since we're not saving to Firebase
-                // setStreamingBackgroundImage(null); // Commented out to prevent green flash
+                console.log('[AIGenerationService] Setting final image as streaming background for mobile compatibility');
+                setStreamingBackgroundImage(data.imageUrl); // Set final image as streaming for mobile
+                console.log('[AIGenerationService] Final streaming image set successfully');
                 break;
               }
             } catch (e) {
