@@ -95,6 +95,11 @@ const ProfileView: React.FC = () => {
     <div 
       className="h-screen flex flex-col items-center px-4 py-2 overflow-hidden"
     >
+      {/* DEBUG: Make it obvious this is ProfileView */}
+      <div className="fixed top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs z-50">
+        PROFILE VIEW
+      </div>
+      
       {/* Top Navigation Buttons */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-4">
         <Button 
