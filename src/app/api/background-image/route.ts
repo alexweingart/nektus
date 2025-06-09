@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]/options';
 import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import { getFirestore } from 'firebase-admin/firestore';
 
+// Force deployment update - fixing 405 errors
 export async function POST(request: NextRequest) {
   try {
     console.log('[Background Image API] Starting background image generation');
