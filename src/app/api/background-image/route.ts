@@ -317,3 +317,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Add GET handler for debugging
+export async function GET() {
+  return NextResponse.json({ 
+    message: 'Background image API is working',
+    timestamp: new Date().toISOString(),
+    method: 'GET'
+  });
+}
