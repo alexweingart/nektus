@@ -262,19 +262,21 @@ export async function generateBackgroundImage(
                     console.log('[AIGenerationService] First result keys:', Object.keys(data.response.output[0].result[0] || {}));
                     console.log('[AIGenerationService] First result type:', data.response.output[0].result[0]?.type);
                     console.log('[AIGenerationService] Has image in result:', !!data.response.output[0].result[0]?.image);
-                    if (data.response.output[0].result[0]?.image?.url) {
-                      console.log('[AIGenerationService] FOUND IMAGE URL in response.completed!');
-                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].result[0].image.url.substring(0, 50) + '...');
-                      finalImageUrl = data.response.output[0].result[0].image.url;
+                    if (data.response.output[0].result[0]) {
+                      console.log('[AIGenerationService] FOUND IMAGE DATA in response.completed!');
+                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].result[0].substring(0, 50) + '...');
+                      const base64Data = data.response.output[0].result[0];
+                      const dataUrl = `data:image/png;base64,${base64Data}`;
+                      finalImageUrl = dataUrl;
                       
                       // Preload the final image to prevent green flash during transition
                       console.log('[AIGenerationService] Preloading final image...');
                       const img = new Image();
                       img.onload = () => {
                         console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
-                        setStreamingBackgroundImage(data.response.output[0].result[0].image.url);
+                        setStreamingBackgroundImage(dataUrl);
                       };
-                      img.src = data.response.output[0].result[0].image.url;
+                      img.src = dataUrl;
                     }
                   }
                 }
