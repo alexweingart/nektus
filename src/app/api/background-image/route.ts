@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     console.log('[Background Image API] Bio length:', bio?.length, 'Name:', name);
     
     // Call OpenAI background generation API
-    const openaiUrl = new URL('/api/openai', request.url);
-    console.log('[Background Image API] Calling OpenAI API:', openaiUrl.toString());
+    const openaiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/openai`;
+    console.log('[Background Image API] Calling OpenAI API:', openaiUrl);
     
     const openaiResponse = await fetch(openaiUrl, {
       method: 'POST',
@@ -45,7 +45,12 @@ export async function POST(request: NextRequest) {
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
       console.error('[Background Image API] OpenAI error:', errorText);
-      return NextResponse.json({ error: 'OpenAI request failed' }, { status: 500 });
+      console.error('[Background Image API] OpenAI status:', openaiResponse.status);
+      return NextResponse.json({ 
+        error: 'OpenAI request failed', 
+        status: openaiResponse.status,
+        details: errorText 
+      }, { status: 500 });
     }
     
     if (!openaiResponse.body) {
