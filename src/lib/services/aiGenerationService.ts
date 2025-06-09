@@ -257,24 +257,24 @@ export async function generateBackgroundImage(
                 if (data.response?.output?.[0]) {
                   console.log('[AIGenerationService] First output keys:', Object.keys(data.response.output[0]));
                   console.log('[AIGenerationService] First output type:', data.response.output[0].type);
-                  if (data.response.output[0].content) {
-                    console.log('[AIGenerationService] Content length:', data.response.output[0].content.length);
-                    console.log('[AIGenerationService] First content keys:', Object.keys(data.response.output[0].content[0] || {}));
-                    console.log('[AIGenerationService] First content type:', data.response.output[0].content[0]?.type);
-                    console.log('[AIGenerationService] Has image in content:', !!data.response.output[0].content[0]?.image);
-                    if (data.response.output[0].content[0]?.image?.url) {
+                  if (data.response.output[0].result) {
+                    console.log('[AIGenerationService] Result length:', data.response.output[0].result.length);
+                    console.log('[AIGenerationService] First result keys:', Object.keys(data.response.output[0].result[0] || {}));
+                    console.log('[AIGenerationService] First result type:', data.response.output[0].result[0]?.type);
+                    console.log('[AIGenerationService] Has image in result:', !!data.response.output[0].result[0]?.image);
+                    if (data.response.output[0].result[0]?.image?.url) {
                       console.log('[AIGenerationService] FOUND IMAGE URL in response.completed!');
-                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].content[0].image.url.substring(0, 50) + '...');
-                      finalImageUrl = data.response.output[0].content[0].image.url;
+                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].result[0].image.url.substring(0, 50) + '...');
+                      finalImageUrl = data.response.output[0].result[0].image.url;
                       
                       // Preload the final image to prevent green flash during transition
                       console.log('[AIGenerationService] Preloading final image...');
                       const img = new Image();
                       img.onload = () => {
                         console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
-                        setStreamingBackgroundImage(data.response.output[0].content[0].image.url);
+                        setStreamingBackgroundImage(data.response.output[0].result[0].image.url);
                       };
-                      img.src = data.response.output[0].content[0].image.url;
+                      img.src = data.response.output[0].result[0].image.url;
                     }
                   }
                 }
