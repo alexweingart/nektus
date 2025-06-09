@@ -129,20 +129,20 @@ export async function POST(request: NextRequest) {
                   // Forward streaming updates to client
                   controller.enqueue(new TextEncoder().encode(line + '\n'));
                   
-                  // Check for final image in different event types and paths
-                  if ((data.type === 'response.completed' || data.type === 'response.output_item.done') 
-                    && (data.response?.output?.[0]?.result || data.response?.output?.[0]?.image || data.response?.output?.[0]?.image_url || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.b64 || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.image_url || data.item?.[0]?.data?.[0]?.b64)) {
-                    const base64Data = data.response?.output?.[0]?.result || data.response?.output?.[0]?.image || data.response?.output?.[0]?.image_url || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.b64 || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.image_url || data.item?.[0]?.data?.[0]?.b64;
-                    console.log('[Background Image API] Found final image, length:', base64Data.length);
-                    console.log('[Background Image API] Final image base64 data:', base64Data.substring(0, 100));
+                  // Check for image generation events (based on official OpenAI SDK example)
+                  if (data.type === 'response.image_generation_call.partial_image' && data.partial_image_b64) {
+                    const base64Data = data.partial_image_b64;
+                    console.log('[Background Image API] Found partial image, length:', base64Data.length);
+                    console.log('[Background Image API] Partial image index:', data.partial_image_index);
                     
+                    // For now, let's upload every partial image (we can optimize later)
                     try {
                       // Upload to Firebase Storage
-                      console.log('[Background Image API] Uploading to Firebase Storage...');
+                      console.log('[Background Image API] Uploading partial image to Firebase Storage...');
                       const { adminApp } = await getFirebaseAdmin();
                       const storage = getStorage(adminApp);
                       const bucket = storage.bucket();
-                      const fileName = `users/${session.user.id}/background-image-${Date.now()}.png`;
+                      const fileName = `users/${session.user.id}/background-image-${Date.now()}-${data.partial_image_index || 'final'}.png`;
                       const file = bucket.file(fileName);
                       
                       const imageBuffer = Buffer.from(base64Data, 'base64');
@@ -161,7 +161,6 @@ export async function POST(request: NextRequest) {
                       finalImageUrl = publicUrl;
                       
                       console.log('[Background Image API] Image uploaded to:', publicUrl);
-                      console.log('[Background Image API] Image upload metadata:', await file.getMetadata());
                       
                       // Send completion event with Firebase Storage URL
                       const completionEvent = `data: ${JSON.stringify({
