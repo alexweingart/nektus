@@ -124,13 +124,15 @@ export async function POST(request: NextRequest) {
                   const data = JSON.parse(jsonStr);
                   
                   console.log('[Background Image API] Received event from OpenAI:', data.type);
+                  console.log('[Background Image API] Event details:', JSON.stringify(data, null, 2));
                   
                   // Forward streaming updates to client
                   controller.enqueue(new TextEncoder().encode(line + '\n'));
                   
-                  // Check for final image in response.completed event
-                  if (data.type === 'response.completed' && data.response?.output?.[0]?.result) {
-                    const base64Data = data.response.output[0].result;
+                  // Check for final image in different event types and paths
+                  if ((data.type === 'response.completed' || data.type === 'response.output_item.done') 
+                    && (data.response?.output?.[0]?.result || data.response?.output?.[0]?.image || data.response?.output?.[0]?.image_url || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.b64 || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.image_url || data.item?.[0]?.data?.[0]?.b64)) {
+                    const base64Data = data.response?.output?.[0]?.result || data.response?.output?.[0]?.image || data.response?.output?.[0]?.image_url || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.b64 || data.response?.output?.[0]?.item?.[0]?.data?.[0]?.image_url || data.item?.[0]?.data?.[0]?.b64;
                     console.log('[Background Image API] Found final image, length:', base64Data.length);
                     console.log('[Background Image API] Final image base64 data:', base64Data.substring(0, 100));
                     
