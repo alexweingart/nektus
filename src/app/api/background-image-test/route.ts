@@ -4,7 +4,7 @@ import { authOptions } from '../auth/[...nextauth]/options';
 
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Background image API is working',
+    message: 'Background image test API is working',
     timestamp: new Date().toISOString(),
     method: 'GET'
   });
@@ -12,35 +12,33 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[Background Image API] Simple test version - Starting');
+    console.log('[Background Image Test API] Starting simple test');
     
     // Get session to verify user
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
-      console.log('[Background Image API] No valid session found');
+      console.log('[Background Image Test API] No valid session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const userId = session.user.id;
-    console.log('[Background Image API] Authenticated user:', userId);
+    console.log('[Background Image Test API] Authenticated user:', userId);
     
     const body = await request.json();
-    const { bio, name } = body;
+    console.log('[Background Image Test API] Request body received');
     
-    console.log('[Background Image API] Request body:', { bio: bio?.substring(0, 50), name });
-    
-    // Return a simple test response for now
+    // Return a simple test response
     return NextResponse.json({ 
       success: true,
-      message: 'Background image API POST is working',
+      message: 'Background image test API POST is working',
       userId: userId,
       timestamp: new Date().toISOString(),
-      receivedData: { bio: bio?.substring(0, 50), name }
+      method: 'POST'
     });
     
   } catch (error) {
-    console.error('[Background Image API] Error:', error);
+    console.error('[Background Image Test API] Error:', error);
     return NextResponse.json(
       { error: 'Failed to process request', details: error instanceof Error ? error.message : 'Unknown error' }, 
       { status: 500 }
