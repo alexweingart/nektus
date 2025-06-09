@@ -34,9 +34,14 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         type: 'background',
-        bio,
-        name,
-        profileImage: body.profileImage
+        profile: {
+          userId: session.user.id,
+          name,
+          bio,
+          profileImage: body.profileImage,
+          backgroundImage: body.backgroundImage || '',
+          contactChannels: body.contactChannels || {}
+        }
       })
     });
     
