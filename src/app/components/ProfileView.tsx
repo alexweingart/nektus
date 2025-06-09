@@ -56,7 +56,7 @@ const ProfileView: React.FC = () => {
       isProfileLoading
     });
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Loading profile...</p>
@@ -69,7 +69,7 @@ const ProfileView: React.FC = () => {
   if (isDeletingAccount) {
     console.log('[ProfileView] Showing deletion loading state');
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Deleting account...</p>
@@ -80,7 +80,7 @@ const ProfileView: React.FC = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
           <p className="text-white mb-4">Unable to load profile</p>
           <Button onClick={() => router.push('/setup')}>
@@ -93,7 +93,7 @@ const ProfileView: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center px-4 py-4"
+      className="flex flex-col items-center px-4 py-2"
     >
       {/* Top Navigation Buttons */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-6">

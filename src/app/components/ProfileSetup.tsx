@@ -219,7 +219,7 @@ function ProfileSetup() {
     });
     
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
@@ -234,7 +234,7 @@ function ProfileSetup() {
     });
     
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
@@ -249,7 +249,7 @@ function ProfileSetup() {
 
   return (
     <div 
-      className="min-h-screen w-full flex flex-col items-center px-4 py-6"
+      className="w-full flex flex-col items-center px-4 py-2"
     >
       {/* Main Content */}
       <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
