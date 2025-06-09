@@ -113,6 +113,11 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--background);
   color: var(--foreground);
+  overflow: hidden; /* Prevent scrollbars on mobile by default */
+}
+
+body.allow-scroll {
+  overflow: auto;
 }
 
 /* iOS specific fixes */

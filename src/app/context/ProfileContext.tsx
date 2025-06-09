@@ -433,7 +433,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ...currentProfile,
       backgroundImage: streamingBackgroundImageRef.current || currentProfile.backgroundImage
     };
-  }, [profile, streamingBackgroundImageRef]);
+  }, [profile, streamingBackgroundImage]); // Keep streamingBackgroundImage in deps for re-renders
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
     setIsNavigatingFromSetup(navigating);

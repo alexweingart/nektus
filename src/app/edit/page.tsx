@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import dynamicImport from 'next/dynamic';
 import { redirect } from 'next/navigation';
 import { useProfile } from '../context/ProfileContext';
@@ -20,6 +20,14 @@ const EditProfile = dynamicImport(() => import('../components/EditProfile'), {
 
 export default function EditPage() {
   const { profile, getLatestProfile } = useProfile();
+  
+  // Enable scrolling on edit page only
+  useEffect(() => {
+    document.body.classList.add('allow-scroll');
+    return () => {
+      document.body.classList.remove('allow-scroll');
+    };
+  }, []);
   
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;
