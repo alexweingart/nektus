@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         console.log('[Background Image API] Starting streaming response processing');
         let finalImageUrl: string | null = null;
+        let buffer = '';
         
         const reader = openaiResponse.body!.getReader();
         const decoder = new TextDecoder();
@@ -113,9 +114,12 @@ export async function POST(request: NextRequest) {
             }
             
             const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += chunk;
             
-            for (const line of lines) {
+            const lines = buffer.split('\n');
+            
+            for (let i = 0; i < lines.length - 1; i++) {
+              const line = lines[i];
               if (line.startsWith('data: ')) {
                 try {
                   const jsonStr = line.slice(6);
@@ -232,6 +236,8 @@ export async function POST(request: NextRequest) {
                   } else if (data.type === 'response.output_item.done' && data.result && data.result.b64_json) {
                     const base64Data = data.result.b64_json;
                     console.log('[Background Image API] Found image data in response.output_item.done event, length:', base64Data.length);
+                    console.log('[Background Image API] Received event from OpenAI:', data.type);
+                    console.log('[Background Image API] Event details:', JSON.stringify(data, null, 2));
                     
                     // Upload to Firebase Storage
                     console.log('[Background Image API] Uploading image data to Firebase Storage...');
@@ -281,6 +287,7 @@ export async function POST(request: NextRequest) {
                 }
               }
             }
+            buffer = lines[lines.length - 1];
           }
           
           controller.close();
