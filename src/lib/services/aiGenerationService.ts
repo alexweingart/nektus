@@ -248,36 +248,37 @@ export async function generateBackgroundImage(
               // Handle final completion event
               else if (data.type === 'response.completed') {
                 console.log('[AIGenerationService] Response completed event received');
-                // This is the final completion event - no image URL expected here
-              }
-              // Handle final output item done (may contain final image)
-              else if (data.type === 'response.output_item.done' && data.item?.content?.[0]?.image?.url) {
-                console.log('[AIGenerationService] Final output item completed with image');
-                console.log('[AIGenerationService] Final image URL from output_item:', data.item.content[0].image.url.substring(0, 50) + '...');
-                finalImageUrl = data.item.content[0].image.url;
-                
-                // Preload the final image to prevent green flash during transition
-                console.log('[AIGenerationService] Preloading final image to prevent green flash...');
-                const img = new Image();
-                img.onload = () => {
-                  console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
-                  setStreamingBackgroundImage(data.item.content[0].image.url);
-                };
-                img.src = data.item.content[0].image.url;
-              }
-              // Debug response.output_item.done structure
-              else if (data.type === 'response.output_item.done') {
-                console.log('[AIGenerationService] Output item done - debugging structure');
-                console.log('[AIGenerationService] Has data.item:', !!data.item);
-                console.log('[AIGenerationService] Has data.item.content:', !!data.item?.content);
-                console.log('[AIGenerationService] Content length:', data.item?.content?.length);
-                console.log('[AIGenerationService] First content type:', data.item?.content?.[0]?.type);
-                console.log('[AIGenerationService] Has image in first content:', !!data.item?.content?.[0]?.image);
+                console.log('[AIGenerationService] Debugging response.completed structure');
                 console.log('[AIGenerationService] Full data keys:', Object.keys(data));
-                console.log('[AIGenerationService] Item keys:', Object.keys(data.item || {}));
-                if (data.item?.content?.[0]) {
-                  console.log('[AIGenerationService] First content keys:', Object.keys(data.item.content[0]));
+                console.log('[AIGenerationService] Has data.response:', !!data.response);
+                console.log('[AIGenerationService] Response keys:', Object.keys(data.response || {}));
+                console.log('[AIGenerationService] Has output:', !!data.response?.output);
+                console.log('[AIGenerationService] Output length:', data.response?.output?.length);
+                if (data.response?.output?.[0]) {
+                  console.log('[AIGenerationService] First output keys:', Object.keys(data.response.output[0]));
+                  console.log('[AIGenerationService] First output type:', data.response.output[0].type);
+                  if (data.response.output[0].content) {
+                    console.log('[AIGenerationService] Content length:', data.response.output[0].content.length);
+                    console.log('[AIGenerationService] First content keys:', Object.keys(data.response.output[0].content[0] || {}));
+                    console.log('[AIGenerationService] First content type:', data.response.output[0].content[0]?.type);
+                    console.log('[AIGenerationService] Has image in content:', !!data.response.output[0].content[0]?.image);
+                    if (data.response.output[0].content[0]?.image?.url) {
+                      console.log('[AIGenerationService] FOUND IMAGE URL in response.completed!');
+                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].content[0].image.url.substring(0, 50) + '...');
+                      finalImageUrl = data.response.output[0].content[0].image.url;
+                      
+                      // Preload the final image to prevent green flash during transition
+                      console.log('[AIGenerationService] Preloading final image...');
+                      const img = new Image();
+                      img.onload = () => {
+                        console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
+                        setStreamingBackgroundImage(data.response.output[0].content[0].image.url);
+                      };
+                      img.src = data.response.output[0].content[0].image.url;
+                    }
+                  }
                 }
+                // This is the final completion event - no image URL expected here
               }
               // Legacy format fallback (in case server sends this format)
               else if (data.type === 'partial_image' && data.imageUrl) {
@@ -289,7 +290,7 @@ export async function generateBackgroundImage(
                 finalImageUrl = data.imageUrl;
                 
                 // Preload the final image to prevent green flash during transition
-                console.log('[AIGenerationService] Preloading final image to prevent green flash...');
+                console.log('[AIGenerationService] Preloading final image...');
                 const img = new Image();
                 img.onload = () => {
                   console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
