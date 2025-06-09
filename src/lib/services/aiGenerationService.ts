@@ -265,6 +265,20 @@ export async function generateBackgroundImage(
                 };
                 img.src = data.item.content[0].image.url;
               }
+              // Debug response.output_item.done structure
+              else if (data.type === 'response.output_item.done') {
+                console.log('[AIGenerationService] Output item done - debugging structure');
+                console.log('[AIGenerationService] Has data.item:', !!data.item);
+                console.log('[AIGenerationService] Has data.item.content:', !!data.item?.content);
+                console.log('[AIGenerationService] Content length:', data.item?.content?.length);
+                console.log('[AIGenerationService] First content type:', data.item?.content?.[0]?.type);
+                console.log('[AIGenerationService] Has image in first content:', !!data.item?.content?.[0]?.image);
+                console.log('[AIGenerationService] Full data keys:', Object.keys(data));
+                console.log('[AIGenerationService] Item keys:', Object.keys(data.item || {}));
+                if (data.item?.content?.[0]) {
+                  console.log('[AIGenerationService] First content keys:', Object.keys(data.item.content[0]));
+                }
+              }
               // Legacy format fallback (in case server sends this format)
               else if (data.type === 'partial_image' && data.imageUrl) {
                 console.log('[AIGenerationService] Received partial background image (legacy format)');
