@@ -2,17 +2,12 @@ import { UserProfile } from '@/types/profile';
 
 /**
  * AI Generation Service
- * Handles bio, avatar, and background image generation orchestration
+ * Handles bio, avatar, and background image generation with proper service separation
  */
 
-interface GenerationRefs {
-  bioGeneratedRef: React.MutableRefObject<boolean>;
-  avatarGeneratedRef: React.MutableRefObject<boolean>;
-  backgroundImageGeneratedRef: React.MutableRefObject<boolean>;
-}
-
-interface SetStreamingBackgroundImage {
-  (imageUrl: string | null): void;
+// Type definitions for service dependencies
+export interface SetStreamingBackgroundImage {
+  (url: string | null): void;
 }
 
 interface SaveProfile {
@@ -69,7 +64,7 @@ export function shouldGenerateBackgroundImage(
 /**
  * Generates bio for a profile
  */
-export async function generateBio(profile: UserProfile): Promise<string> {
+export async function generateBio(profile: UserProfile, saveProfile: SaveProfile): Promise<string> {
   console.log('[AIGenerationService] === BIO GENERATION TRIGGERED ===');
   console.log('[AIGenerationService] Bio is empty, generating bio...');
   console.log('[AIGenerationService] Profile userId:', profile.userId);
@@ -109,7 +104,7 @@ export async function generateBio(profile: UserProfile): Promise<string> {
 /**
  * Generates avatar for a profile
  */
-export async function generateAvatar(profile: UserProfile): Promise<string> {
+export async function generateAvatar(profile: UserProfile, saveProfile: SaveProfile): Promise<string> {
   console.log('[AIGenerationService] === AVATAR GENERATION TRIGGERED ===');
   console.log('[AIGenerationService] Profile image is empty or default, generating avatar...');
   console.log('[AIGenerationService] Profile userId:', profile.userId);
@@ -173,7 +168,8 @@ export async function generateBackgroundImage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        profile: profile,
+        bio: profile.bio,
+        name: profile.name,
         profileImage: profile.profileImage
       })
     });
@@ -195,31 +191,58 @@ export async function generateBackgroundImage(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let finalImageUrl = '';
+    let buffer = ''; // Buffer to accumulate incomplete lines across chunks
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('[AIGenerationService] Streaming reader finished - no more data');
+          break;
+        }
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        console.log('[AIGenerationService] Received chunk size:', chunk.length);
+        
+        // Add chunk to buffer
+        buffer += chunk;
+        
+        // Split buffer into lines, keeping the last incomplete line in buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last (potentially incomplete) line in buffer
+        
+        console.log('[AIGenerationService] Processing', lines.length, 'complete lines');
 
         for (const line of lines) {
+          if (line.trim() === '') continue; // Skip empty lines
+          
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'partial' && data.imageUrl) {
+              const jsonStr = line.slice(6);
+              console.log('[AIGenerationService] Parsing complete JSON line, length:', jsonStr.length);
+              const data = JSON.parse(jsonStr);
+              console.log('[AIGenerationService] Parsed data type:', data.type);
+              
+              if (data.type === 'partial_image' && data.imageUrl) {
                 console.log('[AIGenerationService] Received partial background image');
+                console.log('[AIGenerationService] Setting streaming background image:', data.imageUrl.substring(0, 50) + '...');
                 setStreamingBackgroundImage(data.imageUrl);
-              } else if (data.type === 'complete' && data.imageUrl) {
+                console.log('[AIGenerationService] Streaming background image set successfully');
+              } else if (data.type === 'completed' && data.imageUrl) {
                 console.log('[AIGenerationService] Background image generation completed');
+                console.log('[AIGenerationService] Final image URL:', data.imageUrl.substring(0, 50) + '...');
                 finalImageUrl = data.imageUrl;
-                setStreamingBackgroundImage(null); // Clear streaming state
+                console.log('[AIGenerationService] Keeping final image as streaming background (not clearing)');
+                // Don't clear streaming state - keep the final image visible since we're not saving to Firebase
+                // setStreamingBackgroundImage(null); // Commented out to prevent green flash
                 break;
               }
             } catch (e) {
-              // Ignore parsing errors for partial chunks
+              console.warn('[AIGenerationService] Failed to parse JSON:', e, 'Line length:', line.length);
             }
+          } else {
+            // Non-data lines are expected (base64 chunks, etc.)
+            console.log('[AIGenerationService] Non-data line, length:', line.length);
           }
         }
 
@@ -248,22 +271,24 @@ export async function generateBackgroundImage(
  */
 export async function generateAndSaveBio(
   profile: UserProfile,
-  saveProfile: SaveProfile,
-  bioGeneratedRef: React.MutableRefObject<boolean>
-): Promise<void> {
+  bioGeneratedRef: React.MutableRefObject<boolean>,
+  saveProfile: SaveProfile
+): Promise<UserProfile> {
   try {
-    const generatedBio = await generateBio(profile);
+    const generatedBio = await generateBio(profile, saveProfile);
     
     console.log('[AIGenerationService] Successfully generated bio:', generatedBio.substring(0, 100) + '...');
     console.log('[AIGenerationService] Full bio length:', generatedBio.length);
-    console.log('[AIGenerationService] About to save bio to Firebase with saveProfile...');
+    console.log('[AIGenerationService] About to save bio using ProfileContext...');
 
-    // Save bio with background operation flags
-    await saveProfile({ bio: generatedBio }, { directUpdate: true, skipUIUpdate: true });
+    // Save bio using ProfileContext (silent save - no UI updates)
+    const updatedProfile = await saveProfile({ bio: generatedBio }, { directUpdate: true, skipUIUpdate: true });
     
-    console.log('[AIGenerationService] === BIO SAVED TO FIREBASE ===');
+    console.log('[AIGenerationService] === BIO SAVED USING PROFILE CONTEXT ===');
     bioGeneratedRef.current = true;
     
+    // Return updated profile or fallback with bio added
+    return updatedProfile || { ...profile, bio: generatedBio };
   } catch (error) {
     console.error('[AIGenerationService] Bio generation and save failed:', error);
     throw error;
@@ -275,19 +300,19 @@ export async function generateAndSaveBio(
  */
 export async function generateAndSaveAvatar(
   profile: UserProfile,
-  saveProfile: SaveProfile,
-  avatarGeneratedRef: React.MutableRefObject<boolean>
+  avatarGeneratedRef: React.MutableRefObject<boolean>,
+  saveProfile: SaveProfile
 ): Promise<void> {
   try {
-    const generatedAvatarUrl = await generateAvatar(profile);
+    const generatedAvatarUrl = await generateAvatar(profile, saveProfile);
     
     console.log('[AIGenerationService] Successfully generated avatar');
-    console.log('[AIGenerationService] About to save avatar to Firebase with saveProfile...');
+    console.log('[AIGenerationService] About to save avatar using ProfileContext...');
 
-    // Save avatar with background operation flags
+    // Save avatar using ProfileContext (silent save - no UI updates)
     await saveProfile({ profileImage: generatedAvatarUrl }, { directUpdate: true, skipUIUpdate: true });
     
-    console.log('[AIGenerationService] === AVATAR SAVED TO FIREBASE ===');
+    console.log('[AIGenerationService] === AVATAR SAVED USING PROFILE CONTEXT ===');
     avatarGeneratedRef.current = true;
     
   } catch (error) {
@@ -301,14 +326,14 @@ export async function generateAndSaveAvatar(
  */
 export async function generateAndSaveBackgroundImage(
   profile: UserProfile,
-  saveProfile: SaveProfile,
   setStreamingBackgroundImage: SetStreamingBackgroundImage,
-  backgroundImageGeneratedRef: React.MutableRefObject<boolean>
+  backgroundImageGeneratedRef: React.MutableRefObject<boolean>,
+  saveProfile: SaveProfile
 ): Promise<void> {
   try {
     const generatedImageUrl = await generateBackgroundImage(profile, setStreamingBackgroundImage);
     
-    // Save background image with background operation flags
+    // Save background image using ProfileContext (silent save - no UI updates)
     await saveProfile({ backgroundImage: generatedImageUrl }, { directUpdate: true, skipUIUpdate: true });
     
     console.log('[AIGenerationService] Final background image saved silently');
@@ -322,48 +347,63 @@ export async function generateAndSaveBackgroundImage(
 }
 
 /**
- * Orchestrates the complete AI generation sequence for new users
- * Sequence: Bio → Avatar (if needed) → Background Image
+ * Complete AI generation orchestration: bio → avatar → background image
  */
 export async function orchestrateCompleteAIGeneration(
   profile: UserProfile,
-  saveProfile: SaveProfile,
-  setStreamingBackgroundImage: SetStreamingBackgroundImage,
+  setStreamingBackgroundImage: (url: string | null) => void,
   refs: {
     bioGeneratedRef: React.MutableRefObject<boolean>;
     avatarGeneratedRef: React.MutableRefObject<boolean>;
     backgroundImageGeneratedRef: React.MutableRefObject<boolean>;
-  }
+  },
+  saveProfile: SaveProfile
 ): Promise<void> {
   console.log('[AIGenerationService] === COMPLETE AI GENERATION ORCHESTRATION STARTED ===');
   
+  // Early exit: Check if all content already exists
+  const hasBio = profile.bio && profile.bio.trim() !== '';
+  const hasAvatar = profile.profileImage && profile.profileImage.trim() !== '' && !profile.profileImage.includes('default-avatar');
+  const hasBackgroundImage = profile.backgroundImage && profile.backgroundImage.trim() !== '';
+  
+  if (hasBio && hasAvatar && hasBackgroundImage) {
+    console.log('[AIGenerationService] All content already exists, skipping orchestration');
+    refs.bioGeneratedRef.current = true;
+    refs.avatarGeneratedRef.current = true;
+    refs.backgroundImageGeneratedRef.current = true;
+    console.log('[AIGenerationService] === COMPLETE AI GENERATION ORCHESTRATION COMPLETED (EARLY EXIT) ===');
+    return;
+  }
+  
   try {
-    // Step 1: Generate bio if needed
+    let updatedProfile = profile; // Track the updated profile
+    
+    // Step 1: Generate bio if needed  
     if (shouldGenerateBio(profile, refs.bioGeneratedRef)) {
       console.log('[AIGenerationService] Bio needs generation');
-      await generateAndSaveBio(profile, saveProfile, refs.bioGeneratedRef);
-      
-      // Update profile with generated bio for subsequent generations
-      const updatedProfile = { ...profile, bio: await getBioFromLastSave() };
-      profile = updatedProfile;
+      const updatedProfileFromBio = await generateAndSaveBio(profile, refs.bioGeneratedRef, saveProfile);
+      if (updatedProfileFromBio) {
+        updatedProfile = updatedProfileFromBio; // Use updated profile with bio
+        console.log('[AIGenerationService] Using updated profile with bio for subsequent generations');
+      }
     } else {
       console.log('[AIGenerationService] Bio already exists, marking as generated');
       refs.bioGeneratedRef.current = true;
     }
 
-    // Step 2: Generate avatar if needed
-    if (shouldGenerateAvatar(profile, refs.avatarGeneratedRef)) {
+    // Step 2: Generate avatar if needed (doesn't require bio)
+    if (shouldGenerateAvatar(updatedProfile, refs.avatarGeneratedRef)) {
       console.log('[AIGenerationService] Avatar needs generation');
-      await generateAndSaveAvatar(profile, saveProfile, refs.avatarGeneratedRef);
+      await generateAndSaveAvatar(updatedProfile, refs.avatarGeneratedRef, saveProfile);
     } else {
       console.log('[AIGenerationService] Avatar already exists or user has profile image, marking as generated');
       refs.avatarGeneratedRef.current = true;
     }
 
     // Step 3: Generate background image if needed (requires bio to exist)
-    if (shouldGenerateBackgroundImage(profile, refs.backgroundImageGeneratedRef)) {
+    if (shouldGenerateBackgroundImage(updatedProfile, refs.backgroundImageGeneratedRef)) {
       console.log('[AIGenerationService] Background image needs generation');
-      await generateAndSaveBackgroundImage(profile, saveProfile, setStreamingBackgroundImage, refs.backgroundImageGeneratedRef);
+      await generateAndSaveBackgroundImage(updatedProfile, setStreamingBackgroundImage, refs.backgroundImageGeneratedRef, saveProfile);
     } else {
       console.log('[AIGenerationService] Background image already exists, marking as generated');
       refs.backgroundImageGeneratedRef.current = true;

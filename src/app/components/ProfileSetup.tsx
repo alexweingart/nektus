@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/Button';
@@ -8,11 +8,11 @@ import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { Heading } from './ui/Typography';
-import { useProfile } from '../context/ProfileContext';
-import type { UserProfile } from '@/types/profile';
 import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
 import Avatar from './ui/Avatar';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { useProfile } from '../context/ProfileContext'; // Import useProfile hook
+import type { UserProfile } from '@/types/profile';
 
 // Define Country type to match CustomPhoneInput
 type Country = {
@@ -22,7 +22,7 @@ type Country = {
   dialCode: string;
 };
 
-export default function ProfileSetup() {
+function ProfileSetup() {
   console.log('[ProfileSetup] Component rendering started');
   
   // Session and authentication
@@ -32,11 +32,11 @@ export default function ProfileSetup() {
   
   console.log('[ProfileSetup] useSession result:', { sessionStatus, hasSession: !!session });
   
-  // Profile and routing
-  const { profile, saveProfile, isLoading, getLatestProfile, setNavigatingFromSetup } = useProfile();
+  // Minimal ProfileContext subscription - only for saveProfile function
+  const { saveProfile } = useProfile();
   const router = useRouter();
   
-  console.log('[ProfileSetup] useProfile result:', { isLoading, hasProfile: !!profile });
+  console.log('[ProfileSetup] useProfile result:', { hasSaveProfile: !!saveProfile });
   
   // Component state
   const [isSaving, setIsSaving] = useState(false);
@@ -67,11 +67,6 @@ export default function ProfileSetup() {
     
     if (!session?.user?.email) {
       console.error('Cannot save: No user session');
-      return;
-    }
-    
-    if (!profile) {
-      console.error('Cannot save: No profile data');
       return;
     }
     
@@ -128,81 +123,66 @@ export default function ProfileSetup() {
       }
       
       console.log('Saving phone info:', { internationalPhone, nationalPhone });
-      console.log('Current profile bio before phone save:', profile?.bio);
-      console.log('Current profile state:', { 
-        hasBio: !!profile?.bio, 
-        bioLength: profile?.bio?.length || 0,
-        bioPreview: profile?.bio?.substring(0, 50) || 'NO BIO'
-      });
       
-      // Get the most up-to-date profile data (including any background-generated bio)
-      const latestProfile = getLatestProfile() || profile;
-      console.log('Latest profile bio:', latestProfile?.bio);
-      console.log('Latest profile state:', { 
-        hasBio: !!latestProfile?.bio, 
-        bioLength: latestProfile?.bio?.length || 0,
-        bioPreview: latestProfile?.bio?.substring(0, 50) || 'NO BIO'
-      });
-      
-      // Only update phone-related fields, preserve all other profile data (including bio)
-      const phoneUpdateData = {
-        // Explicitly preserve bio if it exists
-        ...(latestProfile?.bio ? { bio: latestProfile.bio } : {}),
+      // Only update phone-related fields, preserve all other profile data
+      const phoneUpdateData: Partial<UserProfile> = {
         contactChannels: {
-          ...(latestProfile?.contactChannels || {}), // Preserve existing contact channels
           phoneInfo: {
             internationalPhone,
             nationalPhone,
-            userConfirmed: true // Explicitly set to true when user saves the form
+            userConfirmed: false
           },
           whatsapp: {
-            ...(latestProfile?.contactChannels?.whatsapp || {}),
             username: nationalPhone,
             url: `https://wa.me/${nationalPhone}`,
             userConfirmed: false
           },
           wechat: {
-            ...(latestProfile?.contactChannels?.wechat || {}),
             username: nationalPhone,
             url: `weixin://dl/chat?${nationalPhone}`,
             userConfirmed: false
           },
           telegram: {
-            ...(latestProfile?.contactChannels?.telegram || {}),
             username: nationalPhone,
             url: `https://t.me/${nationalPhone}`,
             userConfirmed: false
           }
-        }
+        } as any // Partial update - preserves existing contact channels
       };
       
       console.log('Saving phone update data:', JSON.stringify(phoneUpdateData, null, 2));
       
       try {
-        // Small delay to ensure any background bio save completes first
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
         // Save only the phone-related fields (preserves bio and other data)
-        await saveProfile(phoneUpdateData);
-        console.log('Profile saved successfully');
+        const updatedProfile = await saveProfile(phoneUpdateData);
+        
+        if (updatedProfile) {
+          console.log('Profile saved successfully');
+          console.log('=== Navigating to profile page ===');
+          
+          // Navigate immediately without resetting saving state
+          router.push('/');
+          return; // Exit early, don't reset isSaving
+        } else {
+          throw new Error('Failed to save profile - no updated profile returned');
+        }
       } catch (saveError) {
         console.error('Error in saveProfile call:', saveError);
+        // Only reset saving state on error
+        setIsSaving(false);
         throw saveError; // Re-throw to be caught by the outer catch
       }
     } catch (error) {
       console.error('Error in handleSave:', error);
-    } finally {
-      console.log('=== Save process completed ===');
-      setIsSaving(false);
+      setIsSaving(false); // Reset saving state on any error
     }
-  }, [digits, isSaving, profile, saveProfile, selectedCountry.code, session?.user?.email]);
-
-  // Get the latest profile including streaming background image - this must be after hooks
-  const currentProfile = getLatestProfile() || profile;
+    
+    console.log('=== Save process completed ===');
+    // Don't reset isSaving here - either we navigated or hit an error
+  }, [digits, isSaving, selectedCountry.code, session?.user?.email, saveProfile]);
 
   // Check if profile is complete (has phone number) to prevent flash during navigation
-  const hasCompleteProfile = currentProfile?.contactChannels?.phoneInfo?.internationalPhone && 
-                            currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+  const hasCompleteProfile = false;
 
   // All useEffect and useCallback hooks must be called before any conditional returns
   useEffect(() => {
@@ -213,9 +193,8 @@ export default function ProfileSetup() {
       // Set flags to prevent ProfileContext interference (belt and suspenders approach)
       setIsRedirecting(true);
       navigationAttemptedRef.current = true;
-      setNavigatingFromSetup(true);
     }
-  }, [hasCompleteProfile, isSaving, isRedirecting, setNavigatingFromSetup]);
+  }, [hasCompleteProfile, isSaving, isRedirecting]);
 
   // Show loading state while checking auth status or loading profile
   // Don't show loading if we have a valid session but status is temporarily 'loading' due to session updates
@@ -225,18 +204,16 @@ export default function ProfileSetup() {
   
   console.log('[ProfileSetup] Loading check:', {
     sessionStatus,
-    isLoading,
     hasSession: !!session,
     isNewUser,
     shouldSkipLoading,
-    willShowSpinner: ((sessionStatus === 'loading' && !session) || isLoading) && !shouldSkipLoading
+    willShowSpinner: ((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading
   });
   
-  if (((sessionStatus === 'loading' && !session) || isLoading) && !shouldSkipLoading) {
+  if (((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading) {
     console.log('[ProfileSetup] Showing loading spinner:', { 
       sessionStatus, 
       hasSession: !!session, 
-      isLoading, 
       isNewUser,
       shouldSkipLoading 
     });
@@ -267,7 +244,6 @@ export default function ProfileSetup() {
     hasCompleteProfile,
     isSaving,
     isRedirecting,
-    hasProfile: !!profile,
     isNewUser: session?.isNewUser
   });
 
@@ -282,8 +258,8 @@ export default function ProfileSetup() {
           <div className="mb-4">
             <div className="border-4 border-white shadow-lg rounded-full">
               <Avatar 
-                src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
-                alt={profile?.name || session?.user?.name || 'Profile'}
+                src={session?.user?.image || '/default-avatar.png'} 
+                alt={session?.user?.name || 'Profile'}
                 size="lg"
               />
             </div>
@@ -296,7 +272,7 @@ export default function ProfileSetup() {
               className="cursor-pointer"
               {...adminModeProps}
             >
-              {profile?.name || session?.user?.name || 'Profile'}
+              {session?.user?.name || 'Profile'}
             </Heading>
           </div>
           
@@ -342,3 +318,5 @@ export default function ProfileSetup() {
     </div>
   );
 }
+
+export default memo(ProfileSetup);
