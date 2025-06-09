@@ -48,6 +48,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isNavigatingFromSetup, setIsNavigatingFromSetup] = useState(false);
   const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
+  
+  // Mobile fix: Also store streaming background image in ref for persistence across re-renders
+  const streamingBackgroundImageRef = useRef<string | null>(null);
+  
   const loadingRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
   const pathname = usePathname();
@@ -293,6 +297,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       (profileRef.current as any).__streamingBackgroundImage = imageUrl;
     }
     setStreamingBackgroundImage(imageUrl);
+    streamingBackgroundImageRef.current = imageUrl; // Update ref for persistence
   }, []);
 
   // Clear profile
@@ -368,6 +373,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       avatarGeneratedRef.current = false;
       backgroundImageGeneratedRef.current = false;
       generatingBackgroundImageRef.current = false; // Reset generating flag for new user
+      streamingBackgroundImageRef.current = null; // Clear streaming image for new user
+      setStreamingBackgroundImage(null); // Clear streaming state for new user
       lastUserIdRef.current = session?.user?.id || null;
     }
 
@@ -424,9 +431,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     
     return {
       ...currentProfile,
-      backgroundImage: streamingBackgroundImage || currentProfile.backgroundImage
+      backgroundImage: streamingBackgroundImageRef.current || currentProfile.backgroundImage
     };
-  }, [profile, streamingBackgroundImage]);
+  }, [profile, streamingBackgroundImageRef]);
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
     setIsNavigatingFromSetup(navigating);
