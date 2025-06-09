@@ -99,20 +99,24 @@
 }
 
 html {
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  overflow: hidden; /* Prevent any scrolling at document level */
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  overflow-x: hidden;
+  overflow: hidden; /* Prevent scrollbars */
 }
 
 /* iOS specific fixes */

@@ -249,7 +249,7 @@ function ProfileSetup() {
 
   return (
     <div 
-      className="w-full flex flex-col items-center px-4 py-2"
+      className="h-screen flex flex-col items-center justify-center px-4"
     >
       {/* Main Content */}
       <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
