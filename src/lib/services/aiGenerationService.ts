@@ -250,6 +250,21 @@ export async function generateBackgroundImage(
                 console.log('[AIGenerationService] Response completed event received');
                 // This is the final completion event - no image URL expected here
               }
+              // Handle final output item done (may contain final image)
+              else if (data.type === 'response.output_item.done' && data.item?.content?.[0]?.image?.url) {
+                console.log('[AIGenerationService] Final output item completed with image');
+                console.log('[AIGenerationService] Final image URL from output_item:', data.item.content[0].image.url.substring(0, 50) + '...');
+                finalImageUrl = data.item.content[0].image.url;
+                
+                // Preload the final image to prevent green flash during transition
+                console.log('[AIGenerationService] Preloading final image to prevent green flash...');
+                const img = new Image();
+                img.onload = () => {
+                  console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
+                  setStreamingBackgroundImage(data.item.content[0].image.url);
+                };
+                img.src = data.item.content[0].image.url;
+              }
               // Legacy format fallback (in case server sends this format)
               else if (data.type === 'partial_image' && data.imageUrl) {
                 console.log('[AIGenerationService] Received partial background image (legacy format)');
