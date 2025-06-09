@@ -61,43 +61,87 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Ref to store the latest profile data without triggering re-renders
   const profileRef = useRef<UserProfile | null>(null);
 
-  // Profile creation effect - moved from render to useEffect
+  // Profile creation/loading effect - first try to load existing, then create if needed
   useEffect(() => {
     if (authStatus === 'authenticated' && session?.user?.id && !profile && !loadingRef.current) {
-      console.log('[ProfileContext] Creating profile for authenticated user:', session.user.id);
+      console.log('[ProfileContext] Loading/creating profile for authenticated user:', session.user.id);
       loadingRef.current = true;
       
-      // Create profile
-      const newProfile = createDefaultProfile(session);
-      
-      // React 18 will automatically batch these state updates
-      setProfile(newProfile);
-      profileRef.current = newProfile;
-      setIsLoading(false);
-      
-      // Reset loading flag
-      loadingRef.current = false;
-      
-      // Trigger AI generation after profile is set (only on setup page)
-      if (pathname === '/setup') {
-        console.log('[ProfileContext] Triggering AI generation for new profile');
-        setTimeout(() => {
-          orchestrateCompleteAIGeneration(
-            newProfile,
-            setStreamingBackgroundImage,
-            {
-              bioGeneratedRef,
-              avatarGeneratedRef,
-              backgroundImageGeneratedRef
-            },
-            saveProfile
-          ).catch(error => {
-            console.error('[ProfileContext] AI generation failed:', error);
-          });
-        }, 1000); // Give UI time to render first
-      }
+      // First try to load existing profile from Firebase
+      ProfileService.getProfile(session.user.id)
+        .then(async existingProfile => {
+          if (existingProfile) {
+            console.log('[ProfileContext] Found existing profile, loading it');
+            setProfile(existingProfile);
+            profileRef.current = existingProfile;
+            setIsLoading(false);
+            
+            // Update session with phone data from existing profile if it has phone info
+            if (existingProfile.contactChannels?.phoneInfo?.internationalPhone && !sessionUpdatedRef.current && update) {
+              const phoneData = {
+                profile: {
+                  contactChannels: {
+                    phoneInfo: {
+                      internationalPhone: existingProfile.contactChannels.phoneInfo.internationalPhone,
+                      nationalPhone: existingProfile.contactChannels.phoneInfo.nationalPhone,
+                      userConfirmed: existingProfile.contactChannels.phoneInfo.userConfirmed
+                    }
+                  }
+                }
+              };
+              
+              try {
+                console.log('[ProfileContext] Updating session with existing profile phone data');
+                await update(phoneData);
+                sessionUpdatedRef.current = true;
+              } catch (error) {
+                console.error('[ProfileContext] Error updating session with existing profile:', error);
+              }
+            }
+          } else {
+            console.log('[ProfileContext] No existing profile found, creating new one');
+            // Create new profile only if none exists
+            const newProfile = createDefaultProfile(session);
+            
+            // React 18 will automatically batch these state updates
+            setProfile(newProfile);
+            profileRef.current = newProfile;
+            setIsLoading(false);
+            
+            // Trigger AI generation after profile is set (only on setup page for NEW profiles)
+            if (pathname === '/setup') {
+              console.log('[ProfileContext] Triggering AI generation for new profile');
+              setTimeout(() => {
+                orchestrateCompleteAIGeneration(
+                  newProfile,
+                  setStreamingBackgroundImage,
+                  {
+                    bioGeneratedRef,
+                    avatarGeneratedRef,
+                    backgroundImageGeneratedRef
+                  },
+                  saveProfile
+                ).catch(error => {
+                  console.error('[ProfileContext] AI generation failed:', error);
+                });
+              }, 1000); // Give UI time to render first
+            }
+          }
+        })
+        .catch(error => {
+          console.error('[ProfileContext] Failed to load profile, creating new one:', error);
+          // Fallback to creating new profile if loading fails
+          const newProfile = createDefaultProfile(session);
+          setProfile(newProfile);
+          profileRef.current = newProfile;
+          setIsLoading(false);
+        })
+        .finally(() => {
+          // Reset loading flag
+          loadingRef.current = false;
+        });
     }
-  }, [authStatus, session?.user?.id, profile, pathname]);
+  }, [authStatus, session?.user?.id, profile, pathname, update]);
 
   // Handle unauthenticated users
   useEffect(() => {
@@ -113,6 +157,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  useEffect(() => {
+    const currentUserId = session?.user?.id;
+    if (currentUserId && currentUserId !== lastUserIdRef.current) {
+      console.log('[ProfileContext] User changed, resetting session update flag');
+      sessionUpdatedRef.current = false;
+      lastUserIdRef.current = currentUserId;
+    }
+  }, [session?.user?.id]);
 
   // Save profile to Firestore
   const saveProfile = useCallback(async (data: Partial<UserProfile>, options: { directUpdate?: boolean; skipUIUpdate?: boolean } = {}): Promise<UserProfile | null> => {

@@ -1,5 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User, Profile } from "next-auth";
+import { ProfileService } from "@/lib/firebase/profileService";
 
 interface GoogleProfile extends Profile {
   picture?: string;
@@ -218,6 +219,24 @@ export const authOptions: NextAuthOptions = {
         // If session update but no profile data, reset to empty profile
         console.log('JWT: Session update with no profile data, resetting to empty profile');
         token.profile = { ...emptyProfile };
+      }
+      
+      // Server-side Firebase check to determine if user is truly new or existing
+      if (account?.id_token && token.sub) {
+        try {
+          const existingProfile = await ProfileService.getProfile(token.sub);
+          if (existingProfile) {
+            token.isNewUser = false;
+            console.log('JWT: Found existing Firebase profile, user is not new');
+          } else {
+            token.isNewUser = true;
+            console.log('JWT: No existing Firebase profile found, user is new');
+          }
+        } catch (error) {
+          console.error('JWT: Error checking Firebase profile:', error);
+          // Default to new user if we can't check
+          token.isNewUser = true;
+        }
       }
       
       // Log final token state for debugging
