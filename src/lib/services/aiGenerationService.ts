@@ -232,9 +232,21 @@ export async function generateBackgroundImage(
                 console.log('[AIGenerationService] Background image generation completed');
                 console.log('[AIGenerationService] Final image URL:', data.imageUrl.substring(0, 50) + '...');
                 finalImageUrl = data.imageUrl;
-                console.log('[AIGenerationService] Setting final image as streaming background for mobile compatibility');
-                setStreamingBackgroundImage(data.imageUrl); // Set final image as streaming for mobile
-                console.log('[AIGenerationService] Final streaming image set successfully');
+                
+                // Preload the final image to prevent green flash during transition
+                console.log('[AIGenerationService] Preloading final image to prevent green flash...');
+                const img = new Image();
+                img.onload = () => {
+                  console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
+                  setStreamingBackgroundImage(data.imageUrl);
+                  console.log('[AIGenerationService] Final streaming image set successfully');
+                };
+                img.onerror = () => {
+                  console.warn('[AIGenerationService] Failed to preload final image, setting anyway');
+                  setStreamingBackgroundImage(data.imageUrl);
+                };
+                img.src = data.imageUrl;
+                
                 break;
               }
             } catch (e) {

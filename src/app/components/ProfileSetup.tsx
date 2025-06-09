@@ -249,14 +249,9 @@ function ProfileSetup() {
 
   return (
     <div 
-      className="h-screen flex flex-col items-center px-4 py-8 overflow-hidden"
+      className="h-screen flex flex-col items-center px-4 pt-8 overflow-hidden"
     >
-      {/* DEBUG: Make it obvious this is ProfileSetup */}
-      <div className="fixed top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs z-50">
-        PROFILE SETUP
-      </div>
-      
-      <div className="w-full max-w-[var(--max-content-width,448px)] text-center flex-1 flex flex-col justify-center">
+      <div className="w-full max-w-[var(--max-content-width,448px)] text-center">
         {/* Main Content */}
         <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
           <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center">
