@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
                   
                   const data = JSON.parse(jsonStr);
                   
+                  console.log('[Background Image API] Received event from OpenAI:', data.type);
+                  
                   // Forward streaming updates to client
                   controller.enqueue(new TextEncoder().encode(line + '\n'));
                   
@@ -130,37 +132,49 @@ export async function POST(request: NextRequest) {
                   if (data.type === 'response.completed' && data.response?.output?.[0]?.result) {
                     const base64Data = data.response.output[0].result;
                     console.log('[Background Image API] Found final image, length:', base64Data.length);
+                    console.log('[Background Image API] Final image base64 data:', base64Data.substring(0, 100));
                     
-                    // Upload to Firebase Storage
-                    console.log('[Background Image API] Uploading to Firebase Storage...');
-                    const { adminApp } = await getFirebaseAdmin();
-                    const storage = getStorage(adminApp);
-                    const bucket = storage.bucket();
-                    const fileName = `users/${session.user.id}/background-image-${Date.now()}.png`;
-                    const file = bucket.file(fileName);
-                    
-                    const imageBuffer = Buffer.from(base64Data, 'base64');
-                    await file.save(imageBuffer, {
-                      metadata: {
-                        contentType: 'image/png',
-                      },
-                    });
-                    
-                    // Make public
-                    await file.makePublic();
-                    
-                    // Generate public URL
-                    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-                    finalImageUrl = publicUrl;
-                    
-                    console.log('[Background Image API] Image uploaded to:', publicUrl);
-                    
-                    // Send completion event with Firebase Storage URL
-                    const completionEvent = `data: ${JSON.stringify({
-                      type: 'completed',
-                      imageUrl: publicUrl
-                    })}\n\n`;
-                    controller.enqueue(new TextEncoder().encode(completionEvent));
+                    try {
+                      // Upload to Firebase Storage
+                      console.log('[Background Image API] Uploading to Firebase Storage...');
+                      const { adminApp } = await getFirebaseAdmin();
+                      const storage = getStorage(adminApp);
+                      const bucket = storage.bucket();
+                      const fileName = `users/${session.user.id}/background-image-${Date.now()}.png`;
+                      const file = bucket.file(fileName);
+                      
+                      const imageBuffer = Buffer.from(base64Data, 'base64');
+                      console.log('[Background Image API] Image buffer length:', imageBuffer.length);
+                      await file.save(imageBuffer, {
+                        metadata: {
+                          contentType: 'image/png',
+                        },
+                      });
+                      
+                      // Make public
+                      await file.makePublic();
+                      
+                      // Generate public URL
+                      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+                      finalImageUrl = publicUrl;
+                      
+                      console.log('[Background Image API] Image uploaded to:', publicUrl);
+                      console.log('[Background Image API] Image upload metadata:', await file.getMetadata());
+                      
+                      // Send completion event with Firebase Storage URL
+                      const completionEvent = `data: ${JSON.stringify({
+                        type: 'completed',
+                        imageUrl: publicUrl
+                      })}\n\n`;
+                      controller.enqueue(new TextEncoder().encode(completionEvent));
+                    } catch (error) {
+                      console.error('[Background Image API] Firebase upload error:', error);
+                      const errorEvent = `data: ${JSON.stringify({
+                        type: 'error',
+                        message: 'Failed to upload image to Firebase Storage'
+                      })}\n\n`;
+                      controller.enqueue(new TextEncoder().encode(errorEvent));
+                    }
                   }
                 } catch (e) {
                   // Skip invalid JSON lines
