@@ -223,14 +223,40 @@ export async function generateBackgroundImage(
               const data = JSON.parse(jsonStr);
               console.log('[AIGenerationService] Parsed data type:', data.type);
               
-              if (data.type === 'partial_image' && data.imageUrl) {
-                console.log('[AIGenerationService] Received partial background image');
-                console.log('[AIGenerationService] Setting streaming background image:', data.imageUrl.substring(0, 50) + '...');
-                setStreamingBackgroundImage(data.imageUrl);
+              // Handle partial image from OpenAI responses API
+              if (data.type === 'response.image_generation_call.partial_image' && data.image?.url) {
+                console.log('[AIGenerationService] Received partial background image from OpenAI');
+                console.log('[AIGenerationService] Setting streaming background image:', data.image.url.substring(0, 50) + '...');
+                setStreamingBackgroundImage(data.image.url);
                 console.log('[AIGenerationService] Streaming background image set successfully');
-              } else if (data.type === 'completed' && data.imageUrl) {
+              } 
+              // Handle completion from OpenAI responses API
+              else if (data.type === 'response.image_generation_call.completed' && data.image?.url) {
                 console.log('[AIGenerationService] Background image generation completed');
-                console.log('[AIGenerationService] Final image URL:', data.imageUrl.substring(0, 50) + '...');
+                console.log('[AIGenerationService] Final image URL:', data.image.url.substring(0, 50) + '...');
+                finalImageUrl = data.image.url;
+                
+                // Preload the final image to prevent green flash during transition
+                console.log('[AIGenerationService] Preloading final image to prevent green flash...');
+                const img = new Image();
+                img.onload = () => {
+                  console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
+                  setStreamingBackgroundImage(data.image.url);
+                };
+                img.src = data.image.url;
+              }
+              // Handle final completion event
+              else if (data.type === 'response.completed') {
+                console.log('[AIGenerationService] Response completed event received');
+                // This is the final completion event - no image URL expected here
+              }
+              // Legacy format fallback (in case server sends this format)
+              else if (data.type === 'partial_image' && data.imageUrl) {
+                console.log('[AIGenerationService] Received partial background image (legacy format)');
+                setStreamingBackgroundImage(data.imageUrl);
+              } 
+              else if (data.type === 'completed' && data.imageUrl) {
+                console.log('[AIGenerationService] Background image generation completed (legacy format)');
                 finalImageUrl = data.imageUrl;
                 
                 // Preload the final image to prevent green flash during transition
@@ -239,15 +265,8 @@ export async function generateBackgroundImage(
                 img.onload = () => {
                   console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
                   setStreamingBackgroundImage(data.imageUrl);
-                  console.log('[AIGenerationService] Final streaming image set successfully');
-                };
-                img.onerror = () => {
-                  console.warn('[AIGenerationService] Failed to preload final image, setting anyway');
-                  setStreamingBackgroundImage(data.imageUrl);
                 };
                 img.src = data.imageUrl;
-                
-                break;
               }
             } catch (e) {
               console.warn('[AIGenerationService] Failed to parse JSON:', e, 'Line length:', line.length);
