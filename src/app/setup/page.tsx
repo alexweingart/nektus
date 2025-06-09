@@ -63,10 +63,22 @@ function SetupPageContent() {
           
           if (hasPhone) {
             console.log('[SetupPage] Existing user has complete profile, redirecting to home');
+            console.log('[SetupPage] Profile phone info:', {
+              hasContactChannels: !!currentProfile.contactChannels,
+              hasPhoneInfo: !!currentProfile.contactChannels?.phoneInfo,
+              internationalPhone: currentProfile.contactChannels?.phoneInfo?.internationalPhone,
+              phoneLength: currentProfile.contactChannels?.phoneInfo?.internationalPhone?.length
+            });
             router.replace('/');
             return; // Don't show setup component
           } else {
             console.log('[SetupPage] Existing user has incomplete profile, showing setup');
+            console.log('[SetupPage] Missing phone info:', {
+              hasContactChannels: !!currentProfile.contactChannels,
+              hasPhoneInfo: !!currentProfile.contactChannels?.phoneInfo,
+              internationalPhone: currentProfile.contactChannels?.phoneInfo?.internationalPhone || 'MISSING',
+              phoneLength: currentProfile.contactChannels?.phoneInfo?.internationalPhone?.length || 0
+            });
             setShouldShowSetup(true);
           }
         } else {
