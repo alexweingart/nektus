@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
                     
                     const data = JSON.parse(jsonStr);
                     console.log('[Background Image API] Parsed OpenAI data:', JSON.stringify(data, null, 2));
+                    console.log('[Background Image API] Full response structure:', JSON.stringify(data, null, 4));
                     
                     // Handle different OpenAI response formats
                     if (data.type === 'content.delta') {
