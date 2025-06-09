@@ -13,7 +13,9 @@ const PUBLIC_PATHS = [
   '/api/auth/callback/google',
   '/api/auth/_log',
   '/_next',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/privacy',
+  '/terms'
 ];
 
 export async function middleware(request: NextRequest) {
