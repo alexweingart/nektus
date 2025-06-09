@@ -290,14 +290,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session]);
 
-  // Silent update for streaming background image - no React state changes
-  const silentUpdateStreamingBackground = useCallback((imageUrl: string | null) => {
-    if (profileRef.current) {
-      // Store streaming image separately in ref without triggering React re-renders
-      (profileRef.current as any).__streamingBackgroundImage = imageUrl;
-    }
+  // Enhanced setStreamingBackgroundImage that updates both state and ref
+  const enhancedSetStreamingBackgroundImage = useCallback((imageUrl: string | null) => {
     setStreamingBackgroundImage(imageUrl);
-    streamingBackgroundImageRef.current = imageUrl; // Update ref for persistence
+    streamingBackgroundImageRef.current = imageUrl;
   }, []);
 
   // Clear profile
@@ -358,12 +354,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
       const { generateBackgroundImage: serviceBg } = await import('@/lib/services/aiGenerationService');
-      return await serviceBg(profile, setStreamingBackgroundImage);
+      return await serviceBg(profile, enhancedSetStreamingBackgroundImage);
     } catch (error) {
       console.error('[ProfileContext] Background image generation error:', error);
       return null;
     }
-  }, []);
+  }, [enhancedSetStreamingBackgroundImage]);
 
   // Simplified setup page effect using services
   const setupPageEffect = useCallback(async () => {
