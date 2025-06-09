@@ -254,35 +254,25 @@ export async function generateBackgroundImage(
                 console.log('[AIGenerationService] Response keys:', Object.keys(data.response || {}));
                 console.log('[AIGenerationService] Has output:', !!data.response?.output);
                 console.log('[AIGenerationService] Output length:', data.response?.output?.length);
-                if (data.response?.output?.[0]) {
-                  console.log('[AIGenerationService] First output keys:', Object.keys(data.response.output[0]));
-                  console.log('[AIGenerationService] First output type:', data.response.output[0].type);
-                  if (data.response.output[0].result) {
-                    console.log('[AIGenerationService] Result length:', data.response.output[0].result.length);
-                    console.log('[AIGenerationService] First result keys:', Object.keys(data.response.output[0].result[0] || {}));
-                    console.log('[AIGenerationService] First result type:', data.response.output[0].result[0]?.type);
-                    console.log('[AIGenerationService] Has image in result:', !!data.response.output[0].result[0]?.image);
-                    if (data.response.output[0].result[0]) {
-                      console.log('[AIGenerationService] FOUND IMAGE DATA in response.completed!');
-                      console.log('[AIGenerationService] Final image URL:', data.response.output[0].result[0].substring(0, 50) + '...');
-                      console.log('[AIGenerationService] Full response.output[0].result[0] object:', data.response.output[0].result[0]);
-                      console.log('[AIGenerationService] Full response.output[0].result[0] keys:', Object.keys(data.response.output[0].result[0]));
-                      console.log('[AIGenerationService] Full response.output[0].result[0] values:', Object.values(data.response.output[0].result[0]));
-                      const base64Data = data.response.output[0].result[0];
-                      console.log('[AIGenerationService] Base64 data length:', base64Data.length);
-                      const dataUrl = `data:image/png;base64,${base64Data}`;
-                      finalImageUrl = dataUrl;
-                      
-                      // Preload the final image to prevent green flash during transition
-                      console.log('[AIGenerationService] Preloading final image...');
-                      const img = new Image();
-                      img.onload = () => {
-                        console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
-                        setStreamingBackgroundImage(dataUrl);
-                      };
-                      img.src = dataUrl;
-                    }
-                  }
+                if (data.response?.output) {
+                  console.log('[AIGenerationService] FOUND IMAGE DATA in response.completed!');
+                  console.log('[AIGenerationService] Final image URL:', data.response.output[0].result.substring(0, 50) + '...');
+                  console.log('[AIGenerationService] Full response.output object:', data.response.output);
+                  console.log('[AIGenerationService] Full response.output keys:', Object.keys(data.response.output));
+                  console.log('[AIGenerationService] Full response.output values:', Object.values(data.response.output));
+                  const base64Data = data.response.output[0].result;
+                  console.log('[AIGenerationService] Base64 data length:', base64Data.length);
+                  const dataUrl = `data:image/png;base64,${base64Data}`;
+                  finalImageUrl = dataUrl;
+                  
+                  // Preload the final image to prevent green flash during transition
+                  console.log('[AIGenerationService] Preloading final image...');
+                  const img = new Image();
+                  img.onload = () => {
+                    console.log('[AIGenerationService] Final image preloaded successfully, setting as background');
+                    setStreamingBackgroundImage(dataUrl);
+                  };
+                  img.src = dataUrl;
                 }
                 // This is the final completion event - no image URL expected here
               }
