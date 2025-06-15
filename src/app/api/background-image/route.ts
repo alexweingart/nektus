@@ -50,7 +50,20 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
     
     const body = await request.json();
-    const { bio, name, profileImage, base64Data, action } = body;
+    const { bio, name, profileImage, base64Data, action, debug } = body;
+    
+    // Enhanced logging when debug mode is enabled
+    if (debug) {
+      console.log('[Background Image API] DEBUG MODE ENABLED');
+      console.log('[Background Image API] Request details:', {
+        bio: bio ? `${bio.substring(0, 50)}...` : 'None',
+        name: name || 'None',
+        hasProfileImage: !!profileImage,
+        profileImageLength: profileImage ? profileImage.length : 0,
+        action,
+        timestamp: new Date().toISOString()
+      });
+    }
     
     // Handle upload action
     if (action === 'upload' && base64Data) {
@@ -180,6 +193,8 @@ export async function POST(request: NextRequest) {
           let partialCount = 0;
           let eventCount = 0;
           let firstEventTime: number | null = null;
+          let eventTypes: string[] = []; // Track event types for debugging
+          let rawEvents: any[] = []; // Store raw events for debugging (limited to first 10)
           
           try {
             while (true) {
@@ -213,6 +228,21 @@ export async function POST(request: NextRequest) {
                     }
                     
                     const data = JSON.parse(jsonStr);
+                    
+                    // Enhanced debugging: Track event types and store samples
+                    const eventType = data.type || (data.partial ? 'partial_image' : data.image_b64 ? 'final_image' : 'unknown');
+                    eventTypes.push(eventType);
+                    
+                    if (rawEvents.length < 10) {
+                      rawEvents.push({
+                        type: eventType,
+                        hasPartialB64: !!(data.partial_image_b64 || data.delta?.image?.b64_json || (data.partial && data.b64_json)),
+                        hasFullB64: !!(data.image_b64 || data.b64_json),
+                        keys: Object.keys(data),
+                        timestamp: eventTime - startTime
+                      });
+                    }
+                    
                     // Check for partial images in various formats
                     const partialB64 = data.partial_image_b64 || data.delta?.image?.b64_json || (data.partial && data.b64_json);
                     const fullB64 = data.image_b64 || data.b64_json;
@@ -258,7 +288,10 @@ export async function POST(request: NextRequest) {
           console.log('[OpenAI] Background image generation completed:', {
             totalTime: `${totalTime}ms`,
             partialCount,
-            hasImage: !!lastImageUrl
+            hasImage: !!lastImageUrl,
+            eventTypes: [...new Set(eventTypes)], // Unique event types
+            totalEvents: eventCount,
+            sampleEvents: rawEvents
           });
           
           // Check if we got any image data
@@ -284,6 +317,8 @@ export async function POST(request: NextRequest) {
               partialImages: partialCount,
               streamDuration: `${totalTime}ms`,
               firstEventTime: firstEventTime ? `${firstEventTime - startTime}ms` : 'N/A',
+              eventTypes: [...new Set(eventTypes)],
+              sampleEvents: rawEvents,
               possibleCauses: [
                 'OpenAI API rate limiting (silent)',
                 'OpenAI API service degradation',
