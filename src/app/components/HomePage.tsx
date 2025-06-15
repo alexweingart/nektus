@@ -23,7 +23,7 @@ const HomePage: React.FC = () => {
   
   return (
     <div 
-      className="viewport-container-locked flex items-start justify-center pt-[10vh]"
+      className="pull-container flex items-start justify-center pt-[10vh]"
     >
       {/* Welcome screen content remains the same */}
       <div

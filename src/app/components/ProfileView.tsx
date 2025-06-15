@@ -81,9 +81,7 @@ const ProfileView: React.FC = () => {
   }
 
   return (
-    <div 
-      className="h-full overflow-hidden flex flex-col items-center px-4 py-2"
-    >
+    <div className="h-[100dvh] flex flex-col items-center px-4 py-2">
       {/* Top Navigation Buttons - Fixed */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-4 flex-shrink-0">
         <Button 
@@ -110,8 +108,8 @@ const ProfileView: React.FC = () => {
         </Link>
       </div>
       
-      {/* Scrollable Content Area */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
+      {/* Fixed Content Area - No scroll */}
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-hidden">
         {/* Profile Image */}
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">

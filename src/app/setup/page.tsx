@@ -83,7 +83,7 @@ function SetupPageContent() {
   // For new users, skip all the complex profile checking
   if (userIsNew && sessionStatus === 'authenticated') {
     return (
-      <div className="viewport-container-locked">
+      <div className="pull-container">
         {error && (
           <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
             There was a problem with Google sign-in. Please try again.
@@ -97,7 +97,7 @@ function SetupPageContent() {
   // Show loading while checking profile status
   if (checkingProfile) {
     return (
-      <div className="viewport-container-locked flex items-center justify-center">
+      <div className="pull-container flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
@@ -106,14 +106,14 @@ function SetupPageContent() {
   // Don't render setup if we're redirecting
   if (!shouldShowSetup) {
     return (
-      <div className="viewport-container-locked flex items-center justify-center">
+      <div className="pull-container flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
   
   return (
-    <div className="viewport-container-locked">
+    <div className="pull-container">
       {error && (
         <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
           There was a problem with Google sign-in. Please try again.
@@ -126,7 +126,7 @@ function SetupPageContent() {
 
 export default function SetupPage() {
   return (
-    <Suspense fallback={<div className="viewport-container-locked" />}>
+    <Suspense fallback={<div className="pull-container" />}>
       <SetupPageContent />
     </Suspense>
   );
