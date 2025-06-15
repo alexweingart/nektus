@@ -118,10 +118,10 @@ body {
   /* Smooth overscroll without accidental lateral scroll */
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
+  /* Set overscroll background to match our theme */
+  background-color: #004D40;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  /* Remove background color to allow body::before to show through */
-  background-color: transparent;
   color: var(--foreground);
 }
 
@@ -129,10 +129,14 @@ body {
 body::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Cover the entire screen including safe areas */
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  left: calc(-1 * env(safe-area-inset-left, 0px));
+  right: calc(-1 * env(safe-area-inset-right, 0px));
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  /* Extend beyond viewport to cover overscroll areas */
+  width: calc(100vw + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+  height: calc(100vh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 100px);
   z-index: -1;
   pointer-events: none;
   /* Fallback green background when no image is set */
@@ -152,7 +156,7 @@ body.viewport-locked.no-refresh {
   overscroll-behavior: none;
 }
 
-/* For pull-to-refresh enabled, don't lock the body - let containers handle it */
+/* For pull-to-refresh enabled, constrain content containers instead of body */
 body.viewport-locked:not(.no-refresh) {
   /* Allow normal scroll behavior on body for pull-to-refresh */
   overscroll-behavior-y: auto;
@@ -171,6 +175,17 @@ body.allow-scroll {
   height: 100dvh;
   overflow: hidden;
   position: relative;
+}
+
+/* Content container that respects safe areas and prevents scrollbars */
+.safe-content-container {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Account for safe area padding that's already on body */
+  margin: calc(-1 * env(safe-area-inset-top)) calc(-1 * env(safe-area-inset-right)) calc(-1 * env(safe-area-inset-bottom)) calc(-1 * env(safe-area-inset-left));
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* Fixed background that covers safe areas including notch */

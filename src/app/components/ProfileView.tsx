@@ -45,7 +45,7 @@ const ProfileView: React.FC = () => {
       isProfileLoading
     });
     return (
-      <div className="flex flex-col items-center justify-center px-4 py-8">
+      <div className="flex flex-col items-center justify-center h-full px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Loading profile...</p>
@@ -82,7 +82,7 @@ const ProfileView: React.FC = () => {
 
   return (
     <div 
-      className="viewport-container-locked flex flex-col items-center px-4 py-2"
+      className="h-full flex flex-col items-center px-4 py-2 overflow-y-auto"
     >
       {/* Top Navigation Buttons */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 mb-4">
