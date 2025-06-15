@@ -21,17 +21,9 @@ const GoogleIcon = () => (
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
-  // Prevent scrolling on welcome screen
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, []);
-  
   return (
     <div 
-      className="flex items-start justify-center fixed inset-0 h-screen w-screen overflow-hidden bg-background pt-[10vh]"
+      className="flex items-start justify-center fixed inset-0 h-screen w-screen bg-background pt-[10vh]"
     >
       {/* Welcome screen content remains the same */}
       <div

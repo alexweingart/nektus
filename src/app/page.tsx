@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { useEffect, Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
+import { useViewportLock } from '@/lib/utils/useViewportLock';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -27,20 +28,10 @@ export default function Home() {
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;
 
-  // Handle scroll behavior based on authentication state
-  useEffect(() => {
-    if (isLoading) return;
-    
-    if (!session) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [session, isLoading]);
+  // Use viewport lock with pull-to-refresh for authenticated users
+  useViewportLock({
+    enablePullToRefresh: !!session
+  });
 
   // Determine background style - use streaming image first, then profile background
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;

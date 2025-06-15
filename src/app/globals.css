@@ -113,11 +113,27 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--background);
   color: var(--foreground);
-  overflow: hidden; /* Prevent scrollbars on mobile by default */
+}
+
+/* Viewport lock states */
+body.viewport-locked {
+  position: fixed;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  touch-action: pan-y; /* Allow vertical pan for pull-to-refresh */
+}
+
+body.viewport-locked.no-refresh {
+  touch-action: none; /* Completely disable touch actions */
 }
 
 body.allow-scroll {
   overflow: auto;
+  position: static;
+  height: auto;
+  width: auto;
+  touch-action: auto;
 }
 
 /* iOS specific fixes */
