@@ -76,7 +76,6 @@ function ProfileSetup() {
       if (digits) {
         // Clean the digits to remove any non-numeric characters
         const cleanedDigits = digits.replace(/\D/g, '');
-        console.log('Cleaned digits:', cleanedDigits);
         
         // For US/Canada numbers (10 digits or 11 digits starting with 1)
         if (cleanedDigits.length === 10 || (cleanedDigits.length === 11 && cleanedDigits.startsWith('1'))) {
@@ -174,14 +173,6 @@ function ProfileSetup() {
   // ALSO skip loading for new users since we want immediate setup form
   const isNewUser = session?.isNewUser;
   const shouldSkipLoading = !!(isNewUser && sessionStatus === 'authenticated' && session);
-  
-  console.log('[ProfileSetup] Loading check:', {
-    sessionStatus,
-    hasSession: !!session,
-    isNewUser,
-    shouldSkipLoading,
-    willShowSpinner: ((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading
-  });
   
   if (((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading) {
     return (

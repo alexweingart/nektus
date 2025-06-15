@@ -76,15 +76,6 @@ function SetupPageContent() {
   
   // For new users, skip all the complex profile checking
   if (userIsNew && sessionStatus === 'authenticated') {
-    console.log('[SetupPage] New user detected - showing setup immediately');
-    console.log('[SetupPage] ProfileContext will handle profile creation and AI generation');
-    
-    console.log('[SetupPage] Rendering ProfileSetup component', { 
-      checkingProfile: false, 
-      shouldShowSetup: true,
-      userIsNew: true 
-    });
-    
     const currentProfile = getLatestProfile();
     
     const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;

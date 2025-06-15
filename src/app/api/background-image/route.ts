@@ -6,15 +6,11 @@ import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 // Server-side upload function using Firebase Admin SDK
 async function uploadBackgroundImageAdmin(base64Data: string, userId: string): Promise<string> {
   try {
-    console.log('[Background Image API] Starting server-side upload for user:', userId);
-    
     const { storage } = await getFirebaseAdmin();
     
     // Convert base64 to buffer
     const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
     const buffer = Buffer.from(base64WithoutPrefix, 'base64');
-    
-    console.log('[Background Image API] Image buffer size:', buffer.length, 'bytes');
     
     // Create storage reference
     const bucket = storage.bucket();
@@ -22,7 +18,6 @@ async function uploadBackgroundImageAdmin(base64Data: string, userId: string): P
     const file = bucket.file(fileName);
     
     // Upload the buffer
-    console.log('[Background Image API] Uploading to path:', fileName);
     await file.save(buffer, {
       metadata: {
         contentType: 'image/png'
@@ -34,7 +29,7 @@ async function uploadBackgroundImageAdmin(base64Data: string, userId: string): P
     
     // Get public URL
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-    console.log('[Background Image API] Upload successful, public URL:', publicUrl);
+    console.log('[Firebase] Saved background image to storage for user:', userId);
     
     return publicUrl;
   } catch (error) {
@@ -45,28 +40,22 @@ async function uploadBackgroundImageAdmin(base64Data: string, userId: string): P
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[Background Image API] Starting background image generation');
-    
     // Get session to verify user
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
-      console.log('[Background Image API] No valid session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const userId = session.user.id;
-    console.log('[Background Image API] Authenticated user:', userId);
     
     const body = await request.json();
     const { bio, name, profileImage, base64Data, action } = body;
     
     // Handle upload action
     if (action === 'upload' && base64Data) {
-      console.log('[Background Image API] Handling upload request');
       try {
         const imageUrl = await uploadBackgroundImageAdmin(base64Data, userId);
-        console.log('[Background Image API] Upload successful:', imageUrl);
         return NextResponse.json({ imageUrl });
       } catch (error) {
         console.error('[Background Image API] Upload failed:', error);
@@ -76,13 +65,11 @@ export async function POST(request: NextRequest) {
     
     // Handle generation action (streaming)
     if (!name) {
-      console.log('[Background Image API] Missing required name');
       return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
     
     // Use profile image from request if provided
     const finalProfileImage = profileImage;
-    console.log('[Background Image API] Final profile image available:', !!finalProfileImage);
 
     // Fallback bio text
     const bioText = bio && bio.trim() !== '' ? bio : 'No bio provided';
@@ -97,8 +84,6 @@ export async function POST(request: NextRequest) {
 
     // Initialize encoder for streaming
     const encoder = new TextEncoder();
-    
-    console.log('[Background Image API] Starting background image generation with streaming');
 
     // Prepare structured input for streaming
     const userMessage = {
@@ -116,14 +101,12 @@ export async function POST(request: NextRequest) {
         
         // Check if request was aborted
         if (request.signal?.aborted) {
-          console.log('[Background Image API] Request already aborted before streaming started');
           controller.close();
           return;
         }
         
         // Listen for request abort
         const abortHandler = () => {
-          console.log('[Background Image API] Request aborted by client');
           isControllerClosed = true;
           try {
             controller.close();
@@ -138,7 +121,6 @@ export async function POST(request: NextRequest) {
         const originalClose = controller.close.bind(controller);
         controller.close = () => {
           if (!isControllerClosed) {
-            console.log('[Background Image API] Controller being closed');
             isControllerClosed = true;
             request.signal?.removeEventListener('abort', abortHandler);
             originalClose();
@@ -203,7 +185,6 @@ export async function POST(request: NextRequest) {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                console.log('[Background Image API] OpenAI streaming completed');
                 break;
               }
 

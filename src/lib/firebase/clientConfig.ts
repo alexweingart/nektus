@@ -49,7 +49,6 @@ let storage: FirebaseStorage | undefined;
 if (isClient) {
   try {
     if (!getApps().length) {
-      console.log('Initializing Firebase...');
       app = initializeApp(firebaseConfig);
       
       // Initialize Auth
@@ -66,8 +65,6 @@ if (isClient) {
       
       // Initialize Storage
       storage = getStorage(app);
-      
-      console.log('Firebase initialized successfully');
     } else {
       // Use existing app instance
       app = getApps()[0];

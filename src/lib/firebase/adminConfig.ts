@@ -33,12 +33,9 @@ export async function getFirebaseAdmin(): Promise<AdminServices> {
   }
 
   try {
-    console.log('[Firebase Admin] Initializing Firebase Admin SDK...');
-
     // Check if app already exists
     let adminApp: admin.app.App;
     if (admin.apps.length > 0) {
-      console.log('[Firebase Admin] Using existing Firebase Admin app');
       adminApp = admin.apps[0] as admin.app.App;
     } else {
       // Initialize new app
@@ -71,8 +68,6 @@ export async function getFirebaseAdmin(): Promise<AdminServices> {
         universeDomain: '',
       };
 
-      console.log('[Firebase Admin] Initializing with project ID:', serviceAccount.projectId);
-
       const initConfig: admin.AppOptions = {
         credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
       };
@@ -80,11 +75,9 @@ export async function getFirebaseAdmin(): Promise<AdminServices> {
       // Only add storage bucket if available
       if (storageBucket) {
         initConfig.storageBucket = storageBucket;
-        console.log('[Firebase Admin] Storage bucket configured:', storageBucket);
       }
 
       adminApp = admin.initializeApp(initConfig);
-      console.log('[Firebase Admin] Firebase Admin initialized successfully');
     }
 
     const auth = getAuth(adminApp);
@@ -113,40 +106,29 @@ export async function deleteUserProfile(userId: string): Promise<void> {
     // First check if the document exists
     const doc = await profileRef.get();
     if (!doc.exists) {
-      console.log(`[deleteUserProfile] Profile ${userId} does not exist, nothing to delete`);
       return;
     }
-
-    // Log the profile data before deletion for debugging
-    const profileData = doc.data();
-    console.log(`[deleteUserProfile] Found profile for user ${userId}, deleting...`);
 
     // Delete Firebase Storage files for this user
     try {
       const userStoragePrefix = `users/${userId}/`;
 
-      console.log(`[deleteUserProfile] Deleting storage files with prefix: ${userStoragePrefix}`);
-
       // List all files in the user's storage folder
       const [files] = await storage.bucket().getFiles({ prefix: userStoragePrefix });
 
       if (files.length > 0) {
-        console.log(`[deleteUserProfile] Found ${files.length} storage files to delete`);
-
         // Delete all files in parallel
         const deletePromises = files.map(async (file) => {
           try {
             await file.delete();
-            console.log(`[deleteUserProfile] Deleted storage file: ${file.name}`);
           } catch (error) {
             console.warn(`[deleteUserProfile] Failed to delete storage file ${file.name}:`, error);
           }
         });
 
         await Promise.allSettled(deletePromises);
-        console.log(`[deleteUserProfile] Completed storage cleanup for user ${userId}`);
       } else {
-        console.log(`[deleteUserProfile] No storage files found for user ${userId}`);
+        // No storage files to delete
       }
     } catch (storageError) {
       console.error(`[deleteUserProfile] Error cleaning up storage for user ${userId}:`, storageError);
@@ -155,14 +137,11 @@ export async function deleteUserProfile(userId: string): Promise<void> {
 
     // Delete the profile document from Firestore
     await profileRef.delete();
-    console.log(`[deleteUserProfile] Successfully deleted profile for user: ${userId}`);
 
     // Verify deletion by checking if document still exists
     const verifyDoc = await profileRef.get();
     if (verifyDoc.exists) {
       throw new Error(`[deleteUserProfile] Profile ${userId} still exists after deletion attempt`);
-    } else {
-      console.log(`[deleteUserProfile] Deletion verified - profile ${userId} no longer exists`);
     }
   } catch (error) {
     console.error(`[deleteUserProfile] Error deleting profile for user ${userId}:`, error);
