@@ -104,13 +104,6 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
-  /* Default background that will be overridden by useHtmlBackground */
-  background-color: #004D40;
-  /* Extend background to cover safe areas (notch, status bar) */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
 }
 
 body {
@@ -118,16 +111,8 @@ body {
   min-height: 100dvh;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  /* Remove background from body - let HTML handle it */
-  background: transparent;
+  background-color: var(--background);
   color: var(--foreground);
-  /* Ensure body extends to safe areas */
-  margin: 0;
-  /* Compensate for html padding */
-  margin-top: calc(-1 * env(safe-area-inset-top));
-  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
-  margin-left: calc(-1 * env(safe-area-inset-left));
-  margin-right: calc(-1 * env(safe-area-inset-right));
 }
 
 /* Viewport lock states - Container-based approach */
@@ -158,6 +143,22 @@ body.allow-scroll {
   height: 100dvh;
   overflow: hidden;
   position: relative;
+}
+
+/* Fixed background that covers safe areas including notch */
+.safe-area-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  /* Extend into safe areas */
+  margin-top: calc(-1 * env(safe-area-inset-top));
+  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
+  margin-left: calc(-1 * env(safe-area-inset-left));
+  margin-right: calc(-1 * env(safe-area-inset-right));
+  /* Background will be set via inline styles */
 }
 
 /* iOS specific fixes */

@@ -140,7 +140,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
   return (
     <div 
-      className={`inline-block ${className} ${disabled ? 'opacity-50' : ''}`}
+      className={`inline-block focus:outline-none ${className} ${disabled ? 'opacity-50' : ''}`}
       onClick={handleClick}
       onMouseEnter={() => !disabled && setIsHovered(true)}
       onMouseLeave={() => !disabled && setIsHovered(false)}
