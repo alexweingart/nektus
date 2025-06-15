@@ -2,10 +2,9 @@
 
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
-import { useBodyBackground } from '@/lib/utils/useBodyBackground';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -34,9 +33,25 @@ export default function Home() {
     enablePullToRefresh: !!session
   });
 
-  // Set body background with the current background image
+  // Get background image URL for safe area background
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  useBodyBackground(session ? backgroundImageUrl : undefined);
+
+  // Add body class when using safe area background
+  useEffect(() => {
+    if (session && backgroundImageUrl) {
+      document.body.classList.add('has-safe-area-background');
+      // Prevent horizontal scrollbar
+      document.body.style.overflowX = 'hidden';
+    } else {
+      document.body.classList.remove('has-safe-area-background');
+      document.body.style.overflowX = '';
+    }
+
+    return () => {
+      document.body.classList.remove('has-safe-area-background');
+      document.body.style.overflowX = '';
+    };
+  }, [session, backgroundImageUrl]);
 
   // Show loading state while checking auth status
   if (isLoading) {
@@ -49,12 +64,25 @@ export default function Home() {
 
   // Show profile view if authenticated, otherwise show welcome screen
   return (
-    <div className="min-h-screen">
-      <Suspense fallback={<div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>}>
-        {session ? <ProfileView /> : <HomePage />}
-      </Suspense>
-    </div>
+    <>
+      {/* Safe area background element */}
+      {session && (
+        <div 
+          className="safe-area-background"
+          style={{
+            backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : 'none',
+            backgroundColor: '#004D40'
+          }}
+        />
+      )}
+      
+      <div className="min-h-screen">
+        <Suspense fallback={<div className="flex h-screen items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>}>
+          {session ? <ProfileView /> : <HomePage />}
+        </Suspense>
+      </div>
+    </>
   );
 }
