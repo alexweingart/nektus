@@ -8,7 +8,7 @@
     --max-content-width: 448px;  /* Standard max-width for content */
     
     /* Core color palette - using hex for consistency */
-    --background: #004D40;  /* Primary green background - consistent hex value */
+    --background: transparent;  /* No background - let body::before handle it */
     --foreground: #ffffff;    /* White text for light theme */
     
     /* Primary colors */
@@ -55,7 +55,7 @@
   }
 
   .dark {
-    --background: #004D40;
+    --background: transparent;
     --foreground: #ffffff;
     --card: #333333;
     --card-foreground: #ffffff;
@@ -123,6 +123,24 @@ body {
   /* Remove background color to allow body::before to show through */
   background-color: transparent;
   color: var(--foreground);
+}
+
+/* PWA-standard full-bleed background using pseudo-element */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Fallback green background when no image is set */
+  background-color: #004D40;
+  /* The background image will be set dynamically via the useBodyBackgroundImage hook */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Viewport lock states - Container-based approach */

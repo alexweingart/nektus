@@ -12,8 +12,8 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-// Theme color constant to match CSS variable --background
-const THEME_COLOR = '#004D40';
+// Theme color for PWA - transparent since background is dynamic
+const THEME_COLOR = 'transparent';
 
 export const metadata: Metadata = {
   title: "Nekt.Us - Bump to Connect",

@@ -18,12 +18,14 @@ export function useBodyBackgroundImage(backgroundImageUrl?: string) {
       styleElement.textContent = `
         body::before {
           background-image: url(${backgroundImageUrl}) !important;
+          background-color: #004D40 !important;
         }
       `;
     } else {
       styleElement.textContent = `
         body::before {
           background-image: none !important;
+          background-color: #004D40 !important;
         }
       `;
     }
