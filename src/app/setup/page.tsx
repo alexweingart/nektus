@@ -7,6 +7,7 @@ import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import ProfileSetup from '../components/ProfileSetup';
 import { isNewUser } from '@/lib/services/newUserService';
+import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,11 @@ function SetupPageContent() {
   const { isLoading, getLatestProfile, streamingBackgroundImage } = useProfile();
   const [checkingProfile, setCheckingProfile] = useState<boolean>(!userIsNew || sessionStatus !== 'authenticated');
   const [shouldShowSetup, setShouldShowSetup] = useState<boolean>(userIsNew && sessionStatus === 'authenticated');
+  
+  // Set up background image using the PWA pattern
+  const currentProfile = getLatestProfile();
+  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+  useBodyBackgroundImage(backgroundImageUrl);
   
   useEffect(() => {
     // Only run complex logic for existing users
@@ -76,21 +82,8 @@ function SetupPageContent() {
   
   // For new users, skip all the complex profile checking
   if (userIsNew && sessionStatus === 'authenticated') {
-    const currentProfile = getLatestProfile();
-    
-    const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-    const backgroundStyle = backgroundImageUrl ? {
-      backgroundImage: `url(${backgroundImageUrl})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      backgroundColor: '#004D40' // Theme background color that shows while image loads
-    } : {
-      backgroundColor: '#004D40' // Theme background for new users
-    };
-    
     return (
-      <div className="min-h-screen" style={backgroundStyle}>
+      <div className="viewport-container-locked">
         {error && (
           <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
             There was a problem with Google sign-in. Please try again.
@@ -104,7 +97,7 @@ function SetupPageContent() {
   // Show loading while checking profile status
   if (checkingProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#004D40' }}>
+      <div className="viewport-container-locked flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
@@ -113,28 +106,14 @@ function SetupPageContent() {
   // Don't render setup if we're redirecting
   if (!shouldShowSetup) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#004D40' }}>
+      <div className="viewport-container-locked flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
   
-  // Get the latest profile including streaming background image
-  const currentProfile = getLatestProfile();
-  
-  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  const backgroundStyle = backgroundImageUrl ? {
-    backgroundImage: `url(${backgroundImageUrl})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    backgroundColor: '#004D40' // Theme background color that shows while image loads
-  } : {
-    backgroundColor: '#004D40' // Theme background for welcome screen
-  };
-  
   return (
-    <div className="min-h-screen" style={backgroundStyle}>
+    <div className="viewport-container-locked">
       {error && (
         <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
           There was a problem with Google sign-in. Please try again.
@@ -147,7 +126,7 @@ function SetupPageContent() {
 
 export default function SetupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ backgroundColor: '#004D40' }} />}>
+    <Suspense fallback={<div className="viewport-container-locked" />}>
       <SetupPageContent />
     </Suspense>
   );

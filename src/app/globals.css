@@ -106,8 +106,9 @@ html {
   scroll-behavior: smooth;
   /* Set background to prevent white during overscroll */
   background-color: #004D40;
-  /* Disable overscroll on html to prevent white areas */
-  overscroll-behavior: none;
+  /* Allow overscroll on Y-axis for pull-to-refresh, but contain X-axis */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 
 body {
@@ -119,7 +120,7 @@ body {
   overflow-y: auto;
   /* Respect the "ears" on iOS / Dynamic Island */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  /* Allow overscroll on body for pull-to-refresh functionality */
+  /* Smooth overscroll without accidental lateral scroll */
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
   /* No background color on body - let html and body::before handle it */
@@ -165,7 +166,15 @@ body.viewport-locked.no-refresh {
 /* For pull-to-refresh enabled, constrain content containers instead of body */
 body.viewport-locked:not(.no-refresh) {
   /* Allow normal scroll behavior on body for pull-to-refresh */
+  overflow-y: auto;
   overscroll-behavior-y: auto;
+  /* Hide scrollbars for clean look */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+body.viewport-locked:not(.no-refresh)::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 body.allow-scroll {
@@ -192,6 +201,13 @@ body.allow-scroll {
   /* Account for safe area padding that's already on body */
   margin: calc(-1 * env(safe-area-inset-top)) calc(-1 * env(safe-area-inset-right)) calc(-1 * env(safe-area-inset-bottom)) calc(-1 * env(safe-area-inset-left));
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Hide scrollbars for clean look */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.safe-content-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Fixed background that covers safe areas including notch */
@@ -426,4 +442,14 @@ select {
     filter: none !important;
     transform: none !important;
   }
+}
+
+/* Utility class to hide scrollbars while maintaining scroll functionality */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }

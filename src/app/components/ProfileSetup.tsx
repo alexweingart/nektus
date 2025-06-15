@@ -193,7 +193,7 @@ function ProfileSetup() {
 
   return (
     <div 
-      className="h-screen flex flex-col items-center px-4 pt-8 overflow-hidden"
+      className="viewport-container-locked flex flex-col items-center px-4 pt-8"
     >
       <div className="w-full max-w-[var(--max-content-width,448px)] text-center">
         {/* Main Content */}

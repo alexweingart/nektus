@@ -49,7 +49,7 @@ export default function Home() {
 
   // Show profile view if authenticated, otherwise show welcome screen
   return (
-    <div className="safe-content-container">
+    <div className="h-screen h-dvh overflow-hidden flex flex-col">
       <Suspense fallback={<div className="flex h-full items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>}>
