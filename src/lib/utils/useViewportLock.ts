@@ -19,24 +19,18 @@ export const useViewportLock = (options: UseViewportLockOptions = {}) => {
 
   useEffect(() => {
     const body = document.body;
-    
-    // Apply viewport lock classes
-    body.classList.add('viewport-locked');
-    
-    if (!enablePullToRefresh) {
-      // Full body lock for welcome screen (no pull-to-refresh)
-      body.classList.add('no-refresh');
-    } else {
-      // Container-based lock for authenticated view (preserve pull-to-refresh)
-      body.classList.remove('no-refresh');
-    }
-    
-    // Remove any conflicting classes
-    body.classList.remove('allow-scroll');
-
-    // Cleanup function
-    return () => {
+    if (enablePullToRefresh) {
+      // Allow native body pull-to-refresh
+      body.classList.add('allow-scroll');
       body.classList.remove('viewport-locked', 'no-refresh');
+    } else {
+      // Lock viewport container for internal scrolling (no body scroll)
+      body.classList.add('viewport-locked', 'no-refresh');
+      body.classList.remove('allow-scroll');
+    }
+
+    return () => {
+      body.classList.remove('viewport-locked', 'no-refresh', 'allow-scroll');
     };
   }, [enablePullToRefresh]);
 };

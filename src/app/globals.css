@@ -104,14 +104,14 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
-  /* Set background to prevent white during overscroll */
-  background-color: #004D40;
-  /* Allow overscroll on Y-axis for pull-to-refresh, but contain X-axis */
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: auto;
-  /* Hide scrollbars but preserve scroll for pull-to-refresh */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  /* Shorthand: background image from CSS var or fallback black */
+  background: var(--initial-bg, black) center top / cover no-repeat;
+   /* Allow overscroll on Y-axis for pull-to-refresh, but contain X-axis */
+   overscroll-behavior-x: contain;
+   overscroll-behavior-y: auto;
+   /* Hide scrollbars but preserve scroll for pull-to-refresh */
+   scrollbar-width: none; /* Firefox */
+   -ms-overflow-style: none; /* IE and Edge */
 }
 
 body {
@@ -138,24 +138,20 @@ body {
 body::before {
   content: '';
   position: fixed;
-  /* Cover the entire screen including safe areas */
-  top: calc(-1 * env(safe-area-inset-top, 0px));
-  left: calc(-1 * env(safe-area-inset-left, 0px));
-  right: calc(-1 * env(safe-area-inset-right, 0px));
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-  /* Extend beyond viewport to cover overscroll areas */
-  width: calc(100vw + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
-  height: calc(100vh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 100px);
+  top: -100vh;
+  left: 0;
+  width: 100vw;
+  height: 300vh;
+  background-attachment: fixed;
   z-index: -1;
   pointer-events: none;
-  /* Fallback green background when no image is set */
-  background-color: #004D40;
+  /* Fallback to match html background var */
+  background-color: var(--initial-bg, black);
   /* The background image will be set dynamically via the useBodyBackgroundImage hook */
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
-  /* Create isolated compositor layer for better performance and locked background effect */
-  transform: translate3d(0, 0, 0);
+  /* removed transform to allow fixed background during pull-to-refresh */
 }
 
 /* Viewport lock states - Container-based approach */
@@ -202,8 +198,8 @@ body.allow-scroll {
   height: 100dvh;
   width: 100%;
   overflow-y: auto;
+  overscroll-behavior-y: auto;
   overflow-x: hidden;
-  overscroll-behavior-y: contain;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }

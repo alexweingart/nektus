@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { getAuthSession } from "@/lib/auth";
+import { ProfileService } from '@/lib/firebase/profileService';
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
@@ -12,8 +13,8 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-// Theme color for PWA - transparent since background is dynamic
-const THEME_COLOR = 'transparent';
+// Theme color for PWA and root background
+const THEME_COLOR = '#000000';
 
 export const metadata: Metadata = {
   title: "Nekt.Us - Bump to Connect",
@@ -51,11 +52,31 @@ export default async function RootLayout({
 }>) {
   const session = await getAuthSession();
 
+  // Server-side fetch of user background image for initial render
+  let ssrBgUrl: string | undefined;
+  if (session?.user?.id) {
+    try {
+      const userProfile = await ProfileService.getProfile(session.user.id);
+      ssrBgUrl = userProfile?.backgroundImage;
+    } catch {
+      ssrBgUrl = undefined;
+    }
+  }
+
   return (
-    <html lang="en" className="h-full">
+      <html
+        lang="en"
+        style={{
+          backgroundImage: ssrBgUrl ? `url('${ssrBgUrl}')` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: ssrBgUrl ? undefined : 'black'
+        }}
+      >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content, viewport-fit=cover" />
-        <meta name="theme-color" content={THEME_COLOR} />
+        <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

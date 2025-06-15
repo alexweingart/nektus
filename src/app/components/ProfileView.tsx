@@ -17,12 +17,15 @@ import { useRouter } from 'next/navigation';
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
   
-  const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile } = useProfile();
+  const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile, streamingBackgroundImage } = useProfile();
 
-  // Get the latest profile including streaming background image
+  // Get the latest profile
   const currentProfile = getLatestProfile() || profile;
+  // Compute background for loading state
+  const bgUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
 
-  const adminModeProps = useAdminModeActivator(); // Get admin mode activation props
+  // Admin mode activation props
+  const adminModeProps = useAdminModeActivator();
   
   const router = useRouter();
 
@@ -40,15 +43,37 @@ const ProfileView: React.FC = () => {
 
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
-    console.log('[ProfileView] Showing loading state:', {
-      sessionStatus,
-      isProfileLoading
-    });
+    console.log('[ProfileView] Showing loading state:', { sessionStatus, isProfileLoading });
+    const bgUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+    const loadingStyle: React.CSSProperties = bgUrl
+      ? {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundImage: `url('${bgUrl}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
+          zIndex: 1000
+        }
+      : {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'black',
+          zIndex: 1000
+        };
     return (
-      <div className="flex flex-col items-center justify-center h-full px-4 py-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white">Loading profile...</p>
+      <div style={loadingStyle}>
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+            <p className="text-white">Loading profile...</p>
+          </div>
         </div>
       </div>
     );

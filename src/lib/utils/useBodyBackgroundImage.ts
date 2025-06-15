@@ -4,50 +4,53 @@ export function useBodyBackgroundImage(backgroundImageUrl?: string) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Create or update a style element for the body::before pseudo-element and html
+    // Determine which URL to use: prop or stored
+    let urlToUse = backgroundImageUrl;
+    try {
+      const stored = localStorage.getItem('lastBgUrl');
+      if (!urlToUse && stored) {
+        urlToUse = stored;
+      }
+    } catch {}
+
+    // Persist new URL
+    if (backgroundImageUrl) {
+      try { localStorage.setItem('lastBgUrl', backgroundImageUrl); } catch {}
+    }
+
     const styleId = 'body-background-style';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-    
     if (!styleElement) {
       styleElement = document.createElement('style');
       styleElement.id = styleId;
       document.head.appendChild(styleElement);
     }
 
-    if (backgroundImageUrl) {
+    if (urlToUse) {
       styleElement.textContent = `
         html {
-          background-image: url(${backgroundImageUrl}) !important;
+          background-image: url(${urlToUse}) !important;
           background-size: cover !important;
           background-position: center !important;
           background-repeat: no-repeat !important;
           background-attachment: fixed !important;
+          background-color: #000 !important;
         }
         body::before {
-          background-image: url(${backgroundImageUrl}) !important;
-          background-color: #004D40 !important;
+          background-image: url(${urlToUse}) !important;
+          background-color: #000 !important;
         }
       `;
     } else {
-      styleElement.textContent = `
-        html {
-          background-image: none !important;
-          background-color: #004D40 !important;
-        }
-        body::before {
-          background-image: none !important;
-          background-color: #004D40 !important;
-        }
-      `;
+      // Remove overrides to fallback to CSS
+      styleElement.textContent = '';
     }
 
-    // Cleanup function
     return () => {
+      // Cleanup style element
       if (typeof window !== 'undefined') {
-        const element = document.getElementById(styleId);
-        if (element) {
-          element.remove();
-        }
+        const el = document.getElementById(styleId);
+        if (el) el.remove();
       }
     };
   }, [backgroundImageUrl]);

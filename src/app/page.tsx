@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
 import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
@@ -29,10 +29,10 @@ export default function Home() {
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;
 
-  // Use viewport lock with pull-to-refresh for authenticated users
-  useViewportLock({
-    enablePullToRefresh: !!session
-  });
+  // Only lock viewport for authenticated users
+  if (session) {
+    useViewportLock({ enablePullToRefresh: true });
+  }
 
   // Get background image URL and set it on body::before
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
@@ -41,20 +41,26 @@ export default function Home() {
   // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="page-container">
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
       </div>
     );
   }
 
-  // Show profile view if authenticated, otherwise show welcome screen
-  return (
-    <div className="pull-container">
-      <Suspense fallback={<div className="flex h-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>}>
-        {session ? <ProfileView /> : <HomePage />}
-      </Suspense>
-    </div>
-  );
+  // Show profile view if authenticated (within scroll container), otherwise show welcome screen without internal scroll
+  if (session) {
+    return (
+      <div className="page-container">
+        <Suspense fallback={<div className="flex h-full items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>}>
+          <ProfileView />
+        </Suspense>
+      </div>
+    );
+  }
+  // Unauthenticated home page - render at body level so pull-to-refresh works
+  return <HomePage />;
 }
