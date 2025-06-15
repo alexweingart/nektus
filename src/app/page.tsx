@@ -2,9 +2,10 @@
 
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
-import { useEffect, Suspense } from 'react';
+import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
+import { useHtmlBackground } from '@/lib/utils/useHtmlBackground';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -33,50 +34,24 @@ export default function Home() {
     enablePullToRefresh: !!session
   });
 
-  // Determine background style - use streaming image first, then profile background
+  // Set background image on HTML element for safe area coverage
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  
-  const backgroundStyle = session && backgroundImageUrl ? {
-    backgroundImage: `url(${backgroundImageUrl})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    backgroundColor: '#004D40', // Theme background color that shows while image loads
-    // Extend background to cover safe areas (notch, status bar)
-    backgroundAttachment: 'fixed',
-    minHeight: '100dvh', // Use dvh for better mobile support
-    paddingTop: 'env(safe-area-inset-top)',
-    paddingBottom: 'env(safe-area-inset-bottom)',
-    paddingLeft: 'env(safe-area-inset-left)',
-    paddingRight: 'env(safe-area-inset-right)'
-  } : {
-    backgroundColor: '#004D40', // Theme background for welcome screen
-    minHeight: '100dvh', // Use dvh for better mobile support
-    paddingTop: 'env(safe-area-inset-top)',
-    paddingBottom: 'env(safe-area-inset-bottom)',
-    paddingLeft: 'env(safe-area-inset-left)',
-    paddingRight: 'env(safe-area-inset-right)'
-  };
-
-  // Show loading state while checking auth status with consistent background
+  useHtmlBackground({
+    backgroundImage: session ? backgroundImageUrl : null,
+    fallbackColor: '#004D40'
+  });
+  // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <div 
-        className="flex items-center justify-center min-h-screen"
-        style={backgroundStyle}
-      >
+      <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
 
   // Show profile view if authenticated, otherwise show welcome screen
-  // Apply background style to the container to ensure it persists during dynamic loading
   return (
-    <div 
-      className="min-h-screen"
-      style={backgroundStyle}
-    >
+    <div className="min-h-screen">
       <Suspense fallback={<div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>}>

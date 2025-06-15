@@ -104,6 +104,8 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  /* Default background that will be overridden by useHtmlBackground */
+  background-color: #004D40;
   /* Extend background to cover safe areas (notch, status bar) */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -116,9 +118,10 @@ body {
   min-height: 100dvh;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--background);
+  /* Remove background from body - let HTML handle it */
+  background: transparent;
   color: var(--foreground);
-  /* Ensure background extends to safe areas */
+  /* Ensure body extends to safe areas */
   margin: 0;
   /* Compensate for html padding */
   margin-top: calc(-1 * env(safe-area-inset-top));
