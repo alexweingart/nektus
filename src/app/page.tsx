@@ -5,6 +5,7 @@ import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
+import { useBodyBackground } from '@/lib/utils/useBodyBackground';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -12,12 +13,12 @@ export const dynamic = 'force-dynamic';
 // Dynamically import components to prevent hydration issues
 const HomePage = dynamicImport(() => import('./components/HomePage'), { 
   ssr: false,
-  loading: () => <div className="min-h-screen" /> // No background color - let parent handle it
+  loading: () => <div className="min-h-screen" />
 });
 
 const ProfileView = dynamicImport(() => import('./components/ProfileView'), { 
   ssr: false,
-  loading: () => <div className="min-h-screen" /> // No background color - let parent handle it
+  loading: () => <div className="min-h-screen" />
 });
 
 export default function Home() {
@@ -33,42 +34,27 @@ export default function Home() {
     enablePullToRefresh: !!session
   });
 
-  // Determine background for safe area coverage
+  // Set body background with the current background image
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  const backgroundStyle = session && backgroundImageUrl ? {
-    backgroundImage: `url(${backgroundImageUrl})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    backgroundColor: '#004D40' // Fallback color
-  } : {
-    backgroundColor: '#004D40' // Theme background for welcome screen
-  };
+  useBodyBackground(session ? backgroundImageUrl : undefined);
+
   // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <>
-        {/* Fixed background for safe area coverage */}
-        <div className="safe-area-background" style={backgroundStyle} />
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        </div>
-      </>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>
     );
   }
 
   // Show profile view if authenticated, otherwise show welcome screen
   return (
-    <>
-      {/* Fixed background for safe area coverage */}
-      <div className="safe-area-background" style={backgroundStyle} />
-      <div className="min-h-screen">
-        <Suspense fallback={<div className="flex h-screen items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        </div>}>
-          {session ? <ProfileView /> : <HomePage />}
-        </Suspense>
-      </div>
-    </>
+    <div className="min-h-screen">
+      <Suspense fallback={<div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>}>
+        {session ? <ProfileView /> : <HomePage />}
+      </Suspense>
+    </div>
   );
 }

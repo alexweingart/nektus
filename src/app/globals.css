@@ -109,10 +109,22 @@ html {
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  /* Extend to cover safe areas on iOS */
+  min-height: calc(100vh + env(safe-area-inset-top) + env(safe-area-inset-bottom));
+  min-height: calc(100dvh + env(safe-area-inset-top) + env(safe-area-inset-bottom));
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--background);
+  background-color: #004D40; /* Default background color */
   color: var(--foreground);
+  /* Background image will be set dynamically via JavaScript */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Use scroll instead of fixed for better mobile Safari performance */
+  background-attachment: scroll;
+  /* Ensure background covers the entire body including safe areas */
+  margin: 0;
+  padding: 0;
 }
 
 /* Viewport lock states - Container-based approach */
@@ -145,21 +157,7 @@ body.allow-scroll {
   position: relative;
 }
 
-/* Fixed background that covers safe areas including notch */
-.safe-area-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: -1;
-  /* Extend into safe areas */
-  margin-top: calc(-1 * env(safe-area-inset-top));
-  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
-  margin-left: calc(-1 * env(safe-area-inset-left));
-  margin-right: calc(-1 * env(safe-area-inset-right));
-  /* Background will be set via inline styles */
-}
+
 
 /* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
@@ -182,6 +180,26 @@ body.allow-scroll {
   select,
   [contenteditable] {
     font-size: 1rem;
+  }
+
+  /* Prevent Safari's yellow autofill background */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+    -webkit-text-fill-color: inherit !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Specific fix for phone input fields */
+  input[type="tel"]:-webkit-autofill,
+  input[inputmode="tel"]:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: black !important;
+    background-color: white !important;
   }
 }
 
