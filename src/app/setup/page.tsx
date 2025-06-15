@@ -34,23 +34,19 @@ function SetupPageContent() {
     const checkProfileStatus = async () => {
       // Wait for session to load
       if (sessionStatus === 'loading') {
-        console.log('[SetupPage] Still loading session');
         return;
       }
       
       if (sessionStatus === 'unauthenticated') {
-        console.log('[SetupPage] Unauthenticated - should not be on setup page');
         setCheckingProfile(false);
         return;
       }
       
       if (sessionStatus === 'authenticated' && session?.user) {
         // EXISTING USER: Check Firebase for profile completeness
-        console.log('[SetupPage] Existing user - checking Firebase profile');
         
         // For existing users, wait for profile to load
         if (isLoading) {
-          console.log('[SetupPage] Still loading profile from Firebase');
           return;
         }
         
@@ -62,15 +58,12 @@ function SetupPageContent() {
                           currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
           
           if (hasPhone) {
-            console.log('[SetupPage] Existing user has complete profile, redirecting to home');
             router.replace('/');
             return; // Don't show setup component
           } else {
-            console.log('[SetupPage] Existing user has incomplete profile, showing setup');
             setShouldShowSetup(true);
           }
         } else {
-          console.log('[SetupPage] Existing user but no profile found, showing setup');
           setShouldShowSetup(true);
         }
       }
@@ -119,7 +112,6 @@ function SetupPageContent() {
   
   // Show loading while checking profile status
   if (checkingProfile) {
-    console.log('[SetupPage] Still checking profile status, showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#004D40' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -129,15 +121,12 @@ function SetupPageContent() {
   
   // Don't render setup if we're redirecting
   if (!shouldShowSetup) {
-    console.log('[SetupPage] shouldShowSetup is false, showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#004D40' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
-  
-  console.log('[SetupPage] Rendering ProfileSetup component', { checkingProfile, shouldShowSetup });
   
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile();

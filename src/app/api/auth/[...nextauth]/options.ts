@@ -126,17 +126,9 @@ export const authOptions: NextAuthOptions = {
   // Callbacks
   callbacks: {
     async jwt({ token, account, user, trigger, session }): Promise<any> {
-      console.log('JWT callback triggered:', { 
-        trigger, 
-        hasSessionProfile: !!session?.profile,
-        hasAccount: !!account,
-        hasUser: !!user
-      });
-      
       // Initial sign in
       if (account?.id_token) {
         token.idToken = account.id_token;
-        console.log('JWT: Added idToken to token');
         
         // Server-side Firebase check to determine if user is truly new or existing
         // This happens once during authentication - result cached in JWT
@@ -148,35 +140,27 @@ export const authOptions: NextAuthOptions = {
             
             if (profileDoc.exists && profileDoc.data()?.contactChannels?.phoneInfo?.internationalPhone) {
               token.isNewUser = false;
-              console.log('JWT: Found existing profile with phone data, user is not new');
             } else {
               token.isNewUser = true;
-              console.log('JWT: No existing profile with phone data found, user is new');
             }
           } catch (error) {
             console.error('JWT: Error checking Firebase profile during authentication:', error);
             // Default to new user if we can't check (safe fallback)
             token.isNewUser = true;
-            console.log('JWT: Defaulting to new user due to Firebase error');
           }
         } else {
-          console.log('JWT: No user ID available, defaulting to new user');
           token.isNewUser = true;
         }
         
         // --- Persist Google access_token for revocation ---
         if (account?.provider === 'google' && account?.access_token) {
           token.accessToken = account.access_token;
-          console.log('JWT: Persisted Google access_token for revoke');
         }
         
         // Ensure we have the user ID in the token
         if (user?.id) {
           token.sub = user.id;
-          console.log('JWT: Set sub from user.id:', user.id);
-        } else if (token.sub) {
-          console.log('JWT: Using existing sub from token:', token.sub);
-        } else {
+        } else if (!token.sub) {
           console.warn('JWT: No user ID available in token');
         }
       }
@@ -218,11 +202,8 @@ export const authOptions: NextAuthOptions = {
 
       // Update with session data if available
       if (trigger === 'update' && session?.profile) {
-        console.log('JWT: Updating with new profile data:', session.profile);
-        
         // Clear new user flag since profile now exists
         token.isNewUser = false;
-        console.log('JWT: Cleared isNewUser flag - profile now exists');
         
         // Use session data directly instead of merging with potentially stale token data
         token.profile = {
@@ -239,18 +220,7 @@ export const authOptions: NextAuthOptions = {
         };
       } else if (trigger === 'update' && !session?.profile) {
         // If session update but no profile data, reset to empty profile
-        console.log('JWT: Session update with no profile data, resetting to empty profile');
         token.profile = { ...emptyProfile };
-      }
-      
-      // Log final token state for debugging
-      const logToken = { ...token };
-      if (logToken.profile) {
-        console.log('JWT: Final token profile:', JSON.stringify({
-          internationalPhone: logToken.profile.contactChannels?.phoneInfo?.internationalPhone,
-          nationalPhone: logToken.profile.contactChannels?.phoneInfo?.nationalPhone,
-          userConfirmed: logToken.profile.contactChannels?.phoneInfo?.userConfirmed
-        }, null, 2));
       }
       
       return token;
@@ -265,7 +235,6 @@ export const authOptions: NextAuthOptions = {
       // --- Persist Google accessToken in session for revoke ---
       if (token.accessToken) {
         session.accessToken = token.accessToken;
-        console.log('Session: Persisted Google accessToken:', token.accessToken);
       }
       // -------------------------------------------------------
       // Add the Firebase token and profile to the session
@@ -288,7 +257,6 @@ export const authOptions: NextAuthOptions = {
         // Add isNewUser flag to session
         if (token.isNewUser !== undefined) {
           session.isNewUser = token.isNewUser;
-          console.log('Session: Set isNewUser flag to:', token.isNewUser);
         }
         
         // TODO: Move Firebase Auth logic to client-side hook/context
@@ -301,7 +269,6 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       // Handle cancellation and errors by redirecting to homepage
       if (url.includes('error=Callback') || url.includes('error=')) {
-        console.log('Auth error detected, redirecting to homepage:', url);
         return baseUrl;
       }
       

@@ -53,7 +53,7 @@ export const ProfileService = {
         lastUpdated: Date.now()
       };
       
-      console.log('Saving profile:', { userId: profile.userId });
+      console.log('[Firebase] Saving profile to Firestore for user:', profile.userId);
       await setDoc(doc(firestore, 'profiles', profile.userId), profileData, { merge: true });
     } catch (error) {
       const firestoreError = error as FirestoreError;
@@ -116,7 +116,7 @@ export const ProfileService = {
       const profileSnap = await getDoc(profileRef);
       
       if (!profileSnap.exists()) {
-        console.log('No profile found for user:', userId);
+        console.log('[Firebase] No profile found for user:', userId);
         return null;
       }
       

@@ -34,14 +34,6 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
     throw new Error('Session required to create default profile');
   }
 
-  console.log('[NewUserService] Creating new default profile for session:', {
-    userId: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image,
-    allUserKeys: Object.keys(session.user)
-  });
-
   // Generate social media profiles from email
   const socialProfiles = generateSocialProfilesFromEmail(session.user.email || '');
 
@@ -73,14 +65,6 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
     }
   };
 
-  console.log('[NewUserService] New default profile created:', {
-    hasPhone: !!profile.contactChannels.phoneInfo.internationalPhone,
-    phoneNumber: profile.contactChannels.phoneInfo.internationalPhone,
-    whatsappUsername: profile.contactChannels.whatsapp?.username || '',
-    telegramUsername: profile.contactChannels.telegram?.username || '',
-    wechatUsername: profile.contactChannels.wechat?.username || ''
-  });
-
   return {
     profile,
     isNewUser: true
@@ -93,15 +77,4 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
 export function logNewUserDetection(session: Session | null, pathname: string): void {
   if (!session) return;
 
-  console.log('[NewUserService] User detection check:', {
-    pathname,
-    isNewUser: isNewUser(session),
-    sessionKeys: Object.keys(session),
-    userKeys: session.user ? Object.keys(session.user) : []
-  });
-
-  if (isNewUser(session)) {
-    console.log('[NewUserService] New user detected via NextAuth flag - proceeding with setup');
-    console.log('[NewUserService] ProfileContext will create default profile in background');
-  }
 }

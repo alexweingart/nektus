@@ -44,6 +44,7 @@ export default function Home() {
 
   // Determine background style - use streaming image first, then profile background
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+  
   const backgroundStyle = session && backgroundImageUrl ? {
     backgroundImage: `url(${backgroundImageUrl})`,
     backgroundSize: 'cover',

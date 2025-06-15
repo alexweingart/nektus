@@ -468,27 +468,34 @@ Return only a detailed image generation prompt, nothing else.`
         },
         body: JSON.stringify({
           model: 'gpt-4.1',
-          input: customPrompt,
+          // Structure input as a message with input_text for tool invocation
+          input: [
+            {
+              role: 'user',
+              content: [
+                { type: 'input_text', text: customPrompt }
+              ]
+            }
+          ],
           stream: true,
-          tools: [{ type: 'image_generation', partial_images: 3 }]
+          tools: [
+            {
+              type: 'image_generation',
+              partial_images: 3,
+              size: '1024x1024',
+              output_format: 'png',
+              quality: 'medium'
+            }
+          ]
         }),
       });
       
-      console.log(`[Background Generation] Responses API status: ${fetchResponse.status}`);
-      
-      if (!fetchResponse.ok) {
-        const errorText = await fetchResponse.text();
-        console.error(`[Background Generation] OpenAI Responses API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${errorText}`);
-        throw new Error(`OpenAI Responses API error: ${fetchResponse.status}`);
-      }
-      
+      // Directly return the raw SSE stream from OpenAI
       if (!fetchResponse.body) {
-        throw new Error('No response body from OpenAI API');
+        throw new Error('No response body from OpenAI Responses API');
       }
-      
-      // Directly pipe OpenAI SSE to the client with proper streaming
       return new NextResponse(fetchResponse.body as any, {
-        status: 200,
+        status: fetchResponse.status,
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache, no-transform',

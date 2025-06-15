@@ -68,14 +68,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Profile creation/loading effect - first try to load existing, then create if needed
   useEffect(() => {
     if (authStatus === 'authenticated' && session?.user?.id && !profile && !loadingRef.current) {
-      console.log('[ProfileContext] Loading/creating profile for authenticated user:', session.user.id);
       loadingRef.current = true;
       
       // First try to load existing profile from Firebase
       ProfileService.getProfile(session.user.id)
         .then(async existingProfile => {
           if (existingProfile) {
-            console.log('[ProfileContext] Found existing profile, loading it');
             setProfile(existingProfile);
             profileRef.current = existingProfile;
             setIsLoading(false);
@@ -102,8 +100,34 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 console.error('[ProfileContext] Error updating session with existing profile:', error);
               }
             }
+
+            // Continue AI generation if incomplete (on any page)
+            if (!bioGeneratedRef.current || !backgroundImageGeneratedRef.current) {
+              console.log('[ProfileContext] Continuing incomplete AI generation for existing profile');
+              console.log('[ProfileContext] Current page:', pathname);
+              console.log('[ProfileContext] Bio generated:', bioGeneratedRef.current);
+              console.log('[ProfileContext] Background generated:', backgroundImageGeneratedRef.current);
+              setTimeout(() => {
+                orchestrateCompleteAIGeneration(
+                  existingProfile,
+                  stableSetStreamingBackgroundImage,
+                  {
+                    bioGeneratedRef,
+                    avatarGeneratedRef,
+                    backgroundImageGeneratedRef
+                  },
+                  saveProfile
+                ).catch(error => {
+                  // Only log error if it's not an abort error (navigation away)
+                  if (!error.message.includes('aborted') && !error.message.includes('Operation aborted')) {
+                    console.error('[ProfileContext] Continuing AI generation failed:', error);
+                  } else {
+                    console.log('[ProfileContext] AI generation continuation aborted due to navigation');
+                  }
+                });
+              }, 500); // Shorter delay for continuation
+            }
           } else {
-            console.log('[ProfileContext] No existing profile found, creating new one');
             // Create new profile only if none exists
             const newProfile = createDefaultProfile(session);
             
@@ -112,13 +136,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             profileRef.current = newProfile;
             setIsLoading(false);
             
-            // Trigger AI generation after profile is set (only on setup page for NEW profiles)
-            if (pathname === '/setup') {
-              console.log('[ProfileContext] Triggering AI generation for new profile');
+            // Trigger AI generation after profile is set
+            // Start immediately on setup page, continue on other pages if incomplete
+            const shouldStartAIGeneration = pathname === '/setup' || 
+              (!bioGeneratedRef.current || !backgroundImageGeneratedRef.current);
+            
+            if (shouldStartAIGeneration) {
               setTimeout(() => {
                 orchestrateCompleteAIGeneration(
                   newProfile,
-                  setStreamingBackgroundImage,
+                  stableSetStreamingBackgroundImage,
                   {
                     bioGeneratedRef,
                     avatarGeneratedRef,
@@ -165,7 +192,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const currentUserId = session?.user?.id;
     if (currentUserId && currentUserId !== lastUserIdRef.current) {
-      console.log('[ProfileContext] User changed, resetting session update flag');
       sessionUpdatedRef.current = false;
       lastUserIdRef.current = currentUserId;
     }
@@ -296,6 +322,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     streamingBackgroundImageRef.current = imageUrl;
   }, []);
 
+  // Create a stable reference to the streaming function that won't change across renders
+  const stableStreamingBackgroundImageSetter = useRef(enhancedSetStreamingBackgroundImage);
+  stableStreamingBackgroundImageSetter.current = enhancedSetStreamingBackgroundImage;
+
+  // Wrapper function that always uses the current streaming setter
+  const stableSetStreamingBackgroundImage = useCallback((imageUrl: string | null) => {
+    stableStreamingBackgroundImageSetter.current(imageUrl);
+  }, []);
+
   // Clear profile
   const clearProfile = useCallback(async (): Promise<void> => {
     setIsDeletingAccount(true);
@@ -354,12 +389,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const generateBackgroundImage = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
       const { generateBackgroundImage: serviceBg } = await import('@/lib/services/aiGenerationService');
-      return await serviceBg(profile, enhancedSetStreamingBackgroundImage);
+      return await serviceBg(profile, stableSetStreamingBackgroundImage);
     } catch (error) {
       console.error('[ProfileContext] Background image generation error:', error);
       return null;
     }
-  }, [enhancedSetStreamingBackgroundImage]);
+  }, [stableSetStreamingBackgroundImage]);
 
   // Simplified setup page effect using services
   const setupPageEffect = useCallback(async () => {
@@ -429,7 +464,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ...currentProfile,
       backgroundImage: streamingBackgroundImageRef.current || currentProfile.backgroundImage
     };
-  }, [profile, streamingBackgroundImage]); // Keep streamingBackgroundImage in deps for re-renders
+  }, [profile, streamingBackgroundImage]); // streamingBackgroundImage in deps ensures re-renders when streaming image changes
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
     setIsNavigatingFromSetup(navigating);

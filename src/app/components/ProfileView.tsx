@@ -15,20 +15,9 @@ import { Heading, Text } from './ui/Typography';
 import { useRouter } from 'next/navigation';
 
 const ProfileView: React.FC = () => {
-  console.log('[ProfileView] Rendering ProfileView');
-  
   const { data: session, status: sessionStatus } = useSession();
   
   const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile } = useProfile();
-  console.log('[ProfileView] Profile state:', {
-    hasProfile: !!profile,
-    isProfileLoading,
-    isDeletingAccount,
-    sessionStatus,
-    hasSession: !!session,
-    profileUserId: profile?.userId,
-    sessionUserId: session?.user?.id,
-  });
 
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;

@@ -2,7 +2,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
 import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
-import { getFirestore } from 'firebase-admin/firestore';
+
+// Server-side upload function using Firebase Admin SDK
+async function uploadBackgroundImageAdmin(base64Data: string, userId: string): Promise<string> {
+  try {
+    console.log('[Background Image API] Starting server-side upload for user:', userId);
+    
+    const { storage } = await getFirebaseAdmin();
+    
+    // Convert base64 to buffer
+    const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
+    const buffer = Buffer.from(base64WithoutPrefix, 'base64');
+    
+    console.log('[Background Image API] Image buffer size:', buffer.length, 'bytes');
+    
+    // Create storage reference
+    const bucket = storage.bucket();
+    const fileName = `users/${userId}/background-image.png`;
+    const file = bucket.file(fileName);
+    
+    // Upload the buffer
+    console.log('[Background Image API] Uploading to path:', fileName);
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'image/png'
+      }
+    });
+    
+    // Make the file publicly readable
+    await file.makePublic();
+    
+    // Get public URL
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    console.log('[Background Image API] Upload successful, public URL:', publicUrl);
+    
+    return publicUrl;
+  } catch (error) {
+    console.error('[Background Image API] Server-side upload failed:', error);
+    throw error;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,86 +59,145 @@ export async function POST(request: NextRequest) {
     console.log('[Background Image API] Authenticated user:', userId);
     
     const body = await request.json();
-    const { bio, name, profileImage } = body;
+    const { bio, name, profileImage, base64Data, action } = body;
     
-    if (!bio || !name) {
-      console.log('[Background Image API] Missing required data');
-      return NextResponse.json({ error: 'Missing bio or name' }, { status: 400 });
-    }
-    
-    // Get user's profile image from Firebase
-    console.log('[Background Image API] Fetching user profile image...');
-    const { adminApp, storage } = await getFirebaseAdmin();
-    const db = getFirestore(adminApp);
-    
-    let profileImageUrl = null;
-    try {
-      const profileDoc = await db.collection('profiles').doc(userId).get();
-      if (profileDoc.exists) {
-        const profileData = profileDoc.data();
-        profileImageUrl = profileData?.profileImage || null;
-        console.log('[Background Image API] Profile image found:', !!profileImageUrl);
+    // Handle upload action
+    if (action === 'upload' && base64Data) {
+      console.log('[Background Image API] Handling upload request');
+      try {
+        const imageUrl = await uploadBackgroundImageAdmin(base64Data, userId);
+        console.log('[Background Image API] Upload successful:', imageUrl);
+        return NextResponse.json({ imageUrl });
+      } catch (error) {
+        console.error('[Background Image API] Upload failed:', error);
+        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
       }
-    } catch (error) {
-      console.log('[Background Image API] Could not fetch profile image:', error);
-      // Continue without profile image - it's optional
     }
-
-    console.log('[Background Image API] Generating background image for:', name);
-    console.log('[Background Image API] Bio preview:', bio.substring(0, 100) + '...');
-    console.log('[Background Image API] Profile image from request:', !!profileImage);
-    console.log('[Background Image API] Profile image from Firebase:', !!profileImageUrl);
     
-    // Use profile image from request if provided, otherwise use the one from Firebase
-    const finalProfileImage = profileImage || profileImageUrl;
+    // Handle generation action (streaming)
+    if (!name) {
+      console.log('[Background Image API] Missing required name');
+      return NextResponse.json({ error: 'Missing name' }, { status: 400 });
+    }
+    
+    // Use profile image from request if provided
+    const finalProfileImage = profileImage;
     console.log('[Background Image API] Final profile image available:', !!finalProfileImage);
-    
-    // Call OpenAI API with simplified responses approach
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const openaiUrl = `${baseUrl}/api/openai`;
-    console.log('[Background Image API] Calling OpenAI API at:', openaiUrl);
-    
-    const openaiResponse = await fetch(openaiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'background',
-        profile: {
-          name: name,
-          bio: bio,
-          profileImage: finalProfileImage,
-          userId: userId
-        }
-      })
-    });
-    
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      console.error('[Background Image API] OpenAI API failed with status:', openaiResponse.status);
-      console.error('[Background Image API] OpenAI API error:', errorText);
-      return NextResponse.json({ error: 'Failed to generate image', details: errorText }, { status: 500 });
+
+    // Fallback bio text
+    const bioText = bio && bio.trim() !== '' ? bio : 'No bio provided';
+    // Build the custom prompt with minor adjustments
+    let promptString = `Generate a simple, minimal, modern, abstract image suitable as the background on a user's profile, for the user with the following details: ${bioText}.`;
+    if (finalProfileImage) {
+      promptString += ` Analyze the attached profile image to understand the person's style, main colors, and aesthetic preferences. The background must use colors and styles that complement the profile image.`;
+    } else {
+      promptString += ` No profile image provided, so use a neutral modern style, using darker colors, so that white text can be easily read on top of it.`;
     }
+    promptString += ` The image should have no text, people, or recognizable objects. White text should be easily readable on top of it.`;
+
+    // Initialize encoder for streaming
+    const encoder = new TextEncoder();
     
-    // Handle streaming response from OpenAI
-    const contentType = openaiResponse.headers.get('content-type');
-    if (contentType?.includes('text/event-stream')) {
-      console.log('[Background Image API] Processing streaming response');
-      
-      // Create a stream to send partial images to client
-      const stream = new ReadableStream({
-        async start(controller) {
-          let finalImageUrl: string | null = null;
+    console.log('[Background Image API] Starting background image generation with streaming');
+
+    // Prepare structured input for streaming
+    const userMessage = {
+      role: 'user',
+      content: [
+        { type: 'input_text', text: promptString },
+        ...(finalProfileImage ? [{ type: 'input_image', image_url: finalProfileImage, detail: 'auto' }] : [])
+      ]
+    };
+
+    // Create streaming response with abort handling
+    const stream = new ReadableStream({
+      async start(controller) {
+        let isControllerClosed = false;
+        
+        // Check if request was aborted
+        if (request.signal?.aborted) {
+          console.log('[Background Image API] Request already aborted before streaming started');
+          controller.close();
+          return;
+        }
+        
+        // Listen for request abort
+        const abortHandler = () => {
+          console.log('[Background Image API] Request aborted by client');
+          isControllerClosed = true;
+          try {
+            controller.close();
+          } catch (e) {
+            console.warn('[Background Image API] Error closing controller on abort:', e);
+          }
+        };
+        
+        request.signal?.addEventListener('abort', abortHandler);
+        
+        // Monitor controller state
+        const originalClose = controller.close.bind(controller);
+        controller.close = () => {
+          if (!isControllerClosed) {
+            console.log('[Background Image API] Controller being closed');
+            isControllerClosed = true;
+            request.signal?.removeEventListener('abort', abortHandler);
+            originalClose();
+          }
+        };
+        
+        try {
+          console.log('[OpenAI] Starting background image request:', {
+            model: 'gpt-4o',
+            hasProfileImage: !!finalProfileImage,
+            promptLength: promptString.length,
+            timestamp: new Date().toISOString()
+          });
           
-          const reader = openaiResponse.body?.getReader();
-          if (!reader) {
-            controller.error(new Error('No reader available'));
-            return;
+          const startTime = Date.now();
+          
+          // Use the fetch API directly to call OpenAI Responses API with streaming
+          const fetchResponse = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              input: [userMessage],
+              stream: true,
+              tools: [
+                {
+                  type: 'image_generation',
+                  partial_images: 3,
+                  size: '1024x1024',
+                  output_format: 'png',
+                  quality: 'medium'
+                }
+              ]
+            })
+          });
+          
+          if (!fetchResponse.ok) {
+            const error = await fetchResponse.json().catch(() => ({}));
+            throw new Error(`OpenAI API error: ${fetchResponse.status} ${fetchResponse.statusText} - ${JSON.stringify(error)}`);
           }
           
+          if (!fetchResponse.body) {
+            throw new Error('No response body from OpenAI Responses API');
+          }
+          
+          const reader = fetchResponse.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
+          
+          console.log('[OpenAI] Request sent, streaming response...');
+          
+          let lastImageUrl = '';
+          let partialCount = 0;
+          let eventCount = 0;
+          let firstEventTime: number | null = null;
           
           try {
             while (true) {
@@ -119,210 +217,198 @@ export async function POST(request: NextRequest) {
               for (const line of lines) {
                 if (line.trim() === '') continue;
                 
-                console.log('[Background Image API] Processing line:', line.substring(0, 100) + '...');
+                eventCount++;
+                const eventTime = Date.now();
+                
+                if (firstEventTime === null) {
+                  firstEventTime = eventTime;
+                }
                 
                 if (line.startsWith('data: ')) {
                   try {
                     const jsonStr = line.slice(6).trim();
                     if (jsonStr === '[DONE]') {
-                      console.log('[Background Image API] Received [DONE] signal');
                       break;
                     }
                     
                     const data = JSON.parse(jsonStr);
-                    console.log('[Background Image API] Parsed OpenAI data:', JSON.stringify(data, null, 2));
-                    console.log('[Background Image API] Full response structure:', JSON.stringify(data, null, 4));
+                    // Check for partial images in various formats
+                    const partialB64 = data.partial_image_b64 || data.delta?.image?.b64_json || (data.partial && data.b64_json);
+                    const fullB64 = data.image_b64 || data.b64_json;
                     
-                    // Handle different OpenAI response formats
-                    if (data.type === 'content.delta') {
-                      // Handle streaming content delta from OpenAI responses API  
-                      if (data.delta?.image?.url) {
-                        console.log('[Background Image API] Received partial image from OpenAI');
-                        const partialEventData = `data: ${JSON.stringify({
-                          type: 'partial_image',
-                          imageUrl: data.delta.image.url
-                        })}\n\n`;
-                        controller.enqueue(new TextEncoder().encode(partialEventData));
-                      }
-                    } else if (data.type === 'response.done' || data.type === 'content.done') {
-                      // Handle completion from OpenAI responses API
-                      if (data.response?.output?.[0]?.content?.[0]?.image?.url) {
-                        finalImageUrl = data.response.output[0].content[0].image.url;
-                        console.log('[Background Image API] Final image URL received from OpenAI');
-                      } else if (data.content?.[0]?.image?.url) {
-                        finalImageUrl = data.content[0].image.url;
-                        console.log('[Background Image API] Final image URL received from content');
-                      }
-                    } else if (data.image?.url || data.imageUrl) {
-                      // Handle direct image URL format
-                      const imageUrl = data.image?.url || data.imageUrl;
-                      if (data.type === 'partial' || data.partial) {
-                        console.log('[Background Image API] Received partial image (direct format)');
-                        const partialEventData = `data: ${JSON.stringify({
-                          type: 'partial_image',
-                          imageUrl: imageUrl
-                        })}\n\n`;
-                        controller.enqueue(new TextEncoder().encode(partialEventData));
-                      } else {
-                        console.log('[Background Image API] Received final image (direct format)');
-                        finalImageUrl = imageUrl;
-                      }
-                    } else if (data.type === 'response.completed') {
-                      // Handle response.completed event type
-                      if (data.b64_json) {
-                        const base64ImageUrl = `data:image/png;base64,${data.b64_json}`;
-                        console.log('[Background Image API] Received final base64 image');
-                        finalImageUrl = base64ImageUrl;
-                      }
-                    }
-                    
-                    // Also check if this is a base64 image in any format
-                    if (data.b64_json && !finalImageUrl) {
-                      const base64ImageUrl = `data:image/png;base64,${data.b64_json}`;
-                      if (data.partial) {
-                        console.log('[Background Image API] Received partial base64 image');
-                        const partialEventData = `data: ${JSON.stringify({
-                          type: 'partial_image',
-                          imageUrl: base64ImageUrl
-                        })}\n\n`;
-                        controller.enqueue(new TextEncoder().encode(partialEventData));
-                      } else {
-                        console.log('[Background Image API] Received final base64 image');
-                        finalImageUrl = base64ImageUrl;
-                      }
-                    }
-                    
-                    // Broader pattern matching for any completion event
-                    if (!finalImageUrl) {
-                      // Check for any nested image URL patterns
-                      const checkForImageUrl = (obj: any, path: string = ''): string | null => {
-                        if (!obj || typeof obj !== 'object') return null;
-                        
-                        for (const [key, value] of Object.entries(obj)) {
-                          const currentPath = path ? `${path}.${key}` : key;
-                          
-                          if ((key === 'url' || key === 'imageUrl') && typeof value === 'string' && 
-                              (value.startsWith('data:image/') || value.startsWith('http'))) {
-                            console.log(`[Background Image API] Found image URL at ${currentPath}:`, value.substring(0, 50) + '...');
-                            return value;
-                          }
-                          
-                          // Also check for b64_json fields
-                          if (key === 'b64_json' && typeof value === 'string') {
-                            console.log(`[Background Image API] Found b64_json at ${currentPath}:`, value.substring(0, 50) + '...');
-                            return `data:image/png;base64,${value}`;
-                          }
-                          
-                          if (typeof value === 'object') {
-                            const found = checkForImageUrl(value, currentPath);
-                            if (found) return found;
-                          }
-                        }
-                        return null;
-                      };
+                    // Handle partial images
+                    if (partialB64 && (data.partial || data.partial_image_b64 || data.delta?.image)) {
+                      partialCount++;
+                      const url = `data:image/png;base64,${partialB64}`;
+                      lastImageUrl = url;
+                      console.log(`[OpenAI] Received partial image ${partialCount}, size: ${url.length}`);
                       
-                      const foundImageUrl = checkForImageUrl(data);
-                      if (foundImageUrl) {
-                        finalImageUrl = foundImageUrl;
-                        console.log('[Background Image API] Final image URL found via deep search');
+                      // Check if controller is still open before enqueueing
+                      if (!isControllerClosed) {
+                        try {
+                          const streamData = `data: ${JSON.stringify({ type: 'partial_image', imageUrl: url })}\n\n`;
+                          controller.enqueue(encoder.encode(streamData));
+                        } catch (controllerError) {
+                          console.warn(`[Background Image API] Controller error while streaming partial image ${partialCount}:`, controllerError);
+                          isControllerClosed = true;
+                        }
                       }
                     }
                     
-                    if (finalImageUrl) {
-                      console.log('[Background Image API] OpenAI response completed');
-                      break;
+                    // Handle final image
+                    else if (fullB64 && !data.partial) {
+                      console.log(`[OpenAI] Received final image, size: ${fullB64.length}`);
+                      lastImageUrl = `data:image/png;base64,${fullB64}`;
                     }
+                    
                   } catch (parseError) {
                     console.warn('[Background Image API] Failed to parse streaming data:', parseError);
                   }
                 }
               }
               
-              if (finalImageUrl) break;
+              if (lastImageUrl && buffer.includes('[DONE]')) break;
             }
-            
-            // After streaming is complete, upload final image to Firebase Storage
-            if (finalImageUrl) {
-              console.log('[Background Image API] Image generated, uploading to storage...');
-              
-              // Upload to Firebase Storage using Admin SDK
-              const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-              console.log('[Background Image API] Storage bucket from env:', storageBucket);
-              
-              const bucket = storageBucket ? storage.bucket(storageBucket) : storage.bucket();
-              console.log('[Background Image API] Using bucket name:', bucket.name);
-              
-              const fileName = `users/${userId}/background-image.png`;
-              const file = bucket.file(fileName);
-              
-              console.log('[Background Image API] Uploading to storage path:', fileName);
-              
-              const base64WithoutPrefix = finalImageUrl.replace(/^data:image\/[a-z]+;base64,/, '');
-              const buffer = Buffer.from(base64WithoutPrefix, 'base64');
-              
-              console.log('[Background Image API] Buffer size:', buffer.length, 'bytes');
-              
-              // Upload the buffer
-              await file.save(buffer, {
-                metadata: {
-                  contentType: 'image/png',
-                },
-              });
-              
-              console.log('[Background Image API] File uploaded successfully');
-              
-              // Make the file publicly readable
-              await file.makePublic();
-              console.log('[Background Image API] File made public');
-              
-              // Get the public URL using the bucket's configured name
-              const bucketName = bucket.name;
-              const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}?t=${Date.now()}`;
-              console.log('[Background Image API] Public URL generated:', publicUrl);
-              
-              // Send final result with Firebase Storage URL
-              const finalEventData = `data: ${JSON.stringify({
-                type: 'completed',
-                imageUrl: publicUrl
-              })}\n\n`;
-              
-              controller.enqueue(new TextEncoder().encode(finalEventData));
-            } else {
-              console.error('[Background Image API] No image received from OpenAI');
-              controller.error(new Error('No image generated'));
-            }
-            
-            controller.close();
           } finally {
             reader.releaseLock();
           }
+          
+          const totalTime = Date.now() - startTime;
+          console.log('[OpenAI] Background image generation completed:', {
+            totalTime: `${totalTime}ms`,
+            partialCount,
+            hasImage: !!lastImageUrl
+          });
+          
+          // Check if we got any image data
+          if (lastImageUrl) {
+            if (!isControllerClosed) {
+              try {
+                controller.enqueue(encoder.encode(
+                  `data: ${JSON.stringify({ type: 'completed', imageUrl: lastImageUrl })}\n\n`
+                ));
+                console.log('[Background Image API] Successfully sent completion event');
+              } catch (controllerError) {
+                console.warn('[Background Image API] Controller error while sending completion event:', controllerError);
+                isControllerClosed = true;
+              }
+            } else {
+              console.warn('[Background Image API] Controller already closed, skipping completion event');
+            }
+          } else {
+            console.error('[Background Image API] CRITICAL: Stream completed but no image data received');
+            console.error('[Background Image API] This indicates an OpenAI API issue - they returned 200 but no image events');
+            console.error('[Background Image API] Debug info:', {
+              totalEvents: eventCount,
+              partialImages: partialCount,
+              streamDuration: `${totalTime}ms`,
+              firstEventTime: firstEventTime ? `${firstEventTime - startTime}ms` : 'N/A',
+              possibleCauses: [
+                'OpenAI API rate limiting (silent)',
+                'OpenAI API service degradation',
+                'Model temporarily unavailable',
+                'Request rejected by content filter',
+                'API quota exceeded'
+              ]
+            });
+            
+            if (!isControllerClosed) {
+              try {
+                controller.enqueue(encoder.encode(
+                  `data: ${JSON.stringify({ 
+                    type: 'error', 
+                    message: 'No image data received from OpenAI',
+                    debugInfo: { 
+                      eventCount, 
+                      partialCount, 
+                      totalTime,
+                      timeToFirstEvent: firstEventTime ? firstEventTime - startTime : null,
+                      possibleCause: eventCount === 0 ? 'API_NO_RESPONSE' : 'API_NO_IMAGE_DATA'
+                    }
+                  })}\n\n`
+                ));
+              } catch (controllerError) {
+                console.warn('[Background Image API] Controller error while sending error event:', controllerError);
+                isControllerClosed = true;
+              }
+            } else {
+              console.warn('[Background Image API] Controller already closed, skipping error event');
+            }
+          }
+          
+        } catch (error) {
+          console.error('[Background Image API] Stream error:', error);
+          
+          // Categorize the error for better debugging
+          let errorCategory = 'UNKNOWN';
+          let errorDetails = '';
+          
+          if (error instanceof Error) {
+            const errorMessage = error.message.toLowerCase();
+            if (errorMessage.includes('rate') || errorMessage.includes('quota')) {
+              errorCategory = 'RATE_LIMIT';
+              errorDetails = 'OpenAI API rate limit or quota exceeded';
+            } else if (errorMessage.includes('timeout')) {
+              errorCategory = 'TIMEOUT';
+              errorDetails = 'Request timed out';
+            } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+              errorCategory = 'NETWORK';
+              errorDetails = 'Network connectivity issue';
+            } else if (errorMessage.includes('unauthorized') || errorMessage.includes('forbidden')) {
+              errorCategory = 'AUTH';
+              errorDetails = 'Authentication or authorization failed';
+            } else if (errorMessage.includes('model')) {
+              errorCategory = 'MODEL';
+              errorDetails = 'Model unavailable or invalid';
+            } else {
+              errorDetails = error.message;
+            }
+          }
+          
+          console.error('[Background Image API] Error category:', errorCategory);
+          console.error('[Background Image API] Error details:', errorDetails);
+          
+          if (!isControllerClosed) {
+            try {
+              controller.enqueue(encoder.encode(
+                `data: ${JSON.stringify({ 
+                  type: 'error', 
+                  message: 'Stream failed',
+                  category: errorCategory,
+                  details: errorDetails
+                })}\n\n`
+              ));
+            } catch (controllerError) {
+              console.warn('[Background Image API] Controller error while sending stream error:', controllerError);
+              isControllerClosed = true;
+            }
+          } else {
+            console.warn('[Background Image API] Controller already closed, skipping stream error');
+          }
+        } finally {
+          console.log('[Background Image API] Cleaning up stream, controller closed:', isControllerClosed);
+          if (!isControllerClosed) {
+            try {
+              controller.close();
+              console.log('[Background Image API] Successfully closed controller');
+            } catch (closeError) {
+              console.warn('[Background Image API] Error closing controller:', closeError);
+            }
+          }
         }
-      });
-      
-      return new NextResponse(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
-    } else {
-      // Handle regular JSON response (fallback)
-      const result = await openaiResponse.json();
-      console.log('[Background Image API] Regular response:', result);
-      
-      if (result.imageUrl) {
-        // If we get a URL directly, we might need to download and re-upload
-        // For now, just return it as-is
-        return NextResponse.json({ 
-          success: true, 
-          imageUrl: result.imageUrl 
-        });
-      } else {
-        return NextResponse.json({ error: 'No image in response' }, { status: 500 });
       }
-    }
-    
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      }
+    });
+
   } catch (error) {
     console.error('[Background Image API] Error:', error);
     return NextResponse.json(

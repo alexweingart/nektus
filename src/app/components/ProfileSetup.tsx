@@ -23,20 +23,14 @@ type Country = {
 };
 
 function ProfileSetup() {
-  console.log('[ProfileSetup] Component rendering started');
-  
   // Session and authentication
   const { data: session, status: sessionStatus } = useSession({
     required: true,
   });
   
-  console.log('[ProfileSetup] useSession result:', { sessionStatus, hasSession: !!session });
-  
   // Minimal ProfileContext subscription - only for saveProfile function
   const { saveProfile } = useProfile();
   const router = useRouter();
-  
-  console.log('[ProfileSetup] useProfile result:', { hasSaveProfile: !!saveProfile });
   
   // Component state
   const [isSaving, setIsSaving] = useState(false);
@@ -62,8 +56,6 @@ function ProfileSetup() {
   // Handle saving the profile with phone number
   const handleSave = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
-    console.log('=== Starting save process ===');
-    console.log('Raw digits from input:', digits);
     
     if (!session?.user?.email) {
       console.error('Cannot save: No user session');
@@ -71,11 +63,9 @@ function ProfileSetup() {
     }
     
     if (isSaving) {
-      console.log('Save already in progress');
       return;
     }
     
-    console.log('Starting save process...');
     setIsSaving(true);
     
     try {
@@ -90,39 +80,28 @@ function ProfileSetup() {
         
         // For US/Canada numbers (10 digits or 11 digits starting with 1)
         if (cleanedDigits.length === 10 || (cleanedDigits.length === 11 && cleanedDigits.startsWith('1'))) {
-          console.log('Processing as US/Canada number');
           const nationalNum = cleanedDigits.length === 11 ? cleanedDigits.slice(1) : cleanedDigits;
           internationalPhone = `+1${nationalNum}`; // E.164 format for US/Canada
           nationalPhone = nationalNum;
-          console.log('US/Canada - National:', nationalPhone, 'International:', internationalPhone);
         } else if (cleanedDigits.length > 10) {
-          console.log('Processing as international number');
           // Try to parse with country code
           const countryCode = selectedCountry?.code as CountryCode | undefined;
-          console.log('Using country code for parsing:', countryCode);
           const parsed = parsePhoneNumberFromString(`+${cleanedDigits}`, { defaultCountry: countryCode });
           
           if (parsed?.isValid()) {
             internationalPhone = parsed.format('E.164');
             nationalPhone = parsed.nationalNumber;
-            console.log('Valid international number - National:', nationalPhone, 'International:', internationalPhone);
           } else {
             // If parsing fails, just use the raw digits
-            console.warn('Could not parse international number, using raw digits');
             internationalPhone = `+${cleanedDigits}`;
             nationalPhone = cleanedDigits;
-            console.log('Fallback - National:', nationalPhone, 'International:', internationalPhone);
           }
         } else {
           // For numbers that are too short to be valid, just use them as is
-          console.log('Number too short, using as is');
           internationalPhone = `+${cleanedDigits}`;
           nationalPhone = cleanedDigits;
-          console.log('Short number - National:', nationalPhone, 'International:', internationalPhone);
         }
       }
-      
-      console.log('Saving phone info:', { internationalPhone, nationalPhone });
       
       // Only update phone-related fields, preserve all other profile data
       const phoneUpdateData: Partial<UserProfile> = {
@@ -150,15 +129,12 @@ function ProfileSetup() {
         } as any // Partial update - preserves existing contact channels
       };
       
-      console.log('Saving phone update data:', JSON.stringify(phoneUpdateData, null, 2));
-      
       try {
         // Save only the phone-related fields (preserves bio and other data)
         const updatedProfile = await saveProfile(phoneUpdateData);
         
         if (updatedProfile) {
-          console.log('Profile saved successfully');
-          console.log('=== Navigating to profile page ===');
+          console.log('[Firebase] Saved phone data to Firestore for user:', updatedProfile.userId);
           
           // Navigate immediately without resetting saving state
           router.push('/');
@@ -176,9 +152,6 @@ function ProfileSetup() {
       console.error('Error in handleSave:', error);
       setIsSaving(false); // Reset saving state on any error
     }
-    
-    console.log('=== Save process completed ===');
-    // Don't reset isSaving here - either we navigated or hit an error
   }, [digits, isSaving, selectedCountry.code, session?.user?.email, saveProfile]);
 
   // Check if profile is complete (has phone number) to prevent flash during navigation
@@ -211,13 +184,6 @@ function ProfileSetup() {
   });
   
   if (((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading) {
-    console.log('[ProfileSetup] Showing loading spinner:', { 
-      sessionStatus, 
-      hasSession: !!session, 
-      isNewUser,
-      shouldSkipLoading 
-    });
-    
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -227,25 +193,12 @@ function ProfileSetup() {
 
   // If profile is complete and we're not currently saving, show minimal loading state during redirect
   if (hasCompleteProfile && !isSaving && !isRedirecting) {
-    console.log('[ProfileSetup] Showing loading spinner for complete profile redirect:', {
-      hasCompleteProfile,
-      isSaving,
-      isRedirecting
-    });
-    
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
-
-  console.log('[ProfileSetup] Rendering setup form:', {
-    hasCompleteProfile,
-    isSaving,
-    isRedirecting,
-    isNewUser: session?.isNewUser
-  });
 
   return (
     <div 
