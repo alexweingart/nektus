@@ -109,18 +109,33 @@ html {
 body {
   margin: 0;
   padding: 0;
-  min-height: 100vh;
+  /* New viewport units that track the dynamic viewport */
   min-height: 100dvh;
+  /* Keep normal scrolling behaviour (needed for pull-to-refresh) */
+  overflow-y: auto;
+  /* Respect the "ears" on iOS / Dynamic Island */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Smooth overscroll without accidental lateral scroll */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #004D40; /* Default background color */
   color: var(--foreground);
+}
+
+/* Global background layer using pseudo-element */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0; /* top:0 right:0 bottom:0 left:0 */
+  z-index: -1; /* sit behind everything */
+  background-color: #004D40; /* Default background color */
   /* Background image will be set dynamically via JavaScript */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* Use scroll instead of fixed for better mobile Safari performance */
   background-attachment: scroll;
+  pointer-events: none; /* never intercept taps */
 }
 
 /* Viewport lock states - Container-based approach */
@@ -373,27 +388,3 @@ select {
   }
 }
 
-/* Safe area background coverage */
-.safe-area-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: -1;
-  /* Extend into safe areas */
-  margin-top: calc(-1 * env(safe-area-inset-top));
-  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
-  margin-left: calc(-1 * env(safe-area-inset-left));
-  margin-right: calc(-1 * env(safe-area-inset-right));
-  /* Background properties */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
-}
-
-/* Hide default body background when using safe area background */
-body.has-safe-area-background {
-  background-image: none !important;
-}
