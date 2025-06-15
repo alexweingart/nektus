@@ -4,7 +4,7 @@ export function useBodyBackgroundImage(backgroundImageUrl?: string) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Create or update a style element for the body::before pseudo-element
+    // Create or update a style element for the body::before pseudo-element and html
     const styleId = 'body-background-style';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
     
@@ -16,6 +16,13 @@ export function useBodyBackgroundImage(backgroundImageUrl?: string) {
 
     if (backgroundImageUrl) {
       styleElement.textContent = `
+        html {
+          background-image: url(${backgroundImageUrl}) !important;
+          background-size: cover !important;
+          background-position: center !important;
+          background-repeat: no-repeat !important;
+          background-attachment: fixed !important;
+        }
         body::before {
           background-image: url(${backgroundImageUrl}) !important;
           background-color: #004D40 !important;
@@ -23,6 +30,10 @@ export function useBodyBackgroundImage(backgroundImageUrl?: string) {
       `;
     } else {
       styleElement.textContent = `
+        html {
+          background-image: none !important;
+          background-color: #004D40 !important;
+        }
         body::before {
           background-image: none !important;
           background-color: #004D40 !important;

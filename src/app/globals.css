@@ -104,6 +104,10 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  /* Set background to prevent white during overscroll */
+  background-color: #004D40;
+  /* Disable overscroll on html to prevent white areas */
+  overscroll-behavior: none;
 }
 
 body {
@@ -115,11 +119,11 @@ body {
   overflow-y: auto;
   /* Respect the "ears" on iOS / Dynamic Island */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  /* Smooth overscroll without accidental lateral scroll */
+  /* Allow overscroll on body for pull-to-refresh functionality */
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
-  /* Set overscroll background to match our theme */
-  background-color: #004D40;
+  /* No background color on body - let html and body::before handle it */
+  background-color: transparent;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--foreground);
