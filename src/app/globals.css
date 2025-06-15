@@ -115,25 +115,34 @@ body {
   color: var(--foreground);
 }
 
-/* Viewport lock states */
-body.viewport-locked {
-  position: fixed;
+/* Viewport lock states - Container-based approach */
+body.viewport-locked.no-refresh {
   overflow: hidden;
   height: 100vh;
-  width: 100vw;
-  touch-action: pan-y; /* Allow vertical pan for pull-to-refresh */
+  height: 100dvh;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
-body.viewport-locked.no-refresh {
-  touch-action: none; /* Completely disable touch actions */
+/* For pull-to-refresh enabled, don't lock the body - let containers handle it */
+body.viewport-locked:not(.no-refresh) {
+  /* Allow normal scroll behavior on body for pull-to-refresh */
+  overscroll-behavior-y: auto;
 }
 
 body.allow-scroll {
   overflow: auto;
-  position: static;
   height: auto;
-  width: auto;
   touch-action: auto;
+  overscroll-behavior: auto;
+}
+
+/* Helper class for containers that need to be locked */
+.viewport-container-locked {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
 }
 
 /* iOS specific fixes */

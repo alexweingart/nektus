@@ -7,8 +7,8 @@ interface UseViewportLockOptions {
 /**
  * useViewportLock - Locks viewport elements in place while allowing native pull-to-refresh
  * 
- * This hook applies CSS classes to enable viewport locking with optional pull-to-refresh.
- * The browser's native pull-to-refresh will handle page refresh automatically.
+ * Uses a container-based approach for pull-to-refresh scenarios to avoid interfering
+ * with the browser's native pull-to-refresh mechanism.
  * 
  * @param options - Configuration options for viewport lock behavior
  */
@@ -24,8 +24,10 @@ export const useViewportLock = (options: UseViewportLockOptions = {}) => {
     body.classList.add('viewport-locked');
     
     if (!enablePullToRefresh) {
+      // Full body lock for welcome screen (no pull-to-refresh)
       body.classList.add('no-refresh');
     } else {
+      // Container-based lock for authenticated view (preserve pull-to-refresh)
       body.classList.remove('no-refresh');
     }
     
