@@ -93,6 +93,9 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     
     setIsActive(true);
     
+    // Blur the element to remove focus state on mobile
+    (e.currentTarget as HTMLElement).blur();
+    
     // If there's a custom click handler, use that
     if (onClick) {
       onClick();
@@ -144,6 +147,14 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       onMouseDown={() => !disabled && setIsActive(true)}
       onMouseUp={() => !disabled && setIsActive(false)}
       onMouseOut={() => !disabled && setIsActive(false)}
+      onTouchStart={() => !disabled && setIsActive(true)}
+      onTouchEnd={(e) => {
+        if (!disabled) {
+          setIsActive(false);
+          // Ensure focus is removed on touch devices
+          (e.currentTarget as HTMLElement).blur();
+        }
+      }}
       title={username ? `${platform}: ${username}` : platform}
       aria-label={`${platform} ${username ? `(${username})` : ''}`}
       role="button"

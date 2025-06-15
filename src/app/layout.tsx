@@ -54,7 +54,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content, viewport-fit=cover" />
         <meta name="theme-color" content={THEME_COLOR} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

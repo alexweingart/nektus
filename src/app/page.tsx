@@ -41,9 +41,21 @@ export default function Home() {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
-    backgroundColor: '#004D40' // Theme background color that shows while image loads
+    backgroundColor: '#004D40', // Theme background color that shows while image loads
+    // Extend background to cover safe areas (notch, status bar)
+    backgroundAttachment: 'fixed',
+    minHeight: '100dvh', // Use dvh for better mobile support
+    paddingTop: 'env(safe-area-inset-top)',
+    paddingBottom: 'env(safe-area-inset-bottom)',
+    paddingLeft: 'env(safe-area-inset-left)',
+    paddingRight: 'env(safe-area-inset-right)'
   } : {
-    backgroundColor: '#004D40' // Theme background for welcome screen
+    backgroundColor: '#004D40', // Theme background for welcome screen
+    minHeight: '100dvh', // Use dvh for better mobile support
+    paddingTop: 'env(safe-area-inset-top)',
+    paddingBottom: 'env(safe-area-inset-bottom)',
+    paddingLeft: 'env(safe-area-inset-left)',
+    paddingRight: 'env(safe-area-inset-right)'
   };
 
   // Show loading state while checking auth status with consistent background

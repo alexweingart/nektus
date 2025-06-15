@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
                 {
                   type: 'image_generation',
                   partial_images: 3,
-                  size: '1024x1024',
+                  size: '1024x1536',
                   output_format: 'png',
                   quality: 'medium'
                 }

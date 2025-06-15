@@ -104,6 +104,11 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  /* Extend background to cover safe areas (notch, status bar) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 body {
@@ -113,6 +118,13 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--background);
   color: var(--foreground);
+  /* Ensure background extends to safe areas */
+  margin: 0;
+  /* Compensate for html padding */
+  margin-top: calc(-1 * env(safe-area-inset-top));
+  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
+  margin-left: calc(-1 * env(safe-area-inset-left));
+  margin-right: calc(-1 * env(safe-area-inset-right));
 }
 
 /* Viewport lock states - Container-based approach */
