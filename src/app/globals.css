@@ -81,7 +81,7 @@
 :root {
   color-scheme: light dark;
   color: var(--foreground);
-  background-color: var(--background);
+  background-color: transparent; /* Allow body::before background to show through */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -120,22 +120,9 @@ body {
   overscroll-behavior-y: auto;
   line-height: 1.6;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Remove background color to allow body::before to show through */
+  background-color: transparent;
   color: var(--foreground);
-}
-
-/* Global background layer using pseudo-element */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0; /* top:0 right:0 bottom:0 left:0 */
-  z-index: -1; /* sit behind everything */
-  background-color: #004D40; /* Default background color */
-  /* Background image will be set dynamically via JavaScript */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
-  pointer-events: none; /* never intercept taps */
 }
 
 /* Viewport lock states - Container-based approach */
@@ -168,7 +155,21 @@ body.allow-scroll {
   position: relative;
 }
 
-
+/* Fixed background that covers safe areas including notch */
+.safe-area-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  /* Extend into safe areas */
+  margin-top: calc(-1 * env(safe-area-inset-top));
+  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
+  margin-left: calc(-1 * env(safe-area-inset-left));
+  margin-right: calc(-1 * env(safe-area-inset-right));
+  /* Background will be set via inline styles */
+}
 
 /* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
@@ -208,9 +209,9 @@ body.allow-scroll {
   /* Specific fix for phone input fields */
   input[type="tel"]:-webkit-autofill,
   input[inputmode="tel"]:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-box-shadow: 0 0 0 30px transparent inset !important;
     -webkit-text-fill-color: black !important;
-    background-color: white !important;
+    background-color: transparent !important;
   }
 }
 
@@ -387,4 +388,3 @@ select {
     transform: none !important;
   }
 }
-

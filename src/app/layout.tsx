@@ -63,7 +63,7 @@ export default async function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
       </head>
-      <body className={`${inter.variable} antialiased bg-background`}>
+      <body className={`${inter.variable} antialiased`}>
         <SessionProvider session={session}>
           <ProfileProvider>
             <AdminModeProvider>
