@@ -149,6 +149,8 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* Create isolated compositor layer for better performance and locked background effect */
+  transform: translate3d(0, 0, 0);
 }
 
 /* Viewport lock states - Container-based approach */
