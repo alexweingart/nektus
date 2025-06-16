@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
 import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';

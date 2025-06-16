@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
