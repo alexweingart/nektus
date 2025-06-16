@@ -29,10 +29,10 @@ export default function Home() {
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;
 
-  // Only lock viewport for authenticated users
-  if (session) {
-    useViewportLock({ enablePullToRefresh: true });
-  }
+  // Use viewport lock with pull-to-refresh for authenticated users
+  useViewportLock({
+    enablePullToRefresh: !!session
+  });
 
   // Get background image URL and set it on body::before
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
