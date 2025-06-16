@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -13,7 +13,7 @@ import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
 
-export default function SetupPage() {
+function SetupPageContent() {
   const { data: session, status } = useSession();
   const { getLatestProfile, streamingBackgroundImage } = useProfile();
   const searchParams = useSearchParams();
@@ -66,4 +66,12 @@ export default function SetupPage() {
 
   router.replace('/');
   return null;
+}
+
+export default function SetupPage() {
+  return (
+    <Suspense fallback={<div className="page-container"><div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div></div>}>
+      <SetupPageContent />
+    </Suspense>
+  );
 }
