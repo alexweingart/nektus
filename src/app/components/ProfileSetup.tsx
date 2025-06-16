@@ -29,7 +29,7 @@ function ProfileSetup() {
   });
   
   // Minimal ProfileContext subscription - only for saveProfile function
-  const { saveProfile } = useProfile();
+  const { saveProfile, profile } = useProfile();
   const router = useRouter();
   
   // Component state
@@ -202,7 +202,7 @@ function ProfileSetup() {
             <div className="mb-4">
               <div className="border-4 border-white shadow-lg rounded-full">
                 <Avatar 
-                  src={session?.user?.image || '/default-avatar.png'} 
+                  src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                 />

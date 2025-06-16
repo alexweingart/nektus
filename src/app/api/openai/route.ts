@@ -548,16 +548,6 @@ async function generateAvatar(profile: ProfileData) {
   try {
     // Avatar generation started
     
-    // Return existing profile image if it exists
-    if (profile.picture || profile.profileImage) {
-      const existingImage = profile.picture || profile.profileImage;
-      // Using existing profile image
-      return NextResponse.json({ 
-        imageUrl: existingImage,
-        generated: false
-      });
-    }
-
     // Safety check for OpenAI client
     if (!openai) {
       return NextResponse.json({ 
@@ -570,10 +560,10 @@ async function generateAvatar(profile: ProfileData) {
     
     // Generating avatar with gpt-image-1 model
     const response = await openai.images.generate({
-      prompt: `Create a professional profile picture for ${profile.name || 'a user'}. ` +
-              `The image should be a simple, abstract, and modern avatar. ` +
-              `Use a clean, professional style with a solid color background. ` +
-              `The image should be suitable for a professional networking context.`,
+      prompt: `Create a profile picture for a person with this bio: ${profile.bio || 'no bio available'}. ` +
+              `The image should be a simple, casual, abstract, and modern. ` +
+              `Use a clean, minimalist style with a solid color background. ` +
+              `There should be no text on the image`,
       size: '1024x1024',
       quality: 'medium',
       model: 'gpt-image-1'

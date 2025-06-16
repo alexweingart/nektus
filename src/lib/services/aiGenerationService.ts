@@ -1,4 +1,5 @@
 import { UserProfile } from '@/types/profile';
+import { shouldGenerateAvatarForGoogleUser } from '@/lib/utils/googleProfileImageDetector';
 
 /**
  * AI Generation Service
@@ -33,10 +34,11 @@ export function shouldGenerateBio(
 /**
  * Checks if avatar generation is needed and conditions are met
  */
-export function shouldGenerateAvatar(
+export async function shouldGenerateAvatar(
   profile: UserProfile | null,
-  avatarGeneratedRef: React.MutableRefObject<boolean>
-): boolean {
+  avatarGeneratedRef: React.MutableRefObject<boolean>,
+  accessToken?: string
+): Promise<boolean> {
   if (!profile) return false;
   // Check persistent flag first, then ref
   if (profile.aiGeneration?.avatarGenerated) return false;
@@ -44,6 +46,21 @@ export function shouldGenerateAvatar(
   
   // Check if user already has a profile image (from Google/social login)
   if (profile.profileImage && profile.profileImage.trim() !== '' && !profile.profileImage.includes('default-avatar')) {
+    // Special handling for Google profile images - check if they're just initials
+    const isGoogleImage = profile.profileImage.includes('googleusercontent.com') || profile.profileImage.includes('lh3.googleusercontent.com');
+    
+    if (isGoogleImage && accessToken) {
+      // Use People API to check if it's auto-generated initials
+      const shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+      console.log(`🔍 Google profile photo People API result: should generate = ${shouldGenerate}`);
+      return shouldGenerate;
+    } else if (isGoogleImage) {
+      console.log('⚠️ Google profile image detected but no access token available for People API check');
+      // Fallback: don't generate if we can't check
+      return false;
+    }
+    
+    // For non-Google images, assume they are real profile photos
     return false;
   }
   
@@ -130,6 +147,29 @@ export async function generateAvatar(profile: UserProfile, saveProfile: SaveProf
 
     if (!result.imageUrl) {
       throw new Error('No avatar image URL returned from API');
+    }
+
+    // If it's a base64 data URL, upload via API route
+    if (result.imageUrl.startsWith('data:image/')) {
+      console.log('[Upload] Uploading generated avatar via API...');
+      
+      const uploadResponse = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: result.imageUrl
+        })
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Avatar upload failed: ${uploadResponse.status}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log('[Upload] Avatar uploaded successfully');
+      return uploadResult.imageUrl;
     }
 
     return result.imageUrl;
@@ -290,12 +330,13 @@ export async function generateAndSaveAvatar(
   profile: UserProfile,
   avatarGeneratedRef: React.MutableRefObject<boolean>,
   saveProfile: SaveProfile
-): Promise<void> {
+): Promise<UserProfile | null> {
   try {
     const generatedAvatarUrl = await generateAvatar(profile, saveProfile);
 
-    // Save avatar with persistent flag
-    await saveProfile({ 
+    // Create updated profile with new avatar
+    const updatedProfile: UserProfile = {
+      ...profile,
       profileImage: generatedAvatarUrl,
       aiGeneration: {
         ...profile.aiGeneration,
@@ -303,10 +344,15 @@ export async function generateAndSaveAvatar(
         avatarGenerated: true,
         backgroundImageGenerated: profile.aiGeneration?.backgroundImageGenerated || false
       }
-    }, { directUpdate: true, skipUIUpdate: true });
+    };
+
+    // Save avatar with immediate UI update for visual feedback
+    const savedProfile = await saveProfile(updatedProfile, { directUpdate: false, skipUIUpdate: false });
     
     console.log('[Firebase] Saved avatar URL to Firestore for user:', profile.userId);
     avatarGeneratedRef.current = true;
+    
+    return savedProfile || updatedProfile;
     
   } catch (error) {
     console.error('[AIGenerationService] Avatar generation and save failed:', error);
@@ -381,7 +427,8 @@ export async function orchestrateCompleteAIGeneration(
     avatarGeneratedRef: React.MutableRefObject<boolean>;
     backgroundImageGeneratedRef: React.MutableRefObject<boolean>;
   },
-  saveProfile: SaveProfile
+  saveProfile: SaveProfile,
+  accessToken?: string
 ): Promise<void> {
   // Initialize refs from persistent flags
   if (profile.aiGeneration?.bioGenerated) {
@@ -421,13 +468,17 @@ export async function orchestrateCompleteAIGeneration(
     }
 
     // Step 2: Generate avatar if needed (doesn't require bio)
-    if (shouldGenerateAvatar(updatedProfile, refs.avatarGeneratedRef)) {
-      await generateAndSaveAvatar(updatedProfile, refs.avatarGeneratedRef, saveProfile);
+    const shouldGenAvatar = await shouldGenerateAvatar(updatedProfile, refs.avatarGeneratedRef, accessToken);
+    if (shouldGenAvatar) {
+      const updatedProfileFromAvatar = await generateAndSaveAvatar(updatedProfile, refs.avatarGeneratedRef, saveProfile);
+      if (updatedProfileFromAvatar) {
+        updatedProfile = updatedProfileFromAvatar; // Use updated profile with new avatar
+      }
     } else {
       refs.avatarGeneratedRef.current = true;
     }
 
-    // Step 3: Generate background image if needed (requires bio to exist)
+    // Step 3: Generate background image if needed (requires bio to exist and uses latest profile with avatar)
     if (shouldGenerateBackgroundImage(updatedProfile, refs.backgroundImageGeneratedRef)) {
       await generateAndSaveBackgroundImage(updatedProfile, setStreamingBackgroundImage, refs.backgroundImageGeneratedRef, saveProfile);
     } else {
@@ -438,6 +489,30 @@ export async function orchestrateCompleteAIGeneration(
     console.error('[AIGenerationService] Complete AI generation orchestration failed:', error);
     throw error;
   }
+}
+
+/**
+ * Helper function to check if avatar generation is complete for a profile
+ * This is used for initialization and doesn't require async Google image detection
+ */
+export function isAvatarGenerationComplete(profile: UserProfile): boolean {
+  // Check persistent flag first
+  if (profile.aiGeneration?.avatarGenerated) return true;
+  
+  // Check if user has a non-default profile image
+  if (profile.profileImage && profile.profileImage.trim() !== '' && !profile.profileImage.includes('default-avatar')) {
+    // For Google images, we'll be more conservative in initialization
+    // If it's a Google image, we'll let the full async check run later
+    const isGoogleImage = profile.profileImage.includes('googleusercontent.com') || profile.profileImage.includes('lh3.googleusercontent.com');
+    if (isGoogleImage) {
+      // Don't assume it's complete - let the async process determine this
+      return false;
+    }
+    // For non-Google images, assume they are real profile photos
+    return true;
+  }
+  
+  return false;
 }
 
 // Helper function to get bio from the last save (this would need to be implemented based on your profile refresh logic)

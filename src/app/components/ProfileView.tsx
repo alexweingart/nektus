@@ -138,8 +138,8 @@ const ProfileView: React.FC = () => {
         <div className="mb-4">
           <div className="border-4 border-white shadow-lg rounded-full">
             <Avatar 
-              src={profile.profileImage} 
-              alt={profile.name || 'Profile'}
+              src={currentProfile?.profileImage} 
+              alt={currentProfile?.name || 'Profile'}
               size="lg"
             />
           </div>
@@ -149,7 +149,7 @@ const ProfileView: React.FC = () => {
         <div className="w-full bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           {/* Profile Name - Double click to activate admin mode */}
           <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
-            <Heading as="h1">{profile.name}</Heading>
+            <Heading as="h1">{currentProfile?.name}</Heading>
           </div>
           
           {/* Bio with markdown support */}

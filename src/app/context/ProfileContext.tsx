@@ -80,7 +80,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Initialize generation status refs based on current profile data
             bioGeneratedRef.current = !!(existingProfile.bio && existingProfile.bio.trim() !== '');
             backgroundImageGeneratedRef.current = !!(existingProfile.backgroundImage && existingProfile.backgroundImage.trim() !== '');
-            avatarGeneratedRef.current = !!(existingProfile.profileImage && existingProfile.profileImage.trim() !== '' && !existingProfile.profileImage.includes('default-avatar'));
+            
+            // Use helper function for avatar completion check
+            const { isAvatarGenerationComplete } = await import('@/lib/services/aiGenerationService');
+            avatarGeneratedRef.current = isAvatarGenerationComplete(existingProfile);
             
             setIsLoading(false);
             
@@ -125,7 +128,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                     avatarGeneratedRef,
                     backgroundImageGeneratedRef
                   },
-                  saveProfile
+                  saveProfile,
+                  session?.accessToken
                 ).catch(error => {
                   // Only log error if it's not an abort error (navigation away)
                   if (!error.message.includes('aborted') && !error.message.includes('Operation aborted')) {
@@ -160,7 +164,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                     avatarGeneratedRef,
                     backgroundImageGeneratedRef
                   },
-                  saveProfile
+                  saveProfile,
+                  session?.accessToken
                 ).catch(error => {
                   console.error('[ProfileContext] AI generation failed:', error);
                 });
@@ -222,7 +227,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     savingRef.current = true;
 
     // Set saving state to prevent setup effects from running during form submission
-    const wasFormSubmission = !options.directUpdate && data.contactChannels?.phoneInfo;
+    const wasFormSubmission = !options.directUpdate && 
+      data.contactChannels?.phoneInfo && 
+      data.contactChannels.phoneInfo.internationalPhone && 
+      data.contactChannels.phoneInfo.internationalPhone.trim() !== '';
     if (wasFormSubmission) {
       setIsSaving(true);
     }
@@ -423,7 +431,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (profileRef.current.bio && profileRef.current.bio.trim() !== '') {
         bioGeneratedRef.current = true;
       }
-      if (profileRef.current.profileImage && profileRef.current.profileImage.trim() !== '' && !profileRef.current.profileImage.includes('default-avatar')) {
+      // Use helper function for avatar completion check
+      const { isAvatarGenerationComplete } = await import('@/lib/services/aiGenerationService');
+      if (isAvatarGenerationComplete(profileRef.current)) {
         avatarGeneratedRef.current = true;
       }
       if (profileRef.current.backgroundImage && profileRef.current.backgroundImage.trim() !== '') {
@@ -473,7 +483,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ...currentProfile,
       backgroundImage: streamingBackgroundImageRef.current || currentProfile.backgroundImage
     };
-  }, [profile, streamingBackgroundImage]); // streamingBackgroundImage in deps ensures re-renders when streaming image changes
+  }, [profile]); // Only depend on profile state to ensure re-renders when profile changes
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
     setIsNavigatingFromSetup(navigating);
