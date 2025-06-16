@@ -64,7 +64,7 @@ const HomePage: React.FC = () => {
             />
           </div>
         </div>
-        <Heading as="h1" className="text-center w-full mb-6">
+        <Heading as="h1" className="text-center w-full mb-10">
           Bump to Connect
         </Heading>
         
