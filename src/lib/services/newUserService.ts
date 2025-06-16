@@ -1,6 +1,7 @@
 import { Session } from 'next-auth';
 import { UserProfile } from '@/types/profile';
 import { generateSocialProfilesFromEmail } from '@/lib/utils/socialMedia';
+import { rehostGoogleProfileImage } from '@/lib/firebase/storage';
 
 /**
  * New User Service
@@ -24,6 +25,29 @@ export function isNewUser(session: Session | null): boolean {
   
   // Check NextAuth's new user flag (set during first sign-in)
   return (session as any).isNewUser === true;
+}
+
+/**
+ * Checks if a profile image needs to be re-hosted and does it if necessary
+ * Returns the final profile image URL (either original or re-hosted)
+ */
+export async function ensureProfileImageHosted(profileImage: string, userId: string): Promise<string> {
+  try {
+    // Check if this is a Google profile image that needs re-hosting
+    if (profileImage && (profileImage.includes('googleusercontent.com') || profileImage.includes('lh3.googleusercontent.com'))) {
+      console.log('[NewUserService] Re-hosting Google profile image for user:', userId);
+      const rehostedUrl = await rehostGoogleProfileImage(profileImage, userId);
+      console.log('[NewUserService] Successfully re-hosted profile image');
+      return rehostedUrl;
+    }
+    
+    // Return original URL if it's not a Google URL or if it's empty
+    return profileImage;
+  } catch (error) {
+    console.error('[NewUserService] Failed to rehost profile image, using original:', error);
+    // Fallback to original URL if rehosting fails
+    return profileImage;
+  }
 }
 
 /**
@@ -62,6 +86,11 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
       whatsapp: socialProfiles.whatsapp,
       telegram: socialProfiles.telegram,
       wechat: socialProfiles.wechat
+    },
+    aiGeneration: {
+      bioGenerated: false,
+      avatarGenerated: false,
+      backgroundImageGenerated: false
     }
   };
 

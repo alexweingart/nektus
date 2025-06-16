@@ -76,10 +76,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           if (existingProfile) {
             setProfile(existingProfile);
             profileRef.current = existingProfile;
+            
+            // Initialize generation status refs based on current profile data
+            bioGeneratedRef.current = !!(existingProfile.bio && existingProfile.bio.trim() !== '');
+            backgroundImageGeneratedRef.current = !!(existingProfile.backgroundImage && existingProfile.backgroundImage.trim() !== '');
+            avatarGeneratedRef.current = !!(existingProfile.profileImage && existingProfile.profileImage.trim() !== '' && !existingProfile.profileImage.includes('default-avatar'));
+            
             setIsLoading(false);
             
-            // Update session with phone data from existing profile if it has phone info
-            if (existingProfile.contactChannels?.phoneInfo?.internationalPhone && !sessionUpdatedRef.current && update) {
+            // Update session with phone data from existing profile if it has phone info and session doesn't have it
+            if (existingProfile.contactChannels?.phoneInfo?.internationalPhone && 
+                !sessionUpdatedRef.current && 
+                update &&
+                session?.profile?.contactChannels?.phoneInfo?.internationalPhone !== existingProfile.contactChannels.phoneInfo.internationalPhone) {
               const phoneData = {
                 profile: {
                   contactChannels: {

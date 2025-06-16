@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -28,6 +28,17 @@ function SetupPageContent() {
   const userIsNew = isNewUser(session);
   const isLoading = status === 'loading';
 
+  // Handle redirects in useEffect to avoid setState during render
+  useEffect(() => {
+    if (!isLoading && session) {
+      if (!userIsNew) {
+        router.replace('/');
+      }
+    } else if (!isLoading && !session) {
+      router.replace('/');
+    }
+  }, [isLoading, session, userIsNew, router]);
+
   if (isLoading) {
     return (
       <div className="page-container">
@@ -53,19 +64,14 @@ function SetupPageContent() {
     );
   }
 
-  if (session && !userIsNew) {
-    router.replace('/');
-    return (
-      <div className="page-container">
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        </div>
+  // Show loading state while redirect is happening
+  return (
+    <div className="page-container">
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
-    );
-  }
-
-  router.replace('/');
-  return null;
+    </div>
+  );
 }
 
 export default function SetupPage() {

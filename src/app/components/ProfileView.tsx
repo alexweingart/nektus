@@ -43,7 +43,6 @@ const ProfileView: React.FC = () => {
 
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
-    console.log('[ProfileView] Showing loading state:', { sessionStatus, isProfileLoading });
     const bgUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
     const loadingStyle: React.CSSProperties = bgUrl
       ? {

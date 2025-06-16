@@ -12,9 +12,10 @@ async function uploadBackgroundImageAdmin(base64Data: string, userId: string): P
     const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
     const buffer = Buffer.from(base64WithoutPrefix, 'base64');
     
-    // Create storage reference
+    // Create storage reference with timestamp to avoid overwriting
     const bucket = storage.bucket();
-    const fileName = `users/${userId}/background-image.png`;
+    const timestamp = Date.now();
+    const fileName = `users/${userId}/background-image-${timestamp}.png`;
     const file = bucket.file(fileName);
     
     // Upload the buffer
@@ -34,6 +35,50 @@ async function uploadBackgroundImageAdmin(base64Data: string, userId: string): P
     return publicUrl;
   } catch (error) {
     console.error('[Background Image API] Server-side upload failed:', error);
+    throw error;
+  }
+}
+
+// Helper function to download and rehost Google profile images
+async function downloadAndRehostGoogleImage(googleUrl: string, userId: string): Promise<string> {
+  try {
+    console.log('[Background Image API] Rehosting Google profile image for user:', userId);
+    
+    // Download the image from Google
+    const response = await fetch(googleUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download Google image: ${response.status} ${response.statusText}`);
+    }
+    
+    const buffer = await response.arrayBuffer();
+    console.log('[Background Image API] Downloaded Google image, size:', buffer.byteLength, 'bytes');
+    
+    // Convert to base64 for upload
+    const base64Data = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+    
+    // Upload to Firebase Storage using admin SDK
+    const { storage } = await getFirebaseAdmin();
+    const timestamp = Date.now();
+    const fileName = `users/${userId}/profile-image-${timestamp}.jpg`;
+    
+    const file = storage.bucket().file(fileName);
+    const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
+    
+    await file.save(Buffer.from(base64WithoutPrefix, 'base64'), {
+      metadata: {
+        contentType: 'image/jpeg',
+      },
+    });
+    
+    // Make the file publicly readable
+    await file.makePublic();
+    
+    const publicUrl = `https://storage.googleapis.com/${storage.bucket().name}/${fileName}`;
+    console.log('[Background Image API] Successfully rehosted Google image:', publicUrl);
+    
+    return publicUrl;
+  } catch (error) {
+    console.error('[Background Image API] Failed to rehost Google image:', error);
     throw error;
   }
 }
@@ -81,8 +126,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
     
-    // Use profile image from request if provided
-    const finalProfileImage = profileImage;
+    // Use profile image from request if provided, rehost Google URLs if needed
+    let finalProfileImage = profileImage;
+    
+    if (profileImage && (profileImage.includes('googleusercontent.com') || profileImage.includes('lh3.googleusercontent.com'))) {
+      try {
+        console.log('[Background Image API] Detected Google profile image, rehosting...');
+        finalProfileImage = await downloadAndRehostGoogleImage(profileImage, userId);
+        console.log('[Background Image API] Successfully rehosted Google image');
+      } catch (error) {
+        console.warn('[Background Image API] Failed to rehost Google image, proceeding without profile image:', error);
+        finalProfileImage = null; // Don't send the Google URL to OpenAI if rehosting fails
+      }
+    }
 
     // Fallback bio text
     const bioText = bio && bio.trim() !== '' ? bio : 'No bio provided';
@@ -106,6 +162,13 @@ export async function POST(request: NextRequest) {
         ...(finalProfileImage ? [{ type: 'input_image', image_url: finalProfileImage, detail: 'auto' }] : [])
       ]
     };
+
+    console.log('[Background Image API] Final userMessage structure:', {
+      hasProfileImage: !!finalProfileImage,
+      profileImageUrl: finalProfileImage || 'none',
+      contentItems: userMessage.content.length,
+      promptLength: promptString.length
+    });
 
     // Create streaming response with abort handling
     const stream = new ReadableStream({

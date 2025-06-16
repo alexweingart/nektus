@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { getAuthSession } from "@/lib/auth";
-import { ProfileService } from '@/lib/firebase/profileService';
+import { getUserBackgroundImage } from '@/lib/firebase/adminConfig';
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
@@ -51,27 +51,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getAuthSession();
-
-  // Server-side fetch of user background image for initial render
-  let ssrBgUrl: string | undefined;
+  
+  // Get user's background image if they're authenticated
+  let backgroundImageUrl = null;
   if (session?.user?.id) {
-    try {
-      const userProfile = await ProfileService.getProfile(session.user.id);
-      ssrBgUrl = userProfile?.backgroundImage;
-    } catch {
-      ssrBgUrl = undefined;
-    }
+    backgroundImageUrl = await getUserBackgroundImage(session.user.id);
   }
 
   return (
       <html
         lang="en"
+        className="bg-black"
         style={{
-          backgroundImage: ssrBgUrl ? `url('${ssrBgUrl}')` : undefined,
+          backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
           backgroundRepeat: 'no-repeat',
-          backgroundColor: ssrBgUrl ? undefined : 'black'
+          transition: 'background-image 0.3s ease-in-out'
         }}
       >
       <head>

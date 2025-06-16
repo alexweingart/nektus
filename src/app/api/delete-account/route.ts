@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
 import { deleteUserProfile } from '@/lib/firebase/adminConfig';
+import { cleanupUserStorage } from '@/lib/firebase/storage';
 
 /**
  * API route to handle account deletion
@@ -28,6 +29,17 @@ export async function POST(req: NextRequest) {
       console.log(`[DELETE-ACCOUNT] Deleting profile for user: ${userId}`);
       await deleteUserProfile(userId);
       console.log(`[DELETE-ACCOUNT] Successfully deleted profile for user: ${userId}`);
+      
+      // Clean up storage files (don't block deletion if this fails)
+      console.log(`[DELETE-ACCOUNT] Cleaning up storage files for user: ${userId}`);
+      try {
+        await cleanupUserStorage(userId);
+        console.log(`[DELETE-ACCOUNT] Successfully cleaned up storage for user: ${userId}`);
+      } catch (storageError) {
+        console.error('[DELETE-ACCOUNT] Storage cleanup failed, but continuing:', storageError);
+        // Don't fail the deletion if storage cleanup fails
+      }
+      
     } catch (firebaseError) {
       console.error('[DELETE-ACCOUNT] Error deleting profile:', firebaseError);
       // Return error if profile deletion fails

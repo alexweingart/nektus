@@ -22,6 +22,8 @@ export function shouldGenerateBio(
   bioGeneratedRef: React.MutableRefObject<boolean>
 ): boolean {
   if (!profile) return false;
+  // Check persistent flag first, then ref
+  if (profile.aiGeneration?.bioGenerated) return false;
   if (bioGeneratedRef.current) return false;
   if (profile.bio && profile.bio.trim() !== '') return false;
   
@@ -36,6 +38,8 @@ export function shouldGenerateAvatar(
   avatarGeneratedRef: React.MutableRefObject<boolean>
 ): boolean {
   if (!profile) return false;
+  // Check persistent flag first, then ref
+  if (profile.aiGeneration?.avatarGenerated) return false;
   if (avatarGeneratedRef.current) return false;
   
   // Check if user already has a profile image (from Google/social login)
@@ -54,6 +58,8 @@ export function shouldGenerateBackgroundImage(
   backgroundImageGeneratedRef: React.MutableRefObject<boolean>
 ): boolean {
   if (!profile) return false;
+  // Check persistent flag first, then ref
+  if (profile.aiGeneration?.backgroundImageGenerated) return false;
   if (backgroundImageGeneratedRef.current) return false;
   if (profile.backgroundImage && profile.backgroundImage.trim() !== '') return false;
   if (!profile.bio || profile.bio.trim() === '') return false; // Bio needed for background generation
@@ -246,14 +252,31 @@ export async function generateAndSaveBio(
   try {
     const generatedBio = await generateBio(profile, saveProfile);
 
-    // Save bio using ProfileContext (silent save - no UI updates)
-    const updatedProfile = await saveProfile({ bio: generatedBio }, { directUpdate: true, skipUIUpdate: true });
+    // Save bio with persistent flag
+    const updatedProfile = await saveProfile({ 
+      bio: generatedBio,
+      aiGeneration: {
+        ...profile.aiGeneration,
+        bioGenerated: true,
+        avatarGenerated: profile.aiGeneration?.avatarGenerated || false,
+        backgroundImageGenerated: profile.aiGeneration?.backgroundImageGenerated || false
+      }
+    }, { directUpdate: true, skipUIUpdate: true });
     
     console.log('[Firebase] Saved bio to Firestore for user:', profile.userId);
     bioGeneratedRef.current = true;
     
     // Return updated profile or fallback with bio added
-    return updatedProfile || { ...profile, bio: generatedBio };
+    return updatedProfile || { 
+      ...profile, 
+      bio: generatedBio,
+      aiGeneration: {
+        ...profile.aiGeneration,
+        bioGenerated: true,
+        avatarGenerated: profile.aiGeneration?.avatarGenerated || false,
+        backgroundImageGenerated: profile.aiGeneration?.backgroundImageGenerated || false
+      }
+    };
   } catch (error) {
     console.error('[AIGenerationService] Bio generation and save failed:', error);
     throw error;
@@ -271,8 +294,16 @@ export async function generateAndSaveAvatar(
   try {
     const generatedAvatarUrl = await generateAvatar(profile, saveProfile);
 
-    // Save avatar using ProfileContext (silent save - no UI updates)
-    await saveProfile({ profileImage: generatedAvatarUrl }, { directUpdate: true, skipUIUpdate: true });
+    // Save avatar with persistent flag
+    await saveProfile({ 
+      profileImage: generatedAvatarUrl,
+      aiGeneration: {
+        ...profile.aiGeneration,
+        bioGenerated: profile.aiGeneration?.bioGenerated || false,
+        avatarGenerated: true,
+        backgroundImageGenerated: profile.aiGeneration?.backgroundImageGenerated || false
+      }
+    }, { directUpdate: true, skipUIUpdate: true });
     
     console.log('[Firebase] Saved avatar URL to Firestore for user:', profile.userId);
     avatarGeneratedRef.current = true;
@@ -312,8 +343,16 @@ export async function generateAndSaveBackgroundImage(
         const { imageUrl: storageUrl } = await uploadResponse.json();
         console.log('[Firebase] Background image uploaded to Storage:', storageUrl);
         
-        // Save storage URL to Firestore (silent save - no UI updates)
-        await saveProfile({ backgroundImage: storageUrl }, { directUpdate: true, skipUIUpdate: true });
+        // Save storage URL with persistent flag
+        await saveProfile({ 
+          backgroundImage: storageUrl,
+          aiGeneration: {
+            ...profile.aiGeneration,
+            bioGenerated: profile.aiGeneration?.bioGenerated || false,
+            avatarGenerated: profile.aiGeneration?.avatarGenerated || false,
+            backgroundImageGenerated: true
+          }
+        }, { directUpdate: true, skipUIUpdate: true });
         console.log('[Firebase] Background image URL saved to Firestore for user:', profile.userId);
         
         backgroundImageGeneratedRef.current = true;
@@ -344,12 +383,24 @@ export async function orchestrateCompleteAIGeneration(
   },
   saveProfile: SaveProfile
 ): Promise<void> {
-  // Early exit: Check if all content already exists
+  // Initialize refs from persistent flags
+  if (profile.aiGeneration?.bioGenerated) {
+    refs.bioGeneratedRef.current = true;
+  }
+  if (profile.aiGeneration?.avatarGenerated) {
+    refs.avatarGeneratedRef.current = true;
+  }
+  if (profile.aiGeneration?.backgroundImageGenerated) {
+    refs.backgroundImageGeneratedRef.current = true;
+  }
+
+  // Early exit: Check if all content already exists (both content and flags)
   const hasBio = profile.bio && profile.bio.trim() !== '';
   const hasAvatar = profile.profileImage && profile.profileImage.trim() !== '' && !profile.profileImage.includes('default-avatar');
   const hasBackgroundImage = profile.backgroundImage && profile.backgroundImage.trim() !== '';
+  const allGenerated = profile.aiGeneration?.bioGenerated && profile.aiGeneration?.avatarGenerated && profile.aiGeneration?.backgroundImageGenerated;
   
-  if (hasBio && hasAvatar && hasBackgroundImage) {
+  if (hasBio && hasAvatar && hasBackgroundImage && allGenerated) {
     refs.bioGeneratedRef.current = true;
     refs.avatarGeneratedRef.current = true;
     refs.backgroundImageGeneratedRef.current = true;

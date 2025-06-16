@@ -32,4 +32,10 @@ export interface UserProfile {
   backgroundImage: string;
   lastUpdated: number;
   contactChannels: ContactChannels;
+  // AI generation completion flags - persist across sessions
+  aiGeneration?: {
+    bioGenerated: boolean;
+    avatarGenerated: boolean;
+    backgroundImageGenerated: boolean;
+  };
 }

@@ -167,7 +167,6 @@ const EditProfile: React.FC = () => {
     const socialPlatforms: SocialPlatform[] = ['facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'];
     socialPlatforms.forEach(platform => {
       const channel = profileData.contactChannels?.[platform] as { username?: string; userConfirmed?: boolean } | undefined;
-      console.log(`[EditProfile] ${platform} channel:`, channel); // Debug log
       if (channel?.username !== undefined) {
         socialProfiles.push({
           platform,
@@ -178,8 +177,6 @@ const EditProfile: React.FC = () => {
         });
       }
     });
-    
-    console.log('[EditProfile] Final social profiles:', socialProfiles); // Debug log
     
     setFormData({
       name,
@@ -222,7 +219,6 @@ const EditProfile: React.FC = () => {
   useEffect(() => {
     const currentProfile = getLatestProfile() || profile;
     if (currentProfile) {
-      console.log('[EditProfile] Using profile data:', currentProfile); // Debug log
       initializeFormData(currentProfile);
     }
   }, [profile, initializeFormData, getLatestProfile]);

@@ -98,6 +98,23 @@ export async function getFirebaseAdmin(): Promise<AdminServices> {
   }
 }
 
+export async function getProfile(userId: string): Promise<any | null> {
+  try {
+    const { db } = await getFirebaseAdmin();
+    const profileRef = db.collection('profiles').doc(userId);
+    const doc = await profileRef.get();
+    
+    if (!doc.exists) {
+      return null;
+    }
+    
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    console.error(`[getProfile] Error getting profile for user ${userId}:`, error);
+    return null;
+  }
+}
+
 export async function deleteUserProfile(userId: string): Promise<void> {
   try {
     const { db, storage } = await getFirebaseAdmin();
@@ -146,5 +163,21 @@ export async function deleteUserProfile(userId: string): Promise<void> {
   } catch (error) {
     console.error(`[deleteUserProfile] Error deleting profile for user ${userId}:`, error);
     throw error; // Re-throw to be handled by the API route
+  }
+}
+
+export async function getUserBackgroundImage(userId: string): Promise<string | null> {
+  try {
+    const profile = await getProfile(userId);
+    
+    if (!profile || !profile.backgroundImage) {
+      return null;
+    }
+
+    // Return the background image URL
+    return profile.backgroundImage;
+  } catch (error) {
+    console.error(`[getUserBackgroundImage] Error getting background image for user ${userId}:`, error);
+    return null;
   }
 }
