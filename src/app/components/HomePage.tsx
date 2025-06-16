@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from './ui/Button';
 import { Heading } from './ui/Typography';
 
@@ -22,22 +23,21 @@ const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   return (
-    <div 
-      className="flex items-start justify-center pt-[10vh]"
-    >
-      {/* Welcome screen content remains the same */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 'var(--max-content-width, 448px)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          animation: 'fadeIn 0.3s ease-out forwards',
-          padding: '0 1rem'
-        }}
-      >
+    <div className="relative">
+      {/* Main content */}
+      <div className="flex items-start justify-center pt-[10vh]">
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 'var(--max-content-width, 448px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            animation: 'fadeIn 0.3s ease-out forwards',
+            padding: '0 1rem'
+          }}
+        >
         <div 
           style={{ 
             marginBottom: '10px',
@@ -81,6 +81,18 @@ const HomePage: React.FC = () => {
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
           to start nekt&apos;ing
         </p>
+        </div>
+      </div>
+      
+      {/* Footer links positioned at bottom of viewport */}
+      <div className="fixed bottom-0 left-0 right-0 text-center text-sm text-white pb-safe pb-8">
+        <Link href="/privacy" className="hover:text-gray-300 transition-colors">
+          Privacy
+        </Link>
+        <span className="mx-2">|</span>
+        <Link href="/terms" className="hover:text-gray-300 transition-colors">
+          Terms of Use
+        </Link>
       </div>
     </div>
   );
