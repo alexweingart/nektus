@@ -1,133 +1,69 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
+import { useProfile } from '../context/ProfileContext';
 import ProfileSetup from '../components/ProfileSetup';
 import { isNewUser } from '@/lib/services/newUserService';
+import { useViewportLock } from '@/lib/utils/useViewportLock';
 import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
 
-function SetupPageContent() {
+export default function SetupPage() {
+  const { data: session, status } = useSession();
+  const { getLatestProfile, streamingBackgroundImage } = useProfile();
   const searchParams = useSearchParams();
   const error = searchParams?.get('error');
-  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
-  
-  // Use the service to check for new user
-  const userIsNew = isNewUser(session);
-  
-  // ALL HOOKS MUST BE AT TOP LEVEL - No conditional hooks
-  const { isLoading, getLatestProfile, streamingBackgroundImage } = useProfile();
-  const [checkingProfile, setCheckingProfile] = useState<boolean>(!userIsNew || sessionStatus !== 'authenticated');
-  const [shouldShowSetup, setShouldShowSetup] = useState<boolean>(userIsNew && sessionStatus === 'authenticated');
-  
-  // Set up background image using the PWA pattern
-  const currentProfile = getLatestProfile();
-  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  useBodyBackgroundImage(backgroundImageUrl);
-  
-  useEffect(() => {
-    // Only run complex logic for existing users
-    if (userIsNew && sessionStatus === 'authenticated') {
-      return; // Early exit for new users
-    }
-    
-    const checkProfileStatus = async () => {
-      // Wait for session to load
-      if (sessionStatus === 'loading') {
-        return;
-      }
-      
-      if (sessionStatus === 'unauthenticated') {
-        setCheckingProfile(false);
-        return;
-      }
-      
-      if (sessionStatus === 'authenticated' && session?.user) {
-        // EXISTING USER: Check Firebase for profile completeness
-        
-        // For existing users, wait for profile to load
-        if (isLoading) {
-          return;
-        }
-        
-        const currentProfile = getLatestProfile();
-        
-        if (currentProfile) {
-          // Check if profile is complete
-          const hasPhone = currentProfile.contactChannels?.phoneInfo?.internationalPhone && 
-                          currentProfile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
-          
-          if (hasPhone) {
-            router.replace('/');
-            return; // Don't show setup component
-          } else {
-            setShouldShowSetup(true);
-          }
-        } else {
-          setShouldShowSetup(true);
-        }
-      }
-      
-      setCheckingProfile(false);
-    };
-    
-    checkProfileStatus();
-  }, [sessionStatus, isLoading, session, getLatestProfile, router, userIsNew]);
-  
-  // For new users, skip all the complex profile checking
-  if (userIsNew && sessionStatus === 'authenticated') {
-    return (
-      <div className="pull-container">
-        {error && (
-          <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
-            There was a problem with Google sign-in. Please try again.
-          </div>
-        )}
-        <ProfileSetup />
-      </div>
-    );
-  }
-  
-  // Show loading while checking profile status
-  if (checkingProfile) {
-    return (
-      <div className="pull-container flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
-    );
-  }
-  
-  // Don't render setup if we're redirecting
-  if (!shouldShowSetup) {
-    return (
-      <div className="pull-container flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="pull-container">
-      {error && (
-        <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
-          There was a problem with Google sign-in. Please try again.
-        </div>
-      )}
-      <ProfileSetup />
-    </div>
-  );
-}
 
-export default function SetupPage() {
-  return (
-    <Suspense fallback={<div className="pull-container" />}>
-      <SetupPageContent />
-    </Suspense>
-  );
+  // Enable pull-to-refresh
+  useViewportLock({ enablePullToRefresh: true });
+  const currentProfile = getLatestProfile();
+  useBodyBackgroundImage(session ? (streamingBackgroundImage || currentProfile?.backgroundImage) : undefined);
+
+  const userIsNew = isNewUser(session);
+  const isLoading = status === 'loading';
+
+  if (isLoading) {
+    return (
+      <div className="page-container">
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (session && userIsNew) {
+    return (
+      <div className="page-container">
+        <div className="h-[100dvh] overflow-hidden flex flex-col items-center px-4 py-2">
+          {error && (
+            <div className="fixed top-0 left-0 right-0 p-4 bg-destructive text-white text-center font-bold z-50">
+              There was a problem with Google sign-in. Please try again.
+            </div>
+          )}
+          <ProfileSetup />
+        </div>
+      </div>
+    );
+  }
+
+  if (session && !userIsNew) {
+    router.replace('/');
+    return (
+      <div className="page-container">
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+      </div>
+    );
+  }
+
+  router.replace('/');
+  return null;
 }

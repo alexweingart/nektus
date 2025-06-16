@@ -191,10 +191,9 @@ function ProfileSetup() {
     );
   }
 
+  // Render form content without outer wrapper
   return (
-    <div 
-      className="h-screen h-dvh overflow-hidden flex flex-col items-center px-4 pt-8"
-    >
+    <>
       <div className="w-full max-w-[var(--max-content-width,448px)] text-center">
         {/* Main Content */}
         <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
@@ -261,7 +260,7 @@ function ProfileSetup() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

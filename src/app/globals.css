@@ -204,6 +204,22 @@ body.allow-scroll {
   -ms-overflow-style: none; /* IE and Edge */
 }
 
+/* When keyboard is up, reduce height to prevent scrolling past background */
+@media screen and (max-height: 600px) {
+  .page-container {
+    height: 70vh;
+    height: 70dvh;
+    overflow: hidden; /* Prevent scrolling when keyboard is up */
+  }
+  
+  /* Also constrain any inner containers */
+  .page-container > div {
+    height: 70vh !important;
+    height: 70dvh !important;
+    overflow: hidden !important;
+  }
+}
+
 .page-container::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
@@ -483,5 +499,21 @@ select {
 }
 
 .pull-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Setup page container to account for keyboard */
+.setup-page-container {
+  height: 80vh; /* Reduced height to account for keyboard */
+  height: 80dvh;
+  width: 100%;
+  overflow: hidden; /* Prevent scrolling when keyboard is up */
+  overscroll-behavior-y: auto; /* Still allow pull-to-refresh */
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.setup-page-container::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
