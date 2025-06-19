@@ -31,6 +31,18 @@ const nextConfig = {
       };
     }
     
+    // Handle WebAssembly modules
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+    
+    // Exclude problematic modules
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'farmhash-modern': false,
+    };
+    
     // Add case sensitive paths check in development
     if (dev) {
       config.plugins.push(new CaseSensitivePathsPlugin());

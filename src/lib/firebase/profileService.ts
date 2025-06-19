@@ -6,9 +6,12 @@ import {
   updateDoc, 
   deleteDoc,
   onSnapshot,
-  FirestoreError
+  FirestoreError,
+  collection,
+  getDocs
 } from 'firebase/firestore';
 import { UserProfile } from '@/types/profile';
+import type { SavedContact } from '@/types/contactExchange';
 
 /**
  * Ensures Firebase is initialized and returns the Firestore instance
@@ -196,6 +199,59 @@ export const ProfileService = {
         console.error('Failed to delete profile:', error);
       }
       throw error;
+    }
+  },
+
+  /**
+   * Saves a contact to the user's contacts collection
+   */
+  async saveContact(userId: string, contact: SavedContact): Promise<void> {
+    try {
+      const firestore = await ensureInitialized();
+      if (!firestore) {
+        console.warn('Cannot save contact: Firebase not initialized');
+        return;
+      }
+      
+      // Use the contact's userId as the document ID to prevent duplicates
+      const contactRef = doc(firestore, 'profiles', userId, 'contacts', contact.userId);
+      await setDoc(contactRef, contact);
+      console.log('Saved contact for user:', userId);
+    } catch (error) {
+      const firestoreError = error as FirestoreError;
+      if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+        console.warn('Permission denied when saving contact. User may not have sufficient permissions.');
+      } else {
+        console.error('Failed to save contact:', error);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Gets all contacts for a user
+   */
+  async getContacts(userId: string): Promise<SavedContact[]> {
+    try {
+      const firestore = await ensureInitialized();
+      if (!firestore) {
+        console.warn('Cannot get contacts: Firebase not initialized');
+        return [];
+      }
+      
+      const contactsRef = collection(firestore, 'profiles', userId, 'contacts');
+      const snapshot = await getDocs(contactsRef);
+      
+      return snapshot.docs.map(doc => doc.data() as SavedContact);
+    } catch (error) {
+      const firestoreError = error as FirestoreError;
+      if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+        console.warn('Permission denied when getting contacts. User may not have sufficient permissions.');
+        return [];
+      } else {
+        console.error('Failed to get contacts:', error);
+        return [];
+      }
     }
   }
 };

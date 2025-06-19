@@ -9,6 +9,7 @@ import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
+import { ExchangeButton } from './ExchangeButton';
 import type { UserProfile } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from './ui/Typography';
@@ -274,15 +275,7 @@ const ProfileView: React.FC = () => {
         
         {/* Action Buttons */}
         <div className="w-full mt-4 mb-4" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
-          <Link href="/connect" className="w-full">
-            <Button 
-              variant="theme"
-              size="lg"
-              className="w-full font-bold text-lg"
-            >
-              Nekt
-            </Button>
-          </Link>
+          <ExchangeButton />
         </div>
       </div>
     </div>
