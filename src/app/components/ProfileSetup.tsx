@@ -130,10 +130,11 @@ function ProfileSetup() {
       
       try {
         // Save only the phone-related fields (preserves bio and other data)
+        console.log('[ProfileSetup] Starting save for phone data:', phoneUpdateData);
         const updatedProfile = await saveProfile(phoneUpdateData);
         
         if (updatedProfile) {
-          console.log('[Firebase] Saved phone data to Firestore for user:', updatedProfile.userId);
+          console.log('[ProfileSetup] Successfully saved phone data to Firestore for user:', updatedProfile.userId);
           
           // Navigate immediately without resetting saving state
           router.push('/');
@@ -142,7 +143,7 @@ function ProfileSetup() {
           throw new Error('Failed to save profile - no updated profile returned');
         }
       } catch (saveError) {
-        console.error('Error in saveProfile call:', saveError);
+        console.error('[ProfileSetup] Error in saveProfile call:', saveError);
         // Only reset saving state on error
         setIsSaving(false);
         throw saveError; // Re-throw to be caught by the outer catch
@@ -167,6 +168,18 @@ function ProfileSetup() {
       navigationAttemptedRef.current = true;
     }
   }, [hasCompleteProfile, isSaving, isRedirecting]);
+
+  // Safety timeout to reset saving state if it gets stuck
+  useEffect(() => {
+    if (isSaving) {
+      const timeoutId = setTimeout(() => {
+        console.warn('[ProfileSetup] Save operation timeout - resetting saving state');
+        setIsSaving(false);
+      }, 30000); // 30 second timeout
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isSaving]);
 
   // Show loading state while checking auth status or loading profile
   // Don't show loading if we have a valid session but status is temporarily 'loading' due to session updates

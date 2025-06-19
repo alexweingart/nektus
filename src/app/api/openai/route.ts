@@ -264,7 +264,7 @@ async function generateBio(profile: ProfileData) {
         content: [
           {
             type: 'input_text',
-            text: `Generate a hyper-personalized bio for a person named ${profile.name}. The bio should be no more than 20 words. Only return the bio text, nothing else. Do not mention their name in the bio. You should always come up with something unique and creative.`
+            text: `Generate a hyper-personalized bio for a person named ${profile.name}. The bio should be no more than 14 words. Only return the bio text, nothing else. Do not mention their name in the bio. You should always come up with something unique and creative.`
           }
         ]
       }

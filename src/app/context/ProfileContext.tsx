@@ -218,8 +218,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    // Wait for any ongoing save operations to complete
+    // Wait for any ongoing save operations to complete, with timeout
+    const maxWaitTime = 30000; // 30 seconds max wait
+    const waitStartTime = Date.now();
     while (savingRef.current) {
+      if (Date.now() - waitStartTime > maxWaitTime) {
+        console.warn('[ProfileContext] Timeout waiting for ongoing save operation, proceeding anyway');
+        savingRef.current = false; // Reset the lock
+        break;
+      }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
@@ -231,6 +238,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       data.contactChannels?.phoneInfo && 
       data.contactChannels.phoneInfo.internationalPhone && 
       data.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+    
+    console.log('[ProfileContext] Save operation starting:', {
+      wasFormSubmission,
+      directUpdate: options.directUpdate,
+      skipUIUpdate: options.skipUIUpdate,
+      hasPhoneData: !!data.contactChannels?.phoneInfo,
+      sessionUpdatedRef: sessionUpdatedRef.current
+    });
+    
     if (wasFormSubmission) {
       setIsSaving(true);
     }
@@ -267,17 +283,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // Save to Firebase
       try {
+        console.log('[ProfileContext] Saving profile to Firebase...');
         await ProfileService.saveProfile(merged);
+        console.log('[ProfileContext] Firebase save completed successfully');
         
         // Update the ref with the latest saved data
         profileRef.current = merged;
         
         // Update session with new phone info ONLY for form submissions
         // This prevents session update cascades that cause profile reloads
+        const currentSessionPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone;
+        const newPhone = merged.contactChannels?.phoneInfo?.internationalPhone;
+        
         const shouldUpdateSession = wasFormSubmission && 
-                                  merged.contactChannels?.phoneInfo &&
-                                  merged.contactChannels.phoneInfo.internationalPhone &&
-                                  !sessionUpdatedRef.current;
+                                  newPhone &&
+                                  currentSessionPhone !== newPhone; // Check if phone actually changed
                                   
         if (shouldUpdateSession && update) {
           const phoneData = {
@@ -293,10 +313,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           };
           
           try {
-            await update(phoneData);
-            sessionUpdatedRef.current = true; // Mark as updated to prevent repeated updates
+            // Add timeout to prevent hanging on session update
+            const sessionUpdatePromise = update(phoneData);
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Session update timeout')), 10000)
+            );
+            
+            await Promise.race([sessionUpdatePromise, timeoutPromise]);
+            console.log('[ProfileContext] Session updated successfully with phone data');
+            // Note: We don't set sessionUpdatedRef here since this is for a specific phone number change
           } catch (error) {
             console.error('[ProfileContext] Error updating session:', error);
+            // Don't throw here - session update failure shouldn't prevent profile save success
           }
         }
       } catch (error) {
@@ -308,7 +336,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.error('[ProfileContext] Error saving profile:', error);
       throw error;
     } finally {
-      // Always release the saving lock
+      // Always release the saving lock and reset saving state
+      console.log('[ProfileContext] Cleaning up save operation state');
       savingRef.current = false;
       if (wasFormSubmission) {
         setIsSaving(false);
