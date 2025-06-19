@@ -220,9 +220,9 @@ export async function POST(
       );
     }
 
-    // Verify user is part of this exchange
-    const isUserA = matchData.userA === session.user.email;
-    const isUserB = matchData.userB === session.user.email;
+    // Verify user is part of this exchange (compare user IDs, not emails)
+    const isUserA = matchData.userA === session.user.id;
+    const isUserB = matchData.userB === session.user.id;
     
     if (!isUserA && !isUserB) {
       return NextResponse.json(
@@ -233,14 +233,14 @@ export async function POST(
 
     if (accept) {
       // User accepted - get the other user's profile and return it
-      const otherUserEmail = isUserA ? matchData.userB : matchData.userA;
+      const otherUserId = isUserA ? matchData.userB : matchData.userA;
       
       try {
-        const otherUserProfile = await getProfile(otherUserEmail);
+        const otherUserProfile = await getProfile(otherUserId);
         
         if (otherUserProfile) {
           // TODO: Notify the other user via real-time connection
-          console.log(`User ${session.user.email} accepted exchange with ${otherUserEmail}`);
+          console.log(`User ${session.user.email} accepted exchange with ${otherUserId}`);
           
           return NextResponse.json({
             success: true,
@@ -292,8 +292,9 @@ export async function POST(
       
     } else {
       // User rejected
+      console.log(`User ${session.user.email} rejected exchange with token ${token}`);
+      
       // TODO: Notify the other user via real-time connection
-      console.log(`User ${session.user.email} rejected exchange`);
       
       return NextResponse.json({
         success: true,

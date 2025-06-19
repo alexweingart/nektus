@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request
     const exchangeRequest: ContactExchangeRequest = await request.json();
+    const tReceived = Date.now(); // Server receive time
     
     // Validate required fields
     if (!exchangeRequest.session || !exchangeRequest.ts) {
@@ -92,14 +93,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate timestamp (not too old, not in future)
+    // Calculate timing deltas for diagnostics
     const now = Date.now();
-    const timeDiff = Math.abs(now - exchangeRequest.ts);
-    const clientDelay = now - exchangeRequest.ts; // positive = client timestamp is in the past
+    const clientTimestamp = exchangeRequest.ts;
+    const timeDiff = Math.abs(now - clientTimestamp);
+    const clockSkew = now - clientTimestamp; // positive = client clock is behind server
     
-    console.log(`⏰ Timestamp validation: Server time: ${now}, Client time: ${exchangeRequest.ts}, Delay: ${clientDelay}ms`);
+    // Calculate network delay: tReceived - tSent (if tSent is provided)
+    const networkDelay = exchangeRequest.tSent ? (tReceived - (clientTimestamp + exchangeRequest.tSent - performance.now())) : undefined;
     
+    console.log(`📊 TIMING BREAKDOWN:
+      - Server receive time: ${tReceived}
+      - Client timestamp (sync'd): ${clientTimestamp}
+      - Clock skew: ${clockSkew}ms (positive = client behind)
+      - Time diff: ${timeDiff}ms
+      - Network delay estimate: ${networkDelay ? `${networkDelay.toFixed(1)}ms` : 'N/A'}
+      - Client RTT: ${exchangeRequest.rtt || 'N/A'}ms`);
+    
+    // Validate timestamp (not too old, not in future)
     if (timeDiff > 10000) { // 10 seconds tolerance
+      console.warn(`❌ Timestamp rejected: ${timeDiff}ms difference`);
       return NextResponse.json(
         { success: false, message: 'Request timestamp is invalid' },
         { status: 400 }
@@ -131,8 +144,9 @@ export async function POST(request: NextRequest) {
       exchangeRequest.session, 
       clientIP,
       null, // location - we'll use IP-based geo instead
-      3000, // 3 second time window for testing (more forgiving)
-      exchangeRequest.ts // pass timestamp for time-based matching
+      500, // 500ms time window (precise timing with clock sync)
+      exchangeRequest.ts, // pass timestamp for time-based matching
+      exchangeRequest.rtt // pass RTT for dynamic window calculation
     );
     console.log(`🔍 Match result:`, matchResult);
 
@@ -195,8 +209,9 @@ export async function POST(request: NextRequest) {
         exchangeRequest.session, 
         clientIP,
         null,
-        3000, // 3 second time window
-        exchangeRequest.ts
+        500, // 500ms time window (precise timing with clock sync)
+        exchangeRequest.ts,
+        exchangeRequest.rtt // pass RTT for dynamic window calculation
       );
       
       if (secondMatchResult) {

@@ -234,13 +234,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
           </Button>
           
           {/* Reject Button (Secondary) */}
-          <button
-            onClick={onReject}
-            disabled={isLoading}
-            className="w-full text-white/70 hover:text-white text-sm transition-colors disabled:opacity-50"
-          >
-            Nah, who this
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={onReject}
+              disabled={isLoading}
+              className="bg-white/80 px-3 py-1 rounded-xl text-black hover:bg-white text-sm transition-colors disabled:opacity-50"
+            >
+              Nah, who this
+            </button>
+          </div>
         </div>
       </div>
     </div>

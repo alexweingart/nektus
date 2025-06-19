@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/Button';
+import { initializeClockSync } from '@/lib/utils/clockSync';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
 interface ExchangeButtonProps {
@@ -20,6 +21,25 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const [status, setStatus] = useState<ExchangeStatus>('idle');
   const [exchangeService, setExchangeService] = useState<any>(null);
   const [useRealTime, setUseRealTime] = useState(true); // Toggle for testing - default to real-time
+
+  // Initialize clock sync on component mount
+  useEffect(() => {
+    const initClockSync = async () => {
+      try {
+        console.log('⏰ Initializing clock sync on page load...');
+        const success = await initializeClockSync();
+        if (success) {
+          console.log('✅ Clock sync initialized successfully');
+        } else {
+          console.warn('⚠️ Clock sync initialization failed');
+        }
+      } catch (error) {
+        console.error('❌ Clock sync error:', error);
+      }
+    };
+    
+    initClockSync();
+  }, []); // Run once on mount
 
   // Initialize exchange service when needed
   const initializeService = async () => {
@@ -41,12 +61,12 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           
           // Handle timeout - reset to idle after delay
           if (state.status === 'timeout') {
-            setTimeout(() => setStatus('idle'), 3000);
+            setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
           }
           
           // Handle error - reset to idle after delay  
           if (state.status === 'error') {
-            setTimeout(() => setStatus('idle'), 3000);
+            setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
           }
         });
         setExchangeService(service);
@@ -64,12 +84,12 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           
           // Handle timeout - reset to idle after delay
           if (state.status === 'timeout') {
-            setTimeout(() => setStatus('idle'), 3000);
+            setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
           }
           
           // Handle error - reset to idle after delay  
           if (state.status === 'error') {
-            setTimeout(() => setStatus('idle'), 3000);
+            setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
           }
         });
         setExchangeService(service);
@@ -101,14 +121,14 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         
         if (permission !== 'granted') {
           setStatus('error');
-          setTimeout(() => setStatus('idle'), 3000);
+          setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
           return;
         }
         permissionGranted = true;
       } catch (error) {
         console.error('❌ iOS permission request failed:', error);
         setStatus('error');
-        setTimeout(() => setStatus('idle'), 3000);
+        setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
         return;
       }
     } else {
@@ -144,7 +164,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       setStatus('error');
       
       // Reset to idle after showing error
-      setTimeout(() => setStatus('idle'), 3000);
+      setTimeout(() => setStatus('idle'), 2000); // Reduced from 3000 to 2000ms
     }
   };
 
@@ -179,15 +199,15 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-            <span>Finding Match...</span>
+            <span>Waiting for Match...</span>
           </div>
         );
       
       case 'timeout':
-        return 'Try Again';
+        return 'Timed Out - Try Again';
       
       case 'error':
-        return 'Try Again';
+        return 'Error - Try Again';
       
       default:
         return 'Nekt';

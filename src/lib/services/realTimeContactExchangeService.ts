@@ -4,6 +4,7 @@
  */
 
 import { MotionDetector } from '@/lib/utils/motionDetector';
+import { initializeClockSync, isClockSyncInitialized, getServerNow, getClockSyncInfo } from '@/lib/utils/clockSync';
 import type { 
   ContactExchangeRequest, 
   ContactExchangeResponse,
@@ -27,6 +28,8 @@ export class RealTimeContactExchangeService {
   private state: ContactExchangeState;
   private onStateChange?: (state: ContactExchangeState) => void;
   private motionDetectionCancelled: boolean = false;
+  private waitingForBumpTimeout: NodeJS.Timeout | null = null;
+  private waitingForMatchTimeout: NodeJS.Timeout | null = null;
 
   constructor(sessionId: string, onStateChange?: (state: ContactExchangeState) => void) {
     this.sessionId = sessionId;
@@ -47,6 +50,19 @@ export class RealTimeContactExchangeService {
   async startExchange(permissionAlreadyGranted: boolean = false): Promise<void> {
     try {
       console.log('🚀 Starting exchange process...');
+      
+      // Initialize clock sync first thing
+      if (!isClockSyncInitialized()) {
+        console.log('⏰ Initializing clock synchronization...');
+        const syncSuccess = await initializeClockSync();
+        if (!syncSuccess) {
+          console.warn('⚠️ Clock sync failed, using local time (may cause timestamp issues)');
+        } else {
+          console.log('✅ Clock synchronization initialized');
+        }
+      } else {
+        console.log('✅ Clock sync already initialized');
+      }
       
       // Log to server for debugging
       await this.logToServer('exchange_start', `Exchange started, permission already granted: ${permissionAlreadyGranted}`);
@@ -85,6 +101,14 @@ export class RealTimeContactExchangeService {
       this.updateState({ status: 'waiting-for-bump' });
       console.log('✅ Ready for motion detection - waiting for bump...');
       await this.logToServer('waiting_for_bump', 'Now waiting for motion detection');
+      
+      // Set 30-second timeout for waiting for bump
+      this.waitingForBumpTimeout = setTimeout(() => {
+        console.log('⏰ Waiting for bump timed out after 30 seconds');
+        this.logToServer('bump_timeout', 'Waiting for bump timed out after 30 seconds');
+        this.updateState({ status: 'timeout' });
+        this.disconnect();
+      }, 30000); // 30 seconds
       
       // Start the motion detection loop
       await this.waitForBump(true);
@@ -165,6 +189,16 @@ export class RealTimeContactExchangeService {
    * Disconnect and cleanup
    */
   disconnect(): void {
+    // Clear any active timeouts
+    if (this.waitingForBumpTimeout) {
+      clearTimeout(this.waitingForBumpTimeout);
+      this.waitingForBumpTimeout = null;
+    }
+    if (this.waitingForMatchTimeout) {
+      clearTimeout(this.waitingForMatchTimeout);
+      this.waitingForMatchTimeout = null;
+    }
+    
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -235,7 +269,11 @@ export class RealTimeContactExchangeService {
         break;
         
       case 'match':
-        // We got a match! Load the matched user's profile
+        // We got a match! Clear the waiting timeout and load the matched user's profile
+        if (this.waitingForMatchTimeout) {
+          clearTimeout(this.waitingForMatchTimeout);
+          this.waitingForMatchTimeout = null;
+        }
         this.handleMatch(message.token, message.youAre);
         break;
         
@@ -328,11 +366,20 @@ export class RealTimeContactExchangeService {
 
         console.log('🎯 Motion detected! Sending hit to server...');
         
+        // Clear the waiting for bump timeout since we detected motion
+        if (this.waitingForBumpTimeout) {
+          clearTimeout(this.waitingForBumpTimeout);
+          this.waitingForBumpTimeout = null;
+        }
+        
         // Prepare exchange request - use the timestamp from when motion was actually detected
+        const tSent = performance.now(); // Capture when we're about to send
         const request: ContactExchangeRequest = {
-          ts: motionResult.timestamp || Date.now(), // Use motion detection timestamp, fallback to now
+          ts: motionResult.timestamp || getServerNow(), // Use motion detection timestamp (already synchronized)
           mag: motionResult.magnitude,
-          session: this.sessionId
+          session: this.sessionId,
+          // Add diagnostic timing fields (for performance analysis)
+          tSent: tSent // When we're sending the request
         };
 
         // Add vector hash if motion was detected
@@ -345,13 +392,26 @@ export class RealTimeContactExchangeService {
 
         // Send hit to server (only now, after motion is detected)
         this.updateState({ status: 'processing' });
+        
+        // Set 10-second timeout for waiting for match after sending hit
+        this.waitingForMatchTimeout = setTimeout(() => {
+          console.log('⏰ Waiting for match timed out after 10 seconds');
+          this.logToServer('match_timeout', 'Waiting for match timed out after 10 seconds');
+          this.updateState({ status: 'timeout' });
+          this.disconnect();
+        }, 10000); // 10 seconds
+        
         const response = await this.sendHit(request);
 
-        // If we got an immediate match, handle it
+        // If we got an immediate match, handle it and clear timeout
         if (response.matched && response.token) {
+          if (this.waitingForMatchTimeout) {
+            clearTimeout(this.waitingForMatchTimeout);
+            this.waitingForMatchTimeout = null;
+          }
           await this.handleMatch(response.token, response.youAre || 'A');
         }
-        // Otherwise, wait for real-time notification via EventSource
+        // Otherwise, wait for real-time notification via EventSource (timeout will handle if no match)
         
         break; // Exit the loop after successful motion detection and hit
         
@@ -423,13 +483,22 @@ export class RealTimeContactExchangeService {
   }
 
   private async estimateRTT(): Promise<number> {
-    // Simple RTT estimation
-    const start = Date.now();
+    // Use clock sync RTT if available, otherwise measure fresh
+    const clockSyncInfo = getClockSyncInfo();
+    if (clockSyncInfo?.roundTripTime) {
+      console.log(`📊 Using clock sync RTT: ${clockSyncInfo.roundTripTime.toFixed(1)}ms`);
+      return clockSyncInfo.roundTripTime;
+    }
     
+    // Fallback to fresh measurement
+    const start = performance.now();
     try {
       await fetch('/api/ping', { method: 'HEAD' });
-      return Date.now() - start;
+      const rtt = performance.now() - start;
+      console.log(`📊 Measured fresh RTT: ${rtt.toFixed(1)}ms`);
+      return rtt;
     } catch {
+      console.log('📊 RTT measurement failed, using fallback: 100ms');
       return 100; // Default fallback
     }
   }
@@ -443,7 +512,7 @@ export class RealTimeContactExchangeService {
           event, 
           message, 
           sessionId: this.sessionId,
-          timestamp: Date.now() 
+          timestamp: getServerNow() 
         })
       });
     } catch (error) {

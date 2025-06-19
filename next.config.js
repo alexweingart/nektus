@@ -111,7 +111,7 @@ const config = process.env.NODE_ENV === 'production'
       dest: "public",
       register: true,
       skipWaiting: true,
-      disable: true, // Temporarily disable PWA
+      disable: false, // PWA enabled
       cacheOnFrontEndNav: true,
       disableDevLogs: true,
       // buildExcludes: [

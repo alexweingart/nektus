@@ -1,11 +1,12 @@
 import { UserProfile } from './profile';
 
 export interface ContactExchangeRequest {
-  ts: number;        // client timestamp in ms
+  ts: number;        // client timestamp in ms (synchronized with server)
   rtt?: number;      // round trip time from NTP sync
   mag: number;       // acceleration magnitude 
   vector?: string;   // SHA-256 hash of acceleration vector
   session: string;   // WebSocket session ID
+  tSent?: number;    // Performance timing when request was sent (for diagnostics)
 }
 
 export interface ContactExchangeMatch {

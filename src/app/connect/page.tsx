@@ -108,10 +108,13 @@ function ConnectPageContent() {
         body: JSON.stringify({ accept: false })
       });
 
+      const data = await response.json();
+      console.log('Reject response:', { ok: response.ok, status: response.status, data });
+
       if (response.ok) {
-        console.log('Contact rejected');
+        console.log('Contact rejected successfully');
       } else {
-        console.error('Failed to reject contact');
+        console.error('Failed to reject contact - Server error:', data);
       }
     } catch (error) {
       console.error('Error rejecting contact:', error);

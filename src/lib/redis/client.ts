@@ -120,7 +120,8 @@ export async function findMatchingExchange(
   clientIP: string,
   location: { lat: number; lng: number } | null,
   timeWindowMs: number = 1000, // 1 second default
-  currentTimestamp?: number
+  currentTimestamp?: number,
+  currentRTT?: number // Add current request's RTT for better matching
 ): Promise<{ sessionId: string; matchData: any } | null> {
   try {
     // Use Upstash Redis if available
@@ -163,9 +164,15 @@ export async function findMatchingExchange(
         // Time-based matching: find the closest timestamp within window
         if (currentTimestamp) {
           const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
-          console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms`);
           
-          if (timeDiff <= timeWindowMs) {
+          // Adjust time window based on RTT compensation (as suggested in the user's guidance)
+          const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
+          const rttB = currentRTT || 100; // Use current request's RTT or fallback
+          const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
+          
+          console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
+          
+          if (timeDiff <= dynamicWindow) {
             // Within time window - check if this is the best match so far
             if (!bestMatch || timeDiff < bestMatch.timeDiff) {
               bestMatch = {
