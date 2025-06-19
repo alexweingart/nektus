@@ -16,6 +16,15 @@ export const ExchangeFlow: React.FC = () => {
   const [exchangeService, setExchangeService] = useState<any>(null);
   const [needsUserInteraction, setNeedsUserInteraction] = useState(false);
 
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔄 CLIENT: ExchangeFlow state changed:', {
+      status: exchangeState.status,
+      hasMatch: !!exchangeState.match,
+      profileName: exchangeState.match?.profile?.name
+    });
+  }, [exchangeState]);
+
   // Dynamically import the service to avoid build-time bundling issues
   useEffect(() => {
     const initializeService = async () => {
@@ -260,6 +269,12 @@ export const ExchangeFlow: React.FC = () => {
         );
 
       case 'matched':
+        console.log('🎯 CLIENT: ExchangeFlow showing matched state', {
+          hasMatch: !!exchangeState.match,
+          hasProfile: !!exchangeState.match?.profile,
+          profileName: exchangeState.match?.profile?.name
+        });
+        
         if (!exchangeState.match?.profile) {
           return (
             <div className="flex items-center justify-center min-h-screen">

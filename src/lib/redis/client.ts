@@ -86,14 +86,19 @@ export async function storePendingExchange(
     // Use Upstash Redis if available
     if (isRedisAvailable()) {
       const key = `pending_exchange:${sessionId}`;
-      const ipBucketKey = `ip_bucket:${exchangeData.clientIP}`;
+      
+      // Use broader geographic bucket based on IP prefix
+      const ipPrefix = exchangeData.ipBlock.split('.').slice(0, 2).join('.');
+      const geoBucketKey = `geo_bucket:${ipPrefix}`;
       
       // Store the exchange data with TTL
       await redis!.setex(key, ttlSeconds, JSON.stringify(exchangeData));
       
-      // Add session to IP bucket for matching
-      await redis!.sadd(ipBucketKey, sessionId);
-      await redis!.expire(ipBucketKey, ttlSeconds);
+      // Add session to geographic bucket for matching
+      await redis!.sadd(geoBucketKey, sessionId);
+      await redis!.expire(geoBucketKey, ttlSeconds);
+      
+      console.log(`💾 Stored pending exchange ${sessionId} in geo bucket ${geoBucketKey}`);
       return;
     }
 
@@ -108,51 +113,93 @@ export async function storePendingExchange(
 }
 
 /**
- * Find matching exchange with Upstash Redis or fallback
+ * Find matching exchange with improved time-based + broad geography matching
  */
 export async function findMatchingExchange(
   sessionId: string,
   clientIP: string,
   location: { lat: number; lng: number } | null,
-  toleranceMeters: number = 50
+  timeWindowMs: number = 1000, // 1 second default
+  currentTimestamp?: number
 ): Promise<{ sessionId: string; matchData: any } | null> {
   try {
     // Use Upstash Redis if available
     if (isRedisAvailable()) {
-      const ipBucketKey = `ip_bucket:${clientIP}`;
+      // Get broad geography from IP (city/region level)
+      const ipPrefix = clientIP.split('.').slice(0, 2).join('.'); // Broader IP matching (/16 instead of /24)
+      const geoBucketKey = `geo_bucket:${ipPrefix}`;
       
-      // Get all candidates with the same IP
-      const candidates = await redis!.smembers(ipBucketKey) as string[];
+      // Get all candidates in the same broad geographic area
+      const candidates = await redis!.smembers(geoBucketKey) as string[];
+      
+      console.log(`🔍 Geo bucket ${geoBucketKey} contains ${candidates.length} candidates:`, candidates);
+      
+      let bestMatch: { sessionId: string; matchData: any; timeDiff: number } | null = null;
+      
       
       for (const candidateSessionId of candidates) {
         if (candidateSessionId === sessionId) continue;
         
+        console.log(`🔍 Checking candidate: ${candidateSessionId}`);
+        
         const candidateKey = `pending_exchange:${candidateSessionId}`;
-        const candidateDataStr = await redis!.get<string>(candidateKey);
+        const candidateDataStr = await redis!.get(candidateKey);
         
         if (!candidateDataStr) {
           // Clean up stale session from bucket
-          await redis!.srem(ipBucketKey, candidateSessionId);
+          console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket`);
+          await redis!.srem(geoBucketKey, candidateSessionId);
           continue;
         }
         
-        const candidateData = JSON.parse(candidateDataStr);
-        
-        // Check location tolerance if both have locations
-        if (location && candidateData.location) {
-          const distance = calculateDistance(location, candidateData.location);
-          if (distance > toleranceMeters) {
-            continue;
-          }
+        // Handle both string and object responses from Redis
+        let candidateData;
+        if (typeof candidateDataStr === 'string') {
+          candidateData = JSON.parse(candidateDataStr);
+        } else {
+          candidateData = candidateDataStr; // Already an object
         }
         
-        // Found a match! Clean up the candidate
+        // Time-based matching: find the closest timestamp within window
+        if (currentTimestamp) {
+          const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+          console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms`);
+          
+          if (timeDiff <= timeWindowMs) {
+            // Within time window - check if this is the best match so far
+            if (!bestMatch || timeDiff < bestMatch.timeDiff) {
+              bestMatch = {
+                sessionId: candidateSessionId,
+                matchData: candidateData,
+                timeDiff
+              };
+            }
+          }
+        } else {
+          // Fallback to immediate match (original behavior)
+          // Clean up the candidate
+          await redis!.del(candidateKey);
+          await redis!.srem(geoBucketKey, candidateSessionId);
+          
+          return {
+            sessionId: candidateSessionId,
+            matchData: candidateData
+          };
+        }
+      }
+      
+      // If we found a best match within time window, use it
+      if (bestMatch) {
+        console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms`);
+        
+        // Clean up the matched candidate
+        const candidateKey = `pending_exchange:${bestMatch.sessionId}`;
         await redis!.del(candidateKey);
-        await redis!.srem(ipBucketKey, candidateSessionId);
+        await redis!.srem(geoBucketKey, bestMatch.sessionId);
         
         return {
-          sessionId: candidateSessionId,
-          matchData: candidateData
+          sessionId: bestMatch.sessionId,
+          matchData: bestMatch.matchData
         };
       }
       
@@ -167,7 +214,7 @@ export async function findMatchingExchange(
     const { findMatchingExchangeFallback } = await import('@/lib/services/fallbackExchangeService');
     const fallbackResult = findMatchingExchangeFallback(
       sessionId, 
-      { clientIP, location, toleranceMeters }
+      { clientIP, location, timeWindowMs, currentTimestamp }
     );
     
     // Convert fallback result to match expected format
@@ -241,13 +288,32 @@ export async function getExchangeMatch(token: string): Promise<any | null> {
     // Use Upstash Redis if available
     if (isRedisAvailable()) {
       const key = `exchange_match:${token}`;
-      const matchDataStr = await redis!.get<string>(key);
+      console.log(`🔍 Getting exchange match for token: ${token}`);
+      
+      const matchDataStr = await redis!.get(key);
       
       if (!matchDataStr) {
+        console.log(`❌ No match found for token: ${token}`);
         return null;
       }
       
-      return JSON.parse(matchDataStr);
+      console.log(`📄 Raw match data from Redis:`, typeof matchDataStr, matchDataStr);
+      
+      // Handle both string and object responses from Redis
+      if (typeof matchDataStr === 'string') {
+        try {
+          const parsed = JSON.parse(matchDataStr);
+          console.log(`✅ Successfully parsed match data:`, parsed);
+          return parsed;
+        } catch (parseError) {
+          console.error(`❌ JSON parse error for match data:`, parseError);
+          console.error(`❌ Problematic data:`, matchDataStr);
+          throw parseError;
+        }
+      } else {
+        console.log(`✅ Match data already an object:`, matchDataStr);
+        return matchDataStr; // Already an object
+      }
     }
 
     // Fallback to in-memory storage
@@ -277,6 +343,34 @@ export async function storeSseConnection(sessionId: string, data: any): Promise<
     
   } catch (error) {
     console.warn('SSE connection storage failed:', error);
+  }
+}
+
+/**
+ * Remove a pending exchange from Redis
+ */
+export async function removePendingExchange(sessionId: string, clientIP: string): Promise<void> {
+  try {
+    if (isRedisAvailable()) {
+      const key = `pending_exchange:${sessionId}`;
+      const ipPrefix = clientIP.split('.').slice(0, 2).join('.');
+      const geoBucketKey = `geo_bucket:${ipPrefix}`;
+      
+      // Remove the pending exchange data
+      await redis!.del(key);
+      
+      // Remove from geographic bucket
+      await redis!.srem(geoBucketKey, sessionId);
+      
+      console.log(`🗑️ Removed pending exchange ${sessionId} from geo bucket ${geoBucketKey}`);
+      return;
+    }
+
+    // Fallback: no-op (in-memory storage will naturally expire)
+    console.log(`🗑️ Fallback: skipping removal for session ${sessionId}`);
+    
+  } catch (error) {
+    console.warn('Redis removal failed:', error);
   }
 }
 

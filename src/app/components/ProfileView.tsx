@@ -180,8 +180,26 @@ const ProfileView: React.FC = () => {
           
           {/* Contact Icons */}
           <div className="w-full">
-            {/* First row - 5 icons with equal spacing */}
+            {/* First row - icons with equal spacing */}
             <div className="flex flex-wrap justify-center gap-4">
+            {currentProfile?.contactChannels?.phoneInfo?.internationalPhone && (
+              <a 
+                href={`tel:${currentProfile.contactChannels.phoneInfo.internationalPhone}`}
+                className="text-white hover:text-green-300 transition-colors"
+              >
+                <SocialIcon platform="phone" username={currentProfile.contactChannels.phoneInfo.internationalPhone} size="md" variant="white" />
+              </a>
+            )}
+            
+            {currentProfile?.contactChannels?.email?.email && (
+              <a 
+                href={`mailto:${currentProfile.contactChannels.email.email}`}
+                className="text-white hover:text-blue-300 transition-colors"
+              >
+                <SocialIcon platform="email" username={currentProfile.contactChannels.email.email} size="md" variant="white" />
+              </a>
+            )}
+            
             {currentProfile?.contactChannels?.facebook?.username && (
               <a 
                 href={`https://facebook.com/${currentProfile.contactChannels.facebook.username}`} 
@@ -220,7 +238,7 @@ const ProfileView: React.FC = () => {
                 href={`https://wa.me/${currentProfile.contactChannels.whatsapp.username}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-white hover:text-[hsl(var(--background))] transition-colors"
+                className="text-white hover:text-green-300 transition-colors"
               >
                 <SocialIcon platform="whatsapp" username={currentProfile.contactChannels.whatsapp.username} size="md" variant="white" />
               </a>

@@ -11,7 +11,8 @@ import {
   checkRateLimit,
   storePendingExchange,
   findMatchingExchange,
-  storeExchangeMatch
+  storeExchangeMatch,
+  removePendingExchange
 } from '@/lib/redis/client';
 import { sendToSession } from '@/lib/utils/sseHelpers';
 
@@ -94,6 +95,9 @@ export async function POST(request: NextRequest) {
     // Validate timestamp (not too old, not in future)
     const now = Date.now();
     const timeDiff = Math.abs(now - exchangeRequest.ts);
+    const clientDelay = now - exchangeRequest.ts; // positive = client timestamp is in the past
+    
+    console.log(`⏰ Timestamp validation: Server time: ${now}, Client time: ${exchangeRequest.ts}, Delay: ${clientDelay}ms`);
     
     if (timeDiff > 10000) { // 10 seconds tolerance
       return NextResponse.json(
@@ -105,7 +109,8 @@ export async function POST(request: NextRequest) {
     // Prepare exchange data
     const ipBlock = getIPBlock(clientIP);
     const exchangeData = {
-      userId: session.user.email,
+      userId: session.user.id, // Use the actual user ID, not email
+      userEmail: session.user.email, // Keep email for logging
       timestamp: exchangeRequest.ts,
       magnitude: exchangeRequest.mag,
       vector: exchangeRequest.vector,
@@ -120,30 +125,35 @@ export async function POST(request: NextRequest) {
       hasVector: !!exchangeRequest.vector
     });
 
-    // Look for matching exchange using Redis (increased time window for better matching)
+    // Look for matching exchange using improved time-based + broad geo matching
+    console.log(`🔍 Looking for matches for session ${exchangeRequest.session} with timestamp ${exchangeRequest.ts}`);
     const matchResult = await findMatchingExchange(
       exchangeRequest.session, 
       clientIP,
-      null, // location - could be added later
-      50 // tolerance in meters
+      null, // location - we'll use IP-based geo instead
+      3000, // 3 second time window for testing (more forgiving)
+      exchangeRequest.ts // pass timestamp for time-based matching
     );
+    console.log(`🔍 Match result:`, matchResult);
 
     if (matchResult) {
       // We found a match!
       const { sessionId: matchedSessionId, matchData } = matchResult;
-      console.log(`Match found between ${exchangeRequest.session} and ${matchedSessionId}`);
+      console.log(`🎉 Match found between ${exchangeRequest.session} and ${matchedSessionId}`);
       
       // Generate exchange token
       const exchangeToken = generateExchangeToken();
+      console.log(`🔑 Generated exchange token: ${exchangeToken}`);
       
       // Store the match in Redis
       await storeExchangeMatch(
         exchangeToken,
         exchangeRequest.session,
         matchedSessionId,
-        session.user.email,
+        session.user.id, // Use user ID instead of email
         matchData.userId
       );
+      console.log(`💾 Stored exchange match in Redis`);
       
       // Send real-time notifications to both users
       try {
@@ -175,7 +185,65 @@ export async function POST(request: NextRequest) {
       
     } else {
       // No match found, store this exchange as pending in Redis
+      console.log(`⏳ No match found, storing session ${exchangeRequest.session} as pending`);
       await storePendingExchange(exchangeRequest.session, exchangeData, 30);
+      console.log(`💾 Stored pending exchange for session ${exchangeRequest.session}`);
+      
+      // Check again for matches after storing (to handle race conditions)
+      console.log(`🔄 Checking again for matches after storing...`);
+      const secondMatchResult = await findMatchingExchange(
+        exchangeRequest.session, 
+        clientIP,
+        null,
+        3000, // 3 second time window
+        exchangeRequest.ts
+      );
+      
+      if (secondMatchResult) {
+        console.log(`🎉 Found match on second check between ${exchangeRequest.session} and ${secondMatchResult.sessionId}`);
+        
+        // Remove ourselves from pending since we found a match
+        await removePendingExchange(exchangeRequest.session, clientIP);
+        
+        // Generate exchange token
+        const exchangeToken = generateExchangeToken();
+        console.log(`🔑 Generated exchange token: ${exchangeToken}`);
+        
+        // Store the match in Redis
+        await storeExchangeMatch(
+          exchangeToken,
+          exchangeRequest.session,
+          secondMatchResult.sessionId,
+          session.user.id, // Use user ID instead of email
+          secondMatchResult.matchData.userId
+        );
+        
+        // Send real-time notifications
+        try {
+          const notificationSent1 = sendToSession(exchangeRequest.session, {
+            type: 'match',
+            token: exchangeToken,
+            youAre: 'A'
+          });
+          
+          const notificationSent2 = sendToSession(secondMatchResult.sessionId, {
+            type: 'match', 
+            token: exchangeToken,
+            youAre: 'B'
+          });
+          
+          console.log(`Real-time notifications: Session A (${exchangeRequest.session}): ${notificationSent1}, Session B (${secondMatchResult.sessionId}): ${notificationSent2}`);
+        } catch (error) {
+          console.warn('Failed to send real-time notifications:', error);
+        }
+        
+        return NextResponse.json({
+          success: true,
+          matched: true,
+          token: exchangeToken,
+          youAre: 'A'
+        } as ContactExchangeResponse);
+      }
       
       return NextResponse.json({
         success: true,

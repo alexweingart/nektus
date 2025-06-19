@@ -21,7 +21,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { event, message, sessionId, timestamp } = await request.json();
-    console.log(`📱 CLIENT LOG [${sessionId || 'no-session'}] ${event}: ${message} (${new Date(timestamp).toISOString()})`);
+    
+    // Safe timestamp handling
+    const timeStr = timestamp ? 
+      (new Date(timestamp).toISOString()) : 
+      new Date().toISOString();
+    
+    console.log(`📱 CLIENT LOG [${sessionId || 'no-session'}] ${event}: ${message} (${timeStr})`);
     
     return Response.json({ success: true });
   } catch (error) {

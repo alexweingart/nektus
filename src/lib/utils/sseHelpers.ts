@@ -5,10 +5,10 @@
 import { storeSseConnection } from '@/lib/redis/client';
 
 // In-memory store for active SSE connections
-// Note: This still needs to be in-memory since we can't store WritableStream in Redis
+// Note: This still needs to be in-memory since we can't store ReadableStreamDefaultController in Redis
 // In production, you'd use a separate WebSocket server or message queue
 const activeConnections = new Map<string, { 
-  writer: WritableStreamDefaultWriter,
+  controller: ReadableStreamDefaultController<Uint8Array>,
   sessionId: string,
   userId?: string,
   connectedAt: number
@@ -17,19 +17,22 @@ const activeConnections = new Map<string, {
 /**
  * Add a connection to the active connections store
  */
-export function addSseConnection(sessionId: string, writer: WritableStreamDefaultWriter) {
+export function addSseConnection(sessionId: string, controller: ReadableStreamDefaultController<Uint8Array>) {
   activeConnections.set(sessionId, {
-    writer,
+    controller,
     sessionId,
     connectedAt: Date.now()
   });
+  
+  console.log(`🔗 Added SSE connection for session: ${sessionId}. Total connections: ${activeConnections.size}`);
 }
 
 /**
  * Remove a connection from the active connections store
  */
 export function removeSseConnection(sessionId: string) {
-  activeConnections.delete(sessionId);
+  const wasPresent = activeConnections.delete(sessionId);
+  console.log(`🔗 Removed SSE connection for session: ${sessionId}. Was present: ${wasPresent}. Total connections: ${activeConnections.size}`);
 }
 
 /**
@@ -37,12 +40,18 @@ export function removeSseConnection(sessionId: string) {
  */
 export function sendToSession(sessionId: string, message: any): boolean {
   const connection = activeConnections.get(sessionId);
+  
+  console.log(`📤 Attempting to send message to session: ${sessionId}`);
+  console.log(`📤 Connection found: ${!!connection}`);
+  console.log(`📤 Active connections: ${Array.from(activeConnections.keys()).join(', ')}`);
+  
   if (connection) {
     const encoder = new TextEncoder();
     const data = `data: ${JSON.stringify(message)}\n\n`;
     
     try {
-      connection.writer.write(encoder.encode(data));
+      connection.controller.enqueue(encoder.encode(data));
+      console.log(`✅ Successfully sent message to session: ${sessionId}`);
       return true;
     } catch (error) {
       console.error('Failed to send SSE message:', error);
@@ -50,6 +59,8 @@ export function sendToSession(sessionId: string, message: any): boolean {
       return false;
     }
   }
+  
+  console.log(`❌ No active connection found for session: ${sessionId}`);
   return false;
 }
 
@@ -62,7 +73,7 @@ export function broadcastToAll(message: any): void {
   
   for (const [sessionId, connection] of activeConnections) {
     try {
-      connection.writer.write(encoder.encode(data));
+      connection.controller.enqueue(encoder.encode(data));
     } catch (error) {
       console.error(`Failed to send to session ${sessionId}:`, error);
       activeConnections.delete(sessionId);

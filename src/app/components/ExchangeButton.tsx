@@ -36,7 +36,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           
           // Navigate to connect page only when we have a match
           if (state.status === 'matched' && state.match) {
-            router.push('/connect');
+            router.push(`/connect?token=${state.match.token}`);
           }
           
           // Handle timeout - reset to idle after delay
@@ -59,7 +59,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           
           // Navigate to connect page only when we have a match
           if (state.status === 'matched' && state.match) {
-            router.push('/connect');
+            router.push(`/connect?token=${state.match.token}`);
           }
           
           // Handle timeout - reset to idle after delay

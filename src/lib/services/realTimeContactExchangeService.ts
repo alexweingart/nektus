@@ -275,6 +275,7 @@ export class RealTimeContactExchangeService {
   private async handleMatch(token: string, youAre: 'A' | 'B'): Promise<void> {
     try {
       // Fetch the matched user's profile
+      console.log(`🔍 CLIENT: Fetching profile for token: ${token}`);
       const response = await fetch(`/api/exchange/pair/${token}`);
       
       if (!response.ok) {
@@ -282,8 +283,14 @@ export class RealTimeContactExchangeService {
       }
       
       const result = await response.json();
+      console.log(`📋 CLIENT: Received pair response:`, result);
       
       if (result.success && result.profile) {
+        console.log(`👤 CLIENT: Setting matched profile:`, {
+          name: result.profile.name,
+          userId: result.profile.userId,
+          bio: result.profile.bio?.substring(0, 50) + '...'
+        });
         this.updateState({
           status: 'matched',
           match: {
@@ -321,9 +328,9 @@ export class RealTimeContactExchangeService {
 
         console.log('🎯 Motion detected! Sending hit to server...');
         
-        // Prepare exchange request
+        // Prepare exchange request - use the timestamp from when motion was actually detected
         const request: ContactExchangeRequest = {
-          ts: Date.now(),
+          ts: motionResult.timestamp || Date.now(), // Use motion detection timestamp, fallback to now
           mag: motionResult.magnitude,
           session: this.sessionId
         };

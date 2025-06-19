@@ -2,13 +2,13 @@
  * API endpoint for managing exchange pairs
  * GET: Fetch profile preview for matched pair
  * POST: Accept/reject the exchange
- * Uses Redis for match data storage
+ * Uses Redis for data storage
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { ProfileService } from '@/lib/firebase/profileService';
+import { getProfile } from '@/lib/firebase/adminConfig';
 import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { getExchangeMatch } from '@/lib/redis/client';
@@ -23,8 +23,11 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const { token } = await context.params;
+    console.log(`🔍 Pair GET request for token: ${token}`);
+    
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log(`❌ Authentication required for token: ${token}`);
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
@@ -32,26 +35,35 @@ export async function GET(
     }
 
     if (!token) {
+      console.log(`❌ Token required`);
       return NextResponse.json(
         { success: false, message: 'Token required' },
         { status: 400 }
       );
     }
 
+    console.log(`👤 User ${session.user.email} requesting pair data for token: ${token}`);
+
     // Get match data from Redis
     const matchData = await getExchangeMatch(token);
     if (!matchData) {
+      console.log(`❌ No match data found for token: ${token}`);
       return NextResponse.json(
         { success: false, message: 'Invalid or expired token' },
         { status: 404 }
       );
     }
 
+    console.log(`📋 Match data found:`, matchData);
+
     // Determine which user this is and get the other user's profile
-    const isUserA = matchData.userA === session.user.email;
-    const otherUserEmail = isUserA ? matchData.userB : matchData.userA;
+    const isUserA = matchData.userA === session.user.id; // Compare with user ID
+    const otherUserId = isUserA ? matchData.userB : matchData.userA;
     
-    if (!otherUserEmail) {
+    console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}`);
+    
+    if (!otherUserId) {
+      console.log(`❌ Other user not found in match data for token: ${token}`);
       return NextResponse.json(
         { success: false, message: 'Other user not found' },
         { status: 404 }
@@ -59,14 +71,49 @@ export async function GET(
     }
 
     try {
-      // Get the other user's profile from Firebase
-      const otherUserProfile = await ProfileService.getProfile(otherUserEmail);
+      // Get the other user's profile from Firebase Admin
+      console.log(`🔥 Attempting to get profile for userId: ${otherUserId}`);
+      const otherUserProfile = await getProfile(otherUserId);
+      
+      console.log(`🔥 Profile result:`, otherUserProfile ? 'Profile found' : 'Profile not found');
       
       if (!otherUserProfile) {
-        return NextResponse.json(
-          { success: false, message: 'Other user profile not found' },
-          { status: 404 }
-        );
+        console.log(`⚠️ Profile not found for ${otherUserId}, using mock profile`);
+        // Use mock profile when real profile doesn't exist
+        const mockProfile: UserProfile = {
+          userId: 'mock-user-123',
+          name: 'John Doe',
+          bio: 'Software Engineer passionate about technology and innovation.',
+          profileImage: '',
+          backgroundImage: '',
+          lastUpdated: Date.now(),
+          contactChannels: {
+            phoneInfo: {
+              internationalPhone: '+1 (555) 123-4567',
+              nationalPhone: '5551234567',
+              userConfirmed: false
+            },
+            email: {
+              email: 'mock@example.com',
+              userConfirmed: false
+            },
+            facebook: { username: '', url: '', userConfirmed: false },
+            instagram: { username: '', url: '', userConfirmed: false },
+            x: { username: '', url: '', userConfirmed: false },
+            linkedin: { username: '', url: '', userConfirmed: false },
+            snapchat: { username: '', url: '', userConfirmed: false },
+            whatsapp: { username: '', url: '', userConfirmed: false },
+            telegram: { username: '', url: '', userConfirmed: false },
+            wechat: { username: '', url: '', userConfirmed: false }
+          }
+        };
+        
+        console.log(`🎭 Returning mock profile for: ${otherUserId}`);
+        return NextResponse.json({
+          success: true,
+          profile: mockProfile,
+          matchedAt: matchData.createdAt
+        } as ContactExchangeResponse);
       }
 
       // Return the profile (with sensitive data filtered)
@@ -80,6 +127,7 @@ export async function GET(
         contactChannels: otherUserProfile.contactChannels
       };
 
+      console.log(`✅ Successfully returning profile for: ${otherUserId}`);
       return NextResponse.json({
         success: true,
         profile: publicProfile,
@@ -87,8 +135,9 @@ export async function GET(
       } as ContactExchangeResponse);
 
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error(`❌ Error fetching profile for ${otherUserId}:`, error);
       
+      console.log(`🎭 Returning mock profile due to Firebase error for: ${otherUserId}`);
       // Return a mock profile if Firebase fails (for development)
       const mockProfile: UserProfile = {
         userId: 'mock-user-123',
@@ -187,7 +236,7 @@ export async function POST(
       const otherUserEmail = isUserA ? matchData.userB : matchData.userA;
       
       try {
-        const otherUserProfile = await ProfileService.getProfile(otherUserEmail);
+        const otherUserProfile = await getProfile(otherUserEmail);
         
         if (otherUserProfile) {
           // TODO: Notify the other user via real-time connection

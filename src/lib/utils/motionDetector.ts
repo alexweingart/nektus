@@ -1,7 +1,8 @@
 import { MotionDetectionResult } from '@/types/contactExchange';
 
-const MOTION_THRESHOLD = 2; // m/s² (very low for testing)
-const MOTION_TIMEOUT = 10000; // 10 seconds (increased for easier testing)
+const MOTION_THRESHOLD = 15; // m/s² (higher threshold for actual impacts)
+const MOTION_TIMEOUT = 10000; // 10 seconds
+const SPIKE_DURATION_MS = 500; // Look for spikes within 500ms
 
 export class MotionDetector {
   private static getBrowserInfo() {
@@ -209,28 +210,37 @@ export class MotionDetector {
     return new Promise((resolve) => {
       let resolved = false;
       let motionEventCount = 0;
+      let recentMagnitudes: Array<{magnitude: number, timestamp: number}> = [];
       
       const handleMotion = (event: DeviceMotionEvent) => {
         if (resolved) return;
         
         motionEventCount++;
-        const accel = event.accelerationIncludingGravity;
+        
+        // Use acceleration WITHOUT gravity for better bump detection
+        const accel = event.acceleration;
         
         if (!accel || accel.x === null || accel.y === null || accel.z === null) {
-          if (motionEventCount <= 5) { // Only log for first few events to avoid spam
-            console.log(`📊 Motion event ${motionEventCount}: no acceleration data`);
+          if (motionEventCount <= 5) {
+            console.log(`📊 Motion event ${motionEventCount}: no acceleration data (without gravity)`);
           }
           return;
         }
 
         const magnitude = Math.hypot(accel.x, accel.y, accel.z);
+        const now = Date.now();
         
-        if (motionEventCount <= 5) { // Only log for first few events to avoid spam
-          console.log(`📊 Motion event ${motionEventCount}: x=${accel.x.toFixed(2)}, y=${accel.y.toFixed(2)}, z=${accel.z.toFixed(2)}, magnitude=${magnitude.toFixed(2)}`);
+        // Keep track of recent magnitudes for spike detection
+        recentMagnitudes.push({ magnitude, timestamp: now });
+        recentMagnitudes = recentMagnitudes.filter(m => now - m.timestamp <= SPIKE_DURATION_MS);
+        
+        if (motionEventCount <= 5) {
+          console.log(`📊 Motion event ${motionEventCount}: x=${accel.x.toFixed(2)}, y=${accel.y.toFixed(2)}, z=${accel.z.toFixed(2)}, magnitude=${magnitude.toFixed(2)} (no gravity)`);
         }
         
+        // Check for impact: sudden spike in acceleration
         if (magnitude >= MOTION_THRESHOLD) {
-          console.log(`🎯 MOTION DETECTED! Magnitude: ${magnitude.toFixed(2)} >= ${MOTION_THRESHOLD}`);
+          console.log(`🎯 IMPACT DETECTED! Magnitude: ${magnitude.toFixed(2)} >= ${MOTION_THRESHOLD} (without gravity)`);
           resolved = true;
           window.removeEventListener('devicemotion', handleMotion);
           resolve({
@@ -240,7 +250,8 @@ export class MotionDetector {
               y: accel.y,
               z: accel.z
             },
-            magnitude
+            magnitude,
+            timestamp: now // Use the timestamp when motion was actually detected
           });
         }
       };
@@ -252,7 +263,8 @@ export class MotionDetector {
           window.removeEventListener('devicemotion', handleMotion);
           resolve({
             hasMotion: false,
-            magnitude: 0
+            magnitude: 0,
+            timestamp: Date.now() // Add timestamp for timeout case too
           });
         }
       }, MOTION_TIMEOUT);

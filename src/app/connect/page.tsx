@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/ContactView';
 import type { UserProfile } from '@/types/profile';
@@ -12,72 +12,141 @@ export const dynamic = 'force-dynamic';
 export default function ConnectPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Get the exchange token from URL parameters
+  const token = searchParams.get('token');
 
   useEffect(() => {
-    if (status === 'loading') return; // Still loading
+    async function fetchMatchedProfile() {
+      if (status === 'loading') return; // Still loading auth
+      
+      if (!session) {
+        console.log('No session, redirecting to home');
+        router.push('/');
+        return;
+      }
+
+      if (!token) {
+        console.log('No exchange token provided, redirecting to home');
+        router.push('/');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        console.log('🔍 Fetching matched profile for token:', token);
+        
+        // Fetch the matched user's profile using the exchange token
+        const response = await fetch(`/api/exchange/pair/${token}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch matched profile');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.profile) {
+          console.log('✅ Loaded matched profile:', result.profile.name);
+          setContactProfile(result.profile);
+        } else {
+          throw new Error('Invalid profile response');
+        }
+        
+      } catch (error) {
+        console.error('Failed to load matched profile:', error);
+        setError('Failed to load contact profile');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchMatchedProfile();
+  }, [session, status, router, token]);
+
+  const handleSaveContact = async () => {
+    if (!token) return;
     
-    if (!session) {
-      console.log('No session, redirecting to home');
+    console.log('Saving contact for token:', token);
+    
+    try {
+      // Accept the contact exchange
+      const response = await fetch(`/api/exchange/pair/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accept: true })
+      });
+
+      if (response.ok) {
+        console.log('Contact saved successfully');
+        // Show success and navigate back
+        setTimeout(() => {
+          router.push('/');
+        }, 1000);
+      } else {
+        console.error('Failed to save contact');
+      }
+    } catch (error) {
+      console.error('Error saving contact:', error);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!token) {
       router.push('/');
       return;
     }
-
-    // For now, set a mock profile
-    // In the real implementation, this would come from the matched exchange
-    const mockProfile: UserProfile = {
-      userId: 'mock-user-123',
-      name: 'John Doe',
-      bio: 'Software Engineer passionate about technology and innovation. Love building amazing apps!',
-      profileImage: '',
-      backgroundImage: '',
-      lastUpdated: Date.now(),
-      contactChannels: {
-        phoneInfo: {
-          internationalPhone: '+1234567890',
-          nationalPhone: '(123) 456-7890',
-          userConfirmed: true
-        },
-        email: {
-          email: 'john.doe@example.com',
-          userConfirmed: true
-        },
-        facebook: { username: '', url: '', userConfirmed: false },
-        instagram: { username: 'johndoe', url: 'https://instagram.com/johndoe', userConfirmed: true },
-        x: { username: 'john_doe', url: 'https://x.com/john_doe', userConfirmed: true },
-        linkedin: { username: 'johndoe', url: 'https://linkedin.com/in/johndoe', userConfirmed: true },
-        snapchat: { username: '', url: '', userConfirmed: false },
-        whatsapp: { username: '', url: '', userConfirmed: false },
-        telegram: { username: '', url: '', userConfirmed: false },
-        wechat: { username: '', url: '', userConfirmed: false }
-      }
-    };
-
-    setContactProfile(mockProfile);
-  }, [session, status, router]);
-
-  const handleSaveContact = async () => {
-    console.log('Saving contact...');
     
-    // TODO: Implement actual contact saving through service
-    // For now, just show success and navigate back
-    setTimeout(() => {
-      router.push('/');
-    }, 1000);
-  };
+    try {
+      // Reject the contact exchange
+      const response = await fetch(`/api/exchange/pair/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accept: false })
+      });
 
-  const handleReject = () => {
-    // Navigate back to profile
+      if (response.ok) {
+        console.log('Contact rejected');
+      } else {
+        console.error('Failed to reject contact');
+      }
+    } catch (error) {
+      console.error('Error rejecting contact:', error);
+    }
+    
+    // Navigate back to profile regardless
     router.push('/');
   };
 
-  // Show loading while checking auth
-  if (status === 'loading') {
+  // Show loading while checking auth or fetching profile
+  if (status === 'loading' || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-500">Loading...</p>
+          <p className="mt-2 text-sm text-gray-500">
+            {status === 'loading' ? 'Loading...' : 'Loading contact...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );
@@ -95,12 +164,17 @@ export default function ConnectPage() {
     );
   }
 
-  // Fallback loading state
+  // Fallback - should not reach here
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-        <p className="mt-2 text-sm text-gray-500">Loading contact...</p>
+        <p className="text-gray-400">Something went wrong</p>
+        <button 
+          onClick={() => router.push('/')}
+          className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+        >
+          Go Home
+        </button>
       </div>
     </div>
   );

@@ -57,6 +57,7 @@ export interface MotionDetectionResult {
     z: number;
   };
   magnitude: number;
+  timestamp?: number; // Timestamp when motion was detected
 }
 
 // Exchange flow state management

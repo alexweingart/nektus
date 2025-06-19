@@ -19,18 +19,14 @@ export async function GET(request: NextRequest) {
 
   // Create a readable stream for Server-Sent Events
   const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array>;
   
   const stream = new ReadableStream({
-    start(controller) {
-      // Create a writer for this connection
-      const writer = {
-        write: (chunk: Uint8Array) => controller.enqueue(chunk),
-        close: () => controller.close(),
-        abort: (reason?: any) => controller.error(reason)
-      } as WritableStreamDefaultWriter;
-
-      // Store the connection
-      addSseConnection(sessionId, writer);
+    start(ctrl) {
+      controller = ctrl;
+      
+      // Store the connection with the controller for message sending
+      addSseConnection(sessionId, controller);
 
       // Send initial connection confirmation
       const initMessage = `data: ${JSON.stringify({
@@ -47,7 +43,7 @@ export async function GET(request: NextRequest) {
     cancel() {
       // Clean up when client disconnects
       removeSseConnection(sessionId);
-      console.log(`SSE connection closed for session: ${sessionId}`);
+      console.log(`🔗 SSE connection closed for session: ${sessionId}`);
     }
   });
 
