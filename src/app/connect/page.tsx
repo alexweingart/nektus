@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/ContactView';
@@ -9,7 +9,7 @@ import type { UserProfile } from '@/types/profile';
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
 
-export default function ConnectPage() {
+function ConnectPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -177,5 +177,20 @@ export default function ConnectPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ConnectPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ConnectPageContent />
+    </Suspense>
   );
 }
