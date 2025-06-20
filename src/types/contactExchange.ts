@@ -79,3 +79,24 @@ export interface ContactExchangeState {
   match?: ContactExchangeMatch & { profile: UserProfile };
   error?: string;
 }
+
+// Contact saving results
+export interface ContactSaveResult {
+  success: boolean;
+  firebase: {
+    success: boolean;
+    error?: string;
+  };
+  google: {
+    success: boolean;
+    error?: string;
+    contactId?: string;
+  };
+  contact?: UserProfile;
+}
+
+export interface GoogleContactsResult {
+  success: boolean;
+  contactId?: string;
+  error?: string;
+}

@@ -101,7 +101,7 @@ if (hasGoogleCredentials) {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
-          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile"
+          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/contacts"
         }
       }
     })

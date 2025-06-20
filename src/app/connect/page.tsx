@@ -4,7 +4,9 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/ContactView';
+import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
 import type { UserProfile } from '@/types/profile';
+import type { ContactSaveResult } from '@/types/contactExchange';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -68,30 +70,72 @@ function ConnectPageContent() {
   }, [session, status, router, token]);
 
   const handleSaveContact = async () => {
-    if (!token) return;
+    if (!token) {
+      throw new Error('No exchange token available');
+    }
     
-    console.log('Saving contact for token:', token);
+    console.log('💾 Starting contact save process for token:', token);
     
     try {
-      // Accept the contact exchange
-      const response = await fetch(`/api/exchange/pair/${token}`, {
+      // First accept the exchange
+      const acceptResponse = await fetch(`/api/exchange/pair/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accept: true })
       });
 
-      if (response.ok) {
-        console.log('Contact saved successfully');
-        // Show success and navigate back
-        setTimeout(() => {
-          router.push('/');
-        }, 1000);
-      } else {
-        console.error('Failed to save contact');
+      if (!acceptResponse.ok) {
+        throw new Error('Failed to accept exchange');
       }
+
+      console.log('✅ Exchange accepted, now saving contact...');
+
+      // Then save the contact
+      const saveResponse = await fetch('/api/contacts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+
+      const saveResult: ContactSaveResult = await saveResponse.json();
+
+      if (!saveResult.success) {
+        throw new Error(saveResult.firebase.error || 'Failed to save contact');
+      }
+
+      console.log('✅ Contact save completed:', {
+        firebase: saveResult.firebase.success,
+        google: saveResult.google.success
+      });
+
+      // Log any Google Contacts issues (but don't fail)
+      if (!saveResult.google.success && saveResult.google.error) {
+        console.warn('⚠️ Google Contacts save failed:', saveResult.google.error);
+      }
+
+      // Success! The modal will be shown by ContactView
+      
     } catch (error) {
-      console.error('Error saving contact:', error);
+      console.error('❌ Contact save failed:', error);
+      throw error; // Re-throw to be handled by ContactView
     }
+  };
+
+  const handleMessageContact = (profile: UserProfile) => {
+    if (!session?.user?.name || !profile.name) {
+      console.warn('Missing user names for message generation');
+      return;
+    }
+
+    const senderFirstName = session.user.name.split(' ')[0];
+    const contactFirstName = profile.name.split(' ')[0];
+    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    
+    // Try to use phone number if available
+    const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+    
+    console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
+    openMessagingApp(messageText, phoneNumber);
   };
 
   const handleReject = async () => {
@@ -162,6 +206,7 @@ function ConnectPageContent() {
         profile={contactProfile}
         onSaveContact={handleSaveContact}
         onReject={handleReject}
+        onMessageContact={handleMessageContact}
         isLoading={false}
       />
     );

@@ -5,26 +5,51 @@
 
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
+import { SuccessModal } from './ui/SuccessModal';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 
 interface ContactViewProps {
   profile: UserProfile;
-  onSaveContact: () => void;
+  onSaveContact: () => Promise<void>;
   onReject: () => void;
   isLoading?: boolean;
+  onMessageContact?: (profile: UserProfile) => void;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
   profile,
   onSaveContact,
   onReject,
-  isLoading = false
+  isLoading = false,
+  onMessageContact
 }) => {
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveContact = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveContact();
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Failed to save contact:', error);
+      // Error handling is done in the parent component
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMessageContact = () => {
+    setShowSuccessModal(false);
+    if (onMessageContact) {
+      onMessageContact(profile);
+    }
+  };
   const bioContent = useMemo(() => {
     return profile?.bio || 'Welcome to my profile!';
   }, [profile?.bio]);
@@ -220,10 +245,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
             variant="theme"
             size="lg"
             className="w-full font-bold text-lg"
-            onClick={onSaveContact}
-            disabled={isLoading}
+            onClick={handleSaveContact}
+            disabled={isSaving || isLoading}
           >
-            {isLoading ? (
+            {isSaving ? (
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                 <span>Saving...</span>
@@ -237,14 +262,24 @@ export const ContactView: React.FC<ContactViewProps> = ({
           <div className="flex justify-center">
             <button
               onClick={onReject}
-              disabled={isLoading}
-              className="bg-white/80 px-3 py-1 rounded-xl text-black hover:bg-white text-sm transition-colors disabled:opacity-50"
+              disabled={isSaving || isLoading}
+              className="bg-white/80 px-3 py-1 rounded-xl text-black hover:bg-white text-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
             >
               Nah, who this
             </button>
           </div>
-        </div>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Yay! New friend"
+        subtitle="Send them some love now so ya'll stay in touch"
+        buttonText="👋"
+        onButtonClick={handleMessageContact}
+      />
+    </div>
     </div>
   );
 };
