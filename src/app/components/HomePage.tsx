@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import Image from 'next/image';
@@ -86,13 +86,18 @@ const HomePage: React.FC = () => {
       
       {/* Footer links positioned at bottom of viewport */}
       <div className="fixed bottom-0 left-0 right-0 text-center text-sm text-white pb-safe pb-8">
-        <Link href="/privacy" className="hover:text-gray-300 transition-colors">
-          Privacy
-        </Link>
-        <span className="mx-2">|</span>
-        <Link href="/terms" className="hover:text-gray-300 transition-colors">
-          Terms of Use
-        </Link>
+        <div className="mb-2">
+          <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
+            Privacy
+          </Link>
+          <span className="mx-2">|</span>
+          <Link href="/terms" className="font-bold hover:text-gray-300 transition-colors">
+            Terms
+          </Link>
+        </div>
+        <div className="text-xs text-gray-300">
+          © 2025 Cardamore, Inc. All rights reserved.
+        </div>
       </div>
     </div>
   );

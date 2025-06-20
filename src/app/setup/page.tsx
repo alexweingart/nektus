@@ -9,6 +9,7 @@ import ProfileSetup from '../components/ProfileSetup';
 import { isNewUser } from '@/lib/services/newUserService';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
 import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ function SetupPageContent() {
     return (
       <div className="page-container">
         <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <LoadingSpinner size="sm" />
         </div>
       </div>
     );
@@ -68,7 +69,7 @@ function SetupPageContent() {
   return (
     <div className="page-container">
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <LoadingSpinner size="sm" />
       </div>
     </div>
   );
@@ -76,7 +77,7 @@ function SetupPageContent() {
 
 export default function SetupPage() {
   return (
-    <Suspense fallback={<div className="page-container"><div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div></div>}>
+    <Suspense fallback={<div className="page-container"><div className="flex items-center justify-center h-full"><LoadingSpinner size="sm" /></div></div>}>
       <SetupPageContent />
     </Suspense>
   );

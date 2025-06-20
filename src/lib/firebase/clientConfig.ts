@@ -1,20 +1,11 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
-  connectFirestoreEmulator,
-  enableNetwork, 
-  disableNetwork,
   Firestore, 
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
-  CACHE_SIZE_UNLIMITED,
-  FirestoreSettings,
-  doc, 
-  setDoc, 
-  getDoc, 
-  onSnapshot,
-  updateDoc 
+  FirestoreSettings
 } from 'firebase/firestore';
 import { getAuth, Auth, signInWithCustomToken } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';

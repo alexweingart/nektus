@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useProfile, profileHasPhone } from '../context/ProfileContext';
+import React, { useMemo } from 'react';
+import { useProfile } from '../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import Link from 'next/link';
@@ -10,9 +10,8 @@ import Avatar from './ui/Avatar';
 import SocialIcon from './ui/SocialIcon';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { ExchangeButton } from './ExchangeButton';
-import type { UserProfile } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
-import { Heading, Text } from './ui/Typography';
+import { Heading } from './ui/Typography';
 import { useRouter } from 'next/navigation';
 
 const ProfileView: React.FC = () => {
@@ -22,8 +21,6 @@ const ProfileView: React.FC = () => {
 
   // Get the latest profile
   const currentProfile = getLatestProfile() || profile;
-  // Compute background for loading state
-  const bgUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
 
   // Admin mode activation props
   const adminModeProps = useAdminModeActivator();
@@ -34,13 +31,6 @@ const ProfileView: React.FC = () => {
   const bioContent = useMemo(() => {
     return currentProfile?.bio || 'Welcome to my profile!';
   }, [currentProfile?.bio]);
-
-  const markdownComponents = useMemo(() => ({
-    p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
-    a: ({ node: _node, ...props }: any) => (
-      <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
-    ),
-  }), []);
 
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
@@ -71,7 +61,7 @@ const ProfileView: React.FC = () => {
       <div style={loadingStyle}>
         <div className="flex items-center justify-center w-full h-full">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+            <LoadingSpinner size="sm" className="mb-4" />
             <p className="text-white">Loading profile...</p>
           </div>
         </div>
@@ -85,7 +75,7 @@ const ProfileView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <LoadingSpinner size="sm" className="mx-auto mb-4" />
           <p className="text-white">Deleting account...</p>
         </div>
       </div>
@@ -184,7 +174,7 @@ const ProfileView: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-4">
             {currentProfile?.contactChannels?.phoneInfo?.internationalPhone && (
               <a 
-                href={`tel:${currentProfile.contactChannels.phoneInfo.internationalPhone}`}
+                href={`sms:${currentProfile.contactChannels.phoneInfo.internationalPhone}`}
                 className="text-white hover:text-green-300 transition-colors"
               >
                 <SocialIcon platform="phone" username={currentProfile.contactChannels.phoneInfo.internationalPhone} size="md" variant="white" />

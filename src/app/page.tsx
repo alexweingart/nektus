@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/utils/useViewportLock';
 import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ export default function Home() {
     return (
       <div className="page-container">
         <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <LoadingSpinner size="sm" />
         </div>
       </div>
     );
@@ -54,7 +55,7 @@ export default function Home() {
     return (
       <div className="page-container">
         <Suspense fallback={<div className="flex h-full items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <LoadingSpinner size="sm" />
         </div>}>
           <ProfileView />
         </Suspense>

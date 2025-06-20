@@ -7,7 +7,7 @@ import { cleanupUserStorage } from '@/lib/firebase/storage';
 /**
  * API route to handle account deletion
  */
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   console.log('[DELETE-ACCOUNT] API called');
   
   try {

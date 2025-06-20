@@ -8,6 +8,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './ui/Button';
 import Avatar from './ui/Avatar';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import SocialIcon from './ui/SocialIcon';
 import { SuccessModal } from './ui/SuccessModal';
 import ReactMarkdown from 'react-markdown';
@@ -65,7 +66,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <LoadingSpinner size="sm" className="mx-auto" />
           <p className="mt-2 text-sm text-gray-500">Loading contact...</p>
         </div>
       </div>
@@ -128,10 +129,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
           
           {/* Social Media Icons */}
           <div className="w-full">
-            <div className="flex flex-wrap justify-center gap-4 mb-4">
-              {profile.contactChannels?.phoneInfo?.internationalPhone && (
+            <div className="flex flex-wrap justify-center gap-4 mb-4">              {profile.contactChannels?.phoneInfo?.internationalPhone && (
                 <a 
-                  href={`tel:${profile.contactChannels.phoneInfo.internationalPhone}`}
+                  href={`sms:${profile.contactChannels.phoneInfo.internationalPhone}`}
                   className="text-white hover:text-green-300 transition-colors"
                 >
                   <SocialIcon platform="phone" username={profile.contactChannels.phoneInfo.internationalPhone} size="md" variant="white" />
@@ -250,7 +250,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           >
             {isSaving ? (
               <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                <LoadingSpinner size="sm" />
                 <span>Saving...</span>
               </div>
             ) : (

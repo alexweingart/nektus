@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/Button';
 import { initializeClockSync } from '@/lib/utils/clockSync';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
 interface ExchangeButtonProps {
@@ -182,7 +183,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       case 'requesting-permission':
         return (
           <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+            <LoadingSpinner size="sm" />
             <span>Getting Ready...</span>
           </div>
         );
@@ -198,7 +199,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       case 'processing':
         return (
           <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+            <LoadingSpinner size="sm" />
             <span>Waiting for Match...</span>
           </div>
         );

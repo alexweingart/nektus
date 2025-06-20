@@ -9,7 +9,6 @@ import type {
   ContactExchangeRequest, 
   ContactExchangeResponse,
   ContactExchangeState,
-  ExchangeStatus,
   SavedContact,
   ContactExchangeMessage
 } from '@/types/contactExchange';

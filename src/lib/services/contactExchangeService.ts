@@ -7,7 +7,6 @@ import type {
   ContactExchangeRequest, 
   ContactExchangeResponse,
   ContactExchangeState,
-  ExchangeStatus,
   SavedContact
 } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';

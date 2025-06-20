@@ -1,31 +1,20 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { signOut, useSession } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
-import { useProfile } from '@/app/context/ProfileContext';
 import { Button } from './Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
 
 // The admin mode banner component
 export default function AdminBanner() {
   const { closeAdminMode } = useAdminMode();
-  const { clearProfile } = useProfile();
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   const handleDeleteAccount = useCallback(async () => {
     setDeleteStatus('loading');
     
     try {
-      // Call the profile context clearProfile function first to handle cleanup
-      try {
-        await clearProfile();
-        console.log('Profile data cleared successfully');
-      } catch (err) {
-        console.error('Error clearing profile data:', err);
-        // Continue with other cleanup even if profile deletion fails
-      }
-
       // Call the delete account API
       try {
         await fetch('/api/delete-account', {
@@ -172,7 +161,7 @@ export default function AdminBanner() {
       console.error('Error deleting account:', err);
       setDeleteStatus('error');
     }
-  }, [closeAdminMode, clearProfile]);
+  }, [closeAdminMode]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-4 z-50">

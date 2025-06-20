@@ -1,5 +1,5 @@
 import GoogleProvider from "next-auth/providers/google";
-import type { DefaultSession, User, Profile } from "next-auth";
+import type { DefaultSession, User } from "next-auth";
 import { getFirebaseAdmin } from "@/lib/firebase/adminConfig";
 
 // Helper to get environment variables with better error handling
@@ -19,11 +19,6 @@ if (!process.env.NEXTAUTH_URL) {
   // Default to localhost:3000 for development
   process.env.NEXTAUTH_URL = "http://localhost:3000";
 }
-
-// Get required environment variables with fallbacks
-const NEXTAUTH_SECRET = getEnv('NEXTAUTH_SECRET');
-const GOOGLE_CLIENT_ID = getEnv('GOOGLE_CLIENT_ID');
-const GOOGLE_CLIENT_SECRET = getEnv('GOOGLE_CLIENT_SECRET');
 
 // Extend the default session and user types
 declare module "next-auth" {
@@ -71,12 +66,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-interface GoogleProfile extends Profile {
-  picture?: string;
-  image?: string;
-}
-
-import { getServerSession, type NextAuthOptions } from "next-auth";
+import { type NextAuthOptions } from "next-auth";
 
 // Check if we have the required environment variables
 const hasGoogleCredentials = 
@@ -99,9 +89,12 @@ if (hasGoogleCredentials) {
       authorization: {
         params: {
           prompt: "consent",
-          access_type: "offline",
+          access_type: "offline", 
           response_type: "code",
-          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/contacts"
+          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/contacts",
+          // Force account selection to ensure user can pick different account
+          // This helps ensure fresh authorization after account deletion
+          include_granted_scopes: "true"
         }
       }
     })
@@ -127,8 +120,23 @@ export const authOptions: NextAuthOptions = {
   // Callbacks
   callbacks: {
     async jwt({ token, account, user, trigger, session }): Promise<any> {
+      const timestamp = new Date().toISOString();
+      console.log(`=== JWT CALLBACK [${timestamp}] ===`);
+      console.log('JWT callback called:', {
+        trigger,
+        hasAccount: !!account,
+        hasUser: !!user,
+        userId: token.sub || user?.id,
+        accountProvider: account?.provider,
+        isInitialSignIn: !!account?.id_token,
+        currentIsNewUser: token.isNewUser,
+        tokenExists: !!token.sub
+      });
+      console.log('Full token contents:', JSON.stringify(token, null, 2));
+
       // Initial sign in
       if (account?.id_token) {
+        console.log('JWT: Initial sign-in detected with Google account');
         token.idToken = account.id_token;
         
         // Server-side Firebase check to determine if user is truly new or existing
@@ -139,17 +147,28 @@ export const authOptions: NextAuthOptions = {
             const { db } = await getFirebaseAdmin();
             const profileDoc = await db.collection('profiles').doc(token.sub).get();
             
+            console.log('JWT: Profile document exists:', profileDoc.exists);
+            if (profileDoc.exists) {
+              const profileData = profileDoc.data();
+              console.log('JWT: Profile data phone info:', profileData?.contactChannels?.phoneInfo);
+              console.log('JWT: Full profile data keys:', Object.keys(profileData || {}));
+            }
+            
             if (profileDoc.exists && profileDoc.data()?.contactChannels?.phoneInfo?.internationalPhone) {
+              console.log('JWT: Setting isNewUser = false (profile exists with phone)');
               token.isNewUser = false;
             } else {
+              console.log('JWT: Setting isNewUser = true (no profile or no phone)');
               token.isNewUser = true;
             }
           } catch (error) {
             console.error('JWT: Error checking Firebase profile during authentication:', error);
             // Default to new user if we can't check (safe fallback)
+            console.log('JWT: Defaulting to isNewUser = true due to error');
             token.isNewUser = true;
           }
         } else {
+          console.log('JWT: No user ID in token, setting isNewUser = true');
           token.isNewUser = true;
         }
         
@@ -165,6 +184,9 @@ export const authOptions: NextAuthOptions = {
           console.warn('JWT: No user ID available in token');
         }
       }
+      
+      console.log(`JWT callback complete - isNewUser: ${token.isNewUser}, userId: ${token.sub}`);
+      console.log(`=== END JWT CALLBACK [${timestamp}] ===`);
       
       // Define empty profile structure
       const emptyProfile = {
@@ -228,6 +250,13 @@ export const authOptions: NextAuthOptions = {
     },
     
     async session({ session, token }) {
+      console.log('Session callback called:', {
+        userId: token.sub,
+        isNewUser: token.isNewUser,
+        hasProfile: !!token.profile,
+        hasAccessToken: !!token.accessToken
+      });
+
       // Ensure user ID is included in the session
       if (token.sub) {
         session.user = session.user || {};
@@ -259,9 +288,6 @@ export const authOptions: NextAuthOptions = {
         if (token.isNewUser !== undefined) {
           session.isNewUser = token.isNewUser;
         }
-        
-        // TODO: Move Firebase Auth logic to client-side hook/context
-        // Firebase Auth integration should happen client-side only
       }
       
       return session;
@@ -291,10 +317,19 @@ export const authOptions: NextAuthOptions = {
   // Events
   events: {
     async signIn(message) {
-      console.log('Sign in event:', message);
+      console.log('=== SIGN IN EVENT ===');
+      console.log('Sign in event details:', {
+        user: message.user?.id,
+        account: message.account?.provider,
+        profile: message.profile?.email,
+        isNewUser: message.isNewUser
+      });
+      console.log('=== END SIGN IN EVENT ===');
     },
     async signOut() {
+      console.log('=== SIGN OUT EVENT ===');
       console.log('User signed out');
+      console.log('=== END SIGN OUT EVENT ===');
     },
     // @ts-expect-error - Error event is not in the type definition but is supported
     async error(error: unknown) {

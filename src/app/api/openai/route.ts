@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/options';
 import { UserProfile, SocialProfile } from '@/types/profile';
 
 // Custom types for our extended OpenAI client

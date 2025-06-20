@@ -187,19 +187,13 @@ function ProfileSetup() {
   const isNewUser = session?.isNewUser;
   const shouldSkipLoading = !!(isNewUser && sessionStatus === 'authenticated' && session);
   
-  if (((sessionStatus === 'loading' && !session) || false) && !shouldSkipLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
-    );
-  }
+  // Skip the complex loading check - just proceed to form or redirect
 
   // If profile is complete and we're not currently saving, show minimal loading state during redirect
   if (hasCompleteProfile && !isSaving && !isRedirecting) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <LoadingSpinner size="sm" />
       </div>
     );
   }

@@ -17,7 +17,6 @@ type ProfileContextType = {
   isNavigatingFromSetup: boolean;
   streamingBackgroundImage: string | null;
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
-  clearProfile: () => Promise<void>;
   generateBackgroundImage: (profile: UserProfile) => Promise<string | null>;
   generateBio: (profile: UserProfile) => Promise<string | null>;
   generateProfileImage: (profile: UserProfile) => Promise<string | null>;
@@ -377,40 +376,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     stableStreamingBackgroundImageSetter.current(imageUrl);
   }, []);
 
-  // Clear profile
-  const clearProfile = useCallback(async (): Promise<void> => {
-    setIsDeletingAccount(true);
-    try {
-      // Call the delete account API
-      const response = await fetch('/api/delete-account', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Failed to delete account: ${response.status} - ${errorData.error || response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      // Clear local profile state
-      setProfile(null);
-      console.log('[ProfileContext] Local profile state cleared');
-      
-      console.log('[ProfileContext] Account deletion completed successfully');
-      // Clear isDeletingAccount since deletion is complete
-      setIsDeletingAccount(false);
-      
-    } catch (error) {
-      console.error('[ProfileContext] Error clearing profile:', error);
-      setIsDeletingAccount(false); // Reset on error
-      throw error; // Re-throw to be handled by the UI
-    }
-  }, []);
-
   // Generate functions - now just wrappers around services
   const generateBio = useCallback(async (profile: UserProfile): Promise<string | null> => {
     try {
@@ -528,7 +493,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isNavigatingFromSetup,
         streamingBackgroundImage,
         saveProfile,
-        clearProfile,
         generateBackgroundImage,
         generateBio,
         generateProfileImage,

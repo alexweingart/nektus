@@ -10,7 +10,6 @@ import { getProfile, getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import { saveToGoogleContacts } from '@/lib/services/googleContactsService';
 import { getExchangeMatch } from '@/lib/redis/client';
 import type { ContactSaveResult } from '@/types/contactExchange';
-import type { UserProfile } from '@/types/profile';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {

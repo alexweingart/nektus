@@ -4,8 +4,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import type { UserProfile } from '@/types/profile';
-import { LoadingSpinner } from './ui/LoadingSpinner';
-import { Button } from '@/ui/Button';
 import CustomInput from './ui/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -13,7 +11,6 @@ import Image from 'next/image';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import SocialIcon from './ui/SocialIcon';
-import { MdEdit } from 'react-icons/md';
 import EditTitleBar from './ui/EditTitleBar';
 import CustomExpandingInput from './ui/CustomExpandingInput';
 
@@ -126,7 +123,6 @@ const EditProfile: React.FC = () => {
   const [digits, setDigits] = useState('');
   const [phoneCountry, setPhoneCountry] = useState<'US' | 'CA' | 'GB' | 'AU' | 'DE' | 'FR' | 'IN'>('US');
   const [isSaving, setIsSaving] = useState(false);
-  const [showFallback, setShowFallback] = useState(false);
   const [hasNewBackgroundImage, setHasNewBackgroundImage] = useState(false);
 
   // Helper function to initialize form data from profile
@@ -407,42 +403,6 @@ const EditProfile: React.FC = () => {
         }
       }
       
-      // Define the social channel type for the form
-      type FormSocialChannel = {
-        username: string;
-        url: string;
-        userConfirmed: boolean;
-      };
-
-      // Define the contact channels type for the form
-      interface FormContactChannels {
-        phoneInfo: {
-          internationalPhone: string;
-          nationalPhone: string;
-          userConfirmed: boolean;
-        };
-        email: {
-          email: string;
-          userConfirmed: boolean;
-        };
-        facebook: FormSocialChannel;
-        instagram: FormSocialChannel;
-        x: FormSocialChannel;
-        whatsapp: FormSocialChannel;
-        snapchat: FormSocialChannel;
-        telegram: FormSocialChannel;
-        wechat: FormSocialChannel;
-        linkedin: FormSocialChannel;
-        [key: string]: FormSocialChannel | {
-          email: string;
-          userConfirmed: boolean;
-        } | {
-          internationalPhone: string;
-          nationalPhone: string;
-          userConfirmed: boolean;
-        };
-      }
-
       // Create the base contact channels with all required fields
       const baseContactChannels: ContactChannels = {
         ...(profile?.contactChannels || {})

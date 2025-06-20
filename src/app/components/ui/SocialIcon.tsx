@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
+import { openMessagingApp } from '@/lib/services/messagingService';
 
 // Custom X logo component (formerly Twitter)
 const XIcon = ({ className }: { className?: string }) => (
@@ -79,7 +80,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       case 'email':
         return `mailto:${usernameFormatted}`;
       case 'phone':
-        return `tel:${usernameFormatted}`;
+        return `sms:${usernameFormatted}`;
       default:
         return null;
     }
@@ -99,6 +100,12 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     // If there's a custom click handler, use that
     if (onClick) {
       onClick();
+      return;
+    }
+    
+    // Handle phone platform with messaging service
+    if (platform === 'phone' && username) {
+      openMessagingApp('', username);
       return;
     }
     
