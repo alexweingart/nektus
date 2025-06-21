@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/Button';
-import { parsePhoneNumber as parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
+import { type CountryCode } from 'libphonenumber-js';
 import CustomPhoneInput from './ui/CustomPhoneInput';
 import { useAdminModeActivator } from './ui/AdminBanner';
 import { Heading } from './ui/Typography';
@@ -13,14 +13,8 @@ import Avatar from './ui/Avatar';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { useProfile } from '../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
-
-// Define Country type to match CustomPhoneInput
-type Country = {
-  name: string;
-  code: string;
-  flag: string;
-  dialCode: string;
-};
+import type { Country } from '@/types/forms';
+import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 
 function ProfileSetup() {
   // Session and authentication
@@ -74,30 +68,16 @@ function ProfileSetup() {
       
       // Format phone number if digits are provided
       if (digits) {
-        // Clean the digits to remove any non-numeric characters
-        const cleanedDigits = digits.replace(/\D/g, '');
+        const phoneResult = formatPhoneNumber(digits, selectedCountry.code as CountryCode);
         
-        // For US/Canada numbers (10 digits or 11 digits starting with 1)
-        if (cleanedDigits.length === 10 || (cleanedDigits.length === 11 && cleanedDigits.startsWith('1'))) {
-          const nationalNum = cleanedDigits.length === 11 ? cleanedDigits.slice(1) : cleanedDigits;
-          internationalPhone = `+1${nationalNum}`; // E.164 format for US/Canada
-          nationalPhone = nationalNum;
-        } else if (cleanedDigits.length > 10) {
-          // Try to parse with country code
-          const countryCode = selectedCountry?.code as CountryCode | undefined;
-          const parsed = parsePhoneNumberFromString(`+${cleanedDigits}`, { defaultCountry: countryCode });
-          
-          if (parsed?.isValid()) {
-            internationalPhone = parsed.format('E.164');
-            nationalPhone = parsed.nationalNumber;
-          } else {
-            // If parsing fails, just use the raw digits
-            internationalPhone = `+${cleanedDigits}`;
-            nationalPhone = cleanedDigits;
-          }
+        if (phoneResult.isValid || phoneResult.internationalPhone) {
+          internationalPhone = phoneResult.internationalPhone;
+          nationalPhone = phoneResult.nationalPhone;
         } else {
-          // For numbers that are too short to be valid, just use them as is
-          internationalPhone = `+${cleanedDigits}`;
+          // For invalid numbers, still try to save them for user's convenience
+          // This matches the original behavior of preserving user input
+          const cleanedDigits = digits.replace(/\D/g, '');
+          internationalPhone = cleanedDigits ? `+${cleanedDigits}` : '';
           nationalPhone = cleanedDigits;
         }
       }

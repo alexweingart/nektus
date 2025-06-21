@@ -1,13 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-
-// Define country type
-type Country = {
-  name: string;
-  code: string;
-  flag: string;
-  dialCode: string;
-};
+import type { Country } from '@/types/forms';
 
 // List of countries with their info
 const countries: Country[] = [
