@@ -6,11 +6,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Button } from './ui/Button';
-import Avatar from './ui/Avatar';
-import { LoadingSpinner } from './ui/LoadingSpinner';
-import SocialIcon from './ui/SocialIcon';
-import { SuccessModal } from './ui/SuccessModal';
+import { Button } from '../ui/Button';
+import Avatar from '../ui/Avatar';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import SocialIcon from '../ui/SocialIcon';
+import { SuccessModal } from '../ui/SuccessModal';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 

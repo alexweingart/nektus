@@ -4,8 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "node scripts/set-env.js --https && node start-https.js",
+    "dev:local": "node scripts/set-env.js --local-domain && next dev --hostname 0.0.0.0",
+    "dev:local:https": "node scripts/set-env.js --https --local-domain && node start-https.js",
+    "dev:ngrok": "node scripts/start-ngrok.js",
     "build": "next build",
     "start": "next start",
+    "start:https": "node start-https.js",
     "lint": "next lint",
     "pre-deploy-check": "node pre-deploy-check.js"
   },

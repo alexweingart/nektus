@@ -2,13 +2,8 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CountryCode } from 'libphonenumber-js';
 import type { UserProfile } from '@/types/profile';
-import type { 
-  SocialPlatform, 
-  ProfileFormData
-} from '@/types/forms';
-import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
-import { processSocialProfile } from '@/lib/utils/socialMedia';
-import { extractPhoneData, formDataToProfile } from '@/lib/utils/profileTransforms';
+import type { ProfileFormData } from '@/types/forms';
+import { saveProfileData as saveProfileDataService } from '@/lib/services/profileSaveService';
 
 // Hook props interface
 interface UseProfileSaveProps {
@@ -24,22 +19,6 @@ interface UseProfileSaveReturn {
   saveError: string | null;
   clearError: () => void;
 }
-
-// Helper function to generate social URL using existing socialMedia utilities
-const generateSocialUrl = (platform: SocialPlatform, username: string): string => {
-  if (!username || platform === 'email' || platform === 'phone') return '';
-  
-  // Special cases that don't use standard URL patterns
-  if (platform === 'whatsapp') return `+${username}`;
-  if (platform === 'wechat') return '';
-  
-  // Use existing socialMedia utility and strip the protocol to maintain same format
-  const dummyProfile = { username, url: '', userConfirmed: true };
-  const processedProfile = processSocialProfile(platform, dummyProfile);
-  
-  // Strip https:// to maintain the same format as before
-  return processedProfile.url.replace(/^https?:\/\//, '');
-};
 
 export const useProfileSave = ({ 
   profile, 
@@ -67,41 +46,29 @@ export const useProfileSave = ({
     setSaveError(null);
 
     try {
-      // Extract phone data using transform utility
-      const phoneData = extractPhoneData(digits, phoneCountry, formatPhoneNumber);
-      const hasPhoneNumber = !!digits;
-
-      // Transform form data to profile using transform utility
-      const updatedProfile = formDataToProfile(
+      // Use the service function for the business logic
+      const result = await saveProfileDataService(
         formData,
-        phoneData,
-        hasPhoneNumber,
+        digits,
+        phoneCountry,
+        profile,
         hasNewBackgroundImage,
-        generateSocialUrl,
-        profile
+        saveProfile
       );
       
-      // Save the updated profile
-      if (!saveProfile) {
-        throw new Error('saveProfile function is not available');
-      }
-      
-      console.log('=== PROFILE SAVE START ===');
-      console.log('Updated profile before save:', JSON.parse(JSON.stringify(updatedProfile)));
-      
-      // Save to context (which will save to localStorage)
-      // Use directUpdate: true to ensure we do a direct update
-      await saveProfile(updatedProfile, { directUpdate: true });
-      
-      console.log('=== PROFILE SAVE COMPLETE ===');
-      
-      // Redirect to profile view
-      if (router) {
-        router.push('/');
+      if (result) {
+        console.log('Profile saved successfully, redirecting to home page');
+        
+        // Redirect to profile view
+        if (router) {
+          router.push('/');
+        } else {
+          console.warn('Router is not available');
+          // Fallback to window.location if router is not available
+          window.location.href = '/';
+        }
       } else {
-        console.warn('Router is not available');
-        // Fallback to window.location if router is not available
-        window.location.href = '/';
+        throw new Error('Failed to save profile - no result returned');
       }
     } catch (error) {
       console.error('Error saving profile:', error);

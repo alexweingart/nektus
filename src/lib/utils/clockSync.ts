@@ -21,7 +21,7 @@ export async function initializeClockSync(): Promise<boolean> {
   try {
     const t0 = performance.now();
     
-    const response = await fetch('/api/sync-clock', {
+    const response = await fetch('/api/system/sync-clock', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

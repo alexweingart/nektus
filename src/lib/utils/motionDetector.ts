@@ -49,7 +49,7 @@ export class MotionDetector {
     
     // Log the detailed browser environment
     try {
-      await fetch('/api/ping', {
+      await fetch('/api/system/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -85,7 +85,7 @@ export class MotionDetector {
         
         // Log to server for debugging
         try {
-          await fetch('/api/ping', {
+          await fetch('/api/system/ping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -101,7 +101,7 @@ export class MotionDetector {
         
         // Log result to server
         try {
-          await fetch('/api/ping', {
+          await fetch('/api/system/ping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -125,7 +125,7 @@ export class MotionDetector {
         
         // Log error to server
         try {
-          await fetch('/api/ping', {
+          await fetch('/api/system/ping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -156,7 +156,7 @@ export class MotionDetector {
       
       // Log to server
       try {
-        await fetch('/api/ping', {
+        await fetch('/api/system/ping', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -175,7 +175,7 @@ export class MotionDetector {
     
     // Log to server
     try {
-      await fetch('/api/ping', {
+      await fetch('/api/system/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -211,7 +211,7 @@ export class MotionDetector {
     
     // Log device info and threshold to server for debugging
     try {
-      await fetch('/api/ping', {
+      await fetch('/api/system/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -284,7 +284,7 @@ export class MotionDetector {
           
           // Log successful motion detection to server for analytics
           try {
-            fetch('/api/ping', {
+            fetch('/api/system/ping', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 

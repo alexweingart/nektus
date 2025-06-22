@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useProfile } from '../context/ProfileContext';
+import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
-import { LoadingSpinner } from './ui/LoadingSpinner';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import Link from 'next/link';
-import { Button } from './ui/Button';
-import Avatar from './ui/Avatar';
-import SocialIcon from './ui/SocialIcon';
-import { useAdminModeActivator } from './ui/AdminBanner';
-import { ExchangeButton } from './ExchangeButton';
+import { Button } from '../ui/Button';
+import Avatar from '../ui/Avatar';
+import SocialIcon from '../ui/SocialIcon';
+import { useAdminModeActivator } from '../ui/AdminBanner';
+import { ExchangeButton } from '../ui/ExchangeButton';
 import ReactMarkdown from 'react-markdown';
-import { Heading } from './ui/Typography';
+import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
 
 const ProfileView: React.FC = () => {

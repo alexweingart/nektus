@@ -3,20 +3,20 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Button } from './ui/Button';
+import { Button } from '../ui/Button';
 import { type CountryCode } from 'libphonenumber-js';
-import CustomPhoneInput from './ui/CustomPhoneInput';
-import { useAdminModeActivator } from './ui/AdminBanner';
-import { Heading } from './ui/Typography';
-import { useFreezeScrollOnFocus } from '@/lib/utils/useFreezeScrollOnFocus';
-import Avatar from './ui/Avatar';
-import { LoadingSpinner } from './ui/LoadingSpinner';
-import { useProfile } from '../context/ProfileContext'; // Import useProfile hook
+import CustomPhoneInput from '../ui/CustomPhoneInput';
+import { useAdminModeActivator } from '../ui/AdminBanner';
+import { Heading } from '../ui/Typography';
+import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import Avatar from '../ui/Avatar';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
 import type { Country } from '@/types/forms';
 import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 
-function ProfileSetup() {
+function ProfileSetupView() {
   // Session and authentication
   const { data: session, status: sessionStatus } = useSession({
     required: true,
@@ -251,4 +251,4 @@ function ProfileSetup() {
   );
 }
 
-export default memo(ProfileSetup);
+export default memo(ProfileSetupView);

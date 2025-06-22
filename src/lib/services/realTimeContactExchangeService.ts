@@ -492,7 +492,7 @@ export class RealTimeContactExchangeService {
     // Fallback to fresh measurement
     const start = performance.now();
     try {
-      await fetch('/api/ping', { method: 'HEAD' });
+      await fetch('/api/system/ping', { method: 'HEAD' });
       const rtt = performance.now() - start;
       console.log(`📊 Measured fresh RTT: ${rtt.toFixed(1)}ms`);
       return rtt;
@@ -504,7 +504,7 @@ export class RealTimeContactExchangeService {
 
   private async logToServer(event: string, message: string): Promise<void> {
     try {
-      await fetch('/api/ping', {
+      await fetch('/api/system/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

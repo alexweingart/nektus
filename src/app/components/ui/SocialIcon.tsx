@@ -109,7 +109,16 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       return;
     }
     
-    // Otherwise, handle default platform behavior
+    // Handle email platform with direct navigation (no new tab)
+    if (platform === 'email' && username) {
+      const url = getPlatformUrl(platform, username);
+      if (url) {
+        window.location.href = url; // Direct navigation for mailto links
+      }
+      return;
+    }
+    
+    // Otherwise, handle default platform behavior with new tab
     if (username) {
       const url = getPlatformUrl(platform, username);
       if (url) {

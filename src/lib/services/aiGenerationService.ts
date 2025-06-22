@@ -153,7 +153,7 @@ export async function generateAvatar(profile: UserProfile, saveProfile: SaveProf
     if (result.imageUrl.startsWith('data:image/')) {
       console.log('[Upload] Uploading generated avatar via API...');
       
-      const uploadResponse = await fetch('/api/upload-avatar', {
+      const uploadResponse = await fetch('/api/media/profile-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,7 +189,7 @@ export async function generateBackgroundImage(
   let lastPartialImageUrl = '';
 
   try {
-    const response = await fetch('/api/background-image', {
+    const response = await fetch('/api/media/background-image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -374,7 +374,7 @@ export async function generateAndSaveBackgroundImage(
     
     // Try to upload to Firebase Storage for persistence
     try {
-      const uploadResponse = await fetch('/api/background-image', {
+      const uploadResponse = await fetch('/api/media/background-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

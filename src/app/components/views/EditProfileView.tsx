@@ -2,22 +2,22 @@
 /** @jsxImportSource react */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useProfile } from '../context/ProfileContext';
+import { useProfile } from '../../context/ProfileContext';
 import type { UserProfile } from '@/types/profile';
 import type { SocialPlatform, SocialProfileFormEntry, ProfileFormData } from '@/types/forms';
-import CustomInput from './ui/CustomInput';
+import CustomInput from '../ui/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import CustomPhoneInput from './ui/CustomPhoneInput';
-import SocialIcon from './ui/SocialIcon';
-import EditTitleBar from './ui/EditTitleBar';
-import CustomExpandingInput from './ui/CustomExpandingInput';
+import CustomPhoneInput from '../ui/CustomPhoneInput';
+import SocialIcon from '../ui/SocialIcon';
+import EditTitleBar from '../ui/EditTitleBar';
+import CustomExpandingInput from '../ui/CustomExpandingInput';
 import { useProfileSave } from '@/lib/hooks/useProfileSave';
 import { profileToFormData } from '@/lib/utils/profileTransforms';
 import type { CountryCode } from 'libphonenumber-js';
 
-const EditProfile: React.FC = () => {
+const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
   const { profile, saveProfile, getLatestProfile } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -112,7 +112,7 @@ const EditProfile: React.FC = () => {
         try {
           const base64Data = result.split(',')[1]; // Remove data:image/...;base64, prefix
           
-          const response = await fetch('/api/background-image', {
+          const response = await fetch('/api/media/background-image', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -341,4 +341,4 @@ const EditProfile: React.FC = () => {
   );
 };
 
-export default EditProfile;
+export default EditProfileView;

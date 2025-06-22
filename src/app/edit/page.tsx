@@ -9,7 +9,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 export const dynamic = 'force-dynamic';
 
 // Use dynamic import to ensure component is loaded correctly
-const EditProfile = dynamicImport(() => import('../components/EditProfile'), {
+const EditProfileView = dynamicImport(() => import('../components/views/EditProfileView'), {
   ssr: false,
   loading: () => (
     <div className="min-h-screen flex items-center justify-center">
@@ -51,7 +51,7 @@ export default function EditPage() {
           <LoadingSpinner size="sm" />
         </div>
       }>
-        <EditProfile />
+        <EditProfileView />
       </Suspense>
     </div>
   );

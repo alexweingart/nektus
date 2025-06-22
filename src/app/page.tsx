@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
-import { useViewportLock } from '@/lib/utils/useViewportLock';
-import { useBodyBackgroundImage } from '@/lib/utils/useBodyBackgroundImage';
+import { useViewportLock } from '@/lib/hooks/useViewportLock';
+import { useBodyBackgroundImage } from '@/lib/hooks/useBodyBackgroundImage';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -17,7 +17,7 @@ const HomePage = dynamicImport(() => import('./components/HomePage'), {
   loading: () => <div className="min-h-screen" />
 });
 
-const ProfileView = dynamicImport(() => import('./components/ProfileView'), { 
+const ProfileView = dynamicImport(() => import('./components/views/ProfileView'), { 
   ssr: false,
   loading: () => <div className="min-h-screen" />
 });
