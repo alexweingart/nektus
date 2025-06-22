@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -10,9 +10,12 @@ import Avatar from '../ui/Avatar';
 import SocialIcon from '../ui/SocialIcon';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/ExchangeButton';
+import { SuccessModal } from '../ui/SuccessModal';
 import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
+import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
+import type { UserProfile } from '@/types/profile';
 
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
@@ -26,6 +29,61 @@ const ProfileView: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   const router = useRouter();
+
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedContactProfile, setSavedContactProfile] = useState<UserProfile | null>(null);
+
+  // Check for saved contact on component mount
+  useEffect(() => {
+    const checkForSavedContact = () => {
+      try {
+        const savedContactData = localStorage.getItem('savedContact');
+        if (savedContactData) {
+          const { profile: contactProfile, timestamp } = JSON.parse(savedContactData);
+          
+          // Only show modal if the save was recent (within last 30 seconds)
+          const timeDiff = Date.now() - timestamp;
+          if (timeDiff < 30000) {
+            console.log('🎉 Showing success modal for recently saved contact:', contactProfile.name);
+            setSavedContactProfile(contactProfile);
+            setShowSuccessModal(true);
+          }
+          
+          // Clear the localStorage data
+          localStorage.removeItem('savedContact');
+        }
+      } catch (error) {
+        console.error('Error checking for saved contact:', error);
+        // Clear corrupted data
+        localStorage.removeItem('savedContact');
+      }
+    };
+
+    // Check when component mounts and profile is available
+    if (currentProfile) {
+      checkForSavedContact();
+    }
+  }, [currentProfile]);
+
+  const handleMessageContact = () => {
+    if (!session?.user?.name || !savedContactProfile?.name) {
+      console.warn('Missing user names for message generation');
+      return;
+    }
+
+    const senderFirstName = session.user.name.split(' ')[0];
+    const contactFirstName = savedContactProfile.name.split(' ')[0];
+    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    
+    // Try to use phone number if available
+    const phoneNumber = savedContactProfile.contactChannels?.phoneInfo?.internationalPhone;
+    
+    console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
+    openMessagingApp(messageText, phoneNumber);
+    
+    setShowSuccessModal(false);
+  };
 
   // Memoized values that need to be declared before conditional returns
   const bioContent = useMemo(() => {
@@ -286,6 +344,16 @@ const ProfileView: React.FC = () => {
           <ExchangeButton />
         </div>
       </div>
+
+      {/* Success Modal - shows when contact is saved */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Yay! New friend"
+        subtitle="Send them some love now so ya'll stay in touch"
+        buttonText="👋"
+        onButtonClick={handleMessageContact}
+      />
     </div>
   );
 };

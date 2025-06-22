@@ -114,7 +114,17 @@ function ConnectPageContent() {
         console.warn('⚠️ Google Contacts save failed:', saveResult.google.error);
       }
 
-      // Success! The modal will be shown by ContactView
+      // Success! Store contact info in localStorage for success modal, then redirect to profile
+      if (contactProfile) {
+        localStorage.setItem('savedContact', JSON.stringify({
+          profile: contactProfile,
+          timestamp: Date.now()
+        }));
+      }
+      
+      // Redirect to profile view immediately after saving
+      console.log('🏠 Redirecting to profile view after successful save');
+      router.push('/');
       
     } catch (error) {
       console.error('❌ Contact save failed:', error);

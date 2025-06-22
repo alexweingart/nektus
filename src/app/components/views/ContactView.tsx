@@ -10,7 +10,6 @@ import { Button } from '../ui/Button';
 import Avatar from '../ui/Avatar';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import SocialIcon from '../ui/SocialIcon';
-import { SuccessModal } from '../ui/SuccessModal';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 
@@ -29,26 +28,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
   isLoading = false,
   onMessageContact
 }) => {
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSaveContact = async () => {
     setIsSaving(true);
     try {
       await onSaveContact();
-      setShowSuccessModal(true);
+      // No modal shown here anymore - redirect happens in parent component
     } catch (error) {
       console.error('Failed to save contact:', error);
       // Error handling is done in the parent component
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleMessageContact = () => {
-    setShowSuccessModal(false);
-    if (onMessageContact) {
-      onMessageContact(profile);
     }
   };
   const bioContent = useMemo(() => {
@@ -269,17 +260,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             </button>
           </div>
       </div>
-
-      {/* Success Modal */}
-      <SuccessModal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        title="Yay! New friend"
-        subtitle="Send them some love now so ya'll stay in touch"
-        buttonText="👋"
-        onButtonClick={handleMessageContact}
-      />
-    </div>
+      </div>
     </div>
   );
 };
