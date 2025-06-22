@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
 import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
+import { Button } from '../components/ui/Button';
 import type { UserProfile } from '@/types/profile';
 import type { ContactSaveResult } from '@/types/contactExchange';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -202,12 +203,14 @@ function ConnectPageContent() {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error}</p>
-          <button 
+          <Button 
             onClick={() => router.push('/')}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+            variant="theme"
+            size="lg"
+            className="w-full"
           >
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -231,12 +234,14 @@ function ConnectPageContent() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
       <div className="text-center">
         <p className="text-gray-400">Something went wrong</p>
-        <button 
+        <Button 
           onClick={() => router.push('/')}
-          className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+          variant="theme"
+          size="lg"
+          className="mt-4 w-full"
         >
           Go Home
-        </button>
+        </Button>
       </div>
     </div>
   );

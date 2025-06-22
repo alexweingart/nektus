@@ -64,7 +64,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
           {/* Secondary Button */}
           <div className="flex justify-center">
             <SecondaryButton onClick={onClose}>
-              it&apos;s ok, they&apos;ll text me first
+              It&apos;s ok, they&apos;ll text me first
             </SecondaryButton>
           </div>
           

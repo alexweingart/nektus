@@ -165,8 +165,8 @@ const ProfileView: React.FC = () => {
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
         <Button 
           variant="circle"
-          size="icon"
-          className="w-12 h-12"
+          size="lg"
+          className="w-14 h-14"
           onClick={() => {}}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
@@ -177,8 +177,8 @@ const ProfileView: React.FC = () => {
         <Link href="/edit">
           <Button 
             variant="circle"
-            size="icon"
-            className="w-12 h-12"
+            size="lg"
+            className="w-14 h-14"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />

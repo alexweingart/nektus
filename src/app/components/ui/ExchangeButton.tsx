@@ -211,7 +211,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         variant={getButtonVariant()}
         size="lg"
         className={`
-          w-full h-16 text-xl font-semibold
+          w-full text-xl font-semibold
           transition-all duration-200 ease-in-out
           ${isActive ? 'animate-pulse' : ''}
           ${className || ''}
