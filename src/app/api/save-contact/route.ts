@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { token } = await request.json();
+    const { token, skipGoogleContacts = false } = await request.json();
 
     if (!token) {
       return NextResponse.json(
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('❌ Firebase save failed:', error);
     }
 
-    // Save to Google Contacts (only if Firebase succeeded and we have access token)
-    if (result.firebase.success && session.accessToken) {
+    // Save to Google Contacts (only if Firebase succeeded, we have access token, and not skipping)
+    if (result.firebase.success && session.accessToken && !skipGoogleContacts) {
       try {
         const googleResult = await saveToGoogleContacts(session.accessToken, contactProfile);
         result.google.success = googleResult.success;
@@ -112,6 +112,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } else if (!session.accessToken) {
       result.google.error = 'No Google access token available';
       console.warn('⚠️ Skipping Google Contacts save - no access token');
+    } else if (skipGoogleContacts) {
+      result.google.error = 'Google Contacts save skipped';
+      console.log('ℹ️ Skipping Google Contacts save - explicitly disabled');
     }
 
     // Overall success if at least Firebase succeeded

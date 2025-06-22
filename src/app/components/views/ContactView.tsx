@@ -13,36 +13,98 @@ import SocialIcon from '../ui/SocialIcon';
 import { SecondaryButton } from '../ui/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
+import { useContactSaveFlow } from '@/lib/hooks/useContactSaveFlow';
+import { ContactWriteUpsellModal } from '../ui/ContactWriteUpsellModal';
+import { SuccessModal } from '../ui/SuccessModal';
+import { generateMessageText, openMessagingAppWithVCard } from '@/lib/services/messagingService';
+import { useSession } from 'next-auth/react';
 
 interface ContactViewProps {
   profile: UserProfile;
-  onSaveContact: () => Promise<void>;
   onReject: () => void;
   isLoading?: boolean;
-  onMessageContact?: (profile: UserProfile) => void;
+  token: string;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
   profile,
-  onSaveContact,
   onReject,
   isLoading = false,
-  onMessageContact
+  token
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Use the simplified contact save flow hook
+  const {
+    saveContact,
+    retryPermission,
+    dismissSuccessModal,
+    dismissUpsellModal,
+    showSuccessModal,
+    showUpsellModal,
+    getButtonText,
+    isSuccess
+  } = useContactSaveFlow();
 
   const handleSaveContact = async () => {
-    setIsSaving(true);
     try {
-      await onSaveContact();
-      // No modal shown here anymore - redirect happens in parent component
+      setIsSaving(true);
+      
+      // Run the full contact save flow (this includes accepting the exchange)
+      await saveContact(profile, token);
+      
     } catch (error) {
       console.error('Failed to save contact:', error);
-      // Error handling is done in the parent component
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Handle navigation after success modal is dismissed
+  const handleSuccessModalClose = () => {
+    dismissSuccessModal();
+    // Navigation can be handled here if needed, or left empty
+  };
+
+  const handleUpsellAccept = async () => {
+    try {
+      await retryPermission(profile, token);
+    } catch (error) {
+      console.error('Failed to retry permission:', error);
+    }
+  };
+
+  const handleUpsellDecline = () => {
+    dismissUpsellModal();
+  };
+
+  const handleSayHi = () => {
+    if (!session?.user?.name) {
+      console.warn('Cannot send message: no user session');
+      return;
+    }
+
+    // Create sender profile from session
+    const senderProfile: UserProfile = {
+      userId: session.user.id || '',
+      name: session.user.name,
+      profileImage: session.user.image || undefined,
+    } as UserProfile;
+
+    const senderFirstName = session.user.name.split(' ')[0];
+    const contactFirstName = profile.name.split(' ')[0];
+    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    
+    // Try to use phone number if available
+    const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+    
+    console.log('📱 Opening messaging app with vCard attachment');
+    openMessagingAppWithVCard(messageText, senderProfile, phoneNumber);
+    
+    dismissSuccessModal();
+  };
+
+  const { data: session } = useSession();
   const bioContent = useMemo(() => {
     return profile?.bio || 'Welcome to my profile!';
   }, [profile?.bio]);
@@ -243,12 +305,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
             {isSaving ? (
               <div className="flex items-center space-x-2">
                 <LoadingSpinner size="sm" />
-                <span>Saving...</span>
+                <span>{getButtonText()}</span>
               </div>
             ) : (
-              'Save Contact'
+              getButtonText()
             )}
           </Button>
+          
+          {/* Success/Error Messages - handled by modals now */}
           
           {/* Reject Button (Secondary) */}
           <div className="flex justify-center">
@@ -259,8 +323,27 @@ export const ContactView: React.FC<ContactViewProps> = ({
               Nah, who this
             </SecondaryButton>
           </div>
+        </div>
       </div>
-      </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        title="Contact Saved! 🎉"
+        subtitle={`${profile.name}'s contact has been saved successfully!`}
+        buttonText="Say hi 👋"
+        onButtonClick={handleSayHi}
+        secondaryButtonText="I'm done"
+      />
+
+      {/* Contact Write Upsell Modal */}
+      <ContactWriteUpsellModal
+        isOpen={showUpsellModal}
+        onClose={dismissUpsellModal}
+        onAccept={handleUpsellAccept}
+        onDecline={handleUpsellDecline}
+      />
     </div>
   );
 };

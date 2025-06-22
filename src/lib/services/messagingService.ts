@@ -2,6 +2,8 @@
  * Service for handling deep links to native messaging apps
  */
 
+import { UserProfile } from '@/types/profile';
+
 /**
  * Generates the message text template
  */
@@ -102,4 +104,29 @@ function fallbackCopyText(text: string): void {
     // Last resort - show the text to user
     prompt('Copy this message and paste it in your messaging app:', text);
   }
+}
+
+/**
+ * Opens the appropriate messaging app with pre-populated text and vCard attachment
+ * Used for the "Say hi" functionality in success modals
+ */
+export function openMessagingAppWithVCard(
+  messageText: string, 
+  senderProfile: UserProfile,
+  phoneNumber?: string
+): void {
+  // Import vCard generation dynamically to avoid circular dependencies
+  import('./vCardService').then(({ generateVCard }) => {
+    const vCardData = generateVCard(senderProfile);
+    
+    // For platforms that support file attachments, we'd attach the vCard
+    // For now, we'll include it in the message text as a fallback
+    const messageWithVCard = `${messageText}\n\n--- Contact Card ---\n${vCardData}`;
+    
+    openMessagingApp(messageWithVCard, phoneNumber);
+  }).catch(error => {
+    console.error('Failed to generate vCard:', error);
+    // Fallback to regular message
+    openMessagingApp(messageText, phoneNumber);
+  });
 }

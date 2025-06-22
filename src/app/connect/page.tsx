@@ -71,79 +71,6 @@ function ConnectPageContent() {
     fetchMatchedProfile();
   }, [session, status, router, token]);
 
-  const handleSaveContact = async () => {
-    if (!token) {
-      throw new Error('No exchange token available');
-    }
-    
-    const startTime = performance.now();
-    console.log('💾 Starting contact save process for token:', token);
-    
-    try {
-      // First accept the exchange
-      console.log('🔄 Step 1: Accepting exchange...');
-      const acceptStart = performance.now();
-      const acceptResponse = await fetch(`/api/exchange/pair/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: true })
-      });
-      console.log(`⏱️ Accept took: ${performance.now() - acceptStart}ms`);
-
-      if (!acceptResponse.ok) {
-        throw new Error('Failed to accept exchange');
-      }
-
-      console.log('✅ Exchange accepted, now saving contact...');
-
-      // Store contact info for success modal BEFORE API call
-      if (contactProfile) {
-        localStorage.setItem('savedContact', JSON.stringify({
-          profile: contactProfile,
-          timestamp: Date.now()
-        }));
-      }
-      
-      // Redirect immediately - don't wait for the full save process
-      console.log('🏠 Redirecting to profile view (save will continue in background)');
-      router.push('/');
-      
-      // Then save the contact in the background (fire-and-forget)
-      console.log('🔄 Step 2: Starting background save...');
-      const saveStart = performance.now();
-      fetch('/api/save-contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      })
-      .then(response => response.json())
-      .then((saveResult: ContactSaveResult) => {
-        console.log(`⏱️ Background save took: ${performance.now() - saveStart}ms`);
-        console.log(`🎉 Total process took: ${performance.now() - startTime}ms`);
-        console.log('✅ Contact save completed:', {
-          firebase: saveResult.firebase.success,
-          google: saveResult.google.success
-        });
-
-        // Log any issues (but don't affect UX since user already redirected)
-        if (!saveResult.firebase.success) {
-          console.error('❌ Firebase save failed in background:', saveResult.firebase.error);
-        }
-        if (!saveResult.google.success && saveResult.google.error) {
-          console.warn('⚠️ Google Contacts save failed in background:', saveResult.google.error);
-        }
-      })
-      .catch(error => {
-        console.error('❌ Background save failed:', error);
-        // Could potentially store failed saves for retry later
-      });
-      
-    } catch (error) {
-      console.error('❌ Contact save failed:', error);
-      throw error; // Re-throw to be handled by ContactView
-    }
-  };
-
   const handleMessageContact = (profile: UserProfile) => {
     if (!session?.user?.name || !profile.name) {
       console.warn('Missing user names for message generation');
@@ -159,28 +86,6 @@ function ConnectPageContent() {
     
     console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
     openMessagingApp(messageText, phoneNumber);
-  };
-
-  const handleReject = async () => {
-    if (!token) {
-      router.push('/');
-      return;
-    }
-    
-    // Navigate immediately for better UX, then send reject in background
-    console.log('🚫 Rejecting contact and navigating...');
-    router.push('/');
-    
-    // Send reject API call in background (fire and forget)
-    fetch(`/api/exchange/pair/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accept: false })
-    }).then(response => {
-      console.log('✅ Reject API call completed:', response.ok);
-    }).catch(error => {
-      console.warn('⚠️ Reject API call failed (non-critical):', error);
-    });
   };
 
   // Show loading while checking auth or fetching profile
@@ -217,14 +122,13 @@ function ConnectPageContent() {
   }
 
   // Show contact view if authenticated and profile is loaded
-  if (session && contactProfile) {
+  if (session && contactProfile && token) {
     return (
       <ContactView
         profile={contactProfile}
-        onSaveContact={handleSaveContact}
-        onReject={handleReject}
-        onMessageContact={handleMessageContact}
+        onReject={() => router.push('/')}
         isLoading={false}
+        token={token}
       />
     );
   }

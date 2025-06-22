@@ -91,7 +91,7 @@ if (hasGoogleCredentials) {
           prompt: "consent",
           access_type: "offline", 
           response_type: "code",
-          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/contacts",
+          scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile",
           // Force account selection to ensure user can pick different account
           // This helps ensure fresh authorization after account deletion
           include_granted_scopes: "true"
