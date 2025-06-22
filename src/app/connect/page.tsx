@@ -95,34 +95,7 @@ function ConnectPageContent() {
 
       console.log('✅ Exchange accepted, now saving contact...');
 
-      // Then save the contact
-      console.log('🔄 Step 2: Saving contact...');
-      const saveStart = performance.now();
-      const saveResponse = await fetch('/api/save-contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
-      console.log(`⏱️ Save took: ${performance.now() - saveStart}ms`);
-
-      const saveResult: ContactSaveResult = await saveResponse.json();
-
-      if (!saveResult.success) {
-        throw new Error(saveResult.firebase.error || 'Failed to save contact');
-      }
-
-      console.log(`🎉 Total save process took: ${performance.now() - startTime}ms`);
-      console.log('✅ Contact save completed:', {
-        firebase: saveResult.firebase.success,
-        google: saveResult.google.success
-      });
-
-      // Log any Google Contacts issues (but don't fail)
-      if (!saveResult.google.success && saveResult.google.error) {
-        console.warn('⚠️ Google Contacts save failed:', saveResult.google.error);
-      }
-
-      // Success! Store contact info in localStorage for success modal, then redirect to profile
+      // Store contact info for success modal BEFORE API call
       if (contactProfile) {
         localStorage.setItem('savedContact', JSON.stringify({
           profile: contactProfile,
@@ -130,9 +103,39 @@ function ConnectPageContent() {
         }));
       }
       
-      // Redirect to profile view immediately after saving
-      console.log('🏠 Redirecting to profile view after successful save');
+      // Redirect immediately - don't wait for the full save process
+      console.log('🏠 Redirecting to profile view (save will continue in background)');
       router.push('/');
+      
+      // Then save the contact in the background (fire-and-forget)
+      console.log('🔄 Step 2: Starting background save...');
+      const saveStart = performance.now();
+      fetch('/api/save-contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      })
+      .then(response => response.json())
+      .then((saveResult: ContactSaveResult) => {
+        console.log(`⏱️ Background save took: ${performance.now() - saveStart}ms`);
+        console.log(`🎉 Total process took: ${performance.now() - startTime}ms`);
+        console.log('✅ Contact save completed:', {
+          firebase: saveResult.firebase.success,
+          google: saveResult.google.success
+        });
+
+        // Log any issues (but don't affect UX since user already redirected)
+        if (!saveResult.firebase.success) {
+          console.error('❌ Firebase save failed in background:', saveResult.firebase.error);
+        }
+        if (!saveResult.google.success && saveResult.google.error) {
+          console.warn('⚠️ Google Contacts save failed in background:', saveResult.google.error);
+        }
+      })
+      .catch(error => {
+        console.error('❌ Background save failed:', error);
+        // Could potentially store failed saves for retry later
+      });
       
     } catch (error) {
       console.error('❌ Contact save failed:', error);

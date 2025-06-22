@@ -50,12 +50,12 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
           </div>
           
           {/* Action Button */}
-          <div className="flex justify-center">
+          <div className="w-full">
             <Button
               onClick={handleButtonClick}
               variant="white"
               size="lg"
-              className="text-xl font-semibold min-w-[120px]"
+              className="w-full text-xl font-semibold"
             >
               {buttonText}
             </Button>

@@ -20,9 +20,24 @@ export const usePWAInstall = () => {
     // Check if app is already installed (running in standalone mode)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInWebAppiOS = (window.navigator as any).standalone === true;
-    setIsInstalled(isStandalone || isInWebAppiOS);
+    const isInstalled = isStandalone || isInWebAppiOS;
+    
+    setIsInstalled(isInstalled);
+    
+    // In development or if already installed, don't show the button
+    if (isInstalled) {
+      setIsInstallable(false);
+      return;
+    }
+
+    // For iOS devices, always show the button (since they don't fire beforeinstallprompt)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && !isInstalled) {
+      setIsInstallable(true);
+    }
 
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('PWA: beforeinstallprompt event fired');
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later
@@ -31,6 +46,7 @@ export const usePWAInstall = () => {
     };
 
     const handleAppInstalled = () => {
+      console.log('PWA: app installed');
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -46,16 +62,21 @@ export const usePWAInstall = () => {
   }, []);
 
   const installPWA = async () => {
-    if (!deferredPrompt) {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isIOS) {
       // For iOS Safari, show instructions since there's no prompt
-      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        alert('To add this app to your home screen: tap the Share button, then tap "Add to Home Screen"');
-        return;
-      }
+      alert('To add this app to your home screen:\n\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+      return;
+    }
+
+    if (!deferredPrompt) {
+      console.log('PWA: No deferred prompt available');
       return;
     }
 
     try {
+      console.log('PWA: Showing install prompt');
       // Show the install prompt
       await deferredPrompt.prompt();
       
