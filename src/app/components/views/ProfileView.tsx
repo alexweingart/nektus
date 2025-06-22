@@ -364,9 +364,10 @@ const ProfileView: React.FC = () => {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="Yay! New friend"
-        subtitle="Send them some love now so ya'll stay in touch"
-        buttonText="👋"
+        title="All set - new friend saved!"
+        subtitle="Shoot them a quick text before you forget"
+        buttonText="Say hey 👋"
+        secondaryButtonText="Maybe later"
         onButtonClick={handleMessageContact}
       />
 

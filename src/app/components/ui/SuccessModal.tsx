@@ -13,6 +13,7 @@ interface SuccessModalProps {
   subtitle: string;
   buttonText: string;
   onButtonClick: () => void;
+  secondaryButtonText?: string;
 }
 
 export const SuccessModal: React.FC<SuccessModalProps> = ({
@@ -21,7 +22,8 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
   title,
   subtitle,
   buttonText,
-  onButtonClick
+  onButtonClick,
+  secondaryButtonText = "Maybe later"
 }) => {
   const handleButtonClick = () => {
     console.log('🎉 Success modal button clicked');
@@ -64,7 +66,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
           {/* Secondary Button */}
           <div className="flex justify-center">
             <SecondaryButton onClick={onClose}>
-              It&apos;s ok, they&apos;ll text me first
+              {secondaryButtonText}
             </SecondaryButton>
           </div>
           
