@@ -14,8 +14,8 @@ import { SecondaryButton } from '../ui/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import { useContactSaveFlow } from '@/lib/hooks/useContactSaveFlow';
-import { ContactWriteUpsellModal } from '../ui/ContactWriteUpsellModal';
-import { SuccessModal } from '../ui/SuccessModal';
+import { StandardModal } from '../ui/StandardModal';
+
 import { generateMessageText, openMessagingAppWithVCard } from '@/lib/services/messagingService';
 import { useSession } from 'next-auth/react';
 
@@ -327,22 +327,28 @@ export const ContactView: React.FC<ContactViewProps> = ({
       </div>
 
       {/* Success Modal */}
-      <SuccessModal
+      <StandardModal
         isOpen={showSuccessModal}
         onClose={handleSuccessModalClose}
         title="Contact Saved! 🎉"
         subtitle={`${profile.name}'s contact has been saved successfully!`}
-        buttonText="Say hi 👋"
-        onButtonClick={handleSayHi}
+        primaryButtonText="Say hi 👋"
+        onPrimaryButtonClick={handleSayHi}
         secondaryButtonText="I'm done"
+        variant="success"
       />
 
       {/* Contact Write Upsell Modal */}
-      <ContactWriteUpsellModal
+      <StandardModal
         isOpen={showUpsellModal}
         onClose={dismissUpsellModal}
-        onAccept={handleUpsellAccept}
-        onDecline={handleUpsellDecline}
+        title="Whoops - contact not fully saved"
+        subtitle="You need to let us save contacts to Google to easily text your new friend!"
+        primaryButtonText="OK! I'll do that"
+        onPrimaryButtonClick={handleUpsellAccept}
+        secondaryButtonText="Nah"
+        onSecondaryButtonClick={handleUpsellDecline}
+        variant="upsell"
       />
     </div>
   );

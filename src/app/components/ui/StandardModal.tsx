@@ -6,28 +6,40 @@ import { Button } from './Button';
 import { SecondaryButton } from './SecondaryButton';
 import { Heading, Text } from './Typography';
 
-interface SuccessModalProps {
+interface StandardModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   subtitle: string;
-  buttonText: string;
-  onButtonClick: () => void;
+  primaryButtonText: string;
+  onPrimaryButtonClick: () => void;
   secondaryButtonText?: string;
-}
+  onSecondaryButtonClick?: () => void;
+  variant?: 'success' | 'upsell' | 'info';
+  showSecondaryButton?: boolean;}
 
-export const SuccessModal: React.FC<SuccessModalProps> = ({
+export const StandardModal: React.FC<StandardModalProps> = ({
   isOpen,
   onClose,
   title,
   subtitle,
-  buttonText,
-  onButtonClick,
-  secondaryButtonText = "Maybe later"
+  primaryButtonText,
+  onPrimaryButtonClick,
+  secondaryButtonText = "Maybe later",
+  showSecondaryButton = true,  onSecondaryButtonClick,
+  variant: _variant = 'info'
 }) => {
-  const handleButtonClick = () => {
-    console.log('🎉 Success modal button clicked');
-    onButtonClick();
+  const handlePrimaryClick = () => {
+    console.log(`🎯 Standard modal primary button clicked: ${primaryButtonText}`);
+    onPrimaryButtonClick();
+  };
+
+  const handleSecondaryClick = () => {
+    if (onSecondaryButtonClick) {
+      onSecondaryButtonClick();
+    } else {
+      onClose();
+    }
   };
 
   return (
@@ -54,22 +66,23 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
           {/* Action Button */}
           <div className="w-full">
             <Button
-              onClick={handleButtonClick}
+              onClick={handlePrimaryClick}
               variant="white"
               size="lg"
               className="w-full text-xl font-semibold"
             >
-              {buttonText}
+              {primaryButtonText}
             </Button>
           </div>
           
           {/* Secondary Button */}
-          <div className="flex justify-center">
-            <SecondaryButton onClick={onClose}>
-              {secondaryButtonText}
-            </SecondaryButton>
-          </div>
-          
+          {showSecondaryButton && (
+            <div className="flex justify-center">
+              <SecondaryButton onClick={handleSecondaryClick}>
+                {secondaryButtonText}
+              </SecondaryButton>
+            </div>
+          )}          
           {/* Close button (optional, invisible but accessible) */}
           <Dialog.Close asChild>
             <button 
@@ -83,4 +96,4 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
       </Dialog.Portal>
     </Dialog.Root>
   );
-};
+}; 

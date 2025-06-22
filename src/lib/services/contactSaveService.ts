@@ -52,63 +52,6 @@ function markIOSUpsellShown(): void {
 }
 
 /**
- * Request Google Contacts permission (simplified incremental auth)
- */
-function requestGoogleContactsPermission(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      console.error('Google Client ID not configured');
-      resolve(false);
-      return;
-    }
-
-    // Construct the Google OAuth URL for incremental authorization
-    const authUrl = new URL('https://accounts.google.com/oauth2/v2/auth');
-    authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/contacts');
-    authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('prompt', 'consent');
-    authUrl.searchParams.set('include_granted_scopes', 'true');
-    authUrl.searchParams.set('redirect_uri', `${window.location.origin}/connect`);
-    authUrl.searchParams.set('state', 'incremental_auth');
-
-    // Open popup for OAuth flow
-    const popup = window.open(
-      authUrl.toString(),
-      'google-contacts-auth',
-      'width=500,height=600,scrollbars=yes,resizable=yes'
-    );
-
-    if (!popup) {
-      console.error('Popup blocked');
-      resolve(false);
-      return;
-    }
-
-    // Monitor popup for completion
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
-        // For now, assume success if popup was closed
-        // In a real implementation, you'd have a postMessage communication
-        resolve(true);
-      }
-    }, 1000);
-
-    // Timeout after 5 minutes
-    setTimeout(() => {
-      clearInterval(checkClosed);
-      if (!popup.closed) {
-        popup.close();
-      }
-      resolve(false);
-    }, 5 * 60 * 1000);
-  });
-}
-
-/**
  * Save contact to Firebase and Google Contacts via API
  */
 async function saveContactToAPI(token: string, skipGoogleContacts = false): Promise<ContactSaveResult> {
@@ -156,7 +99,7 @@ export async function saveContactFlow(
 
     // Step 2: Platform-specific logic
     if (platform === 'android') {
-      // Android Flow
+      // Android Flow - Simplified
       if (saveResult.google.success) {
         // Both Firebase and Google Contacts saved successfully
         console.log('✅ Both Firebase and Google Contacts saved on Android');
@@ -168,34 +111,15 @@ export async function saveContactFlow(
           platform
         };
       } else {
-        // Google Contacts failed - request permission
-        console.log('🔓 Requesting Google Contacts permission on Android...');
-        
-        const permissionGranted = await requestGoogleContactsPermission();
-        
-        if (permissionGranted) {
-          // Try saving to Google Contacts again
-          console.log('✅ Permission granted, retrying Google Contacts save...');
-          saveResult = await saveContactToAPI(token, false);
-          
-          return {
-            success: true,
-            firebase: saveResult.firebase,
-            google: saveResult.google,
-            showSuccessModal: true,
-            platform
-          };
-        } else {
-          // Permission denied - show upsell modal
-          console.log('❌ Google Contacts permission denied on Android');
-          return {
-            success: true,
-            firebase: saveResult.firebase,
-            google: { success: false, error: 'Permission denied' },
-            showUpsellModal: true,
-            platform
-          };
-        }
+        // Google Contacts failed - show upsell modal
+        console.log('❌ Google Contacts save failed on Android, showing upsell modal');
+        return {
+          success: true,
+          firebase: saveResult.firebase,
+          google: { success: false, error: 'Permission needed' },
+          showUpsellModal: true,
+          platform
+        };
       }
     } else if (platform === 'ios') {
       // iOS Flow
@@ -250,24 +174,18 @@ export async function retryGoogleContactsPermission(
   profile: UserProfile,
   token: string
 ): Promise<{ success: boolean; showSuccessModal?: boolean }> {
-  console.log('🔄 Retrying Google Contacts permission...');
+  console.log('🔄 Retrying Google Contacts save...');
   
   try {
-    const permissionGranted = await requestGoogleContactsPermission();
+    // Simply try saving to Google Contacts again
+    const saveResult = await saveContactToAPI(token, false);
     
-    if (permissionGranted) {
-      // Try saving to Google Contacts again
-      const saveResult = await saveContactToAPI(token, false);
-      
-      return {
-        success: saveResult.google.success,
-        showSuccessModal: true
-      };
-    } else {
-      return { success: false };
-    }
+    return {
+      success: saveResult.google.success,
+      showSuccessModal: true
+    };
   } catch (error) {
-    console.error('❌ Retry Google Contacts permission failed:', error);
+    console.error('❌ Retry Google Contacts save failed:', error);
     return { success: false };
   }
 }

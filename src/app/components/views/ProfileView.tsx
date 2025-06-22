@@ -11,8 +11,8 @@ import SocialIcon from '../ui/SocialIcon';
 import { SecondaryButton } from '../ui/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/ExchangeButton';
-import { SuccessModal } from '../ui/SuccessModal';
-import { PWAInstallModal } from '../ui/PWAInstallModal';
+import { StandardModal } from '../ui/StandardModal';
+
 import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
@@ -361,20 +361,30 @@ const ProfileView: React.FC = () => {
       </div>
 
       {/* Success Modal - shows when contact is saved */}
-      <SuccessModal
+      <StandardModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         title="All set - new friend saved!"
         subtitle="Shoot them a quick text before you forget"
-        buttonText="Say hey 👋"
+        primaryButtonText="Say hey 👋"
+        onPrimaryButtonClick={handleMessageContact}
         secondaryButtonText="Maybe later"
-        onButtonClick={handleMessageContact}
+        variant="success"
       />
 
       {/* PWA Install Modal - shows for iOS users */}
-      <PWAInstallModal
+      <StandardModal
         isOpen={showIOSModal}
         onClose={closeIOSModal}
+        title="Nekt in a tap"
+        subtitle="Tap the share icon, then select &quot;Add to Home Screen&quot;"
+        primaryButtonText="I&apos;ll do that right now!"
+        onPrimaryButtonClick={() => {
+          console.log('📱 PWA install modal button clicked');
+          closeIOSModal();
+        }}
+        variant="info"
+        showSecondaryButton={false}
       />
     </div>
   );

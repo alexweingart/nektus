@@ -63,7 +63,8 @@ export const generateVCard = (profile: UserProfile, options: VCardOptions = {}):
       if (data && typeof data === 'object' && 'username' in data && data.username) {
         const url = getSocialMediaUrl(platform, data.username);
         if (url) {
-          lines.push(`URL;TYPE=${platform.toUpperCase()}:${url}`);
+          const platformType = getPlatformTypeForIOS(platform);
+          lines.push(`URL;TYPE=${platformType}:${url}`);
         }
       }
     });
@@ -119,6 +120,23 @@ const getSocialMediaUrl = (platform: string, username: string): string | null =>
   
   const baseUrl = platformUrls[platform.toLowerCase()];
   return baseUrl ? `${baseUrl}${username}` : null;
+};
+
+/**
+ * Get platform type formatted for iOS vCard X-SOCIALPROFILE
+ */
+const getPlatformTypeForIOS = (platform: string): string => {
+  const platformMap: Record<string, string> = {
+    twitter: 'Twitter',
+    instagram: 'Instagram',
+    linkedin: 'LinkedIn',
+    facebook: 'Facebook',
+    snapchat: 'Snapchat',
+    telegram: 'Telegram',
+    whatsapp: 'WhatsApp',
+  };
+  
+  return platformMap[platform.toLowerCase()] || platform;
 };
 
 /**
@@ -231,8 +249,9 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
       if (data && typeof data === 'object' && 'username' in data && data.username) {
         const url = getSocialMediaUrl(platform, data.username);
         if (url) {
-          // Use X-SOCIALPROFILE for iOS compatibility
-          lines.push(`X-SOCIALPROFILE;TYPE=${platform.toLowerCase()};X-SERVICE=${platform.toLowerCase()}:${url}`);
+          // Use X-SOCIALPROFILE for iOS compatibility with proper case formatting
+          const platformType = getPlatformTypeForIOS(platform);
+          lines.push(`X-SOCIALPROFILE;TYPE=${platformType};X-SERVICE=${platformType}:${url}`);
         }
       }
     });
