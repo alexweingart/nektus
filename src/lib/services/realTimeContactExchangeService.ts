@@ -9,8 +9,7 @@ import type {
   ContactExchangeRequest, 
   ContactExchangeResponse,
   ContactExchangeState,
-  SavedContact,
-  ContactExchangeMessage
+  SavedContact
 } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 
@@ -22,13 +21,14 @@ function generateSessionId(): string {
 export { generateSessionId };
 
 export class RealTimeContactExchangeService {
-  private eventSource: EventSource | null = null;
   private sessionId: string;
   private state: ContactExchangeState;
   private onStateChange?: (state: ContactExchangeState) => void;
   private motionDetectionCancelled: boolean = false;
   private waitingForBumpTimeout: NodeJS.Timeout | null = null;
   private waitingForMatchTimeout: NodeJS.Timeout | null = null;
+  private matchPollingInterval: NodeJS.Timeout | null = null;
+  private pollingInterval: NodeJS.Timeout | null = null;
 
   constructor(sessionId: string, onStateChange?: (state: ContactExchangeState) => void) {
     this.sessionId = sessionId;
@@ -44,7 +44,7 @@ export class RealTimeContactExchangeService {
   }
 
   /**
-   * Start the contact exchange process with real-time communication
+   * Start the contact exchange process with polling
    */
   async startExchange(permissionAlreadyGranted: boolean = false): Promise<void> {
     try {
@@ -90,12 +90,6 @@ export class RealTimeContactExchangeService {
         await this.logToServer('permission_skipped', 'Permission already granted in button handler');
       }
 
-      // Establish real-time connection
-      console.log('🔗 Connecting to event stream...');
-      await this.logToServer('event_stream_connecting', 'Connecting to SSE');
-      await this.connectToEventStream();
-      await this.logToServer('event_stream_connected', 'SSE connection established');
-      
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
       console.log('✅ Ready for motion detection - waiting for bump...');
@@ -197,10 +191,9 @@ export class RealTimeContactExchangeService {
       clearTimeout(this.waitingForMatchTimeout);
       this.waitingForMatchTimeout = null;
     }
-    
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
+    if (this.matchPollingInterval) {
+      clearInterval(this.matchPollingInterval);
+      this.matchPollingInterval = null;
     }
   }
 
@@ -226,86 +219,70 @@ export class RealTimeContactExchangeService {
     return await MotionDetector.requestPermission();
   }
 
-  private async connectToEventStream(): Promise<void> {
-    return new Promise((resolve, reject) => {
+  /**
+   * Start polling for matches after sending hit
+   */
+  private async startMatchPolling(): Promise<void> {
+    console.log('🔄 Starting match polling...');
+    
+    // Poll every 1 second for up to 10 seconds
+    let pollCount = 0;
+    const maxPolls = 10;
+    
+    this.matchPollingInterval = setInterval(async () => {
+      pollCount++;
+      console.log(`🔍 Polling for match (attempt ${pollCount}/${maxPolls})...`);
+      
       try {
-        const eventSourceUrl = `/api/exchange/events?session=${this.sessionId}`;
-        this.eventSource = new EventSource(eventSourceUrl);
-
-        this.eventSource.onopen = () => {
-          console.log('Real-time connection established');
-          resolve();
-        };
-
-        this.eventSource.onmessage = (event) => {
-          try {
-            const message: ContactExchangeMessage = JSON.parse(event.data);
-            this.handleServerMessage(message);
-          } catch (error) {
-            console.error('Failed to parse server message:', error);
-          }
-        };
-
-        this.eventSource.onerror = (error) => {
-          console.error('EventSource error:', error);
-          this.eventSource?.close();
-          this.eventSource = null;
-          reject(new Error('Failed to establish real-time connection'));
-        };
-
+        const response = await fetch(`/api/exchange/status/${this.sessionId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to check match status');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.hasMatch && result.match) {
+          // Found a match!
+          console.log('🎉 Match found via polling!', result.match);
+          
+          // Clear polling and timeout
+          this.clearPolling();
+          
+          // Handle the match
+          await this.handleMatch(result.match.token, result.match.youAre);
+          return;
+        }
+        
+        // No match yet, continue polling unless we've reached max attempts
+        if (pollCount >= maxPolls) {
+          console.log('⏰ Polling timeout - no match found');
+          this.clearPolling();
+          this.updateState({ status: 'timeout' });
+        }
+        
       } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  private handleServerMessage(message: ContactExchangeMessage): void {
-    console.log('Received server message:', message);
-
-    switch (message.type) {
-      case 'connected':
-        console.log('Server connection confirmed');
-        break;
-        
-      case 'match':
-        // We got a match! Clear the waiting timeout and load the matched user's profile
-        if (this.waitingForMatchTimeout) {
-          clearTimeout(this.waitingForMatchTimeout);
-          this.waitingForMatchTimeout = null;
-        }
-        this.handleMatch(message.token, message.youAre);
-        break;
-        
-      case 'accept':
-        if (message.profile) {
-          this.updateState({
-            status: 'matched',
-            match: {
-              token: '', // Will be updated when we have the token
-              youAre: 'A',
-              profile: message.profile
-            }
-          });
-        }
-        break;
-        
-      case 'reject':
-        this.updateState({ status: 'rejected' });
-        break;
-        
-      case 'timeout':
-        this.updateState({ status: 'timeout' });
-        break;
-        
-      case 'error':
+        console.error('Polling error:', error);
+        this.clearPolling();
         this.updateState({ 
           status: 'error', 
-          error: message.message || 'Server error' 
+          error: 'Failed to check for matches' 
         });
-        break;
-        
-      default:
-        console.warn('Unknown message type:', message);
+      }
+    }, 1000); // Poll every 1 second
+  }
+
+  /**
+   * Clear polling interval and timeout
+   */
+  private clearPolling(): void {
+    if (this.matchPollingInterval) {
+      clearInterval(this.matchPollingInterval);
+      this.matchPollingInterval = null;
+    }
+    if (this.waitingForMatchTimeout) {
+      clearTimeout(this.waitingForMatchTimeout);
+      this.waitingForMatchTimeout = null;
     }
   }
 
@@ -409,8 +386,12 @@ export class RealTimeContactExchangeService {
             this.waitingForMatchTimeout = null;
           }
           await this.handleMatch(response.token, response.youAre || 'A');
+        } else {
+          // Start polling as fallback in case SSE fails
+          await this.logToServer('polling_start', 'Starting polling fallback for match detection');
+          this.startMatchPolling();
         }
-        // Otherwise, wait for real-time notification via EventSource (timeout will handle if no match)
+        // SSE will also notify if available, but polling ensures we don't miss matches
         
         break; // Exit the loop after successful motion detection and hit
         
@@ -524,4 +505,5 @@ export class RealTimeContactExchangeService {
     this.state = { ...this.state, ...updates };
     this.onStateChange?.(this.state);
   }
+
 }

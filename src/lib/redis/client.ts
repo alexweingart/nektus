@@ -274,6 +274,13 @@ export async function storeExchangeMatch(
       
       const key = `exchange_match:${token}`;
       await redis!.setex(key, 600, JSON.stringify(matchData)); // 10 minute expiry
+      
+      // Store session mappings for polling lookup
+      const sessionAKey = `session_match:${sessionA}`;
+      const sessionBKey = `session_match:${sessionB}`;
+      await redis!.setex(sessionAKey, 600, token); // 10 minute expiry
+      await redis!.setex(sessionBKey, 600, token); // 10 minute expiry
+      
       return;
     }
 
@@ -378,6 +385,52 @@ export async function removePendingExchange(sessionId: string, clientIP: string)
     
   } catch (error) {
     console.warn('Redis removal failed:', error);
+  }
+}
+
+/**
+ * Find exchange match by session ID (for polling)
+ */
+export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: any; youAre: 'A' | 'B' } | null> {
+  try {
+    // Use Upstash Redis if available
+    if (isRedisAvailable()) {
+      // Since we don't have a direct way to search by session in Redis,
+      // we'll need to store additional mappings when matches are created
+      const sessionKey = `session_match:${sessionId}`;
+      const tokenStr = await redis!.get(sessionKey);
+      
+      if (!tokenStr) {
+        return null;
+      }
+      
+      const token = typeof tokenStr === 'string' ? tokenStr : String(tokenStr);
+      
+      // Get the full match data
+      const matchData = await getExchangeMatch(token);
+      if (!matchData) {
+        // Clean up stale session mapping
+        await redis!.del(sessionKey);
+        return null;
+      }
+      
+      // Determine if this session is A or B
+      const youAre = matchData.sessionA === sessionId ? 'A' : 'B';
+      
+      return {
+        token,
+        matchData,
+        youAre
+      };
+    }
+
+    // Fallback to in-memory storage
+    throw new Error('Using fallback session match lookup');
+    
+  } catch (error) {
+    console.warn('Redis session match lookup failed, using fallback:', error);
+    // For now, return null - we can implement fallback later if needed
+    return null;
   }
 }
 

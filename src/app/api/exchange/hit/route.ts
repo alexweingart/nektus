@@ -14,7 +14,6 @@ import {
   storeExchangeMatch,
   removePendingExchange
 } from '@/lib/redis/client';
-import { sendToSession } from '@/lib/utils/sseHelpers';
 
 function getClientIP(request: NextRequest): string {
   // Get IP address for matching
@@ -169,26 +168,8 @@ export async function POST(request: NextRequest) {
       );
       console.log(`💾 Stored exchange match in Redis`);
       
-      // Send real-time notifications to both users
-      try {
-        // Notify the user who just made the request (current session)
-        const notificationSent1 = sendToSession(exchangeRequest.session, {
-          type: 'match',
-          token: exchangeToken,
-          youAre: 'A'
-        });
-        
-        // Notify the previously waiting user (matched session)
-        const notificationSent2 = sendToSession(matchedSessionId, {
-          type: 'match', 
-          token: exchangeToken,
-          youAre: 'B'
-        });
-        
-        console.log(`Real-time notifications: Session A (${exchangeRequest.session}): ${notificationSent1}, Session B (${matchedSessionId}): ${notificationSent2}`);
-      } catch (error) {
-        console.warn('Failed to send real-time notifications:', error);
-      }
+      // Note: Clients will discover the match via polling instead of SSE
+      console.log(`🎉 Match created - clients will discover via polling`);
       
       return NextResponse.json({
         success: true,
@@ -233,24 +214,8 @@ export async function POST(request: NextRequest) {
           secondMatchResult.matchData.userId
         );
         
-        // Send real-time notifications
-        try {
-          const notificationSent1 = sendToSession(exchangeRequest.session, {
-            type: 'match',
-            token: exchangeToken,
-            youAre: 'A'
-          });
-          
-          const notificationSent2 = sendToSession(secondMatchResult.sessionId, {
-            type: 'match', 
-            token: exchangeToken,
-            youAre: 'B'
-          });
-          
-          console.log(`Real-time notifications: Session A (${exchangeRequest.session}): ${notificationSent1}, Session B (${secondMatchResult.sessionId}): ${notificationSent2}`);
-        } catch (error) {
-          console.warn('Failed to send real-time notifications:', error);
-        }
+        // Note: Clients will discover the match via polling instead of SSE
+        console.log(`🎉 Second match created - clients will discover via polling`);
         
         return NextResponse.json({
           success: true,
