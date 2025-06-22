@@ -35,7 +35,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
             {/* Description */}
             <Dialog.Description asChild>
               <Text variant="base" className="leading-relaxed">
-                Tap the share icon, then select add to homescreen
+                Tap the share icon, then select &quot;Add to Home Screen&quot;
               </Text>
             </Dialog.Description>
           </div>
