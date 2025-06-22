@@ -239,7 +239,6 @@ export async function POST(
         const otherUserProfile = await getProfile(otherUserId);
         
         if (otherUserProfile) {
-          // TODO: Notify the other user via real-time connection
           console.log(`User ${session.user.email} accepted exchange with ${otherUserId}`);
           
           return NextResponse.json({
@@ -293,8 +292,6 @@ export async function POST(
     } else {
       // User rejected
       console.log(`User ${session.user.email} rejected exchange with token ${token}`);
-      
-      // TODO: Notify the other user via real-time connection
       
       return NextResponse.json({
         success: true,
