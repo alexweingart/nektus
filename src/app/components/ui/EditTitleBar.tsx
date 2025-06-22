@@ -25,7 +25,7 @@ const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = 
       {/* Back button */}
       <Button
         variant="circle"
-        size="lg"
+        size="icon"
         aria-label="Go back"
         onClick={onBack}
         className="z-10 w-14 h-14"
@@ -44,7 +44,7 @@ const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = 
       {/* Save button */}
       <Button
         variant="circle"
-        size="lg"
+        size="icon"
         aria-label="Save profile"
         onClick={onSave}
         disabled={isSaving}
