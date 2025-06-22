@@ -15,6 +15,7 @@ export const usePWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showIOSModal, setShowIOSModal] = useState(false);
 
   useEffect(() => {
     // Check if app is already installed (running in standalone mode)
@@ -65,8 +66,8 @@ export const usePWAInstall = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     
     if (isIOS) {
-      // For iOS Safari, show instructions since there's no prompt
-      alert('To add this app to your home screen:\n\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+      // For iOS Safari, show the custom modal
+      setShowIOSModal(true);
       return;
     }
 
@@ -97,9 +98,15 @@ export const usePWAInstall = () => {
     }
   };
 
+  const closeIOSModal = () => {
+    setShowIOSModal(false);
+  };
+
   return {
     isInstallable: isInstallable && !isInstalled,
     isInstalled,
-    installPWA
+    installPWA,
+    showIOSModal,
+    closeIOSModal
   };
 };

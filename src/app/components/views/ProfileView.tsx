@@ -12,6 +12,7 @@ import { SecondaryButton } from '../ui/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/ExchangeButton';
 import { SuccessModal } from '../ui/SuccessModal';
+import { PWAInstallModal } from '../ui/PWAInstallModal';
 import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
@@ -31,7 +32,7 @@ const ProfileView: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   // PWA install hook
-  const { isInstallable, installPWA } = usePWAInstall();
+  const { isInstallable, installPWA, showIOSModal, closeIOSModal } = usePWAInstall();
   
   const router = useRouter();
 
@@ -367,6 +368,12 @@ const ProfileView: React.FC = () => {
         subtitle="Send them some love now so ya'll stay in touch"
         buttonText="👋"
         onButtonClick={handleMessageContact}
+      />
+
+      {/* PWA Install Modal - shows for iOS users */}
+      <PWAInstallModal
+        isOpen={showIOSModal}
+        onClose={closeIOSModal}
       />
     </div>
   );
