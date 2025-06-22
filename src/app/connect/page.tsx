@@ -75,15 +75,19 @@ function ConnectPageContent() {
       throw new Error('No exchange token available');
     }
     
+    const startTime = performance.now();
     console.log('💾 Starting contact save process for token:', token);
     
     try {
       // First accept the exchange
+      console.log('🔄 Step 1: Accepting exchange...');
+      const acceptStart = performance.now();
       const acceptResponse = await fetch(`/api/exchange/pair/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accept: true })
       });
+      console.log(`⏱️ Accept took: ${performance.now() - acceptStart}ms`);
 
       if (!acceptResponse.ok) {
         throw new Error('Failed to accept exchange');
@@ -92,11 +96,14 @@ function ConnectPageContent() {
       console.log('✅ Exchange accepted, now saving contact...');
 
       // Then save the contact
+      console.log('🔄 Step 2: Saving contact...');
+      const saveStart = performance.now();
       const saveResponse = await fetch('/api/save-contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       });
+      console.log(`⏱️ Save took: ${performance.now() - saveStart}ms`);
 
       const saveResult: ContactSaveResult = await saveResponse.json();
 
@@ -104,6 +111,7 @@ function ConnectPageContent() {
         throw new Error(saveResult.firebase.error || 'Failed to save contact');
       }
 
+      console.log(`🎉 Total save process took: ${performance.now() - startTime}ms`);
       console.log('✅ Contact save completed:', {
         firebase: saveResult.firebase.success,
         google: saveResult.google.success
@@ -155,28 +163,20 @@ function ConnectPageContent() {
       return;
     }
     
-    try {
-      // Reject the contact exchange
-      const response = await fetch(`/api/exchange/pair/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: false })
-      });
-
-      const data = await response.json();
-      console.log('Reject response:', { ok: response.ok, status: response.status, data });
-
-      if (response.ok) {
-        console.log('Contact rejected successfully');
-      } else {
-        console.error('Failed to reject contact - Server error:', data);
-      }
-    } catch (error) {
-      console.error('Error rejecting contact:', error);
-    }
-    
-    // Navigate back to profile regardless
+    // Navigate immediately for better UX, then send reject in background
+    console.log('🚫 Rejecting contact and navigating...');
     router.push('/');
+    
+    // Send reject API call in background (fire and forget)
+    fetch(`/api/exchange/pair/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accept: false })
+    }).then(response => {
+      console.log('✅ Reject API call completed:', response.ok);
+    }).catch(error => {
+      console.warn('⚠️ Reject API call failed (non-critical):', error);
+    });
   };
 
   // Show loading while checking auth or fetching profile

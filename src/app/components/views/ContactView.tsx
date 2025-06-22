@@ -10,6 +10,7 @@ import { Button } from '../ui/Button';
 import Avatar from '../ui/Avatar';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import SocialIcon from '../ui/SocialIcon';
+import { SecondaryButton } from '../ui/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 
@@ -251,13 +252,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
           
           {/* Reject Button (Secondary) */}
           <div className="flex justify-center">
-            <button
+            <SecondaryButton
               onClick={onReject}
               disabled={isSaving || isLoading}
-              className="bg-white/80 px-3 py-1 rounded-xl text-black hover:bg-white text-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
             >
               Nah, who this
-            </button>
+            </SecondaryButton>
           </div>
       </div>
       </div>

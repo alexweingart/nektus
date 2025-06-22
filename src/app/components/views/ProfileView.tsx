@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Button } from '../ui/Button';
 import Avatar from '../ui/Avatar';
 import SocialIcon from '../ui/SocialIcon';
+import { SecondaryButton } from '../ui/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/ExchangeButton';
 import { SuccessModal } from '../ui/SuccessModal';
@@ -15,6 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
+import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import type { UserProfile } from '@/types/profile';
 
 const ProfileView: React.FC = () => {
@@ -27,6 +29,9 @@ const ProfileView: React.FC = () => {
 
   // Admin mode activation props
   const adminModeProps = useAdminModeActivator();
+  
+  // PWA install hook
+  const { isInstallable, installPWA } = usePWAInstall();
   
   const router = useRouter();
 
@@ -340,8 +345,17 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Action Buttons */}
-        <div className="w-full mt-4 mb-4" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+        <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           <ExchangeButton />
+          
+          {/* PWA Install Button */}
+          {isInstallable && (
+            <div className="flex justify-center">
+              <SecondaryButton onClick={installPWA}>
+                Add to home screen
+              </SecondaryButton>
+            </div>
+          )}
         </div>
       </div>
 

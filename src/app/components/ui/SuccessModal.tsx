@@ -3,6 +3,7 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from './Button';
+import { SecondaryButton } from './SecondaryButton';
 import { Heading, Text } from './Typography';
 
 interface SuccessModalProps {
@@ -58,6 +59,13 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
             >
               {buttonText}
             </Button>
+          </div>
+          
+          {/* Secondary Button */}
+          <div className="flex justify-center">
+            <SecondaryButton onClick={onClose}>
+              it&apos;s ok, they&apos;ll text me first
+            </SecondaryButton>
           </div>
           
           {/* Close button (optional, invisible but accessible) */}
