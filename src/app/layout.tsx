@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { getAuthSession } from "@/lib/auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { getUserBackgroundImage } from '@/lib/firebase/adminConfig';
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
@@ -50,7 +51,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getAuthSession();
+  const session = await getServerSession(authOptions);
   
   // Get user's background image if they're authenticated
   let backgroundImageUrl = null;

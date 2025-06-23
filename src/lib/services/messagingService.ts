@@ -115,18 +115,35 @@ export function openMessagingAppWithVCard(
   senderProfile: UserProfile,
   phoneNumber?: string
 ): void {
-  // Import vCard generation dynamically to avoid circular dependencies
-  import('./vCardService').then(({ generateVCard }) => {
-    const vCardData = generateVCard(senderProfile);
-    
-    // For platforms that support file attachments, we'd attach the vCard
-    // For now, we'll include it in the message text as a fallback
-    const messageWithVCard = `${messageText}\n\n--- Contact Card ---\n${vCardData}`;
-    
-    openMessagingApp(messageWithVCard, phoneNumber);
-  }).catch(error => {
-    console.error('Failed to generate vCard:', error);
-    // Fallback to regular message
-    openMessagingApp(messageText, phoneNumber);
-  });
+  const platform = detectPlatform();
+  console.log(`📱 Opening messaging app on ${platform} with vCard`);
+  
+  // First open the messaging app with just the text
+  openMessagingApp(messageText, phoneNumber);
+  
+  // Then handle the vCard based on platform
+  setTimeout(() => {
+    if (platform === 'ios') {
+      // iOS has better support for direct vCard handling
+      import('./vCardService').then(({ displayVCardInlineForIOS }) => {
+        displayVCardInlineForIOS(senderProfile);
+      }).catch(error => {
+        console.error('Failed to generate vCard for iOS:', error);
+      });
+    } else if (platform === 'android') {
+      // Android doesn't handle vCard attachments well via web
+      import('./vCardService').then(({ downloadVCard }) => {
+        downloadVCard(senderProfile);
+      }).catch(error => {
+        console.error('Failed to download vCard for Android:', error);
+      });
+    } else {
+      // Web fallback
+      import('./vCardService').then(({ downloadVCard }) => {
+        downloadVCard(senderProfile);
+      }).catch(error => {
+        console.error('Failed to download vCard for web:', error);
+      });
+    }
+  }, 500); // Short delay to ensure messaging app opens first
 }

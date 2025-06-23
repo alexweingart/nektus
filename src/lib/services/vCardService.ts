@@ -251,7 +251,16 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
         if (url) {
           // Use X-SOCIALPROFILE for iOS compatibility with proper case formatting
           const platformType = getPlatformTypeForIOS(platform);
-          lines.push(`X-SOCIALPROFILE;TYPE=${platformType};X-SERVICE=${platformType}:${url}`);
+          
+          // Use multiple formats for maximum compatibility
+          // Format 1: X-SOCIALPROFILE with both TYPE and X-USER
+          lines.push(`X-SOCIALPROFILE;TYPE=${platformType};X-USER=${data.username}:${url}`);
+          
+          // Format 2: Standard URL with TYPE
+          lines.push(`URL;TYPE=${platformType}:${url}`);
+          
+          // Format 3: X-SOCIALPROFILE with different parameters (for older iOS versions)
+          lines.push(`X-SOCIALPROFILE;X-SERVICE=${platformType};X-USER=${data.username}:${url}`);
         }
       }
     });
@@ -291,18 +300,25 @@ export const displayVCardInlineForIOS = (profile: UserProfile, options?: VCardOp
   
   const url = URL.createObjectURL(vCardBlob);
   
-  // Create a link that will trigger iOS to handle the vCard
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
+  console.log('📲 Opening vCard for iOS:', filename);
   
-  // Set headers via data attributes (iOS Safari will respect these)
-  link.setAttribute('data-content-type', 'text/vcard');
-  link.setAttribute('data-content-disposition', `inline; filename="${filename}"`);
-  link.setAttribute('data-cache-control', 'no-store');
+  // For iOS, we need to use a direct window.open to trigger the vCard handler
+  const newWindow = window.open(url, '_blank');
   
-  // Trigger the download/open
-  link.click();
+  if (!newWindow) {
+    // If popup blocked, fall back to link click method
+    console.log('⚠️ Popup blocked, falling back to link click method');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.setAttribute('data-content-type', 'text/vcard');
+    link.setAttribute('data-content-disposition', `attachment; filename="${filename}"`);
+    
+    // Trigger the download/open
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
   
   // Clean up
   setTimeout(() => {
