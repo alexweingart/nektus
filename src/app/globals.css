@@ -104,8 +104,8 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
-  /* Shorthand: background image from CSS var or fallback black */
-  background: var(--initial-bg, black) center top / cover no-repeat;
+  /* Set a solid black background color as the base for the entire app. */
+  background-color: #000;
    /* Allow overscroll on Y-axis for pull-to-refresh, but contain X-axis */
    overscroll-behavior-x: contain;
    overscroll-behavior-y: auto;
@@ -115,43 +115,14 @@ html {
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  /* New viewport units that track the dynamic viewport */
-  min-height: 100dvh;
-  /* Enable vertical overscroll for pull-to-refresh, no horizontal scroll */
-  overflow-y: overlay;
-  overscroll-behavior: contain;
-  /* Respect the "ears" on iOS / Dynamic Island */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  /* Smooth overscroll without accidental lateral scroll */
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: auto;
-  /* No background color on body - let html and body::before handle it */
-  background-color: transparent;
-  line-height: 1.6;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--foreground);
-}
-
-/* PWA-standard full-bleed background using pseudo-element */
-body::before {
-  content: '';
-  position: fixed;
-  top: -100vh;
-  left: 0;
-  width: 100vw;
-  height: 300vh;
-  background-attachment: fixed;
-  z-index: -1;
-  pointer-events: none;
-  /* Fallback to match html background var */
-  background-color: var(--initial-bg, black);
-  /* The background image will be set dynamically via the useBodyBackgroundImage hook */
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  /* removed transform to allow fixed background during pull-to-refresh */
+  min-height: 100vh;
+  min-height: 100dvh; /* Fallback for older browsers */
+  font-family: var(--font-inter);
+  color: hsl(var(--foreground));
+  position: relative;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Viewport lock states - Container-based approach */

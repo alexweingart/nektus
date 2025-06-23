@@ -16,79 +16,55 @@ import CustomExpandingInput from '../ui/CustomExpandingInput';
 import { useProfileSave } from '@/lib/hooks/useProfileSave';
 import { profileToFormData } from '@/lib/utils/profileTransforms';
 import type { CountryCode } from 'libphonenumber-js';
+import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, getLatestProfile } = useProfile();
+  const { profile, saveProfile, isSaving: isProfileSaving, getLatestProfile } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
-  // State for form data
-  const [formData, setFormData] = useState<ProfileFormData>({
-    name: '',
-    bio: '',
-    email: '',
-    picture: '',
-    socialProfiles: [],
-    backgroundImage: '',
-  });
+  const [formData, setFormData] = useState<ProfileFormData>(() =>
+    profile ? profileToFormData(profile, session?.user) : {
+      name: session?.user?.name || '',
+      bio: '',
+      email: session?.user?.email || '',
+      picture: session?.user?.image || '',
+      socialProfiles: [],
+      backgroundImage: '',
+    }
+  );
   
   const [digits, setDigits] = useState('');
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>('US');
   const [hasNewBackgroundImage, setHasNewBackgroundImage] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Use the profile save hook
-  const { saveProfileData, isSaving } = useProfileSave({
+  // Use the new hook for the live preview
+  useBackgroundImage(hasNewBackgroundImage ? formData.backgroundImage : profile?.backgroundImage);
+
+  const { saveProfileData, isSaving: isSaveHookSaving } = useProfileSave({
     profile: profile || undefined,
     saveProfile,
-    hasNewBackgroundImage
+    hasNewBackgroundImage,
   });
 
-  // Helper function to initialize form data from profile
-  const initializeFormData = useCallback((profileData: UserProfile) => {
-    // Use the transform utility to convert profile to form data
-    const formData = profileToFormData(profileData, session?.user || undefined);
-    
-    setFormData(formData);
-    
-    // Reset new background image flag since we're initializing with saved data
-    setHasNewBackgroundImage(false);
+  const isSaving = isProfileSaving || isSaveHookSaving;
 
-    // Initialize phone number from profile data
-    if (profileData.contactChannels?.phoneInfo) {
-      const phoneInfo = profileData.contactChannels.phoneInfo;
-      
-      // Prefer national phone number as it's already formatted for display
-      const phoneNumber = phoneInfo.nationalPhone || 
-                         phoneInfo.internationalPhone?.replace(/^\+1/, '') || // Remove +1 from international
-                         '';
-      
-      if (phoneNumber) {
-        // Clean the phone number to remove any non-digit characters
-        const cleanedNumber = phoneNumber.replace(/\D/g, '');
-        
-        // Always update digits with the profile phone number
-        setDigits(cleanedNumber);
-        setPhoneCountry('US'); // Default to US if no country is set
-      }
-    }
-  }, [session?.user]);
-  
-  // Load profile data
+  useFreezeScrollOnFocus(nameInputRef);
+
   useEffect(() => {
     const currentProfile = getLatestProfile() || profile;
     if (currentProfile) {
-      initializeFormData(currentProfile);
+      setFormData(profileToFormData(currentProfile, session?.user));
+      if (currentProfile.contactChannels?.phoneInfo) {
+        const phoneInfo = currentProfile.contactChannels.phoneInfo;
+        const phoneNumber = phoneInfo.nationalPhone || phoneInfo.internationalPhone?.replace(/^\+1/, '') || '';
+        setDigits(phoneNumber.replace(/\D/g, ''));
+      }
     }
-  }, [profile, initializeFormData, getLatestProfile]);
-  
-  // Initialize form with session data if profile is empty
-  useEffect(() => {
-    if (session?.user && !profile) {
-      const sessionFormData = profileToFormData(null, session.user);
-      setFormData(sessionFormData);
-    }
-  }, [session, profile]);
+  }, [profile, session?.user, getLatestProfile]);
 
   // Auto-focus name input on mount for mobile convenience
   useEffect(() => {
@@ -146,14 +122,12 @@ const EditProfileView: React.FC = () => {
       const profileIndex = updatedProfiles.findIndex(p => p.platform === platform);
       
       if (profileIndex >= 0) {
-        // Update existing profile
         updatedProfiles[profileIndex] = {
           ...updatedProfiles[profileIndex],
           username: value,
           filled: value.trim() !== ''
         };
       } else {
-        // Add new profile
         updatedProfiles.push({
           platform,
           username: value,
@@ -168,34 +142,18 @@ const EditProfileView: React.FC = () => {
   
   // Get social profile value
   const getSocialProfileValue = (platform: string): string => {
-    const profile = formData.socialProfiles.find((p: SocialProfileFormEntry) => p.platform === platform);
-    return profile?.username || '';
+    const socialProfile = formData.socialProfiles.find((p: SocialProfileFormEntry) => p.platform === platform);
+    return socialProfile?.username || '';
   };
   
   // Handle save profile
   const handleSave = async (): Promise<void> => {
-    try {
-      await saveProfileData(formData, digits, phoneCountry);
-    } catch (error) {
-      console.error('Error in handleSave:', error);
-      // Error handling is already done in the hook
-    }
+    await saveProfileData(formData, digits, phoneCountry);
   };
   
   return (
     <div 
       className="min-h-screen flex flex-col items-center px-4 py-4"
-      style={
-        // Only apply background styling when user has uploaded a NEW background image for preview
-        // Otherwise let the parent container handle the saved background image
-        hasNewBackgroundImage ? {
-          backgroundImage: `url(${formData.backgroundImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundColor: '#004D40' // Theme background color that shows while image loads
-        } : undefined
-      }
     >
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 

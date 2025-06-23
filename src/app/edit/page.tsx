@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect } from 'react';
 import dynamicImport from 'next/dynamic';
 import { useProfile } from '../context/ProfileContext';
+import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -32,20 +33,12 @@ export default function EditPage() {
   // Get the latest profile including streaming background image
   const currentProfile = getLatestProfile() || profile;
   
-  // Apply consistent background style
-  const backgroundStyle = currentProfile?.backgroundImage ? {
-    backgroundImage: `url(${currentProfile.backgroundImage})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    backgroundColor: '#004D40' // Theme background color that shows while image loads
-  } : {
-    backgroundColor: '#004D40' // Theme background for welcome screen
-  };
+  // Set the background using the new hook
+  useBackgroundImage(currentProfile?.backgroundImage);
   
   // Wrap in error boundary for better debugging
   return (
-    <div className="min-h-screen" style={backgroundStyle}>
+    <div className="min-h-screen">
       <Suspense fallback={
         <div className="flex h-screen items-center justify-center">
           <LoadingSpinner size="sm" />

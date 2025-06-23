@@ -8,7 +8,7 @@ import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
 import { isNewUser } from '@/lib/services/newUserService';
 import { useViewportLock } from '@/lib/hooks/useViewportLock';
-import { useBodyBackgroundImage } from '@/lib/hooks/useBodyBackgroundImage';
+import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -24,7 +24,7 @@ function SetupPageContent() {
   // Enable pull-to-refresh
   useViewportLock({ enablePullToRefresh: true });
   const currentProfile = getLatestProfile();
-  useBodyBackgroundImage(session ? (streamingBackgroundImage || currentProfile?.backgroundImage) : undefined);
+  useBackgroundImage(session ? (streamingBackgroundImage || currentProfile?.backgroundImage) : null);
 
   const userIsNew = isNewUser(session);
   const isLoading = status === 'loading';

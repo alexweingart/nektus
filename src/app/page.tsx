@@ -5,7 +5,7 @@ import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/hooks/useViewportLock';
-import { useBodyBackgroundImage } from '@/lib/hooks/useBodyBackgroundImage';
+import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -35,9 +35,9 @@ export default function Home() {
     enablePullToRefresh: true
   });
 
-  // Get background image URL and set it on body::before
+  // Get background image URL and set it on the root element
   const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  useBodyBackgroundImage(session ? backgroundImageUrl : undefined);
+  useBackgroundImage(session ? backgroundImageUrl : null);
 
   // Show loading state while checking auth status
   if (isLoading) {
