@@ -1,37 +1,33 @@
 /**
- * Simple ping endpoint for RTT estimation and debug logging
+ * API endpoint for ping and logging functionality
+ * - HEAD: Simple ping for RTT measurement
+ * - POST: Logging endpoint for client events
  */
 
+import { NextRequest, NextResponse } from 'next/server';
+
+// For HEAD requests (simple ping)
 export async function HEAD() {
-  return new Response(null, { 
-    status: 200,
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
+  return NextResponse.json({ success: true });
 }
 
-export async function GET() {
-  return Response.json({ 
-    timestamp: Date.now(),
-    message: 'pong' 
-  });
-}
-
-export async function POST(request: Request) {
+// For POST requests (logging)
+export async function POST(request: NextRequest) {
   try {
-    const { event, message, sessionId, timestamp } = await request.json();
+    const data = await request.json();
     
-    // Safe timestamp handling
-    const timeStr = timestamp ? 
-      (new Date(timestamp).toISOString()) : 
-      new Date().toISOString();
+    // Log the received data
+    console.log(`[SYSTEM/PING] ${data.event || 'event'}:`, 
+      data.message || '',
+      data.sessionId ? `(session: ${data.sessionId})` : ''
+    );
     
-    console.log(`📱 CLIENT LOG [${sessionId || 'no-session'}] ${event}: ${message} (${timeStr})`);
-    
-    return Response.json({ success: true });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to process client log:', error);
-    return Response.json({ success: false }, { status: 400 });
+    console.error('Ping log error:', error);
+    return NextResponse.json(
+      { success: false, message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

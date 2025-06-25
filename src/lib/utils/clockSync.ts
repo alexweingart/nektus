@@ -44,12 +44,6 @@ export async function initializeClockSync(): Promise<boolean> {
       roundTripTime
     };
 
-    console.log('Clock sync initialized:', {
-      serverTime: new Date(data.serverTime).toISOString(),
-      roundTripTime: `${roundTripTime.toFixed(1)}ms`,
-      offset: `${data.serverTime - Date.now()}ms`
-    });
-
     return true;
   } catch (error) {
     console.error('Clock sync initialization failed:', error);

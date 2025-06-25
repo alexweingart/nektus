@@ -166,18 +166,40 @@ export async function deleteUserProfile(userId: string): Promise<void> {
   }
 }
 
-export async function getUserBackgroundImage(userId: string): Promise<string | null> {
+/**
+ * Uploads an image buffer to Firebase Storage and returns the public URL.
+ * This is a server-side function that uses the Firebase Admin SDK.
+ * @param imageBuffer The image file as a Buffer.
+ * @param userId The ID of the user.
+ * @param imageType The type of image being uploaded ('profile' or 'background').
+ * @returns The public URL of the uploaded image.
+ */
+export async function uploadImageBuffer(
+  imageBuffer: Buffer,
+  userId: string,
+  imageType: 'profile' | 'background'
+): Promise<string> {
   try {
-    const profile = await getProfile(userId);
-    
-    if (!profile || !profile.backgroundImage) {
-      return null;
-    }
+    const { storage } = await getFirebaseAdmin();
+    const bucket = storage.bucket();
+    const timestamp = Date.now();
+    const fileName = `users/${userId}/${imageType}-image-${timestamp}.png`;
+    const file = bucket.file(fileName);
 
-    // Return the background image URL
-    return profile.backgroundImage;
+    await file.save(imageBuffer, {
+      metadata: {
+        contentType: 'image/png',
+      },
+      public: true, // Make the file publicly accessible
+    });
+
+    // The public URL is in the format: https://storage.googleapis.com/[BUCKET_NAME]/[OBJECT_NAME]
+    const publicUrl = file.publicUrl();
+    console.log(`[AdminStorage] Successfully uploaded ${imageType} image for user ${userId} to ${publicUrl}`);
+    
+    return publicUrl;
   } catch (error) {
-    console.error(`[getUserBackgroundImage] Error getting background image for user ${userId}:`, error);
-    return null;
+    console.error(`[AdminStorage] Failed to upload ${imageType} image for user ${userId}:`, error);
+    throw new Error(`Failed to upload ${imageType} image.`);
   }
 }

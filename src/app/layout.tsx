@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { getUserBackgroundImage } from '@/lib/firebase/adminConfig';
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
@@ -53,11 +52,7 @@ export default async function RootLayout({
 }>) {
   const session = await getServerSession(authOptions);
   
-  // Get user's background image if they're authenticated
-  let backgroundImageUrl = null;
-  if (session?.user?.id) {
-    backgroundImageUrl = await getUserBackgroundImage(session.user.id);
-  }
+  const backgroundImageUrl = session?.user?.backgroundImage;
 
   return (
       <html
@@ -73,6 +68,10 @@ export default async function RootLayout({
         }}
       >
       <head>
+        {/* Preload the user background image to avoid initial flash */}
+        {backgroundImageUrl && (
+          <link rel="preload" href={backgroundImageUrl} as="image" />
+        )}
         <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content, viewport-fit=cover" />
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />

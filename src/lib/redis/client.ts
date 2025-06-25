@@ -1,5 +1,5 @@
 /**
- * Redis client using Upstash Redis with in-memory fallback
+ * Redis client using Upstash Redis
  */
 
 import { Redis } from '@upstash/redis';
@@ -12,7 +12,7 @@ let redis: Redis | null = null;
 try {
   redis = Redis.fromEnv();
 } catch (error) {
-  console.warn('Failed to initialize Upstash Redis:', error);
+  console.error('Failed to initialize Upstash Redis:', error);
   redis = null;
 }
 
@@ -22,94 +22,74 @@ function isRedisAvailable(): boolean {
 }
 
 /**
- * Rate limiting with Upstash Redis or fallback
+ * Rate limiting with Upstash Redis
  */
 export async function checkRateLimit(
   key: string, 
   limit: number, 
   windowMs: number
 ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      const now = Date.now();
-      const window = Math.floor(now / windowMs);
-      const rateLimitKey = `rate_limit:${key}:${window}`;
-      
-      // Get current count
-      const current = await redis!.get<string>(rateLimitKey);
-      const count = current ? parseInt(current, 10) : 0;
-      
-      if (count >= limit) {
-        return {
-          allowed: false,
-          remaining: 0,
-          resetTime: (window + 1) * windowMs
-        };
-      }
-      
-      // Increment counter
-      const newCount = await redis!.incr(rateLimitKey);
-      
-      // Set expiration if this is the first request in the window
-      if (newCount === 1) {
-        await redis!.expire(rateLimitKey, Math.ceil(windowMs / 1000));
-      }
-      
-      return {
-        allowed: true,
-        remaining: limit - newCount,
-        resetTime: (window + 1) * windowMs
-      };
-    }
-
-    // Fallback to in-memory rate limiting
-    throw new Error('Using fallback rate limiting');
-    
-  } catch (error) {
-    console.warn('Redis rate limiting failed, using fallback:', error);
-    // Use fallback in-memory rate limiting
-    const { checkRateLimitFallback } = await import('@/lib/services/fallbackExchangeService');
-    return checkRateLimitFallback(key, limit, windowMs);
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for rate limiting');
   }
+
+  const now = Date.now();
+  const window = Math.floor(now / windowMs);
+  const rateLimitKey = `rate_limit:${key}:${window}`;
+  
+  // Get current count
+  const current = await redis!.get<string>(rateLimitKey);
+  const count = current ? parseInt(current, 10) : 0;
+  
+  if (count >= limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime: (window + 1) * windowMs
+    };
+  }
+  
+  // Increment counter
+  const newCount = await redis!.incr(rateLimitKey);
+  
+  // Set expiration if this is the first request in the window
+  if (newCount === 1) {
+    await redis!.expire(rateLimitKey, Math.ceil(windowMs / 1000));
+  }
+  
+  return {
+    allowed: true,
+    remaining: limit - newCount,
+    resetTime: (window + 1) * windowMs
+  };
 }
 
 /**
- * Store pending exchange with Upstash Redis or fallback
+ * Store pending exchange with Upstash Redis
  */
 export async function storePendingExchange(
   sessionId: string,
   exchangeData: any,
   ttlSeconds: number = 30
 ): Promise<void> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      const key = `pending_exchange:${sessionId}`;
-      
-      // Use broader geographic bucket based on IP prefix
-      const ipPrefix = exchangeData.ipBlock.split('.').slice(0, 2).join('.');
-      const geoBucketKey = `geo_bucket:${ipPrefix}`;
-      
-      // Store the exchange data with TTL
-      await redis!.setex(key, ttlSeconds, JSON.stringify(exchangeData));
-      
-      // Add session to geographic bucket for matching
-      await redis!.sadd(geoBucketKey, sessionId);
-      await redis!.expire(geoBucketKey, ttlSeconds);
-      
-      console.log(`💾 Stored pending exchange ${sessionId} in geo bucket ${geoBucketKey}`);
-      return;
-    }
-
-    // Fallback to in-memory storage
-    throw new Error('Using fallback storage');
-    
-  } catch (error) {
-    console.warn('Redis storage failed, using fallback:', error);
-    const { storePendingExchangeFallback } = await import('@/lib/services/fallbackExchangeService');
-    storePendingExchangeFallback(sessionId, exchangeData);
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for storing pending exchanges');
   }
+
+  const key = `pending_exchange:${sessionId}`;
+  
+  // Use broader geographic bucket based on IP prefix
+  const ipPrefix = exchangeData.ipBlock.split('.').slice(0, 2).join('.');
+  const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  
+  // Store the exchange data with TTL
+  await redis!.setex(key, ttlSeconds, JSON.stringify(exchangeData));
+  
+  // Add session to geographic bucket for matching
+  await redis!.sadd(geoBucketKey, sessionId);
+  await redis!.expire(geoBucketKey, ttlSeconds);
+  
+  console.log(`💾 Stored pending exchange ${sessionId} in geo bucket ${geoBucketKey}`);
 }
 
 /**
@@ -123,116 +103,94 @@ export async function findMatchingExchange(
   currentTimestamp?: number,
   currentRTT?: number // Add current request's RTT for better matching
 ): Promise<{ sessionId: string; matchData: any } | null> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      // Get broad geography from IP (city/region level)
-      const ipPrefix = clientIP.split('.').slice(0, 2).join('.'); // Broader IP matching (/16 instead of /24)
-      const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for finding matching exchanges');
+  }
+
+  // Get broad geography from IP (city/region level)
+  const ipPrefix = clientIP.split('.').slice(0, 2).join('.'); // Broader IP matching (/16 instead of /24)
+  const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  
+  // Get all candidates in the same broad geographic area
+  const candidates = await redis!.smembers(geoBucketKey) as string[];
+  
+  console.log(`🔍 Geo bucket ${geoBucketKey} contains ${candidates.length} candidates:`, candidates);
+  
+  let bestMatch: { sessionId: string; matchData: any; timeDiff: number } | null = null;
+  
+  for (const candidateSessionId of candidates) {
+    if (candidateSessionId === sessionId) continue;
+    
+    console.log(`🔍 Checking candidate: ${candidateSessionId}`);
+    
+    const candidateKey = `pending_exchange:${candidateSessionId}`;
+    const candidateDataStr = await redis!.get(candidateKey);
+    
+    if (!candidateDataStr) {
+      // Clean up stale session from bucket
+      console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket`);
+      await redis!.srem(geoBucketKey, candidateSessionId);
+      continue;
+    }
+    
+    // Handle both string and object responses from Redis
+    let candidateData;
+    if (typeof candidateDataStr === 'string') {
+      candidateData = JSON.parse(candidateDataStr);
+    } else {
+      candidateData = candidateDataStr; // Already an object
+    }
+    
+    // Time-based matching: find the closest timestamp within window
+    if (currentTimestamp) {
+      const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
       
-      // Get all candidates in the same broad geographic area
-      const candidates = await redis!.smembers(geoBucketKey) as string[];
+      // Adjust time window based on RTT compensation (as suggested in the user's guidance)
+      const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
+      const rttB = currentRTT || 100; // Use current request's RTT or fallback
+      const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
       
-      console.log(`🔍 Geo bucket ${geoBucketKey} contains ${candidates.length} candidates:`, candidates);
+      console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
       
-      let bestMatch: { sessionId: string; matchData: any; timeDiff: number } | null = null;
-      
-      
-      for (const candidateSessionId of candidates) {
-        if (candidateSessionId === sessionId) continue;
-        
-        console.log(`🔍 Checking candidate: ${candidateSessionId}`);
-        
-        const candidateKey = `pending_exchange:${candidateSessionId}`;
-        const candidateDataStr = await redis!.get(candidateKey);
-        
-        if (!candidateDataStr) {
-          // Clean up stale session from bucket
-          console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket`);
-          await redis!.srem(geoBucketKey, candidateSessionId);
-          continue;
-        }
-        
-        // Handle both string and object responses from Redis
-        let candidateData;
-        if (typeof candidateDataStr === 'string') {
-          candidateData = JSON.parse(candidateDataStr);
-        } else {
-          candidateData = candidateDataStr; // Already an object
-        }
-        
-        // Time-based matching: find the closest timestamp within window
-        if (currentTimestamp) {
-          const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
-          
-          // Adjust time window based on RTT compensation (as suggested in the user's guidance)
-          const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
-          const rttB = currentRTT || 100; // Use current request's RTT or fallback
-          const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
-          
-          console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
-          
-          if (timeDiff <= dynamicWindow) {
-            // Within time window - check if this is the best match so far
-            if (!bestMatch || timeDiff < bestMatch.timeDiff) {
-              bestMatch = {
-                sessionId: candidateSessionId,
-                matchData: candidateData,
-                timeDiff
-              };
-            }
-          }
-        } else {
-          // Fallback to immediate match (original behavior)
-          // Clean up the candidate
-          await redis!.del(candidateKey);
-          await redis!.srem(geoBucketKey, candidateSessionId);
-          
-          return {
+      if (timeDiff <= dynamicWindow) {
+        // Within time window - check if this is the best match so far
+        if (!bestMatch || timeDiff < bestMatch.timeDiff) {
+          bestMatch = {
             sessionId: candidateSessionId,
-            matchData: candidateData
+            matchData: candidateData,
+            timeDiff
           };
         }
       }
+    } else {
+      // Fallback to immediate match (original behavior)
+      // Clean up the candidate
+      await redis!.del(candidateKey);
+      await redis!.srem(geoBucketKey, candidateSessionId);
       
-      // If we found a best match within time window, use it
-      if (bestMatch) {
-        console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms`);
-        
-        // Clean up the matched candidate
-        const candidateKey = `pending_exchange:${bestMatch.sessionId}`;
-        await redis!.del(candidateKey);
-        await redis!.srem(geoBucketKey, bestMatch.sessionId);
-        
-        return {
-          sessionId: bestMatch.sessionId,
-          matchData: bestMatch.matchData
-        };
-      }
-      
-      return null;
-    }
-
-    // Fallback to in-memory matching
-    throw new Error('Using fallback matching');
-    
-  } catch (error) {
-    console.warn('Redis matching failed, using fallback:', error);
-    const { findMatchingExchangeFallback } = await import('@/lib/services/fallbackExchangeService');
-    const fallbackResult = findMatchingExchangeFallback(
-      sessionId, 
-      { clientIP, location, timeWindowMs, currentTimestamp }
-    );
-    
-    // Convert fallback result to match expected format
-    if (fallbackResult) {
       return {
-        sessionId: fallbackResult,
-        matchData: { userId: 'fallback-user', clientIP }
+        sessionId: candidateSessionId,
+        matchData: candidateData
       };
     }
-    return null;
   }
+  
+  // If we found a best match within time window, use it
+  if (bestMatch) {
+    console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms`);
+    
+    // Clean up the matched candidate
+    const candidateKey = `pending_exchange:${bestMatch.sessionId}`;
+    await redis!.del(candidateKey);
+    await redis!.srem(geoBucketKey, bestMatch.sessionId);
+    
+    return {
+      sessionId: bestMatch.sessionId,
+      matchData: bestMatch.matchData
+    };
+  }
+  
+  return null;
 }
 
 // Helper function for distance calculation
@@ -252,7 +210,7 @@ function calculateDistance(pos1: { lat: number; lng: number }, pos2: { lat: numb
 }
 
 /**
- * Store exchange match with Upstash Redis or fallback
+ * Store exchange match
  */
 export async function storeExchangeMatch(
   token: string,
@@ -261,184 +219,142 @@ export async function storeExchangeMatch(
   userA: any,
   userB: any
 ): Promise<void> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      const matchData = {
-        sessionA,
-        sessionB,
-        userA,
-        userB,
-        createdAt: Date.now()
-      };
-      
-      const key = `exchange_match:${token}`;
-      await redis!.setex(key, 600, JSON.stringify(matchData)); // 10 minute expiry
-      
-      // Store session mappings for polling lookup
-      const sessionAKey = `session_match:${sessionA}`;
-      const sessionBKey = `session_match:${sessionB}`;
-      await redis!.setex(sessionAKey, 600, token); // 10 minute expiry
-      await redis!.setex(sessionBKey, 600, token); // 10 minute expiry
-      
-      return;
-    }
-
-    // Fallback to in-memory storage
-    throw new Error('Using fallback match storage');
-    
-  } catch (error) {
-    console.warn('Redis match storage failed, using fallback:', error);
-    const { storeExchangeMatchFallback } = await import('@/lib/services/fallbackExchangeService');
-    storeExchangeMatchFallback(token, sessionA, sessionB, userA, userB);
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for storing exchange matches');
   }
+
+  const matchData = {
+    sessionA,
+    sessionB,
+    userA,
+    userB,
+    timestamp: Date.now(),
+    status: 'pending'
+  };
+
+  // Store by token
+  await redis!.setex(`exchange_match:${token}`, 600, JSON.stringify(matchData)); // 10 minutes TTL
+
+  // Also store references by session IDs for lookup
+  await redis!.setex(`exchange_session:${sessionA}`, 600, JSON.stringify({
+    token,
+    youAre: 'A'
+  }));
+
+  await redis!.setex(`exchange_session:${sessionB}`, 600, JSON.stringify({
+    token,
+    youAre: 'B'
+  }));
+
+  console.log(`💾 Stored exchange match ${token}`);
 }
 
 /**
- * Get exchange match with Upstash Redis or fallback
+ * Get exchange match
  */
 export async function getExchangeMatch(token: string): Promise<any | null> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      const key = `exchange_match:${token}`;
-      console.log(`🔍 Getting exchange match for token: ${token}`);
-      
-      const matchDataStr = await redis!.get(key);
-      
-      if (!matchDataStr) {
-        console.log(`❌ No match found for token: ${token}`);
-        return null;
-      }
-      
-      console.log(`📄 Raw match data from Redis:`, typeof matchDataStr, matchDataStr);
-      
-      // Handle both string and object responses from Redis
-      if (typeof matchDataStr === 'string') {
-        try {
-          const parsed = JSON.parse(matchDataStr);
-          console.log(`✅ Successfully parsed match data:`, parsed);
-          return parsed;
-        } catch (parseError) {
-          console.error(`❌ JSON parse error for match data:`, parseError);
-          console.error(`❌ Problematic data:`, matchDataStr);
-          throw parseError;
-        }
-      } else {
-        console.log(`✅ Match data already an object:`, matchDataStr);
-        return matchDataStr; // Already an object
-      }
-    }
-
-    // Fallback to in-memory storage
-    throw new Error('Using fallback match retrieval');
-    
-  } catch (error) {
-    console.warn('Redis match retrieval failed, using fallback:', error);
-    const { getExchangeMatchFallback } = await import('@/lib/services/fallbackExchangeService');
-    return getExchangeMatchFallback(token);
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for retrieving exchange matches');
   }
-}
 
-/**
- * Store SSE connection info with Upstash Redis or fallback
- */
-export async function storeSseConnection(sessionId: string, data: any): Promise<void> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      const key = `sse_connection:${sessionId}`;
-      await redis!.setex(key, 3600, JSON.stringify(data)); // 1 hour expiry
-      return;
-    }
-
-    // Fallback to in-memory storage (no-op for now)
-    console.log('SSE connection stored in fallback mode:', sessionId);
-    
-  } catch (error) {
-    console.warn('SSE connection storage failed:', error);
-  }
-}
-
-/**
- * Remove a pending exchange from Redis
- */
-export async function removePendingExchange(sessionId: string, clientIP: string): Promise<void> {
-  try {
-    if (isRedisAvailable()) {
-      const key = `pending_exchange:${sessionId}`;
-      const ipPrefix = clientIP.split('.').slice(0, 2).join('.');
-      const geoBucketKey = `geo_bucket:${ipPrefix}`;
-      
-      // Remove the pending exchange data
-      await redis!.del(key);
-      
-      // Remove from geographic bucket
-      await redis!.srem(geoBucketKey, sessionId);
-      
-      console.log(`🗑️ Removed pending exchange ${sessionId} from geo bucket ${geoBucketKey}`);
-      return;
-    }
-
-    // Fallback: no-op (in-memory storage will naturally expire)
-    console.log(`🗑️ Fallback: skipping removal for session ${sessionId}`);
-    
-  } catch (error) {
-    console.warn('Redis removal failed:', error);
-  }
-}
-
-/**
- * Find exchange match by session ID (for polling)
- */
-export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: any; youAre: 'A' | 'B' } | null> {
-  try {
-    // Use Upstash Redis if available
-    if (isRedisAvailable()) {
-      // Since we don't have a direct way to search by session in Redis,
-      // we'll need to store additional mappings when matches are created
-      const sessionKey = `session_match:${sessionId}`;
-      const tokenStr = await redis!.get(sessionKey);
-      
-      if (!tokenStr) {
-        return null;
-      }
-      
-      const token = typeof tokenStr === 'string' ? tokenStr : String(tokenStr);
-      
-      // Get the full match data
-      const matchData = await getExchangeMatch(token);
-      if (!matchData) {
-        // Clean up stale session mapping
-        await redis!.del(sessionKey);
-        return null;
-      }
-      
-      // Determine if this session is A or B
-      const youAre = matchData.sessionA === sessionId ? 'A' : 'B';
-      
-      return {
-        token,
-        matchData,
-        youAre
-      };
-    }
-
-    // Fallback to in-memory storage
-    throw new Error('Using fallback session match lookup');
-    
-  } catch (error) {
-    console.warn('Redis session match lookup failed, using fallback:', error);
-    // For now, return null - we can implement fallback later if needed
+  const matchData = await redis!.get(`exchange_match:${token}`);
+  
+  if (!matchData) {
     return null;
   }
+  
+  if (typeof matchData === 'string') {
+    return JSON.parse(matchData);
+  }
+  
+  return matchData;
 }
 
-// Legacy functions for compatibility
+/**
+ * Store SSE connection
+ */
+export async function storeSseConnection(sessionId: string, data: any): Promise<void> {
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for storing SSE connections');
+  }
+
+  await redis!.setex(`sse_connection:${sessionId}`, 30, JSON.stringify(data));
+}
+
+/**
+ * Remove pending exchange
+ */
+export async function removePendingExchange(sessionId: string, clientIP: string): Promise<void> {
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for removing pending exchanges');
+  }
+
+  // Get IP prefix for geo bucket
+  const ipPrefix = clientIP.split('.').slice(0, 2).join('.');
+  const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  
+  // Remove from bucket
+  await redis!.srem(geoBucketKey, sessionId);
+  
+  // Remove exchange data
+  await redis!.del(`pending_exchange:${sessionId}`);
+  
+  console.log(`🗑️ Removed pending exchange ${sessionId}`);
+}
+
+/**
+ * Find exchange match by session ID
+ */
+export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: any; youAre: 'A' | 'B' } | null> {
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for finding exchange matches');
+  }
+
+  const sessionMatch = await redis!.get(`exchange_session:${sessionId}`);
+  
+  if (!sessionMatch) {
+    return null;
+  }
+  
+  let sessionData;
+  if (typeof sessionMatch === 'string') {
+    sessionData = JSON.parse(sessionMatch);
+  } else {
+    sessionData = sessionMatch;
+  }
+  
+  const { token, youAre } = sessionData;
+  
+  if (!token) {
+    return null;
+  }
+  
+  const matchData = await getExchangeMatch(token);
+  
+  if (!matchData) {
+    return null;
+  }
+  
+  return {
+    token,
+    matchData,
+    youAre
+  };
+}
+
+/**
+ * Get Redis client (for internal use)
+ */
 export async function getRedisClient(): Promise<any> {
-  throw new Error('Redis client not used - using Upstash Redis instead');
+  if (!isRedisAvailable()) {
+    throw new Error('Redis client is not available');
+  }
+  return redis;
 }
 
+/**
+ * Close Redis connection
+ */
 export async function closeRedisConnection(): Promise<void> {
-  // No-op since we're using Upstash Redis
+  // Upstash Redis REST client doesn't require explicit close
 }

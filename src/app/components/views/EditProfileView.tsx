@@ -1,7 +1,7 @@
 'use client';
 /** @jsxImportSource react */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import type { UserProfile } from '@/types/profile';
 import type { SocialPlatform, SocialProfileFormEntry, ProfileFormData } from '@/types/forms';
@@ -17,11 +17,10 @@ import { useProfileSave } from '@/lib/hooks/useProfileSave';
 import { profileToFormData } from '@/lib/utils/profileTransforms';
 import type { CountryCode } from 'libphonenumber-js';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
-import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, isSaving: isProfileSaving, getLatestProfile } = useProfile();
+  const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -38,16 +37,11 @@ const EditProfileView: React.FC = () => {
   
   const [digits, setDigits] = useState('');
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>('US');
-  const [hasNewBackgroundImage, setHasNewBackgroundImage] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Use the new hook for the live preview
-  useBackgroundImage(hasNewBackgroundImage ? formData.backgroundImage : profile?.backgroundImage);
 
   const { saveProfileData, isSaving: isSaveHookSaving } = useProfileSave({
     profile: profile || undefined,
     saveProfile,
-    hasNewBackgroundImage,
   });
 
   const isSaving = isProfileSaving || isSaveHookSaving;
@@ -55,16 +49,15 @@ const EditProfileView: React.FC = () => {
   useFreezeScrollOnFocus(nameInputRef);
 
   useEffect(() => {
-    const currentProfile = getLatestProfile() || profile;
-    if (currentProfile) {
-      setFormData(profileToFormData(currentProfile, session?.user));
-      if (currentProfile.contactChannels?.phoneInfo) {
-        const phoneInfo = currentProfile.contactChannels.phoneInfo;
+    if (profile) {
+      setFormData(profileToFormData(profile, session?.user));
+      if (profile.contactChannels?.phoneInfo) {
+        const phoneInfo = profile.contactChannels.phoneInfo;
         const phoneNumber = phoneInfo.nationalPhone || phoneInfo.internationalPhone?.replace(/^\+1/, '') || '';
         setDigits(phoneNumber.replace(/\D/g, ''));
       }
     }
-  }, [profile, session?.user, getLatestProfile]);
+  }, [profile, session?.user]);
 
   // Auto-focus name input on mount for mobile convenience
   useEffect(() => {
@@ -72,45 +65,26 @@ const EditProfileView: React.FC = () => {
   }, []);
 
   // Handle image upload
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'background') => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (e: ProgressEvent<FileReader>) => {
-      const result = e.target?.result as string;
+      const imageData = e.target?.result as string;
+      setFormData((prev: ProfileFormData) => ({ ...prev, picture: imageData }));
       
-      if (type === 'avatar') {
-        // For avatars, keep the existing client-side approach
-        setFormData((prev: ProfileFormData) => ({ ...prev, picture: result }));
-      } else {
-        // For background images, upload to Firebase Storage via API
-        try {
-          const base64Data = result.split(',')[1]; // Remove data:image/...;base64, prefix
-          
-          const response = await fetch('/api/media/background-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ base64Data }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to upload background image');
-          }
-
-          const { imageUrl } = await response.json();
-          setFormData((prev: ProfileFormData) => ({ ...prev, backgroundImage: imageUrl }));
-          setHasNewBackgroundImage(true);
-        } catch (error) {
-          console.error('Error uploading background image:', error);
-          alert('Failed to upload background image. Please try again.');
-        }
+      // Call the new API to upload the profile image
+      try {
+        await fetch('/api/media/profile-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData }),
+        });
+      } catch (error) {
+        console.error('Error uploading profile image:', error);
+        alert('Failed to upload profile image. Please try again.');
       }
-    };
-    reader.onerror = (e) => {
-      console.error('Error reading file:', e);
     };
     reader.readAsDataURL(file);
   };
@@ -202,7 +176,7 @@ const EditProfileView: React.FC = () => {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handleImageUpload(e, 'avatar')}
+                onChange={(e) => handleImageUpload(e)}
               />
             </label>
           }
@@ -288,7 +262,7 @@ const EditProfileView: React.FC = () => {
           accept="image/*"
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) {
-              handleImageUpload(e, 'background');
+              handleImageUpload(e);
             }
           }}
         />

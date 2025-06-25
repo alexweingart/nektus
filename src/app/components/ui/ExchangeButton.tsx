@@ -26,11 +26,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   useEffect(() => {
     const initClockSync = async () => {
       try {
-        console.log('⏰ Initializing clock sync on page load...');
         const success = await initializeClockSync();
-        if (success) {
-          console.log('✅ Clock sync initialized successfully');
-        } else {
+        if (!success) {
           console.warn('⚠️ Clock sync initialization failed');
         }
       } catch (error) {

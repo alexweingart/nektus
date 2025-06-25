@@ -1,23 +1,21 @@
 /**
- * Clock synchronization API endpoint
- * Returns the current server time for client-server clock sync
+ * API endpoint for clock synchronization
+ * Returns the current server timestamp for client-server time normalization
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
-    const serverTime = Date.now();
-    
-    return NextResponse.json({ 
-      serverTime,
-      timestamp: new Date(serverTime).toISOString()
+    return NextResponse.json({
+      success: true,
+      serverTime: Date.now()
     });
   } catch (error) {
-    console.error('Clock sync API error:', error);
+    console.error('Clock sync error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, message: 'Internal server error' },
       { status: 500 }
     );
   }
-}
+} 

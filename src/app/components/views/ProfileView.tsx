@@ -23,7 +23,7 @@ import type { UserProfile } from '@/types/profile';
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
   
-  const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile, streamingBackgroundImage } = useProfile();
+  const { profile, isLoading: isProfileLoading, isDeletingAccount, getLatestProfile } = useProfile();
 
   // Get the latest profile
   const currentProfile = getLatestProfile() || profile;
@@ -98,7 +98,7 @@ const ProfileView: React.FC = () => {
 
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
-    const bgUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
+    const bgUrl = currentProfile?.backgroundImage;
     const loadingStyle: React.CSSProperties = bgUrl
       ? {
           position: 'fixed',

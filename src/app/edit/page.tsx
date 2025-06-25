@@ -3,7 +3,6 @@
 import React, { Suspense, useEffect } from 'react';
 import dynamicImport from 'next/dynamic';
 import { useProfile } from '../context/ProfileContext';
-import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -29,12 +28,6 @@ export default function EditPage() {
       document.body.classList.remove('allow-scroll');
     };
   }, []);
-  
-  // Get the latest profile including streaming background image
-  const currentProfile = getLatestProfile() || profile;
-  
-  // Set the background using the new hook
-  useBackgroundImage(currentProfile?.backgroundImage);
   
   // Wrap in error boundary for better debugging
   return (

@@ -56,8 +56,6 @@ export const ProfileService = {
         lastUpdated: Date.now()
       };
       
-      console.log('[Firebase] Saving profile to Firestore for user:', profile.userId);
-      
       // Add timeout to Firestore operation to prevent hanging
       const savePromise = setDoc(doc(firestore, 'profiles', profile.userId), profileData, { merge: true });
       const timeoutPromise = new Promise((_, reject) => 
@@ -65,7 +63,6 @@ export const ProfileService = {
       );
       
       await Promise.race([savePromise, timeoutPromise]);
-      console.log('[Firebase] Profile save completed successfully');
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.UNAVAILABLE) {
@@ -127,12 +124,10 @@ export const ProfileService = {
       const profileSnap = await getDoc(profileRef);
       
       if (!profileSnap.exists()) {
-        console.log('[Firebase] No profile found for user:', userId);
         return null;
       }
       
       const profileData = profileSnap.data() as UserProfile;
-      console.log('Retrieved profile for user:', userId);
       return profileData;
     } catch (error) {
       const firestoreError = error as FirestoreError;

@@ -21,10 +21,13 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
     "@upstash/redis": "^1.35.0",
+    "chroma-js": "^2.4.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "file-type": "^19.0.0",
     "firebase": "^11.8.1",
     "firebase-admin": "^12.7.0",
+    "get-image-colors": "^4.0.1",
     "libphonenumber-js": "^1.12.8",
     "lucide-react": "^0.511.0",
     "next": "^15.3.0",
@@ -49,8 +52,12 @@
     "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^8.33.0",
     "@typescript-eslint/parser": "^8.33.0",
+    "@vercel/fun": "^1.1.6",
+    "@vercel/node": "^5.3.0",
+    "@vercel/redwood": "^2.3.3",
+    "@vercel/routing-utils": "^5.0.7",
+    "@vercel/static-build": "^2.7.10",
     "autoprefixer": "^10.4.21",
-    "canvas": "^3.1.0",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "dotenv": "^16.5.0",
     "eslint": "^9",
@@ -64,6 +71,6 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
-    "vercel": "^42.3.0"
+    "vercel": "^43.3.0"
   }
 }

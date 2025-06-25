@@ -5,7 +5,6 @@ import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { useViewportLock } from '@/lib/hooks/useViewportLock';
-import { useBackgroundImage } from '@/lib/hooks/useBackgroundImage';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -24,28 +23,21 @@ const ProfileView = dynamicImport(() => import('./components/views/ProfileView')
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const { profile, getLatestProfile, streamingBackgroundImage } = useProfile();
-  const isLoading = status === 'loading';
-  
-  // Get the latest profile including streaming background image
-  const currentProfile = getLatestProfile() || profile;
+  const { profile } = useProfile();
+  const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
 
   // Use viewport lock with pull-to-refresh enabled for all users
   useViewportLock({
     enablePullToRefresh: true
   });
-
-  // Get background image URL and set it on the root element
-  const backgroundImageUrl = streamingBackgroundImage || currentProfile?.backgroundImage;
-  useBackgroundImage(session ? backgroundImageUrl : null);
+  
+  // The background is now handled automatically by the root layout and context.
 
   // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <div className="page-container">
-        <div className="flex items-center justify-center h-full">
-          <LoadingSpinner size="sm" />
-        </div>
+      <div className="flex items-center justify-center h-full min-h-screen">
+        <LoadingSpinner size="sm" />
       </div>
     );
   }
