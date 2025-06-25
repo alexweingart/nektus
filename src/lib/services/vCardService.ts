@@ -141,7 +141,7 @@ const getSocialMediaUrl = (platform: string, username: string): string | null =>
     snapchat: 'https://snapchat.com/add/',
     telegram: 'https://t.me/',
     whatsapp: 'https://wa.me/',
-    wechat: 'weixin://dl/chat?',
+    wechat: 'https://weixin.qq.com/r/',
   };
   
   const baseUrl = platformUrls[platform.toLowerCase()];
@@ -292,9 +292,8 @@ export const generateVCardForIOS = async (profile: UserProfile, options: VCardOp
           if (!processedPlatforms.has(platformType)) {
             processedPlatforms.add(platformType);
             
-            // Use lowercase tokens and add value=uri parameter
-            const token = platformType.toLowerCase();
-            lines.push(`X-SOCIALPROFILE;type=${token};value=uri:${url}`);
+            // Use the correct X-SOCIALPROFILE format that iOS recognizes for icons
+            lines.push(`X-SOCIALPROFILE;type=${platformType.toUpperCase()}:${url}`);
           }
         }
       }
