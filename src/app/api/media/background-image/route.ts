@@ -61,6 +61,7 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
       n: 1,
       size: '1024x1024', // Square size for faster generation
       quality: 'low',
+      response_format: 'b64_json', // Explicitly request base64 format
     });
     
     console.log('[API/BACKGROUND] Response received from OpenAI API');

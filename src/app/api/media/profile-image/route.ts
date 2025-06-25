@@ -37,8 +37,8 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
       prompt,
       size: '1024x1024',
       quality: 'low',
-      model: 'gpt-image-1'
-      // Note: response_format is not needed and not supported by gpt-image-1
+      model: 'gpt-image-1',
+      response_format: 'b64_json',
     });
 
     console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');

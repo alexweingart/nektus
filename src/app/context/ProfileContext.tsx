@@ -44,8 +44,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
-  const bioGenerationTriggeredRef = useRef(false);
-  const backgroundGenerationTriggeredRef = useRef(false);
   
   const profileRef = useRef<UserProfile | null>(null);
 
@@ -104,9 +102,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               }
             }
             
-            // Trigger asset generation only if the profile exists and has no bio or background
-            if (!existingProfile.bio || !existingProfile.backgroundImage) {
-              generateProfileAssets();
+            // Trigger asset generation for missing assets independently
+            if (!existingProfile.bio && !existingProfile.aiGeneration?.bioGenerated) {
+              // Generate bio only if missing and not already generated
+              fetch('/api/bio', { method: 'POST' })
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => data.bio && saveProfile({ bio: data.bio }))
+                .catch(error => console.error('[ProfileContext] Bio generation failed:', error));
+            }
+            if (!existingProfile.backgroundImage && !existingProfile.aiGeneration?.backgroundImageGenerated) {
+              // Generate background only if missing and not already generated
+              fetch('/api/media/background-image', { method: 'POST' })
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => {
+                  if (data.imageUrl) {
+                    document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
+                    document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
+                    if (profileRef.current) {
+                      const updatedProfile = { ...profileRef.current, backgroundImage: data.imageUrl };
+                      profileRef.current = updatedProfile;
+                      ProfileService.saveProfile(updatedProfile).catch(error => 
+                        console.error('[ProfileContext] Failed to save background image:', error));
+                    }
+                  }
+                })
+                .catch(error => console.error('[ProfileContext] Background generation failed:', error));
             }
           } else {
             if (isAndroid) {
@@ -119,8 +139,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             console.log('[ProfileContext] Saving new profile to Firebase before generating assets');
             await saveProfile(newProfile); // Save the newly created profile
             
-            // Now trigger both bio and background generation in parallel
-            generateProfileAssets();
+            // Now trigger both bio and background generation for new profiles
+            if (!newProfile.bio) {
+              fetch('/api/bio', { method: 'POST' })
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => data.bio && saveProfile({ bio: data.bio }))
+                .catch(error => console.error('[ProfileContext] Bio generation failed:', error));
+            }
+            if (!newProfile.backgroundImage) {
+              fetch('/api/media/background-image', { method: 'POST' })
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => {
+                  if (data.imageUrl) {
+                    document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
+                    document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
+                    if (profileRef.current) {
+                      const updatedProfile = { ...profileRef.current, backgroundImage: data.imageUrl };
+                      profileRef.current = updatedProfile;
+                      ProfileService.saveProfile(updatedProfile).catch(error => 
+                        console.error('[ProfileContext] Failed to save background image:', error));
+                    }
+                  }
+                })
+                .catch(error => console.error('[ProfileContext] Background generation failed:', error));
+            }
           }
         } catch (error) {
           console.error('[ProfileContext] Failed to load or create profile:', error);
@@ -156,67 +198,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [profile?.backgroundImage]);
 
-  // Helper function to generate bio and background image independently
-  const generateProfileAssets = () => {
-    const userId = session?.user?.id;
-    if (!userId) return;
-    
-    // Generate bio if not already triggered
-    if (!bioGenerationTriggeredRef.current) {
-      bioGenerationTriggeredRef.current = true;
 
-      fetch('/api/bio', { method: 'POST' })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Bio generation API request failed with status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.bio) {
-            // Save the new bio. The saveProfile function will handle the local state update.
-            saveProfile({ bio: data.bio });
-          }
-        })
-        .catch(error => {
-          console.error('[ProfileContext] Bio generation failed:', error);
-          bioGenerationTriggeredRef.current = false; // Reset flag on failure
-        });
-    }
-
-    // Generate background image if not already triggered
-    if (!backgroundGenerationTriggeredRef.current) {
-      backgroundGenerationTriggeredRef.current = true;
-
-      fetch('/api/media/background-image', { method: 'POST' })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Background generation API failed with status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.imageUrl) {
-            // Directly update the DOM for an immediate visual effect
-            document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
-            document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
-            
-            // Save to Firebase directly without touching React state at all
-            if (profileRef.current) {
-              const updatedProfile = { ...profileRef.current, backgroundImage: data.imageUrl };
-              profileRef.current = updatedProfile; // Update ref only
-              ProfileService.saveProfile(updatedProfile).catch(error => {
-                console.error('[ProfileContext] Failed to save background image:', error);
-              });
-            }
-          }
-        })
-        .catch(error => {
-          console.error('[ProfileContext] Background generation failed:', error);
-          backgroundGenerationTriggeredRef.current = false; // Reset on failure
-        });
-    }
-  };
 
   // Removed the separate background image generation effect as it's now part of generateProfileAssets
 
@@ -338,6 +320,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (isAndroid) {
           console.log('[ProfileContext] 🤖 Android - About to save to Firebase');
           console.log('[ProfileContext] 🤖 Merged profile phone:', merged.contactChannels?.phoneInfo?.internationalPhone);
+          console.log('[ProfileContext] 🤖 All fields being saved:', Object.keys(merged));
+          console.log('[ProfileContext] 🤖 Full merged profile:', JSON.stringify(merged, null, 2));
         }
         await ProfileService.saveProfile(merged);
         
