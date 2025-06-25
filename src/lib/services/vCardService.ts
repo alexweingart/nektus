@@ -11,6 +11,30 @@ export interface VCardOptions {
 }
 
 /**
+ * Helper function to create a base64-encoded photo line for vCard 3.0
+ * Required for iOS contacts to display the photo correctly
+ */
+async function makePhotoLine(imageUrl: string): Promise<string> {
+  try {
+    const res = await fetch(imageUrl);
+    const mime = res.headers.get('content-type') || 'image/jpeg';
+    const type = mime.includes('png') ? 'PNG' : 'JPEG';
+    const b64 = Buffer.from(await res.arrayBuffer()).toString('base64');
+
+    // 75-byte soft-wrap as required by RFC 2425
+    const chunks: string[] = [];
+    for (let i = 0; i < b64.length; i += 75) {
+      chunks.push(b64.slice(i, i + 75));
+    }
+    return `PHOTO;ENCODING=b;TYPE=${type}:${chunks.join('\r\n ')}`;
+  } catch (error) {
+    console.warn('Failed to encode photo as base64:', error);
+    // Fallback to URI format if base64 encoding fails
+    return `PHOTO;VALUE=URI:${imageUrl}`;
+  }
+}
+
+/**
  * Generate a vCard 4.0 string from a profile
  */
 export const generateVCard = (profile: UserProfile, options: VCardOptions = {}): string => {
@@ -188,25 +212,29 @@ export const downloadVCard = (profile: UserProfile, options?: VCardOptions): voi
  */
 export const openVCardInNewTab = (profile: UserProfile, options?: VCardOptions): void => {
   const vCardBlob = createVCardFile(profile, options);
+  const filename = generateVCardFilename(profile);
+  
+  // Create download link
   const url = URL.createObjectURL(vCardBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
   
-  const newWindow = window.open(url, '_blank');
-  if (!newWindow) {
-    // Fallback to download if popup blocked
-    downloadVCard(profile, options);
-  }
+  // Trigger download
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   
-  // Clean up URL after a delay
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 5000);
+  // Clean up
+  URL.revokeObjectURL(url);
 };
 
 /**
  * Generate a vCard 3.0 string optimized for iOS with X-SOCIALPROFILE
  * This follows Apple's requirements for proper icon display
  */
-export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions = {}): string => {
+export const generateVCardForIOS = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
   const {
     includePhoto = true,
     includeSocialMedia = true,
@@ -242,9 +270,10 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
     lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
   }
   
-  // Photo/Avatar
+  // Photo/Avatar - Use base64 encoding for iOS compatibility
   if (includePhoto && profile.profileImage) {
-    lines.push(`PHOTO;VALUE=URI:${profile.profileImage}`);
+    const photoLine = await makePhotoLine(profile.profileImage);
+    lines.push(photoLine);
   }
   
   // Social media profiles using X-SOCIALPROFILE for iOS compatibility
@@ -297,8 +326,8 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
 /**
  * Display vCard inline for iOS (opens with proper headers)
  */
-export const displayVCardInlineForIOS = (profile: UserProfile, options?: VCardOptions): void => {
-  const vCardContent = generateVCardForIOS(profile, options);
+export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
+  const vCardContent = await generateVCardForIOS(profile, options);
   const filename = generateVCardFilename(profile);
   
   // Create a blob with proper vCard MIME type
@@ -310,23 +339,8 @@ export const displayVCardInlineForIOS = (profile: UserProfile, options?: VCardOp
   
   console.log('📲 Opening vCard for iOS:', filename);
   
-  // For iOS, we need to use a direct window.open to trigger the vCard handler
-  const newWindow = window.open(url, '_blank');
-  
-  if (!newWindow) {
-    // If popup blocked, fall back to link click method
-    console.log('⚠️ Popup blocked, falling back to link click method');
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.setAttribute('data-content-type', 'text/vcard');
-    link.setAttribute('data-content-disposition', `attachment; filename="${filename}"`);
-    
-    // Trigger the download/open
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  // For iOS, use direct navigation to trigger the vCard handler
+  window.location.href = url; 
   
   // Clean up
   setTimeout(() => {

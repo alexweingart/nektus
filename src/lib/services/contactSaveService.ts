@@ -248,8 +248,12 @@ export async function saveContactFlow(
       // iOS Flow
       console.log('🍎 iOS flow: displaying vCard inline');
       
-      // Always show vCard inline for iOS
-      displayVCardInlineForIOS(profile);
+      // Always show vCard inline for iOS (now async)
+      try {
+        await displayVCardInlineForIOS(profile);
+      } catch (error) {
+        console.warn('Failed to display vCard inline for iOS:', error);
+      }
       
       // Show success modal
       const result: ContactSaveFlowResult = {
