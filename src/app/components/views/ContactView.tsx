@@ -16,7 +16,7 @@ import type { UserProfile } from '@/types/profile';
 import { useContactSaveFlow } from '@/lib/hooks/useContactSaveFlow';
 import { StandardModal } from '../ui/StandardModal';
 
-import { generateMessageText, openMessagingAppWithVCard } from '@/lib/services/messagingService';
+import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
 import { useSession } from 'next-auth/react';
 
 interface ContactViewProps {
@@ -84,13 +84,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
       return;
     }
 
-    // Create sender profile from session
-    const senderProfile: UserProfile = {
-      userId: session.user.id || '',
-      name: session.user.name,
-      profileImage: session.user.image || undefined,
-    } as UserProfile;
-
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = profile.name.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
@@ -98,8 +91,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
     // Try to use phone number if available
     const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
     
-    console.log('📱 Opening messaging app with vCard attachment');
-    openMessagingAppWithVCard(messageText, senderProfile, phoneNumber);
+    console.log('📱 Opening messaging app directly with pre-populated text');
+    openMessagingAppDirectly(messageText, phoneNumber);
     
     dismissSuccessModal();
   };

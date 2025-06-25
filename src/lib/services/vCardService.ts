@@ -110,12 +110,14 @@ const escapeVCardValue = (value: string): string => {
 const getSocialMediaUrl = (platform: string, username: string): string | null => {
   const platformUrls: Record<string, string> = {
     twitter: 'https://twitter.com/',
+    x: 'https://x.com/',
     instagram: 'https://instagram.com/',
     linkedin: 'https://linkedin.com/in/',
     facebook: 'https://facebook.com/',
     snapchat: 'https://snapchat.com/add/',
     telegram: 'https://t.me/',
     whatsapp: 'https://wa.me/',
+    wechat: 'weixin://dl/chat?',
   };
   
   const baseUrl = platformUrls[platform.toLowerCase()];
@@ -128,12 +130,14 @@ const getSocialMediaUrl = (platform: string, username: string): string | null =>
 const getPlatformTypeForIOS = (platform: string): string => {
   const platformMap: Record<string, string> = {
     twitter: 'Twitter',
+    x: 'Twitter',  // Map X platform to Twitter for iOS compatibility
     instagram: 'Instagram',
     linkedin: 'LinkedIn',
     facebook: 'Facebook',
     snapchat: 'Snapchat',
     telegram: 'Telegram',
     whatsapp: 'WhatsApp',
+    wechat: 'WeChat',
   };
   
   return platformMap[platform.toLowerCase()] || platform;
@@ -199,7 +203,8 @@ export const openVCardInNewTab = (profile: UserProfile, options?: VCardOptions):
 };
 
 /**
- * Generate a vCard 4.0 string optimized for iOS with X-SOCIALPROFILE
+ * Generate a vCard 3.0 string optimized for iOS with X-SOCIALPROFILE
+ * This follows Apple's requirements for proper icon display
  */
 export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions = {}): string => {
   const {
@@ -210,9 +215,10 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
 
   const lines: string[] = [];
   
-  // vCard header
+  // vCard header - Use 3.0 for iOS compatibility
   lines.push('BEGIN:VCARD');
-  lines.push('VERSION:4.0');
+  lines.push('VERSION:3.0');
+  lines.push('PRODID:-//Nektus//vCard 1.0//EN');
   
   // Basic information
   if (profile.name) {
@@ -238,29 +244,28 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
   
   // Photo/Avatar
   if (includePhoto && profile.profileImage) {
-    lines.push(`PHOTO:${profile.profileImage}`);
+    lines.push(`PHOTO;VALUE=URI:${profile.profileImage}`);
   }
   
-  // Social media profiles using X-SOCIALPROFILE for iOS
+  // Social media profiles using X-SOCIALPROFILE for iOS compatibility
   if (includeSocialMedia && profile.contactChannels) {
+    const processedPlatforms = new Set<string>();
+    
     Object.entries(profile.contactChannels).forEach(([platform, data]) => {
       if (platform === 'phoneInfo' || platform === 'email') return; // Skip phone and email, already handled
       
       if (data && typeof data === 'object' && 'username' in data && data.username) {
         const url = getSocialMediaUrl(platform, data.username);
         if (url) {
-          // Use X-SOCIALPROFILE for iOS compatibility with proper case formatting
           const platformType = getPlatformTypeForIOS(platform);
           
-          // Use multiple formats for maximum compatibility
-          // Format 1: X-SOCIALPROFILE with both TYPE and X-USER
-          lines.push(`X-SOCIALPROFILE;TYPE=${platformType};X-USER=${data.username}:${url}`);
-          
-          // Format 2: Standard URL with TYPE
-          lines.push(`URL;TYPE=${platformType}:${url}`);
-          
-          // Format 3: X-SOCIALPROFILE with different parameters (for older iOS versions)
-          lines.push(`X-SOCIALPROFILE;X-SERVICE=${platformType};X-USER=${data.username}:${url}`);
+          // Avoid duplicates by tracking processed platform types
+          if (!processedPlatforms.has(platformType)) {
+            processedPlatforms.add(platformType);
+            
+            // Use the X-SOCIALPROFILE format that iOS recognizes for icons
+            lines.push(`X-SOCIALPROFILE;TYPE=${platformType.toUpperCase()}:${url}`);
+          }
         }
       }
     });
@@ -272,7 +277,9 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
   }
   
   // Nektus-specific data as extended properties
-  lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId || ''}`);
+  if (profile.userId) {
+    lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId}`);
+  }
   if (profile.lastUpdated) {
     lines.push(`X-NEKTUS-UPDATED:${new Date(profile.lastUpdated).toISOString()}`);
   }

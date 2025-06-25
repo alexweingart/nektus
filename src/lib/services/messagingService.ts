@@ -147,3 +147,15 @@ export function openMessagingAppWithVCard(
     }
   }, 500); // Short delay to ensure messaging app opens first
 }
+
+/**
+ * Opens the messaging app with pre-populated text only (no vCard)
+ * Used for direct "Say hi" functionality without attachment step
+ */
+export function openMessagingAppDirectly(
+  messageText: string,
+  phoneNumber?: string
+): void {
+  console.log('📱 Opening messaging app directly with text only');
+  openMessagingApp(messageText, phoneNumber);
+}

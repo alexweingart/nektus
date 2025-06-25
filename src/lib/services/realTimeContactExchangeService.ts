@@ -369,13 +369,13 @@ export class RealTimeContactExchangeService {
         // Send hit to server (only now, after motion is detected)
         this.updateState({ status: 'processing' });
         
-        // Set 10-second timeout for waiting for match after sending hit
+        // Set 3-second timeout for waiting for match after sending hit
         this.waitingForMatchTimeout = setTimeout(() => {
-          console.log('⏰ Waiting for match timed out after 10 seconds');
-          this.logToServer('match_timeout', 'Waiting for match timed out after 10 seconds');
+          console.log('⏰ Waiting for match timed out after 3 seconds');
+          this.logToServer('match_timeout', 'Waiting for match timed out after 3 seconds');
           this.updateState({ status: 'timeout' });
           this.disconnect();
-        }, 10000); // 10 seconds
+        }, 3000); // 3 seconds
         
         const response = await this.sendHit(request);
 

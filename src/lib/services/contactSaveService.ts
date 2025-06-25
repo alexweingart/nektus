@@ -260,12 +260,9 @@ export async function saveContactFlow(
         platform
       };
       
-      // Check if we should show upsell modal (first time only)
-      if (isFirstTimeIOSUpsell()) {
-        console.log('💡 Showing iOS upsell modal (first time)');
-        markIOSUpsellShown();
-        result.showUpsellModal = true;
-      }
+      // For iOS, don't show upsell modal immediately on first save
+      // Users can retry from the success modal if they want Google Contacts integration
+      // No automatic upsell modal for iOS to avoid interrupting the flow
       
       return result;
     } else {
