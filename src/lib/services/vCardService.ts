@@ -263,8 +263,9 @@ export const generateVCardForIOS = (profile: UserProfile, options: VCardOptions 
           if (!processedPlatforms.has(platformType)) {
             processedPlatforms.add(platformType);
             
-            // Use the X-SOCIALPROFILE format that iOS recognizes for icons
-            lines.push(`X-SOCIALPROFILE;TYPE=${platformType.toUpperCase()}:${url}`);
+            // Use lowercase tokens and add value=uri parameter
+            const token = platformType.toLowerCase();
+            lines.push(`X-SOCIALPROFILE;type=${token};value=uri:${url}`);
           }
         }
       }
