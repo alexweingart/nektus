@@ -7,7 +7,6 @@ import {
   persistentMultipleTabManager,
   FirestoreSettings
 } from 'firebase/firestore';
-import { getAuth, Auth, signInWithCustomToken } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
@@ -26,14 +25,12 @@ const isClient = typeof window !== 'undefined';
 type FirebaseServices = {
   app: FirebaseApp;
   db: Firestore;
-  auth: Auth;
   storage: FirebaseStorage;
 };
 
 // Initialize Firebase
 let app: FirebaseApp | undefined;
 let db: Firestore | undefined;
-let auth: Auth | undefined;
 let storage: FirebaseStorage | undefined;
 
 // Automatically initialize Firebase when this module is imported in a browser environment
@@ -41,9 +38,6 @@ if (isClient) {
   try {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
-      
-      // Initialize Auth
-      auth = getAuth(app);
       
       // Initialize Firestore with persistence
       const firestoreSettings: FirestoreSettings = {
@@ -59,7 +53,6 @@ if (isClient) {
     } else {
       // Use existing app instance
       app = getApps()[0];
-      auth = getAuth(app);
       db = getFirestore(app);
       storage = getStorage(app);
     }
@@ -67,23 +60,6 @@ if (isClient) {
     console.error('Firebase initialization error:', error);
   }
 }
-
-/**
- * Authenticate Firebase client with NextAuth session token
- */
-export const authenticateFirebaseClient = async (customToken: string): Promise<void> => {
-  if (!auth) {
-    throw new Error('Firebase Auth not initialized');
-  }
-  
-  try {
-    await signInWithCustomToken(auth, customToken);
-    console.log('Firebase client authenticated successfully');
-  } catch (error) {
-    console.error('Failed to authenticate Firebase client:', error);
-    throw error;
-  }
-};
 
 // Initialize Firebase app and services
 export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefined> => {
@@ -93,9 +69,6 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
     if (!app) {
       console.log('Initializing Firebase...');
       app = initializeApp(firebaseConfig);
-      
-      // Initialize Auth
-      auth = getAuth(app);
       
       // Initialize Firestore with persistence
       const firestoreSettings: FirestoreSettings = {
@@ -112,16 +85,16 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
       console.log('Firebase initialized successfully');
     }
 
-    if (!app || !db || !auth || !storage) {
+    if (!app || !db || !storage) {
       throw new Error('Failed to initialize Firebase services');
     }
 
-    return { app, db, auth, storage };
+    return { app, db, storage };
   } catch (error) {
     console.error('Error initializing Firebase:', error);
     throw error;
   }
 };
 
-// Export initialized instances
-export { app, db, auth, storage };
+// Export initialized instances  
+export { app, db, storage };
