@@ -3,7 +3,6 @@
 // required). This produces results consistent with the official Color Thief demo.
 import getColors from 'get-image-colors';
 import type { Color } from 'chroma-js';
-// @ts-ignore - ESM types may not include named export in current TS version
 import { fileTypeFromBuffer } from 'file-type';
 
 // Helper to convert RGB array to HEX string
