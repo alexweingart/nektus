@@ -67,17 +67,14 @@ function ProfileSetupView() {
       } as any,
     };
 
-    try {
-      console.log('[ProfileSetup] Saving profile before navigation');
-      // Save FIRST while session is guaranteed to be valid
-      await saveProfile(phoneUpdateData);
-      console.log('[ProfileSetup] Profile saved successfully, navigating');
-      router.replace('/');
-    } catch (err) {
-      console.error('[ProfileSetup] Failed to save profile:', err);
-      // Navigate anyway - user can retry from profile page
-      router.replace('/');
-    }
+    console.log('[ProfileSetup] Navigating to home');
+    router.replace('/');
+    setTimeout(() => {
+      console.log('[ProfileSetup] Now saving profile after navigation');
+      saveProfile(phoneUpdateData).catch(err => {
+        console.error('[ProfileSetup] Failed to save profile:', err);
+      });
+    }, 0);
   }, [digits, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router]);
 
   if (sessionStatus === 'loading' || !profile) {

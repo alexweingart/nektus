@@ -8,13 +8,22 @@ import { UserProfile } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
 
 /**
+ * Converts a base64 string to a buffer
+ * @param base64 Base64 encoded string (without the data:image prefix)
+ * @returns Buffer containing the image data
+ */
+function base64ToBuffer(base64: string): Buffer {
+  return Buffer.from(base64, 'base64');
+}
+
+/**
  * Generates a profile image for a user using OpenAI's gpt-image-1 model.
  * This is a server-side function.
  * @param profile The user profile object.
- * @returns The generated profile image URL as a string, or null if an error occurs.
+ * @returns A buffer containing the image data
  */
-async function generateProfileImageForProfile(profile: UserProfile): Promise<string | null> {
-  console.log(`[AIGenerationService] Generating profile image for: ${profile.name}`);
+async function generateProfileImageForProfile(profile: UserProfile): Promise<Buffer> {
+  console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profile.name}`);
   try {
     const openai = getOpenAIClient();
     const prompt = `Create a profile picture for a person with this bio: ${profile.bio || 'no bio available'}. ` +
@@ -32,16 +41,25 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<str
       // Note: response_format is not needed and not supported by gpt-image-1
     });
 
-    const imageUrl = response.data[0]?.url;
-    if (!imageUrl) {
-      throw new Error('No profile image was generated in the response');
+    console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');
+    
+    if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      throw new Error('Invalid response from OpenAI');
+    }
+    
+    // Check what we got in response
+    const imageData = response.data[0];
+    
+    // We should always get base64 data with our request format
+    if (imageData?.b64_json) {
+      console.log('[API/PROFILE-IMAGE] Converting base64 image data to buffer');
+      return base64ToBuffer(imageData.b64_json);
     }
 
-    console.log(`[API/PROFILE-IMAGE] Successfully generated profile image for: ${profile.name}`);
-    return imageUrl;
+    throw new Error('No base64 image data found in the response');
   } catch (error) {
     console.error('[API/PROFILE-IMAGE] Profile image generation failed:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -93,24 +111,11 @@ export async function POST(req: NextRequest) {
       }
       
       // Generate image using OpenAI
-      const imageUrl = await generateProfileImageForProfile(profile);
-      
-      if (!imageUrl) {
-        return NextResponse.json({ error: 'Failed to generate profile image' }, { status: 500 });
-      }
-      
-      console.log('[API/PROFILE-IMAGE] Successfully received AI-generated image URL, downloading...');
-      
-      // Download the AI-generated image to re-host it in our storage
-      const aiImageResponse = await fetch(imageUrl);
-      if (!aiImageResponse.ok) {
-        throw new Error('Failed to download AI-generated image');
-      }
-      const aiImageBuffer = Buffer.from(await aiImageResponse.arrayBuffer());
+      const imageBuffer = await generateProfileImageForProfile(profile);
       
       // Upload to our storage
       console.log('[API/PROFILE-IMAGE] Uploading AI-generated image to Firebase Storage');
-      newImageUrl = await uploadImageBuffer(aiImageBuffer, userId, 'profile');
+      newImageUrl = await uploadImageBuffer(imageBuffer, userId, 'profile');
     }
 
     // Get current profile to update AI generation flags correctly

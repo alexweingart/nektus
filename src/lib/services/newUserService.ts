@@ -86,12 +86,8 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
       whatsapp: socialProfiles.whatsapp,
       telegram: socialProfiles.telegram,
       wechat: socialProfiles.wechat
-    },
-    aiGeneration: {
-      bioGenerated: false,
-      avatarGenerated: false,
-      backgroundImageGenerated: false
     }
+    // Removed aiGeneration field - should not be saved to Firestore
   };
 
   return {

@@ -420,6 +420,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (isAndroid) {
           console.error('[ProfileContext] 🤖 Android - Firebase save failed:', error);
         }
+        // Re-throw the error so the caller knows the save failed
+        throw error;
       }
     } catch (error) {
       console.error('[ProfileContext] Error saving profile:', error);
