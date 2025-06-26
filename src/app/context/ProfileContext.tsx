@@ -316,8 +316,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Determine if we should generate an avatar
-      const isGoogleUser = session?.user?.email?.includes('gmail.com') || currentProfileImage?.includes('googleusercontent.com');
-      const shouldGenerate = !currentProfileImage || (isGoogleUser && shouldGenerateAvatarForGoogleUser(currentProfileImage));
+      let shouldGenerate = false;
+      
+      if (!currentProfileImage) {
+        console.log('[ProfileContext] No profile image, will generate');
+        shouldGenerate = true;
+      } else if (currentProfileImage?.includes('googleusercontent.com')) {
+        // For Google users, use the proper API to check if it's auto-generated initials
+        try {
+          const accessToken = session?.accessToken;
+          if (accessToken) {
+            console.log('[ProfileContext] Checking Google profile image via People API...');
+            shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+            console.log('[ProfileContext] Google profile image check result:', shouldGenerate ? 'auto-generated, will generate' : 'user-uploaded, keeping existing');
+          } else {
+            console.log('[ProfileContext] No Google access token available, falling back to URL check');
+            // Fallback to simple string check if no access token
+            shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+          }
+        } catch (error) {
+          console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
+          // Fallback to simple string check on error
+          shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+        }
+      }
 
       if (shouldGenerate) {
         shouldGenerateProfileImage = true;
