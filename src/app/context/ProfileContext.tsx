@@ -262,13 +262,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     });
     
     const generations = [];
+    let bioGenerationPromise: Promise<any> | null = null;
     
     // Generate bio if not already triggered and bio doesn't exist in current profile
     if (!bioGenerationTriggeredRef.current && !profile?.bio) {
       bioGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] === BIO GENERATION STARTED ===');
 
-      const bioGeneration = fetch('/api/bio', { method: 'POST' })
+      bioGenerationPromise = fetch('/api/bio', { method: 'POST' })
         .then(res => {
           if (!res.ok) {
             throw new Error(`Bio generation API request failed with status: ${res.status}`);
@@ -284,58 +285,61 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setStreamingBio(data.bio);
             
             // API already saved to Firebase, no local state update needed
+            return data.bio;
           }
         })
         .catch(error => {
           console.error('[ProfileContext] Bio generation failed:', error);
           bioGenerationTriggeredRef.current = false;
+          throw error;
         });
       
-      generations.push(bioGeneration);
+      generations.push(bioGenerationPromise);
     }
 
-    // Generate profile image if not already triggered and should generate
+    // Check if we need to generate a profile image
+    let shouldGenerateProfileImage = false;
+    
+    // Only generate profile image if not already triggered
     if (!profileImageGenerationTriggeredRef.current) {
       profileImageGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] === PROFILE IMAGE GENERATION STARTED ===');
 
-      let shouldGenerate = false;
-      
-      // Check for profile image in profile state or fall back to session
+      // Check for profile image in existing profile or fall back to session
       const currentProfileImage = profile?.profileImage || session?.user?.image;
       
-      console.log('[ProfileContext] Profile image check in generateProfileAssets:', {
-        profileImage: profile?.profileImage,
+      console.log('[ProfileContext] Profile image check in generation flow:', {
+        existingProfileImage: profile?.profileImage,
         sessionImage: session?.user?.image,
         currentProfileImage,
         hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
       });
-      
-      if (!currentProfileImage) {
-        console.log('[ProfileContext] No profile image in generateProfileAssets, will generate');
-        shouldGenerate = true;
-      } else if (currentProfileImage?.includes('googleusercontent.com')) {
-        // For Google users, use the proper API to check if it's auto-generated initials
-        try {
-          const accessToken = session?.accessToken;
-          if (accessToken) {
-            console.log('[ProfileContext] Checking Google profile image via People API in generateProfileAssets...');
-            shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
-            console.log('[ProfileContext] Google profile image check result:', shouldGenerate ? 'auto-generated, will generate' : 'user-uploaded, keeping existing');
-          } else {
-            console.log('[ProfileContext] No Google access token available in generateProfileAssets, falling back to URL check');
-            // Fallback to simple string check if no access token
-            shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
-          }
-        } catch (error) {
-          console.error('[ProfileContext] Error checking Google profile image in generateProfileAssets, falling back to URL check:', error);
-          // Fallback to simple string check on error
-          shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
-        }
-      }
+
+      // Determine if we should generate an avatar
+      const isGoogleUser = session?.user?.email?.includes('gmail.com') || currentProfileImage?.includes('googleusercontent.com');
+      const shouldGenerate = !currentProfileImage || (isGoogleUser && shouldGenerateAvatarForGoogleUser(currentProfileImage));
 
       if (shouldGenerate) {
-        const imageGeneration = fetch('/api/media/profile-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+        shouldGenerateProfileImage = true;
+        
+        // If bio is being generated, wait for it first
+        const profileImageGeneration = (async () => {
+          let bioToUse = streamingBio;
+          
+          if (bioGenerationPromise && !bioToUse) {
+            console.log('[ProfileContext] Waiting for bio generation to complete before profile image...');
+            try {
+              bioToUse = await bioGenerationPromise;
+            } catch (error) {
+              console.log('[ProfileContext] Bio generation failed, proceeding with profile image without bio');
+            }
+          }
+          
+          return fetch('/api/media/profile-image', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ streamingBio: bioToUse }) 
+          })
           .then(res => {
             if (!res.ok) {
               throw new Error(`Profile image generation API failed with status: ${res.status}`);
@@ -356,8 +360,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             console.error('[ProfileContext] Profile image generation failed:', error);
             profileImageGenerationTriggeredRef.current = false;
           });
+        })();
         
-        generations.push(imageGeneration);
+        generations.push(profileImageGeneration);
       } else {
         console.log('[ProfileContext] Skipping profile image generation - user has custom image');
       }
@@ -368,7 +373,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       backgroundGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION STARTED ===');
 
-      const backgroundGeneration = fetch('/api/media/background-image', { method: 'POST' })
+      const backgroundGeneration = fetch('/api/media/background-image', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ streamingBio })
+      })
         .then(res => {
           if (!res.ok) {
             throw new Error(`Background generation API failed with status: ${res.status}`);

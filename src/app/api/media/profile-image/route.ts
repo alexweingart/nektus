@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
 
   try {
-    const { imageData } = await req.json();
+    const { imageData, streamingBio } = await req.json();
     let newImageUrl: string;
 
     if (imageData) {
@@ -85,33 +85,29 @@ export async function POST(req: NextRequest) {
       // Case 2: No image data, generate one
       console.log(`[API/PROFILE-IMAGE] Generating profile image for user ${userId}`);
       // Log profile image generation start with request (AI gen)
-      console.log('[API/PROFILE-IMAGE] Profile image generation starts', { userId, hasImageData: false });
+      console.log('[API/PROFILE-IMAGE] Profile image generation starts', { userId, hasImageData: false, hasStreamingBio: !!streamingBio });
       
-      // Get profile and ensure bio is available for better profile image generation
+      // Always get the most recent profile to ensure we have any newly generated bio
       const profile = await AdminProfileService.getProfile(userId);
       if (!profile) {
         return NextResponse.json({ error: 'Profile not found, cannot generate image' }, { status: 404 });
       }
       
-      // Check if bio exists, if not, try to generate one
-      if (!profile.bio) {
-        try {
-          // Get the latest profile from AdminProfileService to ensure we have the most up-to-date data
-          const adminProfile = await AdminProfileService.getProfile(userId);
-          if (adminProfile && adminProfile.bio) {
-            profile.bio = adminProfile.bio;
-            console.log('[API/PROFILE-IMAGE] Using bio from admin profile for generation');
-          } else {
-            console.log('[API/PROFILE-IMAGE] No bio found for profile image generation');
-          }
-        } catch (error) {
-          console.error('[API/PROFILE-IMAGE] Error retrieving bio:', error);
-          // Continue anyway without bio
-        }
-      }
+      // Use streaming bio if available, otherwise fall back to profile bio
+      const bioForGeneration = streamingBio || profile.bio;
+      
+      console.log('[API/PROFILE-IMAGE] Using profile for generation:', {
+        name: profile.name,
+        usingStreamingBio: !!streamingBio,
+        bioSource: streamingBio ? 'streaming' : 'profile',
+        bioLength: bioForGeneration?.length || 0
+      });
+      
+      // Create a modified profile object with the streaming bio for generation
+      const profileForGeneration = { ...profile, bio: bioForGeneration };
       
       // Generate image using OpenAI
-      const imageBuffer = await generateProfileImageForProfile(profile);
+      const imageBuffer = await generateProfileImageForProfile(profileForGeneration);
       
       // Upload to our storage
       console.log('[API/PROFILE-IMAGE] Uploading AI-generated image to Firebase Storage');

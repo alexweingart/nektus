@@ -6,6 +6,7 @@ import { getColorPalette, pickAccentColors } from '@/lib/utils/colorService';
 import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
 import { UserProfile } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
+import { NextRequest } from 'next/server';
 
 /**
  * Converts a base64 string to a buffer
@@ -85,7 +86,7 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
   }
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -94,7 +95,9 @@ export async function POST() {
   const userId = session.user.id;
 
   try {
-    // 1. Get user profile
+    const { streamingBio } = await req.json();
+    
+    // Always get the most recent profile to ensure we have any newly generated bio
     const profile = await AdminProfileService.getProfile(userId);
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
@@ -103,8 +106,20 @@ export async function POST() {
       return NextResponse.json({ error: 'Profile image is required to generate a background' }, { status: 400 });
     }
     
+    // Use streaming bio if available, otherwise fall back to profile bio
+    const bioForGeneration = streamingBio || profile.bio;
+    
     // Log background generation start with request
-    console.log('[API/BACKGROUND] Background generation starts', { userId, profileImage: profile.profileImage });
+    console.log('[API/BACKGROUND] Background generation starts', { 
+      userId, 
+      profileImage: profile.profileImage,
+      usingStreamingBio: !!streamingBio,
+      bioSource: streamingBio ? 'streaming' : 'profile',
+      bioLength: bioForGeneration?.length || 0
+    });
+
+    // Create a modified profile object with the streaming bio for generation
+    const profileForGeneration = { ...profile, bio: bioForGeneration };
 
     // 2. Get color palette from profile image
     const imageResponse = await fetch(profile.profileImage);
@@ -115,8 +130,8 @@ export async function POST() {
     const palette = await getColorPalette(imageBuffer, 5);
     console.log('[API/BACKGROUND] Generated color palette:', palette);
 
-    // 3. Generate background image from AI service
-    const aiImageBuffer = await generateBackgroundImageForProfile(profile, palette);
+    // 3. Generate background image from AI service using the profile with streaming bio
+    const aiImageBuffer = await generateBackgroundImageForProfile(profileForGeneration, palette);
 
     // 4. Upload it to our own storage
     console.log('[API/BACKGROUND] Uploading image to Firebase Storage');
