@@ -126,6 +126,17 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user, trigger, session }): Promise<any> {
       // Initial sign in
       if (account?.id_token) {
+        // Generate Firebase custom token for client authentication
+        if (token.sub) {
+          try {
+            const { auth } = await getFirebaseAdmin();
+            const firebaseToken = await auth.createCustomToken(token.sub);
+            token.firebaseToken = firebaseToken;
+          } catch (error) {
+            console.error('Failed to create Firebase custom token:', error);
+          }
+        }
+        
         // Server-side Firebase check to determine if user is truly new or existing
         // This happens once during authentication - result cached in JWT
         if (token.sub) {
@@ -246,8 +257,8 @@ export const authOptions: NextAuthOptions = {
       }
       // -------------------------------------------------------
       // Add the Firebase token and profile to the session
-      if (token.idToken) {
-        session.idToken = token.idToken as string;
+      if (token.firebaseToken) {
+        session.firebaseToken = token.firebaseToken as string;
         // Add profile to session from token
         if (token.profile) {
           session.profile = {

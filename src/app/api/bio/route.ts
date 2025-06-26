@@ -52,12 +52,18 @@ function extractSocialLinks(profile: UserProfile): Record<string, string> {
  */
 function generateBioPrompt(profile: UserProfile, socialProfileUrls: string[], socialLinks: Record<string, string>): string {
   // Create a prompt that includes available user information
-  let prompt = `Generate a hyper-personalized bio for a person named ${profile.name}. The bio should be no more than 14 words. Only return the bio text, nothing else. Do not mention their name in the bio. You should always come up with something unique and creative.`;
+  let prompt = `Generate a hyper-personalized bio for a person named ${profile.name}. 
+  The bio should be no more than 14 words. Only return the bio text, nothing else. 
+  Do not mention their name in the bio.`;
 
   // Add social profile URLs to the prompt if available
   if (socialProfileUrls.length > 0) {
     const socialLinksText = socialProfileUrls.join(', ');
-    prompt += ` Please follow these web links to read about ${profile.name}: ${socialLinksText}. If the webpage was updated more recently, that information is more important.`;
+    prompt += ` Please follow these web links, which may belong to${profile.name}: ${socialLinksText}. 
+    Particularly look at the bio sections of the webpages to generate your bio summary. 
+    The more recent the webpage was updated, the more important it is. 
+    If the name on the webpage does not match the name of the person, do not use that webpage.
+    You can always do a web search to look up more about ${profile.name} if needed. Their email is ${profile.contactChannels?.email?.email}.`;
   }
   
   return prompt;
@@ -89,13 +95,7 @@ async function generateBioForProfile(profile: UserProfile): Promise<string> {
     
     // Create the system and user messages
     const systemMessage = "You are an amazing copywriter that generates short, personalized, and specific personal bios.";
-    const userMessage = `${prompt}
-    
-    Generate a short, concise bio that captures the essence of ${profile.name}. The bio should be no more than 14 words.
-    Only return the bio text, nothing else. Do not mention their name in the bio.
-    You have access to web search to look up more about ${profile.name} if needed.`;
-    
-    console.log(`[API/BIO] Using web search enhanced messages for ${profile.name}`);
+    const userMessage = `${prompt}`;
     
     // Configure request parameters for web search-enhanced generation
     const requestParams = {
@@ -110,8 +110,6 @@ async function generateBioForProfile(profile: UserProfile): Promise<string> {
           user_location: {
             type: 'approximate',
             country: 'US',
-            region: 'California',
-            city: 'San Francisco'
           },
           search_context_size: 'medium'
         }
@@ -121,9 +119,7 @@ async function generateBioForProfile(profile: UserProfile): Promise<string> {
       top_p: 1,
       store: true
     } as any;
-
-    // Generate bio with specified model
-    console.log(`[API/BIO] Calling OpenAI responses API for ${profile.name}`);
+    
     const response = await openai.responses.create(requestParams);
     
     // Extract the generated text with multiple fallbacks because response schema can vary

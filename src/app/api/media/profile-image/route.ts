@@ -25,7 +25,7 @@ function base64ToBuffer(base64: string): Buffer {
 async function generateProfileImageForProfile(profile: UserProfile): Promise<Buffer> {
   console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profile.name}`);
   try {
-    const openai = getOpenAIClient();
+    const client = getOpenAIClient();
     const prompt = `Create a profile picture for a person with this bio: ${profile.bio || 'no bio available'}. ` +
       `The image should be a simple, casual, abstract, and modern. ` +
       `Use a clean, minimalist style with a solid color background. ` +
@@ -33,12 +33,12 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
       
     console.log(`[API/PROFILE-IMAGE] Using prompt for ${profile.name}:`, prompt);
 
-    const response = await openai.images.generate({
+    const response = await client.images.generate({
+      model: 'gpt-image-1',
       prompt,
+      n: 1,
       size: '1024x1024',
       quality: 'low',
-      model: 'gpt-image-1',
-      response_format: 'b64_json',
     });
 
     console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       console.log('[API/PROFILE-IMAGE] Profile image generation starts', { userId, hasImageData: false });
       
       // Get profile and ensure bio is available for better profile image generation
-      const profile = await ProfileService.getProfile(userId);
+      const profile = await AdminProfileService.getProfile(userId);
       if (!profile) {
         return NextResponse.json({ error: 'Profile not found, cannot generate image' }, { status: 404 });
       }
@@ -119,10 +119,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Get current profile to update AI generation flags correctly
-    const currentProfile = await ProfileService.getProfile(userId);
+    const currentProfile = await AdminProfileService.getProfile(userId);
     
     // Save the new image URL to the profile
-    await ProfileService.updateProfile(userId, { 
+    await AdminProfileService.updateProfile(userId, {
       profileImage: newImageUrl,
       aiGeneration: {
         bioGenerated: currentProfile?.aiGeneration?.bioGenerated || false,

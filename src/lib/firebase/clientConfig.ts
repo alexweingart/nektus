@@ -7,6 +7,7 @@ import {
   persistentMultipleTabManager,
   FirestoreSettings
 } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
@@ -25,12 +26,14 @@ const isClient = typeof window !== 'undefined';
 type FirebaseServices = {
   app: FirebaseApp;
   db: Firestore;
+  auth: Auth;
   storage: FirebaseStorage;
 };
 
 // Initialize Firebase
 let app: FirebaseApp | undefined;
 let db: Firestore | undefined;
+let auth: Auth | undefined;
 let storage: FirebaseStorage | undefined;
 
 // Automatically initialize Firebase when this module is imported in a browser environment
@@ -38,6 +41,9 @@ if (isClient) {
   try {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
+      
+      // Initialize Auth (needed for custom token authentication)
+      auth = getAuth(app);
       
       // Initialize Firestore with persistence
       const firestoreSettings: FirestoreSettings = {
@@ -53,6 +59,7 @@ if (isClient) {
     } else {
       // Use existing app instance
       app = getApps()[0];
+      auth = getAuth(app);
       db = getFirestore(app);
       storage = getStorage(app);
     }
@@ -85,11 +92,11 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
       console.log('Firebase initialized successfully');
     }
 
-    if (!app || !db || !storage) {
+    if (!app || !db || !auth || !storage) {
       throw new Error('Failed to initialize Firebase services');
     }
 
-    return { app, db, storage };
+    return { app, db, auth, storage };
   } catch (error) {
     console.error('Error initializing Firebase:', error);
     throw error;

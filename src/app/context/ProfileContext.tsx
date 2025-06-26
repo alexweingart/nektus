@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { ProfileService } from '@/lib/firebase/profileService';
 import { UserProfile } from '@/types/profile';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/newUserService';
+import { shouldGenerateAvatarForGoogleUser } from '@/lib/utils/googleProfileImageDetector';
 
 // Types
 type ProfileContextType = {
@@ -17,6 +18,10 @@ type ProfileContextType = {
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
   getLatestProfile: () => UserProfile | null;
   setNavigatingFromSetup: (navigating: boolean) => void;
+  // Streaming states for immediate UI feedback during generation
+  streamingBio: string | null;
+  streamingProfileImage: string | null;
+  streamingSocialContacts: UserProfile['contactChannels'] | null;
 };
 
 // Create context
@@ -42,8 +47,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isNavigatingFromSetup, setIsNavigatingFromSetup] = useState(false);
   
+  // Separate streaming state for immediate updates during generation
+  const [streamingBio, setStreamingBio] = useState<string | null>(null);
+  const [streamingProfileImage, setStreamingProfileImage] = useState<string | null>(null);
+  const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactChannels'] | null>(null);
+  
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
+  const bioGenerationTriggeredRef = useRef(false);
+  const backgroundGenerationTriggeredRef = useRef(false);
+  const profileImageGenerationTriggeredRef = useRef(false);
   
   const profileRef = useRef<UserProfile | null>(null);
 
@@ -102,31 +115,84 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               }
             }
             
-            // Trigger asset generation for missing assets independently
-            if (!existingProfile.bio && !existingProfile.aiGeneration?.bioGenerated) {
-              // Generate bio only if missing and not already generated
-              fetch('/api/bio', { method: 'POST' })
-                .then(res => res.ok ? res.json() : Promise.reject())
-                .then(data => data.bio && saveProfile({ bio: data.bio }))
-                .catch(error => console.error('[ProfileContext] Bio generation failed:', error));
+            // Check each asset individually and trigger only what's needed
+            console.log('[ProfileContext] Checking what needs generation:', {
+              hasBio: !!existingProfile.bio,
+              hasBackgroundImage: !!existingProfile.backgroundImage,
+              hasProfileImage: !!existingProfile.profileImage,
+              aiGeneration: existingProfile.aiGeneration
+            });
+            
+            // Only generate what's actually missing
+            let needsGeneration = false;
+            
+            if (!existingProfile.bio) {
+              console.log('[ProfileContext] Bio missing, will generate');
+              needsGeneration = true;
             }
-            if (!existingProfile.backgroundImage && !existingProfile.aiGeneration?.backgroundImageGenerated) {
-              // Generate background only if missing and not already generated
-              fetch('/api/media/background-image', { method: 'POST' })
-                .then(res => res.ok ? res.json() : Promise.reject())
-                .then(data => {
-                  if (data.imageUrl) {
-                    document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
-                    document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
-                    if (profileRef.current) {
-                      const updatedProfile = { ...profileRef.current, backgroundImage: data.imageUrl };
-                      profileRef.current = updatedProfile;
-                      ProfileService.saveProfile(updatedProfile).catch(error => 
-                        console.error('[ProfileContext] Failed to save background image:', error));
-                    }
+            
+            if (!existingProfile.backgroundImage) {
+              console.log('[ProfileContext] Background image missing, will generate');
+              needsGeneration = true;
+            }
+            
+            // Check if we need to generate a profile image
+            let shouldGenerateProfileImage = false;
+            
+            // Check for profile image in existing profile or fall back to session
+            const currentProfileImage = existingProfile.profileImage || session?.user?.image;
+            
+            console.log('[ProfileContext] Profile image check in initial load:', {
+              existingProfileImage: existingProfile.profileImage,
+              sessionImage: session?.user?.image,
+              currentProfileImage,
+              hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
+            });
+            
+            if (!currentProfileImage) {
+              console.log('[ProfileContext] No profile image, will generate');
+              shouldGenerateProfileImage = true;
+            } else if (currentProfileImage?.includes('googleusercontent.com')) {
+              // For Google users, use the proper API to check if it's auto-generated initials
+              try {
+                const accessToken = session?.accessToken;
+                if (accessToken) {
+                  console.log('[ProfileContext] Checking Google profile image via People API...');
+                  const shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+                  if (shouldGenerate) {
+                    console.log('[ProfileContext] Google profile image is auto-generated initials, will generate custom one');
+                    shouldGenerateProfileImage = true;
+                  } else {
+                    console.log('[ProfileContext] Google profile image is user-uploaded, keeping existing');
                   }
-                })
-                .catch(error => console.error('[ProfileContext] Background generation failed:', error));
+                                 } else {
+                   console.log('[ProfileContext] No Google access token available, falling back to URL check');
+                   // Fallback to simple string check if no access token
+                   if (currentProfileImage?.includes('=s96-c')) {
+                     console.log('[ProfileContext] Google profile image appears to be initials (URL check), will generate');
+                     shouldGenerateProfileImage = true;
+                   }
+                 }
+               } catch (error) {
+                 console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
+                 // Fallback to simple string check on error
+                 if (currentProfileImage?.includes('=s96-c')) {
+                   console.log('[ProfileContext] Google profile image appears to be initials (URL fallback), will generate');
+                   shouldGenerateProfileImage = true;
+                 }
+               }
+            }
+            
+            if (shouldGenerateProfileImage) {
+              needsGeneration = true;
+            }
+            
+            if (needsGeneration) {
+              generateProfileAssets().catch(error => {
+                console.error('[ProfileContext] Asset generation error:', error);
+              });
+            } else {
+              console.log('[ProfileContext] All assets exist, skipping generation');
             }
           } else {
             if (isAndroid) {
@@ -135,33 +201,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             const newProfile = createDefaultProfile(session);
             setProfile(newProfile);
             
-            // First save the profile to Firebase, then generate assets in parallel
+            // First save the profile to Firebase with phone data, then generate assets
             console.log('[ProfileContext] Saving new profile to Firebase before generating assets');
-            await saveProfile(newProfile); // Save the newly created profile
+            const savedProfile = await saveProfile(newProfile); // This adds phone data and returns merged profile
             
-            // Now trigger both bio and background generation for new profiles
-            if (!newProfile.bio) {
-              fetch('/api/bio', { method: 'POST' })
-                .then(res => res.ok ? res.json() : Promise.reject())
-                .then(data => data.bio && saveProfile({ bio: data.bio }))
-                .catch(error => console.error('[ProfileContext] Bio generation failed:', error));
-            }
-            if (!newProfile.backgroundImage) {
-              fetch('/api/media/background-image', { method: 'POST' })
-                .then(res => res.ok ? res.json() : Promise.reject())
-                .then(data => {
-                  if (data.imageUrl) {
-                    document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
-                    document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
-                    if (profileRef.current) {
-                      const updatedProfile = { ...profileRef.current, backgroundImage: data.imageUrl };
-                      profileRef.current = updatedProfile;
-                      ProfileService.saveProfile(updatedProfile).catch(error => 
-                        console.error('[ProfileContext] Failed to save background image:', error));
-                    }
-                  }
-                })
-                .catch(error => console.error('[ProfileContext] Background generation failed:', error));
+            // Now trigger asset generation with the updated profile that includes phone data
+            if (savedProfile) {
+              console.log('[ProfileContext] Profile saved with phone data, triggering asset generation');
+              generateProfileAssets().catch(error => {
+                console.error('[ProfileContext] Asset generation error:', error);
+              });
             }
           }
         } catch (error) {
@@ -198,9 +247,183 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [profile?.backgroundImage]);
 
+  // Helper function to generate bio and background image independently
+  const generateProfileAssets = async () => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    
+    console.log('[ProfileContext] === STARTING ASSET GENERATION ===');
+    console.log('[ProfileContext] Current profile state:', {
+      hasBio: !!profile?.bio,
+      hasPhone: !!profile?.contactChannels?.phoneInfo?.internationalPhone,
+      hasWhatsApp: !!profile?.contactChannels?.whatsapp?.username,
+      hasTelegram: !!profile?.contactChannels?.telegram?.username,
+      hasWeChat: !!profile?.contactChannels?.wechat?.username
+    });
+    
+    const generations = [];
+    
+    // Generate bio if not already triggered and bio doesn't exist in current profile
+    if (!bioGenerationTriggeredRef.current && !profile?.bio) {
+      bioGenerationTriggeredRef.current = true;
+      console.log('[ProfileContext] === BIO GENERATION STARTED ===');
 
+      const bioGeneration = fetch('/api/bio', { method: 'POST' })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Bio generation API request failed with status: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.bio) {
+            console.log('[ProfileContext] === BIO GENERATION COMPLETED ===');
+            console.log('[ProfileContext] Bio received from API:', data.bio);
+            
+            // Update streaming state for immediate UI feedback
+            setStreamingBio(data.bio);
+            
+            // API already saved to Firebase, no local state update needed
+          }
+        })
+        .catch(error => {
+          console.error('[ProfileContext] Bio generation failed:', error);
+          bioGenerationTriggeredRef.current = false;
+        });
+      
+      generations.push(bioGeneration);
+    }
 
-  // Removed the separate background image generation effect as it's now part of generateProfileAssets
+    // Generate profile image if not already triggered and should generate
+    if (!profileImageGenerationTriggeredRef.current) {
+      profileImageGenerationTriggeredRef.current = true;
+      console.log('[ProfileContext] === PROFILE IMAGE GENERATION STARTED ===');
+
+      let shouldGenerate = false;
+      
+      // Check for profile image in profile state or fall back to session
+      const currentProfileImage = profile?.profileImage || session?.user?.image;
+      
+      console.log('[ProfileContext] Profile image check in generateProfileAssets:', {
+        profileImage: profile?.profileImage,
+        sessionImage: session?.user?.image,
+        currentProfileImage,
+        hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
+      });
+      
+      if (!currentProfileImage) {
+        console.log('[ProfileContext] No profile image in generateProfileAssets, will generate');
+        shouldGenerate = true;
+      } else if (currentProfileImage?.includes('googleusercontent.com')) {
+        // For Google users, use the proper API to check if it's auto-generated initials
+        try {
+          const accessToken = session?.accessToken;
+          if (accessToken) {
+            console.log('[ProfileContext] Checking Google profile image via People API in generateProfileAssets...');
+            shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+            console.log('[ProfileContext] Google profile image check result:', shouldGenerate ? 'auto-generated, will generate' : 'user-uploaded, keeping existing');
+          } else {
+            console.log('[ProfileContext] No Google access token available in generateProfileAssets, falling back to URL check');
+            // Fallback to simple string check if no access token
+            shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+          }
+        } catch (error) {
+          console.error('[ProfileContext] Error checking Google profile image in generateProfileAssets, falling back to URL check:', error);
+          // Fallback to simple string check on error
+          shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+        }
+      }
+
+      if (shouldGenerate) {
+        const imageGeneration = fetch('/api/media/profile-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Profile image generation API failed with status: ${res.status}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (data.imageUrl) {
+              console.log('[ProfileContext] === PROFILE IMAGE GENERATION COMPLETED ===');
+              
+              // Update streaming state for immediate UI feedback
+              setStreamingProfileImage(data.imageUrl);
+              
+              // API already saved to Firebase, no local state update needed
+            }
+          })
+          .catch(error => {
+            console.error('[ProfileContext] Profile image generation failed:', error);
+            profileImageGenerationTriggeredRef.current = false;
+          });
+        
+        generations.push(imageGeneration);
+      } else {
+        console.log('[ProfileContext] Skipping profile image generation - user has custom image');
+      }
+    }
+
+    // Generate background image if not already triggered and background doesn't exist in current profile
+    if (!backgroundGenerationTriggeredRef.current && !profile?.backgroundImage) {
+      backgroundGenerationTriggeredRef.current = true;
+      console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION STARTED ===');
+
+      const backgroundGeneration = fetch('/api/media/background-image', { method: 'POST' })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Background generation API failed with status: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.imageUrl) {
+            console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION COMPLETED ===');
+            // Update DOM immediately for visual effect
+            document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
+            document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
+            // API already saved to Firebase, no local state update needed
+          }
+        })
+        .catch(error => {
+          console.error('[ProfileContext] Background generation failed:', error);
+          backgroundGenerationTriggeredRef.current = false;
+        });
+      
+      generations.push(backgroundGeneration);
+    }
+    
+    console.log('[ProfileContext] === ASSET GENERATION TRIGGERS COMPLETED ===');
+    
+    // Wait for all generations to complete, then reload profile from Firebase
+    if (generations.length > 0) {
+      try {
+        await Promise.all(generations);
+        console.log('[ProfileContext] === ALL GENERATIONS COMPLETED, RELOADING PROFILE ===');
+        
+        // Reload the complete profile from Firebase
+        const updatedProfile = await ProfileService.getProfile(userId);
+        if (updatedProfile) {
+          console.log('[ProfileContext] Profile reloaded from Firebase:', {
+            hasBio: !!updatedProfile.bio,
+            hasPhone: !!updatedProfile.contactChannels?.phoneInfo?.internationalPhone,
+            hasWhatsApp: !!updatedProfile.contactChannels?.whatsapp?.username,
+            hasTelegram: !!updatedProfile.contactChannels?.telegram?.username,
+            hasWeChat: !!updatedProfile.contactChannels?.wechat?.username,
+            hasBackgroundImage: !!updatedProfile.backgroundImage,
+            hasProfileImage: !!updatedProfile.profileImage
+          });
+          
+          // Clear streaming states and set final profile
+          setStreamingBio(null);
+          setStreamingProfileImage(null);
+          setStreamingSocialContacts(null);
+          setProfile(updatedProfile);
+        }
+      } catch (error) {
+        console.error('[ProfileContext] Error waiting for generations or reloading profile:', error);
+      }
+    }
+  };
 
   // Update profileRef whenever profile changes
   useEffect(() => {
@@ -293,6 +516,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             url: `weixin://dl/chat?${cleanPhone}`,
             userConfirmed: false
           };
+          
+          // Update streaming state for immediate UI feedback
+          setStreamingSocialContacts(merged.contactChannels);
         }
       }
 
@@ -457,7 +683,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isNavigatingFromSetup,
         saveProfile,
         getLatestProfile,
-        setNavigatingFromSetup
+        setNavigatingFromSetup,
+        streamingBio,
+        streamingProfileImage,
+        streamingSocialContacts
       }}
     >
       {children}
