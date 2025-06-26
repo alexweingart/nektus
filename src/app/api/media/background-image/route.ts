@@ -47,7 +47,7 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
       `Optional context: ${profile.bio || 'no bio available'}.\n` +
       `${colorPrompt}\n` +
       `No text, people, objects, or recognisable symbols. Design must be dark enough so that white text is readable. ` +
-      `Limit to 2-3 large, soft-edge geometric shapes or blurred blobs.`;
+      `Limit to 2-3 large, soft-edge shapes or blobs.`;
     
     console.log(`[API/BACKGROUND] Using prompt:`, prompt);
     

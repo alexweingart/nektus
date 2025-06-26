@@ -44,8 +44,6 @@ Git diff:
 ${truncatedDiff}
 
 Generate only the commit message, no additional text:`;
-
-    console.log('🤖 Generating commit message based on changes...');
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -69,10 +67,8 @@ Generate only the commit message, no additional text:`;
     // Clean up the message (remove quotes if present)
     const cleanMessage = commitMessage.replace(/^["']|["']$/g, '');
     
-    console.log(`Generated commit message: ${cleanMessage}`);
-    
-    // Output just the commit message for the bash script to use
-    process.stdout.write(cleanMessage);
+    // Output ONLY the commit message to stdout
+    console.log(cleanMessage);
     
   } catch (error) {
     console.error('Error generating commit message:', error.message);
