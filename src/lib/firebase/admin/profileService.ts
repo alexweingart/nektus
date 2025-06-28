@@ -22,6 +22,7 @@ export const AdminProfileService = {
 
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
     try {
+      console.log(`[Admin] Updating profile for user ${userId} with:`, Object.keys(updates));
       const { db } = await getFirebaseAdmin();
       const profileRef = db.collection('profiles').doc(userId);
       const updateData = {
@@ -29,9 +30,25 @@ export const AdminProfileService = {
         lastUpdated: Date.now()
       };
       
-      await profileRef.update(updateData);
+      console.log(`[Admin] About to call profileRef.update() for user ${userId}`);
+      
+      // Check if document exists first
+      const docSnapshot = await profileRef.get();
+      if (!docSnapshot.exists) {
+        console.log(`[Admin] Profile document doesn't exist for user ${userId}, using set() instead of update()`);
+        await profileRef.set(updateData, { merge: true });
+      } else {
+        await profileRef.update(updateData);
+      }
+      
+      console.log(`[Admin] Successfully updated profile for user ${userId}`);
     } catch (error) {
-      console.error('[Admin] Failed to update profile:', error);
+      console.error(`[Admin] Failed to update profile for user ${userId}:`, error);
+      console.error('[Admin] Error details:', {
+        code: (error as any).code,
+        message: (error as any).message,
+        stack: (error as any).stack
+      });
       throw error;
     }
   },

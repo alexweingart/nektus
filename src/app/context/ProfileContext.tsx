@@ -284,7 +284,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Update streaming state for immediate UI feedback
             setStreamingBio(data.bio);
             
-            // API already saved to Firebase, no local state update needed
+            // Update local data state immediately to prevent race conditions
+            // This ensures phone save operations have the correct bio
+            // UI doesn't flash because we use streaming states for display
+            if (profileRef.current) {
+              profileRef.current = { ...profileRef.current, bio: data.bio };
+              console.log('[ProfileContext] Updated local profileRef with bio immediately');
+            }
+            
             return data.bio;
           }
         })

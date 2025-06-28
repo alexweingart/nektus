@@ -207,17 +207,27 @@ export async function POST() {
     try {
       const bio = await generateBioForProfile(userProfile);
       
-      // Update profile in Firebase
-      await AdminProfileService.updateProfile(userId, { 
-        bio,
-        aiGeneration: {
-          bioGenerated: true,
-          avatarGenerated: userProfile.aiGeneration?.avatarGenerated || false,
-          backgroundImageGenerated: userProfile.aiGeneration?.backgroundImageGenerated || false
-        }
-      });
+      console.log(`[API/BIO] Bio generated successfully: "${bio}"`);
+      console.log(`[API/BIO] About to save bio to Firebase for user ${userId}`);
       
-      console.log(`[API/BIO] Bio saved to Firestore for user ${userId}`);
+      // Update profile in Firebase
+      try {
+        await AdminProfileService.updateProfile(userId, { 
+          bio,
+          aiGeneration: {
+            bioGenerated: true,
+            avatarGenerated: userProfile.aiGeneration?.avatarGenerated || false,
+            backgroundImageGenerated: userProfile.aiGeneration?.backgroundImageGenerated || false
+          }
+        });
+        
+        console.log(`[API/BIO] Bio saved to Firestore for user ${userId}`);
+      } catch (saveError) {
+        console.error(`[API/BIO] FAILED to save bio to Firestore for user ${userId}:`, saveError);
+        // Still return the bio even if save fails, but log the error
+        console.error('[API/BIO] Continuing to return bio despite save failure');
+      }
+      
       return NextResponse.json({ bio });
     } catch (error) {
       console.error('Error generating bio:', error);
