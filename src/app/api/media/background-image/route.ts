@@ -55,14 +55,22 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
     
     console.log(`[API/BACKGROUND] Calling OpenAI API with model: gpt-image-1, size: 1024x1024`);
     
+    // Add timeout wrapper for OpenAI API call
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+    );
+    
     // Generate the image with base64 response format to eliminate extra hop
-    const response = await client.images.generate({
+    const imageGenerationPromise = client.images.generate({
       model: 'gpt-image-1',
       prompt,
       n: 1,
       size: '1024x1024', // Square size for faster generation
       quality: 'low',
     });
+    
+    console.log('[API/BACKGROUND] Waiting for OpenAI response...');
+    const response = await Promise.race([imageGenerationPromise, timeoutPromise]) as any;
     
     console.log('[API/BACKGROUND] Response received from OpenAI API');
     
@@ -135,10 +143,21 @@ export async function POST(req: NextRequest) {
 
     // 4. Upload it to our own storage
     console.log('[API/BACKGROUND] Uploading image to Firebase Storage');
-    const permanentImageUrl = await uploadImageBuffer(aiImageBuffer, userId, 'background');
+    const uploadTimeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firebase upload timeout after 20 seconds')), 20000)
+    );
+    
+    const uploadPromise = uploadImageBuffer(aiImageBuffer, userId, 'background');
+    console.log('[API/BACKGROUND] Waiting for Firebase upload...');
+    const permanentImageUrl = await Promise.race([uploadPromise, uploadTimeoutPromise]) as string;
 
     // 5. Save the new URL to the user's profile
-    await AdminProfileService.updateProfile(userId, { 
+    console.log('[API/BACKGROUND] Updating profile in Firestore...');
+    const firestoreTimeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore update timeout after 10 seconds')), 10000)
+    );
+    
+    const updatePromise = AdminProfileService.updateProfile(userId, { 
       backgroundImage: permanentImageUrl,
       aiGeneration: {
         bioGenerated: profile.aiGeneration?.bioGenerated || false,
@@ -146,6 +165,8 @@ export async function POST(req: NextRequest) {
         backgroundImageGenerated: true
       }
     });
+    
+    await Promise.race([updatePromise, firestoreTimeoutPromise]);
     
     // Log background generation complete and saved to Firestore with response
     console.log('[API/BACKGROUND] Background generation complete & saved to Firestore', { userId, imageUrl: permanentImageUrl });
