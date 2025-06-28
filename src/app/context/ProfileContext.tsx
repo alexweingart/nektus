@@ -245,8 +245,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const htmlEl = document.documentElement;
     if (profile?.backgroundImage) {
       console.log('[ProfileContext] Applying background image to DOM:', profile.backgroundImage);
+      
+      // Decode URL to handle any URL encoding issues
+      const decodedUrl = decodeURIComponent(profile.backgroundImage);
+      console.log('[ProfileContext] Decoded URL:', decodedUrl);
+      
       htmlEl.style.transition = 'background-image 0.5s ease-in-out';
-      htmlEl.style.backgroundImage = `url(${profile.backgroundImage})`;
+      htmlEl.style.backgroundImage = `url("${decodedUrl}")`;
       htmlEl.style.backgroundSize = 'cover';
       htmlEl.style.backgroundPosition = 'center top';
       htmlEl.style.backgroundRepeat = 'no-repeat';
