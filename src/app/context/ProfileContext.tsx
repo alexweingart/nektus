@@ -284,14 +284,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Update streaming state for immediate UI feedback
             setStreamingBio(data.bio);
             
-            // Update local data state immediately to prevent race conditions
-            // This ensures phone save operations have the correct bio
-            // UI doesn't flash because we use streaming states for display
-            if (profileRef.current) {
-              profileRef.current = { ...profileRef.current, bio: data.bio };
-              console.log('[ProfileContext] Updated local profileRef with bio immediately');
-            }
-            
+            // API already saved to Firebase, no local state update needed
             return data.bio;
           }
         })
@@ -414,12 +407,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           return res.json();
         })
         .then(data => {
+          console.log('[ProfileContext] Background generation API response:', data);
           if (data.imageUrl) {
             console.log('[ProfileContext] === BACKGROUND IMAGE GENERATION COMPLETED ===');
+            console.log('[ProfileContext] Background image URL:', data.imageUrl);
             // Update DOM immediately for visual effect
             document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
             document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
+            console.log('[ProfileContext] Applied background image to DOM:', document.documentElement.style.backgroundImage);
             // API already saved to Firebase, no local state update needed
+          } else {
+            console.log('[ProfileContext] No imageUrl in response!');
           }
         })
         .catch(error => {
