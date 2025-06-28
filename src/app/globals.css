@@ -123,77 +123,12 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent overscroll bounce to avoid black areas */
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: contain;
 }
 
-/* Viewport lock states - Container-based approach */
-body.viewport-locked.no-refresh {
-  overflow: hidden;
-  height: 100vh;
-  height: 100dvh;
-  touch-action: none;
-  overscroll-behavior: none;
-}
 
-/* For pull-to-refresh enabled, constrain content containers instead of body */
-body.viewport-locked:not(.no-refresh) {
-  /* Allow normal scroll behavior on body for pull-to-refresh */
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
-  /* Hide scrollbars for clean look */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-body.viewport-locked:not(.no-refresh)::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
-
-body.allow-scroll {
-  overflow: auto;
-  height: auto;
-  touch-action: auto;
-  overscroll-behavior: auto;
-}
-
-/* Helper class for containers that need to be locked */
-.viewport-container-locked {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-  position: relative;
-}
-
-/* Full-viewport container allowing pull-to-refresh bounce without scrollbars */
-.page-container {
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-/* When keyboard is up, reduce height to prevent scrolling past background */
-@media screen and (max-height: 600px) {
-  .page-container {
-    height: 70vh;
-    height: 70dvh;
-    overflow: hidden; /* Prevent scrolling when keyboard is up */
-  }
-  
-  /* Also constrain any inner containers */
-  .page-container > div {
-    height: 70vh !important;
-    height: 70dvh !important;
-    overflow: hidden !important;
-  }
-}
-
-.page-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
 
 /* Content container that respects safe areas and prevents scrollbars */
 .safe-content-container {
@@ -231,6 +166,19 @@ body.allow-scroll {
 
 /* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
+  /* Fix background-attachment: fixed on iOS by disabling it */
+  html {
+    background-attachment: scroll !important;
+  }
+  
+  /* Ensure full height coverage and prevent overscroll */
+  html, body {
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: contain;
+  }
   /* Prevent zoom on input focus in iOS < 13 */
   input[type='color'],
   input[type='date'],

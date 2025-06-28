@@ -86,10 +86,15 @@ export function PullToRefresh({
   return (
     <div 
       ref={containerRef}
-      className={`h-screen overflow-y-auto overflow-x-hidden ${className}`}
+      className={`min-h-screen overflow-y-auto overflow-x-hidden ${className}`}
       style={{
         transform: isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`,
-        transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+        transition: isPulling ? 'none' : 'transform 0.3s ease-out',
+        height: '100vh',
+        minHeight: '100dvh',
+        // Prevent overscroll bounce to avoid black area
+        overscrollBehaviorY: 'none',
+        overscrollBehaviorX: 'contain'
       }}
     >
       {/* Pull-to-refresh indicator */}
