@@ -37,11 +37,15 @@ export function PullToRefresh({
     if (!container || container.scrollTop > 0) return;
 
     const currentY = e.touches[0].clientY;
-    const distance = Math.max(0, currentY - startY);
+    const distance = currentY - startY;
     
     if (distance > 0) {
+      // Pulling down - apply pull distance
       e.preventDefault(); // Prevent native scroll behavior
       setPullDistance(Math.min(distance * 0.5, pullThreshold * 1.5)); // Add resistance
+    } else {
+      // Pulling up or no movement - reset pull distance immediately
+      setPullDistance(0);
     }
   }, [isPulling, isRefreshing, startY, pullThreshold]);
 
@@ -88,8 +92,8 @@ export function PullToRefresh({
       ref={containerRef}
       className={`min-h-screen overflow-y-auto overflow-x-hidden ${className}`}
       style={{
-        transform: isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`,
-        transition: isPulling ? 'none' : 'transform 0.3s ease-out',
+        transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`) : 'translateY(0px)',
+        transition: isPulling && pullDistance > 0 ? 'none' : 'transform 0.2s ease-out',
         height: '100vh',
         minHeight: '100dvh',
         // Prevent overscroll bounce to avoid black area
