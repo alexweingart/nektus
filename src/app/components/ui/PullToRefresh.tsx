@@ -97,31 +97,36 @@ export function PullToRefresh({
         overscrollBehaviorX: 'contain'
       }}
     >
-      {/* Pull-to-refresh indicator */}
+      {/* Pull-to-refresh indicator - at the top */}
       {showRefreshIndicator && (
         <div 
-          className="absolute top-0 left-0 right-0 flex justify-center items-center z-10"
+          className="fixed top-4 left-1/2 transform -translate-x-1/2 z-20 flex justify-center items-center"
           style={{
-            height: `${Math.max(pullDistance, isRefreshing ? 60 : 0)}px`,
-            opacity: isRefreshing ? 1 : pullProgress,
-            transform: `translateY(-${Math.max(pullDistance, isRefreshing ? 60 : 0)}px)`
+            opacity: isRefreshing ? 1 : pullProgress
           }}
         >
-          <div className="flex flex-col items-center">
+          <div 
+            className="flex items-center justify-center rounded-full shadow-xl border border-white/30"
+            style={{
+              width: `${Math.max(40, Math.min(pullProgress * 60 + 40, 80))}px`,
+              height: `${Math.max(40, Math.min(pullProgress * 60 + 40, 80))}px`,
+              background: 'rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)', // Safari compatibility
+              transition: isRefreshing ? 'all 0.3s ease-out' : 'none'
+            }}
+          >
             {isRefreshing ? (
               <LoadingSpinner size="sm" className="text-white" />
             ) : (
               <div 
-                className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                 style={{
                   transform: `rotate(${pullProgress * 180}deg)`,
                   transition: 'transform 0.1s ease-out'
                 }}
               />
             )}
-            <p className="text-white text-sm mt-2">
-              {isRefreshing ? 'Refreshing...' : pullDistance >= pullThreshold ? 'Release to refresh' : 'Pull to refresh'}
-            </p>
           </div>
         </div>
       )}
