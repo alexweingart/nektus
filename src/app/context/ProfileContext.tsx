@@ -122,6 +122,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               hasProfileImage: !!existingProfile.profileImage,
               aiGeneration: existingProfile.aiGeneration
             });
+            console.log('[ProfileContext] Full profile backgroundImage value:', existingProfile.backgroundImage);
             
             // Only generate what's actually missing
             let needsGeneration = false;
@@ -235,14 +236,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return; // Ensure client-side
 
+    console.log('[ProfileContext] Background image useEffect triggered:', {
+      profileExists: !!profile,
+      backgroundImage: profile?.backgroundImage,
+      hasBackgroundImage: !!profile?.backgroundImage
+    });
+
     const htmlEl = document.documentElement;
     if (profile?.backgroundImage) {
+      console.log('[ProfileContext] Applying background image to DOM:', profile.backgroundImage);
       htmlEl.style.transition = 'background-image 0.5s ease-in-out';
       htmlEl.style.backgroundImage = `url(${profile.backgroundImage})`;
       htmlEl.style.backgroundSize = 'cover';
       htmlEl.style.backgroundPosition = 'center top';
       htmlEl.style.backgroundRepeat = 'no-repeat';
+      console.log('[ProfileContext] Background image applied. DOM style:', htmlEl.style.backgroundImage);
     } else {
+      console.log('[ProfileContext] No background image, clearing DOM style');
       htmlEl.style.backgroundImage = '';
     }
   }, [profile?.backgroundImage]);
