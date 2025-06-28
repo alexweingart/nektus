@@ -57,6 +57,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const bioGenerationTriggeredRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
+  const backgroundImageAppliedRef = useRef<string | null>(null);
   
   const profileRef = useRef<UserProfile | null>(null);
 
@@ -140,48 +141,53 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Check if we need to generate a profile image
             let shouldGenerateProfileImage = false;
             
-            // Check for profile image in existing profile or fall back to session
-            const currentProfileImage = existingProfile.profileImage || session?.user?.image;
-            
-            console.log('[ProfileContext] Profile image check in initial load:', {
-              existingProfileImage: existingProfile.profileImage,
-              sessionImage: session?.user?.image,
-              currentProfileImage,
-              hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
-            });
-            
-            if (!currentProfileImage) {
-              console.log('[ProfileContext] No profile image, will generate');
-              shouldGenerateProfileImage = true;
-            } else if (currentProfileImage?.includes('googleusercontent.com')) {
-              // For Google users, use the proper API to check if it's auto-generated initials
-              try {
-                const accessToken = session?.accessToken;
-                if (accessToken) {
-                  console.log('[ProfileContext] Checking Google profile image via People API...');
-                  const shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
-                  if (shouldGenerate) {
-                    console.log('[ProfileContext] Google profile image is auto-generated initials, will generate custom one');
-                    shouldGenerateProfileImage = true;
+            // If we already have a profile image stored in Firebase, skip all checks
+            if (existingProfile.profileImage) {
+              console.log('[ProfileContext] Profile already has image stored in Firebase, skipping generation check');
+            } else {
+              // Only check if we need to generate when no profile image exists in Firebase
+              const currentProfileImage = session?.user?.image;
+              
+              console.log('[ProfileContext] Profile image check in initial load:', {
+                existingProfileImage: existingProfile.profileImage,
+                sessionImage: session?.user?.image,
+                currentProfileImage,
+                hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
+              });
+              
+              if (!currentProfileImage) {
+                console.log('[ProfileContext] No profile image, will generate');
+                shouldGenerateProfileImage = true;
+              } else if (currentProfileImage?.includes('googleusercontent.com')) {
+                // For Google users, use the proper API to check if it's auto-generated initials
+                try {
+                  const accessToken = session?.accessToken;
+                  if (accessToken) {
+                    console.log('[ProfileContext] Checking Google profile image via People API...');
+                    const shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+                    if (shouldGenerate) {
+                      console.log('[ProfileContext] Google profile image is auto-generated initials, will generate custom one');
+                      shouldGenerateProfileImage = true;
+                    } else {
+                      console.log('[ProfileContext] Google profile image is user-uploaded, keeping existing');
+                    }
                   } else {
-                    console.log('[ProfileContext] Google profile image is user-uploaded, keeping existing');
+                    console.log('[ProfileContext] No Google access token available, falling back to URL check');
+                    // Fallback to simple string check if no access token
+                    if (currentProfileImage?.includes('=s96-c')) {
+                      console.log('[ProfileContext] Google profile image appears to be initials (URL check), will generate');
+                      shouldGenerateProfileImage = true;
+                    }
                   }
-                                 } else {
-                   console.log('[ProfileContext] No Google access token available, falling back to URL check');
-                   // Fallback to simple string check if no access token
-                   if (currentProfileImage?.includes('=s96-c')) {
-                     console.log('[ProfileContext] Google profile image appears to be initials (URL check), will generate');
-                     shouldGenerateProfileImage = true;
-                   }
-                 }
-               } catch (error) {
-                 console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
-                 // Fallback to simple string check on error
-                 if (currentProfileImage?.includes('=s96-c')) {
-                   console.log('[ProfileContext] Google profile image appears to be initials (URL fallback), will generate');
-                   shouldGenerateProfileImage = true;
-                 }
-               }
+                } catch (error) {
+                  console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
+                  // Fallback to simple string check on error
+                  if (currentProfileImage?.includes('=s96-c')) {
+                    console.log('[ProfileContext] Google profile image appears to be initials (URL fallback), will generate');
+                    shouldGenerateProfileImage = true;
+                  }
+                }
+              }
             }
             
             if (shouldGenerateProfileImage) {
@@ -236,20 +242,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return; // Ensure client-side
 
+    const currentBackgroundImage = profile?.backgroundImage;
+    
+    // Skip if profile is still loading (avoid unnecessary DOM manipulation during initial load)
+    if (isLoading) return;
+    
+    // Skip if we've already applied this exact background image
+    if (currentBackgroundImage && backgroundImageAppliedRef.current === currentBackgroundImage) {
+      return;
+    }
+    
     console.log('[ProfileContext] Background image useEffect triggered:', {
       profileExists: !!profile,
-      backgroundImage: profile?.backgroundImage,
-      hasBackgroundImage: !!profile?.backgroundImage
+      backgroundImage: currentBackgroundImage,
+      hasBackgroundImage: !!currentBackgroundImage,
+      lastApplied: backgroundImageAppliedRef.current
     });
 
     const htmlEl = document.documentElement;
-    if (profile?.backgroundImage) {
-      console.log('[ProfileContext] Applying background image to DOM:', profile.backgroundImage);
+    if (currentBackgroundImage) {
+      console.log('[ProfileContext] Applying background image to DOM:', currentBackgroundImage);
       
       // Clean URL: remove whitespace/newlines and decode URL encoding
-      const cleanedUrl = profile.backgroundImage.replace(/\s+/g, '');
+      const cleanedUrl = currentBackgroundImage.replace(/\s+/g, '');
       const decodedUrl = decodeURIComponent(cleanedUrl);
-      console.log('[ProfileContext] Original URL:', profile.backgroundImage);
+      console.log('[ProfileContext] Original URL:', currentBackgroundImage);
       console.log('[ProfileContext] Cleaned URL:', cleanedUrl);
       console.log('[ProfileContext] Decoded URL:', decodedUrl);
       
@@ -259,11 +276,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       htmlEl.style.backgroundPosition = 'center top';
       htmlEl.style.backgroundRepeat = 'no-repeat';
       console.log('[ProfileContext] Background image applied. DOM style:', htmlEl.style.backgroundImage);
-    } else {
-      console.log('[ProfileContext] No background image, clearing DOM style');
+      
+      // Track what we've applied
+      backgroundImageAppliedRef.current = currentBackgroundImage;
+    } else if (profile && !currentBackgroundImage && backgroundImageAppliedRef.current) {
+      // Only clear background if we have a profile but no background image, and we had previously applied one
+      console.log('[ProfileContext] Profile loaded but no background image, clearing DOM style');
       htmlEl.style.backgroundImage = '';
+      backgroundImageAppliedRef.current = null;
     }
-  }, [profile?.backgroundImage]);
+  }, [profile?.backgroundImage, isLoading]);
 
   // Helper function to generate bio and background image independently
   const generateProfileAssets = async () => {
@@ -302,7 +324,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Update streaming state for immediate UI feedback
             setStreamingBio(data.bio);
             
-            // API already saved to Firebase, no local state update needed
+            // Update local data state immediately to prevent race conditions with phone save
+            if (profileRef.current) {
+              profileRef.current = { ...profileRef.current, bio: data.bio };
+            }
+            
             return data.bio;
           }
         })

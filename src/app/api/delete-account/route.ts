@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest) {
       // Delete the user's profile using the admin SDK
       console.log(`[DELETE-ACCOUNT] Deleting profile for user: ${userId}`);
       await deleteUserProfile(userId);
-      console.log(`[DELETE-ACCOUNT] Successfully deleted profile for user: ${userId}`);
+      console.log(`[DELETE-ACCOUNT] Successfully deleted profile for user: ${userId}`)
       
       // Clean up storage files (don't block deletion if this fails)
       console.log(`[DELETE-ACCOUNT] Cleaning up storage files for user: ${userId}`);
