@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app/api/media/background-image/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/media/profile-image/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/bio/route.ts": {
+      "maxDuration": 60
+    }
+  }
+} 
