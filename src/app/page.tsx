@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
-import { useViewportLock } from '@/lib/hooks/useViewportLock';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { PullToRefresh } from './components/ui/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -26,10 +26,10 @@ export default function Home() {
   const { profile } = useProfile();
   const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
 
-  // Use viewport lock with pull-to-refresh enabled for all users
-  useViewportLock({
-    enablePullToRefresh: true
-  });
+  const handleRefresh = async () => {
+    // Reload the page to refresh all data
+    window.location.reload();
+  };
   
   // The background is now handled automatically by the root layout and context.
 
@@ -42,18 +42,23 @@ export default function Home() {
     );
   }
 
-  // Show profile view if authenticated (within scroll container), otherwise show welcome screen without internal scroll
+  // Show profile view if authenticated, otherwise show welcome screen
   if (session) {
     return (
-      <div className="page-container">
+      <PullToRefresh onRefresh={handleRefresh}>
         <Suspense fallback={<div className="flex h-full items-center justify-center">
           <LoadingSpinner size="sm" />
         </div>}>
           <ProfileView />
         </Suspense>
-      </div>
+      </PullToRefresh>
     );
   }
-  // Unauthenticated home page - render at body level so pull-to-refresh works
-  return <HomePage />;
+  
+  // Unauthenticated home page with pull-to-refresh
+  return (
+    <PullToRefresh onRefresh={handleRefresh}>
+      <HomePage />
+    </PullToRefresh>
+  );
 }

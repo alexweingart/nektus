@@ -179,7 +179,7 @@ const ProfileView: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col items-center px-4 py-2">
+    <div className="min-h-screen flex flex-col items-center px-4 py-2">
       {/* Top Navigation Buttons - Fixed */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
         <Button 

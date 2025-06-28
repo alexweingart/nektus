@@ -64,6 +64,7 @@ export default async function RootLayout({
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
           backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
           transition: 'background-image 0.3s ease-in-out'
         }}
       >

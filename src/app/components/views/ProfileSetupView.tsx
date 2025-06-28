@@ -43,7 +43,6 @@ function ProfileSetupView() {
 
   // Handle saving the profile with phone number
   const handleSave = useCallback(async (e?: React.FormEvent) => {
-    console.log('[ProfileSetup] handleSave invoked');
     e?.preventDefault();
     e?.stopPropagation();
 
@@ -67,7 +66,6 @@ function ProfileSetupView() {
       } as any,
     };
 
-    console.log('[ProfileSetup] Navigating to home');
     router.replace('/');
     setTimeout(() => {
       console.log('[ProfileSetup] Now saving profile after navigation');

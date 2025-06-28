@@ -6,8 +6,8 @@ import { useSession } from 'next-auth/react';
 import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
 import { isNewUser } from '@/lib/services/newUserService';
-import { useViewportLock } from '@/lib/hooks/useViewportLock';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -17,8 +17,10 @@ function SetupPageContent() {
   const { profile } = useProfile();
   const router = useRouter();
 
-  // Enable pull-to-refresh
-  useViewportLock({ enablePullToRefresh: true });
+  const handleRefresh = async () => {
+    // Reload the page to refresh all data
+    window.location.reload();
+  };
 
   const userIsNew = isNewUser(session);
   const hasPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone &&
@@ -39,25 +41,31 @@ function SetupPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-screen">
-        <LoadingSpinner size="sm" />
-      </div>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="flex items-center justify-center h-full min-h-screen">
+          <LoadingSpinner size="sm" />
+        </div>
+      </PullToRefresh>
     );
   }
 
   if (session && !hasPhone) {
     return (
-      <div className="h-[100dvh] overflow-hidden flex flex-col items-center px-4 py-2">
-        <ProfileSetupView />
-      </div>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="flex flex-col items-center px-4 py-2 min-h-screen">
+          <ProfileSetupView />
+        </div>
+      </PullToRefresh>
     );
   }
 
   // Show loading state while redirect is happening
   return (
-    <div className="flex items-center justify-center h-full min-h-screen">
-      <LoadingSpinner size="sm" />
-    </div>
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="flex items-center justify-center h-full min-h-screen">
+        <LoadingSpinner size="sm" />
+      </div>
+    </PullToRefresh>
   );
 }
 
