@@ -127,7 +127,7 @@ const EditProfileView: React.FC = () => {
   
   return (
     <div 
-      className="min-h-screen flex flex-col items-center px-4 py-4"
+      className="flex flex-col items-center px-4 py-4 pb-8"
     >
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 

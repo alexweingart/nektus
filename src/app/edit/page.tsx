@@ -1,9 +1,10 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense } from 'react';
 import dynamicImport from 'next/dynamic';
 import { useProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -19,19 +20,15 @@ const EditProfileView = dynamicImport(() => import('../components/views/EditProf
 });
 
 export default function EditPage() {
-  const { profile, getLatestProfile } = useProfile();
+  const { profile } = useProfile();
   
-  // Enable scrolling on edit page only
-  useEffect(() => {
-    document.body.classList.add('allow-scroll');
-    return () => {
-      document.body.classList.remove('allow-scroll');
-    };
-  }, []);
+  const handleRefresh = async () => {
+    // Reload the page to refresh all data
+    window.location.reload();
+  };
   
-  // Wrap in error boundary for better debugging
   return (
-    <div className="min-h-screen">
+    <PullToRefresh onRefresh={handleRefresh}>
       <Suspense fallback={
         <div className="flex h-screen items-center justify-center">
           <LoadingSpinner size="sm" />
@@ -39,6 +36,6 @@ export default function EditPage() {
       }>
         <EditProfileView />
       </Suspense>
-    </div>
+    </PullToRefresh>
   );
 }
