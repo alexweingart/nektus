@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { Button } from './Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
@@ -9,15 +9,70 @@ import { useAdminMode } from '../../providers/AdminModeProvider';
 // The admin mode banner component
 export default function AdminBanner() {
   const { closeAdminMode } = useAdminMode();
+  const { data: session, update } = useSession();
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   const handleDeleteAccount = useCallback(async () => {
     setDeleteStatus('loading');
     
     try {
-      // Call the delete account API
+      // Get access token from session before doing anything
+      const accessToken = session?.accessToken;
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
+      
+      console.log('Starting account deletion process...', {
+        hasAccessToken: !!accessToken,
+        hasUserId: !!userId,
+        hasUserEmail: !!userEmail
+      });
+      
+      // Step 1: Try to revoke the OAuth token FIRST (before clearing session)
       try {
-        await fetch('/api/delete-account', {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        const revokeBody: any = {
+          timestamp: new Date().getTime() // Prevent caching
+        };
+        
+        // Include access token and user info in request body
+        if (accessToken) {
+          revokeBody.accessToken = accessToken;
+        }
+        if (userId) {
+          revokeBody.userId = userId;
+        }
+        if (userEmail) {
+          revokeBody.email = userEmail;
+        }
+        
+        const response = await fetch('/api/auth/revoke', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(revokeBody),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          console.log('OAuth token revoked successfully');
+        } else {
+          console.warn('OAuth token revocation failed, status:', response.status);
+          const errorText = await response.text().catch(() => 'Unknown error');
+          console.warn('Revoke error details:', errorText);
+        }
+      } catch (err) {
+        console.error('Error revoking OAuth token:', err);
+        // Continue with deletion even if token revocation fails
+      }
+      
+      // Step 2: Call the delete account API (this will clear session cookies)
+      let sessionInvalidated = false;
+      try {
+        const deleteResponse = await fetch('/api/delete-account', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -26,36 +81,31 @@ export default function AdminBanner() {
             timestamp: new Date().getTime()
           })
         });
+        
+        if (deleteResponse.ok) {
+          const deleteData = await deleteResponse.json();
+          sessionInvalidated = deleteData.sessionInvalidated;
+          console.log('Account deletion successful, session invalidated:', sessionInvalidated);
+        }
       } catch (err) {
         console.error('Error calling delete account API:', err);
         // Continue with cleanup even if API call fails
       }
-      
-      // Try to revoke the OAuth token with timeout
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-        
-        const response = await fetch('/api/auth/revoke', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            timestamp: new Date().getTime() // Prevent caching
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        if (response.ok) {
-          console.log('OAuth token revoked successfully');
-        } else {
-          console.warn('OAuth token revocation failed');
+
+      // Step 3: Force session refresh to clear client-side session data
+      if (sessionInvalidated && update) {
+        try {
+          console.log('Forcing session refresh to clear client-side session data...');
+          await update();
+          console.log('Session refresh completed - session data should now be cleared');
+          
+          // Give a small delay to ensure ProfileContext reacts to the cleared session
+          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('Delay completed - ProfileContext should have reacted to cleared session');
+        } catch (err) {
+          console.error('Error refreshing session:', err);
+          // Continue with cleanup even if session refresh fails
         }
-      } catch (err) {
-        console.error('Error revoking OAuth token:', err);
-        // Continue with deletion even if token revocation fails
       }
       
       // Simple storage cleanup - essentials first
@@ -161,7 +211,7 @@ export default function AdminBanner() {
       console.error('Error deleting account:', err);
       setDeleteStatus('error');
     }
-  }, [closeAdminMode]);
+  }, [session, closeAdminMode]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-4 z-50">

@@ -52,9 +52,14 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    // Return success response
-    return NextResponse.json(
-      { success: true, message: 'Account deleted successfully' },
+    // Clear session data by setting invalidation flag
+    // This tells the client that the session should be cleared immediately
+    const response = NextResponse.json(
+      { 
+        success: true, 
+        message: 'Account deleted successfully',
+        sessionInvalidated: true // Flag to indicate session should be cleared
+      },
       { 
         status: 200,
         headers: {
@@ -65,6 +70,25 @@ export async function POST(_req: NextRequest) {
         }
       }
     );
+
+    // Clear NextAuth session cookies to invalidate the session
+    response.cookies.set('next-auth.session-token', '', {
+      expires: new Date(0),
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
+
+    response.cookies.set('__Secure-next-auth.session-token', '', {
+      expires: new Date(0),
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax'
+    });
+
+    return response;
 
   } catch (error) {
     console.error('[DELETE-ACCOUNT] Error in delete account handler:', error);
