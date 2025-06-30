@@ -395,7 +395,10 @@ const EditProfileView: React.FC = () => {
         e.preventDefault();
       };
 
-      const handleClickOutside = (e: TouchEvent) => {
+      const handleTouchStart = (e: TouchEvent) => {
+        // Always prevent pull-to-refresh in drag mode
+        e.preventDefault();
+        
         const target = e.target as Element;
         
         // Check if the touch is on a draggable field or its children
@@ -408,21 +411,19 @@ const EditProfileView: React.FC = () => {
 
       // Prevent default scroll behavior and pull-to-refresh
       document.addEventListener('touchmove', preventDefaultScroll, { passive: false });
+      document.addEventListener('touchstart', handleTouchStart, { passive: false });
       
       // Add edge scrolling
       document.addEventListener('touchmove', preventScroll, { passive: true });
       
       // Prevent context menu during drag mode
       document.addEventListener('contextmenu', preventContextMenu);
-      
-      // Handle click outside to exit drag mode
-      document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
       return () => {
         document.removeEventListener('touchmove', preventDefaultScroll);
+        document.removeEventListener('touchstart', handleTouchStart);
         document.removeEventListener('touchmove', preventScroll);
         document.removeEventListener('contextmenu', preventContextMenu);
-        document.removeEventListener('touchstart', handleClickOutside);
       };
     }
   }, [isDragMode, handleEdgeScroll, exitDragMode]);
