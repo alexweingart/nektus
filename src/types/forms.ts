@@ -24,6 +24,9 @@ export type SocialPlatform =
   | 'email' 
   | 'phone';
 
+// Define field sections for the edit profile page
+export type FieldSection = 'universal' | 'personal' | 'work' | 'hidden';
+
 // Define the social profile entry type for form state (distinct from the saved SocialProfile)
 export interface SocialProfileFormEntry {
   platform: string;
@@ -31,6 +34,9 @@ export interface SocialProfileFormEntry {
   shareEnabled: boolean;
   filled?: boolean;
   confirmed?: boolean;
+  section: FieldSection;
+  originalSection?: 'personal' | 'work'; // Track where hidden fields came from
+  order?: number; // For drag & drop ordering within sections
 }
 
 // Define the main form data structure for profile editing

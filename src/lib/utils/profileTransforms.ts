@@ -35,7 +35,9 @@ export function profileToFormData(
       username: profileData.contactChannels.phoneInfo.nationalPhone || '',
       shareEnabled: true,
       filled: !!profileData.contactChannels.phoneInfo.nationalPhone,
-      confirmed: profileData.contactChannels.phoneInfo.userConfirmed
+      confirmed: profileData.contactChannels.phoneInfo.userConfirmed,
+      section: 'universal',
+      order: 0
     });
   }
   
@@ -46,7 +48,9 @@ export function profileToFormData(
       username: profileData.contactChannels.email.email || '',
       shareEnabled: true,
       filled: !!profileData.contactChannels.email.email,
-      confirmed: profileData.contactChannels.email.userConfirmed
+      confirmed: profileData.contactChannels.email.userConfirmed,
+      section: 'universal',
+      order: 1
     });
   }
   
@@ -58,12 +62,33 @@ export function profileToFormData(
   socialPlatforms.forEach(platform => {
     const channel = profileData?.contactChannels?.[platform] as SocialProfile | undefined;
     if (channel?.username !== undefined) {
+      // Use saved section info from the channel itself, otherwise use defaults
+      const savedSectionInfo = channel.fieldSection;
+      const defaultSection = platform === 'linkedin' ? 'work' : 'personal';
+      
+
+      const defaultOrder = platform === 'linkedin' ? 0 : 
+                   platform === 'facebook' ? 0 :
+                   platform === 'instagram' ? 1 :
+                   platform === 'x' ? 2 :
+                   platform === 'snapchat' ? 3 :
+                   platform === 'whatsapp' ? 4 :
+                   platform === 'telegram' ? 5 :
+                   platform === 'wechat' ? 6 : 999;
+      
+      const section = savedSectionInfo?.section || defaultSection;
+      const order = savedSectionInfo?.order !== undefined ? savedSectionInfo.order : defaultOrder;
+      const originalSection = savedSectionInfo?.originalSection;
+      
       socialProfiles.push({
         platform,
         username: channel.username || '',
         shareEnabled: true,
         filled: !!channel.username,
-        confirmed: channel.userConfirmed || false
+        confirmed: channel.userConfirmed || false,
+        section,
+        order,
+        originalSection
       });
     }
   });
@@ -186,7 +211,7 @@ export function formDataToContactChannels(
   
   // Then process the ones that are in the form data
   formData.socialProfiles.forEach((profileEntry: SocialProfileFormEntry) => {
-    const { platform, username } = profileEntry;
+    const { platform, username, section, originalSection, order } = profileEntry;
     
     // Handle email separately (already processed above)
     if (platform === 'email') {
@@ -207,6 +232,16 @@ export function formDataToContactChannels(
         url,
         userConfirmed: true
       };
+
+      // Add section info if it's not universal (only for platforms that participate in sections)
+      if (section !== 'universal') {
+        socialChannel.fieldSection = {
+          section: section as 'personal' | 'work' | 'hidden',
+          ...(originalSection && { originalSection }), // Only include if not undefined
+          ...(order !== undefined && { order }) // Only include if not undefined
+        };
+
+      }
       
       // Type-safe way to update the social channel
       switch (platform) {
@@ -260,6 +295,9 @@ export function formDataToProfile(
     generateSocialUrl,
     existingProfile?.contactChannels
   );
+
+  // We'll save section info directly to each SocialProfile in formDataToContactChannels
+  // No need for separate fieldSections object anymore
 
   // Create the updated profile
   const updatedProfile: Partial<UserProfile> = {

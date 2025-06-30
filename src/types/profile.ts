@@ -2,6 +2,11 @@ export interface SocialProfile {
   username: string;
   url: string;
   userConfirmed: boolean;
+  fieldSection?: {
+    section: 'personal' | 'work' | 'hidden';
+    originalSection?: 'personal' | 'work';
+    order?: number;
+  };
 }
 
 export interface ContactChannels {
