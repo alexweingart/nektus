@@ -19,7 +19,7 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
     const getDragClasses = () => {
       switch (dragState) {
         case 'draggable':
-          return 'animate-pulse-subtle';
+          return 'animate-pulse';
         case 'active':
           return 'scale-105 shadow-lg z-10';
         default:
@@ -29,17 +29,6 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
 
     return (
       <div className={`w-full ${className}`}>
-        {/* CSS for pulse animation */}
-        <style jsx>{`
-          @keyframes pulse-subtle {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-          }
-          .animate-pulse-subtle {
-            animation: pulse-subtle 2s ease-in-out infinite;
-          }
-        `}</style>
-        
         {label && (
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {label}
