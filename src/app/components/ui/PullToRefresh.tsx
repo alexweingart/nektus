@@ -8,13 +8,15 @@ interface PullToRefreshProps {
   onRefresh: () => Promise<void> | void;
   pullThreshold?: number;
   className?: string;
+  disabled?: boolean;
 }
 
 export function PullToRefresh({ 
   children, 
   onRefresh, 
   pullThreshold = 80,
-  className = '' 
+  className = '',
+  disabled = false
 }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -23,15 +25,19 @@ export function PullToRefresh({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
+    // Skip all touch handling if disabled
+    if (disabled) return;
+    
     const container = containerRef.current;
     if (!container || container.scrollTop > 0) return;
     
     setStartY(e.touches[0].clientY);
     setIsPulling(true);
-  }, []);
+  }, [disabled]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isPulling || isRefreshing) return;
+    // Skip all touch handling if disabled
+    if (disabled || !isPulling || isRefreshing) return;
     
     const container = containerRef.current;
     if (!container || container.scrollTop > 0) return;
@@ -47,10 +53,11 @@ export function PullToRefresh({
       // Pulling up or no movement - reset pull distance immediately
       setPullDistance(0);
     }
-  }, [isPulling, isRefreshing, startY, pullThreshold]);
+  }, [disabled, isPulling, isRefreshing, startY, pullThreshold]);
 
   const handleTouchEnd = useCallback(async () => {
-    if (!isPulling) return;
+    // Skip all touch handling if disabled
+    if (disabled || !isPulling) return;
     
     setIsPulling(false);
     
@@ -66,7 +73,7 @@ export function PullToRefresh({
     }
     
     setPullDistance(0);
-  }, [isPulling, pullDistance, pullThreshold, isRefreshing, onRefresh]);
+  }, [disabled, isPulling, pullDistance, pullThreshold, isRefreshing, onRefresh]);
 
   useEffect(() => {
     const container = containerRef.current;

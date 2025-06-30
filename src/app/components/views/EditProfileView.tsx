@@ -21,7 +21,11 @@ import { profileToFormData } from '@/lib/utils/profileTransforms';
 import type { CountryCode } from 'libphonenumber-js';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
 
-const EditProfileView: React.FC = () => {
+interface EditProfileViewProps {
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) => {
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +76,11 @@ const EditProfileView: React.FC = () => {
   });
 
   useFreezeScrollOnFocus(nameInputRef);
+
+  // Notify parent of drag state changes
+  useEffect(() => {
+    onDragStateChange?.(isDragMode);
+  }, [isDragMode, onDragStateChange]);
 
   useEffect(() => {
     if (profile) {
@@ -378,71 +387,14 @@ const EditProfileView: React.FC = () => {
     }
   }, [isDragMode]);
 
-  // Prevent page scroll when in drag mode and handle click outside
+  // Handle drag mode interactions
   useEffect(() => {
     if (isDragMode) {
-      // Store original scroll position and body style
-      const originalScrollY = window.scrollY;
-      const originalBodyStyle = document.body.style.cssText;
-      const originalDocumentStyle = document.documentElement.style.cssText;
-
-      // Prevent all scrolling by fixing the position
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${originalScrollY}px`;
-      document.body.style.left = '0';
-      document.body.style.right = '0';
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-
-      const handleEdgeScrollInDragMode = (clientY: number) => {
-        const viewportHeight = window.innerHeight;
-        const scrollZone = 100;
-        const scrollSpeed = 5;
-
-        if (clientY < scrollZone) {
-          // Near top - scroll up by temporarily allowing scroll
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.overflow = '';
-          document.documentElement.style.overflow = '';
-          window.scrollTo(0, window.scrollY - scrollSpeed);
-          // Re-fix position
-          const newScrollY = window.scrollY;
-          document.body.style.position = 'fixed';
-          document.body.style.top = `-${newScrollY}px`;
-          document.body.style.overflow = 'hidden';
-          document.documentElement.style.overflow = 'hidden';
-        } else if (clientY > viewportHeight - scrollZone) {
-          // Near bottom - scroll down by temporarily allowing scroll
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.overflow = '';
-          document.documentElement.style.overflow = '';
-          window.scrollTo(0, window.scrollY + scrollSpeed);
-          // Re-fix position
-          const newScrollY = window.scrollY;
-          document.body.style.position = 'fixed';
-          document.body.style.top = `-${newScrollY}px`;
-          document.body.style.overflow = 'hidden';
-          document.documentElement.style.overflow = 'hidden';
-        }
-      };
-
-      const preventAllTouch = (e: TouchEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Handle edge scrolling for dragging
-        if (e.touches.length === 1) {
-          handleEdgeScrollInDragMode(e.touches[0].clientY);
-        }
-      };
-
       const preventContextMenu = (e: Event) => {
         e.preventDefault();
       };
 
-      const handleTouchStart = (e: TouchEvent) => {
+      const handleClickOutside = (e: TouchEvent) => {
         const target = e.target as Element;
         
         // Check if the touch is on a draggable field or its children
@@ -453,23 +405,15 @@ const EditProfileView: React.FC = () => {
         }
       };
 
-      // Prevent ALL touch interactions to stop pull-to-refresh
-      document.addEventListener('touchmove', preventAllTouch, { passive: false });
-      document.addEventListener('touchstart', handleTouchStart, { passive: true });
-      
       // Prevent context menu during drag mode
       document.addEventListener('contextmenu', preventContextMenu);
+      
+      // Handle click outside to exit drag mode
+      document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
       return () => {
-        // Restore original styles and scroll position
-        document.body.style.cssText = originalBodyStyle;
-        document.documentElement.style.cssText = originalDocumentStyle;
-        window.scrollTo(0, originalScrollY);
-        
-        // Remove event listeners
-        document.removeEventListener('touchmove', preventAllTouch);
-        document.removeEventListener('touchstart', handleTouchStart);
         document.removeEventListener('contextmenu', preventContextMenu);
+        document.removeEventListener('touchstart', handleClickOutside);
       };
     }
   }, [isDragMode, exitDragMode]);
