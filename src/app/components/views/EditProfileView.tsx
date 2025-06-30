@@ -394,6 +394,24 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
         e.preventDefault();
       };
 
+      const preventScrolling = (e: TouchEvent) => {
+        // Allow edge scrolling by checking if we're at edges
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const viewportHeight = window.innerHeight;
+          const scrollZone = 100;
+          
+          // Only allow scrolling if finger is in edge scroll zones
+          const isInTopScrollZone = touch.clientY < scrollZone;
+          const isInBottomScrollZone = touch.clientY > viewportHeight - scrollZone;
+          
+          if (!isInTopScrollZone && !isInBottomScrollZone) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      };
+
       const handleClickOutside = (e: TouchEvent) => {
         const target = e.target as Element;
         
@@ -408,11 +426,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       // Prevent context menu during drag mode
       document.addEventListener('contextmenu', preventContextMenu);
       
+      // Prevent scrolling except in edge zones
+      document.addEventListener('touchmove', preventScrolling, { passive: false });
+      
       // Handle click outside to exit drag mode
       document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
       return () => {
         document.removeEventListener('contextmenu', preventContextMenu);
+        document.removeEventListener('touchmove', preventScrolling);
         document.removeEventListener('touchstart', handleClickOutside);
       };
     }
