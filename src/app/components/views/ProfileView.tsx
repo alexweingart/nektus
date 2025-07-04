@@ -115,6 +115,35 @@ const ProfileView: React.FC = () => {
     return streamingSocialContacts || currentProfile?.contactChannels;
   }, [streamingSocialContacts, currentProfile?.contactChannels]);
 
+  // Check if any contact channels are unconfirmed
+  const hasUnconfirmedChannels = useMemo(() => {
+    if (!contactChannels) return false;
+    
+    // Check phone info
+    if (contactChannels.phoneInfo && !contactChannels.phoneInfo.userConfirmed) {
+      return true;
+    }
+    
+    // Check email
+    if (contactChannels.email && !contactChannels.email.userConfirmed) {
+      return true;
+    }
+    
+    // Check all social media channels
+    const socialChannels = [
+      contactChannels.facebook,
+      contactChannels.instagram,
+      contactChannels.x,
+      contactChannels.linkedin,
+      contactChannels.snapchat,
+      contactChannels.whatsapp,
+      contactChannels.telegram,
+      contactChannels.wechat
+    ];
+    
+    return socialChannels.some(channel => channel && !channel.userConfirmed);
+  }, [contactChannels]);
+
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
     const bgUrl = currentProfile?.backgroundImage;
@@ -197,11 +226,14 @@ const ProfileView: React.FC = () => {
           <Button 
             variant="circle"
             size="icon"
-            className="w-14 h-14"
+            className="w-14 h-14 relative"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
             </svg>
+            {hasUnconfirmedChannels && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white"></div>
+            )}
           </Button>
         </Link>
       </div>
