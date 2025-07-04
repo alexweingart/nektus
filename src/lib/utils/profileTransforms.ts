@@ -173,8 +173,7 @@ export function formDataToContactChannels(
   phoneData: { internationalPhone: string; nationalPhone: string },
   hasPhoneNumber: boolean,
   generateSocialUrl: (platform: SocialPlatform, username: string) => string,
-  existingContactChannels?: ContactChannels,
-  confirmedChannels?: string[]
+  existingContactChannels?: ContactChannels
 ): ContactChannels {
   // Create base contact channels structure
   const baseContactChannels: ContactChannels = {
@@ -204,25 +203,25 @@ export function formDataToContactChannels(
     baseContactChannels.phoneInfo = {
       internationalPhone: phoneData.internationalPhone,
       nationalPhone: phoneData.nationalPhone,
-      userConfirmed: confirmedChannels?.includes('phone') ?? false
+      userConfirmed: true // Phone is always confirmed when provided
     };
   } else if (existingContactChannels?.phoneInfo) {
     // Preserve existing phone info if no new phone number
-    baseContactChannels.phoneInfo = {
-      ...existingContactChannels.phoneInfo,
-      userConfirmed: confirmedChannels?.includes('phone') ?? existingContactChannels.phoneInfo.userConfirmed
-    };
+    baseContactChannels.phoneInfo = existingContactChannels.phoneInfo;
   }
 
   // Update email info
   if (formData.email) {
     baseContactChannels.email = {
       email: formData.email,
-      userConfirmed: false
+      userConfirmed: true // All channels are confirmed when saving
     };
   } else if (existingContactChannels?.email) {
-    // Preserve existing email if no new email
-    baseContactChannels.email = existingContactChannels.email;
+    // Mark existing email as confirmed when saving
+    baseContactChannels.email = {
+      ...existingContactChannels.email,
+      userConfirmed: true
+    };
   }
 
   // Process social profiles from form data
@@ -235,9 +234,19 @@ export function formDataToContactChannels(
   
   // Process all known social platforms
   socialPlatforms.forEach(platform => {
-    // If platform is not in present platforms, set it to empty
+    // If platform is not in present platforms, preserve existing or set to empty but confirmed
     if (!presentPlatforms.has(platform)) {
-      (baseContactChannels as any)[platform] = { username: '', url: '', userConfirmed: false };
+      const existingChannel = existingContactChannels && (existingContactChannels as any)[platform];
+      if (existingChannel && existingChannel.username) {
+        // Preserve existing channel but mark as confirmed
+        (baseContactChannels as any)[platform] = {
+          ...existingChannel,
+          userConfirmed: true
+        };
+      } else {
+        // Set to empty but confirmed
+        (baseContactChannels as any)[platform] = { username: '', url: '', userConfirmed: true };
+      }
     }
   });
   
@@ -262,7 +271,7 @@ export function formDataToContactChannels(
       const socialChannel: SocialProfile = {
         username: username || '',
         url,
-        userConfirmed: confirmedChannels?.includes(platform) ?? false
+        userConfirmed: true // All channels are confirmed when saving
       };
 
       // Add section info for all sections (including universal)
@@ -314,8 +323,7 @@ export function formDataToProfile(
   hasPhoneNumber: boolean,
   hasNewBackgroundImage: boolean,
   generateSocialUrl: (platform: SocialPlatform, username: string) => string,
-  existingProfile?: UserProfile,
-  confirmedChannels?: string[]
+  existingProfile?: UserProfile
 ): Partial<UserProfile> {
   // Create contact channels
   const contactChannels = formDataToContactChannels(
@@ -323,8 +331,7 @@ export function formDataToProfile(
     phoneData,
     hasPhoneNumber,
     generateSocialUrl,
-    existingProfile?.contactChannels,
-    confirmedChannels
+    existingProfile?.contactChannels
   );
 
   // We'll save section info directly to each SocialProfile in formDataToContactChannels

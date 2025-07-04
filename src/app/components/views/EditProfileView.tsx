@@ -261,7 +261,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   
   // Handle save profile
   const handleSave = async (): Promise<void> => {
-    await saveProfileData(formData, digits, phoneCountry, Array.from(confirmedChannels));
+    await saveProfileData(formData, digits, phoneCountry);
   };
 
     // New Reserved Space component using insertion points
@@ -405,12 +405,10 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       </div>
 
       {/* Phone Input */}
-      <div className="mb-5 w-full max-w-md relative">
+      <div className="mb-5 w-full max-w-md">
         <CustomPhoneInput
           onChange={(value) => {
             setDigits(value);
-            // Mark phone as confirmed when user edits it
-            markChannelAsConfirmed('phone');
           }}
           value={digits}
           placeholder="Phone number"
@@ -421,9 +419,6 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
             className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           }}
         />
-        {isChannelUnconfirmed('phone') && (
-          <div className="absolute top-1 right-1 w-3 h-3 bg-yellow-400 rounded-full border border-white"></div>
-        )}
       </div>
 
       {/* Universal Fields (dynamically rendered) */}

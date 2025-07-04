@@ -14,7 +14,7 @@ interface UseProfileSaveProps {
 
 // Hook return interface
 interface UseProfileSaveReturn {
-  saveProfileData: (formData: ProfileFormData, digits: string, phoneCountry: CountryCode, confirmedChannels?: string[]) => Promise<void>;
+  saveProfileData: (formData: ProfileFormData, digits: string, phoneCountry: CountryCode) => Promise<void>;
   isSaving: boolean;
   saveError: string | null;
   clearError: () => void;
@@ -36,8 +36,7 @@ export const useProfileSave = ({
   const saveProfileData = useCallback(async (
     formData: ProfileFormData, 
     digits: string, 
-    phoneCountry: CountryCode,
-    confirmedChannels?: string[]
+    phoneCountry: CountryCode
   ) => {
     if (isSaving) {
       return;
@@ -54,8 +53,7 @@ export const useProfileSave = ({
         phoneCountry,
         profile,
         hasNewBackgroundImage,
-        saveProfile,
-        confirmedChannels
+        saveProfile
       );
       
       if (result) {
