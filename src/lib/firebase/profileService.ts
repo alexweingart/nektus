@@ -67,6 +67,9 @@ export const ProfileService = {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.UNAVAILABLE) {
         console.warn('Firebase is not available. Profile will be saved locally only.');
+      } else if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+        console.warn('Permission denied when saving profile. User may not be authenticated with Firebase Auth.');
+        console.warn('This is expected if Firebase Auth sign-in failed. Profile will not be saved to Firebase.');
       } else {
         console.error('Failed to save profile:', error);
         throw error;
@@ -132,7 +135,8 @@ export const ProfileService = {
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
-        console.warn('Permission denied when accessing profile. User may not be authenticated.');
+        console.warn('Permission denied when accessing profile. User may not be authenticated with Firebase Auth.');
+        console.warn('This is expected if Firebase Auth sign-in failed. The app will continue with limited functionality.');
       } else {
         console.error('Failed to get profile:', error);
       }

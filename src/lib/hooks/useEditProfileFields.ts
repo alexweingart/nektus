@@ -77,17 +77,14 @@ export const useEditProfileFields = ({
   initialSocialProfiles, 
   onSocialProfilesChange 
 }: UseEditProfileFieldsProps): UseEditProfileFieldsReturn => {
-  // Initialize social profiles with section assignments if not already set
+  // Simple initialization - just assign default sections if missing
   const initializeProfiles = useCallback((profiles: SocialProfileFormEntry[]): SocialProfileFormEntry[] => {
     return profiles.map(profile => {
       if (!profile.section) {
         const defaultSection = DEFAULT_SECTION_ASSIGNMENTS[profile.platform as SocialPlatform] || 'personal';
-        const defaultOrder = DEFAULT_FIELD_ORDER[profile.platform as SocialPlatform] || 999;
-        
         return {
           ...profile,
           section: defaultSection,
-          order: defaultOrder,
           originalSection: defaultSection !== 'hidden' ? defaultSection as 'personal' | 'work' : undefined
         };
       }
@@ -133,7 +130,11 @@ export const useEditProfileFields = ({
     // Sort each section by order
     Object.keys(sections).forEach(sectionKey => {
       const section = sectionKey as FieldSection;
-      sections[section].sort((a, b) => (a.order || 999) - (b.order || 999));
+      sections[section].sort((a, b) => {
+        const aOrder = a.order ?? 999;
+        const bOrder = b.order ?? 999;
+        return aOrder - bOrder;
+      });
     });
 
     return sections;

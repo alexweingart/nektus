@@ -68,8 +68,18 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
             onFocus={(e) => {
               if (dragState === 'active') {
                 e.target.blur();
+                e.preventDefault();
               }
               props.onFocus?.(e);
+            }}
+            onClick={(e) => {
+              console.log('🖱️ CustomInput onClick:', { dragState, inputId: props.id });
+              if (dragState === 'active') {
+                console.log('🛡️ Preventing click on active drag field');
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              props.onClick?.(e);
             }}
             {...props}
           />

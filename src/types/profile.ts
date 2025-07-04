@@ -3,7 +3,7 @@ export interface SocialProfile {
   url: string;
   userConfirmed: boolean;
   fieldSection?: {
-    section: 'personal' | 'work' | 'hidden';
+    section: 'personal' | 'work' | 'hidden' | 'universal';
     originalSection?: 'personal' | 'work';
     order?: number;
   };

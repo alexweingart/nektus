@@ -22,7 +22,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
     <div className={`w-full ${className}`}>
       {/* Section Header */}
       {title && (
-        <div className="mb-4 text-center">
+        <div className="field-section-title mb-4 text-center">
           <Heading as="h2" className="text-white">
             {title}
           </Heading>
@@ -39,7 +39,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
           </div>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div>
           {children}
         </div>
       )}
