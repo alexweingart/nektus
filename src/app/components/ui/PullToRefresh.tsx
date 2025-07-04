@@ -97,6 +97,7 @@ export function PullToRefresh({
   return (
     <div 
       ref={containerRef}
+      data-scrollable="true"
       className={`min-h-screen overflow-y-auto overflow-x-hidden ${className}`}
       style={{
         transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`) : 'translateY(0px)',
