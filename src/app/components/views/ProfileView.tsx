@@ -7,7 +7,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import Link from 'next/link';
 import { Button } from '../ui/Button';
 import Avatar from '../ui/Avatar';
-import SocialIcon from '../ui/SocialIcon';
+import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/ExchangeButton';
@@ -253,114 +253,13 @@ const ProfileView: React.FC = () => {
           
           {/* Contact Icons */}
           <div className="w-full">
-            {/* First row - icons with equal spacing */}
-            <div className="flex flex-wrap justify-center gap-4">
-            {contactChannels?.phoneInfo?.internationalPhone && (
-              <a 
-                href={`sms:${contactChannels.phoneInfo.internationalPhone}`}
-                className="text-white hover:text-green-300 transition-colors"
-              >
-                <SocialIcon platform="phone" username={contactChannels.phoneInfo.internationalPhone} size="md" variant="white" />
-              </a>
+            {contactChannels && (
+              <SocialIconsList
+                contactChannels={contactChannels}
+                size="md"
+                variant="white"
+              />
             )}
-            
-            {contactChannels?.email?.email && (
-              <a 
-                href={`mailto:${contactChannels.email.email}`}
-                className="text-white hover:text-blue-300 transition-colors"
-              >
-                <SocialIcon platform="email" username={contactChannels.email.email} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.facebook?.username && (
-              <a 
-                href={`https://facebook.com/${contactChannels.facebook.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-blue-400 transition-colors"
-              >
-                <SocialIcon platform="facebook" username={contactChannels.facebook.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.instagram?.username && (
-              <a 
-                href={`https://instagram.com/${contactChannels.instagram.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-pink-400 transition-colors"
-              >
-                <SocialIcon platform="instagram" username={contactChannels.instagram.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.x?.username && (
-              <a 
-                href={`https://x.com/${contactChannels.x.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-[hsl(var(--background))] transition-colors"
-              >
-                <SocialIcon platform="x" username={contactChannels.x.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.whatsapp?.username && (
-              <a 
-                href={`https://wa.me/${contactChannels.whatsapp.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-green-300 transition-colors"
-              >
-                <SocialIcon platform="whatsapp" username={contactChannels.whatsapp.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.snapchat?.username && (
-              <a 
-                href={`https://www.snapchat.com/add/${contactChannels.snapchat.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-yellow-300 transition-colors"
-              >
-                <SocialIcon platform="snapchat" username={contactChannels.snapchat.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.telegram?.username && (
-              <a 
-                href={`https://t.me/${contactChannels.telegram.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-blue-300 transition-colors"
-              >
-                <SocialIcon platform="telegram" username={contactChannels.telegram.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.wechat?.username && (
-              <a 
-                href={`weixin://dl/chat?${contactChannels.wechat.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-[hsl(var(--background))] transition-colors"
-              >
-                <SocialIcon platform="wechat" username={contactChannels.wechat.username} size="md" variant="white" />
-              </a>
-            )}
-            
-            {contactChannels?.linkedin?.username && (
-              <a 
-                href={`https://linkedin.com/in/${contactChannels.linkedin.username}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-blue-300 transition-colors"
-              >
-                <SocialIcon platform="linkedin" username={contactChannels.linkedin.username} size="md" variant="white" />
-              </a>
-            )}
-            </div>
           </div>
         </div>
         

@@ -44,6 +44,13 @@ export async function getFirebaseAdmin(): Promise<AdminServices> {
       const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
       const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
+      console.log('[Firebase Admin] Environment variables check:', {
+        projectId: projectId ? '✓ Set' : '✗ Missing',
+        privateKey: privateKey ? '✓ Set' : '✗ Missing',
+        clientEmail: clientEmail ? '✓ Set' : '✗ Missing',
+        storageBucket: storageBucket ? '✓ Set' : '✗ Missing'
+      });
+
       if (!projectId) {
         throw new Error('Missing FIREBASE_PROJECT_ID environment variable');
       }
