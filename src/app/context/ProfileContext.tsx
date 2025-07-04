@@ -677,6 +677,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         // Update the ref with the latest saved data
         profileRef.current = merged;
         
+        // Update React state with the saved data to ensure UI reflects confirmed channels
+        if (skipReactUpdate) {
+          setProfile(merged);
+        }
+        
         // Update session with new phone info ONLY for form submissions
         // This prevents session update cascades that cause profile reloads
         const currentSessionPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone;
