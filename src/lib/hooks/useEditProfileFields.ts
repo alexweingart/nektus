@@ -163,7 +163,9 @@ export const useEditProfileFields = ({
             ...profile,
             section: 'hidden' as FieldSection,
             originalSection: profile.section as 'personal' | 'work',
-            order: 999 // Put at end of hidden section
+            order: 999, // Put at end of hidden section
+            username: '', // Clear associated value when hiding
+            filled: false, // Mark as not filled
           };
         }
       }
