@@ -63,8 +63,7 @@ export default async function RootLayout({
           backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
-          backgroundRepeat: 'no-repeat',
-          transition: 'background-image 0.3s ease-in-out'
+          backgroundRepeat: 'no-repeat'
         }}
       >
       <head>

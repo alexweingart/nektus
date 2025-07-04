@@ -280,14 +280,49 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const cleanedUrl = currentBackgroundImage.replace(/\s+/g, '');
       const decodedUrl = decodeURIComponent(cleanedUrl);
       
-      htmlEl.style.transition = 'background-image 0.5s ease-in-out';
-      htmlEl.style.backgroundImage = `url("${decodedUrl}")`;
-      htmlEl.style.backgroundSize = 'cover';
-      htmlEl.style.backgroundPosition = 'center top';
-      htmlEl.style.backgroundRepeat = 'no-repeat';
-      
-      // Track what we've applied
-      backgroundImageAppliedRef.current = currentBackgroundImage;
+      // Crossfade only the background using ::before pseudo-element
+      const preloadImg = new Image();
+      preloadImg.onload = () => {
+        // Create temporary style for crossfade
+        const style = document.createElement('style');
+        style.textContent = `
+          html::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("${decodedUrl}");
+            background-size: cover;
+            background-position: center top;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            z-index: -1;
+            pointer-events: none;
+          }
+        `;
+        document.head.appendChild(style);
+        
+                 // Trigger fade-in
+         requestAnimationFrame(() => {
+           if (style.textContent) {
+             style.textContent = style.textContent.replace('opacity: 0', 'opacity: 1');
+           }
+         });
+        
+        // After fade, apply to html background and remove overlay
+        setTimeout(() => {
+          htmlEl.style.backgroundImage = `url("${decodedUrl}")`;
+          htmlEl.style.backgroundSize = 'cover';
+          htmlEl.style.backgroundPosition = 'center top';
+          htmlEl.style.backgroundRepeat = 'no-repeat';
+          document.head.removeChild(style);
+          backgroundImageAppliedRef.current = currentBackgroundImage;
+        }, 400);
+      };
+      preloadImg.src = decodedUrl;
     } else if (profile && !currentBackgroundImage && backgroundImageAppliedRef.current) {
       // Only clear background if we have a profile but no background image, and we had previously applied one
       console.log('[ProfileContext] Profile loaded but no background image, clearing DOM style');
@@ -434,10 +469,51 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         .then(data => {
           if (data.imageUrl) {
             console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
-            // Update DOM immediately for visual effect
-            document.documentElement.style.transition = 'background-image 0.5s ease-in-out';
-            document.documentElement.style.backgroundImage = `url(${data.imageUrl})`;
-            // API already saved to Firebase, no local state update needed
+            // Update DOM immediately for visual effect - background only
+            const cleanedUrl = data.imageUrl.replace(/\s+/g, '');
+            const decodedUrl = decodeURIComponent(cleanedUrl);
+            
+            const preloadImg = new Image();
+            preloadImg.onload = () => {
+              // Create temporary style for crossfade
+              const style = document.createElement('style');
+              style.textContent = `
+                html::before {
+                  content: '';
+                  position: fixed;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background-image: url("${decodedUrl}");
+                  background-size: cover;
+                  background-position: center top;
+                  background-repeat: no-repeat;
+                  opacity: 0;
+                  transition: opacity 0.4s ease-in-out;
+                  z-index: -1;
+                  pointer-events: none;
+                }
+              `;
+              document.head.appendChild(style);
+              
+              // Trigger fade-in
+              requestAnimationFrame(() => {
+                if (style.textContent) {
+                  style.textContent = style.textContent.replace('opacity: 0', 'opacity: 1');
+                }
+              });
+              
+              // After fade, apply to html background and remove overlay
+              setTimeout(() => {
+                document.documentElement.style.backgroundImage = `url("${decodedUrl}")`;
+                document.documentElement.style.backgroundSize = 'cover';
+                document.documentElement.style.backgroundPosition = 'center top';
+                document.documentElement.style.backgroundRepeat = 'no-repeat';
+                document.head.removeChild(style);
+              }, 400);
+            };
+            preloadImg.src = decodedUrl;
           }
         })
         .catch(error => {
