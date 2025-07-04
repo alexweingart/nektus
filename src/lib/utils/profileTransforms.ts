@@ -173,7 +173,8 @@ export function formDataToContactChannels(
   phoneData: { internationalPhone: string; nationalPhone: string },
   hasPhoneNumber: boolean,
   generateSocialUrl: (platform: SocialPlatform, username: string) => string,
-  existingContactChannels?: ContactChannels
+  existingContactChannels?: ContactChannels,
+  confirmedChannels?: string[]
 ): ContactChannels {
   // Create base contact channels structure
   const baseContactChannels: ContactChannels = {
@@ -203,11 +204,14 @@ export function formDataToContactChannels(
     baseContactChannels.phoneInfo = {
       internationalPhone: phoneData.internationalPhone,
       nationalPhone: phoneData.nationalPhone,
-      userConfirmed: true
+      userConfirmed: confirmedChannels?.includes('phone') ?? false
     };
   } else if (existingContactChannels?.phoneInfo) {
     // Preserve existing phone info if no new phone number
-    baseContactChannels.phoneInfo = existingContactChannels.phoneInfo;
+    baseContactChannels.phoneInfo = {
+      ...existingContactChannels.phoneInfo,
+      userConfirmed: confirmedChannels?.includes('phone') ?? existingContactChannels.phoneInfo.userConfirmed
+    };
   }
 
   // Update email info
@@ -258,7 +262,7 @@ export function formDataToContactChannels(
       const socialChannel: SocialProfile = {
         username: username || '',
         url,
-        userConfirmed: true
+        userConfirmed: confirmedChannels?.includes(platform) ?? false
       };
 
       // Add section info for all sections (including universal)
@@ -310,7 +314,8 @@ export function formDataToProfile(
   hasPhoneNumber: boolean,
   hasNewBackgroundImage: boolean,
   generateSocialUrl: (platform: SocialPlatform, username: string) => string,
-  existingProfile?: UserProfile
+  existingProfile?: UserProfile,
+  confirmedChannels?: string[]
 ): Partial<UserProfile> {
   // Create contact channels
   const contactChannels = formDataToContactChannels(
@@ -318,7 +323,8 @@ export function formDataToProfile(
     phoneData,
     hasPhoneNumber,
     generateSocialUrl,
-    existingProfile?.contactChannels
+    existingProfile?.contactChannels,
+    confirmedChannels
   );
 
   // We'll save section info directly to each SocialProfile in formDataToContactChannels

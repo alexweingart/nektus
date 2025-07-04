@@ -89,6 +89,9 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       
       // Let the field section manager handle everything
       fieldSectionManager.moveField(draggedFieldId, targetSection, targetIndex);
+      
+      // Mark channel as confirmed when user drags it
+      markChannelAsConfirmed(draggedFieldId);
     }
   });
 
@@ -177,6 +180,9 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
 
   // Handle social profile input change
   const handleSocialChange = (platform: SocialPlatform, value: string) => {
+    // Mark this channel as confirmed when user edits it
+    markChannelAsConfirmed(platform);
+    
     setFormData((prev: ProfileFormData) => {
       const updatedProfiles = [...prev.socialProfiles];
       const profileIndex = updatedProfiles.findIndex(p => p.platform === platform);
@@ -210,8 +216,21 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     return socialProfile?.username || '';
   };
 
+  // Track confirmed channels client-side
+  const [confirmedChannels, setConfirmedChannels] = useState<Set<string>>(new Set());
+
+  // Mark a channel as confirmed client-side
+  const markChannelAsConfirmed = (platform: string) => {
+    setConfirmedChannels(prev => new Set(prev).add(platform));
+  };
+
   // Check if a specific channel is unconfirmed
   const isChannelUnconfirmed = (platform: string): boolean => {
+    // If we've marked it as confirmed client-side, it's confirmed
+    if (confirmedChannels.has(platform)) {
+      return false;
+    }
+    
     if (!profile?.contactChannels) return false;
     
     switch (platform) {
@@ -242,7 +261,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   
   // Handle save profile
   const handleSave = async (): Promise<void> => {
-    await saveProfileData(formData, digits, phoneCountry);
+    await saveProfileData(formData, digits, phoneCountry, Array.from(confirmedChannels));
   };
 
     // New Reserved Space component using insertion points
@@ -390,6 +409,8 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
         <CustomPhoneInput
           onChange={(value) => {
             setDigits(value);
+            // Mark phone as confirmed when user edits it
+            markChannelAsConfirmed('phone');
           }}
           value={digits}
           placeholder="Phone number"
@@ -449,7 +470,11 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                 inputClassName="pl-2 text-base"
                 variant="hideable"
                 isHidden={fieldSectionManager.isFieldHidden(platform)}
-                onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                onToggleHide={() => {
+                  fieldSectionManager.toggleFieldVisibility(platform);
+                  // Mark channel as confirmed when user hides/shows it
+                  markChannelAsConfirmed(platform);
+                }}
                 dragState={
                   !dragAndDrop.isDragMode ? 'normal' : 
                   dragAndDrop.draggedField === platform ? 'active' : 'draggable'
@@ -551,7 +576,11 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                     inputClassName="pl-2 text-base"
                     variant="hideable"
                     isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    onToggleHide={() => {
+                      fieldSectionManager.toggleFieldVisibility(platform);
+                      // Mark channel as confirmed when user hides/shows it
+                      markChannelAsConfirmed(platform);
+                    }}
                     dragState={
                       !dragAndDrop.isDragMode ? 'normal' : 
                       dragAndDrop.draggedField === platform ? 'active' : 'draggable'
@@ -632,7 +661,11 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                     inputClassName="pl-2 text-base"
                     variant="hideable"
                     isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    onToggleHide={() => {
+                      fieldSectionManager.toggleFieldVisibility(platform);
+                      // Mark channel as confirmed when user hides/shows it
+                      markChannelAsConfirmed(platform);
+                    }}
                     dragState={
                       !dragAndDrop.isDragMode ? 'normal' : 
                       dragAndDrop.draggedField === platform ? 'active' : 'draggable'
@@ -692,7 +725,11 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                     inputClassName="pl-2 text-base"
                     variant="hideable"
                     isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    onToggleHide={() => {
+                      fieldSectionManager.toggleFieldVisibility(platform);
+                      // Mark channel as confirmed when user hides/shows it
+                      markChannelAsConfirmed(platform);
+                    }}
                     icon={
                       <div className="w-5 h-5 flex items-center justify-center relative">
                         <SocialIcon 

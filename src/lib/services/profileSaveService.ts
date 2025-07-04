@@ -31,7 +31,8 @@ export async function saveProfileData(
   phoneCountry: CountryCode,
   profile: UserProfile | undefined,
   hasNewBackgroundImage: boolean,
-  saveProfile: (profile: Partial<UserProfile>, options?: any) => Promise<UserProfile | null>
+  saveProfile: (profile: Partial<UserProfile>, options?: any) => Promise<UserProfile | null>,
+  confirmedChannels?: string[]
 ): Promise<UserProfile | null> {
   // Extract phone data using transform utility
   const phoneData = extractPhoneData(digits, phoneCountry, formatPhoneNumber);
@@ -44,7 +45,8 @@ export async function saveProfileData(
     hasPhoneNumber,
     hasNewBackgroundImage,
     generateSocialUrl,
-    profile
+    profile,
+    confirmedChannels
   );
   
   // Save the updated profile
