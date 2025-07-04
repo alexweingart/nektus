@@ -209,6 +209,36 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     const socialProfile = formData.socialProfiles.find((p: SocialProfileFormEntry) => p.platform === platform);
     return socialProfile?.username || '';
   };
+
+  // Check if a specific channel is unconfirmed
+  const isChannelUnconfirmed = (platform: string): boolean => {
+    if (!profile?.contactChannels) return false;
+    
+    switch (platform) {
+      case 'phone':
+        return profile.contactChannels.phoneInfo && !profile.contactChannels.phoneInfo.userConfirmed;
+      case 'email':
+        return profile.contactChannels.email && !profile.contactChannels.email.userConfirmed;
+      case 'facebook':
+        return profile.contactChannels.facebook && !profile.contactChannels.facebook.userConfirmed;
+      case 'instagram':
+        return profile.contactChannels.instagram && !profile.contactChannels.instagram.userConfirmed;
+      case 'x':
+        return profile.contactChannels.x && !profile.contactChannels.x.userConfirmed;
+      case 'linkedin':
+        return profile.contactChannels.linkedin && !profile.contactChannels.linkedin.userConfirmed;
+      case 'snapchat':
+        return profile.contactChannels.snapchat && !profile.contactChannels.snapchat.userConfirmed;
+      case 'whatsapp':
+        return profile.contactChannels.whatsapp && !profile.contactChannels.whatsapp.userConfirmed;
+      case 'telegram':
+        return profile.contactChannels.telegram && !profile.contactChannels.telegram.userConfirmed;
+      case 'wechat':
+        return profile.contactChannels.wechat && !profile.contactChannels.wechat.userConfirmed;
+      default:
+        return false;
+    }
+  };
   
   // Handle save profile
   const handleSave = async (): Promise<void> => {
@@ -356,7 +386,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       </div>
 
       {/* Phone Input */}
-      <div className="mb-5 w-full max-w-md">
+      <div className="mb-5 w-full max-w-md relative">
         <CustomPhoneInput
           onChange={(value) => {
             setDigits(value);
@@ -369,6 +399,31 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
             autoComplete: "tel",
             className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           }}
+        />
+        {isChannelUnconfirmed('phone') && (
+          <div className="absolute top-2 right-2 w-3 h-3 bg-yellow-400 rounded-full border border-white"></div>
+        )}
+      </div>
+
+      {/* Email Input */}
+      <div className="mb-5 w-full max-w-md">
+        <CustomInput
+          type="email"
+          id="email"
+          value={formData.email}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+            setFormData((prev: ProfileFormData) => ({ ...prev, email: e.target.value }))
+          }
+          placeholder="Email address"
+          className="w-full"
+          icon={
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <span className="text-gray-600">✉️</span>
+              {isChannelUnconfirmed('email') && (
+                <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
+              )}
+            </div>
+          }
         />
       </div>
 
@@ -422,12 +477,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                   dragAndDrop.draggedField === platform ? 'active' : 'draggable'
                 }
                 icon={
-                  <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="w-5 h-5 flex items-center justify-center relative">
                     <SocialIcon 
                       platform={platform as SocialPlatform} 
                       username={getSocialProfileValue(platform)}
                       size="sm" 
                     />
+                    {isChannelUnconfirmed(platform) && (
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
+                    )}
                   </div>
                 }
                 iconClassName="text-gray-600"
@@ -521,12 +579,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                       dragAndDrop.draggedField === platform ? 'active' : 'draggable'
                     }
                     icon={
-                      <div className="w-5 h-5 flex items-center justify-center">
+                      <div className="w-5 h-5 flex items-center justify-center relative">
                         <SocialIcon 
                           platform={platform as SocialPlatform} 
                           username={getSocialProfileValue(platform)}
                           size="sm" 
                         />
+                        {isChannelUnconfirmed(platform) && (
+                          <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
+                        )}
                       </div>
                     }
                     iconClassName="text-gray-600"
@@ -599,12 +660,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                       dragAndDrop.draggedField === platform ? 'active' : 'draggable'
                     }
                     icon={
-                      <div className="w-5 h-5 flex items-center justify-center">
+                      <div className="w-5 h-5 flex items-center justify-center relative">
                         <SocialIcon 
                           platform={platform as SocialPlatform} 
                           username={getSocialProfileValue(platform)}
                           size="sm" 
                         />
+                        {isChannelUnconfirmed(platform) && (
+                          <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
+                        )}
                       </div>
                     }
                     iconClassName="text-gray-600"
@@ -652,12 +716,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                     isHidden={fieldSectionManager.isFieldHidden(platform)}
                     onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
                     icon={
-                      <div className="w-5 h-5 flex items-center justify-center">
+                      <div className="w-5 h-5 flex items-center justify-center relative">
                         <SocialIcon 
                           platform={platform as SocialPlatform} 
                           username={getSocialProfileValue(platform)}
                           size="sm" 
                         />
+                        {isChannelUnconfirmed(platform) && (
+                          <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
+                        )}
                       </div>
                     }
                     iconClassName="text-gray-600"
