@@ -7,6 +7,7 @@ import { ProfileService } from '@/lib/firebase/profileService';
 import { UserProfile } from '@/types/profile';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/newUserService';
 import { shouldGenerateAvatarForGoogleUser } from '@/lib/utils/googleProfileImageDetector';
+import { firebaseAuth } from '@/lib/firebase/auth';
 
 // Types
 type ProfileContextType = {
@@ -77,6 +78,27 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
         
         try {
+          // Sign in to Firebase Auth using the custom token from NextAuth
+          if (session?.firebaseToken && !firebaseAuth.isAuthenticated()) {
+            try {
+              // Clear any stale auth state first
+              if (firebaseAuth.getCurrentUser()) {
+                await firebaseAuth.signOut();
+              }
+              
+              await firebaseAuth.signInWithCustomToken(session.firebaseToken);
+            } catch (authError) {
+              console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
+              // Force clear any problematic state
+              try {
+                firebaseAuth.clearAuthState();
+              } catch (clearError) {
+                console.error('[ProfileContext] Error clearing auth state:', clearError);
+              }
+              // Continue without Firebase Auth - the app should still work
+            }
+          }
+          
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
             if (isAndroid) {
@@ -222,6 +244,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           loadingRef.current = false;
         }
       } else if (authStatus === 'unauthenticated') {
+        // Sign out of Firebase Auth when NextAuth session ends
+        if (firebaseAuth.isAuthenticated()) {
+          console.log('[ProfileContext] Signing out of Firebase Auth...');
+          try {
+            await firebaseAuth.signOut();
+          } catch (error) {
+            console.error('[ProfileContext] Error signing out of Firebase Auth:', error);
+          }
+        }
         setProfile(null);
         setIsLoading(false);
       }

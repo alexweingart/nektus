@@ -13,15 +13,25 @@ import CustomPhoneInput from '../ui/CustomPhoneInput';
 import SocialIcon from '../ui/SocialIcon';
 import EditTitleBar from '../ui/EditTitleBar';
 import CustomExpandingInput from '../ui/CustomExpandingInput';
+import { SecondaryButton } from '../ui/SecondaryButton';
+import { FieldSection } from '../ui/FieldSection';
 import { useProfileSave } from '@/lib/hooks/useProfileSave';
+import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { profileToFormData } from '@/lib/utils/profileTransforms';
 import type { CountryCode } from 'libphonenumber-js';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import { useDragAndDrop } from '@/lib/hooks/useDragAndDrop';
 
-const EditProfileView: React.FC = () => {
+
+interface EditProfileViewProps {
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) => {
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
   const [formData, setFormData] = useState<ProfileFormData>(() =>
@@ -39,12 +49,63 @@ const EditProfileView: React.FC = () => {
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>('US');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Drag & Drop functionality
+  const dragAndDrop = useDragAndDrop({ 
+    onDragStateChange,
+    onDrop: (draggedFieldId: string, insertionPoint: any) => {
+
+
+      // Determine target section
+      let targetSection: 'personal' | 'work' | 'hidden' = 'personal';
+      if (insertionPoint.section === 'work') {
+        targetSection = 'work';
+      } else if (insertionPoint.section === 'universal') {
+        targetSection = 'universal' as any; // Keep as universal section
+      }
+
+      // Calculate target index based on what the user sees
+      let targetIndex = 0;
+      
+      if (insertionPoint.type === 'before-edit-background') {
+        // Universal section - move to end of personal section
+        targetIndex = fieldSectionManager.personalFields.length;
+      } else if (insertionPoint.type === 'section-start') {
+        targetIndex = 0;
+      } else if (insertionPoint.type === 'between-fields' && insertionPoint.beforeField) {
+        const currentFields = targetSection === 'personal' 
+          ? fieldSectionManager.personalFields 
+          : fieldSectionManager.workFields;
+        const beforeIndex = currentFields.findIndex(f => f.platform === insertionPoint.beforeField);
+        targetIndex = beforeIndex >= 0 ? beforeIndex : 0;
+      } else if (insertionPoint.type === 'after-fields' && insertionPoint.afterField) {
+        const currentFields = targetSection === 'personal' 
+          ? fieldSectionManager.personalFields 
+          : fieldSectionManager.workFields;
+        const afterIndex = currentFields.findIndex(f => f.platform === insertionPoint.afterField);
+        targetIndex = afterIndex >= 0 ? afterIndex + 1 : currentFields.length;
+      }
+      
+
+      
+      // Let the field section manager handle everything
+      fieldSectionManager.moveField(draggedFieldId, targetSection, targetIndex);
+    }
+  });
+
   const { saveProfileData, isSaving: isSaveHookSaving } = useProfileSave({
     profile: profile || undefined,
     saveProfile,
   });
 
   const isSaving = isProfileSaving || isSaveHookSaving;
+
+  // Field section management hook
+  const fieldSectionManager = useEditProfileFields({
+    initialSocialProfiles: formData.socialProfiles,
+    onSocialProfilesChange: (profiles) => {
+      setFormData(prev => ({ ...prev, socialProfiles: profiles }));
+    }
+  });
 
   useFreezeScrollOnFocus(nameInputRef);
 
@@ -64,7 +125,7 @@ const EditProfileView: React.FC = () => {
     nameInputRef.current?.focus();
   }, []);
 
-  // Handle image upload
+  // Handle profile image upload
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -89,6 +150,31 @@ const EditProfileView: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Handle background image upload
+  const handleBackgroundImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e: ProgressEvent<FileReader>) => {
+      const imageData = e.target?.result as string;
+      setFormData((prev: ProfileFormData) => ({ ...prev, backgroundImage: imageData }));
+      
+      // Call the API to upload the background image
+      try {
+        await fetch('/api/media/background-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData }),
+        });
+      } catch (error) {
+        console.error('Error uploading background image:', error);
+        alert('Failed to upload background image. Please try again.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle social profile input change
   const handleSocialChange = (platform: SocialPlatform, value: string) => {
     setFormData((prev: ProfileFormData) => {
@@ -102,11 +188,15 @@ const EditProfileView: React.FC = () => {
           filled: value.trim() !== ''
         };
       } else {
+        // Determine default section for new profiles
+        const defaultSection = platform === 'linkedin' ? 'work' : 'personal';
         updatedProfiles.push({
           platform,
           username: value,
           shareEnabled: true,
-          filled: value.trim() !== ''
+          filled: value.trim() !== '',
+          section: defaultSection,
+          order: 0
         });
       }
       
@@ -124,7 +214,74 @@ const EditProfileView: React.FC = () => {
   const handleSave = async (): Promise<void> => {
     await saveProfileData(formData, digits, phoneCountry);
   };
+
+    // New Reserved Space component using insertion points
+  const ReservedSpace = () => {
+    if (!dragAndDrop.activeInsertionPoint || !dragAndDrop.isDragging) return null;
+    
+    return (
+      <div 
+        className="mb-5 w-full max-w-[var(--max-content-width,448px)] transition-all duration-200"
+        style={{ 
+          height: '56px' // Match the actual CustomInput height
+        }}
+      />
+    );
+  };
+    
+  // Original field placeholder - shows at the original location when drag mode starts
+  const OriginalFieldPlaceholder = ({ fieldId }: { fieldId: string }) => {
+    if (!dragAndDrop.shouldShowPlaceholder(fieldId)) return null;
+    
+    return (
+      <div 
+        data-draggable="true"
+        data-field-id={fieldId}
+        className="mb-5 w-full max-w-[var(--max-content-width,448px)] transition-all duration-200"
+        style={{ 
+          height: '56px' // Match the actual CustomInput height
+        }}
+        onTouchStart={dragAndDrop.onTouchStart(fieldId)}
+        onTouchMove={dragAndDrop.onTouchMove}
+        onTouchEnd={dragAndDrop.onTouchEnd}
+      />
+    );
+  };
   
+
+
+
+
+  // Universal section insertion point (before Edit Background)
+  const UniversalInsertionPoint = () => {
+    if (!dragAndDrop.activeInsertionPoint || 
+        dragAndDrop.activeInsertionPoint.type !== 'before-edit-background') return null;
+    
+    return <ReservedSpace />;
+  };
+
+  // Section start insertion point
+  const SectionStartInsertionPoint = ({ section }: { section: 'personal' | 'work' }) => {
+    if (!dragAndDrop.activeInsertionPoint || 
+        dragAndDrop.activeInsertionPoint.type !== 'section-start' ||
+        dragAndDrop.activeInsertionPoint.section !== section) return null;
+    
+    return <ReservedSpace />;
+  };
+
+  // Field insertion point (between or after fields)
+  const FieldInsertionPoint = ({ fieldId, position }: { fieldId: string; position: 'before' | 'after' }) => {
+    if (!dragAndDrop.activeInsertionPoint) return null;
+    
+    const isMatch = position === 'before' 
+      ? dragAndDrop.activeInsertionPoint.beforeField === fieldId
+      : dragAndDrop.activeInsertionPoint.afterField === fieldId;
+    
+    if (!isMatch) return null;
+    
+    return <ReservedSpace />;
+  };
+
   return (
     <div 
       className="flex flex-col items-center px-4 py-4 pb-8"
@@ -136,6 +293,8 @@ const EditProfileView: React.FC = () => {
           isSaving={isSaving}
         />
       </div>
+
+
       
       {/* Name Input with Profile Image */}
       <div className="mb-5 w-full max-w-md">
@@ -163,7 +322,6 @@ const EditProfileView: React.FC = () => {
                       const target = e.target as HTMLImageElement;
                       target.onerror = null;
                       target.style.display = 'none';
-                      setFormData((prev: ProfileFormData) => ({ ...prev, picture: '' }));
                     }}
                   />
                 </div>
@@ -214,8 +372,9 @@ const EditProfileView: React.FC = () => {
         />
       </div>
 
-      {/* Social Media Inputs */}
-      {['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'].map((platform) => {
+      {/* Universal Fields (dynamically rendered) */}
+      {fieldSectionManager.universalFields.filter(profile => !['phone', 'email'].includes(profile.platform)).map((profile) => {
+        const platform = profile.platform;
         const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
         const placeholder = 
           platform === 'x' ? 'X username' : 
@@ -224,49 +383,293 @@ const EditProfileView: React.FC = () => {
           `${platformName} username`;
           
         return (
-          <div key={platform} className="mb-5 w-full max-w-[var(--max-content-width,448px)]">
-            <CustomInput
-              type="text"
-              id={platform}
-              value={getSocialProfileValue(platform)}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                handleSocialChange(platform as SocialPlatform, e.target.value);
+          <React.Fragment key={platform}>
+            {/* Original field placeholder */}
+            <OriginalFieldPlaceholder fieldId={platform} />
+            
+            <div 
+              data-draggable="true"
+              data-field-id={platform}
+              className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
+                dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
+                dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
+              }`}
+              onTouchStart={dragAndDrop.onTouchStart(platform)}
+              onTouchMove={dragAndDrop.onTouchMove}
+              onTouchEnd={dragAndDrop.onTouchEnd}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none'
               }}
-              placeholder={placeholder}
-              className="w-full"
-              inputClassName="pl-2 text-base"
-              icon={
-                <div className="w-5 h-5 flex items-center justify-center">
-                  <SocialIcon 
-                    platform={platform as SocialPlatform} 
-                    username={getSocialProfileValue(platform)}
-                    size="sm" 
-                  />
-                </div>
-              }
-              iconClassName="text-gray-600"
-            />
-          </div>
+            >
+              <CustomInput
+                type="text"
+                id={platform}
+                value={getSocialProfileValue(platform)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  handleSocialChange(platform as SocialPlatform, e.target.value);
+                }}
+                placeholder={placeholder}
+                className="w-full"
+                inputClassName="pl-2 text-base"
+                variant="hideable"
+                isHidden={fieldSectionManager.isFieldHidden(platform)}
+                onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                dragState={
+                  !dragAndDrop.isDragMode ? 'normal' : 
+                  dragAndDrop.draggedField === platform ? 'active' : 'draggable'
+                }
+                icon={
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <SocialIcon 
+                      platform={platform as SocialPlatform} 
+                      username={getSocialProfileValue(platform)}
+                      size="sm" 
+                    />
+                  </div>
+                }
+                iconClassName="text-gray-600"
+              />
+            </div>
+          </React.Fragment>
         );
       })}
-      
+
+      {/* Universal insertion point (before Edit Background) */}
+      <UniversalInsertionPoint />
+
       {/* Edit Background */}
-      <div className="mb-6 text-center w-full max-w-[var(--max-content-width,448px)]">
-        <label htmlFor="background-upload" className="text-theme hover:text-theme-dark font-medium cursor-pointer transition-colors">
+      <div className="mb-11 text-center w-full max-w-md">
+        <SecondaryButton 
+          className="cursor-pointer"
+          onClick={() => {
+            backgroundInputRef.current?.click();
+          }}
+        >
           Edit Background
-        </label>
+        </SecondaryButton>
         <input 
+          ref={backgroundInputRef}
           type="file" 
-          id="background-upload" 
           className="hidden"
           accept="image/*"
-          onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) {
-              handleImageUpload(e);
-            }
-          }}
+          onChange={handleBackgroundImageUpload}
         />
       </div>
+
+      {/* Personal Section */}
+      <div className="mb-6 w-full max-w-[var(--max-content-width,448px)]">
+        <FieldSection
+          title="Personal"
+          isEmpty={fieldSectionManager.isPersonalEmpty}
+          emptyText="You have no Personal networks right now. Drag & drop an input field to change that."
+        >
+          {/* Section start insertion point */}
+          <SectionStartInsertionPoint section="personal" />
+          
+          {fieldSectionManager.personalFields.map((profile, index) => {
+            const platform = profile.platform;
+            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+            const placeholder = 
+              platform === 'x' ? 'X username' : 
+              platform === 'wechat' ? 'WeChat ID' :
+              platform === 'whatsapp' ? 'WhatsApp number' :
+              `${platformName} username`;
+              
+            return (
+              <React.Fragment key={platform}>
+                {/* Insertion point before this field */}
+                <FieldInsertionPoint fieldId={platform} position="before" />
+                
+                {/* Original field placeholder */}
+                <OriginalFieldPlaceholder fieldId={platform} />
+                
+                <div 
+                  data-draggable="true"
+                  data-field-id={platform}
+                  className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
+                    dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
+                    dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
+                  }`}
+                  onTouchStart={dragAndDrop.onTouchStart(platform)}
+                  onTouchMove={dragAndDrop.onTouchMove}
+                  onTouchEnd={dragAndDrop.onTouchEnd}
+                  onContextMenu={(e) => e.preventDefault()}
+                  style={{
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none'
+                  }}
+                >
+                  <CustomInput
+                    type="text"
+                    id={platform}
+                    value={getSocialProfileValue(platform)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      handleSocialChange(platform as SocialPlatform, e.target.value);
+                    }}
+                    placeholder={placeholder}
+                    className="w-full"
+                    inputClassName="pl-2 text-base"
+                    variant="hideable"
+                    isHidden={fieldSectionManager.isFieldHidden(platform)}
+                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    dragState={
+                      !dragAndDrop.isDragMode ? 'normal' : 
+                      dragAndDrop.draggedField === platform ? 'active' : 'draggable'
+                    }
+                    icon={
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <SocialIcon 
+                          platform={platform as SocialPlatform} 
+                          username={getSocialProfileValue(platform)}
+                          size="sm" 
+                        />
+                      </div>
+                    }
+                    iconClassName="text-gray-600"
+                  />
+                </div>
+                
+                {/* Insertion point after this field */}
+                <FieldInsertionPoint fieldId={platform} position="after" />
+              </React.Fragment>
+            );
+          })}
+        </FieldSection>
+      </div>
+
+      {/* Work Section */}
+      <div className="mb-6 w-full max-w-[var(--max-content-width,448px)]">
+        <FieldSection
+          title="Work"
+          isEmpty={fieldSectionManager.isWorkEmpty}
+          emptyText="You have no Work networks right now. Drag & drop an input field to change that."
+        >
+          {/* Section start insertion point */}
+          <SectionStartInsertionPoint section="work" />
+          
+          {fieldSectionManager.workFields.map((profile, index) => {
+            const platform = profile.platform;
+            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+            const placeholder = `${platformName} username`;
+              
+            return (
+              <React.Fragment key={platform}>
+                {/* Insertion point before this field */}
+                <FieldInsertionPoint fieldId={platform} position="before" />
+                
+                {/* Original field placeholder */}
+                <OriginalFieldPlaceholder fieldId={platform} />
+                
+                <div 
+                  data-draggable="true"
+                  data-field-id={platform}
+                  className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
+                    dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
+                    dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
+                  }`}
+                  onTouchStart={dragAndDrop.onTouchStart(platform)}
+                  onTouchMove={dragAndDrop.onTouchMove}
+                  onTouchEnd={dragAndDrop.onTouchEnd}
+                  onContextMenu={(e) => e.preventDefault()}
+                  style={{
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none'
+                  }}
+                >
+                  <CustomInput
+                    type="text"
+                    id={platform}
+                    value={getSocialProfileValue(platform)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      handleSocialChange(platform as SocialPlatform, e.target.value);
+                    }}
+                    placeholder={placeholder}
+                    className="w-full"
+                    inputClassName="pl-2 text-base"
+                    variant="hideable"
+                    isHidden={fieldSectionManager.isFieldHidden(platform)}
+                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    dragState={
+                      !dragAndDrop.isDragMode ? 'normal' : 
+                      dragAndDrop.draggedField === platform ? 'active' : 'draggable'
+                    }
+                    icon={
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <SocialIcon 
+                          platform={platform as SocialPlatform} 
+                          username={getSocialProfileValue(platform)}
+                          size="sm" 
+                        />
+                      </div>
+                    }
+                    iconClassName="text-gray-600"
+                  />
+                </div>
+                
+                {/* Insertion point after this field */}
+                <FieldInsertionPoint fieldId={platform} position="after" />
+              </React.Fragment>
+            );
+          })}
+        </FieldSection>
+      </div>
+
+      {/* Hidden Section */}
+      <div className="mb-6 w-full max-w-[var(--max-content-width,448px)]">
+        <FieldSection
+          title="Hidden"
+          isEmpty={fieldSectionManager.isHiddenEmpty}
+          emptyText="You have no Hidden networks right now. Tap the hide icon to change that."
+        >
+          {fieldSectionManager.hiddenFields.map((profile) => {
+            const platform = profile.platform;
+            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+            const placeholder = 
+              platform === 'x' ? 'X username' : 
+              platform === 'wechat' ? 'WeChat ID' :
+              platform === 'whatsapp' ? 'WhatsApp number' :
+              `${platformName} username`;
+              
+            return (
+              <React.Fragment key={platform}>
+                <div className="mb-5 w-full max-w-[var(--max-content-width,448px)]">
+                  <CustomInput
+                    type="text"
+                    id={platform}
+                    value={getSocialProfileValue(platform)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      handleSocialChange(platform as SocialPlatform, e.target.value);
+                    }}
+                    placeholder={placeholder}
+                    className="w-full"
+                    inputClassName="pl-2 text-base"
+                    variant="hideable"
+                    isHidden={fieldSectionManager.isFieldHidden(platform)}
+                    onToggleHide={() => fieldSectionManager.toggleFieldVisibility(platform)}
+                    icon={
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <SocialIcon 
+                          platform={platform as SocialPlatform} 
+                          username={getSocialProfileValue(platform)}
+                          size="sm" 
+                        />
+                      </div>
+                    }
+                    iconClassName="text-gray-600"
+                  />
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </FieldSection>
+      </div>
+      
+
       
 
     </div>

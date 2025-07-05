@@ -24,6 +24,7 @@ if (!process.env.NEXTAUTH_URL) {
 declare module "next-auth" {
   interface Session extends DefaultSession {
     accessToken?: string;
+    firebaseToken?: string;
     profile?: {
       contactChannels: {
         phoneInfo: {
@@ -67,6 +68,7 @@ declare module "next-auth/jwt" {
     isNewUser?: boolean;
     profileImage?: string | null;
     backgroundImage?: string | null;
+    firebaseToken?: string;
   }
 }
 

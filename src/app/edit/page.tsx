@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import dynamicImport from 'next/dynamic';
 import { useProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -21,6 +21,7 @@ const EditProfileView = dynamicImport(() => import('../components/views/EditProf
 
 export default function EditPage() {
   const { profile } = useProfile();
+  const [isDragMode, setIsDragMode] = useState(false);
   
   const handleRefresh = async () => {
     // Reload the page to refresh all data
@@ -28,13 +29,13 @@ export default function EditPage() {
   };
   
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
+    <PullToRefresh onRefresh={handleRefresh} disabled={isDragMode}>
       <Suspense fallback={
         <div className="flex h-screen items-center justify-center">
           <LoadingSpinner size="sm" />
         </div>
       }>
-        <EditProfileView />
+        <EditProfileView onDragStateChange={setIsDragMode} />
       </Suspense>
     </PullToRefresh>
   );

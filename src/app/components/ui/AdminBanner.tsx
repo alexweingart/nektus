@@ -5,6 +5,7 @@ import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { Button } from './Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
+import { firebaseAuth } from '@/lib/firebase/auth';
 
 // The admin mode banner component
 export default function AdminBanner() {
@@ -115,6 +116,22 @@ export default function AdminBanner() {
         console.log('Storage cleared');
       } catch (err) {
         console.error('Error clearing storage:', err);
+      }
+
+      // Clear Firebase Auth state
+      try {
+        if (firebaseAuth.isAuthenticated()) {
+          console.log('Clearing Firebase Auth state...');
+          await firebaseAuth.signOut();
+          console.log('Firebase Auth state cleared');
+        } else {
+          console.log('Firebase Auth not authenticated, clearing state anyway...');
+          firebaseAuth.clearAuthState();
+        }
+      } catch (err) {
+        console.error('Error clearing Firebase Auth state:', err);
+        // Force clear the state even if sign out fails
+        firebaseAuth.clearAuthState();
       }
       
       // Clear IndexedDB databases with timeout protection (non-blocking)

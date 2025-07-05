@@ -1,67 +1,15 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    function isValidProfile() {
-      return request.resource.data.diff(resource ? resource.data : {}).affectedKeys()
-        .hasOnly(['name', 'bio', 'profileImage', 'backgroundImage', 'lastUpdated', 'contactChannels']);
-    }
-    
-    function hasRequiredFields() {
-      return 'userId' in request.resource.data
-        && 'name' in request.resource.data
-        && 'lastUpdated' in request.resource.data
-        && 'contactChannels' in request.resource.data;
-    }
-    
-    function isNewer() {
-      return (!resource || 
-              !('lastUpdated' in resource.data) || 
-              request.resource.data.lastUpdated > resource.data.lastUpdated)
-        && request.resource.data.lastUpdated <= request.time.toMillis();
-    }
-    
-    // Profile collection rules
+    // Each user can only read and write their own profile document
     match /profiles/{userId} {
-      // Public read access to profiles
-      allow read: if true;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Allow create only if all required fields are present and user owns the document
-      allow create: if 
-        isOwner(userId)
-        && hasRequiredFields()
-        && request.resource.data.userId == userId
-        && request.resource.data.lastUpdated is number
-        && isNewer();
-      
-      // Allow update only if user owns the document and data is valid
-      allow update: if
-        isOwner(userId)
-        && request.resource.data.userId == userId
-        && isNewer()
-        && isValidProfile();
-      
-      // Allow delete only if user owns the document
-      allow delete: if isOwner(userId);
-      
-      // Nested contactChannels validation
-      match /contactChannels/{channelId} {
-        allow read: if true;
-        allow write: if isOwner(userId);
+      // Users can only read and write their own contacts subcollection
+      match /contacts/{contactId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
-    }
-    
-    // Deny all other operations by default
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }

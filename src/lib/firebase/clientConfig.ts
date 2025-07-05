@@ -46,13 +46,18 @@ if (isClient) {
       auth = getAuth(app);
       
       // Initialize Firestore with persistence
-      const firestoreSettings: FirestoreSettings = {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        }),
-      };
-      
-      db = initializeFirestore(app, firestoreSettings);
+      try {
+        const firestoreSettings: FirestoreSettings = {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+          }),
+        };
+        
+        db = initializeFirestore(app, firestoreSettings);
+      } catch (firestoreError) {
+        console.warn('Failed to initialize Firestore with persistence, falling back to default:', firestoreError);
+        db = getFirestore(app);
+      }
       
       // Initialize Storage
       storage = getStorage(app);
@@ -65,6 +70,11 @@ if (isClient) {
     }
   } catch (error) {
     console.error('Firebase initialization error:', error);
+    // Don't let Firebase initialization errors break the entire app
+    app = undefined;
+    db = undefined;
+    auth = undefined;
+    storage = undefined;
   }
 }
 

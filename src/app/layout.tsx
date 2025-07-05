@@ -64,10 +64,7 @@ export default async function RootLayout({
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
           backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-          transition: 'background-image 0.3s ease-in-out',
-          height: '100%',
-          minHeight: '100%'
+          transition: 'background-image 0.3s ease-in-out'
         }}
       >
       <head>
@@ -84,16 +81,7 @@ export default async function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
       </head>
-      <body 
-        className={`${inter.variable} antialiased`}
-        style={{
-          minHeight: '100dvh',
-          height: '100%',
-          // Prevent overscroll bounce to stop black area from showing
-          overscrollBehaviorY: 'none',
-          overscrollBehaviorX: 'contain'
-        }}
-      >
+      <body className={`${inter.variable} antialiased`}>
         <SessionProvider session={session}>
           <ProfileProvider>
             <AdminModeProvider>
