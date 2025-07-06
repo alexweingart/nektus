@@ -181,6 +181,21 @@ const ProfileView: React.FC = () => {
       }
     : {};
 
+  // Debug logging for production issues
+  useEffect(() => {
+    if (currentProfile?.backgroundImage) {
+      console.log('[ProfileView] Background image URL:', currentProfile.backgroundImage);
+      console.log('[ProfileView] Environment:', process.env.NODE_ENV);
+      console.log('[ProfileView] User agent:', navigator.userAgent);
+      
+      // Test if the image loads
+      const img = new Image();
+      img.onload = () => console.log('[ProfileView] Background image loaded successfully');
+      img.onerror = (e) => console.error('[ProfileView] Background image failed to load:', e);
+      img.src = currentProfile.backgroundImage;
+    }
+  }, [currentProfile?.backgroundImage]);
+
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
     const bgUrl = currentProfile?.backgroundImage;

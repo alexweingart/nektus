@@ -329,12 +329,13 @@ export async function uploadImageBuffer(
         },
       });
       
-      const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: '03-09-2491',
-      });
+      // Make the file publicly readable
+      await file.makePublic();
       
-      return url;
+      // Return the public URL instead of signed URL
+      const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+      
+      return publicUrl;
     },
     `uploadImageBuffer(${userId}, ${imageType})`,
     3
