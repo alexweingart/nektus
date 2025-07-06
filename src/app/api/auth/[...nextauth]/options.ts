@@ -1,6 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User } from "next-auth";
-import { getFirebaseAdmin } from "@/lib/firebase/adminConfig";
+import { getFirebaseAdmin, createCustomTokenWithCorrectSub } from "@/lib/firebase/adminConfig";
 
 // Helper to get environment variables with better error handling
 const getEnv = (key: string): string => {
@@ -69,6 +69,7 @@ declare module "next-auth/jwt" {
     profileImage?: string | null;
     backgroundImage?: string | null;
     firebaseToken?: string;
+    firebaseTokenCreatedAt?: number;
   }
 }
 
@@ -128,23 +129,50 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user, trigger, session }): Promise<any> {
       // Initial sign in
       if (account?.id_token) {
+        // Ensure we have the user ID in the token FIRST
+        if (user?.id) {
+          token.sub = user.id;
+        }
+        
         // Generate Firebase custom token for client authentication
-        if (token.sub) {
+        // Use user.id directly to ensure we have the correct user ID
+        const userId = user?.id || token.sub;
+        if (userId) {
           try {
-            const { auth } = await getFirebaseAdmin();
-            const firebaseToken = await auth.createCustomToken(token.sub);
+            const firebaseToken = await createCustomTokenWithCorrectSub(userId);
             token.firebaseToken = firebaseToken;
+            token.firebaseTokenCreatedAt = Date.now();
           } catch (error) {
             console.error('Failed to create Firebase custom token:', error);
           }
         }
+      }
+      
+      // Check if Firebase token needs refresh (every 50 minutes to be safe)
+      const userId = token.sub;
+      if (userId && token.firebaseTokenCreatedAt) {
+        const tokenAge = Date.now() - token.firebaseTokenCreatedAt;
+        const fiftyMinutes = 50 * 60 * 1000; // 50 minutes in milliseconds
         
-        // Server-side Firebase check to determine if user is truly new or existing
-        // This happens once during authentication - result cached in JWT
-        if (token.sub) {
+        if (tokenAge > fiftyMinutes) {
+          try {
+            const newFirebaseToken = await createCustomTokenWithCorrectSub(userId);
+            token.firebaseToken = newFirebaseToken;
+            token.firebaseTokenCreatedAt = Date.now();
+          } catch (error) {
+            console.error('Failed to refresh Firebase custom token:', error);
+          }
+        }
+      }
+        
+      // Server-side Firebase check to determine if user is truly new or existing
+      // This happens once during authentication - result cached in JWT
+      if (account?.id_token) {
+        const userId = user?.id || token.sub;
+        if (userId) {
           try {
             const { db } = await getFirebaseAdmin();
-            const profileDoc = await db.collection('profiles').doc(token.sub).get();
+            const profileDoc = await db.collection('profiles').doc(userId).get();
             if (profileDoc.exists) {
               const profileData = profileDoc.data();
               // Store phone info in token if it exists in Firebase
@@ -176,10 +204,6 @@ export const authOptions: NextAuthOptions = {
         // --- Persist Google access_token for revocation ---
         if (account?.provider === 'google' && account?.access_token) {
           token.accessToken = account.access_token;
-        }
-        // Ensure we have the user ID in the token
-        if (user?.id) {
-          token.sub = user.id;
         }
       }
       // Define empty profile structure

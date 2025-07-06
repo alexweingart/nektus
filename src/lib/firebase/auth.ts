@@ -1,33 +1,34 @@
-import { getAuth, signInWithCustomToken, User, onAuthStateChanged } from 'firebase/auth';
-import { app } from './clientConfig';
+import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from './clientConfig';
 
 /**
  * Firebase Auth service for handling custom token authentication
  */
 export class FirebaseAuthService {
   private static instance: FirebaseAuthService;
-  private auth: ReturnType<typeof getAuth> | null = null;
+  private auth;
   private currentUser: User | null = null;
-  private authStateReady = false;
+  private unsubscribeAuth: (() => void) | null = null;
 
-  private constructor() {
-    this.initializeAuth();
+  constructor() {
+    this.auth = auth;
+    this.setupAuthListener();
   }
 
-  private initializeAuth() {
-    if (typeof window !== 'undefined' && app) {
-      this.auth = getAuth(app);
-      // Monitor auth state changes
-      onAuthStateChanged(this.auth, (user) => {
-        this.currentUser = user;
-        this.authStateReady = true;
-        if (user) {
-          console.log('[FirebaseAuth] User signed in:', user.uid);
-        } else {
-          console.log('[FirebaseAuth] User signed out');
-        }
-      });
+  private setupAuthListener() {
+    if (!this.auth) {
+      console.error('[FirebaseAuth] Auth not initialized');
+      return;
     }
+
+    this.unsubscribeAuth = onAuthStateChanged(this.auth, (user) => {
+      this.currentUser = user;
+      if (user) {
+        // User signed in
+      } else {
+        // User signed out
+      }
+    });
   }
 
   public static getInstance(): FirebaseAuthService {
@@ -38,28 +39,7 @@ export class FirebaseAuthService {
   }
 
   /**
-   * Sign in with a custom Firebase token
-   */
-  async signInWithCustomToken(token: string): Promise<User | null> {
-    if (!this.auth) {
-      console.error('[FirebaseAuth] Auth not initialized');
-      return null;
-    }
-    
-    try {
-      console.log('[FirebaseAuth] Signing in with custom token...');
-      const userCredential = await signInWithCustomToken(this.auth, token);
-      this.currentUser = userCredential.user;
-      console.log('[FirebaseAuth] Successfully signed in:', this.currentUser.uid);
-      return this.currentUser;
-    } catch (error) {
-      console.error('[FirebaseAuth] Failed to sign in with custom token:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get the current authenticated user
+   * Get the current user
    */
   getCurrentUser(): User | null {
     return this.currentUser;
@@ -73,17 +53,49 @@ export class FirebaseAuthService {
   }
 
   /**
-   * Wait for auth state to be ready
+   * Sign in with a custom Firebase token
    */
-  async waitForAuthState(): Promise<void> {
-    if (this.authStateReady || !this.auth) return;
-
-    return new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(this.auth!, () => {
-        unsubscribe();
-        resolve();
-      });
-    });
+  async signInWithCustomToken(token: string): Promise<User | null> {
+    if (!this.auth) {
+      console.error('[FirebaseAuth] Auth not initialized');
+      return null;
+    }
+    
+    try {
+      const userCredential = await signInWithCustomToken(this.auth, token);
+      this.currentUser = userCredential.user;
+      return this.currentUser;
+    } catch (error: any) {
+      // Check if it's an invalid/expired token error
+      if (error?.code === 'auth/invalid-custom-token' || 
+          error?.code === 'auth/custom-token-mismatch' ||
+          error?.message?.includes('invalid') ||
+          error?.message?.includes('expired')) {
+        
+        try {
+          // Try to refresh the token
+          const refreshResponse = await fetch('/api/auth/refresh-firebase-token', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            if (refreshData.success && refreshData.firebaseToken) {
+              // Retry with the new token
+              const retryCredential = await signInWithCustomToken(this.auth, refreshData.firebaseToken);
+              this.currentUser = retryCredential.user;
+              return this.currentUser;
+            }
+          }
+        } catch (refreshError) {
+          console.error('[FirebaseAuth] Token refresh failed:', refreshError);
+        }
+      }
+      
+      console.error('[FirebaseAuth] Failed to sign in with custom token:', error);
+      return null;
+    }
   }
 
   /**
@@ -94,25 +106,41 @@ export class FirebaseAuthService {
       console.error('[FirebaseAuth] Auth not initialized');
       return;
     }
-    
+
     try {
-      await this.auth.signOut();
+      await signOut(this.auth);
       this.currentUser = null;
-      console.log('[FirebaseAuth] User signed out');
     } catch (error) {
       console.error('[FirebaseAuth] Failed to sign out:', error);
-      // Clear local state even if sign out fails
-      this.currentUser = null;
+      throw error;
     }
   }
 
   /**
-   * Clear all auth state (useful for debugging)
+   * Get the current user's ID token
    */
-  clearAuthState(): void {
+  async getIdToken(forceRefresh: boolean = false): Promise<string | null> {
+    if (!this.currentUser) {
+      return null;
+    }
+
+    try {
+      return await this.currentUser.getIdToken(forceRefresh);
+    } catch (error) {
+      console.error('[FirebaseAuth] Failed to get ID token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clean up the auth listener
+   */
+  cleanup(): void {
+    if (this.unsubscribeAuth) {
+      this.unsubscribeAuth();
+      this.unsubscribeAuth = null;
+    }
     this.currentUser = null;
-    this.authStateReady = false;
-    console.log('[FirebaseAuth] Auth state cleared');
   }
 }
 

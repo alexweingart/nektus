@@ -331,10 +331,27 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     return <ReservedSpace />;
   };
 
+  // Background style for EditProfileView
+  const backgroundStyle: React.CSSProperties = profile?.backgroundImage
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: `url(${profile.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        zIndex: -1,
+      }
+    : {};
+
   return (
     <div 
       className="flex flex-col items-center px-4 py-4 pb-8"
-    >
+          >
+        {profile?.backgroundImage && <div style={backgroundStyle} />}
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 
           onBack={() => router.back()}

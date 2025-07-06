@@ -99,11 +99,6 @@ export function getOpenAIClient(): CustomOpenAI {
     // Custom implementation for images API
     images: {
       generate: async (params: ImageGenerationParams): Promise<ImageGenerationResponse> => {
-        console.log('[OpenAI Client] Image generation request:', {
-          model: params.model || 'gpt-image-1',
-          size: params.size || '1024x1024'
-        });
-        
         try {
           // Just use the standard client directly without trying to extend it
           const finalParams = {
@@ -113,9 +108,7 @@ export function getOpenAIClient(): CustomOpenAI {
           };
           
           // Make the API call
-          console.log('[OpenAI Client] Calling OpenAI images API');
           const response = await standardClient.images.generate(finalParams as any);
-          console.log('[OpenAI Client] Response received from OpenAI');
           
           // Return our simplified format
           return {
@@ -131,7 +124,6 @@ export function getOpenAIClient(): CustomOpenAI {
     // Custom implementation for responses API (using fetch)
     responses: {
       create: async (params: ResponseCreateParams): Promise<ResponseOutput> => {
-        console.log('[OpenAI Client] Calling responses API with model:', params.model);
         try {
           // Use fetch directly for the responses API
           const response = await fetch('https://api.openai.com/v1/responses', {

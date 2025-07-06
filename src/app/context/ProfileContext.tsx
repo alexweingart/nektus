@@ -69,13 +69,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         loadingRef.current = true;
         setIsLoading(true);
         
-        // Add Android-specific debugging
+        // Detect Android for enhanced session sync
         const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
-        if (isAndroid) {
-          console.log('[ProfileContext] 🤖 Android detected - Enhanced debugging enabled');
-          console.log('[ProfileContext] Session profile phone:', session?.profile?.contactChannels?.phoneInfo?.internationalPhone);
-          console.log('[ProfileContext] User ID:', session.user.id);
-        }
         
         try {
           // Sign in to Firebase Auth using the custom token from NextAuth
@@ -89,21 +84,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
             } catch (authError) {
               console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
-              // Force clear any problematic state
-              try {
-                firebaseAuth.clearAuthState();
-              } catch (clearError) {
-                console.error('[ProfileContext] Error clearing auth state:', clearError);
-              }
+              // Continue without Firebase Auth - the app should still work
               // Continue without Firebase Auth - the app should still work
             }
           }
           
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
-            if (isAndroid) {
-              console.log('[ProfileContext] 🤖 Android - Loaded existing profile with phone:', existingProfile.contactChannels?.phoneInfo?.internationalPhone);
-            }
             setProfile(existingProfile);
             
             // Android-specific: Ensure session is synced with loaded profile
@@ -112,10 +99,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               const profilePhone = existingProfile.contactChannels.phoneInfo.internationalPhone;
               
               if (sessionPhone !== profilePhone) {
-                console.log('[ProfileContext] 🤖 Android - Session/profile phone mismatch, updating session');
-                console.log('[ProfileContext] Session phone:', sessionPhone);
-                console.log('[ProfileContext] Profile phone:', profilePhone);
-                
                 // Force session update to sync with Firebase data
                 try {
                   if (update) {
@@ -130,10 +113,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                         }
                       }
                     });
-                    console.log('[ProfileContext] 🤖 Android - Session updated successfully');
                   }
                 } catch (error) {
-                  console.error('[ProfileContext] 🤖 Android - Failed to update session:', error);
+                  console.error('[ProfileContext] Failed to update session:', error);
                 }
               }
             }
@@ -216,9 +198,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               console.log('[ProfileContext] All assets exist, skipping generation');
             }
           } else {
-            if (isAndroid) {
-              console.log('[ProfileContext] 🤖 Android - Creating new profile');
-            }
             const newProfile = createDefaultProfile(session);
             setProfile(newProfile);
             
@@ -235,9 +214,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error('[ProfileContext] Failed to load or create profile:', error);
-          if (isAndroid) {
-            console.error('[ProfileContext] 🤖 Android - Profile loading error:', error);
-          }
           // Optionally handle fallback to a default profile without saving
         } finally {
           setIsLoading(false);
@@ -556,14 +532,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    // Android-specific debugging
+    // Detect Android for enhanced session sync
     const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
-    if (isAndroid && data.contactChannels?.phoneInfo) {
-      console.log('[ProfileContext] 🤖 Android - Saving profile with phone data:');
-      console.log('[ProfileContext] 🤖 Phone data:', data.contactChannels.phoneInfo);
-      console.log('[ProfileContext] 🤖 Options:', options);
-      console.log('[ProfileContext] 🤖 Current session phone:', session?.profile?.contactChannels?.phoneInfo?.internationalPhone);
-    }
 
     // Wait for any ongoing save operations to complete, with timeout
     const maxWaitTime = 30000; // 30 seconds max wait
@@ -587,10 +557,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       data.contactChannels.phoneInfo.internationalPhone.trim() !== '';
     
     // Save operation starting
-    if (isAndroid && wasFormSubmission) {
-      console.log('[ProfileContext] 🤖 Android - This is a form submission with phone data');
-    }
-    
     if (wasFormSubmission) {
       setIsSaving(true);
     }
@@ -662,17 +628,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // Save to Firebase
       try {
-        if (isAndroid) {
-          console.log('[ProfileContext] 🤖 Android - About to save to Firebase');
-          console.log('[ProfileContext] 🤖 Merged profile phone:', merged.contactChannels?.phoneInfo?.internationalPhone);
-          console.log('[ProfileContext] 🤖 All fields being saved:', Object.keys(merged));
-          console.log('[ProfileContext] 🤖 Full merged profile:', JSON.stringify(merged, null, 2));
-        }
         await ProfileService.saveProfile(merged);
-        
-        if (isAndroid) {
-          console.log('[ProfileContext] 🤖 Android - Firebase save completed successfully');
-        }
         
         // Update the ref with the latest saved data
         profileRef.current = merged;
@@ -694,13 +650,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const currentSessionBg = session?.user?.backgroundImage;
         const newBg = merged.backgroundImage;
 
-        if (isAndroid) {
-          console.log('[ProfileContext] 🤖 Android - Session update check:');
-          console.log('[ProfileContext] 🤖 Should update session:', shouldUpdateSession);
-          console.log('[ProfileContext] 🤖 Current session phone:', currentSessionPhone);
-          console.log('[ProfileContext] 🤖 New phone:', newPhone);
-          console.log('[ProfileContext] 🤖 Was form submission:', wasFormSubmission);
-        }
+
 
         // Build session update payload
         let sessionUpdateData: any = {};
@@ -726,9 +676,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         // Perform session update if we have data to send
         if (Object.keys(sessionUpdateData).length && update) {
           try {
-            if (isAndroid) {
-              console.log('[ProfileContext] 🤖 Android - Updating session with data:', sessionUpdateData);
-            }
             // Cast to any to allow optional options param not present in older typings
             const sessionUpdatePromise = (update as any)(sessionUpdateData, { broadcast: false });
             const timeoutPromise = new Promise((_, reject) =>
@@ -736,18 +683,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             );
             await Promise.race([sessionUpdatePromise, timeoutPromise]);
             console.log('[ProfileContext] Session updated successfully');
-            if (isAndroid) {
-              console.log('[ProfileContext] 🤖 Android - Session updated successfully');
-            }
           } catch (error) {
             console.error('[ProfileContext] Error updating session:', error);
-            if (isAndroid) {
-              console.error('[ProfileContext] 🤖 Android - Session update failed:', error);
-            }
             // Non-fatal
           }
-        } else if (isAndroid) {
-          console.log('[ProfileContext] 🤖 Android - No session update needed');
         }
       } catch (error) {
         console.warn('[ProfileContext] Could not save to Firebase:', error);

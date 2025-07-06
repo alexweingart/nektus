@@ -62,12 +62,6 @@ interface UseEditProfileFieldsReturn {
   toggleFieldVisibility: (platform: string) => void;
   moveField: (platform: string, toSection: FieldSection, toIndex?: number) => void;
   
-  // Drag and drop
-  isDragMode: boolean;
-  draggedField: string | null;
-  startDrag: (platform: string) => void;
-  endDrag: () => void;
-  
   // Get field data
   getFieldData: (platform: string) => SocialProfileFormEntry | undefined;
   isFieldHidden: (platform: string) => boolean;
@@ -102,10 +96,6 @@ export const useEditProfileFields = ({
     const newProfiles = initializeProfiles(initialSocialProfiles);
     setProfiles(newProfiles);
   }, [initialSocialProfiles, initializeProfiles]);
-
-  // Drag and drop state
-  const [isDragMode, setIsDragMode] = useState(false);
-  const [draggedField, setDraggedField] = useState<string | null>(null);
 
   // Update parent when profiles change
   const updateProfiles = useCallback((newProfiles: SocialProfileFormEntry[]) => {
@@ -191,17 +181,6 @@ export const useEditProfileFields = ({
     updateProfiles(updatedProfiles);
   }, [profiles, updateProfiles]);
 
-  // Drag operations
-  const startDrag = useCallback((platform: string) => {
-    setIsDragMode(true);
-    setDraggedField(platform);
-  }, []);
-
-  const endDrag = useCallback(() => {
-    setIsDragMode(false);
-    setDraggedField(null);
-  }, []);
-
   // Get field data
   const getFieldData = useCallback((platform: string) => {
     return profiles.find(profile => profile.platform === platform);
@@ -228,12 +207,6 @@ export const useEditProfileFields = ({
     // Field actions
     toggleFieldVisibility,
     moveField,
-    
-    // Drag and drop
-    isDragMode,
-    draggedField,
-    startDrag,
-    endDrag,
     
     // Get field data
     getFieldData,

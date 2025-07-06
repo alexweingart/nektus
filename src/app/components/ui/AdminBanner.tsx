@@ -9,7 +9,7 @@ import { firebaseAuth } from '@/lib/firebase/auth';
 
 // The admin mode banner component
 export default function AdminBanner() {
-  const { closeAdminMode } = useAdminMode();
+  const { isAdminMode, closeAdminMode } = useAdminMode();
   const { data: session, update } = useSession();
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
@@ -126,12 +126,12 @@ export default function AdminBanner() {
           console.log('Firebase Auth state cleared');
         } else {
           console.log('Firebase Auth not authenticated, clearing state anyway...');
-          firebaseAuth.clearAuthState();
+          firebaseAuth.cleanup();
         }
       } catch (err) {
         console.error('Error clearing Firebase Auth state:', err);
         // Force clear the state even if sign out fails
-        firebaseAuth.clearAuthState();
+        firebaseAuth.cleanup();
       }
       
       // Clear IndexedDB databases with timeout protection (non-blocking)
@@ -229,6 +229,10 @@ export default function AdminBanner() {
       setDeleteStatus('error');
     }
   }, [session, closeAdminMode]);
+
+  if (!isAdminMode) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-4 z-50">

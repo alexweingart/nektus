@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -144,6 +144,43 @@ const ProfileView: React.FC = () => {
     return socialChannels.some(channel => channel && !channel.userConfirmed);
   }, [contactChannels]);
 
+  // Track background image transitions (from no background to having background)
+  const previousBackgroundImage = useRef<string | null>(null);
+  const [shouldAnimateBackground, setShouldAnimateBackground] = useState(false);
+
+  useEffect(() => {
+    const currentBg = currentProfile?.backgroundImage;
+    const previousBg = previousBackgroundImage.current;
+    
+    // Animate only when transitioning from no background to having a background
+    if (!previousBg && currentBg) {
+      setShouldAnimateBackground(true);
+    } else {
+      setShouldAnimateBackground(false);
+    }
+    
+    // Update ref for next comparison
+    previousBackgroundImage.current = currentBg || null;
+  }, [currentProfile?.backgroundImage]);
+
+  // Background style for ProfileView with animation on first appearance
+  const backgroundStyle: React.CSSProperties = currentProfile?.backgroundImage
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: `url(${currentProfile.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        zIndex: -1,
+        opacity: shouldAnimateBackground ? 0 : 1,
+        animation: shouldAnimateBackground ? 'fadeInBackground 0.8s ease-in-out forwards' : 'none',
+      }
+    : {};
+
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
     const bgUrl = currentProfile?.backgroundImage;
@@ -209,6 +246,7 @@ const ProfileView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-2">
+      {currentProfile?.backgroundImage && <div style={backgroundStyle} />}
       {/* Top Navigation Buttons - Fixed */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
         <Button 

@@ -6,7 +6,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
-import ClientComponents from './providers/ClientComponents';
+import AdminBanner from './components/ui/AdminBanner';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -84,7 +84,7 @@ export default async function RootLayout({
         <SessionProvider session={session}>
           <ProfileProvider>
             <AdminModeProvider>
-              <ClientComponents />
+              <AdminBanner />
               {children}
             </AdminModeProvider>
           </ProfileProvider>

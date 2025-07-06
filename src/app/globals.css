@@ -359,6 +359,11 @@ select {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  @keyframes fadeInBackground {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
   
   /* Google sign-in button with no shadow */
   .google-signin-button {

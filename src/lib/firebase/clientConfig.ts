@@ -68,6 +68,8 @@ if (isClient) {
       db = getFirestore(app);
       storage = getStorage(app);
     }
+    
+
   } catch (error) {
     console.error('Firebase initialization error:', error);
     // Don't let Firebase initialization errors break the entire app
@@ -114,4 +116,4 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
 };
 
 // Export initialized instances  
-export { app, db, storage };
+export { app, db, auth, storage };
