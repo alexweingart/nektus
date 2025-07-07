@@ -134,7 +134,7 @@ function ProfileSetupView() {
                   variant="theme"
                   size="lg"
                   className="w-full font-medium"
-                  disabled={isProfileSaving}
+                  disabled={isProfileSaving || (digits.replace(/\D/g, '').length < 10)}
                   aria-busy={isProfileSaving}
                   onClick={handleSave}
                 >

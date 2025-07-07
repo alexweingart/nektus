@@ -7,6 +7,7 @@ export interface ContactExchangeRequest {
   vector?: string;   // SHA-256 hash of acceleration vector
   session: string;   // WebSocket session ID
   tSent?: number;    // Performance timing when request was sent (for diagnostics)
+  sharingCategory?: 'All' | 'Personal' | 'Work'; // Selected sharing category
 }
 
 export interface ContactExchangeMatch {

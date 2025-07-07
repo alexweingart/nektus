@@ -127,14 +127,16 @@ export async function POST(request: NextRequest) {
       magnitude: exchangeRequest.mag,
       vector: exchangeRequest.vector,
       rtt: exchangeRequest.rtt,
-      ipBlock
+      ipBlock,
+      sharingCategory: exchangeRequest.sharingCategory || 'All' // Store the selected sharing category
     };
 
     console.log(`Exchange hit from ${session.user.email} (${exchangeRequest.session}):`, {
       timestamp: exchangeRequest.ts,
       magnitude: exchangeRequest.mag,
       ipBlock,
-      hasVector: !!exchangeRequest.vector
+      hasVector: !!exchangeRequest.vector,
+      sharingCategory: exchangeData.sharingCategory
     });
 
     // Look for matching exchange using improved time-based + broad geo matching
@@ -158,15 +160,17 @@ export async function POST(request: NextRequest) {
       const exchangeToken = generateExchangeToken();
       console.log(`🔑 Generated exchange token: ${exchangeToken}`);
       
-      // Store the match in Redis
+      // Store the match in Redis with both users' sharing categories
       await storeExchangeMatch(
         exchangeToken,
         exchangeRequest.session,
         matchedSessionId,
         session.user.id, // Use user ID instead of email
-        matchData.userId
+        matchData.userId,
+        exchangeData.sharingCategory, // Current user's sharing category
+        matchData.sharingCategory || 'All' // Matched user's sharing category
       );
-      console.log(`💾 Stored exchange match in Redis`);
+      console.log(`💾 Stored exchange match in Redis with sharing categories`);
       
       // Note: Clients will discover the match via polling instead of SSE
       console.log(`🎉 Match created - clients will discover via polling`);
@@ -205,13 +209,15 @@ export async function POST(request: NextRequest) {
         const exchangeToken = generateExchangeToken();
         console.log(`🔑 Generated exchange token: ${exchangeToken}`);
         
-        // Store the match in Redis
+        // Store the match in Redis with both users' sharing categories
         await storeExchangeMatch(
           exchangeToken,
           exchangeRequest.session,
           secondMatchResult.sessionId,
           session.user.id, // Use user ID instead of email
-          secondMatchResult.matchData.userId
+          secondMatchResult.matchData.userId,
+          exchangeData.sharingCategory, // Current user's sharing category
+          secondMatchResult.matchData.sharingCategory || 'All' // Matched user's sharing category
         );
         
         // Note: Clients will discover the match via polling instead of SSE

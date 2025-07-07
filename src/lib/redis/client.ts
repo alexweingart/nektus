@@ -217,7 +217,9 @@ export async function storeExchangeMatch(
   sessionA: string,
   sessionB: string,
   userA: any,
-  userB: any
+  userB: any,
+  sharingCategoryA?: string,
+  sharingCategoryB?: string
 ): Promise<void> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for storing exchange matches');
@@ -229,7 +231,9 @@ export async function storeExchangeMatch(
     userA,
     userB,
     timestamp: Date.now(),
-    status: 'pending'
+    status: 'pending',
+    sharingCategoryA: sharingCategoryA || 'All',
+    sharingCategoryB: sharingCategoryB || 'All'
   };
 
   // Store by token
@@ -246,7 +250,7 @@ export async function storeExchangeMatch(
     youAre: 'B'
   }));
 
-  console.log(`💾 Stored exchange match ${token}`);
+  console.log(`💾 Stored exchange match ${token} with sharing categories A:${sharingCategoryA} B:${sharingCategoryB}`);
 }
 
 /**

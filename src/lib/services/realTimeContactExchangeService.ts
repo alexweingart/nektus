@@ -46,9 +46,12 @@ export class RealTimeContactExchangeService {
   /**
    * Start the contact exchange process with polling
    */
-  async startExchange(permissionAlreadyGranted: boolean = false): Promise<void> {
+  async startExchange(
+    permissionAlreadyGranted: boolean = false, 
+    sharingCategory: 'All' | 'Personal' | 'Work' = 'All'
+  ): Promise<void> {
     try {
-      console.log('🚀 Starting exchange process...');
+      console.log(`🚀 Starting exchange process with sharing category: ${sharingCategory}`);
       
       // Initialize clock sync first thing
       if (!isClockSyncInitialized()) {
@@ -64,7 +67,7 @@ export class RealTimeContactExchangeService {
       }
       
       // Log to server for debugging
-      await this.logToServer('exchange_start', `Exchange started, permission already granted: ${permissionAlreadyGranted}`);
+      await this.logToServer('exchange_start', `Exchange started with category: ${sharingCategory}, permission already granted: ${permissionAlreadyGranted}`);
       
       this.updateState({ status: 'requesting-permission', sessionId: this.sessionId });
 
@@ -104,7 +107,7 @@ export class RealTimeContactExchangeService {
       }, 30000); // 30 seconds
       
       // Start the motion detection loop
-      await this.waitForBump(true);
+      await this.waitForBump(true, sharingCategory);
 
     } catch (error) {
       console.error('Exchange failed:', error);
@@ -326,7 +329,7 @@ export class RealTimeContactExchangeService {
     }
   }
 
-  private async waitForBump(hasPermission: boolean): Promise<void> {
+  private async waitForBump(hasPermission: boolean, sharingCategory: 'All' | 'Personal' | 'Work'): Promise<void> {
     while (true) { // Keep waiting for motion until user cancels or motion is detected
       try {
         console.log('🔍 Starting motion detection... (no server hit until motion detected)');
@@ -354,6 +357,7 @@ export class RealTimeContactExchangeService {
           ts: motionResult.timestamp || getServerNow(), // Use motion detection timestamp (already synchronized)
           mag: motionResult.magnitude,
           session: this.sessionId,
+          sharingCategory: sharingCategory, // Include selected sharing category
           // Add diagnostic timing fields (for performance analysis)
           tSent: tSent // When we're sending the request
         };

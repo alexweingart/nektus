@@ -12,10 +12,11 @@ import { getProfile } from '@/lib/firebase/adminConfig';
 import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { getExchangeMatch } from '@/lib/redis/client';
+import { filterProfileByCategory } from '@/lib/utils/profileFiltering';
 
 /**
  * GET /api/exchange/pair/[token]
- * Fetch the profile preview for a matched exchange
+ * Get the matched user's profile (filtered by their sharing category)
  */
 export async function GET(
   request: NextRequest,
@@ -56,11 +57,12 @@ export async function GET(
 
     console.log(`📋 Match data found:`, matchData);
 
-    // Determine which user this is and get the other user's profile
+    // Determine which user this is and get the other user's profile and sharing category
     const isUserA = matchData.userA === session.user.id; // Compare with user ID
     const otherUserId = isUserA ? matchData.userB : matchData.userA;
+    const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
     
-    console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}`);
+    console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}, otherUserSharingCategory: ${otherUserSharingCategory}`);
     
     if (!otherUserId) {
       console.log(`❌ Other user not found in match data for token: ${token}`);
@@ -108,29 +110,24 @@ export async function GET(
           }
         };
         
-        console.log(`🎭 Returning mock profile for: ${otherUserId}`);
+        // Filter the mock profile based on the sharing category they selected
+        const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'All');
+        
+        console.log(`🎭 Returning filtered mock profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
         return NextResponse.json({
           success: true,
-          profile: mockProfile,
+          profile: filteredMockProfile,
           matchedAt: matchData.createdAt
         } as ContactExchangeResponse);
       }
 
-      // Return the profile (with sensitive data filtered)
-      const publicProfile: UserProfile = {
-        userId: otherUserProfile.userId,
-        name: otherUserProfile.name,
-        bio: otherUserProfile.bio,
-        profileImage: otherUserProfile.profileImage,
-        backgroundImage: otherUserProfile.backgroundImage,
-        lastUpdated: otherUserProfile.lastUpdated,
-        contactChannels: otherUserProfile.contactChannels
-      };
+      // Filter the profile based on the sharing category the other user selected
+      const filteredProfile = filterProfileByCategory(otherUserProfile, otherUserSharingCategory || 'All');
 
-      console.log(`✅ Successfully returning profile for: ${otherUserId}`);
+      console.log(`✅ Successfully returning filtered profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
       return NextResponse.json({
         success: true,
-        profile: publicProfile,
+        profile: filteredProfile,
         matchedAt: matchData.timestamp
       } as ContactExchangeResponse);
 
@@ -167,9 +164,12 @@ export async function GET(
         }
       };
 
+      // Filter the mock profile based on the sharing category they selected
+      const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'All');
+
       return NextResponse.json({
         success: true,
-        profile: mockProfile,
+        profile: filteredMockProfile,
         matchedAt: matchData.timestamp,
         note: 'Using mock profile due to Firebase error'
       } as ContactExchangeResponse);
