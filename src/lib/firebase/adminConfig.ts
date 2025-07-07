@@ -348,23 +348,7 @@ export async function uploadImageBuffer(
       // Clean the URL to ensure no whitespace or newlines
       const cleanedPublicUrl = publicUrl.replace(/[\n\r\t]/g, '').trim();
       
-      // Enhanced debugging for production troubleshooting
-      console.log('[Firebase Storage] Image upload complete:', {
-        userId,
-        imageType,
-        bucketName,
-        fileName,
-        publicUrl: cleanedPublicUrl,
-        originalUrl: publicUrl,
-        urlCleaned: publicUrl !== cleanedPublicUrl,
-        rawBucketName: rawBucketName,
-        rawFileName: rawFileName,
-        bucketNameCleaned: rawBucketName !== bucketName,
-        fileNameCleaned: rawFileName !== fileName,
-        isProduction: process.env.NODE_ENV === 'production',
-        urlLength: cleanedPublicUrl?.length || 0,
-        urlStartsWith: cleanedPublicUrl?.substring(0, 50) || 'N/A'
-      });
+
       
       return cleanedPublicUrl;
     },

@@ -3,18 +3,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import type { UserProfile } from '@/types/profile';
 import type { SocialPlatform, SocialProfileFormEntry, ProfileFormData } from '@/types/forms';
 import CustomInput from '../ui/inputs/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import CustomPhoneInput from '../ui/inputs/CustomPhoneInput';
-import SocialIcon from '../ui/SocialIcon';
 import EditTitleBar from '../ui/EditTitleBar';
 import CustomExpandingInput from '../ui/inputs/CustomExpandingInput';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection } from '../ui/FieldSection';
+import { SocialProfileField } from '../ui/SocialProfileField';
 import { useProfileSave } from '@/lib/hooks/useProfileSave';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { profileToFormData } from '@/lib/utils/profileTransforms';
@@ -424,71 +423,21 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       {/* Universal Fields (dynamically rendered) */}
       {fieldSectionManager.universalFields.filter(profile => !['phone', 'email'].includes(profile.platform)).map((profile) => {
         const platform = profile.platform;
-        const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-        const placeholder = 
-          platform === 'x' ? 'X username' : 
-          platform === 'wechat' ? 'WeChat ID' :
-          platform === 'whatsapp' ? 'WhatsApp number' :
-          `${platformName} username`;
           
         return (
           <React.Fragment key={platform}>
             {/* Original field placeholder */}
             <OriginalFieldPlaceholder fieldId={platform} />
             
-            <div 
-              data-draggable="true"
-              data-field-id={platform}
-              className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
-                dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
-                dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
-              }`}
-              onTouchStart={dragAndDrop.onTouchStart(platform)}
-              onTouchMove={dragAndDrop.onTouchMove}
-              onTouchEnd={dragAndDrop.onTouchEnd}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                WebkitTouchCallout: 'none'
-              }}
-            >
-              <CustomInput
-                type="text"
-                id={platform}
-                value={getSocialProfileValue(platform)}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  handleSocialChange(platform as SocialPlatform, e.target.value);
-                }}
-                placeholder={placeholder}
-                className="w-full"
-                inputClassName="pl-2 text-base"
-                variant="hideable"
-                isHidden={fieldSectionManager.isFieldHidden(platform)}
-                onToggleHide={() => {
-                  fieldSectionManager.toggleFieldVisibility(platform);
-                  // Mark channel as confirmed when user hides/shows it
-                  markChannelAsConfirmed(platform);
-                }}
-                dragState={
-                  !dragAndDrop.isDragMode ? 'normal' : 
-                  dragAndDrop.draggedField === platform ? 'active' : 'draggable'
-                }
-                icon={
-                  <div className="w-5 h-5 flex items-center justify-center relative">
-                    <SocialIcon 
-                      platform={platform as SocialPlatform} 
-                      username={getSocialProfileValue(platform)}
-                      size="sm" 
-                    />
-                    {isChannelUnconfirmed(platform) && (
-                      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
-                    )}
-                  </div>
-                }
-                iconClassName="text-gray-600"
-              />
-            </div>
+            <SocialProfileField
+              profile={profile}
+              dragAndDrop={dragAndDrop}
+              fieldSectionManager={fieldSectionManager}
+              getValue={getSocialProfileValue}
+              onChange={handleSocialChange}
+              isUnconfirmed={isChannelUnconfirmed}
+              onConfirm={markChannelAsConfirmed}
+            />
           </React.Fragment>
         );
       })}
@@ -527,12 +476,6 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           
           {fieldSectionManager.personalFields.map((profile, index) => {
             const platform = profile.platform;
-            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-            const placeholder = 
-              platform === 'x' ? 'X username' : 
-              platform === 'wechat' ? 'WeChat ID' :
-              platform === 'whatsapp' ? 'WhatsApp number' :
-              `${platformName} username`;
               
             return (
               <React.Fragment key={platform}>
@@ -542,59 +485,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                 {/* Original field placeholder */}
                 <OriginalFieldPlaceholder fieldId={platform} />
                 
-                <div 
-                  data-draggable="true"
-                  data-field-id={platform}
-                  className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
-                    dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
-                    dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
-                  }`}
-                  onTouchStart={dragAndDrop.onTouchStart(platform)}
-                  onTouchMove={dragAndDrop.onTouchMove}
-                  onTouchEnd={dragAndDrop.onTouchEnd}
-                  onContextMenu={(e) => e.preventDefault()}
-                  style={{
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none'
-                  }}
-                >
-                  <CustomInput
-                    type="text"
-                    id={platform}
-                    value={getSocialProfileValue(platform)}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      handleSocialChange(platform as SocialPlatform, e.target.value);
-                    }}
-                    placeholder={placeholder}
-                    className="w-full"
-                    inputClassName="pl-2 text-base"
-                    variant="hideable"
-                    isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => {
-                      fieldSectionManager.toggleFieldVisibility(platform);
-                      // Mark channel as confirmed when user hides/shows it
-                      markChannelAsConfirmed(platform);
-                    }}
-                    dragState={
-                      !dragAndDrop.isDragMode ? 'normal' : 
-                      dragAndDrop.draggedField === platform ? 'active' : 'draggable'
-                    }
-                    icon={
-                      <div className="w-5 h-5 flex items-center justify-center relative">
-                        <SocialIcon 
-                          platform={platform as SocialPlatform} 
-                          username={getSocialProfileValue(platform)}
-                          size="sm" 
-                        />
-                        {isChannelUnconfirmed(platform) && (
-                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
-                        )}
-                      </div>
-                    }
-                    iconClassName="text-gray-600"
-                  />
-                </div>
+                <SocialProfileField
+                  profile={profile}
+                  dragAndDrop={dragAndDrop}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getSocialProfileValue}
+                  onChange={handleSocialChange}
+                  isUnconfirmed={isChannelUnconfirmed}
+                  onConfirm={markChannelAsConfirmed}
+                />
                 
                 {/* Insertion point after this field */}
                 <FieldInsertionPoint fieldId={platform} position="after" />
@@ -616,8 +515,6 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           
           {fieldSectionManager.workFields.map((profile, index) => {
             const platform = profile.platform;
-            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-            const placeholder = `${platformName} username`;
               
             return (
               <React.Fragment key={platform}>
@@ -627,59 +524,15 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                 {/* Original field placeholder */}
                 <OriginalFieldPlaceholder fieldId={platform} />
                 
-                <div 
-                  data-draggable="true"
-                  data-field-id={platform}
-                  className={`mb-5 w-full max-w-[var(--max-content-width,448px)] transition-opacity duration-200 ${
-                    dragAndDrop.isDragMode && dragAndDrop.draggedField === platform ? 'hidden' : 
-                    dragAndDrop.isDragMode && dragAndDrop.draggedField !== platform ? 'opacity-70' : ''
-                  }`}
-                  onTouchStart={dragAndDrop.onTouchStart(platform)}
-                  onTouchMove={dragAndDrop.onTouchMove}
-                  onTouchEnd={dragAndDrop.onTouchEnd}
-                  onContextMenu={(e) => e.preventDefault()}
-                  style={{
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none'
-                  }}
-                >
-                  <CustomInput
-                    type="text"
-                    id={platform}
-                    value={getSocialProfileValue(platform)}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      handleSocialChange(platform as SocialPlatform, e.target.value);
-                    }}
-                    placeholder={placeholder}
-                    className="w-full"
-                    inputClassName="pl-2 text-base"
-                    variant="hideable"
-                    isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => {
-                      fieldSectionManager.toggleFieldVisibility(platform);
-                      // Mark channel as confirmed when user hides/shows it
-                      markChannelAsConfirmed(platform);
-                    }}
-                    dragState={
-                      !dragAndDrop.isDragMode ? 'normal' : 
-                      dragAndDrop.draggedField === platform ? 'active' : 'draggable'
-                    }
-                    icon={
-                      <div className="w-5 h-5 flex items-center justify-center relative">
-                        <SocialIcon 
-                          platform={platform as SocialPlatform} 
-                          username={getSocialProfileValue(platform)}
-                          size="sm" 
-                        />
-                        {isChannelUnconfirmed(platform) && (
-                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
-                        )}
-                      </div>
-                    }
-                    iconClassName="text-gray-600"
-                  />
-                </div>
+                <SocialProfileField
+                  profile={profile}
+                  dragAndDrop={dragAndDrop}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getSocialProfileValue}
+                  onChange={handleSocialChange}
+                  isUnconfirmed={isChannelUnconfirmed}
+                  onConfirm={markChannelAsConfirmed}
+                />
                 
                 {/* Insertion point after this field */}
                 <FieldInsertionPoint fieldId={platform} position="after" />
@@ -698,48 +551,19 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
         >
           {fieldSectionManager.hiddenFields.map((profile) => {
             const platform = profile.platform;
-            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-            const placeholder = 
-              platform === 'x' ? 'X username' : 
-              platform === 'wechat' ? 'WeChat ID' :
-              platform === 'whatsapp' ? 'WhatsApp number' :
-              `${platformName} username`;
               
             return (
               <React.Fragment key={platform}>
-                <div className="mb-5 w-full max-w-[var(--max-content-width,448px)]">
-                  <CustomInput
-                    type="text"
-                    id={platform}
-                    value={getSocialProfileValue(platform)}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      handleSocialChange(platform as SocialPlatform, e.target.value);
-                    }}
-                    placeholder={placeholder}
-                    className="w-full"
-                    inputClassName="pl-2 text-base"
-                    variant="hideable"
-                    isHidden={fieldSectionManager.isFieldHidden(platform)}
-                    onToggleHide={() => {
-                      fieldSectionManager.toggleFieldVisibility(platform);
-                      // Mark channel as confirmed when user hides/shows it
-                      markChannelAsConfirmed(platform);
-                    }}
-                    icon={
-                      <div className="w-5 h-5 flex items-center justify-center relative">
-                        <SocialIcon 
-                          platform={platform as SocialPlatform} 
-                          username={getSocialProfileValue(platform)}
-                          size="sm" 
-                        />
-                        {isChannelUnconfirmed(platform) && (
-                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
-                        )}
-                      </div>
-                    }
-                    iconClassName="text-gray-600"
-                  />
-                </div>
+                <SocialProfileField
+                  profile={profile}
+                  dragAndDrop={dragAndDrop}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getSocialProfileValue}
+                  onChange={handleSocialChange}
+                  isUnconfirmed={isChannelUnconfirmed}
+                  onConfirm={markChannelAsConfirmed}
+                  showDragHandles={false}
+                />
               </React.Fragment>
             );
           })}

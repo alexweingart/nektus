@@ -242,30 +242,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     const currentBackgroundImage = profile?.backgroundImage;
     
-    // Enhanced logging for debugging production issues
-    console.log('[ProfileContext] Background image management:', {
-      hasBackgroundImage: !!currentBackgroundImage,
-      backgroundImageUrl: currentBackgroundImage,
-      isProduction: process.env.NODE_ENV === 'production',
-      urlLength: currentBackgroundImage?.length || 0,
-      urlStartsWith: currentBackgroundImage?.substring(0, 50) || 'N/A',
-      serviceWorkerActive: typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller
-    });
-    
     // Clean up existing background div
     const existingBg = document.getElementById('app-background');
     if (existingBg) {
-      console.log('[ProfileContext] Removing existing background div');
       existingBg.remove();
     }
 
     // Create new background div if we have a background image
     if (currentBackgroundImage) {
-      console.log('[ProfileContext] Creating new background div with URL:', currentBackgroundImage);
-      
       // Clean the URL to remove any newlines or whitespace that could break CSS
       const cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
-      console.log('[ProfileContext] Cleaned URL:', cleanedUrl);
       
       const backgroundDiv = document.createElement('div');
       backgroundDiv.id = 'app-background';
@@ -283,39 +269,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         pointer-events: none;
       `;
       document.body.appendChild(backgroundDiv);
-      
-      // Test if the image loads successfully
-      const testImg = new Image();
-      testImg.onload = () => {
-        console.log('[ProfileContext] Background image loaded successfully:', cleanedUrl);
-      };
-      testImg.onerror = (error) => {
-        console.error('[ProfileContext] Background image failed to load:', cleanedUrl, error);
-        
-        // If in production and service worker is active, suggest cache clearing
-        if (process.env.NODE_ENV === 'production' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-          console.warn('[ProfileContext] Background image failed to load in production with active service worker. This might be a caching issue.');
-          console.warn('[ProfileContext] To clear service worker cache, open DevTools -> Application -> Storage -> Clear site data');
-        }
-      };
-      testImg.src = cleanedUrl;
-      
-      // Verify the div was added
-      const addedDiv = document.getElementById('app-background');
-      console.log('[ProfileContext] Background div added to DOM:', {
-        exists: !!addedDiv,
-        hasBackgroundImage: !!addedDiv?.style.backgroundImage,
-        backgroundImageValue: addedDiv?.style.backgroundImage?.substring(0, 100) || 'N/A'
-      });
-    } else {
-      console.log('[ProfileContext] No background image to display');
     }
 
     // Cleanup function
     return () => {
       const bgDiv = document.getElementById('app-background');
       if (bgDiv) {
-        console.log('[ProfileContext] Cleaning up background div');
         bgDiv.remove();
       }
     };
