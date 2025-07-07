@@ -142,10 +142,12 @@ const config = process.env.NODE_ENV === 'production'
               maxEntries: 50,
               maxAgeSeconds: 24 * 60 * 60, // 24 hours
             },
-            cacheKeyWillBeUsed: async ({request}) => {
-              // Use the full URL as cache key to ensure unique caching
-              return `${request.url}`;
-            },
+            // Use a plugin to customize cache key
+            plugins: [
+              {
+                cacheKeyWillBeUsed: async ({ request }) => request.url,
+              },
+            ],
           },
         },
       ]
