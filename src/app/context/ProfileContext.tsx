@@ -263,6 +263,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (currentBackgroundImage) {
       console.log('[ProfileContext] Creating new background div with URL:', currentBackgroundImage);
       
+      // Clean the URL to remove any newlines or whitespace that could break CSS
+      const cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
+      console.log('[ProfileContext] Cleaned URL:', cleanedUrl);
+      
       const backgroundDiv = document.createElement('div');
       backgroundDiv.id = 'app-background';
       backgroundDiv.style.cssText = `
@@ -271,7 +275,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         left: 0;
         right: 0;
         bottom: 0;
-        background-image: url(${currentBackgroundImage});
+        background-image: url(${cleanedUrl});
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -283,10 +287,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Test if the image loads successfully
       const testImg = new Image();
       testImg.onload = () => {
-        console.log('[ProfileContext] Background image loaded successfully:', currentBackgroundImage);
+        console.log('[ProfileContext] Background image loaded successfully:', cleanedUrl);
       };
       testImg.onerror = (error) => {
-        console.error('[ProfileContext] Background image failed to load:', currentBackgroundImage, error);
+        console.error('[ProfileContext] Background image failed to load:', cleanedUrl, error);
         
         // If in production and service worker is active, suggest cache clearing
         if (process.env.NODE_ENV === 'production' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -294,7 +298,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           console.warn('[ProfileContext] To clear service worker cache, open DevTools -> Application -> Storage -> Clear site data');
         }
       };
-      testImg.src = currentBackgroundImage;
+      testImg.src = cleanedUrl;
       
       // Verify the div was added
       const addedDiv = document.getElementById('app-background');

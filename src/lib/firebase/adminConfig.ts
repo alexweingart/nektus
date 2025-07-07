@@ -132,9 +132,12 @@ function initializeFirebaseAdmin(forceNew: boolean = false): App {
     const credential = createServiceAccountCredential();
     
     // Get the storage bucket from environment or construct it
-    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || 
-                         process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
-                         `${env.projectId}.appspot.com`;
+    const rawStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || 
+                            process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
+                            `${env.projectId}.appspot.com`;
+    
+    // Clean the storage bucket name to ensure no whitespace or newlines
+    const storageBucket = rawStorageBucket.replace(/[\n\r\t]/g, '').trim();
     
     const app = initializeApp({
       credential: credential,
@@ -266,9 +269,12 @@ export async function deleteUserProfile(userId: string): Promise<void> {
         const userStoragePrefix = `users/${userId}/`;
 
         // Get the bucket name from environment or construct it
-        const bucketName = process.env.FIREBASE_STORAGE_BUCKET || 
-                          process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
-                          `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+        const rawBucketName = process.env.FIREBASE_STORAGE_BUCKET || 
+                             process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
+                             `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+        
+        // Clean the bucket name to ensure no whitespace or newlines
+        const bucketName = rawBucketName.replace(/[\n\r\t]/g, '').trim();
 
         // List all files in the user's storage folder
         const [files] = await storage.bucket(bucketName).getFiles({ prefix: userStoragePrefix });
@@ -314,13 +320,17 @@ export async function uploadImageBuffer(
       const { storage } = await getFirebaseAdmin();
       
       // Get the bucket name from environment or construct it
-      const bucketName = process.env.FIREBASE_STORAGE_BUCKET || 
-                        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
-                        `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+      const rawBucketName = process.env.FIREBASE_STORAGE_BUCKET || 
+                           process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
+                           `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+      
+      // Clean the bucket name to ensure no whitespace or newlines
+      const bucketName = rawBucketName.replace(/[\n\r\t]/g, '').trim();
       
       const bucket = storage.bucket(bucketName);
       
-      const fileName = `users/${userId}/${imageType}.jpg`;
+      const rawFileName = `users/${userId}/${imageType}.jpg`;
+      const fileName = rawFileName.replace(/[\n\r\t]/g, '').trim();
       const file = bucket.file(fileName);
       
       await file.save(imageBuffer, {
@@ -335,19 +345,28 @@ export async function uploadImageBuffer(
       // Return the public URL instead of signed URL
       const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
       
+      // Clean the URL to ensure no whitespace or newlines
+      const cleanedPublicUrl = publicUrl.replace(/[\n\r\t]/g, '').trim();
+      
       // Enhanced debugging for production troubleshooting
       console.log('[Firebase Storage] Image upload complete:', {
         userId,
         imageType,
         bucketName,
         fileName,
-        publicUrl,
+        publicUrl: cleanedPublicUrl,
+        originalUrl: publicUrl,
+        urlCleaned: publicUrl !== cleanedPublicUrl,
+        rawBucketName: rawBucketName,
+        rawFileName: rawFileName,
+        bucketNameCleaned: rawBucketName !== bucketName,
+        fileNameCleaned: rawFileName !== fileName,
         isProduction: process.env.NODE_ENV === 'production',
-        urlLength: publicUrl?.length || 0,
-        urlStartsWith: publicUrl?.substring(0, 50) || 'N/A'
+        urlLength: cleanedPublicUrl?.length || 0,
+        urlStartsWith: cleanedPublicUrl?.substring(0, 50) || 'N/A'
       });
       
-      return publicUrl;
+      return cleanedPublicUrl;
     },
     `uploadImageBuffer(${userId}, ${imageType})`,
     3
