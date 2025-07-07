@@ -133,6 +133,21 @@ const config = process.env.NODE_ENV === 'production'
             },
           },
         },
+        {
+          urlPattern: /^https:\/\/storage\.googleapis\.com\/.*$/,
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'firebase-storage-cache',
+            expiration: {
+              maxEntries: 50,
+              maxAgeSeconds: 24 * 60 * 60, // 24 hours
+            },
+            cacheKeyWillBeUsed: async ({request}) => {
+              // Use the full URL as cache key to ensure unique caching
+              return `${request.url}`;
+            },
+          },
+        },
       ]
     })(nextConfig)
   : nextConfig;

@@ -335,6 +335,18 @@ export async function uploadImageBuffer(
       // Return the public URL instead of signed URL
       const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
       
+      // Enhanced debugging for production troubleshooting
+      console.log('[Firebase Storage] Image upload complete:', {
+        userId,
+        imageType,
+        bucketName,
+        fileName,
+        publicUrl,
+        isProduction: process.env.NODE_ENV === 'production',
+        urlLength: publicUrl?.length || 0,
+        urlStartsWith: publicUrl?.substring(0, 50) || 'N/A'
+      });
+      
       return publicUrl;
     },
     `uploadImageBuffer(${userId}, ${imageType})`,

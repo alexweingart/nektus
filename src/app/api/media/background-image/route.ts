@@ -169,7 +169,25 @@ export async function POST(req: NextRequest) {
     await Promise.race([updatePromise, firestoreTimeoutPromise]);
     
     // Log background generation complete and saved to Firestore with response
-    console.log('[API/BACKGROUND] Background generation complete & saved to Firestore', { userId, imageUrl: permanentImageUrl });
+    console.log('[API/BACKGROUND] Background generation complete & saved to Firestore', { 
+      userId, 
+      imageUrl: permanentImageUrl,
+      isProduction: process.env.NODE_ENV === 'production',
+      urlLength: permanentImageUrl?.length || 0,
+      urlStartsWith: permanentImageUrl?.substring(0, 50) || 'N/A'
+    });
+
+    // Test if the URL is accessible
+    try {
+      const testResponse = await fetch(permanentImageUrl, { method: 'HEAD' });
+      console.log('[API/BACKGROUND] URL accessibility test:', {
+        url: permanentImageUrl,
+        status: testResponse.status,
+        accessible: testResponse.ok
+      });
+    } catch (error) {
+      console.error('[API/BACKGROUND] URL accessibility test failed:', error);
+    }
 
     // 6. Return the permanent URL
     return NextResponse.json({ imageUrl: permanentImageUrl });
