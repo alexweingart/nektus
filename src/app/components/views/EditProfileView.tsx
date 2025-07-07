@@ -45,8 +45,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   );
   
   const [digits, setDigits] = useState('');
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>('US');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [phoneCountry] = useState<CountryCode>('US');
 
   // Drag & Drop functionality
   const dragAndDrop = useDragAndDrop({ 
