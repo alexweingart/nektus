@@ -59,11 +59,7 @@ export default async function RootLayout({
         lang="en"
         className="bg-black"
         style={{
-          backgroundColor: '#000',
-          backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center top',
-          backgroundRepeat: 'no-repeat'
+          backgroundColor: '#000'
         }}
       >
       <head>

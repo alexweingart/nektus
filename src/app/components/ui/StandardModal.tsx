@@ -2,8 +2,8 @@
 
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Button } from './Button';
-import { SecondaryButton } from './SecondaryButton';
+import { Button } from './buttons/Button';
+import { SecondaryButton } from './buttons/SecondaryButton';
 import { Heading, Text } from './Typography';
 
 interface StandardModalProps {

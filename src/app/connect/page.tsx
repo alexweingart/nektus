@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
 import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
 import type { ContactSaveResult } from '@/types/contactExchange';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';

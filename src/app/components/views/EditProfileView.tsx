@@ -5,15 +5,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import type { UserProfile } from '@/types/profile';
 import type { SocialPlatform, SocialProfileFormEntry, ProfileFormData } from '@/types/forms';
-import CustomInput from '../ui/CustomInput';
+import CustomInput from '../ui/inputs/CustomInput';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import CustomPhoneInput from '../ui/CustomPhoneInput';
+import CustomPhoneInput from '../ui/inputs/CustomPhoneInput';
 import SocialIcon from '../ui/SocialIcon';
 import EditTitleBar from '../ui/EditTitleBar';
-import CustomExpandingInput from '../ui/CustomExpandingInput';
-import { SecondaryButton } from '../ui/SecondaryButton';
+import CustomExpandingInput from '../ui/inputs/CustomExpandingInput';
+import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection } from '../ui/FieldSection';
 import { useProfileSave } from '@/lib/hooks/useProfileSave';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
@@ -331,27 +331,10 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     return <ReservedSpace />;
   };
 
-  // Background style for EditProfileView
-  const backgroundStyle: React.CSSProperties = profile?.backgroundImage
-    ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `url(${profile.backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        zIndex: -1,
-      }
-    : {};
-
   return (
     <div 
       className="flex flex-col items-center px-4 py-4 pb-8"
           >
-        {profile?.backgroundImage && <div style={backgroundStyle} />}
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 
           onBack={() => router.back()}

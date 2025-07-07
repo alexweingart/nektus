@@ -37,7 +37,7 @@ const ERROR_CODES = {
   PERMISSION_DENIED: 'permission-denied',
 } as const;
 
-export const ProfileService = {
+export const ClientProfileService = {
   /**
    * Saves a user profile to Firestore
    * @param profile The profile data to save
@@ -261,4 +261,4 @@ export const ProfileService = {
       }
     }
   }
-};
+}; 

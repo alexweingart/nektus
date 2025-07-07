@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ProfileService } from '@/lib/firebase/profileService';
+import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
 import { UserProfile } from '@/types/profile';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/newUserService';
 import { shouldGenerateAvatarForGoogleUser } from '@/lib/utils/googleProfileImageDetector';
@@ -58,7 +58,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const bioGenerationTriggeredRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
-  const backgroundImageAppliedRef = useRef<string | null>(null);
+
   
   const profileRef = useRef<UserProfile | null>(null);
 
@@ -236,76 +236,46 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     loadProfile();
   }, [authStatus, session?.user?.id, update]);
 
-  // New: keep <html> background in sync with stored profile background
+  // Centralized background image management - single fixed background across all views
   useEffect(() => {
-    if (typeof window === 'undefined') return; // Ensure client-side
+    if (typeof window === 'undefined') return;
 
     const currentBackgroundImage = profile?.backgroundImage;
     
-    // Skip if profile is still loading (avoid unnecessary DOM manipulation during initial load)
-    if (isLoading) return;
-    
-    // Skip if we've already applied this exact background image
-    if (currentBackgroundImage && backgroundImageAppliedRef.current === currentBackgroundImage) {
-      return;
+    // Clean up existing background div
+    const existingBg = document.getElementById('app-background');
+    if (existingBg) {
+      existingBg.remove();
     }
 
-    const htmlEl = document.documentElement;
+    // Create new background div if we have a background image
     if (currentBackgroundImage) {
-      // Clean URL: remove whitespace/newlines and decode URL encoding
-      const cleanedUrl = currentBackgroundImage.replace(/\s+/g, '');
-      const decodedUrl = decodeURIComponent(cleanedUrl);
-      
-      // Crossfade only the background using ::before pseudo-element
-      const preloadImg = new Image();
-      preloadImg.onload = () => {
-        // Create temporary style for crossfade
-        const style = document.createElement('style');
-        style.textContent = `
-          html::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url("${decodedUrl}");
-            background-size: cover;
-            background-position: center top;
-            background-repeat: no-repeat;
-            opacity: 0;
-            transition: opacity 0.4s ease-in-out;
-            z-index: -1;
-            pointer-events: none;
-          }
-        `;
-        document.head.appendChild(style);
-        
-                 // Trigger fade-in
-         requestAnimationFrame(() => {
-           if (style.textContent) {
-             style.textContent = style.textContent.replace('opacity: 0', 'opacity: 1');
-           }
-         });
-        
-        // After fade, apply to html background and remove overlay
-        setTimeout(() => {
-          htmlEl.style.backgroundImage = `url("${decodedUrl}")`;
-          htmlEl.style.backgroundSize = 'cover';
-          htmlEl.style.backgroundPosition = 'center top';
-          htmlEl.style.backgroundRepeat = 'no-repeat';
-          document.head.removeChild(style);
-          backgroundImageAppliedRef.current = currentBackgroundImage;
-        }, 400);
-      };
-      preloadImg.src = decodedUrl;
-    } else if (profile && !currentBackgroundImage && backgroundImageAppliedRef.current) {
-      // Only clear background if we have a profile but no background image, and we had previously applied one
-      console.log('[ProfileContext] Profile loaded but no background image, clearing DOM style');
-      htmlEl.style.backgroundImage = '';
-      backgroundImageAppliedRef.current = null;
+      const backgroundDiv = document.createElement('div');
+      backgroundDiv.id = 'app-background';
+      backgroundDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url(${currentBackgroundImage});
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: -1;
+        pointer-events: none;
+      `;
+      document.body.appendChild(backgroundDiv);
     }
-  }, [profile?.backgroundImage, isLoading]);
+
+    // Cleanup function
+    return () => {
+      const bgDiv = document.getElementById('app-background');
+      if (bgDiv) {
+        bgDiv.remove();
+      }
+    };
+  }, [profile?.backgroundImage]);
 
   // Helper function to generate bio and background image independently
   const generateProfileAssets = async () => {
@@ -445,51 +415,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         .then(data => {
           if (data.imageUrl) {
             console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
-            // Update DOM immediately for visual effect - background only
-            const cleanedUrl = data.imageUrl.replace(/\s+/g, '');
-            const decodedUrl = decodeURIComponent(cleanedUrl);
-            
-            const preloadImg = new Image();
-            preloadImg.onload = () => {
-              // Create temporary style for crossfade
-              const style = document.createElement('style');
-              style.textContent = `
-                html::before {
-                  content: '';
-                  position: fixed;
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  bottom: 0;
-                  background-image: url("${decodedUrl}");
-                  background-size: cover;
-                  background-position: center top;
-                  background-repeat: no-repeat;
-                  opacity: 0;
-                  transition: opacity 0.4s ease-in-out;
-                  z-index: -1;
-                  pointer-events: none;
-                }
-              `;
-              document.head.appendChild(style);
-              
-              // Trigger fade-in
-              requestAnimationFrame(() => {
-                if (style.textContent) {
-                  style.textContent = style.textContent.replace('opacity: 0', 'opacity: 1');
-                }
-              });
-              
-              // After fade, apply to html background and remove overlay
-              setTimeout(() => {
-                document.documentElement.style.backgroundImage = `url("${decodedUrl}")`;
-                document.documentElement.style.backgroundSize = 'cover';
-                document.documentElement.style.backgroundPosition = 'center top';
-                document.documentElement.style.backgroundRepeat = 'no-repeat';
-                document.head.removeChild(style);
-              }, 400);
-            };
-            preloadImg.src = decodedUrl;
+            // Background image will be handled by individual view components
           }
         })
         .catch(error => {

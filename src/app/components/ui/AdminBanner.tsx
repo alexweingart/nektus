@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
-import { Button } from './Button';
+import { Button } from './buttons/Button';
 import { useAdminMode } from '../../providers/AdminModeProvider';
 import { firebaseAuth } from '@/lib/firebase/auth';
 

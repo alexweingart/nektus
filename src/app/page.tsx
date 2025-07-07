@@ -11,7 +11,7 @@ import { PullToRefresh } from './components/ui/PullToRefresh';
 export const dynamic = 'force-dynamic';
 
 // Dynamically import components to prevent hydration issues
-const HomePage = dynamicImport(() => import('./components/HomePage'), { 
+const HomePage = dynamicImport(() => import('./components/views/HomePage'), { 
   ssr: false,
   loading: () => <div className="min-h-screen" />
 });

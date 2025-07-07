@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './Button';
 import { initializeClockSync } from '@/lib/utils/clockSync';
-import { LoadingSpinner } from './LoadingSpinner';
+import { LoadingSpinner } from '../LoadingSpinner';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
 interface ExchangeButtonProps {

@@ -1,12 +1,10 @@
-'use client';
-
 import React from 'react';
 import { signIn } from 'next-auth/react';
-import { useAdminModeActivator } from './ui/AdminBanner';
+import { useAdminModeActivator } from '../ui/AdminBanner';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from './ui/Button';
-import { Heading } from './ui/Typography';
+import { Button } from '../ui/buttons/Button';
+import { Heading } from '../ui/Typography';
 
 // Google icon SVG component
 const GoogleIcon = () => (
@@ -103,4 +101,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage;
+export default HomePage; 

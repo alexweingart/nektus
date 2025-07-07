@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/lib/firebase/admin/profileService';
+import { AdminProfileService } from '@/lib/firebase/adminProfileService';
 import { UserProfile, ContactChannels, SocialProfile } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
 

@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useSession } from 'next-auth/react';
-import { Button } from '../ui/Button';
-import { type CountryCode } from 'libphonenumber-js';
-import CustomPhoneInput from '../ui/CustomPhoneInput';
+import { Button } from '../ui/buttons/Button';
+import CustomPhoneInput from '../ui/inputs/CustomPhoneInput';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { Heading } from '../ui/Typography';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
@@ -15,6 +14,7 @@ import type { UserProfile } from '@/types/profile';
 import type { Country } from '@/types/forms';
 import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 import { useRouter } from 'next/navigation';
+import { type CountryCode } from 'libphonenumber-js';
 
 function ProfileSetupView() {
   // Session and authentication
@@ -83,26 +83,9 @@ function ProfileSetupView() {
     );
   }
 
-  // Background style for ProfileSetupView
-  const backgroundStyle: React.CSSProperties = profile?.backgroundImage
-    ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `url(${profile.backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        zIndex: -1,
-      }
-    : {};
-
   // Render form content without outer wrapper
   return (
     <>
-      {profile?.backgroundImage && <div style={backgroundStyle} />}
       <div className="w-full max-w-[var(--max-content-width,448px)] text-center">
         {/* Main Content */}
         <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">

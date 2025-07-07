@@ -5,12 +5,12 @@ import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import Link from 'next/link';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
 import SocialIconsList from '../ui/SocialIconsList';
-import { SecondaryButton } from '../ui/SecondaryButton';
+import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
-import { ExchangeButton } from '../ui/ExchangeButton';
+import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/StandardModal';
 
 import ReactMarkdown from 'react-markdown';
@@ -163,64 +163,17 @@ const ProfileView: React.FC = () => {
     previousBackgroundImage.current = currentBg || null;
   }, [currentProfile?.backgroundImage]);
 
-  // Background style for ProfileView with animation on first appearance
-  const backgroundStyle: React.CSSProperties = currentProfile?.backgroundImage
-    ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `url(${currentProfile.backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        zIndex: -1,
-        opacity: shouldAnimateBackground ? 0 : 1,
-        animation: shouldAnimateBackground ? 'fadeInBackground 0.8s ease-in-out forwards' : 'none',
-      }
-    : {};
-
-  // Debug logging for production issues
-  useEffect(() => {
-    if (currentProfile?.backgroundImage) {
-      console.log('[ProfileView] Background image URL:', currentProfile.backgroundImage);
-      console.log('[ProfileView] Environment:', process.env.NODE_ENV);
-      console.log('[ProfileView] User agent:', navigator.userAgent);
-      
-      // Test if the image loads
-      const img = new Image();
-      img.onload = () => console.log('[ProfileView] Background image loaded successfully');
-      img.onerror = (e) => console.error('[ProfileView] Background image failed to load:', e);
-      img.src = currentProfile.backgroundImage;
-    }
-  }, [currentProfile?.backgroundImage]);
-
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
-    const bgUrl = currentProfile?.backgroundImage;
-    const loadingStyle: React.CSSProperties = bgUrl
-      ? {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundImage: `url('${bgUrl}')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center top',
-          backgroundRepeat: 'no-repeat',
-          zIndex: 1000
-        }
-      : {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'black',
-          zIndex: 1000
-        };
+    const loadingStyle: React.CSSProperties = {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'black',
+      zIndex: 1000
+    };
     return (
       <div style={loadingStyle}>
         <div className="flex items-center justify-center w-full h-full">
@@ -261,7 +214,6 @@ const ProfileView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-2">
-      {currentProfile?.backgroundImage && <div style={backgroundStyle} />}
       {/* Top Navigation Buttons - Fixed */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
         <Button 

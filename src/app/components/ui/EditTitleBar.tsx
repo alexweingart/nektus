@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FaArrowLeft, FaSave } from 'react-icons/fa';
-import { Button } from '@/app/components/ui/Button';
+import { Button } from '@/app/components/ui/buttons/Button';
 import { Heading } from './Typography';
 import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner';
 

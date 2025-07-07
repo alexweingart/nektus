@@ -447,8 +447,8 @@ export class RealTimeContactExchangeService {
 
       // Save to Firebase using dynamic import to avoid server-side bundling issues
       try {
-        const { ProfileService } = await import('@/lib/firebase/profileService');
-        await ProfileService.saveContact(session.user.email, contact);
+        const { ClientProfileService } = await import('@/lib/firebase/clientProfileService');
+        await ClientProfileService.saveContact(session.user.email, contact);
         console.log('Contact saved to Firebase:', contact);
       } catch (firebaseError) {
         console.warn('Failed to save to Firebase, continuing anyway:', firebaseError);

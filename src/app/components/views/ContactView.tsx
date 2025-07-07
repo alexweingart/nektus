@@ -6,11 +6,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import SocialIconsList from '../ui/SocialIconsList';
-import { SecondaryButton } from '../ui/SecondaryButton';
+import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import { useContactSaveFlow } from '@/lib/hooks/useContactSaveFlow';
@@ -120,25 +120,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
     );
   }
 
-  const backgroundStyle: React.CSSProperties = profile.backgroundImage
-    ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `url(${profile.backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        zIndex: -1,
-      }
-    : {};
-
   return (
     <div className="h-[100dvh] flex flex-col items-center px-4 py-2">
-      {/* Background Image */}
-      {profile.backgroundImage && <div style={backgroundStyle} />}
       
       {/* Top spacing - no navigation buttons for contact view */}
       <div className="w-full max-w-[var(--max-content-width,448px)] py-4 mb-4 flex-shrink-0">

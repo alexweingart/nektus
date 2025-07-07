@@ -1,4 +1,4 @@
-import { getFirebaseAdmin } from '../adminConfig';
+import { getFirebaseAdmin } from './adminConfig';
 import { UserProfile } from '@/types/profile';
 
 export const AdminProfileService = {
