@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
     const returnUrl = url.searchParams.get('returnUrl');
     const contactSaveToken = url.searchParams.get('contactSaveToken');
     const profileId = url.searchParams.get('profileId');
+    
+    // Extract attempt parameter to handle two-step flow with debugging
+    const attempt = url.searchParams.get('attempt') || 'silent';
+    console.log(`🔍 Auth attempt type: "${attempt}"`);
+    console.log(`🔍 All URL params:`, Object.fromEntries(url.searchParams.entries()));
 
     // Validate required parameters
     if (!returnUrl || !contactSaveToken || !profileId) {
@@ -73,9 +78,6 @@ export async function GET(request: NextRequest) {
     const callbackUrl = `${nextAuthUrl}/api/auth/google-incremental/callback`;
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     
-    // Extract attempt parameter to handle two-step flow
-    const attempt = url.searchParams.get('attempt') || 'silent';
-    
     googleAuthUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID);
     googleAuthUrl.searchParams.append('redirect_uri', callbackUrl);
     googleAuthUrl.searchParams.append('response_type', 'code');
@@ -87,12 +89,13 @@ export async function GET(request: NextRequest) {
     if (attempt === 'silent') {
       // First attempt: try silent authentication to skip account picker
       googleAuthUrl.searchParams.append('prompt', 'none');
-      console.log(`🤐 Attempting silent auth for user ${session.user.id}`);
+      console.log(`🤐 Attempting silent auth for user ${session.user.id} (prompt=none)`);
     } else {
       // Second attempt: show consent screen (this will show account picker if needed)
       googleAuthUrl.searchParams.append('prompt', 'consent');
-      console.log(`🔊 Showing consent screen for user ${session.user.id}`);
+      console.log(`🔊 Showing consent screen for user ${session.user.id} (prompt=consent)`);
     }
+    console.log(`🔍 Final prompt value: ${googleAuthUrl.searchParams.get('prompt')}`);
     
     // Add login hint if available to suggest the correct account
     if (session.user.email) {
