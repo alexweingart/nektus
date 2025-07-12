@@ -47,16 +47,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     restoreSuccessState
   } = useContactSaveFlow();
 
-  // Debug logging for state changes
-  useEffect(() => {
-    console.log('🔍 ContactView state update:', {
-      isSuccess,
-      showSuccessModal,
-      showUpsellModal,
-      buttonText: getButtonText()
-    });
-  }, [isSuccess, showSuccessModal, showUpsellModal, getButtonText]);
-
   // Check for saved contact state on component mount
   useEffect(() => {
     const checkForSavedState = () => {
@@ -68,7 +58,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
           // Only apply saved state if it's recent (within last 5 minutes)
           const timeDiff = Date.now() - timestamp;
           if (timeDiff < 300000) { // 5 minutes
-            console.log('🔄 Restoring saved contact state for:', profile.name);
             // Restore the success state in the hook
             restoreSuccessState(profile.userId, token);
           } else {
@@ -82,6 +71,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     checkForSavedState();
   }, [profile.userId, token, profile.name, restoreSuccessState]);
+
+  // Handle incremental auth results
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authResult = urlParams.get('incremental_auth');
+    
+    if (authResult === 'denied') {
+      console.log('🚫 User denied Google Contacts permission');
+      // Clean up URL - the ContactSaveService will handle showing upsell modal
+      const url = new URL(window.location.href);
+      url.searchParams.delete('incremental_auth');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }, []);
 
   // Apply the contact's background image to the screen
   useEffect(() => {
@@ -124,7 +127,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleSaveContact = async () => {
     // Check if contact is already saved (button shows "I'm Done")
     if (isSuccess) {
-      console.log('🎉 Contact already saved, closing ContactView');
       // Clean up any saved state
       const savedStateKey = `contact_saved_${profile.userId}_${token}`;
       localStorage.removeItem(savedStateKey);
@@ -187,7 +189,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     // Try to use phone number if available
     const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
     
-    console.log('📱 Opening messaging app directly with pre-populated text');
     openMessagingAppDirectly(messageText, phoneNumber);
     
     // Store success state for persistence and dismiss modal
@@ -324,11 +325,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
         <StandardModal
           isOpen={showUpsellModal}
           onClose={dismissUpsellModal}
-          title="Whoops - contact not fully saved"
-          subtitle="You need to let us save contacts to Google to easily text your new friend!"
-          primaryButtonText="OK! I'll do that"
+          title="Save to Google Contacts?"
+          subtitle="We saved your contact to Nektus, but we need permission to add them to your Google Contacts so you can easily text them."
+          primaryButtonText="Yes, add to Google Contacts"
           onPrimaryButtonClick={handleUpsellAccept}
-          secondaryButtonText="Nah"
+          secondaryButtonText="No, just Nektus is fine"
           onSecondaryButtonClick={handleUpsellDecline}
           variant="upsell"
         />

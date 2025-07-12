@@ -361,10 +361,24 @@ const isEmbeddedBrowser = (): boolean => {
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
   console.log('📱 displayVCardInlineForIOS called for:', profile.name);
   
-  const vCardContent = await generateVCardForIOS(profile, options);
+  const isEmbedded = isEmbeddedBrowser();
+  console.log('🔍 Embedded browser detected:', isEmbedded);
+  
+  if (isEmbedded) {
+    // For embedded browsers (like Google app), skip vCard entirely
+    // This will be handled by the contact save flow with Google Contacts integration
+    console.log('📱 Embedded browser detected, skipping vCard (will use Google Contacts flow)');
+    return;
+  }
+  
+  // Only try vCard for Safari (non-embedded browser)
+  console.log('📱 Safari detected, attempting vCard download');
+  
+  // Use simplified vCard for iOS (no social media, just essentials)
+  const vCardContent = await generateSimpleVCardForIOS(profile);
   const filename = generateVCardFilename(profile);
   
-  console.log('📱 Generated vCard content length:', vCardContent.length);
+  console.log('📱 Generated simplified vCard content length:', vCardContent.length);
   console.log('📱 Generated filename:', filename);
   
   // Create a blob with proper vCard MIME type
@@ -374,34 +388,18 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   
   const url = URL.createObjectURL(vCardBlob);
   
-  console.log('📲 Opening vCard for iOS:', filename);
+  console.log('📲 Opening vCard for iOS Safari:', filename);
   console.log('📲 Blob URL:', url);
   
-  const isEmbedded = isEmbeddedBrowser();
-  console.log('🔍 Embedded browser detected:', isEmbedded);
-  
   try {
-    if (isEmbedded) {
-      // Strategy 1: For all embedded browsers, use direct download
-      console.log('📱 Embedded browser detected, using direct download');
-      await downloadVCardForIOS(profile, options);
-    } else {
-      // Strategy 2: Original approach for Safari
-      console.log('📱 Using direct navigation for Safari');
-      window.location.href = url;
-    }
+    // Try original approach for Safari
+    console.log('📱 Using direct navigation for Safari');
+    window.location.href = url;
   } catch (error) {
-    console.warn('📱 Primary vCard approach failed, trying fallback:', error);
+    console.warn('📱 Safari vCard approach failed, showing instructions:', error);
     
-    // Strategy 3: Fallback to direct download
-    try {
-      await downloadVCardForIOS(profile, options);
-    } catch (downloadError) {
-      console.warn('📱 Download fallback failed:', downloadError);
-      
-      // Strategy 4: Final fallback - show user instructions
-      showVCardInstructions(profile, vCardContent);
-    }
+    // Final fallback - show user instructions
+    showVCardInstructions(profile, vCardContent);
   }
   
   // Clean up
@@ -561,4 +559,73 @@ const showVCardInstructions = (profile: UserProfile, vCardContent: string): void
       document.body.removeChild(modal);
     }
   });
+};
+
+
+
+/**
+ * Generate a simplified vCard 3.0 for iOS devices
+ * Excludes social media, only includes: name, phone, email, bio, photo
+ */
+export const generateSimpleVCardForIOS = async (profile: UserProfile): Promise<string> => {
+  const lines: string[] = [];
+  
+  // vCard header - Use 3.0 for iOS compatibility
+  lines.push('BEGIN:VCARD');
+  lines.push('VERSION:3.0');
+  lines.push('PRODID:-//Nektus//vCard 1.0//EN');
+  
+  // Basic information
+  if (profile.name) {
+    // FN (Formatted Name) - required field
+    lines.push(`FN:${escapeVCardValue(profile.name)}`);
+    
+    // N (Name) - structured name
+    const nameParts = profile.name.split(' ');
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
+    lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
+  }
+  
+  // Phone numbers
+  if (profile.contactChannels?.phoneInfo?.internationalPhone) {
+    lines.push(`TEL;TYPE=CELL:${profile.contactChannels.phoneInfo.internationalPhone}`);
+  }
+  
+  // Email
+  if (profile.contactChannels?.email?.email) {
+    lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
+  }
+  
+  // Photo/Avatar - Use base64 encoding for iOS compatibility
+  if (profile.profileImage) {
+    try {
+      const photoLine = await makePhotoLine(profile.profileImage);
+      lines.push(photoLine);
+    } catch (error) {
+      console.warn('Failed to encode photo for iOS vCard:', error);
+      // Skip photo if encoding fails rather than breaking the entire vCard
+    }
+  }
+  
+  // Bio in Notes field
+  if (profile.bio) {
+    lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
+  }
+  
+  // Nektus-specific data as extended properties
+  if (profile.userId) {
+    lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId}`);
+  }
+  if (profile.lastUpdated) {
+    lines.push(`X-NEKTUS-UPDATED:${new Date(profile.lastUpdated).toISOString()}`);
+  }
+  
+  // Add timestamp
+  lines.push(`REV:${new Date().toISOString()}`);
+  
+  // vCard footer
+  lines.push('END:VCARD');
+  
+  return lines.join('\r\n');
 };

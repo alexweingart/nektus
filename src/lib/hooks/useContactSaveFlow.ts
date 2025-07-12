@@ -56,15 +56,7 @@ export const useContactSaveFlow = () => {
     }));
 
     try {
-      console.log('🔄 Starting saveContactFlow for:', profile.name);
       const result = await saveContactFlow(profile, token);
-      
-      console.log('✅ saveContactFlow completed with result:', {
-        success: result.success,
-        showSuccessModal: result.showSuccessModal,
-        showUpsellModal: result.showUpsellModal,
-        platform: result.platform
-      });
       
       setState({
         isLoading: false,
@@ -76,7 +68,6 @@ export const useContactSaveFlow = () => {
       });
 
     } catch (error) {
-      console.error('❌ saveContactFlow failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       
       setState({
@@ -134,7 +125,6 @@ export const useContactSaveFlow = () => {
   const restoreSuccessState = useCallback((profileId: string, token: string) => {
     const isSaved = checkSavedContactState(profileId, token);
     if (isSaved) {
-      console.log('🔄 Restoring success state for saved contact');
       setState(prev => ({
         ...prev,
         isSuccess: true,
