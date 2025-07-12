@@ -55,7 +55,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
-  const bioGenerationTriggeredRef = useRef(false);
+  const bioAndSocialGenerationTriggeredRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
 
@@ -280,47 +280,55 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [profile?.backgroundImage]);
 
-  // Helper function to generate bio and background image independently
+  // Helper function to generate bio, background image, and social links
   const generateProfileAssets = async () => {
     const userId = session?.user?.id;
     if (!userId) return;
     
     const generations = [];
-    let bioGenerationPromise: Promise<any> | null = null;
+    let bioAndSocialGenerationPromise: Promise<any> | null = null;
     
-    // Generate bio if not already triggered and bio doesn't exist in current profile
-    if (!bioGenerationTriggeredRef.current && !profile?.bio) {
-      bioGenerationTriggeredRef.current = true;
-      console.log('[ProfileContext] Making bio API call');
+    // Generate bio and social links together if not already triggered
+    if (!bioAndSocialGenerationTriggeredRef.current && (!profile?.bio || !profile?.contactChannels?.facebook?.username)) {
+      bioAndSocialGenerationTriggeredRef.current = true;
+      console.log('[ProfileContext] Making unified bio and social API call');
 
-      bioGenerationPromise = fetch('/api/bio', { method: 'POST' })
+      bioAndSocialGenerationPromise = fetch('/api/bio-and-social', { method: 'POST' })
         .then(res => {
           if (!res.ok) {
-            throw new Error(`Bio generation API request failed with status: ${res.status}`);
+            throw new Error(`Bio and social generation API request failed with status: ${res.status}`);
           }
           return res.json();
         })
         .then(data => {
-          if (data.bio) {
-            console.log('[ProfileContext] Bio generated and saved to Firebase:', data.bio);
-            // Update streaming state for immediate UI feedback
+          if (data.bio && data.contactChannels) {
+            console.log('[ProfileContext] Bio and social links generated and saved to Firebase:', {
+              bio: data.bio,
+              contactChannels: data.contactChannels
+            });
+            // Update streaming states for immediate UI feedback
             setStreamingBio(data.bio);
+            setStreamingSocialContacts(data.contactChannels);
             
-            // Update local data state immediately to prevent race conditions with phone save
+            // Update local data state immediately to prevent race conditions
             if (profileRef.current) {
-              profileRef.current = { ...profileRef.current, bio: data.bio };
+              profileRef.current = { 
+                ...profileRef.current, 
+                bio: data.bio,
+                contactChannels: data.contactChannels
+              };
             }
             
-            return data.bio;
+            return { bio: data.bio, contactChannels: data.contactChannels };
           }
         })
         .catch(error => {
-          console.error('[ProfileContext] Bio generation failed:', error);
-          bioGenerationTriggeredRef.current = false;
+          console.error('[ProfileContext] Bio and social generation failed:', error);
+          bioAndSocialGenerationTriggeredRef.current = false;
           throw error;
         });
       
-      generations.push(bioGenerationPromise);
+      generations.push(bioAndSocialGenerationPromise);
     }
 
     // Check if we need to generate a profile image
@@ -358,15 +366,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (shouldGenerate) {
         shouldGenerateProfileImage = true;
         
-        // If bio is being generated, wait for it first
+        // If bio and social are being generated, wait for them first
         const profileImageGeneration = (async () => {
           let bioToUse = streamingBio;
           
-          if (bioGenerationPromise && !bioToUse) {
+          if (bioAndSocialGenerationPromise && !bioToUse) {
             try {
-              bioToUse = await bioGenerationPromise;
+              const result = await bioAndSocialGenerationPromise;
+              bioToUse = result?.bio;
             } catch (error) {
-              // Bio generation failed, proceeding with profile image without bio
+              // Bio and social generation failed, proceeding with profile image without bio
             }
           }
           
@@ -428,7 +437,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       generations.push(backgroundGeneration);
     }
-    
+
+
     // Wait for all generations to complete, then reload profile from Firebase
     if (generations.length > 0) {
       try {
@@ -498,43 +508,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         ? { ...current, ...data, userId: session.user.id, lastUpdated: Date.now() }
         : { ...mergeNonEmpty(current, data), userId: session.user.id, lastUpdated: Date.now() };
 
-      // Process social media data only for new profiles
-      if (merged.contactChannels) {
-        // Generate phone-based social media profiles if phone number is provided
-        if (merged.contactChannels.phoneInfo?.internationalPhone && 
-            (!current.contactChannels?.whatsapp?.username || 
-             !current.contactChannels?.telegram?.username || 
-             !current.contactChannels?.wechat?.username)) {
-          
-          console.log('[ProfileContext] Generating phone-based social media profiles');
-          const phoneNumber = merged.contactChannels.phoneInfo.internationalPhone;
-          const cleanPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
-          
-          // Update WhatsApp
-          merged.contactChannels.whatsapp = {
-            username: cleanPhone,
-            url: `https://wa.me/${cleanPhone}`,
-            userConfirmed: false
-          };
-          
-          // Update Telegram
-          merged.contactChannels.telegram = {
-            username: cleanPhone,
-            url: `https://t.me/${cleanPhone}`,
-            userConfirmed: false
-          };
-          
-          // Update WeChat
-          merged.contactChannels.wechat = {
-            username: cleanPhone,
-            url: `weixin://dl/chat?${cleanPhone}`,
-            userConfirmed: false
-          };
-          
-          // Update streaming state for immediate UI feedback
-          setStreamingSocialContacts(merged.contactChannels);
-        }
-      }
+      // Phone-based social media generation is now handled by PhoneBasedSocialService
+      // after the profile is successfully saved (see phone save trigger below)
 
       // Always update the ref so subsequent operations can access updated data
       profileRef.current = merged;
@@ -565,6 +540,74 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         // Update React state with the saved data to ensure UI reflects confirmed channels
         if (skipReactUpdate) {
           setProfile(merged);
+        }
+        
+        // Trigger phone-based social generation if phone number was saved
+        if (wasFormSubmission && merged.contactChannels?.phoneInfo?.internationalPhone) {
+          const phoneNumber = merged.contactChannels.phoneInfo.internationalPhone;
+          console.log('[ProfileContext] Phone saved, triggering phone-based social generation');
+          
+          // Import and call PhoneBasedSocialService asynchronously (don't block)
+          import('@/lib/services/phoneBasedSocialService').then(({ PhoneBasedSocialService }) => {
+            PhoneBasedSocialService.generatePhoneBasedSocials(phoneNumber).then(result => {
+              if (result.success && (result.whatsapp || result.telegram)) {
+                console.log('[ProfileContext] Phone-based socials generated:', {
+                  whatsapp: !!result.whatsapp,
+                  telegram: !!result.telegram,
+                  profilesVerified: result.profilesVerified
+                });
+                
+                // Update only phone-based social profiles in Firebase
+                const phoneBasedUpdate: any = {};
+                if (result.whatsapp) phoneBasedUpdate['contactChannels.whatsapp'] = result.whatsapp;
+                if (result.telegram) phoneBasedUpdate['contactChannels.telegram'] = result.telegram;
+                
+                // Save phone-based socials to Firebase and update UI
+                if (Object.keys(phoneBasedUpdate).length > 0) {
+                  // Get fresh profile data to avoid overwriting concurrent AI social updates
+                  const freshProfile = profileRef.current;
+                  const updatedContactChannels = { 
+                    // Use fresh contact channels data, with fallbacks to avoid undefined errors
+                    phoneInfo: freshProfile?.contactChannels?.phoneInfo || merged.contactChannels.phoneInfo,
+                    email: freshProfile?.contactChannels?.email || merged.contactChannels.email,
+                    facebook: freshProfile?.contactChannels?.facebook || merged.contactChannels.facebook,
+                    instagram: freshProfile?.contactChannels?.instagram || merged.contactChannels.instagram,
+                    x: freshProfile?.contactChannels?.x || merged.contactChannels.x,
+                    linkedin: freshProfile?.contactChannels?.linkedin || merged.contactChannels.linkedin,
+                    snapchat: freshProfile?.contactChannels?.snapchat || merged.contactChannels.snapchat,
+                    wechat: freshProfile?.contactChannels?.wechat || merged.contactChannels.wechat,
+                    // Override with new phone-based socials
+                    whatsapp: result.whatsapp || freshProfile?.contactChannels?.whatsapp || merged.contactChannels.whatsapp,
+                    telegram: result.telegram || freshProfile?.contactChannels?.telegram || merged.contactChannels.telegram
+                  };
+                  
+                  // Update both Firebase and React state for immediate UI feedback
+                  silentSaveToFirebase({ contactChannels: updatedContactChannels }).then(() => {
+                    console.log('[ProfileContext] Phone-based socials saved to Firebase');
+                    
+                    // Update React state so UI shows the new social icons immediately
+                    if (profileRef.current) {
+                      const updatedProfile = {
+                        ...profileRef.current,
+                        contactChannels: updatedContactChannels
+                      };
+                      profileRef.current = updatedProfile;
+                      setProfile(updatedProfile);
+                      
+                      // Also update streaming state for immediate feedback
+                      setStreamingSocialContacts(updatedContactChannels);
+                    }
+                  }).catch(error => {
+                    console.error('[ProfileContext] Failed to save phone-based socials:', error);
+                  });
+                }
+              }
+            }).catch(error => {
+              console.error('[ProfileContext] Phone-based social generation failed:', error);
+            });
+          }).catch(error => {
+            console.error('[ProfileContext] Failed to import PhoneBasedSocialService:', error);
+          });
         }
         
         // Update session with new phone info ONLY for form submissions

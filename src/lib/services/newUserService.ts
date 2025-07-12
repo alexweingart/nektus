@@ -1,6 +1,5 @@
 import { Session } from 'next-auth';
 import { UserProfile } from '@/types/profile';
-import { generateSocialProfilesFromEmail } from '@/lib/utils/socialMedia';
 import { rehostGoogleProfileImage } from '@/lib/firebase/storage';
 
 /**
@@ -58,9 +57,6 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
     throw new Error('Session required to create default profile');
   }
 
-  // Generate social media profiles from email
-  const socialProfiles = generateSocialProfilesFromEmail(session.user.email || '');
-
   const profile: UserProfile = {
     userId: session.user.id || '',
     name: session.user.name || '',
@@ -78,14 +74,15 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
         email: session.user.email || '',
         userConfirmed: !!session.user.email
       },
-      facebook: socialProfiles.facebook,
-      instagram: socialProfiles.instagram,
-      x: socialProfiles.x,
-      linkedin: socialProfiles.linkedin,
-      snapchat: socialProfiles.snapchat,
-      whatsapp: socialProfiles.whatsapp,
-      telegram: socialProfiles.telegram,
-      wechat: socialProfiles.wechat
+      // Social profiles will be created by BioAndSocialGenerationService
+      facebook: { username: '', url: '', userConfirmed: false },
+      instagram: { username: '', url: '', userConfirmed: false },
+      x: { username: '', url: '', userConfirmed: false },
+      linkedin: { username: '', url: '', userConfirmed: false },
+      snapchat: { username: '', url: '', userConfirmed: false },
+      whatsapp: { username: '', url: '', userConfirmed: false },
+      telegram: { username: '', url: '', userConfirmed: false },
+      wechat: { username: '', url: '', userConfirmed: false }
     }
     // Removed aiGeneration field - should not be saved to Firestore
   };

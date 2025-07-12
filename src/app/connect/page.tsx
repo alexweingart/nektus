@@ -91,7 +91,7 @@ function ConnectPageContent() {
   // Show loading while checking auth or fetching profile
   if (status === 'loading' || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <LoadingSpinner size="sm" className="mx-auto" />
           <p className="mt-2 text-sm text-gray-500">
@@ -105,7 +105,7 @@ function ConnectPageContent() {
   // Show error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error}</p>
           <Button 
@@ -135,7 +135,7 @@ function ConnectPageContent() {
 
   // Fallback - should not reach here
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+    <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
       <div className="text-center">
         <p className="text-gray-400">Something went wrong</p>
         <Button 
@@ -154,7 +154,7 @@ function ConnectPageContent() {
 export default function ConnectPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <LoadingSpinner size="sm" className="mx-auto" />
           <p className="mt-2 text-sm text-gray-500">Loading...</p>

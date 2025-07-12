@@ -99,7 +99,6 @@
 }
 
 html {
-  height: 100vh;
   height: 100dvh;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -115,8 +114,7 @@ html {
 }
 
 body {
-  min-height: 100vh;
-  min-height: 100dvh; /* Fallback for older browsers */
+  min-height: 100dvh;
   font-family: var(--font-inter);
   color: hsl(var(--foreground));
   position: relative;
@@ -132,7 +130,6 @@ body {
 
 /* Content container that respects safe areas and prevents scrollbars */
 .safe-content-container {
-  height: 100vh;
   height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -164,7 +161,7 @@ body {
   /* Background will be set via inline styles */
 }
 
-/* iOS specific fixes */
+  /* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
   /* Fix background-attachment: fixed on iOS by disabling it */
   html {
@@ -173,8 +170,7 @@ body {
   
   /* Ensure full height coverage and prevent overscroll */
   html, body {
-    height: 100%;
-    min-height: 100vh;
+    height: 100dvh;
     min-height: 100dvh;
     overscroll-behavior-y: none;
     overscroll-behavior-x: contain;

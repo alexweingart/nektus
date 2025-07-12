@@ -111,7 +111,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-dvh">
         <div className="text-center">
           <LoadingSpinner size="sm" className="mx-auto" />
           <p className="mt-2 text-sm text-gray-500">Loading contact...</p>

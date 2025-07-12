@@ -98,11 +98,11 @@ export function PullToRefresh({
     <div 
       ref={containerRef}
       data-scrollable="true"
-      className={`min-h-screen overflow-y-auto overflow-x-hidden ${className}`}
+      className={`min-h-dvh overflow-y-auto overflow-x-hidden ${className}`}
       style={{
         transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`) : 'translateY(0px)',
         transition: isPulling && pullDistance > 0 ? 'none' : 'transform 0.2s ease-out',
-        height: '100vh',
+        height: '100dvh',
         minHeight: '100dvh',
         // Prevent overscroll bounce to avoid black area
         overscrollBehaviorY: 'none',

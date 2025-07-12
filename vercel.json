@@ -6,7 +6,7 @@
     "src/app/api/media/profile-image/route.ts": {
       "maxDuration": 60
     },
-    "src/app/api/bio/route.ts": {
+    "src/app/api/bio-and-social/route.ts": {
       "maxDuration": 60
     }
   }

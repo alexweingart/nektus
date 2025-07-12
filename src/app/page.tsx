@@ -13,12 +13,12 @@ export const dynamic = 'force-dynamic';
 // Dynamically import components to prevent hydration issues
 const HomePage = dynamicImport(() => import('./components/views/HomePage'), { 
   ssr: false,
-  loading: () => <div className="min-h-screen" />
+  loading: () => <div className="min-h-dvh" />
 });
 
 const ProfileView = dynamicImport(() => import('./components/views/ProfileView'), { 
   ssr: false,
-  loading: () => <div className="min-h-screen" />
+  loading: () => <div className="min-h-dvh" />
 });
 
 export default function Home() {
@@ -36,7 +36,7 @@ export default function Home() {
   // Show loading state while checking auth status
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-screen">
+      <div className="flex items-center justify-center h-full min-h-dvh">
         <LoadingSpinner size="sm" />
       </div>
     );

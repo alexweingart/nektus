@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 const EditProfileView = dynamicImport(() => import('../components/views/EditProfileView'), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen flex items-center justify-center">
+          <div className="min-h-dvh flex items-center justify-center">
       <LoadingSpinner size="sm" />
     </div>
   ),
