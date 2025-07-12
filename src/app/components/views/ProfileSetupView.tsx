@@ -147,6 +147,7 @@ function ProfileSetupView() {
                   onChange={setDigits}
                   placeholder="Enter phone number"
                   className="w-full"
+                  autoFocus={false}
                   inputProps={{
                     className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white/90",
                     required: true,

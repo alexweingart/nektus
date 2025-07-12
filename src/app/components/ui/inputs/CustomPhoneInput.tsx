@@ -74,6 +74,7 @@ interface CustomPhoneInputProps {
   placeholder?: string;
   isDisabled?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+  autoFocus?: boolean;
 }
 
 const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProps>((
@@ -84,6 +85,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     placeholder = 'Enter phone number',
     isDisabled = false,
     inputProps = {},
+    autoFocus = true,
   },
   ref
 ) => {
@@ -278,12 +280,12 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     };
   }, [dropdownRef]);
 
-  // Auto-focus on the input when component mounts
+  // Auto-focus on the input when component mounts (if enabled)
   useEffect(() => {
-    if (inputRef.current) {
+    if (autoFocus && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [inputRef]);
+  }, [autoFocus, inputRef]);
 
   // Focus management is now handled by CSS focus-within
 

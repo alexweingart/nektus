@@ -42,7 +42,7 @@ const ADAPTIVE_THRESHOLD_CONFIG = {
 const MOTION_PATTERN_CONFIG = {
   // Asymmetric bump detection
   asymmetricBump: {
-    enabled: true,
+    enabled: false, // Disabled to reduce sensitivity
     lowMotionThreshold: 0.6, // If motion is 60% below normal threshold
     patternWindow: 2000, // 2 seconds to analyze pattern
     minimumEvents: 15, // Need at least 15 events to analyze pattern
@@ -59,7 +59,7 @@ const MOTION_PATTERN_CONFIG = {
   
   // Pattern-based detection for subtle bumps
   subtlePattern: {
-    enabled: true,
+    enabled: false, // Disabled to reduce sensitivity
     gradualIncreaseThreshold: 0.4, // 40% gradual increase in motion
     peakWindow: 300, // 300ms window for peak detection
     minimumPeakRatio: 1.5, // Peak should be 1.5x the recent average
