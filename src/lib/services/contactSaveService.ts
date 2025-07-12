@@ -74,13 +74,32 @@ function isPermissionError(error?: string): boolean {
     'Insufficient Permission',
     'Request had insufficient authentication scopes',
     'No Google Contacts access token available', // When no token is available
+    'no google contacts access token', // Case variations
+    'access token available',
     'access token',
     'token',
     'authentication'
   ];
   
   const lowerError = error.toLowerCase();
-  return permissionKeywords.some(keyword => lowerError.includes(keyword.toLowerCase()));
+  const isPermError = permissionKeywords.some(keyword => lowerError.includes(keyword.toLowerCase()));
+  
+  // Additional specific checks for common token-related issues
+  if (!isPermError) {
+    // Check for specific patterns that indicate permission issues
+    const tokenPatterns = [
+      /no.*token.*available/i,
+      /token.*not.*available/i,
+      /missing.*token/i,
+      /invalid.*token/i,
+      /expired.*token/i,
+      /token.*required/i
+    ];
+    
+    return tokenPatterns.some(pattern => pattern.test(error));
+  }
+  
+  return isPermError;
 }
 
 /**
@@ -172,11 +191,21 @@ async function saveContactToGoogleOnly(token: string): Promise<ContactSaveResult
     })
   });
 
+  // Read the response body regardless of status code
+  const result = await response.json();
+  
   if (!response.ok) {
+    // Check if we have a specific error message in the response
+    if (result.google?.error) {
+      console.warn('⚠️ Google Contacts save failed with specific error:', result.google.error);
+      // Return the result with the specific error instead of throwing
+      return result;
+    }
+    // Fallback to generic error if no specific error in response
     throw new Error(`Google Contacts save API request failed: ${response.status}`);
   }
 
-  return response.json();
+  return result;
 }
 
 /**
