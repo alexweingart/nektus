@@ -53,6 +53,9 @@ export class RealTimeContactExchangeService {
     try {
       console.log(`🚀 Starting exchange process with sharing category: ${sharingCategory}`);
       
+      // Reset cancellation flag for new exchange
+      this.motionDetectionCancelled = false;
+      
       // Initialize clock sync first thing
       if (!isClockSyncInitialized()) {
         console.log('⏰ Initializing clock synchronization...');
@@ -185,6 +188,9 @@ export class RealTimeContactExchangeService {
    * Disconnect and cleanup
    */
   disconnect(): void {
+    // Cancel motion detection
+    this.motionDetectionCancelled = true;
+    
     // Clear any active timeouts
     if (this.waitingForBumpTimeout) {
       clearTimeout(this.waitingForBumpTimeout);
@@ -330,7 +336,7 @@ export class RealTimeContactExchangeService {
   }
 
   private async waitForBump(hasPermission: boolean, sharingCategory: 'All' | 'Personal' | 'Work'): Promise<void> {
-    while (true) { // Keep waiting for motion until user cancels or motion is detected
+    while (!this.motionDetectionCancelled) { // Keep waiting for motion until user cancels or motion is detected
       try {
         console.log('🔍 Starting motion detection... (no server hit until motion detected)');
         
@@ -338,9 +344,10 @@ export class RealTimeContactExchangeService {
         const motionResult = await MotionDetector.detectMotion();
         
         if (!motionResult.hasMotion) {
-          console.log('⏰ Motion detection timed out - no bump detected, restarting detection...');
-          // Don't send hit, don't show error, just restart detection
-          continue; // Restart the motion detection loop
+          console.log('⏰ Motion detection timed out - no bump detected, stopping...');
+          // Stop trying instead of restarting - user can tap button again if needed
+          this.updateState({ status: 'timeout' });
+          return;
         }
 
         console.log('🎯 Motion detected! Sending hit to server...');

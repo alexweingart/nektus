@@ -419,9 +419,6 @@ export class MotionDetector {
   }
 
   static async detectMotion(): Promise<MotionDetectionResult> {
-    // DEBUG: Log call stack to see what's calling this
-    console.log('🚨 DEBUG: detectMotion() called from:', new Error().stack);
-    
     // Check if DeviceMotionEvent is supported
     if (!window.DeviceMotionEvent) {
       console.log('❌ DeviceMotionEvent not supported');
