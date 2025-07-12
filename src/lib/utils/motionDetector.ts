@@ -29,67 +29,9 @@ const SEQUENTIAL_DETECTION = {
   }
 };
 
-// Standardized thresholds for all devices (no more iOS/Android differences)
-const DEFAULT_MOTION_THRESHOLD = 10; // m/s² - use strong bump profile as default
-const DEFAULT_JERK_THRESHOLD = 125;  // m/s³ - use strong bump profile as default
+// Motion detection configuration
 const MOTION_TIMEOUT = 15000; // 15 seconds (longer than exchange timeout to avoid conflicts)
 const SPIKE_DURATION_MS = 500; // Look for spikes within 500ms
-
-// Adaptive threshold configuration (simplified since we standardized across devices)
-const ADAPTIVE_THRESHOLD_CONFIG = {
-  // Device-specific multipliers (removed - now standardized)
-  deviceMultipliers: {
-    iOS: {
-      magnitude: 1.0, // Standardized - no device differences
-      jerk: 1.0
-    },
-    Android: {
-      magnitude: 1.0, // Standardized - no device differences
-      jerk: 1.0
-    },
-    chromeOnIOS: {
-      magnitude: 1.0, // Standardized - no device differences
-      jerk: 1.0
-    }
-  },
-  
-  // Adaptive sensitivity based on recent motion levels
-  adaptiveSensitivity: {
-    enabled: true,
-    baselinePeriod: 1000, // 1 second to establish baseline
-    sensitivityIncrease: 0.15, // 15% increase in sensitivity if low motion detected
-    maxSensitivityBoost: 0.3 // Maximum 30% boost
-  }
-};
-
-// Motion pattern analysis configuration
-const MOTION_PATTERN_CONFIG = {
-  // Asymmetric bump detection
-  asymmetricBump: {
-    enabled: false, // Disabled to reduce sensitivity
-    lowMotionThreshold: 0.6, // If motion is 60% below normal threshold
-    patternWindow: 2000, // 2 seconds to analyze pattern
-    minimumEvents: 15, // Need at least 15 events to analyze pattern
-    variabilityThreshold: 0.3, // 30% variation in magnitude suggests asymmetric bump
-    
-    // Alternative detection criteria for low-motion scenarios
-    alternativeDetection: {
-      enabled: true,
-      sustainedMotionThreshold: 0.7, // 70% of normal threshold
-      sustainedDuration: 800, // 800ms of sustained motion
-      peakToAverageRatio: 2.0 // Peak motion should be 2x average
-    }
-  },
-  
-  // Pattern-based detection for subtle bumps
-  subtlePattern: {
-    enabled: false, // Disabled to reduce sensitivity
-    gradualIncreaseThreshold: 0.4, // 40% gradual increase in motion
-    peakWindow: 300, // 300ms window for peak detection
-    minimumPeakRatio: 1.5, // Peak should be 1.5x the recent average
-    directionChangeThreshold: 0.8 // 80% threshold for direction changes
-  }
-};
 
 export class MotionDetector {
   // Persistent sequential detection state across multiple motion detections
@@ -120,158 +62,14 @@ export class MotionDetector {
     return { ...this.sequentialState };
   }
 
-  private static analyzeMotionPattern(
-    recentMagnitudes: Array<{magnitude: number, timestamp: number}>,
-    currentThresholds: {magnitude: number, jerk: number},
-    browserInfo: any
-  ): {detected: boolean, type: string, confidence: number, details: any} {
-    if (!MOTION_PATTERN_CONFIG.asymmetricBump.enabled || recentMagnitudes.length < MOTION_PATTERN_CONFIG.asymmetricBump.minimumEvents) {
-      return { detected: false, type: 'none', confidence: 0, details: {} };
-    }
+  // Pattern analysis removed - was disabled and added complexity
 
-    const now = Date.now();
-    const patternWindow = MOTION_PATTERN_CONFIG.asymmetricBump.patternWindow;
-    const recentWindow = recentMagnitudes.filter(m => now - m.timestamp <= patternWindow);
-    
-    if (recentWindow.length < MOTION_PATTERN_CONFIG.asymmetricBump.minimumEvents) {
-      return { detected: false, type: 'none', confidence: 0, details: {} };
-    }
-
-    const magnitudes = recentWindow.map(m => m.magnitude);
-    const avgMagnitude = magnitudes.reduce((sum, m) => sum + m, 0) / magnitudes.length;
-    const maxMagnitude = Math.max(...magnitudes);
-    const minMagnitude = Math.min(...magnitudes);
-    const stdDev = Math.sqrt(magnitudes.reduce((sum, m) => sum + Math.pow(m - avgMagnitude, 2), 0) / magnitudes.length);
-    const variabilityCoeff = stdDev / avgMagnitude;
-
-    // Check for asymmetric bump pattern
-    const lowMotionThreshold = currentThresholds.magnitude * MOTION_PATTERN_CONFIG.asymmetricBump.lowMotionThreshold;
-    const isLowMotionScenario = avgMagnitude < lowMotionThreshold;
-    
-    if (isLowMotionScenario && MOTION_PATTERN_CONFIG.asymmetricBump.alternativeDetection.enabled) {
-      const sustainedThreshold = currentThresholds.magnitude * MOTION_PATTERN_CONFIG.asymmetricBump.alternativeDetection.sustainedMotionThreshold;
-      const sustainedDuration = MOTION_PATTERN_CONFIG.asymmetricBump.alternativeDetection.sustainedDuration;
-      const peakToAverageRatio = MOTION_PATTERN_CONFIG.asymmetricBump.alternativeDetection.peakToAverageRatio;
-      
-      // Check for sustained motion above threshold
-      const sustainedEvents = recentWindow.filter(m => 
-        m.magnitude >= sustainedThreshold && 
-        now - m.timestamp <= sustainedDuration
-      );
-      
-      const hasSustainedMotion = sustainedEvents.length >= 5; // At least 5 events (~83ms worth)
-      const hasSignificantPeak = maxMagnitude >= avgMagnitude * peakToAverageRatio;
-      
-      if (hasSustainedMotion && hasSignificantPeak) {
-        return {
-          detected: true,
-          type: 'asymmetric_sustained',
-          confidence: 0.7 + (sustainedEvents.length / recentWindow.length) * 0.3,
-          details: {
-            avgMagnitude: avgMagnitude,
-            maxMagnitude: maxMagnitude,
-            sustainedEvents: sustainedEvents.length,
-            sustainedRatio: sustainedEvents.length / recentWindow.length,
-            peakToAverageRatio: maxMagnitude / avgMagnitude,
-            thresholdUsed: sustainedThreshold
-          }
-        };
-      }
-    }
-
-    // Check for high variability suggesting asymmetric bump
-    if (variabilityCoeff > MOTION_PATTERN_CONFIG.asymmetricBump.variabilityThreshold) {
-      const recentPeaks = magnitudes.filter(m => m > avgMagnitude * 1.5);
-      const hasMultiplePeaks = recentPeaks.length >= 3;
-      
-      if (hasMultiplePeaks) {
-        return {
-          detected: true,
-          type: 'asymmetric_variability',
-          confidence: Math.min(0.9, 0.5 + variabilityCoeff),
-          details: {
-            avgMagnitude: avgMagnitude,
-            maxMagnitude: maxMagnitude,
-            variabilityCoeff: variabilityCoeff,
-            peakCount: recentPeaks.length,
-            peakRatio: recentPeaks.length / magnitudes.length
-          }
-        };
-      }
-    }
-
-    // Check for subtle pattern detection
-    if (MOTION_PATTERN_CONFIG.subtlePattern.enabled) {
-      const gradualIncreaseThreshold = currentThresholds.magnitude * MOTION_PATTERN_CONFIG.subtlePattern.gradualIncreaseThreshold;
-      const peakWindow = MOTION_PATTERN_CONFIG.subtlePattern.peakWindow;
-      const recentPeakWindow = recentWindow.filter(m => now - m.timestamp <= peakWindow);
-      
-      if (recentPeakWindow.length >= 5) {
-        const recentAvg = recentPeakWindow.reduce((sum, m) => sum + m.magnitude, 0) / recentPeakWindow.length;
-        const recentMax = Math.max(...recentPeakWindow.map(m => m.magnitude));
-        const peakRatio = recentMax / recentAvg;
-        
-        if (recentAvg > gradualIncreaseThreshold && peakRatio >= MOTION_PATTERN_CONFIG.subtlePattern.minimumPeakRatio) {
-          return {
-            detected: true,
-            type: 'subtle_pattern',
-            confidence: 0.6 + Math.min(0.4, (peakRatio - 1.0) * 0.2),
-            details: {
-              recentAvg: recentAvg,
-              recentMax: recentMax,
-              peakRatio: peakRatio,
-              gradualIncreaseThreshold: gradualIncreaseThreshold,
-              windowSize: recentPeakWindow.length
-            }
-          };
-        }
-      }
-    }
-
-    return { detected: false, type: 'none', confidence: 0, details: {} };
-  }
-
+  // Simplified - just use the strong bump profile as default thresholds
   private static calculateAdaptiveThresholds(browserInfo: any, recentMagnitudes: Array<{magnitude: number, timestamp: number}>): {magnitude: number, jerk: number} {
-    // Start with standardized base thresholds (same for all devices now)
-    let baseMagnitudeThreshold = DEFAULT_MOTION_THRESHOLD;
-    let baseJerkThreshold = DEFAULT_JERK_THRESHOLD;
-    
-    // Apply device-specific multipliers
-    let deviceMultiplier = ADAPTIVE_THRESHOLD_CONFIG.deviceMultipliers.Android;
-    if (browserInfo.isChromeOnIOS) {
-      deviceMultiplier = ADAPTIVE_THRESHOLD_CONFIG.deviceMultipliers.chromeOnIOS;
-    } else if (browserInfo.isIOS) {
-      deviceMultiplier = ADAPTIVE_THRESHOLD_CONFIG.deviceMultipliers.iOS;
-    }
-    
-    baseMagnitudeThreshold *= deviceMultiplier.magnitude;
-    baseJerkThreshold *= deviceMultiplier.jerk;
-    
-    // Apply adaptive sensitivity if enabled
-    if (ADAPTIVE_THRESHOLD_CONFIG.adaptiveSensitivity.enabled && recentMagnitudes.length > 0) {
-      const now = Date.now();
-      const baselinePeriod = ADAPTIVE_THRESHOLD_CONFIG.adaptiveSensitivity.baselinePeriod;
-      const recentBaseline = recentMagnitudes.filter(m => now - m.timestamp <= baselinePeriod);
-      
-      if (recentBaseline.length > 5) { // Need enough data points
-        const avgRecentMagnitude = recentBaseline.reduce((sum, m) => sum + m.magnitude, 0) / recentBaseline.length;
-        const maxRecentMagnitude = Math.max(...recentBaseline.map(m => m.magnitude));
-        
-        // If recent motion is consistently low, increase sensitivity
-        if (maxRecentMagnitude < baseMagnitudeThreshold * 0.7) {
-          const sensitivityBoost = Math.min(
-            ADAPTIVE_THRESHOLD_CONFIG.adaptiveSensitivity.sensitivityIncrease,
-            ADAPTIVE_THRESHOLD_CONFIG.adaptiveSensitivity.maxSensitivityBoost
-          );
-          baseMagnitudeThreshold *= (1 - sensitivityBoost);
-          baseJerkThreshold *= (1 - sensitivityBoost);
-        }
-      }
-    }
-    
+    // Use strong bump profile as the base threshold (standardized across all devices)
     return {
-      magnitude: baseMagnitudeThreshold,
-      jerk: baseJerkThreshold
+      magnitude: DETECTION_PROFILES.strongBump.magnitude,
+      jerk: DETECTION_PROFILES.strongBump.jerk
     };
   }
 
@@ -314,18 +112,7 @@ export class MotionDetector {
   static async requestPermission(): Promise<{ success: boolean; message?: string }> {
     const browserInfo = this.getBrowserInfo();
     
-    // Log the detailed browser environment
-    try {
-      await fetch('/api/system/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'browser_detection',
-          message: JSON.stringify(browserInfo, null, 2),
-          timestamp: getServerNow() 
-        })
-      });
-    } catch {}
+    // Simplified browser detection - just console logging
 
     console.log('🔍 Browser Info:', browserInfo);
 
@@ -350,34 +137,8 @@ export class MotionDetector {
       try {
         console.log('📱 iOS Safari detected - requesting motion permission...');
         
-        // Log to server for debugging
-        try {
-          await fetch('/api/system/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event: 'ios_safari_permission_request',
-              message: 'Calling DeviceMotionEvent.requestPermission() on iOS Safari',
-              timestamp: getServerNow() 
-            })
-          });
-        } catch {}
-
         const permission = await (DeviceMotionEvent as any).requestPermission();
         console.log('📱 iOS Safari permission result:', permission);
-        
-        // Log result to server
-        try {
-          await fetch('/api/system/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event: 'ios_safari_permission_result',
-              message: `Permission result: ${permission}`,
-              timestamp: getServerNow() 
-            })
-          });
-        } catch {}
         
         if (permission === 'granted') {
           return { success: true };
@@ -390,18 +151,7 @@ export class MotionDetector {
       } catch (error) {
         console.warn('❌ iOS Safari permission request failed:', error);
         
-        // Log error to server
-        try {
-          await fetch('/api/system/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event: 'ios_safari_permission_error',
-              message: `Permission request failed: ${error}`,
-              timestamp: getServerNow() 
-            })
-          });
-        } catch {}
+        // Simplified error logging
         
         return { 
           success: false, 
@@ -421,18 +171,7 @@ export class MotionDetector {
     if (browserInfo.isChromeOnAndroid || browserInfo.isAndroid) {
       console.log('🤖 Android detected - motion should work without permission');
       
-      // Log to server
-      try {
-        await fetch('/api/system/ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: 'android_device',
-            message: 'Android device - no permission required',
-            timestamp: getServerNow() 
-          })
-        });
-      } catch {}
+      // Simplified logging
       
       return { success: true };
     }
@@ -476,23 +215,7 @@ export class MotionDetector {
     const browserInfo = this.getBrowserInfo();
     let currentThresholds = this.calculateAdaptiveThresholds(browserInfo, []);
     
-          // Log device info and threshold to server for debugging
-      try {
-        await fetch('/api/system/ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: 'motion_detection_start',
-            message: `Starting motion detection - Device: ${browserInfo.isIOS ? 'iOS' : 'Other'}, Mag threshold: ${currentThresholds.magnitude.toFixed(1)} m/s², Jerk threshold: ${currentThresholds.jerk.toFixed(1)} m/s³`,
-            deviceInfo: {
-              isIOS: browserInfo.isIOS,
-              thresholds: currentThresholds,
-              userAgent: browserInfo.userAgent
-            },
-            timestamp: getServerNow() 
-          })
-        });
-      } catch {}
+      // Simplified logging
       
       // Note: Permission should already be granted by the calling service
       console.log('✅ Starting motion detection...');
@@ -609,77 +332,13 @@ export class MotionDetector {
           };
         }
         
-        // Enhanced server logging: Log ALL motion events to server for comprehensive analysis
-        // This will help identify patterns and optimize thresholds
-        const motionData = {
-          eventCount: motionEventCount,
-          acceleration: { x: accel.x, y: accel.y, z: accel.z },
-          magnitude: magnitude,
-          jerk: jerk,
-          timestamp: now,
-          isIOS: browserInfo.isIOS,
-          userAgent: browserInfo.userAgent,
-          thresholds: {
-            magnitude: currentThresholds.magnitude,
-            jerk: currentThresholds.jerk
-          },
-          recentMagnitudes: recentMagnitudes,
-          exceedsThresholds: {
-            magnitude: magnitude >= currentThresholds.magnitude,
-            jerk: jerk >= currentThresholds.jerk,
-            both: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
-          }
-        };
-        
-        // Store motion event for analytics
+        // Simplified logging - just track basic motion events for timeout debugging
         allMotionEvents.push({
           timestamp: now,
           magnitude: magnitude,
           jerk: jerk,
-          acceleration: { x: accel.x, y: accel.y, z: accel.z },
-          isIOS: browserInfo.isIOS,
-          userAgent: browserInfo.userAgent,
-          thresholds: {
-            magnitude: currentThresholds.magnitude,
-            jerk: currentThresholds.jerk,
-            // Include dual threshold info
-            strongBump: DETECTION_PROFILES.strongBump,
-            sharpTap: DETECTION_PROFILES.sharpTap
-          },
-          exceedsThresholds: {
-            magnitude: magnitude >= currentThresholds.magnitude,
-            jerk: jerk >= currentThresholds.jerk,
-            both: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
-            // Dual threshold detection results
-            strongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
-            sharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
-            either: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                    (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk),
-            // Sequential detection results
-            magnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
-            jerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
-            sequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
-                       (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude)
-          },
-          // Sequential detection state
-          sequentialState: {
-            magnitudePrimed: magnitudePrimed,
-            jerkPrimed: jerkPrimed,
-            thresholds: SEQUENTIAL_DETECTION
-          }
+          acceleration: { x: accel.x, y: accel.y, z: accel.z }
         });
-
-        // Send to server (fire and forget to avoid blocking)
-        fetch('/api/system/ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: 'motion_event_detailed',
-            message: `Motion event ${motionEventCount}: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}, threshold_met=${motionData.exceedsThresholds.both}`,
-            motionData: motionData,
-            timestamp: now
-          })
-        }).catch(() => {}); // Ignore errors to avoid blocking motion detection
         
         // Update sequential detection state (both local and persistent)
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude) {
@@ -701,10 +360,8 @@ export class MotionDetector {
         const sharpTapDetection = magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk;
         const dualThresholdDetection = strongBumpDetection || sharpTapDetection;
         
-        // Also check for motion patterns (asymmetric bumps, subtle patterns) - disabled for now
-        const patternAnalysis = this.analyzeMotionPattern(recentMagnitudes, currentThresholds, browserInfo);
-        
-        if (dualThresholdDetection || sequentialDetection || patternAnalysis.detected) {
+        // Check for detection: dual threshold or sequential detection
+        if (dualThresholdDetection || sequentialDetection) {
           let detectionType = 'unknown';
           let confidence = 1.0;
           
@@ -716,9 +373,6 @@ export class MotionDetector {
             detectionType = 'magnitude_primed';
           } else if (jerkPrimedDetection) {
             detectionType = 'jerk_primed';
-          } else {
-            detectionType = patternAnalysis.type;
-            confidence = patternAnalysis.confidence;
           }
           
           console.log(`🎯 MOTION DETECTED! Type: ${detectionType}, Confidence: ${(confidence * 100).toFixed(1)}%`);
@@ -730,8 +384,6 @@ export class MotionDetector {
             console.log(`   Magnitude Primed: Previous magnitude ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}, Current jerk: ${jerk.toFixed(1)} >= ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
           } else if (jerkPrimedDetection) {
             console.log(`   Jerk Primed: Previous jerk ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}, Current magnitude: ${magnitude.toFixed(2)} >= ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
-          } else {
-            console.log(`   Pattern: ${patternAnalysis.type}, Details:`, patternAnalysis.details);
           }
           
           // Log comprehensive session summary on successful detection
@@ -751,47 +403,13 @@ export class MotionDetector {
               jerk: jerk,
               acceleration: { x: accel.x, y: accel.y, z: accel.z }
             },
-            patternAnalysis: patternAnalysis,
             recentMagnitudes: recentMagnitudes,
             maxMagnitude: recentMagnitudes.length > 0 ? Math.max(...recentMagnitudes.map(m => m.magnitude)) : magnitude,
             avgMagnitude: recentMagnitudes.length > 0 ? recentMagnitudes.reduce((sum, m) => sum + m.magnitude, 0) / recentMagnitudes.length : magnitude
           };
           
-          // Send session summary to server
-          fetch('/api/system/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event: 'motion_session_summary',
-              message: `Motion detected successfully - ${motionEventCount} events, trigger_mag=${magnitude.toFixed(2)}, trigger_jerk=${jerk.toFixed(1)}`,
-              sessionSummary: sessionSummary,
-              timestamp: getServerNow()
-            })
-          }).catch(() => {});
-          
-          // Log successful motion detection to server for analytics (legacy)
-          try {
-            fetch('/api/system/ping', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                event: 'motion_detected',
-                message: `Motion detected - Device: ${browserInfo.isIOS ? 'iOS' : 'Other'}, Magnitude: ${magnitude.toFixed(2)}, Jerk: ${jerk.toFixed(1)}`,
-                              motionData: {
-                isIOS: browserInfo.isIOS,
-                magnitude: magnitude,
-                jerk: jerk,
-                magnitudeThreshold: currentThresholds.magnitude,
-                jerkThreshold: currentThresholds.jerk,
-                acceleration: { x: accel.x, y: accel.y, z: accel.z }
-              },
-                timestamp: getServerNow() 
-              })
-            });
-          } catch {}
-          
-          // Send analytics data for successful detection
-          sendSessionAnalytics('success', detectionType, confidence);
+          // Simplified logging - just console output for successful detection
+          console.log(`✅ Motion detected successfully - ${motionEventCount} events, trigger_mag=${magnitude.toFixed(2)}, trigger_jerk=${jerk.toFixed(1)}`);
           
           resolved = true;
           window.removeEventListener('devicemotion', handleMotion);
@@ -812,34 +430,7 @@ export class MotionDetector {
         previousTimestamp = now;
       };
 
-      // Helper function to send session data to analytics
-      const sendSessionAnalytics = (outcome: 'success' | 'timeout' | 'error', detectionType?: string, confidence?: number) => {
-        const sessionData = {
-          sessionId: `motion-${sessionStartTime}-${Math.random().toString(36).substring(2, 8)}`,
-          startTime: sessionStartTime,
-          endTime: getServerNow(),
-          outcome: outcome,
-          detectionType: detectionType,
-          confidence: confidence,
-          totalEvents: motionEventCount,
-          deviceInfo: browserInfo,
-          events: allMotionEvents,
-          summary: {
-            maxMagnitude: allMotionEvents.length > 0 ? Math.max(...allMotionEvents.map(e => e.magnitude)) : 0,
-            avgMagnitude: allMotionEvents.length > 0 ? allMotionEvents.reduce((sum, e) => sum + e.magnitude, 0) / allMotionEvents.length : 0,
-            maxJerk: allMotionEvents.length > 0 ? Math.max(...allMotionEvents.map(e => e.jerk)) : 0,
-            avgJerk: allMotionEvents.length > 0 ? allMotionEvents.reduce((sum, e) => sum + e.jerk, 0) / allMotionEvents.length : 0,
-            thresholdMetEvents: allMotionEvents.filter(e => e.exceedsThresholds.both).length
-          }
-        };
-
-        // Send to analytics endpoint (fire and forget)
-        fetch('/api/debug/motion-analytics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sessionData)
-        }).catch(() => {}); // Ignore errors to avoid blocking
-      };
+      // Analytics removed - was sending to debug endpoint
 
       const timeout = setTimeout(() => {
         if (!resolved) {
@@ -885,20 +476,8 @@ export class MotionDetector {
             avgMagnitude: recentMagnitudes.length > 0 ? recentMagnitudes.reduce((sum, m) => sum + m.magnitude, 0) / recentMagnitudes.length : 0
           };
           
-          // Send session summary to server
-          fetch('/api/system/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event: 'motion_session_summary',
-              message: `Motion detection session timed out - ${motionEventCount} events, max_mag=${sessionSummary.maxMagnitude.toFixed(2)}, avg_mag=${sessionSummary.avgMagnitude.toFixed(2)}`,
-              sessionSummary: sessionSummary,
-              timestamp: getServerNow()
-            })
-          }).catch(() => {});
-          
-          // Send analytics data for timeout
-          sendSessionAnalytics('timeout');
+          // Simplified logging for timeout
+          console.log(`⏰ Motion detection session timed out - ${motionEventCount} events, max_mag=${sessionSummary.maxMagnitude.toFixed(2)}, avg_mag=${sessionSummary.avgMagnitude.toFixed(2)}`);
           
           resolved = true;
           window.removeEventListener('devicemotion', handleMotion);

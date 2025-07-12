@@ -12,7 +12,7 @@ export interface VCardOptions {
 
 /**
  * Helper function to create a base64-encoded photo line for vCard 3.0
- * Required for iOS contacts to display the photo correctly
+ * Uses RFC 2426 compliant format for maximum compatibility across contact applications
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
@@ -40,21 +40,34 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
       console.warn('Image size exceeds 200KB, may cause vCard issues');
     }
     
+    // Determine image type - JPEG is most widely supported
     const mime = contentType.toLowerCase();
-    const type = mime.includes('png') ? 'PNG' : 'JPEG';
-    const b64 = Buffer.from(arrayBuffer).toString('base64');
-
-    // 75-character line folding as required by RFC 2425
-    const chunks: string[] = [];
-    for (let i = 0; i < b64.length; i += 75) {
-      chunks.push(b64.slice(i, i + 75));
+    let type = 'JPEG'; // Default to JPEG for maximum compatibility
+    if (mime.includes('png')) {
+      type = 'PNG';
+    } else if (mime.includes('gif')) {
+      type = 'GIF';
     }
     
-    // Use proper vCard 3.0 format
-    return `PHOTO;ENCODING=b;TYPE=${type}:${chunks.join('\r\n ')}`;
+    const b64 = Buffer.from(arrayBuffer).toString('base64');
+
+    // RFC 2426 compliant vCard 3.0 photo format with proper line folding
+    // Lines must be folded to 75 characters excluding CRLF
+    const chunks: string[] = [];
+    for (let i = 0; i < b64.length; i += 73) { // 73 chars + 2 for folding = 75 total
+      chunks.push(b64.slice(i, i + 73));
+    }
+    
+    // Use exact RFC 2426 vCard 3.0 format with proper folding
+    // First line: PHOTO;ENCODING=b;TYPE=JPEG:
+    // Subsequent lines: space + data + CRLF
+    const photoHeader = `PHOTO;ENCODING=b;TYPE=${type}:`;
+    const foldedData = chunks.join('\r\n '); // Note the space after \r\n for folding
+    
+    return `${photoHeader}${foldedData}`;
   } catch (error) {
     console.warn('Failed to encode photo as base64:', error);
-    // Fallback to URI format if base64 encoding fails
+    // Fallback to URI format if base64 encoding fails - but this is less compatible
     return `PHOTO;VALUE=URI:${imageUrl}`;
   }
 }
@@ -101,9 +114,116 @@ async function makePhotoLineV4(imageUrl: string): Promise<string> {
 }
 
 /**
- * Generate a vCard 4.0 string from a profile
+ * Generate a vCard 3.0 string from a profile (default format for maximum compatibility)
+ * Uses vCard 3.0 for better compatibility across contact applications
  */
 export const generateVCard = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
+  // Use vCard 3.0 format for maximum compatibility - especially for photos
+  return generateVCard30(profile, options);
+};
+
+/**
+ * Generate a vCard 3.0 string optimized for maximum compatibility
+ * This format has the best support across contact applications for photos
+ */
+export const generateVCard30 = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
+  const {
+    includePhoto = true,
+    includeSocialMedia = true,
+    includeNotes = true
+  } = options;
+
+  const lines: string[] = [];
+  
+  // vCard header - Use 3.0 for maximum compatibility
+  lines.push('BEGIN:VCARD');
+  lines.push('VERSION:3.0');
+  lines.push('PRODID:-//Nektus//vCard 1.0//EN');
+  
+  // Basic information
+  if (profile.name) {
+    // FN (Formatted Name) - required field
+    lines.push(`FN:${escapeVCardValue(profile.name)}`);
+    
+    // N (Name) - structured name
+    const nameParts = profile.name.split(' ');
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
+    lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
+  }
+  
+  // Phone numbers
+  if (profile.contactChannels?.phoneInfo?.internationalPhone) {
+    lines.push(`TEL;TYPE=CELL:${profile.contactChannels.phoneInfo.internationalPhone}`);
+  }
+  
+  // Email
+  if (profile.contactChannels?.email?.email) {
+    lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
+  }
+  
+  // Photo/Avatar - Use base64 encoding for maximum compatibility
+  if (includePhoto && profile.profileImage) {
+    try {
+      const photoLine = await makePhotoLine(profile.profileImage);
+      lines.push(photoLine);
+    } catch (error) {
+      console.warn('Failed to encode photo for vCard 3.0:', error);
+      // Skip photo if encoding fails rather than breaking the entire vCard
+    }
+  }
+  
+  // Social media profiles using X-SOCIALPROFILE for iOS compatibility
+  if (includeSocialMedia && profile.contactChannels) {
+    const processedPlatforms = new Set<string>();
+    
+    Object.entries(profile.contactChannels).forEach(([platform, data]) => {
+      if (platform === 'phoneInfo' || platform === 'email') return; // Skip phone and email, already handled
+      
+      if (data && typeof data === 'object' && 'username' in data && data.username) {
+        const url = getSocialMediaUrl(platform, data.username);
+        if (url) {
+          const platformType = getPlatformTypeForIOS(platform);
+          
+          // Avoid duplicates by tracking processed platform types
+          if (!processedPlatforms.has(platformType)) {
+            processedPlatforms.add(platformType);
+            
+            // Use the correct X-SOCIALPROFILE format that iOS recognizes for icons
+            lines.push(`X-SOCIALPROFILE;type=${platformType.toUpperCase()}:${url}`);
+          }
+        }
+      }
+    });
+  }
+  
+  // Notes/Bio
+  if (includeNotes && profile.bio) {
+    lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
+  }
+  
+  // Nektus-specific data as extended properties
+  if (profile.userId) {
+    lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId}`);
+  }
+  if (profile.lastUpdated) {
+    lines.push(`X-NEKTUS-UPDATED:${new Date(profile.lastUpdated).toISOString()}`);
+  }
+  
+  // Add timestamp
+  lines.push(`REV:${new Date().toISOString()}`);
+  
+  // vCard footer
+  lines.push('END:VCARD');
+  
+  return lines.join('\r\n');
+};
+
+/**
+ * Generate a vCard 4.0 string from a profile (for future compatibility)
+ * Note: vCard 4.0 has limited support, especially for photos
+ */
+export const generateVCard40 = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
   const {
     includePhoto = true,
     includeSocialMedia = true,
@@ -138,7 +258,7 @@ export const generateVCard = async (profile: UserProfile, options: VCardOptions 
     lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
   }
   
-  // Photo/Avatar - Use base64 encoding for better compatibility
+  // Photo/Avatar - Use base64 encoding for vCard 4.0 (limited compatibility)
   if (includePhoto && profile.profileImage) {
     try {
       const photoLine = await makePhotoLineV4(profile.profileImage);
@@ -302,95 +422,11 @@ export const openVCardInNewTab = async (profile: UserProfile, options?: VCardOpt
 };
 
 /**
- * Generate a vCard 3.0 string optimized for iOS with X-SOCIALPROFILE
- * This follows Apple's requirements for proper icon display
+ * Alias for generateVCard30 - kept for backward compatibility
+ * @deprecated Use generateVCard() or generateVCard30() instead
  */
 export const generateVCardForIOS = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
-  const {
-    includePhoto = true,
-    includeSocialMedia = true,
-    includeNotes = true
-  } = options;
-
-  const lines: string[] = [];
-  
-  // vCard header - Use 3.0 for iOS compatibility
-  lines.push('BEGIN:VCARD');
-  lines.push('VERSION:3.0');
-  lines.push('PRODID:-//Nektus//vCard 1.0//EN');
-  
-  // Basic information
-  if (profile.name) {
-    // FN (Formatted Name) - required field
-    lines.push(`FN:${escapeVCardValue(profile.name)}`);
-    
-    // N (Name) - structured name
-    const nameParts = profile.name.split(' ');
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
-    lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
-  }
-  
-  // Phone numbers
-  if (profile.contactChannels?.phoneInfo?.internationalPhone) {
-    lines.push(`TEL;TYPE=CELL:${profile.contactChannels.phoneInfo.internationalPhone}`);
-  }
-  
-  // Email
-  if (profile.contactChannels?.email?.email) {
-    lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
-  }
-  
-  // Photo/Avatar - Use base64 encoding for iOS compatibility
-  if (includePhoto && profile.profileImage) {
-    const photoLine = await makePhotoLine(profile.profileImage);
-    lines.push(photoLine);
-  }
-  
-  // Social media profiles using X-SOCIALPROFILE for iOS compatibility
-  if (includeSocialMedia && profile.contactChannels) {
-    const processedPlatforms = new Set<string>();
-    
-    Object.entries(profile.contactChannels).forEach(([platform, data]) => {
-      if (platform === 'phoneInfo' || platform === 'email') return; // Skip phone and email, already handled
-      
-      if (data && typeof data === 'object' && 'username' in data && data.username) {
-        const url = getSocialMediaUrl(platform, data.username);
-        if (url) {
-          const platformType = getPlatformTypeForIOS(platform);
-          
-          // Avoid duplicates by tracking processed platform types
-          if (!processedPlatforms.has(platformType)) {
-            processedPlatforms.add(platformType);
-            
-            // Use the correct X-SOCIALPROFILE format that iOS recognizes for icons
-            lines.push(`X-SOCIALPROFILE;type=${platformType.toUpperCase()}:${url}`);
-          }
-        }
-      }
-    });
-  }
-  
-  // Notes/Bio
-  if (includeNotes && profile.bio) {
-    lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
-  }
-  
-  // Nektus-specific data as extended properties
-  if (profile.userId) {
-    lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId}`);
-  }
-  if (profile.lastUpdated) {
-    lines.push(`X-NEKTUS-UPDATED:${new Date(profile.lastUpdated).toISOString()}`);
-  }
-  
-  // Add timestamp
-  lines.push(`REV:${new Date().toISOString()}`);
-  
-  // vCard footer
-  lines.push('END:VCARD');
-  
-  return lines.join('\r\n');
+  return generateVCard30(profile, options);
 };
 
 /**
@@ -445,8 +481,8 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   // Only try vCard for Safari (non-embedded browser)
   console.log('📱 Safari detected, attempting vCard download');
   
-  // Use simplified vCard for iOS (no social media, just essentials)
-  const vCardContent = await generateSimpleVCardForIOS(profile);
+  // Use simplified vCard for maximum compatibility (no social media, just essentials)
+  const vCardContent = await generateSimpleVCard(profile);
   const filename = generateVCardFilename(profile);
   
   console.log('📱 Generated simplified vCard content length:', vCardContent.length);
@@ -635,68 +671,23 @@ const showVCardInstructions = (profile: UserProfile, vCardContent: string): void
 
 
 /**
- * Generate a simplified vCard 3.0 for iOS devices
- * Excludes social media, only includes: name, phone, email, bio, photo
+ * Generate a simplified vCard 3.0 without social media
+ * Includes only: name, phone, email, bio, photo
+ */
+export const generateSimpleVCard = async (profile: UserProfile): Promise<string> => {
+  const options: VCardOptions = {
+    includePhoto: true,
+    includeSocialMedia: false, // Exclude social media for simplicity
+    includeNotes: true
+  };
+  
+  return generateVCard30(profile, options);
+};
+
+/**
+ * Alias for generateSimpleVCard - kept for backward compatibility
+ * @deprecated Use generateSimpleVCard() instead
  */
 export const generateSimpleVCardForIOS = async (profile: UserProfile): Promise<string> => {
-  const lines: string[] = [];
-  
-  // vCard header - Use 3.0 for iOS compatibility
-  lines.push('BEGIN:VCARD');
-  lines.push('VERSION:3.0');
-  lines.push('PRODID:-//Nektus//vCard 1.0//EN');
-  
-  // Basic information
-  if (profile.name) {
-    // FN (Formatted Name) - required field
-    lines.push(`FN:${escapeVCardValue(profile.name)}`);
-    
-    // N (Name) - structured name
-    const nameParts = profile.name.split(' ');
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
-    lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
-  }
-  
-  // Phone numbers
-  if (profile.contactChannels?.phoneInfo?.internationalPhone) {
-    lines.push(`TEL;TYPE=CELL:${profile.contactChannels.phoneInfo.internationalPhone}`);
-  }
-  
-  // Email
-  if (profile.contactChannels?.email?.email) {
-    lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
-  }
-  
-  // Photo/Avatar - Use base64 encoding for iOS compatibility
-  if (profile.profileImage) {
-    try {
-      const photoLine = await makePhotoLine(profile.profileImage);
-      lines.push(photoLine);
-    } catch (error) {
-      console.warn('Failed to encode photo for iOS vCard:', error);
-      // Skip photo if encoding fails rather than breaking the entire vCard
-    }
-  }
-  
-  // Bio in Notes field
-  if (profile.bio) {
-    lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
-  }
-  
-  // Nektus-specific data as extended properties
-  if (profile.userId) {
-    lines.push(`X-NEKTUS-PROFILE-ID:${profile.userId}`);
-  }
-  if (profile.lastUpdated) {
-    lines.push(`X-NEKTUS-UPDATED:${new Date(profile.lastUpdated).toISOString()}`);
-  }
-  
-  // Add timestamp
-  lines.push(`REV:${new Date().toISOString()}`);
-  
-  // vCard footer
-  lines.push('END:VCARD');
-  
-  return lines.join('\r\n');
+  return generateSimpleVCard(profile);
 };

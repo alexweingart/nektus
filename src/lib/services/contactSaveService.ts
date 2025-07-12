@@ -754,17 +754,28 @@ export async function saveContactFlow(
           console.warn('Failed to display vCard inline for iOS Safari:', error);
         }
         
-        // Show success modal
+        // Determine modal to show based on first-time status only
+        let shouldShowUpsellModal = false;
+        
+        if (isFirstTimeIOSUpsell()) {
+          // First time saving on iOS Safari - show upsell to encourage Google account connection
+          console.log('🆕 First time save on iOS Safari, showing upsell modal to encourage Google connection');
+          markIOSUpsellShown();
+          shouldShowUpsellModal = true;
+        } else {
+          // Subsequent saves - always show success modal regardless of Google Contacts result
+          console.log('✅ iOS Safari subsequent save, showing success modal');
+          shouldShowUpsellModal = false;
+        }
+        
         const result: ContactSaveFlowResult = {
           success: true,
           firebase: firebaseResult.firebase,
           google: googleResult,
-          showSuccessModal: true,
+          showUpsellModal: shouldShowUpsellModal,
+          showSuccessModal: !shouldShowUpsellModal,
           platform
         };
-        
-        // For iOS Safari, don't show upsell modal immediately on first save
-        // Users can retry from the success modal if they want Google Contacts integration
         
         return result;
       }
