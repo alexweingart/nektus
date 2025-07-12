@@ -39,9 +39,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 });
     }
 
-    if (!process.env.NEXTAUTH_URL) {
-      console.error('❌ Missing NEXTAUTH_URL environment variable');
-      return NextResponse.json({ error: 'OAuth configuration error' }, { status: 500 });
+    // Ensure NEXTAUTH_URL is set (use same logic as auth options)
+    let nextAuthUrl = process.env.NEXTAUTH_URL;
+    if (!nextAuthUrl) {
+      nextAuthUrl = "http://localhost:3000";
+      console.log('⚠️ NEXTAUTH_URL not set, using default: http://localhost:3000');
     }
 
     // Generate secure state parameter for CSRF protection
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build Google OAuth URL for incremental authorization
-    const callbackUrl = `${process.env.NEXTAUTH_URL}/api/auth/google-incremental/callback`;
+    const callbackUrl = `${nextAuthUrl}/api/auth/google-incremental/callback`;
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     
     googleAuthUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -75,9 +77,9 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append('state', state);
     googleAuthUrl.searchParams.append('access_type', 'offline');
     googleAuthUrl.searchParams.append('include_granted_scopes', 'true'); // Key for incremental auth
-    googleAuthUrl.searchParams.append('prompt', 'consent'); // Force consent screen to ensure fresh token
+    googleAuthUrl.searchParams.append('prompt', 'select_account consent'); // Force account selection AND consent
     
-    // Add login hint if available to pre-populate Google account
+    // Add login hint if available to suggest the correct account
     if (session.user.email) {
       googleAuthUrl.searchParams.append('login_hint', session.user.email);
     }
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
     console.log(`🔄 Redirecting user ${session.user.id} to Google for contacts permission`);
     console.log(`📍 Return URL: ${returnUrl}`);
     console.log(`🎯 Profile ID: ${profileId}`);
+    console.log(`🔗 Callback URL: ${callbackUrl}`);
     
     return NextResponse.redirect(googleAuthUrl.toString());
     

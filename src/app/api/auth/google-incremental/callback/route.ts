@@ -38,36 +38,45 @@ export async function GET(request: NextRequest) {
     // Handle user cancellation or denial
     if (error === 'access_denied') {
       console.log(`❌ User denied Google Contacts permission: ${session.user.id}`);
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?incremental_auth=denied`);
+      // Use same NEXTAUTH_URL logic as initial auth
+      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      return NextResponse.redirect(`${nextAuthUrl}/?incremental_auth=denied`);
     }
 
     // Handle other OAuth errors
     if (error) {
       console.error('❌ OAuth error in incremental auth callback:', { error, errorDescription });
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=oauth_error&details=${encodeURIComponent(errorDescription || error)}`);
+      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      return NextResponse.redirect(`${nextAuthUrl}/?error=oauth_error&details=${encodeURIComponent(errorDescription || error)}`);
     }
 
     // Validate required parameters
     if (!code || !state) {
       console.warn('⚠️ Incremental auth callback missing required parameters:', { code: !!code, state: !!state });
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=invalid_callback`);
+      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      return NextResponse.redirect(`${nextAuthUrl}/?error=invalid_callback`);
     }
 
     // Retrieve and validate auth state
     const stateData = await getIncrementalAuthState(state);
     if (!stateData) {
       console.warn('⚠️ Invalid or expired auth state:', state);
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=invalid_state`);
+      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      return NextResponse.redirect(`${nextAuthUrl}/?error=invalid_state`);
     }
 
     // Verify state belongs to current user
     if (stateData.userId !== session.user.id) {
       console.warn('⚠️ Auth state user mismatch:', { stateUserId: stateData.userId, sessionUserId: session.user.id });
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=user_mismatch`);
+      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      return NextResponse.redirect(`${nextAuthUrl}/?error=user_mismatch`);
     }
 
     // Exchange authorization code for access token
     console.log(`🔄 Exchanging authorization code for access token: ${session.user.id}`);
+    
+    // Use consistent NEXTAUTH_URL for redirect_uri
+    const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -77,7 +86,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/google-incremental/callback`
+        redirect_uri: `${nextAuthUrl}/api/auth/google-incremental/callback`
       })
     });
 
@@ -85,13 +94,13 @@ export async function GET(request: NextRequest) {
     
     if (!tokenResponse.ok) {
       console.error('❌ Token exchange failed:', tokenData);
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=token_exchange_failed&details=${encodeURIComponent(tokenData.error || 'Unknown error')}`);
+      return NextResponse.redirect(`${nextAuthUrl}/?error=token_exchange_failed&details=${encodeURIComponent(tokenData.error || 'Unknown error')}`);
     }
 
     // Validate token response
     if (!tokenData.access_token) {
       console.error('❌ No access token in response:', tokenData);
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_access_token`);
+      return NextResponse.redirect(`${nextAuthUrl}/?error=no_access_token`);
     }
 
     // Store the contacts access token securely
@@ -104,7 +113,7 @@ export async function GET(request: NextRequest) {
       console.log(`✅ Stored contacts access token for user: ${session.user.id}`);
     } catch (error) {
       console.error('❌ Failed to store contacts access token:', error);
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=token_storage_failed`);
+      return NextResponse.redirect(`${nextAuthUrl}/?error=token_storage_failed`);
     }
 
     // Clean up auth state

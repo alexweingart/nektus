@@ -11,6 +11,7 @@ export interface PhoneBasedSocialResult {
 export class PhoneBasedSocialService {
   /**
    * Generate phone-based social media profiles with verification
+   * Note: Only WhatsApp is generated from phone numbers. Telegram and WeChat are user-added only.
    */
   static async generatePhoneBasedSocials(phoneNumber: string): Promise<PhoneBasedSocialResult> {
     try {
@@ -30,18 +31,14 @@ export class PhoneBasedSocialService {
         };
       }
       
-      // Generate profiles
+      // Generate only WhatsApp profile
       const whatsappProfile = this.createPhoneProfile(cleanPhone, 'whatsapp');
-      const telegramProfile = this.createPhoneProfile(cleanPhone, 'telegram');
       
-      // Verify profiles in parallel
-      const [whatsappVerified, telegramVerified] = await Promise.all([
-        this.verifyPhoneProfile('whatsapp', whatsappProfile),
-        this.verifyPhoneProfile('telegram', telegramProfile)
-      ]);
+      // Verify WhatsApp profile
+      const whatsappVerified = await this.verifyPhoneProfile('whatsapp', whatsappProfile);
       
-      const profilesGenerated = 2;
-      const profilesVerified = (whatsappVerified ? 1 : 0) + (telegramVerified ? 1 : 0);
+      const profilesGenerated = 1; // Only WhatsApp
+      const profilesVerified = whatsappVerified ? 1 : 0;
       
       console.log(`[PhoneBasedSocialService] Generation completed for ${phoneNumber}`, {
         profilesGenerated,
@@ -50,7 +47,7 @@ export class PhoneBasedSocialService {
       
       return {
         whatsapp: whatsappVerified,
-        telegram: telegramVerified,
+        telegram: null, // Telegram is user-added only (like WeChat)
         success: true,
         profilesGenerated,
         profilesVerified
@@ -69,11 +66,11 @@ export class PhoneBasedSocialService {
   
   /**
    * Create a phone-based social profile
+   * Note: Only supports WhatsApp now
    */
-  private static createPhoneProfile(cleanPhone: string, platform: 'whatsapp' | 'telegram'): SocialProfile {
+  private static createPhoneProfile(cleanPhone: string, platform: 'whatsapp'): SocialProfile {
     const urlPatterns = {
-      whatsapp: `https://wa.me/${cleanPhone}`,
-      telegram: `https://t.me/${cleanPhone}`
+      whatsapp: `https://wa.me/${cleanPhone}`
     };
     
     return {
@@ -84,16 +81,17 @@ export class PhoneBasedSocialService {
       discoveryMethod: 'phone-guess',
       fieldSection: {
         section: 'personal',
-        order: platform === 'whatsapp' ? 6 : 7
+        order: 6 // WhatsApp order
       }
     };
   }
   
   /**
    * Verify phone-based profile
+   * Note: Only supports WhatsApp now
    */
   private static async verifyPhoneProfile(
-    platform: 'whatsapp' | 'telegram',
+    platform: 'whatsapp',
     profile: SocialProfile
   ): Promise<SocialProfile | null> {
     try {
@@ -116,9 +114,10 @@ export class PhoneBasedSocialService {
   
   /**
    * Perform verification for phone-based platforms using server-side API
+   * Note: Only supports WhatsApp now
    */
   private static async performPhoneVerification(
-    platform: 'whatsapp' | 'telegram',
+    platform: 'whatsapp',
     phoneNumber: string
   ): Promise<boolean> {
     try {
@@ -169,6 +168,7 @@ export class PhoneBasedSocialService {
   
   /**
    * Create empty phone-based social profiles (for cases where phone is not available)
+   * Note: Only creates WhatsApp profile now. Telegram and WeChat are user-added only.
    */
   static createEmptyPhoneProfiles(): { whatsapp: SocialProfile; telegram: SocialProfile } {
     return {
@@ -190,7 +190,7 @@ export class PhoneBasedSocialService {
         automatedVerification: false,
         discoveryMethod: 'manual',
         fieldSection: {
-          section: 'hidden', // Empty profiles are hidden
+          section: 'hidden', // Empty profiles are hidden  
           order: 7
         }
       }

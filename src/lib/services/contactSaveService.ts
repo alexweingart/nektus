@@ -57,7 +57,7 @@ function markIOSUpsellShown(): void {
 function isPermissionError(error?: string): boolean {
   if (!error) return false;
   
-  // Common permission error messages from Google API
+  // Common permission error messages and HTTP status codes from Google API
   const permissionKeywords = [
     'permission',
     'scope',
@@ -67,11 +67,14 @@ function isPermissionError(error?: string): boolean {
     'access denied',
     'forbidden',
     '403',
-    'unauthorized'
+    'unauthorized',
+    'Google Contacts API error: 403', // Specific format from our googleContactsService
+    'Insufficient Permission',
+    'Request had insufficient authentication scopes'
   ];
   
   const lowerError = error.toLowerCase();
-  return permissionKeywords.some(keyword => lowerError.includes(keyword));
+  return permissionKeywords.some(keyword => lowerError.includes(keyword.toLowerCase()));
 }
 
 /**
@@ -357,6 +360,7 @@ export async function saveContactFlow(
         // Check if this is a permission error
         if (isPermissionError(googleResult.error)) {
           console.log('⚠️ Google Contacts permission error detected, redirecting to auth');
+          console.log('🔍 Error details:', googleResult.error);
           console.log('ℹ️ Firebase is already saved, just need Google permission');
           
           // Store state for when we return
@@ -376,6 +380,7 @@ export async function saveContactFlow(
         } else {
           // Other error - show upsell modal (Firebase is still saved!)
           console.log('❌ Google Contacts save failed on Android with non-permission error, showing upsell modal');
+          console.log('🔍 Error details:', googleResult.error);
           console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
           return {
             success: true,

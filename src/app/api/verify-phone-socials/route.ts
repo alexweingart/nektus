@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 interface VerificationRequest {
   phoneNumber: string;
-  platforms: ('whatsapp' | 'telegram')[];
+  platforms: ('whatsapp')[];
 }
 
 interface VerificationResult {
-  platform: 'whatsapp' | 'telegram';
+  platform: 'whatsapp';
   verified: boolean;
   error?: string;
 }
@@ -62,9 +62,10 @@ export async function POST(request: NextRequest) {
 
 /**
  * Verify a specific phone-based platform
+ * Note: Only supports WhatsApp now. Telegram is user-added only.
  */
 async function verifyPhonePlatform(
-  platform: 'whatsapp' | 'telegram',
+  platform: 'whatsapp',
   phoneNumber: string
 ): Promise<VerificationResult> {
   const timeoutMs = 10000; // 10 second timeout for server-side requests
@@ -73,8 +74,6 @@ async function verifyPhonePlatform(
     switch (platform) {
       case 'whatsapp':
         return await verifyWhatsApp(phoneNumber, timeoutMs);
-      case 'telegram':
-        return await verifyTelegram(phoneNumber, timeoutMs);
       default:
         return { platform, verified: false, error: 'Unknown platform' };
     }
@@ -89,63 +88,12 @@ async function verifyPhonePlatform(
 }
 
 /**
- * Verify WhatsApp number by checking if the number is valid
- * GET https://wa.me/<E164> and confirm the HTML does not contain "Phone number shared via url is invalid"
+ * Verify WhatsApp number
+ * HEAD https://wa.me/<phone> (no redirect follow) → status < 400 ⇒ exists
  */
 async function verifyWhatsApp(phoneNumber: string, timeoutMs: number): Promise<VerificationResult> {
   try {
     const url = `https://wa.me/${phoneNumber}`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; ProfileBot/1.0)',
-      },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const html = await response.text();
-      
-      // Check if the HTML contains the invalid phone number message
-      const isInvalid = html.includes('Phone number shared via url is invalid') ||
-                       html.includes('phone number is invalid') ||
-                       html.includes('The phone number is not valid');
-      
-      return {
-        platform: 'whatsapp',
-        verified: !isInvalid
-      };
-    } else {
-      // If we get a non-200 status, assume the number might be invalid
-      return {
-        platform: 'whatsapp',
-        verified: false,
-        error: `HTTP ${response.status}`
-      };
-    }
-  } catch (error) {
-    console.error('[API/VERIFY-PHONE-SOCIALS] WhatsApp verification failed:', error);
-    return {
-      platform: 'whatsapp',
-      verified: false,
-      error: error instanceof Error ? error.message : 'Verification failed'
-    };
-  }
-}
-
-/**
- * Verify Telegram number
- * HEAD https://t.me/<handle> (no redirect follow) → status < 400 ⇒ exists
- */
-async function verifyTelegram(phoneNumber: string, timeoutMs: number): Promise<VerificationResult> {
-  try {
-    const url = `https://t.me/${phoneNumber}`;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -165,13 +113,13 @@ async function verifyTelegram(phoneNumber: string, timeoutMs: number): Promise<V
     const verified = response.status >= 200 && response.status < 400;
     
     return {
-      platform: 'telegram',
+      platform: 'whatsapp',
       verified
     };
   } catch (error) {
-    console.error('[API/VERIFY-PHONE-SOCIALS] Telegram verification failed:', error);
+    console.error('[API/VERIFY-PHONE-SOCIALS] WhatsApp verification failed:', error);
     return {
-      platform: 'telegram',
+      platform: 'whatsapp',
       verified: false,
       error: error instanceof Error ? error.message : 'Verification failed'
     };
