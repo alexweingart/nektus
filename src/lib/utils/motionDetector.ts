@@ -15,6 +15,20 @@ const DETECTION_PROFILES = {
   }
 };
 
+// Sequential detection system - tracks conditions across multiple events
+const SEQUENTIAL_DETECTION = {
+  // If magnitude 5 is hit in any previous event, jerk 200 in future event triggers
+  magnitudePrime: {
+    magnitude: 5,    // m/s² - threshold to enter "magnitude primed" state
+    jerk: 200        // m/s³ - jerk threshold when magnitude primed
+  },
+  // If jerk 100 is hit in any previous event, magnitude 10 in future event triggers
+  jerkPrime: {
+    jerk: 100,       // m/s³ - threshold to enter "jerk primed" state
+    magnitude: 10    // m/s² - magnitude threshold when jerk primed
+  }
+};
+
 // Standardized thresholds for all devices (no more iOS/Android differences)
 const DEFAULT_MOTION_THRESHOLD = 10; // m/s² - use strong bump profile as default
 const DEFAULT_JERK_THRESHOLD = 125;  // m/s³ - use strong bump profile as default
@@ -457,6 +471,9 @@ export class MotionDetector {
       console.log(`🎯 Dual threshold detection system:`);
       console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
       console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
+      console.log(`🔄 Sequential detection system:`);
+      console.log(`   📈 Magnitude Primed: magnitude≥${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} → jerk≥${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
+      console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
       console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
       console.log(`⏱️ Timeout: ${MOTION_TIMEOUT}ms`);
 
@@ -472,6 +489,10 @@ export class MotionDetector {
       // Track peak events for debugging timeouts
       let peakMagnitudeEvent: any = null;
       let peakJerkEvent: any = null;
+      
+      // Sequential detection state tracking
+      let magnitudePrimed = false;  // True if we've seen magnitude ≥ 5 in any previous event
+      let jerkPrimed = false;       // True if we've seen jerk ≥ 100 in any previous event
       
       const handleMotion = (event: DeviceMotionEvent) => {
         if (resolved) return;
@@ -524,7 +545,13 @@ export class MotionDetector {
             metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
             metSharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
             metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
+                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk),
+            // Sequential detection analysis
+            metMagnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
+            metJerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
+            metSequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
+                          (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude),
+            sequentialState: { magnitudePrimed, jerkPrimed }
           };
         }
         
@@ -543,7 +570,13 @@ export class MotionDetector {
             metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
             metSharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
             metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
+                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk),
+            // Sequential detection analysis
+            metMagnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
+            metJerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
+            metSequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
+                          (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude),
+            sequentialState: { magnitudePrimed, jerkPrimed }
           };
         }
         
@@ -592,7 +625,18 @@ export class MotionDetector {
             strongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
             sharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
             either: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                    (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
+                    (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk),
+            // Sequential detection results
+            magnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
+            jerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
+            sequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
+                       (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude)
+          },
+          // Sequential detection state
+          sequentialState: {
+            magnitudePrimed: magnitudePrimed,
+            jerkPrimed: jerkPrimed,
+            thresholds: SEQUENTIAL_DETECTION
           }
         });
 
@@ -608,6 +652,19 @@ export class MotionDetector {
           })
         }).catch(() => {}); // Ignore errors to avoid blocking motion detection
         
+        // Update sequential detection state
+        if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude) {
+          magnitudePrimed = true;
+        }
+        if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk) {
+          jerkPrimed = true;
+        }
+        
+        // Check for sequential detection: primed conditions from previous events
+        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk;
+        const jerkPrimedDetection = jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude;
+        const sequentialDetection = magnitudePrimedDetection || jerkPrimedDetection;
+        
         // Check for dual threshold detection: either profile can trigger
         const strongBumpDetection = magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk;
         const sharpTapDetection = magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk;
@@ -616,7 +673,7 @@ export class MotionDetector {
         // Also check for motion patterns (asymmetric bumps, subtle patterns) - disabled for now
         const patternAnalysis = this.analyzeMotionPattern(recentMagnitudes, currentThresholds, browserInfo);
         
-        if (dualThresholdDetection || patternAnalysis.detected) {
+        if (dualThresholdDetection || sequentialDetection || patternAnalysis.detected) {
           let detectionType = 'unknown';
           let confidence = 1.0;
           
@@ -624,6 +681,10 @@ export class MotionDetector {
             detectionType = 'strong_bump';
           } else if (sharpTapDetection) {
             detectionType = 'sharp_tap';
+          } else if (magnitudePrimedDetection) {
+            detectionType = 'magnitude_primed';
+          } else if (jerkPrimedDetection) {
+            detectionType = 'jerk_primed';
           } else {
             detectionType = patternAnalysis.type;
             confidence = patternAnalysis.confidence;
@@ -634,6 +695,10 @@ export class MotionDetector {
             console.log(`   Strong Bump: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.strongBump.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.strongBump.jerk}`);
           } else if (sharpTapDetection) {
             console.log(`   Sharp Tap: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.sharpTap.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.sharpTap.jerk}`);
+          } else if (magnitudePrimedDetection) {
+            console.log(`   Magnitude Primed: Previous magnitude ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}, Current jerk: ${jerk.toFixed(1)} >= ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
+          } else if (jerkPrimedDetection) {
+            console.log(`   Jerk Primed: Previous jerk ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}, Current magnitude: ${magnitude.toFixed(2)} >= ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
           } else {
             console.log(`   Pattern: ${patternAnalysis.type}, Details:`, patternAnalysis.details);
           }
