@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append('state', state);
     googleAuthUrl.searchParams.append('access_type', 'offline');
     googleAuthUrl.searchParams.append('include_granted_scopes', 'true'); // Key for incremental auth
-    googleAuthUrl.searchParams.append('prompt', 'select_account consent'); // Force account selection AND consent
+    googleAuthUrl.searchParams.append('prompt', 'consent'); // Just consent, no account selection
     
     // Add login hint if available to suggest the correct account
     if (session.user.email) {
