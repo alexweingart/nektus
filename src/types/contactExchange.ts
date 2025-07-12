@@ -8,6 +8,7 @@ export interface ContactExchangeRequest {
   session: string;   // WebSocket session ID
   tSent?: number;    // Performance timing when request was sent (for diagnostics)
   sharingCategory?: 'All' | 'Personal' | 'Work'; // Selected sharing category
+  hitNumber?: number; // Sequential hit number during matching window
 }
 
 export interface ContactExchangeMatch {

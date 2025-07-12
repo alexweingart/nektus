@@ -56,6 +56,9 @@ export class RealTimeContactExchangeService {
       // Reset cancellation flag for new exchange
       this.motionDetectionCancelled = false;
       
+      // Reset sequential detection state for new session
+      MotionDetector.resetSequentialState();
+      
       // Initialize clock sync first thing
       if (!isClockSyncInitialized()) {
         console.log('⏰ Initializing clock synchronization...');
@@ -99,7 +102,9 @@ export class RealTimeContactExchangeService {
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
       console.log('✅ Ready for motion detection - waiting for bump...');
-      await this.logToServer('waiting_for_bump', 'Now waiting for motion detection');
+      console.log('🔄 Enhanced multi-hit system: continues listening during 3-second matching window');
+      console.log('⏱️ Rate limiting: 500ms cooldown between hits to prevent spam');
+      await this.logToServer('waiting_for_bump', 'Now waiting for motion detection with multi-hit capability');
       
       // Set 30-second timeout for waiting for bump
       this.waitingForBumpTimeout = setTimeout(() => {
@@ -336,9 +341,14 @@ export class RealTimeContactExchangeService {
   }
 
   private async waitForBump(hasPermission: boolean, sharingCategory: 'All' | 'Personal' | 'Work'): Promise<void> {
+    let hitCount = 0;
+    let lastHitTime = 0;
+    const HIT_COOLDOWN_MS = 500; // 500ms cooldown between hits
+    
     while (!this.motionDetectionCancelled) { // Keep waiting for motion until user cancels or motion is detected
       try {
-        console.log('🔍 Starting motion detection... (no server hit until motion detected)');
+        const isFirstHit = hitCount === 0;
+        console.log(`🔍 Starting motion detection... ${isFirstHit ? '(no server hit until motion detected)' : '(additional hits during matching window)'}`);
         
         // Detect motion/bump - this will wait until actual motion is detected
         const motionResult = await MotionDetector.detectMotion();
@@ -350,10 +360,20 @@ export class RealTimeContactExchangeService {
           return;
         }
 
-        console.log('🎯 Motion detected! Sending hit to server...');
+        // Rate limiting: ensure minimum time between hits
+        const now = Date.now();
+        if (!isFirstHit && (now - lastHitTime) < HIT_COOLDOWN_MS) {
+          console.log(`⏱️ Hit cooldown active, ignoring motion (${now - lastHitTime}ms < ${HIT_COOLDOWN_MS}ms)`);
+          continue; // Skip this hit, continue listening
+        }
         
-        // Clear the waiting for bump timeout since we detected motion
-        if (this.waitingForBumpTimeout) {
+        hitCount++;
+        lastHitTime = now;
+        
+        console.log(`🎯 Motion detected! Sending hit #${hitCount} to server...`);
+        
+        // Clear the waiting for bump timeout since we detected motion (only on first hit)
+        if (isFirstHit && this.waitingForBumpTimeout) {
           clearTimeout(this.waitingForBumpTimeout);
           this.waitingForBumpTimeout = null;
         }
@@ -366,7 +386,8 @@ export class RealTimeContactExchangeService {
           session: this.sessionId,
           sharingCategory: sharingCategory, // Include selected sharing category
           // Add diagnostic timing fields (for performance analysis)
-          tSent: tSent // When we're sending the request
+          tSent: tSent, // When we're sending the request
+          hitNumber: hitCount // Track hit sequence number
         };
 
         // Add vector hash if motion was detected
@@ -378,33 +399,41 @@ export class RealTimeContactExchangeService {
         request.rtt = await this.estimateRTT();
 
         // Send hit to server (only now, after motion is detected)
-        this.updateState({ status: 'processing' });
-        
-        // Set 3-second timeout for waiting for match after sending hit
-        this.waitingForMatchTimeout = setTimeout(() => {
-          console.log('⏰ Waiting for match timed out after 3 seconds');
-          this.logToServer('match_timeout', 'Waiting for match timed out after 3 seconds');
-          this.updateState({ status: 'timeout' });
-          this.disconnect();
-        }, 3000); // 3 seconds
+        if (isFirstHit) {
+          this.updateState({ status: 'processing' });
+          
+          // Set 3-second timeout for waiting for match after sending hit
+          this.waitingForMatchTimeout = setTimeout(() => {
+            console.log('⏰ Waiting for match timed out after 3 seconds');
+            this.logToServer('match_timeout', `Waiting for match timed out after 3 seconds (sent ${hitCount} hits total)`);
+            this.updateState({ status: 'timeout' });
+            this.disconnect();
+          }, 3000); // 3 seconds
+        }
         
         const response = await this.sendHit(request);
 
         // If we got an immediate match, handle it and clear timeout
         if (response.matched && response.token) {
+          console.log(`✅ Match found on hit #${hitCount}!`);
           if (this.waitingForMatchTimeout) {
             clearTimeout(this.waitingForMatchTimeout);
             this.waitingForMatchTimeout = null;
           }
           await this.handleMatch(response.token, response.youAre || 'A');
+          return; // Exit after successful match
         } else {
-          // Start polling as fallback in case SSE fails
-          await this.logToServer('polling_start', 'Starting polling fallback for match detection');
-          this.startMatchPolling();
+          // Start polling as fallback in case SSE fails (only on first hit)
+          if (isFirstHit) {
+            await this.logToServer('polling_start', 'Starting polling fallback for match detection');
+            this.startMatchPolling();
+          }
         }
         // SSE will also notify if available, but polling ensures we don't miss matches
         
-        break; // Exit the loop after successful motion detection and hit
+        // Continue listening for more motion instead of breaking
+        // This allows sequential detection to maintain primed states
+        // and enables multiple hits during the 3-second matching window
         
       } catch (error) {
         console.error('❌ Error in waitForBump:', error);

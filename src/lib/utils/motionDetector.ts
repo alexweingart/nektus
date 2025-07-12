@@ -92,6 +92,34 @@ const MOTION_PATTERN_CONFIG = {
 };
 
 export class MotionDetector {
+  // Persistent sequential detection state across multiple motion detections
+  private static sequentialState = {
+    magnitudePrimed: false,
+    jerkPrimed: false,
+    sessionStartTime: 0,
+    lastResetTime: 0
+  };
+
+  /**
+   * Reset sequential detection state for a new exchange session
+   */
+  static resetSequentialState(): void {
+    this.sequentialState = {
+      magnitudePrimed: false,
+      jerkPrimed: false,
+      sessionStartTime: Date.now(),
+      lastResetTime: Date.now()
+    };
+    console.log('🔄 Sequential detection state reset for new session');
+  }
+
+  /**
+   * Get current sequential detection state
+   */
+  static getSequentialState(): typeof MotionDetector.sequentialState {
+    return { ...this.sequentialState };
+  }
+
   private static analyzeMotionPattern(
     recentMagnitudes: Array<{magnitude: number, timestamp: number}>,
     currentThresholds: {magnitude: number, jerk: number},
@@ -471,9 +499,10 @@ export class MotionDetector {
       console.log(`🎯 Dual threshold detection system:`);
       console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
       console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
-      console.log(`🔄 Sequential detection system:`);
+      console.log(`🔄 Sequential detection system (persistent across hits):`);
       console.log(`   📈 Magnitude Primed: magnitude≥${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} → jerk≥${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
       console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
+      console.log(`   🔄 Current state: magnitudePrimed=${this.sequentialState.magnitudePrimed}, jerkPrimed=${this.sequentialState.jerkPrimed}`);
       console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
       console.log(`⏱️ Timeout: ${MOTION_TIMEOUT}ms`);
 
@@ -490,9 +519,9 @@ export class MotionDetector {
       let peakMagnitudeEvent: any = null;
       let peakJerkEvent: any = null;
       
-      // Sequential detection state tracking
-      let magnitudePrimed = false;  // True if we've seen magnitude ≥ 5 in any previous event
-      let jerkPrimed = false;       // True if we've seen jerk ≥ 100 in any previous event
+      // Use persistent sequential detection state (maintains across multiple detectMotion calls)
+      let magnitudePrimed = this.sequentialState.magnitudePrimed;
+      let jerkPrimed = this.sequentialState.jerkPrimed;
       
       const handleMotion = (event: DeviceMotionEvent) => {
         if (resolved) return;
@@ -652,12 +681,14 @@ export class MotionDetector {
           })
         }).catch(() => {}); // Ignore errors to avoid blocking motion detection
         
-        // Update sequential detection state
+        // Update sequential detection state (both local and persistent)
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude) {
           magnitudePrimed = true;
+          this.sequentialState.magnitudePrimed = true;
         }
         if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk) {
           jerkPrimed = true;
+          this.sequentialState.jerkPrimed = true;
         }
         
         // Check for sequential detection: primed conditions from previous events
