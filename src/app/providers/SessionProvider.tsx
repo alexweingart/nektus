@@ -48,7 +48,7 @@ export function SessionProvider({ children, session }: SessionProviderProps) {
       session={session}
       // Refetch session every 5 minutes if the window is focused
       refetchInterval={5 * 60}
-      refetchOnWindowFocus={true}
+      refetchOnWindowFocus={false}
       // Don't refetch session when the window regains focus in development
       // to avoid too many requests during development
       refetchWhenOffline={false}
