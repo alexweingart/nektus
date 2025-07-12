@@ -323,7 +323,40 @@ export const generateVCardForIOS = async (profile: UserProfile, options: VCardOp
 };
 
 /**
+ * Check if we're in an embedded browser (like Google app)
+ */
+const isEmbeddedBrowser = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // Check for common embedded browser indicators
+  const embeddedIndicators = [
+    'gsa/', // Google Search App
+    'googleapp', // Google App
+    'fb', // Facebook
+    'fban', // Facebook App
+    'fbav', // Facebook App
+    'instagram',
+    'twitter',
+    'line/',
+    'wechat',
+    'weibo',
+    'webview', // Generic webview
+    'chrome-mobile', // Chrome custom tabs
+  ];
+  
+  const isEmbedded = embeddedIndicators.some(indicator => userAgent.includes(indicator));
+  
+  console.log('🔍 User Agent:', userAgent);
+  console.log('🔍 Is Embedded Browser:', isEmbedded);
+  
+  return isEmbedded;
+};
+
+/**
  * Display vCard inline for iOS (opens with proper headers)
+ * Enhanced with multiple fallback strategies for embedded browsers
  */
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
   const vCardContent = await generateVCardForIOS(profile, options);
@@ -338,11 +371,186 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   
   console.log('📲 Opening vCard for iOS:', filename);
   
-  // For iOS, use direct navigation to trigger the vCard handler
-  window.location.href = url; 
+  const isEmbedded = isEmbeddedBrowser();
+  console.log('🔍 Embedded browser detected:', isEmbedded);
+  
+  try {
+    if (isEmbedded) {
+      // Strategy 1: For all embedded browsers, use direct download
+      console.log('📱 Embedded browser detected, using direct download');
+      downloadVCardForIOS(profile, options);
+    } else {
+      // Strategy 2: Original approach for Safari
+      console.log('📱 Using direct navigation for Safari');
+      window.location.href = url;
+    }
+  } catch (error) {
+    console.warn('📱 Primary vCard approach failed, trying fallback:', error);
+    
+    // Strategy 3: Fallback to direct download
+    try {
+      downloadVCardForIOS(profile, options);
+    } catch (downloadError) {
+      console.warn('📱 Download fallback failed:', downloadError);
+      
+      // Strategy 4: Final fallback - show user instructions
+      showVCardInstructions(profile, vCardContent);
+    }
+  }
   
   // Clean up
   setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 5000);
+};
+
+/**
+ * Download vCard using click approach for iOS
+ */
+const downloadVCardForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
+  const vCardContent = await generateVCardForIOS(profile, options);
+  const filename = generateVCardFilename(profile);
+  
+  try {
+    // Method 1: Try blob URL approach
+    const vCardBlob = new Blob([vCardContent], { 
+      type: 'text/vcard;charset=utf-8' 
+    });
+    
+    const url = URL.createObjectURL(vCardBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // Add some attributes that might help with iOS compatibility
+    link.rel = 'noopener';
+    link.target = '_blank';
+    
+    // Try to trigger download
+    document.body.appendChild(link);
+    
+    // Add small delay before clicking
+    setTimeout(() => {
+      link.click();
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+    }, 50);
+    
+  } catch (error) {
+    console.warn('📱 Blob download failed, trying data URL approach:', error);
+    
+    // Method 2: Try data URL approach as fallback
+    try {
+      const dataUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vCardContent)}`;
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      link.rel = 'noopener';
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      
+      setTimeout(() => {
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 100);
+      }, 50);
+      
+    } catch (dataError) {
+      console.warn('📱 Data URL download failed:', dataError);
+      throw dataError; // Re-throw to trigger the instructions fallback
+    }
+  }
+};
+
+/**
+ * Show instructions to user when automatic vCard handling fails
+ */
+const showVCardInstructions = (profile: UserProfile, vCardContent: string): void => {
+  const contactName = profile.name || 'Contact';
+  
+  // Create a simple modal with instructions
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  `;
+  
+  content.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #333;">Save ${contactName}'s Contact</h3>
+    <p style="margin: 0 0 20px 0; color: #666; line-height: 1.5;">
+      To save this contact to your phone:
+    </p>
+    <ol style="text-align: left; color: #666; margin: 0 0 20px 0; padding-left: 20px;">
+      <li>Copy the contact info below</li>
+      <li>Open your Contacts app</li>
+      <li>Create a new contact</li>
+      <li>Paste the information</li>
+    </ol>
+    <textarea readonly style="width: 100%; height: 120px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace; font-size: 12px; background: #f9f9f9;">${vCardContent}</textarea>
+    <div style="margin-top: 20px;">
+      <button id="copy-vcard" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-right: 10px; cursor: pointer;">Copy</button>
+      <button id="close-modal" style="background: #666; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">Close</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Add event listeners
+  const copyBtn = content.querySelector('#copy-vcard') as HTMLButtonElement;
+  const closeBtn = content.querySelector('#close-modal') as HTMLButtonElement;
+  
+  copyBtn.addEventListener('click', () => {
+    const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.select();
+    textarea.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+      document.execCommand('copy');
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  });
+  
+  closeBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
 };

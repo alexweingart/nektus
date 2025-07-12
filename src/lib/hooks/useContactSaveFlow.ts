@@ -15,6 +15,29 @@ export interface ContactSaveState {
   platform: 'android' | 'ios' | 'web' | null;
 }
 
+/**
+ * Check if contact is already saved (persisted state)
+ */
+const checkSavedContactState = (profileId: string, token: string): boolean => {
+  try {
+    const savedStateKey = `contact_saved_${profileId}_${token}`;
+    const savedState = localStorage.getItem(savedStateKey);
+    if (savedState) {
+      const { timestamp } = JSON.parse(savedState);
+      // Only consider saved if it's recent (within last 5 minutes)
+      const timeDiff = Date.now() - timestamp;
+      if (timeDiff < 300000) { // 5 minutes
+        return true;
+      } else {
+        localStorage.removeItem(savedStateKey);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking saved contact state:', error);
+  }
+  return false;
+};
+
 export const useContactSaveFlow = () => {
   const [state, setState] = useState<ContactSaveState>({
     isLoading: false,
@@ -99,6 +122,18 @@ export const useContactSaveFlow = () => {
     });
   }, []);
 
+  const restoreSuccessState = useCallback((profileId: string, token: string) => {
+    const isSaved = checkSavedContactState(profileId, token);
+    if (isSaved) {
+      console.log('🔄 Restoring success state for saved contact');
+      setState(prev => ({
+        ...prev,
+        isSuccess: true,
+        error: null
+      }));
+    }
+  }, []);
+
   const getButtonText = useCallback(() => {
     if (state.isLoading) {
       return 'Saving...';
@@ -127,6 +162,7 @@ export const useContactSaveFlow = () => {
     dismissSuccessModal,
     dismissUpsellModal,
     resetState,
+    restoreSuccessState,
     getButtonText,
     getSuccessMessage
   };
