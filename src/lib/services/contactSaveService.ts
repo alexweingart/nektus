@@ -151,10 +151,10 @@ function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: strin
   // Use current URL as return URL
   const returnUrl = window.location.href;
   
-  // Build incremental auth URL with required parameters
-  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}`;
+  // Build incremental auth URL with required parameters (start with silent attempt)
+  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
   
-  console.log('🔄 Redirecting to Google for incremental contacts permission:', authUrl);
+  console.log('🔄 Redirecting to Google for incremental contacts permission (silent attempt first):', authUrl);
   window.location.href = authUrl;
 }
 

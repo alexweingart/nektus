@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
     const callbackUrl = `${nextAuthUrl}/api/auth/google-incremental/callback`;
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     
+    // Extract attempt parameter to handle two-step flow
+    const attempt = url.searchParams.get('attempt') || 'silent';
+    
     googleAuthUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID);
     googleAuthUrl.searchParams.append('redirect_uri', callbackUrl);
     googleAuthUrl.searchParams.append('response_type', 'code');
@@ -80,7 +83,16 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append('state', state);
     googleAuthUrl.searchParams.append('access_type', 'offline');
     googleAuthUrl.searchParams.append('include_granted_scopes', 'true'); // Key for incremental auth
-    googleAuthUrl.searchParams.append('prompt', 'consent'); // Just consent, no account selection
+    
+    if (attempt === 'silent') {
+      // First attempt: try silent authentication to skip account picker
+      googleAuthUrl.searchParams.append('prompt', 'none');
+      console.log(`🤐 Attempting silent auth for user ${session.user.id}`);
+    } else {
+      // Second attempt: show consent screen (this will show account picker if needed)
+      googleAuthUrl.searchParams.append('prompt', 'consent');
+      console.log(`🔊 Showing consent screen for user ${session.user.id}`);
+    }
     
     // Add login hint if available to suggest the correct account
     if (session.user.email) {

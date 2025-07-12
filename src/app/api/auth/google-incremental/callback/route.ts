@@ -45,6 +45,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${nextAuthUrl}/?incremental_auth=denied`);
     }
 
+    // Handle silent auth failures - retry with consent
+    if (error === 'interaction_required' || error === 'consent_required' || error === 'login_required') {
+      console.log(`🔄 Silent auth failed (${error}), retrying with consent for user ${session.user.id}`);
+      
+      // Try to get state data for retry parameters
+      let retryParams = {
+        returnUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/connect`,
+        contactSaveToken: '',
+        profileId: ''
+      };
+      
+      if (state) {
+        const stateData = await getIncrementalAuthState(state);
+        if (stateData) {
+          retryParams = {
+            returnUrl: stateData.returnUrl,
+            contactSaveToken: stateData.contactSaveToken,
+            profileId: stateData.profileId
+          };
+          // Clean up the failed state
+          await deleteIncrementalAuthState(state);
+        }
+      }
+      
+      // Retry with consent prompt
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
+      
+      // Build retry URL with attempt=consent
+      const retryUrl = new URL(`${nextAuthUrl}/api/auth/google-incremental`);
+      retryUrl.searchParams.set('returnUrl', retryParams.returnUrl);
+      retryUrl.searchParams.set('contactSaveToken', retryParams.contactSaveToken);
+      retryUrl.searchParams.set('profileId', retryParams.profileId);
+      retryUrl.searchParams.set('attempt', 'consent');
+      
+      return NextResponse.redirect(retryUrl.toString());
+    }
+
     // Handle other OAuth errors
     if (error) {
       console.error('❌ OAuth error in incremental auth callback:', { error, errorDescription });
