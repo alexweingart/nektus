@@ -250,9 +250,11 @@ export async function saveContactFlow(
       
       // Always show vCard inline for iOS (now async)
       try {
+        console.log('📱 Calling displayVCardInlineForIOS...');
         await displayVCardInlineForIOS(profile);
+        console.log('✅ displayVCardInlineForIOS completed');
       } catch (error) {
-        console.warn('Failed to display vCard inline for iOS:', error);
+        console.warn('❌ Failed to display vCard inline for iOS:', error);
       }
       
       // Show success modal
@@ -263,6 +265,8 @@ export async function saveContactFlow(
         showSuccessModal: true,
         platform
       };
+      
+      console.log('🍎 iOS flow returning result:', result);
       
       // For iOS, don't show upsell modal immediately on first save
       // Users can retry from the success modal if they want Google Contacts integration

@@ -12,6 +12,7 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/StandardModal';
+import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profileFiltering';
 
 import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
@@ -32,6 +33,59 @@ const ProfileView: React.FC = () => {
     streamingProfileImage,
     streamingSocialContacts
   } = useProfile();
+
+  // State to track selected sharing category
+  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('All');
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+
+  // Load selected category from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
+      if (savedCategory && ['All', 'Personal', 'Work'].includes(savedCategory)) {
+        setSelectedCategory(savedCategory);
+      }
+      setHasLoadedFromStorage(true);
+    } catch (error) {
+      console.warn('Failed to load sharing category from localStorage:', error);
+      setHasLoadedFromStorage(true);
+    }
+  }, []);
+
+  // Listen for localStorage changes to update the display when category changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nekt-sharing-category' && e.newValue) {
+        const newCategory = e.newValue as SharingCategory;
+        if (['All', 'Personal', 'Work'].includes(newCategory)) {
+          setSelectedCategory(newCategory);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Also check for changes periodically since storage event only fires from other tabs
+  useEffect(() => {
+    if (!hasLoadedFromStorage) return;
+
+    const checkForCategoryChange = () => {
+      try {
+        const currentCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
+        if (currentCategory && ['All', 'Personal', 'Work'].includes(currentCategory) && currentCategory !== selectedCategory) {
+          setSelectedCategory(currentCategory);
+        }
+      } catch (error) {
+        console.warn('Failed to check sharing category from localStorage:', error);
+      }
+    };
+
+    // Check every 500ms for changes
+    const interval = setInterval(checkForCategoryChange, 500);
+    return () => clearInterval(interval);
+  }, [selectedCategory, hasLoadedFromStorage]);
 
   // Get the latest profile
   const currentProfile = profile;
@@ -110,10 +164,19 @@ const ProfileView: React.FC = () => {
     return streamingProfileImage || currentProfile?.profileImage;
   }, [streamingProfileImage, currentProfile?.profileImage]);
 
-  // Contact channels with streaming support
+  // Contact channels with streaming support and profile filtering
   const contactChannels = useMemo(() => {
-    return streamingSocialContacts || currentProfile?.contactChannels;
-  }, [streamingSocialContacts, currentProfile?.contactChannels]);
+    const baseChannels = streamingSocialContacts || currentProfile?.contactChannels;
+    
+    // If we have contact channels and a profile, apply filtering
+    if (baseChannels && currentProfile && hasLoadedFromStorage) {
+      const profileWithChannels = { ...currentProfile, contactChannels: baseChannels };
+      const filteredProfile = filterProfileByCategory(profileWithChannels, selectedCategory);
+      return filteredProfile.contactChannels;
+    }
+    
+    return baseChannels;
+  }, [streamingSocialContacts, currentProfile, selectedCategory, hasLoadedFromStorage]);
 
   // Check if any contact channels are unconfirmed
   const hasUnconfirmedChannels = useMemo(() => {

@@ -44,9 +44,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
     showUpsellModal,
     getButtonText,
     isSuccess,
-    resetState,
     restoreSuccessState
   } = useContactSaveFlow();
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('🔍 ContactView state update:', {
+      isSuccess,
+      showSuccessModal,
+      showUpsellModal,
+      buttonText: getButtonText()
+    });
+  }, [isSuccess, showSuccessModal, showUpsellModal, getButtonText]);
 
   // Check for saved contact state on component mount
   useEffect(() => {
@@ -130,13 +139,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // Run the full contact save flow (this includes accepting the exchange)
       await saveContact(profile, token);
       
-      // Store success state for persistence across navigation
-      const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-      localStorage.setItem(savedStateKey, JSON.stringify({
-        timestamp: Date.now(),
-        profileId: profile.userId,
-        token: token
-      }));
+      // Note: Don't store success state here immediately - let the success modal show first
+      // The persistence will be handled when the modal is dismissed
       
     } catch (error) {
       console.error('Failed to save contact:', error);
@@ -148,7 +152,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Handle navigation after success modal is dismissed
   const handleSuccessModalClose = () => {
     dismissSuccessModal();
-    // Navigation can be handled here if needed, or left empty
+    
+    // Store success state for persistence across navigation when modal is closed
+    const savedStateKey = `contact_saved_${profile.userId}_${token}`;
+    localStorage.setItem(savedStateKey, JSON.stringify({
+      timestamp: Date.now(),
+      profileId: profile.userId,
+      token: token
+    }));
   };
 
   const handleUpsellAccept = async () => {
@@ -178,6 +189,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
     
     console.log('📱 Opening messaging app directly with pre-populated text');
     openMessagingAppDirectly(messageText, phoneNumber);
+    
+    // Store success state for persistence and dismiss modal
+    const savedStateKey = `contact_saved_${profile.userId}_${token}`;
+    localStorage.setItem(savedStateKey, JSON.stringify({
+      timestamp: Date.now(),
+      profileId: profile.userId,
+      token: token
+    }));
     
     dismissSuccessModal();
   };

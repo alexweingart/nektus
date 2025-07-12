@@ -359,8 +359,13 @@ const isEmbeddedBrowser = (): boolean => {
  * Enhanced with multiple fallback strategies for embedded browsers
  */
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
+  console.log('📱 displayVCardInlineForIOS called for:', profile.name);
+  
   const vCardContent = await generateVCardForIOS(profile, options);
   const filename = generateVCardFilename(profile);
+  
+  console.log('📱 Generated vCard content length:', vCardContent.length);
+  console.log('📱 Generated filename:', filename);
   
   // Create a blob with proper vCard MIME type
   const vCardBlob = new Blob([vCardContent], { 
@@ -370,6 +375,7 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   const url = URL.createObjectURL(vCardBlob);
   
   console.log('📲 Opening vCard for iOS:', filename);
+  console.log('📲 Blob URL:', url);
   
   const isEmbedded = isEmbeddedBrowser();
   console.log('🔍 Embedded browser detected:', isEmbedded);
@@ -378,7 +384,7 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
     if (isEmbedded) {
       // Strategy 1: For all embedded browsers, use direct download
       console.log('📱 Embedded browser detected, using direct download');
-      downloadVCardForIOS(profile, options);
+      await downloadVCardForIOS(profile, options);
     } else {
       // Strategy 2: Original approach for Safari
       console.log('📱 Using direct navigation for Safari');
@@ -389,7 +395,7 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
     
     // Strategy 3: Fallback to direct download
     try {
-      downloadVCardForIOS(profile, options);
+      await downloadVCardForIOS(profile, options);
     } catch (downloadError) {
       console.warn('📱 Download fallback failed:', downloadError);
       
@@ -402,6 +408,8 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 5000);
+  
+  console.log('📱 displayVCardInlineForIOS completed');
 };
 
 /**
