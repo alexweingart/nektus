@@ -38,22 +38,28 @@ export async function GET(request: NextRequest) {
     // Handle user cancellation or denial
     if (error === 'access_denied') {
       console.log(`❌ User denied Google Contacts permission: ${session.user.id}`);
-      // Use same NEXTAUTH_URL logic as initial auth
-      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      // Use same port detection logic as initial auth
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
       return NextResponse.redirect(`${nextAuthUrl}/?incremental_auth=denied`);
     }
 
     // Handle other OAuth errors
     if (error) {
       console.error('❌ OAuth error in incremental auth callback:', { error, errorDescription });
-      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
       return NextResponse.redirect(`${nextAuthUrl}/?error=oauth_error&details=${encodeURIComponent(errorDescription || error)}`);
     }
 
     // Validate required parameters
     if (!code || !state) {
       console.warn('⚠️ Incremental auth callback missing required parameters:', { code: !!code, state: !!state });
-      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
       return NextResponse.redirect(`${nextAuthUrl}/?error=invalid_callback`);
     }
 
@@ -61,22 +67,28 @@ export async function GET(request: NextRequest) {
     const stateData = await getIncrementalAuthState(state);
     if (!stateData) {
       console.warn('⚠️ Invalid or expired auth state:', state);
-      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
       return NextResponse.redirect(`${nextAuthUrl}/?error=invalid_state`);
     }
 
     // Verify state belongs to current user
     if (stateData.userId !== session.user.id) {
       console.warn('⚠️ Auth state user mismatch:', { stateUserId: stateData.userId, sessionUserId: session.user.id });
-      const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
       return NextResponse.redirect(`${nextAuthUrl}/?error=user_mismatch`);
     }
 
     // Exchange authorization code for access token
     console.log(`🔄 Exchanging authorization code for access token: ${session.user.id}`);
     
-    // Use consistent NEXTAUTH_URL for redirect_uri
-    const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    // Use consistent port detection for redirect_uri
+    const requestUrl = new URL(request.url);
+    const currentPort = requestUrl.port || '3000';
+    const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
     
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',

@@ -15,6 +15,7 @@ import type { Country } from '@/types/forms';
 import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
+import { detectPlatform } from '@/lib/utils/platformDetection';
 
 function ProfileSetupView() {
   // Session and authentication
@@ -40,6 +41,31 @@ function ProfileSetupView() {
   
   useFreezeScrollOnFocus(phoneInputRef);
   const adminModeProps = useAdminModeActivator();
+
+  // Platform-specific delayed focus for keyboard tray behavior
+  useEffect(() => {
+    const focusInput = () => {
+      if (phoneInputRef.current) {
+        phoneInputRef.current.focus();
+      }
+    };
+
+    const { isIOS, isAndroid } = detectPlatform();
+
+    if (isIOS) {
+      // iOS: Use requestAnimationFrame for optimal performance
+      requestAnimationFrame(() => {
+        requestAnimationFrame(focusInput);
+      });
+    } else if (isAndroid) {
+      // Android: Use longer delay for OAuth callback scenarios
+      const timer = setTimeout(focusInput, 300);
+      return () => clearTimeout(timer);
+    } else {
+      // Web/Desktop: Focus immediately
+      focusInput();
+    }
+  }, []);
 
   // Handle saving the profile with phone number
   const handleSave = useCallback(async (e?: React.FormEvent) => {

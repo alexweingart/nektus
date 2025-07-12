@@ -121,10 +121,8 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     }
   }, [profile, session?.user]);
 
-  // Auto-focus name input on mount for mobile convenience
-  useEffect(() => {
-    nameInputRef.current?.focus();
-  }, []);
+  // Note: Removed auto-focus to prevent keyboard tray from showing on Android
+  // Users will manually tap to focus when they want to edit
 
   // Handle profile image upload
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

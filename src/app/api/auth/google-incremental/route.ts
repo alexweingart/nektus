@@ -42,8 +42,11 @@ export async function GET(request: NextRequest) {
     // Ensure NEXTAUTH_URL is set (use same logic as auth options)
     let nextAuthUrl = process.env.NEXTAUTH_URL;
     if (!nextAuthUrl) {
-      nextAuthUrl = "http://localhost:3000";
-      console.log('⚠️ NEXTAUTH_URL not set, using default: http://localhost:3000');
+      // Try to detect current port from request
+      const requestUrl = new URL(request.url);
+      const currentPort = requestUrl.port || '3000';
+      nextAuthUrl = `http://localhost:${currentPort}`;
+      console.log(`⚠️ NEXTAUTH_URL not set, using detected port: ${nextAuthUrl}`);
     }
 
     // Generate secure state parameter for CSRF protection
@@ -82,12 +85,14 @@ export async function GET(request: NextRequest) {
     // Add login hint if available to suggest the correct account
     if (session.user.email) {
       googleAuthUrl.searchParams.append('login_hint', session.user.email);
+      console.log(`🔍 Using login_hint: ${session.user.email}`);
     }
 
     console.log(`🔄 Redirecting user ${session.user.id} to Google for contacts permission`);
     console.log(`📍 Return URL: ${returnUrl}`);
     console.log(`🎯 Profile ID: ${profileId}`);
     console.log(`🔗 Callback URL: ${callbackUrl}`);
+    console.log(`🌐 Full Google Auth URL: ${googleAuthUrl.toString()}`);
     
     return NextResponse.redirect(googleAuthUrl.toString());
     

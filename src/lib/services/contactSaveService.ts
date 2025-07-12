@@ -67,10 +67,16 @@ function isPermissionError(error?: string): boolean {
     'access denied',
     'forbidden',
     '403',
+    '401',
     'unauthorized',
     'Google Contacts API error: 403', // Specific format from our googleContactsService
+    'Google Contacts API error: 401', // Unauthorized
     'Insufficient Permission',
-    'Request had insufficient authentication scopes'
+    'Request had insufficient authentication scopes',
+    'No Google Contacts access token available', // When no token is available
+    'access token',
+    'token',
+    'authentication'
   ];
   
   const lowerError = error.toLowerCase();
@@ -200,7 +206,14 @@ function isReturningFromIncrementalAuth(): boolean {
   if (typeof window === 'undefined') return false;
   
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.has('incremental_auth');
+  const hasIncrementalAuth = urlParams.has('incremental_auth');
+  
+  console.log('🔍 Checking for incremental auth return...');
+  console.log('🔍 Current URL:', window.location.href);
+  console.log('🔍 URL params:', urlParams.toString());
+  console.log('🔍 Has incremental_auth param:', hasIncrementalAuth);
+  
+  return hasIncrementalAuth;
 }
 
 /**
@@ -210,9 +223,14 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
   const urlParams = new URLSearchParams(window.location.search);
   const authResult = urlParams.get('incremental_auth');
   
+  console.log('🔍 Handling incremental auth return...');
+  console.log('🔍 Auth result:', authResult);
+  
   if (authResult === 'success') {
     const contactSaveToken = urlParams.get('contact_save_token') || undefined;
     const profileId = urlParams.get('profile_id') || undefined;
+    
+    console.log('🔍 Success return parameters:', { contactSaveToken, profileId });
     
     // Clean up URL parameters
     const url = new URL(window.location.href);
@@ -220,6 +238,8 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     url.searchParams.delete('contact_save_token');
     url.searchParams.delete('profile_id');
     window.history.replaceState({}, document.title, url.toString());
+    
+    console.log('🔍 Cleaned URL:', url.toString());
     
     return { success: true, contactSaveToken, profileId };
   }
@@ -235,6 +255,7 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     return { success: false, denied: true };
   }
   
+  console.log('🔍 No valid auth result found');
   return { success: false };
 }
 
@@ -250,7 +271,11 @@ export async function saveContactFlow(
   
   // Check if we're returning from incremental auth
   if (isReturningFromIncrementalAuth()) {
+    console.log('🔄 Detected return from incremental auth, processing...');
     const authReturn = handleIncrementalAuthReturn();
+    
+    console.log('🔍 Auth return result:', authReturn);
+    console.log('🔍 Expected profile ID:', profile.userId);
     
     if (authReturn.success && authReturn.contactSaveToken && authReturn.profileId === profile.userId) {
       console.log('🔄 Detected successful return from incremental auth');
@@ -261,7 +286,9 @@ export async function saveContactFlow(
       
       // Try Google Contacts save only (Firebase was already saved before we went to auth)
       try {
+        console.log('🔄 Attempting Google Contacts save with new token...');
         const googleSaveResult = await saveContactToGoogleOnly(authReturn.contactSaveToken);
+        console.log('🔍 Google save result after auth:', JSON.stringify(googleSaveResult, null, 2));
         
         if (googleSaveResult.google.success) {
           console.log('✅ Google Contacts save successful after auth!');
@@ -308,7 +335,18 @@ export async function saveContactFlow(
         showUpsellModal: true,
         platform
       };
+    } else {
+      console.log('⚠️ Auth return detected but conditions not met');
+      console.log('🔍 Conditions check:', {
+        hasSuccess: authReturn.success,
+        hasContactSaveToken: !!authReturn.contactSaveToken,
+        profileIdMatch: authReturn.profileId === profile.userId,
+        authProfileId: authReturn.profileId,
+        expectedProfileId: profile.userId
+      });
     }
+  } else {
+    console.log('🔍 Not returning from incremental auth, proceeding with normal flow');
   }
 
   try {
@@ -335,11 +373,14 @@ export async function saveContactFlow(
     try {
       const googleSaveResult = await saveContactToGoogleOnly(token);
       googleResult = googleSaveResult.google;
+      console.log('📊 Google Contacts save result:', JSON.stringify(googleResult, null, 2));
     } catch (error) {
       console.warn('⚠️ Google Contacts save failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
+      console.log('📊 Google Contacts error details:', errorMessage);
       googleResult = { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Google Contacts save failed' 
+        error: errorMessage 
       };
     }
 
@@ -357,8 +398,13 @@ export async function saveContactFlow(
           platform
         };
       } else {
-        // Check if this is a permission error
-        if (isPermissionError(googleResult.error)) {
+        // Check if this is a permission error with comprehensive logging
+        console.log('🔍 Checking if error is permission-related...');
+        console.log('🔍 Error string:', googleResult.error);
+        const isPermError = isPermissionError(googleResult.error);
+        console.log('🔍 isPermissionError result:', isPermError);
+        
+        if (isPermError) {
           console.log('⚠️ Google Contacts permission error detected, redirecting to auth');
           console.log('🔍 Error details:', googleResult.error);
           console.log('ℹ️ Firebase is already saved, just need Google permission');
