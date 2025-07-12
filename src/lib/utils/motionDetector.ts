@@ -464,6 +464,10 @@ export class MotionDetector {
       let allMotionEvents: any[] = []; // Store all motion events for analytics
       const sessionStartTime = getServerNow();
       
+      // Track peak events for debugging timeouts
+      let peakMagnitudeEvent: any = null;
+      let peakJerkEvent: any = null;
+      
       const handleMotion = (event: DeviceMotionEvent) => {
         if (resolved) return;
         
@@ -499,14 +503,33 @@ export class MotionDetector {
           currentThresholds = this.calculateAdaptiveThresholds(browserInfo, recentMagnitudes);
         }
         
-        // Log to console for first 5 events (for immediate debugging)
-        if (motionEventCount <= 5) {
-          console.log(`📊 Motion event ${motionEventCount}: x=${accel.x.toFixed(2)}, y=${accel.y.toFixed(2)}, z=${accel.z.toFixed(2)}, magnitude=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)} m/s³ (${browserInfo.isIOS ? 'iOS' : 'Default'})`);
+        // Track peak events for timeout debugging
+        if (!peakMagnitudeEvent || magnitude > peakMagnitudeEvent.magnitude) {
+          peakMagnitudeEvent = {
+            eventNumber: motionEventCount,
+            magnitude: magnitude,
+            jerk: jerk,
+            acceleration: { x: accel.x, y: accel.y, z: accel.z },
+            timestamp: now,
+            thresholds: { ...currentThresholds },
+            metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
+            metJerkThreshold: jerk >= currentThresholds.jerk,
+            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
+          };
         }
         
-        // For iOS, provide additional debug logging to help with sensitivity tuning
-        if (browserInfo.isIOS && (magnitude > 3 || jerk > 30)) {
-          console.log(`📱 iOS motion: magnitude=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}, mag_threshold=${currentThresholds.magnitude.toFixed(1)}, jerk_threshold=${currentThresholds.jerk.toFixed(1)}`);
+        if (!peakJerkEvent || jerk > peakJerkEvent.jerk) {
+          peakJerkEvent = {
+            eventNumber: motionEventCount,
+            magnitude: magnitude,
+            jerk: jerk,
+            acceleration: { x: accel.x, y: accel.y, z: accel.z },
+            timestamp: now,
+            thresholds: { ...currentThresholds },
+            metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
+            metJerkThreshold: jerk >= currentThresholds.jerk,
+            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
+          };
         }
         
         // Enhanced server logging: Log ALL motion events to server for comprehensive analysis
@@ -690,6 +713,27 @@ export class MotionDetector {
         if (!resolved) {
           console.log(`⏰ Motion detection timeout after ${MOTION_TIMEOUT}ms (${motionEventCount} events processed)`);
           
+          // Show peak events to help debug why detection didn't trigger
+          if (peakMagnitudeEvent) {
+            console.log(`🔥 PEAK MAGNITUDE EVENT #${peakMagnitudeEvent.eventNumber}:`);
+            console.log(`   Magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)} (threshold: ${peakMagnitudeEvent.thresholds.magnitude.toFixed(1)}) ${peakMagnitudeEvent.metMagnitudeThreshold ? '✅' : '❌'}`);
+            console.log(`   Jerk: ${peakMagnitudeEvent.jerk.toFixed(1)} (threshold: ${peakMagnitudeEvent.thresholds.jerk.toFixed(1)}) ${peakMagnitudeEvent.metJerkThreshold ? '✅' : '❌'}`);
+            console.log(`   Acceleration: x=${peakMagnitudeEvent.acceleration.x.toFixed(2)}, y=${peakMagnitudeEvent.acceleration.y.toFixed(2)}, z=${peakMagnitudeEvent.acceleration.z.toFixed(2)}`);
+            console.log(`   Both thresholds met: ${peakMagnitudeEvent.metBothThresholds ? '✅ YES' : '❌ NO'}`);
+          }
+          
+          if (peakJerkEvent && peakJerkEvent.eventNumber !== peakMagnitudeEvent?.eventNumber) {
+            console.log(`⚡ PEAK JERK EVENT #${peakJerkEvent.eventNumber}:`);
+            console.log(`   Jerk: ${peakJerkEvent.jerk.toFixed(1)} (threshold: ${peakJerkEvent.thresholds.jerk.toFixed(1)}) ${peakJerkEvent.metJerkThreshold ? '✅' : '❌'}`);
+            console.log(`   Magnitude: ${peakJerkEvent.magnitude.toFixed(2)} (threshold: ${peakJerkEvent.thresholds.magnitude.toFixed(1)}) ${peakJerkEvent.metMagnitudeThreshold ? '✅' : '❌'}`);
+            console.log(`   Acceleration: x=${peakJerkEvent.acceleration.x.toFixed(2)}, y=${peakJerkEvent.acceleration.y.toFixed(2)}, z=${peakJerkEvent.acceleration.z.toFixed(2)}`);
+            console.log(`   Both thresholds met: ${peakJerkEvent.metBothThresholds ? '✅ YES' : '❌ NO'}`);
+          }
+          
+          if (!peakMagnitudeEvent && !peakJerkEvent) {
+            console.log(`📊 No significant motion detected - all events were very low magnitude/jerk`);
+          }
+          
           // Log comprehensive session summary on timeout
           const sessionSummary = {
             outcome: 'timeout',
@@ -700,6 +744,8 @@ export class MotionDetector {
               magnitude: currentThresholds.magnitude,
               jerk: currentThresholds.jerk
             },
+            peakMagnitudeEvent: peakMagnitudeEvent,
+            peakJerkEvent: peakJerkEvent,
             recentMagnitudes: recentMagnitudes,
             maxMagnitude: recentMagnitudes.length > 0 ? Math.max(...recentMagnitudes.map(m => m.magnitude)) : 0,
             avgMagnitude: recentMagnitudes.length > 0 ? recentMagnitudes.reduce((sum, m) => sum + m.magnitude, 0) / recentMagnitudes.length : 0
