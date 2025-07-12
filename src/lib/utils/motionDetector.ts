@@ -32,7 +32,7 @@ const SEQUENTIAL_DETECTION = {
 // Standardized thresholds for all devices (no more iOS/Android differences)
 const DEFAULT_MOTION_THRESHOLD = 10; // m/s² - use strong bump profile as default
 const DEFAULT_JERK_THRESHOLD = 125;  // m/s³ - use strong bump profile as default
-const MOTION_TIMEOUT = 10000; // 10 seconds
+const MOTION_TIMEOUT = 15000; // 15 seconds (longer than exchange timeout to avoid conflicts)
 const SPIKE_DURATION_MS = 500; // Look for spikes within 500ms
 
 // Adaptive threshold configuration (simplified since we standardized across devices)
@@ -504,7 +504,7 @@ export class MotionDetector {
       console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
       console.log(`   🔄 Current state: magnitudePrimed=${this.sequentialState.magnitudePrimed}, jerkPrimed=${this.sequentialState.jerkPrimed}`);
       console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
-      console.log(`⏱️ Timeout: ${MOTION_TIMEOUT}ms`);
+      console.log(`⏱️ Motion detector timeout: ${MOTION_TIMEOUT}ms (controlled by exchange service timeout)`);
 
     return new Promise((resolve) => {
       let resolved = false;

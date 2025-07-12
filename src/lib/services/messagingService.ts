@@ -132,15 +132,15 @@ export function openMessagingAppWithVCard(
       });
     } else if (platform === 'android') {
       // Android doesn't handle vCard attachments well via web
-      import('./vCardService').then(({ downloadVCard }) => {
-        downloadVCard(senderProfile);
+      import('./vCardService').then(async ({ downloadVCard }) => {
+        await downloadVCard(senderProfile);
       }).catch(error => {
         console.error('Failed to download vCard for Android:', error);
       });
     } else {
       // Web fallback
-      import('./vCardService').then(({ downloadVCard }) => {
-        downloadVCard(senderProfile);
+      import('./vCardService').then(async ({ downloadVCard }) => {
+        await downloadVCard(senderProfile);
       }).catch(error => {
         console.error('Failed to download vCard for web:', error);
       });

@@ -16,16 +16,41 @@ export interface VCardOptions {
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
-    const res = await fetch(imageUrl);
-    const mime = res.headers.get('content-type') || 'image/jpeg';
+    // Fetch the image with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const res = await fetch(imageUrl, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Nektus/1.0'
+      }
+    });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
+    }
+    
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await res.arrayBuffer();
+    
+    // Check image size (limit to 200KB for better compatibility)
+    if (arrayBuffer.byteLength > 200 * 1024) {
+      console.warn('Image size exceeds 200KB, may cause vCard issues');
+    }
+    
+    const mime = contentType.toLowerCase();
     const type = mime.includes('png') ? 'PNG' : 'JPEG';
-    const b64 = Buffer.from(await res.arrayBuffer()).toString('base64');
+    const b64 = Buffer.from(arrayBuffer).toString('base64');
 
-    // 75-byte soft-wrap as required by RFC 2425
+    // 75-character line folding as required by RFC 2425
     const chunks: string[] = [];
     for (let i = 0; i < b64.length; i += 75) {
       chunks.push(b64.slice(i, i + 75));
     }
+    
+    // Use proper vCard 3.0 format
     return `PHOTO;ENCODING=b;TYPE=${type}:${chunks.join('\r\n ')}`;
   } catch (error) {
     console.warn('Failed to encode photo as base64:', error);
@@ -35,9 +60,50 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
 }
 
 /**
+ * Helper function to create a base64-encoded photo line for vCard 4.0
+ * Uses the new vCard 4.0 format with data: URI
+ */
+async function makePhotoLineV4(imageUrl: string): Promise<string> {
+  try {
+    // Fetch the image with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const res = await fetch(imageUrl, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Nektus/1.0'
+      }
+    });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
+    }
+    
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await res.arrayBuffer();
+    
+    // Check image size (limit to 200KB for better compatibility)
+    if (arrayBuffer.byteLength > 200 * 1024) {
+      console.warn('Image size exceeds 200KB, may cause vCard issues');
+    }
+    
+    const b64 = Buffer.from(arrayBuffer).toString('base64');
+    
+    // Use vCard 4.0 data: URI format
+    return `PHOTO:data:${contentType};base64,${b64}`;
+  } catch (error) {
+    console.warn('Failed to encode photo as base64 for vCard 4.0:', error);
+    // Fallback to URI format if base64 encoding fails
+    return `PHOTO:${imageUrl}`;
+  }
+}
+
+/**
  * Generate a vCard 4.0 string from a profile
  */
-export const generateVCard = (profile: UserProfile, options: VCardOptions = {}): string => {
+export const generateVCard = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
   const {
     includePhoto = true,
     includeSocialMedia = true,
@@ -72,10 +138,15 @@ export const generateVCard = (profile: UserProfile, options: VCardOptions = {}):
     lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
   }
   
-  // Photo/Avatar
+  // Photo/Avatar - Use base64 encoding for better compatibility
   if (includePhoto && profile.profileImage) {
-    // For remote URLs, we'll reference them directly
-    lines.push(`PHOTO:${profile.profileImage}`);
+    try {
+      const photoLine = await makePhotoLineV4(profile.profileImage);
+      lines.push(photoLine);
+    } catch (error) {
+      console.warn('Failed to encode photo for vCard 4.0:', error);
+      // Skip photo if encoding fails rather than breaking the entire vCard
+    }
   }
   
   // Social media and other contact channels
@@ -170,8 +241,8 @@ const getPlatformTypeForIOS = (platform: string): string => {
 /**
  * Create a downloadable vCard file
  */
-export const createVCardFile = (profile: UserProfile, options?: VCardOptions): Blob => {
-  const vCardContent = generateVCard(profile, options);
+export const createVCardFile = async (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
+  const vCardContent = await generateVCard(profile, options);
   return new Blob([vCardContent], { type: 'text/vcard;charset=utf-8' });
 };
 
@@ -187,8 +258,8 @@ export const generateVCardFilename = (profile: UserProfile): string => {
 /**
  * Download a vCard file
  */
-export const downloadVCard = (profile: UserProfile, options?: VCardOptions): void => {
-  const vCardBlob = createVCardFile(profile, options);
+export const downloadVCard = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
+  const vCardBlob = await createVCardFile(profile, options);
   const filename = generateVCardFilename(profile);
   
   // Create download link
@@ -210,8 +281,8 @@ export const downloadVCard = (profile: UserProfile, options?: VCardOptions): voi
 /**
  * Open vCard in new tab (useful for iOS)
  */
-export const openVCardInNewTab = (profile: UserProfile, options?: VCardOptions): void => {
-  const vCardBlob = createVCardFile(profile, options);
+export const openVCardInNewTab = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
+  const vCardBlob = await createVCardFile(profile, options);
   const filename = generateVCardFilename(profile);
   
   // Create download link

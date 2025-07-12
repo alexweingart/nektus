@@ -26,7 +26,6 @@ export class RealTimeContactExchangeService {
   private onStateChange?: (state: ContactExchangeState) => void;
   private motionDetectionCancelled: boolean = false;
   private waitingForBumpTimeout: NodeJS.Timeout | null = null;
-  private waitingForMatchTimeout: NodeJS.Timeout | null = null;
   private matchPollingInterval: NodeJS.Timeout | null = null;
   private pollingInterval: NodeJS.Timeout | null = null;
 
@@ -102,17 +101,18 @@ export class RealTimeContactExchangeService {
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
       console.log('✅ Ready for motion detection - waiting for bump...');
-      console.log('🔄 Enhanced multi-hit system: continues listening during 3-second matching window');
+      console.log('🔄 Enhanced multi-hit system: continues listening during entire 10-second exchange window');
       console.log('⏱️ Rate limiting: 500ms cooldown between hits to prevent spam');
+      console.log('⏰ Simplified timeout: Single 10-second window for entire exchange process');
       await this.logToServer('waiting_for_bump', 'Now waiting for motion detection with multi-hit capability');
       
-      // Set 30-second timeout for waiting for bump
+      // Set 10-second timeout for entire exchange process
       this.waitingForBumpTimeout = setTimeout(() => {
-        console.log('⏰ Waiting for bump timed out after 30 seconds');
-        this.logToServer('bump_timeout', 'Waiting for bump timed out after 30 seconds');
+        console.log('⏰ Exchange timed out after 10 seconds');
+        this.logToServer('exchange_timeout', 'Exchange timed out after 10 seconds');
         this.updateState({ status: 'timeout' });
         this.disconnect();
-      }, 30000); // 30 seconds
+      }, 10000); // 10 seconds total
       
       // Start the motion detection loop
       await this.waitForBump(true, sharingCategory);
@@ -200,10 +200,6 @@ export class RealTimeContactExchangeService {
     if (this.waitingForBumpTimeout) {
       clearTimeout(this.waitingForBumpTimeout);
       this.waitingForBumpTimeout = null;
-    }
-    if (this.waitingForMatchTimeout) {
-      clearTimeout(this.waitingForMatchTimeout);
-      this.waitingForMatchTimeout = null;
     }
     if (this.matchPollingInterval) {
       clearInterval(this.matchPollingInterval);
@@ -294,9 +290,10 @@ export class RealTimeContactExchangeService {
       clearInterval(this.matchPollingInterval);
       this.matchPollingInterval = null;
     }
-    if (this.waitingForMatchTimeout) {
-      clearTimeout(this.waitingForMatchTimeout);
-      this.waitingForMatchTimeout = null;
+    // Clear the single exchange timeout when match is found
+    if (this.waitingForBumpTimeout) {
+      clearTimeout(this.waitingForBumpTimeout);
+      this.waitingForBumpTimeout = null;
     }
   }
 
@@ -401,14 +398,7 @@ export class RealTimeContactExchangeService {
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
           this.updateState({ status: 'processing' });
-          
-          // Set 3-second timeout for waiting for match after sending hit
-          this.waitingForMatchTimeout = setTimeout(() => {
-            console.log('⏰ Waiting for match timed out after 3 seconds');
-            this.logToServer('match_timeout', `Waiting for match timed out after 3 seconds (sent ${hitCount} hits total)`);
-            this.updateState({ status: 'timeout' });
-            this.disconnect();
-          }, 3000); // 3 seconds
+          // No separate timeout needed - using single 10-second exchange timeout
         }
         
         const response = await this.sendHit(request);
@@ -416,9 +406,9 @@ export class RealTimeContactExchangeService {
         // If we got an immediate match, handle it and clear timeout
         if (response.matched && response.token) {
           console.log(`✅ Match found on hit #${hitCount}!`);
-          if (this.waitingForMatchTimeout) {
-            clearTimeout(this.waitingForMatchTimeout);
-            this.waitingForMatchTimeout = null;
+          if (this.waitingForBumpTimeout) {
+            clearTimeout(this.waitingForBumpTimeout);
+            this.waitingForBumpTimeout = null;
           }
           await this.handleMatch(response.token, response.youAre || 'A');
           return; // Exit after successful match

@@ -145,10 +145,105 @@ function clearContactSaveState(): void {
 }
 
 /**
+ * Detect if we're in an embedded browser that doesn't support popups well
+ */
+function isEmbeddedBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // Common embedded browser patterns
+  const embeddedPatterns = [
+    // Google app
+    'gsa/',
+    'googleapp/',
+    'googlesearch',
+    
+    // Social media apps
+    'fban',        // Facebook app
+    'fbav',        // Facebook app
+    'instagram',   // Instagram app
+    'twitter',     // Twitter app
+    'twitterandroid',
+    'line/',       // Line app
+    'snapchat',    // Snapchat app
+    'whatsapp',    // WhatsApp app
+    'telegram',    // Telegram app
+    'linkedin',    // LinkedIn app
+    'pinterest',   // Pinterest app
+    'reddit',      // Reddit app
+    'discord',     // Discord app
+    
+    // Other common webview indicators
+    'webview',
+    'wv)',         // Android WebView
+    'version/',    // Often indicates embedded browser on Android
+  ];
+  
+  // Check for embedded patterns
+  const matchedPatterns = embeddedPatterns.filter(pattern => userAgent.includes(pattern));
+  const isEmbedded = matchedPatterns.length > 0;
+  
+  // Additional check for iOS apps (they often don't include specific identifiers)
+  const isIOSApp = /iphone|ipad|ipod/.test(userAgent) && 
+                   !/safari/.test(userAgent) && 
+                   !/crios/.test(userAgent) && // Chrome iOS
+                   !/fxios/.test(userAgent);   // Firefox iOS
+  
+  // Log detection details for debugging
+  console.log('🕵️ Browser detection details:', {
+    userAgent,
+    matchedPatterns,
+    isEmbedded,
+    isIOSApp,
+    finalResult: isEmbedded || isIOSApp
+  });
+  
+  return isEmbedded || isIOSApp;
+}
+
+/**
+ * Detect if popups are likely to work in this browser
+ */
+function supportsReliablePopups(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  // Don't use popups in embedded browsers
+  if (isEmbeddedBrowser()) {
+    return false;
+  }
+  
+  // Check if popup window.open is available
+  if (!window.open) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Redirect to Google for incremental authorization with contacts scope
  */
 function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): void {
-  // Use popup callback URL as return URL (different from current page)
+  // Determine whether to use popup or redirect based on browser capabilities
+  const usePopup = supportsReliablePopups();
+  
+  console.log(`🔄 Browser detection: embedded=${isEmbeddedBrowser()}, usePopup=${usePopup}`);
+  
+  if (usePopup) {
+    // Use popup for standalone browsers (better cookie handling)
+    openGoogleAuthPopup(contactSaveToken, profileId);
+  } else {
+    // Use redirect for embedded browsers (more reliable)
+    redirectToGoogleAuth(contactSaveToken, profileId);
+  }
+}
+
+/**
+ * Open Google auth in a popup (for standalone browsers)
+ */
+function openGoogleAuthPopup(contactSaveToken: string, profileId: string): void {
+  // Use popup callback URL as return URL
   const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
   
   // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
@@ -166,12 +261,26 @@ function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: strin
   if (!popup) {
     console.error('❌ Popup blocked! Falling back to redirect...');
     // Fallback to redirect if popup is blocked
-    window.location.href = authUrl.replace(returnUrl, encodeURIComponent(window.location.href));
+    redirectToGoogleAuth(contactSaveToken, profileId);
     return;
   }
 
   // Listen for popup completion
   listenForPopupCompletion(popup, contactSaveToken, profileId);
+}
+
+/**
+ * Redirect to Google auth in same tab (for embedded browsers)
+ */
+function redirectToGoogleAuth(contactSaveToken: string, profileId: string): void {
+  // Use current URL as return URL (traditional redirect flow)
+  const returnUrl = window.location.href;
+  
+  // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
+  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
+  
+  console.log('🔄 Redirecting to Google for incremental contacts permission (embedded browser):', authUrl);
+  window.location.href = authUrl;
 }
 
 /**
@@ -371,6 +480,38 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
   
   console.log('🔍 No valid auth result found');
   return { success: false };
+}
+
+/**
+ * Export browser detection for testing (accessible in browser console)
+ */
+export function debugBrowserDetection() {
+  if (typeof window === 'undefined') {
+    console.log('❌ Not in browser environment');
+    return;
+  }
+  
+  const embedded = isEmbeddedBrowser();
+  const popupSupport = supportsReliablePopups();
+  
+  console.log('🔍 Browser Detection Debug:', {
+    userAgent: navigator.userAgent,
+    isEmbedded: embedded,
+    supportsPopups: popupSupport,
+    recommendedMethod: popupSupport ? 'popup' : 'redirect'
+  });
+  
+  return {
+    userAgent: navigator.userAgent,
+    isEmbedded: embedded,
+    supportsPopups: popupSupport,
+    recommendedMethod: popupSupport ? 'popup' : 'redirect'
+  };
+}
+
+// Make debug function available in browser console for testing
+if (typeof window !== 'undefined') {
+  (window as any).debugBrowserDetection = debugBrowserDetection;
 }
 
 /**
