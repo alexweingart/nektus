@@ -365,7 +365,8 @@ export async function saveContactFlow(
           // Redirect to Google auth for contacts permission
           redirectToGoogleContactsAuth(token, profile.userId || '');
           
-          // Return a pending result (this won't actually be used due to redirect)
+          // Return immediately without modal flags - we're redirecting now
+          // The redirect will happen before any modal can show
           return {
             success: true,
             firebase: firebaseResult.firebase,

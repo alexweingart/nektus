@@ -326,10 +326,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showUpsellModal}
           onClose={dismissUpsellModal}
           title="Save to Google Contacts?"
-          subtitle="We saved your contact to Nektus, but we need permission to add them to your Google Contacts so you can easily text them."
-          primaryButtonText="Yes, add to Google Contacts"
+          subtitle="We saved your contact to Nekt, but we need permission to save to Google so you can easily text them."
+          primaryButtonText="Yes!"
           onPrimaryButtonClick={handleUpsellAccept}
-          secondaryButtonText="No, just Nektus is fine"
+          secondaryButtonText="Nah, just Nekt is fine"
           onSecondaryButtonClick={handleUpsellDecline}
           variant="upsell"
         />
