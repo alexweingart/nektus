@@ -135,6 +135,23 @@ CRITICAL USERNAME RULES:
 ✅ *IMPORTANT* If you find multiple profiles for the same person, ALWAYS prioritize the one where the username is "${email.split('@')[0]}" (the email prefix) over any other email usernames
 ✅ Names must match reasonably (nicknames acceptable, but be cautious)
 
+MANDATORY VERIFICATION STEP:
+Before returning ANY username, you MUST verify each URL actually works by checking it with web search.
+For each platform where you found a username:
+1. Search for the exact URL (e.g., "site:instagram.com/username" or direct URL check)
+2. If the URL returns a 404, doesn't exist, or shows "user not found", set that platform to null
+3. Only return usernames for URLs that actually exist and belong to the right person
+
+Example of what NOT to do:
+- Finding "Alex Wei" and returning "alwei1335" for Instagram ❌
+- Finding "Alex Wei LinkedIn" and returning "alex-wei-123" ❌
+- Taking email prefix "alwei" and guessing "alwei_official" ❌
+
+Example of what TO do:
+- Search finds "instagram.com/alexwei" that actually exists ✅
+- Search finds "linkedin.com/in/alex-wei" that actually exists ✅
+- No valid profile found? Return null ✅
+
 PLATFORM EXTRACTION RULES:
 - LinkedIn: extract slug after "linkedin.com/in/" (e.g., "cool_username" from "linkedin.com/in/cool_username")
 - Facebook: extract username after "facebook.com/" 
@@ -149,7 +166,7 @@ Bio Creation:
     try {
       // Use the responses API with web search and structured text format
       const response = await openai.responses.create({
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         input: [
           { role: "system" as const, content: systemMessage },
           { role: "user" as const, content: userPrompt }
@@ -429,8 +446,16 @@ Bio Creation:
           url = `https://facebook.com/${username}`;
           break;
         case 'instagram':
-          url = `https://instagram.com/${username}`;
-          break;
+          // Instagram has anti-bot measures that make automated verification unreliable
+          // They return 200/301 status codes even for non-existent users
+          // Only verify if username looks like a reasonable Instagram username format
+          const instagramUsernameRegex = /^[a-zA-Z0-9_\.]{1,30}$/;
+          if (!instagramUsernameRegex.test(username)) {
+            return false;
+          }
+          // For Instagram, assume valid if username format is reasonable
+          // since they block most automated verification attempts
+          return true;
         case 'linkedin':
           // LinkedIn has aggressive bot detection, so we'll be more permissive
           // Only verify if it looks like a reasonable username format
