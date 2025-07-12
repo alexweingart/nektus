@@ -1,31 +1,41 @@
 import { MotionDetectionResult } from '@/types/contactExchange';
 import { getServerNow } from './clockSync';
 
-// Base thresholds - these will be adjusted based on device and conditions
-const DEFAULT_MOTION_THRESHOLD = 12; // m/s² (lowered threshold with jerk detection)
-const IOS_MOTION_THRESHOLD = 10; // m/s² (slightly lower for iOS due to different acceleration characteristics)
-const ANDROID_MOTION_THRESHOLD = 12; // m/s² (standard threshold for Android)
-const JERK_THRESHOLD = 120; // m/s³ (jerk threshold for detecting sudden motion changes)
-const IOS_JERK_THRESHOLD = 100; // m/s³ (slightly lower jerk threshold for iOS)
-const ANDROID_JERK_THRESHOLD = 120; // m/s³ (standard jerk threshold for Android)
+// Dual threshold system - either condition can trigger detection
+const DETECTION_PROFILES = {
+  // Profile 1: Strong bump - high magnitude, moderate jerk
+  strongBump: {
+    magnitude: 10, // m/s²
+    jerk: 125      // m/s³
+  },
+  // Profile 2: Sharp tap - lower magnitude, high jerk  
+  sharpTap: {
+    magnitude: 5,  // m/s²
+    jerk: 250      // m/s³
+  }
+};
+
+// Standardized thresholds for all devices (no more iOS/Android differences)
+const DEFAULT_MOTION_THRESHOLD = 10; // m/s² - use strong bump profile as default
+const DEFAULT_JERK_THRESHOLD = 125;  // m/s³ - use strong bump profile as default
 const MOTION_TIMEOUT = 10000; // 10 seconds
 const SPIKE_DURATION_MS = 500; // Look for spikes within 500ms
 
-// Adaptive threshold configuration
+// Adaptive threshold configuration (simplified since we standardized across devices)
 const ADAPTIVE_THRESHOLD_CONFIG = {
-  // Device-specific multipliers
+  // Device-specific multipliers (removed - now standardized)
   deviceMultipliers: {
     iOS: {
-      magnitude: 0.85, // iOS devices tend to have more sensitive accelerometers
-      jerk: 0.85
+      magnitude: 1.0, // Standardized - no device differences
+      jerk: 1.0
     },
     Android: {
-      magnitude: 1.0, // Use base values
+      magnitude: 1.0, // Standardized - no device differences
       jerk: 1.0
     },
     chromeOnIOS: {
-      magnitude: 0.9, // Chrome on iOS has slightly different characteristics
-      jerk: 0.9
+      magnitude: 1.0, // Standardized - no device differences
+      jerk: 1.0
     }
   },
   
@@ -180,17 +190,9 @@ export class MotionDetector {
   }
 
   private static calculateAdaptiveThresholds(browserInfo: any, recentMagnitudes: Array<{magnitude: number, timestamp: number}>): {magnitude: number, jerk: number} {
-    // Start with device-specific base thresholds
+    // Start with standardized base thresholds (same for all devices now)
     let baseMagnitudeThreshold = DEFAULT_MOTION_THRESHOLD;
-    let baseJerkThreshold = JERK_THRESHOLD;
-    
-    if (browserInfo.isIOS) {
-      baseMagnitudeThreshold = IOS_MOTION_THRESHOLD;
-      baseJerkThreshold = IOS_JERK_THRESHOLD;
-    } else if (browserInfo.isAndroid) {
-      baseMagnitudeThreshold = ANDROID_MOTION_THRESHOLD;
-      baseJerkThreshold = ANDROID_JERK_THRESHOLD;
-    }
+    let baseJerkThreshold = DEFAULT_JERK_THRESHOLD;
     
     // Apply device-specific multipliers
     let deviceMultiplier = ADAPTIVE_THRESHOLD_CONFIG.deviceMultipliers.Android;
@@ -452,7 +454,10 @@ export class MotionDetector {
       
       // Note: Permission should already be granted by the calling service
       console.log('✅ Starting motion detection...');
-      console.log(`🎯 Adaptive motion thresholds: ${currentThresholds.magnitude.toFixed(1)} m/s² magnitude, ${currentThresholds.jerk.toFixed(1)} m/s³ jerk (${browserInfo.isIOS ? 'iOS' : 'Default'})`);
+      console.log(`🎯 Dual threshold detection system:`);
+      console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
+      console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
+      console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
       console.log(`⏱️ Timeout: ${MOTION_TIMEOUT}ms`);
 
     return new Promise((resolve) => {
@@ -514,7 +519,12 @@ export class MotionDetector {
             thresholds: { ...currentThresholds },
             metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
             metJerkThreshold: jerk >= currentThresholds.jerk,
-            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
+            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
+            // Dual threshold analysis
+            metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
+            metSharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
+            metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
+                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
           };
         }
         
@@ -528,7 +538,12 @@ export class MotionDetector {
             thresholds: { ...currentThresholds },
             metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
             metJerkThreshold: jerk >= currentThresholds.jerk,
-            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
+            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
+            // Dual threshold analysis
+            metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
+            metSharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
+            metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
+                             (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
           };
         }
         
@@ -564,12 +579,20 @@ export class MotionDetector {
           userAgent: browserInfo.userAgent,
           thresholds: {
             magnitude: currentThresholds.magnitude,
-            jerk: currentThresholds.jerk
+            jerk: currentThresholds.jerk,
+            // Include dual threshold info
+            strongBump: DETECTION_PROFILES.strongBump,
+            sharpTap: DETECTION_PROFILES.sharpTap
           },
           exceedsThresholds: {
             magnitude: magnitude >= currentThresholds.magnitude,
             jerk: jerk >= currentThresholds.jerk,
-            both: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk
+            both: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
+            // Dual threshold detection results
+            strongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
+            sharpTap: magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk,
+            either: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
+                    (magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk)
           }
         });
 
@@ -585,19 +608,32 @@ export class MotionDetector {
           })
         }).catch(() => {}); // Ignore errors to avoid blocking motion detection
         
-        // Check for impact: magnitude above threshold AND jerk above threshold
-        const traditionalDetection = magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk;
+        // Check for dual threshold detection: either profile can trigger
+        const strongBumpDetection = magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk;
+        const sharpTapDetection = magnitude >= DETECTION_PROFILES.sharpTap.magnitude && jerk >= DETECTION_PROFILES.sharpTap.jerk;
+        const dualThresholdDetection = strongBumpDetection || sharpTapDetection;
         
-        // Also check for motion patterns (asymmetric bumps, subtle patterns)
+        // Also check for motion patterns (asymmetric bumps, subtle patterns) - disabled for now
         const patternAnalysis = this.analyzeMotionPattern(recentMagnitudes, currentThresholds, browserInfo);
         
-        if (traditionalDetection || patternAnalysis.detected) {
-          const detectionType = traditionalDetection ? 'traditional' : patternAnalysis.type;
-          const confidence = traditionalDetection ? 1.0 : patternAnalysis.confidence;
+        if (dualThresholdDetection || patternAnalysis.detected) {
+          let detectionType = 'unknown';
+          let confidence = 1.0;
+          
+          if (strongBumpDetection) {
+            detectionType = 'strong_bump';
+          } else if (sharpTapDetection) {
+            detectionType = 'sharp_tap';
+          } else {
+            detectionType = patternAnalysis.type;
+            confidence = patternAnalysis.confidence;
+          }
           
           console.log(`🎯 MOTION DETECTED! Type: ${detectionType}, Confidence: ${(confidence * 100).toFixed(1)}%`);
-          if (traditionalDetection) {
-            console.log(`   Traditional: Magnitude: ${magnitude.toFixed(2)} >= ${currentThresholds.magnitude.toFixed(1)}, Jerk: ${jerk.toFixed(1)} >= ${currentThresholds.jerk.toFixed(1)} (${browserInfo.isIOS ? 'iOS' : 'Default'})`);
+          if (strongBumpDetection) {
+            console.log(`   Strong Bump: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.strongBump.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.strongBump.jerk}`);
+          } else if (sharpTapDetection) {
+            console.log(`   Sharp Tap: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.sharpTap.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.sharpTap.jerk}`);
           } else {
             console.log(`   Pattern: ${patternAnalysis.type}, Details:`, patternAnalysis.details);
           }
@@ -716,18 +752,20 @@ export class MotionDetector {
           // Show peak events to help debug why detection didn't trigger
           if (peakMagnitudeEvent) {
             console.log(`🔥 PEAK MAGNITUDE EVENT #${peakMagnitudeEvent.eventNumber}:`);
-            console.log(`   Magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)} (threshold: ${peakMagnitudeEvent.thresholds.magnitude.toFixed(1)}) ${peakMagnitudeEvent.metMagnitudeThreshold ? '✅' : '❌'}`);
-            console.log(`   Jerk: ${peakMagnitudeEvent.jerk.toFixed(1)} (threshold: ${peakMagnitudeEvent.thresholds.jerk.toFixed(1)}) ${peakMagnitudeEvent.metJerkThreshold ? '✅' : '❌'}`);
+            console.log(`   Magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)}, Jerk: ${peakMagnitudeEvent.jerk.toFixed(1)}`);
             console.log(`   Acceleration: x=${peakMagnitudeEvent.acceleration.x.toFixed(2)}, y=${peakMagnitudeEvent.acceleration.y.toFixed(2)}, z=${peakMagnitudeEvent.acceleration.z.toFixed(2)}`);
-            console.log(`   Both thresholds met: ${peakMagnitudeEvent.metBothThresholds ? '✅ YES' : '❌ NO'}`);
+            console.log(`   🥊 Strong Bump (mag≥10 + jerk≥125): ${peakMagnitudeEvent.metStrongBump ? '✅ YES' : '❌ NO'}`);
+            console.log(`   👆 Sharp Tap (mag≥5 + jerk≥250): ${peakMagnitudeEvent.metSharpTap ? '✅ YES' : '❌ NO'}`);
+            console.log(`   🎯 Either Profile Met: ${peakMagnitudeEvent.metEitherProfile ? '✅ YES' : '❌ NO'}`);
           }
           
           if (peakJerkEvent && peakJerkEvent.eventNumber !== peakMagnitudeEvent?.eventNumber) {
             console.log(`⚡ PEAK JERK EVENT #${peakJerkEvent.eventNumber}:`);
-            console.log(`   Jerk: ${peakJerkEvent.jerk.toFixed(1)} (threshold: ${peakJerkEvent.thresholds.jerk.toFixed(1)}) ${peakJerkEvent.metJerkThreshold ? '✅' : '❌'}`);
-            console.log(`   Magnitude: ${peakJerkEvent.magnitude.toFixed(2)} (threshold: ${peakJerkEvent.thresholds.magnitude.toFixed(1)}) ${peakJerkEvent.metMagnitudeThreshold ? '✅' : '❌'}`);
+            console.log(`   Jerk: ${peakJerkEvent.jerk.toFixed(1)}, Magnitude: ${peakJerkEvent.magnitude.toFixed(2)}`);
             console.log(`   Acceleration: x=${peakJerkEvent.acceleration.x.toFixed(2)}, y=${peakJerkEvent.acceleration.y.toFixed(2)}, z=${peakJerkEvent.acceleration.z.toFixed(2)}`);
-            console.log(`   Both thresholds met: ${peakJerkEvent.metBothThresholds ? '✅ YES' : '❌ NO'}`);
+            console.log(`   🥊 Strong Bump (mag≥10 + jerk≥125): ${peakJerkEvent.metStrongBump ? '✅ YES' : '❌ NO'}`);
+            console.log(`   👆 Sharp Tap (mag≥5 + jerk≥250): ${peakJerkEvent.metSharpTap ? '✅ YES' : '❌ NO'}`);
+            console.log(`   🎯 Either Profile Met: ${peakJerkEvent.metEitherProfile ? '✅ YES' : '❌ NO'}`);
           }
           
           if (!peakMagnitudeEvent && !peakJerkEvent) {

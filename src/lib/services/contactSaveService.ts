@@ -148,14 +148,99 @@ function clearContactSaveState(): void {
  * Redirect to Google for incremental authorization with contacts scope
  */
 function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): void {
-  // Use current URL as return URL
-  const returnUrl = window.location.href;
+  // Use popup callback URL as return URL (different from current page)
+  const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
   
   // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
   const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
   
-  console.log('🔄 Redirecting to Google for incremental contacts permission (silent first):', authUrl);
-  window.location.href = authUrl;
+  console.log('🔄 Opening Google auth popup for incremental contacts permission (silent first):', authUrl);
+  
+  // Open popup instead of redirecting current page
+  const popup = window.open(
+    authUrl,
+    'google-auth-popup',
+    'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
+  );
+
+  if (!popup) {
+    console.error('❌ Popup blocked! Falling back to redirect...');
+    // Fallback to redirect if popup is blocked
+    window.location.href = authUrl.replace(returnUrl, encodeURIComponent(window.location.href));
+    return;
+  }
+
+  // Listen for popup completion
+  listenForPopupCompletion(popup, contactSaveToken, profileId);
+}
+
+/**
+ * Listen for popup completion and handle the auth result
+ */
+function listenForPopupCompletion(popup: Window, contactSaveToken: string, profileId: string): void {
+  const messageHandler = (event: MessageEvent) => {
+    // Verify origin for security
+    if (event.origin !== window.location.origin) {
+      return;
+    }
+
+    // Check if this is our auth completion message
+    if (event.data?.type === 'GOOGLE_AUTH_COMPLETE') {
+      console.log('🎉 Received popup auth completion:', event.data);
+      
+      // Clean up
+      window.removeEventListener('message', messageHandler);
+      popup.close();
+
+      // Handle the auth result
+      if (event.data.success) {
+        // Auth was successful - the OAuth flow completed and token is stored
+        // Use the contactSaveToken and profileId from the message (they should match the parameters)
+        const tokenToUse = event.data.contactSaveToken || contactSaveToken;
+        const profileIdToUse = event.data.profileId || profileId;
+        handlePopupAuthSuccess(tokenToUse, profileIdToUse);
+      } else {
+        console.error('❌ Popup auth failed:', event.data.error, event.data.message);
+        // Could show an error message or handle gracefully
+      }
+    }
+  };
+
+  // Listen for postMessage from popup
+  window.addEventListener('message', messageHandler);
+
+  // Check if popup is closed manually (user cancellation)
+  const checkClosed = setInterval(() => {
+    if (popup.closed) {
+      clearInterval(checkClosed);
+      window.removeEventListener('message', messageHandler);
+      console.log('ℹ️ Popup was closed by user');
+    }
+  }, 1000);
+}
+
+/**
+ * Handle successful popup auth completion
+ */
+async function handlePopupAuthSuccess(contactSaveToken: string, profileId: string): Promise<void> {
+  try {
+    console.log('🔄 Retrying Google Contacts save after popup auth...');
+    
+    // Retry the Google Contacts save
+    const result = await saveContactToGoogleOnly(contactSaveToken);
+    
+    if (result.success) {
+      console.log('✅ Contact saved to Google after popup auth!');
+      // Could trigger a success notification here
+      
+      // Trigger page refresh or update UI to show success
+      window.location.reload();
+         } else {
+       console.error('❌ Contact save still failed after popup auth:', result.google.error || 'Unknown error');
+     }
+  } catch (error) {
+    console.error('❌ Error during post-popup contact save:', error);
+  }
 }
 
 /**
