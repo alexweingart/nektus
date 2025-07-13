@@ -16,14 +16,17 @@ export interface VCardOptions {
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
-    // Fetch the image with timeout
+    // Try to fetch image with proper error handling
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
     
+    // Add more headers to avoid CORS issues
     const res = await fetch(imageUrl, { 
       signal: controller.signal,
+      mode: 'cors',
       headers: {
-        'User-Agent': 'Nektus/1.0'
+        'User-Agent': 'Nektus/1.0',
+        'Accept': 'image/*'
       }
     });
     clearTimeout(timeoutId);
@@ -35,39 +38,77 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const contentType = res.headers.get('content-type') || 'image/jpeg';
     const arrayBuffer = await res.arrayBuffer();
     
-    // Check image size (limit to 200KB for better compatibility)
+    // Check image size (warn if over 200KB, error if over 1MB)
+    if (arrayBuffer.byteLength > 1024 * 1024) {
+      throw new Error('Image too large (>1MB)');
+    }
     if (arrayBuffer.byteLength > 200 * 1024) {
-      console.warn('Image size exceeds 200KB, may cause vCard issues');
+      console.warn('Image size exceeds 200KB, may cause vCard compatibility issues');
     }
     
-    // Determine image type - JPEG is most widely supported
-    const mime = contentType.toLowerCase();
-    let type = 'JPEG'; // Default to JPEG for maximum compatibility
-    if (mime.includes('png')) {
-      type = 'PNG';
-    } else if (mime.includes('gif')) {
-      type = 'GIF';
-    }
-    
+    // Always use JPEG for maximum compatibility
+    const type = 'JPEG';
     const b64 = Buffer.from(arrayBuffer).toString('base64');
 
-    // RFC 2426 compliant vCard 3.0 photo format with proper line folding
-    // Lines must be folded to 75 characters excluding CRLF
-    const chunks: string[] = [];
-    for (let i = 0; i < b64.length; i += 73) { // 73 chars + 2 for folding = 75 total
-      chunks.push(b64.slice(i, i + 73));
+    // RFC 2426 strict compliance for vCard 3.0 photo format
+    // The photo line should be exactly: PHOTO;ENCODING=b;TYPE=JPEG:base64data
+    // Lines MUST be folded at 75 characters (including CRLF)
+    // Continuation lines MUST start with a space
+    
+    const photoPrefix = `PHOTO;ENCODING=b;TYPE=${type}:`;
+    const prefixLength = photoPrefix.length;
+    
+    // Calculate how much base64 data fits on first line
+    const firstLineSpace = 75 - prefixLength;
+    const firstChunk = b64.slice(0, firstLineSpace);
+    const remainingData = b64.slice(firstLineSpace);
+    
+    // Build the photo line with proper folding
+    let photoLine = photoPrefix + firstChunk;
+    
+    // Add remaining data in 74-character chunks (75 - 1 for the leading space)
+    for (let i = 0; i < remainingData.length; i += 74) {
+      const chunk = remainingData.slice(i, i + 74);
+      photoLine += '\r\n ' + chunk; // RFC 2426 requires CRLF + space for continuation
     }
     
-    // Use exact RFC 2426 vCard 3.0 format with proper folding
-    // First line: PHOTO;ENCODING=b;TYPE=JPEG:
-    // Subsequent lines: space + data + CRLF
-    const photoHeader = `PHOTO;ENCODING=b;TYPE=${type}:`;
-    const foldedData = chunks.join('\r\n '); // Note the space after \r\n for folding
+    return photoLine;
     
-    return `${photoHeader}${foldedData}`;
   } catch (error) {
-    console.warn('Failed to encode photo as base64:', error);
-    // Fallback to URI format if base64 encoding fails - but this is less compatible
+    console.warn('Failed to encode photo as base64, trying fallback methods:', error);
+    
+    // Fallback 1: Try data URI format (vCard 4.0 style but some 3.0 readers support it)
+    try {
+      const res = await fetch(imageUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            // Extract just the base64 part
+            const base64Data = dataUrl.split(',')[1];
+            const photoPrefix = 'PHOTO;ENCODING=b;TYPE=JPEG:';
+            const prefixLength = photoPrefix.length;
+            const firstLineSpace = 75 - prefixLength;
+            const firstChunk = base64Data.slice(0, firstLineSpace);
+            const remainingData = base64Data.slice(firstLineSpace);
+            
+            let photoLine = photoPrefix + firstChunk;
+            for (let i = 0; i < remainingData.length; i += 74) {
+              const chunk = remainingData.slice(i, i + 74);
+              photoLine += '\r\n ' + chunk;
+            }
+            resolve(photoLine);
+          };
+          reader.readAsDataURL(blob);
+        });
+      }
+    } catch (fallbackError) {
+      console.warn('Fallback 1 failed:', fallbackError);
+    }
+    
+    // Fallback 2: URI reference (least compatible but better than nothing)
     return `PHOTO;VALUE=URI:${imageUrl}`;
   }
 }
@@ -690,4 +731,153 @@ export const generateSimpleVCard = async (profile: UserProfile): Promise<string>
  */
 export const generateSimpleVCardForIOS = async (profile: UserProfile): Promise<string> => {
   return generateSimpleVCard(profile);
+};
+
+/**
+ * Debug function to test vCard photo encoding
+ * This helps identify issues with image URLs, encoding, and format
+ */
+export const debugVCardPhoto = async (imageUrl: string): Promise<{
+  success: boolean;
+  issues: string[];
+  photoLine?: string;
+  imageInfo?: {
+    size: number;
+    contentType: string;
+    canFetch: boolean;
+  };
+}> => {
+  const issues: string[] = [];
+  let imageInfo: any = {};
+  
+  try {
+    // Test 1: Can we fetch the image?
+    const res = await fetch(imageUrl, {
+      mode: 'cors',
+      headers: {
+        'Accept': 'image/*'
+      }
+    });
+    
+    if (!res.ok) {
+      issues.push(`Image fetch failed: ${res.status} ${res.statusText}`);
+      return { success: false, issues };
+    }
+    
+    const contentType = res.headers.get('content-type') || 'unknown';
+    const arrayBuffer = await res.arrayBuffer();
+    
+    imageInfo = {
+      size: arrayBuffer.byteLength,
+      contentType: contentType,
+      canFetch: true
+    };
+    
+    // Test 2: Size checks
+    if (arrayBuffer.byteLength > 1024 * 1024) {
+      issues.push('Image is larger than 1MB - too big for vCard');
+    } else if (arrayBuffer.byteLength > 200 * 1024) {
+      issues.push('Image is larger than 200KB - may cause compatibility issues');
+    }
+    
+    // Test 3: Content type
+    if (!contentType.includes('image/')) {
+      issues.push(`Invalid content type: ${contentType}`);
+    }
+    
+    // Test 4: Try to create base64
+    const b64 = Buffer.from(arrayBuffer).toString('base64');
+    if (!b64) {
+      issues.push('Failed to create base64 encoding');
+      return { success: false, issues, imageInfo };
+    }
+    
+    // Test 5: Create photo line
+    const photoLine = await makePhotoLine(imageUrl);
+    
+    // Test 6: Validate photo line format
+    if (!photoLine.startsWith('PHOTO;ENCODING=b;TYPE=')) {
+      issues.push('Photo line does not start with correct vCard 3.0 format');
+    }
+    
+    if (photoLine.includes('VALUE=URI')) {
+      issues.push('Fell back to URI format - base64 encoding failed');
+    }
+    
+    // Test 7: Check line length (should be folded at 75 chars)
+    const lines = photoLine.split('\r\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].length > 75) {
+        issues.push(`Line ${i} is too long (${lines[i].length} chars) - should be max 75`);
+      }
+      if (i > 0 && !lines[i].startsWith(' ')) {
+        issues.push(`Continuation line ${i} should start with space`);
+      }
+    }
+    
+    return {
+      success: issues.length === 0,
+      issues,
+      photoLine,
+      imageInfo
+    };
+    
+  } catch (error) {
+    issues.push(`Error during debug: ${error instanceof Error ? error.message : String(error)}`);
+    return { success: false, issues, imageInfo };
+  }
+};
+
+/**
+ * Generate a test vCard with a small embedded image to test photo functionality
+ * This helps determine if the issue is with image fetching or vCard format
+ */
+export const generateTestVCardWithPhoto = (profile: UserProfile): string => {
+  // Small 16x16 red square in JPEG format (base64 encoded)
+  const testImageBase64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAAQABADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
+  
+  const lines: string[] = [];
+  
+  // vCard header - Use 3.0 for maximum compatibility
+  lines.push('BEGIN:VCARD');
+  lines.push('VERSION:3.0');
+  lines.push('PRODID:-//Nektus//Test vCard 1.0//EN');
+  
+  // Basic information
+  if (profile.name) {
+    lines.push(`FN:${escapeVCardValue(profile.name)}`);
+    const nameParts = profile.name.split(' ');
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
+    lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
+  }
+  
+  // Phone number
+  if (profile.contactChannels?.phoneInfo?.nationalPhone) {
+    lines.push(`TEL;TYPE=CELL:${escapeVCardValue(profile.contactChannels.phoneInfo.nationalPhone)}`);
+  }
+  
+  // Email
+  if (profile.contactChannels?.email?.email) {
+    lines.push(`EMAIL;TYPE=INTERNET:${escapeVCardValue(profile.contactChannels.email.email)}`);
+  }
+  
+  // Test photo with proper RFC 2426 formatting
+  const photoPrefix = 'PHOTO;ENCODING=b;TYPE=JPEG:';
+  const prefixLength = photoPrefix.length;
+  const firstLineSpace = 75 - prefixLength;
+  const firstChunk = testImageBase64.slice(0, firstLineSpace);
+  const remainingData = testImageBase64.slice(firstLineSpace);
+  
+  let photoLine = photoPrefix + firstChunk;
+  for (let i = 0; i < remainingData.length; i += 74) {
+    const chunk = remainingData.slice(i, i + 74);
+    photoLine += '\r\n ' + chunk;
+  }
+  lines.push(photoLine);
+  
+  // vCard footer
+  lines.push('END:VCARD');
+  
+  return lines.join('\r\n');
 };
