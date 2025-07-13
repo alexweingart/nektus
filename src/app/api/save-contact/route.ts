@@ -16,20 +16,26 @@ import type { ContactSaveResult } from '@/types/contactExchange';
  * Get Google Contacts access token - try incremental auth first, fallback to session
  */
 async function getGoogleContactsToken(session: any, userId: string): Promise<string | null> {
+  console.log('🔍 Token retrieval: Getting Google Contacts token for user:', userId);
+  
   // First try incremental auth token (has contacts permission)
   const incrementalToken = await getContactsAccessToken(userId);
+  console.log('🔍 Token retrieval: Incremental token result:', incrementalToken ? 'Found' : 'Not found');
+  
   if (incrementalToken) {
-    console.log('✅ Using incremental auth token for Google Contacts');
+    console.log('✅ Token retrieval: Using incremental auth token for Google Contacts');
     return incrementalToken;
   }
   
   // Fallback to session token (if user originally granted contacts permission)
+  console.log('🔍 Token retrieval: Session access token:', session.accessToken ? 'Found' : 'Not found');
+  
   if (session.accessToken) {
-    console.log('ℹ️ Using session token for Google Contacts (fallback)');
+    console.log('ℹ️ Token retrieval: Using session token for Google Contacts (fallback)');
     return session.accessToken;
   }
   
-  console.log('❌ No Google Contacts access token available');
+  console.log('❌ Token retrieval: No Google Contacts access token available');
   return null;
 }
 
@@ -162,14 +168,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Save to Google Contacts (if not skipping and either Firebase succeeded or Google-only mode)
     if (!skipGoogleContacts && (result.firebase.success || googleOnly)) {
+      console.log('🔍 Google save: Attempting Google Contacts save...');
       const googleToken = await getGoogleContactsToken(session, session.user.id);
       
       if (googleToken) {
+        console.log('🔍 Google save: Found Google token, calling saveToGoogleContacts...');
         try {
           const googleResult = await saveToGoogleContacts(googleToken, contactProfile);
           result.google.success = googleResult.success;
           result.google.contactId = googleResult.contactId;
           result.google.error = googleResult.error;
+          
+          console.log('🔍 Google save: Google Contacts API result:', JSON.stringify(googleResult));
           
           if (googleResult.success) {
             console.log('✅ Contact saved to Google Contacts');
@@ -177,11 +187,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             console.warn('⚠️ Google Contacts save failed:', googleResult.error);
           }
         } catch (error) {
-          result.google.error = error instanceof Error ? error.message : 'Google Contacts save failed';
+          const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
+          result.google.error = errorMessage;
           console.error('❌ Google Contacts save failed:', error);
+          console.log('🔍 Google save: Exception error message set to:', errorMessage);
         }
       } else {
+        console.log('🔍 Google save: No Google token found, setting error message...');
         result.google.error = 'No Google Contacts access token available';
+        console.log('🔍 Google save: Error message set to:', result.google.error);
         console.warn('⚠️ Skipping Google Contacts save - no access token');
       }
     } else if (skipGoogleContacts) {

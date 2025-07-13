@@ -55,7 +55,14 @@ function markIOSUpsellShown(): void {
  * Check if the error is related to missing Google Contacts permissions
  */
 function isPermissionError(error?: string): boolean {
-  if (!error) return false;
+  if (!error) {
+    console.log('🔍 Permission check: No error provided');
+    return false;
+  }
+  
+  console.log('🔍 Permission check: Raw error:', JSON.stringify(error));
+  console.log('🔍 Permission check: Error type:', typeof error);
+  console.log('🔍 Permission check: Error length:', error.length);
   
   // Common permission error messages and HTTP status codes from Google API
   const permissionKeywords = [
@@ -82,10 +89,20 @@ function isPermissionError(error?: string): boolean {
   ];
   
   const lowerError = error.toLowerCase();
-  const isPermError = permissionKeywords.some(keyword => lowerError.includes(keyword.toLowerCase()));
+  console.log('🔍 Permission check: Lowercase error:', JSON.stringify(lowerError));
+  
+  // Check each keyword individually for debugging
+  const matchingKeywords = permissionKeywords.filter(keyword => 
+    lowerError.includes(keyword.toLowerCase())
+  );
+  console.log('🔍 Permission check: Matching keywords:', matchingKeywords);
+  
+  const isPermError = matchingKeywords.length > 0;
   
   // Additional specific checks for common token-related issues
   if (!isPermError) {
+    console.log('🔍 Permission check: No keyword matches, checking regex patterns...');
+    
     // Check for specific patterns that indicate permission issues
     const tokenPatterns = [
       /no.*token.*available/i,
@@ -93,12 +110,20 @@ function isPermissionError(error?: string): boolean {
       /missing.*token/i,
       /invalid.*token/i,
       /expired.*token/i,
-      /token.*required/i
+      /token.*required/i,
+      /no.*access.*token/i // Additional pattern for "no access token"
     ];
     
-    return tokenPatterns.some(pattern => pattern.test(error));
+    const matchingPatterns = tokenPatterns.filter(pattern => pattern.test(error));
+    console.log('🔍 Permission check: Matching patterns:', matchingPatterns.length);
+    
+    if (matchingPatterns.length > 0) {
+      console.log('🔍 Permission check: Found token-related pattern match');
+      return true;
+    }
   }
   
+  console.log('🔍 Permission check: Final result:', isPermError);
   return isPermError;
 }
 
@@ -696,15 +721,20 @@ export async function saveContactFlow(
         };
       } else {
         // Check if this is a permission error with comprehensive logging
-        console.log('🔍 Checking if error is permission-related...');
-        console.log('🔍 Error string:', googleResult.error);
+        console.log('🔍 Android: Google Contacts save failed, checking if permission-related...');
+        console.log('🔍 Android: Error string:', googleResult.error);
+        console.log('🔍 Android: Error type:', typeof googleResult.error);
+        console.log('🔍 Android: Error length:', googleResult.error?.length);
+        console.log('🔍 Android: Platform detection:', platform);
+        console.log('🔍 Android: User agent:', navigator.userAgent);
+        
         const isPermError = isPermissionError(googleResult.error);
-        console.log('🔍 isPermissionError result:', isPermError);
+        console.log('🔍 Android: isPermissionError result:', isPermError);
         
         if (isPermError) {
-          console.log('⚠️ Google Contacts permission error detected, redirecting to auth');
-          console.log('🔍 Error details:', googleResult.error);
-          console.log('ℹ️ Firebase is already saved, just need Google permission');
+          console.log('⚠️ Android: Google Contacts permission error detected, redirecting to auth');
+          console.log('🔍 Android: Error details:', googleResult.error);
+          console.log('ℹ️ Android: Firebase is already saved, just need Google permission');
           
           // Store state for when we return
           storeContactSaveState(token, profile.userId || '');
@@ -722,9 +752,10 @@ export async function saveContactFlow(
           };
         } else {
           // Other error - show upsell modal (Firebase is still saved!)
-          console.log('❌ Google Contacts save failed on Android with non-permission error, showing upsell modal');
-          console.log('🔍 Error details:', googleResult.error);
-          console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
+          console.log('❌ Android: Google Contacts save failed with non-permission error, showing upsell modal');
+          console.log('🔍 Android: Error details:', googleResult.error);
+          console.log('🔍 Android: This should have been a permission error but wasn\'t detected as one');
+          console.log('ℹ️ Android: Contact is saved to Firebase, just not Google Contacts');
           return {
             success: true,
             firebase: firebaseResult.firebase,

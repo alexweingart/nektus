@@ -35,4 +35,4 @@ app.prepare().then(() => {
     console.log(`> Network: https://192.168.86.241:${port}`);
     console.log(`> Next.js running on port ${parseInt(port) + 1}`);
   });
-});
+}); 
