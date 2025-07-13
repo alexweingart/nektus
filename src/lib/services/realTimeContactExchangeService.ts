@@ -84,12 +84,12 @@ export class RealTimeContactExchangeService {
       this.updateState({ status: 'waiting-for-bump' });
       console.log('👂 Waiting for bump (10s timeout)...');
       
-      // Set single 10-second timeout for entire exchange process
-              this.waitingForBumpTimeout = setTimeout(() => {
-          console.log('⏰ Exchange timed out after 10 seconds');
-          this.updateState({ status: 'timeout' });
-          this.disconnect();
-        }, 10000);
+            // Set single 10-second timeout for entire exchange process
+      this.waitingForBumpTimeout = setTimeout(async () => {
+        console.log('⏰ Exchange timed out after 10 seconds');
+        this.updateState({ status: 'timeout' });
+        await this.disconnect();
+      }, 10000);
       
       // Start the motion detection loop
       await this.waitForBump(true, sharingCategory);
@@ -108,23 +108,22 @@ export class RealTimeContactExchangeService {
   /**
    * Reset the exchange state
    */
-  reset(): void {
-    this.disconnect();
+  async reset(): Promise<void> {
+    await this.disconnect();
     this.updateState({ status: 'idle' });
   }
 
   /**
    * Disconnect and cleanup - now includes motion state cleanup
    */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     // Cancel motion detection
     this.motionDetectionCancelled = true;
     
-    // Clear motion detector sequential state when exchange ends
-    import('@/lib/utils/motionDetector').then(({ MotionDetector }) => {
-      MotionDetector.clearSequentialState();
-      MotionDetector.cancelDetection();
-    });
+    // Clear motion detector sequential state when exchange ends (now synchronous)
+    const { MotionDetector } = await import('@/lib/utils/motionDetector');
+    MotionDetector.clearSequentialState();
+    MotionDetector.cancelDetection();
     
     // Clear any active timeouts
     if (this.waitingForBumpTimeout) {
@@ -138,20 +137,50 @@ export class RealTimeContactExchangeService {
   }
 
   private async requestMotionPermission(): Promise<{ success: boolean; message?: string }> {
-    // For iOS, this should only be called if permission wasn't already granted in button handler
+    // For iOS, validate current permission state before proceeding
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-      // This should not happen if we're doing it right, but just in case
-      console.warn('⚠️ Motion permission being requested again for iOS - this should have been done in button handler');
       try {
-        const permission = await (DeviceMotionEvent as any).requestPermission();
-        if (permission === 'granted') {
+        // On iOS, even if permission was granted before, let's validate it still works
+        // by testing if we can actually listen to devicemotion events
+        const validationPromise = new Promise<boolean>((resolve) => {
+          let resolved = false;
+          const testHandler = () => {
+            if (!resolved) {
+              resolved = true;
+              window.removeEventListener('devicemotion', testHandler);
+              resolve(true);
+            }
+          };
+          
+          window.addEventListener('devicemotion', testHandler);
+          
+          // If no motion events in 100ms, permission might be revoked
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              window.removeEventListener('devicemotion', testHandler);
+              resolve(false);
+            }
+          }, 100);
+        });
+        
+        const canListen = await validationPromise;
+        
+        if (canListen) {
           return { success: true };
         } else {
-          return { success: false, message: 'Motion permission denied' };
+          // Permission might be revoked, try requesting again
+          console.warn('⚠️ iOS motion permission seems revoked, requesting again');
+          const permission = await (DeviceMotionEvent as any).requestPermission();
+          if (permission === 'granted') {
+            return { success: true };
+          } else {
+            return { success: false, message: 'Motion permission denied. Please allow motion access in Safari settings.' };
+          }
         }
       } catch (error) {
-        console.warn('Permission check failed:', error);
-        return { success: false, message: `Permission check failed: ${error}` };
+        console.warn('iOS permission validation failed:', error);
+        return { success: false, message: `Permission validation failed: ${error}` };
       }
     }
     

@@ -102,7 +102,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       // Always use real-time service (removed simulation)
       const { RealTimeContactExchangeService, generateSessionId } = await import('@/lib/services/realTimeContactExchangeService');
       const sessionId = generateSessionId();
-      const service = new RealTimeContactExchangeService(sessionId, (state: ContactExchangeState) => {
+      const service = new RealTimeContactExchangeService(sessionId, async (state: ContactExchangeState) => {
         setStatus(state.status);
         
         // Navigate to connect page only when we have a match
@@ -110,14 +110,21 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           router.push(`/connect?token=${state.match.token}`);
         }
         
-        // Handle timeout - reset to idle after delay
+        // Handle timeout - wait for cleanup to complete before allowing button to be tappable
         if (state.status === 'timeout') {
-          setTimeout(() => setStatus('idle'), 2000);
+          // Keep the timeout state visible during cleanup
+          setTimeout(async () => {
+            await service.disconnect();
+            setStatus('idle');
+          }, 1000); // Show timeout for 1 second, then cleanup and reset
         }
         
-        // Handle error - reset to idle after delay  
+        // Handle error - wait for cleanup to complete before allowing button to be tappable
         if (state.status === 'error') {
-          setTimeout(() => setStatus('idle'), 2000);
+          setTimeout(async () => {
+            await service.disconnect();
+            setStatus('idle');
+          }, 2000); // Show error for 2 seconds, then cleanup and reset
         }
       });
       setExchangeService(service);
@@ -131,10 +138,9 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   };
 
   const handleExchangeStart = async () => {
-    // If in timeout or error state, reset and try again
+    // If in timeout or error state, don't allow new exchange (cleanup in progress)
     if (status === 'timeout' || status === 'error') {
-      setStatus('idle');
-      return;
+      return; // Button should be disabled, but just in case
     }
 
     let permissionGranted = false;
@@ -147,14 +153,12 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         
         if (permission !== 'granted') {
           setStatus('error');
-          setTimeout(() => setStatus('idle'), 2000);
           return;
         }
         permissionGranted = true;
       } catch (error) {
         console.error('❌ iOS permission request failed:', error);
         setStatus('error');
-        setTimeout(() => setStatus('idle'), 2000);
         return;
       }
     } else {
@@ -191,8 +195,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       console.error('Failed to start exchange:', error);
       setStatus('error');
       
-      // Reset to idle after showing error
-      setTimeout(() => setStatus('idle'), 2000);
+      // The error state cleanup will be handled by the state change handler
     }
   };
 
@@ -255,10 +258,20 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         );
       
       case 'timeout':
-        return 'Timed Out - Try Again';
+        return (
+          <div className="flex items-center space-x-2">
+            <LoadingSpinner size="sm" />
+            <span>Timed Out - Cleaning up...</span>
+          </div>
+        );
       
       case 'error':
-        return 'Error - Try Again';
+        return (
+          <div className="flex items-center space-x-2">
+            <LoadingSpinner size="sm" />
+            <span>Error - Cleaning up...</span>
+          </div>
+        );
       
               default:
           return (
@@ -306,7 +319,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   };
 
   // Determine if button should be disabled and active state
-  const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing'].includes(status);
+  const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing', 'timeout', 'error'].includes(status);
   const isActive = status !== 'idle';
 
   return (
