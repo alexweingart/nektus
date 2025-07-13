@@ -436,7 +436,21 @@ function isReturningFromIncrementalAuth(): boolean {
   console.log('🔍 URL params:', urlParams.toString());
   console.log('🔍 Has incremental_auth param:', hasIncrementalAuth);
   
-  return hasIncrementalAuth;
+  // If we have the URL parameter, definitely returning from auth
+  if (hasIncrementalAuth) {
+    return true;
+  }
+  
+  // If no URL parameter, check if we have stored contact save state
+  // This indicates user was redirected for auth but returned without completing it (e.g., tapped back)
+  const existingState = getContactSaveState();
+  if (existingState && existingState.token && existingState.profileId) {
+    console.log('🔙 Detected return from auth without URL params (likely tapped back), treating as auth return');
+    console.log('🔍 Existing state:', existingState);
+    return true;
+  }
+  
+  return false;
 }
 
 /**
@@ -476,6 +490,21 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     window.history.replaceState({}, document.title, url.toString());
     
     return { success: false, denied: true };
+  }
+  
+  // If no URL params but we have stored state, user likely tapped back
+  const existingState = getContactSaveState();
+  if (existingState && existingState.token && existingState.profileId) {
+    console.log('🔙 No URL params but have stored state - user likely tapped back on auth');
+    console.log('🔍 Stored state:', existingState);
+    
+    // Return the stored state as a "cancelled" auth
+    return { 
+      success: false, 
+      denied: true, 
+      contactSaveToken: existingState.token, 
+      profileId: existingState.profileId 
+    };
   }
   
   console.log('🔍 No valid auth result found');
@@ -677,25 +706,6 @@ export async function saveContactFlow(
           console.log('🔍 Error details:', googleResult.error);
           console.log('ℹ️ Firebase is already saved, just need Google permission');
           
-          // Check if we already have stored contact save state (indicating we previously tried auth)
-          const existingState = getContactSaveState();
-          if (existingState && existingState.token && existingState.profileId === profile.userId) {
-            console.log('🔙 User already went through auth flow (likely tapped back), showing upsell modal instead of redirecting again');
-            console.log('🔍 Existing state:', existingState);
-            
-            // Clear the stored state since we're handling it
-            clearContactSaveState();
-            
-            // Show upsell modal instead of redirecting again
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: googleResult,
-              showUpsellModal: true,
-              platform
-            };
-          }
-          
           // Store state for when we return
           storeContactSaveState(token, profile.userId || '');
           
@@ -749,25 +759,6 @@ export async function saveContactFlow(
             console.log('⚠️ Google Contacts permission error detected on iOS, redirecting to auth');
             console.log('ℹ️ Firebase is already saved, just need Google permission');
             
-            // Check if we already have stored contact save state (indicating we previously tried auth)
-            const existingState = getContactSaveState();
-            if (existingState && existingState.token && existingState.profileId === profile.userId) {
-              console.log('🔙 User already went through auth flow (likely tapped back), showing upsell modal instead of redirecting again');
-              console.log('🔍 Existing state:', existingState);
-              
-              // Clear the stored state since we're handling it
-              clearContactSaveState();
-              
-              // Show upsell modal instead of redirecting again
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: googleResult,
-                showUpsellModal: true,
-                platform
-              };
-            }
-            
             // Store state for when we return
             storeContactSaveState(token, profile.userId || '');
             
@@ -781,18 +772,17 @@ export async function saveContactFlow(
               google: { success: false, error: 'Redirecting for permissions...' },
               platform
             };
-          } else {
-            // Other error - show upsell modal (Firebase is still saved!)
-            console.log('❌ Google Contacts save failed on iOS embedded browser with non-permission error, showing upsell modal');
-            console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: googleResult,
-              showUpsellModal: true,
-              platform
-            };
           }
+          // Other error - show upsell modal (Firebase is still saved!)
+          console.log('❌ Google Contacts save failed on iOS embedded browser with non-permission error, showing upsell modal');
+          console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showUpsellModal: true,
+            platform
+          };
         }
       } else {
         // iOS Safari Flow (traditional vCard)

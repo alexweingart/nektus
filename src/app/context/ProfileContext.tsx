@@ -708,6 +708,33 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsNavigatingFromSetup(navigating);
   }, []);
 
+  // Make profile available globally for easy debugging
+  if (typeof window !== 'undefined') {
+    (window as any).getProfile = () => {
+      return profileRef.current;
+    };
+    
+    // Helper to load vCard testing functions
+    (window as any).loadVCardTests = async () => {
+      try {
+        const vCardService = await import('@/lib/services/vCardService');
+        (window as any).testVCardPhoto = vCardService.testVCardPhoto;
+        (window as any).debugVCardPhoto = vCardService.debugVCardPhoto;
+        (window as any).generateVCard = vCardService.generateVCard;
+        (window as any).generateTestVCardWithPhoto = vCardService.generateTestVCardWithPhoto;
+        console.log('✅ vCard testing functions loaded! Available functions:');
+        console.log('- testVCardPhoto(profile)');
+        console.log('- debugVCardPhoto(imageUrl)');
+        console.log('- generateVCard(profile)');
+        console.log('- generateTestVCardWithPhoto(profile)');
+        return true;
+      } catch (error) {
+        console.error('❌ Failed to load vCard testing functions:', error);
+        return false;
+      }
+    };
+  }
+
   return (
     <ProfileContext.Provider
       value={{

@@ -881,3 +881,99 @@ export const generateTestVCardWithPhoto = (profile: UserProfile): string => {
   
   return lines.join('\r\n');
 };
+
+/**
+ * Comprehensive vCard photo debugging function
+ * Call this from the browser console to test vCard photo functionality
+ */
+export const testVCardPhoto = async (profile: UserProfile) => {
+  console.log('🔍 Starting vCard photo debugging...');
+  
+  // Test 1: Basic vCard with test image
+  console.log('📝 Test 1: Generating vCard with embedded test image');
+  const testVCard = generateTestVCardWithPhoto(profile);
+  console.log('Test vCard generated:', testVCard);
+  
+  // Test 2: Debug the actual profile image
+  console.log('📝 Test 2: Debugging actual profile image URL');
+  console.log('Profile object keys:', Object.keys(profile));
+  console.log('Profile image value:', profile.profileImage);
+  console.log('Profile image type:', typeof profile.profileImage);
+  console.log('Profile image truthy:', !!profile.profileImage);
+  
+  if (profile.profileImage) {
+    console.log('Profile image URL:', profile.profileImage);
+    
+    const debugResult = await debugVCardPhoto(profile.profileImage);
+    console.log('Debug result:', debugResult);
+    
+    if (debugResult.success) {
+      console.log('✅ Image can be fetched and encoded successfully');
+      console.log('📄 Photo line preview:', debugResult.photoLine?.substring(0, 100) + '...');
+    } else {
+      console.log('❌ Issues found:', debugResult.issues);
+    }
+  } else {
+    console.log('⚠️  No profile image URL found');
+    console.log('Possible profile image fields:', {
+      profileImage: profile.profileImage,
+      profile_image: (profile as any).profile_image,
+      image: (profile as any).image,
+      avatar: (profile as any).avatar,
+      picture: (profile as any).picture,
+      photoURL: (profile as any).photoURL
+    });
+  }
+  
+  // Test 3: Generate actual vCard
+  console.log('📝 Test 3: Generating actual vCard');
+  try {
+    const actualVCard = await generateVCard(profile);
+    console.log('Actual vCard generated:', actualVCard);
+    
+    // Check if PHOTO line exists
+    if (actualVCard.includes('PHOTO;')) {
+      console.log('✅ PHOTO line found in vCard');
+      const photoLineMatch = actualVCard.match(/PHOTO;[^:]*:[^\r\n]*/);
+      if (photoLineMatch) {
+        console.log('📄 Photo line preview:', photoLineMatch[0].substring(0, 100) + '...');
+      }
+    } else {
+      console.log('❌ No PHOTO line found in vCard');
+    }
+    
+    // Test 4: Download the vCard for manual testing
+    console.log('📝 Test 4: Creating downloadable vCard');
+    const blob = await createVCardFile(profile);
+    const url = URL.createObjectURL(blob);
+    console.log('📄 Download URL created:', url);
+    
+    // Create a temporary download link
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `debug-${profile.name || 'profile'}.vcf`;
+    link.textContent = 'Download Debug vCard';
+    link.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:blue;color:white;padding:10px;border-radius:5px;';
+    document.body.appendChild(link);
+    
+    console.log('💾 Download link added to page (top-right corner)');
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      console.log('🗑️ Download link removed');
+    }, 30000);
+    
+  } catch (error) {
+    console.error('❌ Error generating vCard:', error);
+  }
+  
+  console.log('🔍 Debugging complete. Check the results above.');
+};
+
+// Make it available globally for easy testing
+if (typeof window !== 'undefined') {
+  (window as any).testVCardPhoto = testVCardPhoto;
+  (window as any).debugVCardPhoto = debugVCardPhoto;
+}
