@@ -146,50 +146,18 @@ export class RealTimeContactExchangeService {
   }
 
   private async requestMotionPermission(): Promise<{ success: boolean; message?: string }> {
-    // For iOS, validate current permission state before proceeding
+    // For iOS, just use the standard permission check without validation
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
-        // On iOS, even if permission was granted before, let's validate it still works
-        // by testing if we can actually listen to devicemotion events
-        const validationPromise = new Promise<boolean>((resolve) => {
-          let resolved = false;
-          const testHandler = () => {
-            if (!resolved) {
-              resolved = true;
-              window.removeEventListener('devicemotion', testHandler);
-              resolve(true);
-            }
-          };
-          
-          window.addEventListener('devicemotion', testHandler);
-          
-          // If no motion events in 100ms, permission might be revoked
-          setTimeout(() => {
-            if (!resolved) {
-              resolved = true;
-              window.removeEventListener('devicemotion', testHandler);
-              resolve(false);
-            }
-          }, 100);
-        });
-        
-        const canListen = await validationPromise;
-        
-        if (canListen) {
+        const permission = await (DeviceMotionEvent as any).requestPermission();
+        if (permission === 'granted') {
           return { success: true };
         } else {
-          // Permission might be revoked, try requesting again
-          console.warn('⚠️ iOS motion permission seems revoked, requesting again');
-          const permission = await (DeviceMotionEvent as any).requestPermission();
-          if (permission === 'granted') {
-            return { success: true };
-          } else {
-            return { success: false, message: 'Motion permission denied. Please allow motion access in Safari settings.' };
-          }
+          return { success: false, message: 'Motion permission denied. Please allow motion access in Safari settings.' };
         }
       } catch (error) {
-        console.warn('iOS permission validation failed:', error);
-        return { success: false, message: `Permission validation failed: ${error}` };
+        console.warn('iOS permission request failed:', error);
+        return { success: false, message: `Permission request failed: ${error}` };
       }
     }
     
