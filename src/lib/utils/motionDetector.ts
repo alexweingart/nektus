@@ -54,7 +54,7 @@ export class MotionDetector {
       lastResetTime: Date.now()
     };
     this.isCancelled = false;
-    console.log('🔄 Sequential detection state reset for new session');
+    console.log('🔄 Motion state reset');
   }
 
   /**
@@ -68,7 +68,7 @@ export class MotionDetector {
       lastResetTime: Date.now()
     };
     this.isCancelled = true;
-    console.log('🧹 Sequential detection state cleared - exchange ended');
+    console.log('🧹 Motion state cleared');
   }
 
   /**
@@ -76,7 +76,6 @@ export class MotionDetector {
    */
   static cancelDetection(): void {
     this.isCancelled = true;
-    console.log('🚫 Motion detection cancelled externally');
   }
 
   /**
@@ -138,8 +137,6 @@ export class MotionDetector {
     
     // Simplified browser detection - just console logging
 
-    console.log('🔍 Browser Info:', browserInfo);
-
     // Handle different browser cases
     if (browserInfo.isChromeOnIOS) {
       console.log('🚫 Chrome on iOS detected - DeviceMotionEvent.requestPermission not supported');
@@ -159,10 +156,7 @@ export class MotionDetector {
 
     if (browserInfo.isSafariOnIOS && browserInfo.hasRequestPermission) {
       try {
-        console.log('📱 iOS Safari detected - requesting motion permission...');
-        
         const permission = await (DeviceMotionEvent as any).requestPermission();
-        console.log('📱 iOS Safari permission result:', permission);
         
         if (permission === 'granted') {
           return { success: true };
@@ -193,29 +187,10 @@ export class MotionDetector {
     }
     
     if (browserInfo.isChromeOnAndroid || browserInfo.isAndroid) {
-      console.log('🤖 Android detected - motion should work without permission');
-      
-      // Simplified logging
-      
       return { success: true };
     }
     
     // Fallback for other browsers
-    console.log('❓ Unknown browser/device - attempting without permission');
-    
-    // Log to server
-    try {
-      await fetch('/api/system/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'unknown_device',
-          message: 'Unknown device/browser - attempting motion detection',
-          timestamp: getServerNow() 
-        })
-      });
-    } catch {}
-    
     return { success: true };
   }
 
@@ -242,17 +217,7 @@ export class MotionDetector {
     const browserInfo = this.getBrowserInfo();
     let currentThresholds = this.calculateAdaptiveThresholds(browserInfo, []);
     
-    // Note: Permission should already be granted by the calling service
-    console.log('✅ Starting motion detection...');
-    console.log(`🎯 Dual threshold detection system:`);
-    console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
-    console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
-    console.log(`🔄 Sequential detection system (10-second session only):`);
-    console.log(`   📈 Magnitude Primed: magnitude≥${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} → jerk≥${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
-    console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
-    console.log(`   🔄 Current state: magnitudePrimed=${this.sequentialState.magnitudePrimed}, jerkPrimed=${this.sequentialState.jerkPrimed}`);
-    console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
-    console.log(`⏱️ Motion detector: Running until cancelled by exchange service`);
+    console.log(`📱 Motion detection active (${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'})`);
 
     return new Promise((resolve) => {
       let resolved = false;
@@ -366,13 +331,15 @@ export class MotionDetector {
         });
         
         // Update sequential detection state (both local and persistent)
-        if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude) {
+        if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !magnitudePrimed) {
           magnitudePrimed = true;
           this.sequentialState.magnitudePrimed = true;
+          console.log(`📈 Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}`);
         }
-        if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk) {
+        if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk && !jerkPrimed) {
           jerkPrimed = true;
           this.sequentialState.jerkPrimed = true;
+          console.log(`📊 Jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}`);
         }
         
         // Check for sequential detection: primed conditions from previous events
@@ -400,18 +367,15 @@ export class MotionDetector {
             detectionType = 'jerk_primed';
           }
           
-          console.log(`🎯 MOTION DETECTED! Type: ${detectionType}, Confidence: ${(confidence * 100).toFixed(1)}%`);
           if (strongBumpDetection) {
-            console.log(`   Strong Bump: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.strongBump.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.strongBump.jerk}`);
+            console.log(`🎯 Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
           } else if (sharpTapDetection) {
-            console.log(`   Sharp Tap: Magnitude: ${magnitude.toFixed(2)} >= ${DETECTION_PROFILES.sharpTap.magnitude}, Jerk: ${jerk.toFixed(1)} >= ${DETECTION_PROFILES.sharpTap.jerk}`);
+            console.log(`🎯 Sharp tap detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
           } else if (magnitudePrimedDetection) {
-            console.log(`   Magnitude Primed: Previous magnitude ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}, Current jerk: ${jerk.toFixed(1)} >= ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
+            console.log(`🎯 Magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
           } else if (jerkPrimedDetection) {
-            console.log(`   Jerk Primed: Previous jerk ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}, Current magnitude: ${magnitude.toFixed(2)} >= ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
+            console.log(`🎯 Jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
           }
-          
-          console.log(`✅ Motion detected successfully - ${motionEventCount} events, trigger_mag=${magnitude.toFixed(2)}, trigger_jerk=${jerk.toFixed(1)}`);
           
           resolved = true;
           clearInterval(cancellationInterval);
@@ -436,7 +400,22 @@ export class MotionDetector {
       // Check for cancellation periodically
       const checkCancellation = () => {
         if (this.isCancelled && !resolved) {
-          console.log(`🚫 Motion detection cancelled externally after ${motionEventCount} events`);
+          // Log timeout debugging info
+          console.log(`⏰ Motion detection timeout after ${motionEventCount} events`);
+          
+          // Show peak events to help debug why detection didn't trigger
+          if (peakMagnitudeEvent) {
+            console.log(`🔥 Peak magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)} (jerk: ${peakMagnitudeEvent.jerk.toFixed(1)})`);
+          }
+          
+          if (peakJerkEvent && peakJerkEvent.eventNumber !== peakMagnitudeEvent?.eventNumber) {
+            console.log(`⚡ Peak jerk: ${peakJerkEvent.jerk.toFixed(1)} (magnitude: ${peakJerkEvent.magnitude.toFixed(2)})`);
+          }
+          
+          if (!peakMagnitudeEvent && !peakJerkEvent) {
+            console.log(`📊 No significant motion detected`);
+          }
+          
           resolved = true;
           clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
@@ -452,7 +431,6 @@ export class MotionDetector {
       const cancellationInterval = setInterval(checkCancellation, 100);
 
       window.addEventListener('devicemotion', handleMotion);
-      console.log('👂 Started listening for devicemotion events (will run until cancelled)...');
     });
   }
 

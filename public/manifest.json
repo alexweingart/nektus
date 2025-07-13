@@ -7,6 +7,12 @@
   "background_color": "#004D40",
   "theme_color": "#004D40",
   "orientation": "portrait",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "/manifest.json"
+    }
+  ],
   "icons": [
     {
       "src": "/favicon.svg",

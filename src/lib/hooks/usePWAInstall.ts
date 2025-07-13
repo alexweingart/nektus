@@ -16,25 +16,48 @@ export const usePWAInstall = () => {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
-  const [showAndroidModal, setShowAndroidModal] = useState(false);
+
+  // Helper function to check if PWA is installed using getInstalledRelatedApps
+  const checkPWAInstalled = async (): Promise<boolean> => {
+    try {
+      if ('getInstalledRelatedApps' in navigator) {
+        const relatedApps = await (navigator as any).getInstalledRelatedApps();
+        return relatedApps.some((app: any) => 
+          app.platform === 'webapp' && app.url && app.url.endsWith('/manifest.json')
+        );
+      }
+    } catch (error) {
+      console.log('PWA: getInstalledRelatedApps not available or failed:', error);
+    }
+    return false;
+  };
 
   useEffect(() => {
-    // Check if app is already installed (running in standalone mode)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isInWebAppiOS = (window.navigator as any).standalone === true;
-    const isInstalled = isStandalone || isInWebAppiOS;
-    
-    setIsInstalled(isInstalled);
-    
-    // If already installed, don't show the button
-    if (isInstalled) {
-      setIsInstallable(false);
-      return;
-    }
+    const checkInstallation = async () => {
+      // Check if app is already installed (running in standalone mode)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      const isInWebAppiOS = (window.navigator as any).standalone === true;
+      
+      // Check if PWA is installed via getInstalledRelatedApps (Chrome Android)
+      const isPWAInstalled = await checkPWAInstalled();
+      
+      const isInstalled = isStandalone || isInWebAppiOS || isPWAInstalled;
+      
+      setIsInstalled(isInstalled);
+      
+      // If already installed, don't show the button
+      if (isInstalled) {
+        console.log('PWA: Already installed, hiding button');
+        setIsInstallable(false);
+        return;
+      }
 
-    // Show button for all platforms when not installed
-    // This ensures consistent behavior across iOS and Android
-    setIsInstallable(true);
+      // Show button for all platforms when not installed
+      console.log('PWA: Not installed, showing button');
+      setIsInstallable(true);
+    };
+
+    checkInstallation();
 
     const handleBeforeInstallPrompt = (e: Event) => {
       console.log('PWA: beforeinstallprompt event fired');
@@ -45,7 +68,7 @@ export const usePWAInstall = () => {
       // Button is already visible, so no need to set isInstallable again
     };
 
-    const handleAppInstalled = () => {
+    const handleAppInstalled = async () => {
       console.log('PWA: app installed');
       setIsInstalled(true);
       setIsInstallable(false);
@@ -72,9 +95,9 @@ export const usePWAInstall = () => {
 
     // For Android/other platforms
     if (!deferredPrompt) {
-      console.log('PWA: No deferred prompt available - this can happen if Chrome hasn\'t fired the beforeinstallprompt event yet');
-      // Show manual installation instructions for Android
-      setShowAndroidModal(true);
+      console.log('PWA: No deferred prompt available - Chrome hasn\'t fired the beforeinstallprompt event yet');
+      // This shouldn't happen often now that we properly detect installation
+      // But if it does, we could show instructions or just log it
       return;
     }
 
@@ -104,17 +127,11 @@ export const usePWAInstall = () => {
     setShowIOSModal(false);
   };
 
-  const closeAndroidModal = () => {
-    setShowAndroidModal(false);
-  };
-
   return {
     isInstallable: isInstallable && !isInstalled,
     isInstalled,
     installPWA,
     showIOSModal,
-    closeIOSModal,
-    showAndroidModal,
-    closeAndroidModal
+    closeIOSModal
   };
 };

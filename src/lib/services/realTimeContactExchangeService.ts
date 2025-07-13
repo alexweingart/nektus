@@ -47,7 +47,7 @@ export class RealTimeContactExchangeService {
     sharingCategory: 'All' | 'Personal' | 'Work' = 'All'
   ): Promise<void> {
     try {
-      console.log(`🚀 Starting exchange process with sharing category: ${sharingCategory}`);
+      console.log(`🎯 Starting exchange (${sharingCategory})`);
       
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
@@ -56,26 +56,19 @@ export class RealTimeContactExchangeService {
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.resetSequentialState();
       
-      // Initialize clock sync first thing
-      if (!isClockSyncInitialized()) {
-        console.log('⏰ Initializing clock synchronization...');
-        const syncSuccess = await initializeClockSync();
-        if (!syncSuccess) {
-          console.warn('⚠️ Clock sync failed, using local time (may cause timestamp issues)');
-        } else {
-          console.log('✅ Clock synchronization initialized');
+              // Initialize clock sync first thing
+        if (!isClockSyncInitialized()) {
+          const syncSuccess = await initializeClockSync();
+          if (!syncSuccess) {
+            console.warn('⚠️ Clock sync failed, using local time');
+          }
         }
-      } else {
-        console.log('✅ Clock sync already initialized');
-      }
       
       
       this.updateState({ status: 'requesting-permission', sessionId: this.sessionId });
 
       // Only request motion permission if it wasn't already granted
       if (!permissionAlreadyGranted) {
-        console.log('📱 Requesting motion permission...');
-        
         const permissionResult = await this.requestMotionPermission();
         
         if (!permissionResult.success) {
@@ -85,16 +78,11 @@ export class RealTimeContactExchangeService {
           });
           return;
         }
-      } else {
-        console.log('✅ Motion permission already granted, skipping request');
       }
 
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
-      console.log('✅ Ready for motion detection - waiting for bump...');
-      console.log('🔄 Enhanced multi-hit system: continues listening during entire 10-second exchange window');
-      console.log('⏱️ Rate limiting: 500ms cooldown between hits to prevent spam');
-      console.log('⏰ Single timeout: 10-second window controls entire exchange process');
+      console.log('👂 Waiting for bump (10s timeout)...');
       
       // Set single 10-second timeout for entire exchange process
               this.waitingForBumpTimeout = setTimeout(() => {
@@ -176,18 +164,13 @@ export class RealTimeContactExchangeService {
    * Start polling for matches after sending hit - no separate timeout
    */
   private async startMatchPolling(): Promise<void> {
-    console.log('🔄 Starting match polling...');
-    
     // Poll every 1 second - controlled by main exchange timeout
     this.matchPollingInterval = setInterval(async () => {
-      // Check if exchange has been cancelled/timed out
-      if (this.motionDetectionCancelled || this.state.status === 'timeout' || this.state.status === 'error') {
-        console.log('🛑 Stopping match polling - exchange ended');
-        this.clearPolling();
-        return;
-      }
-      
-      console.log('🔍 Polling for match...');
+              // Check if exchange has been cancelled/timed out
+        if (this.motionDetectionCancelled || this.state.status === 'timeout' || this.state.status === 'error') {
+          this.clearPolling();
+          return;
+        }
       
       try {
         const response = await fetch(`/api/exchange/status/${this.sessionId}`);
@@ -199,8 +182,7 @@ export class RealTimeContactExchangeService {
         const result = await response.json();
         
         if (result.success && result.hasMatch && result.match) {
-          // Found a match!
-          console.log('🎉 Match found via polling!', result.match);
+          console.log('🎉 Match found!');
           
           // Clear polling
           this.clearPolling();
@@ -238,7 +220,6 @@ export class RealTimeContactExchangeService {
       }
       
       // Fetch the matched user's profile
-      console.log(`🔍 CLIENT: Fetching profile for token: ${token}`);
       const response = await fetch(`/api/exchange/pair/${token}`);
       
       if (!response.ok) {
@@ -246,14 +227,9 @@ export class RealTimeContactExchangeService {
       }
       
       const result = await response.json();
-      console.log(`📋 CLIENT: Received pair response:`, result);
       
       if (result.success && result.profile) {
-        console.log(`👤 CLIENT: Setting matched profile:`, {
-          name: result.profile.name,
-          userId: result.profile.userId,
-          bio: result.profile.bio?.substring(0, 50) + '...'
-        });
+        console.log(`👤 Matched with: ${result.profile.name}`);
         this.updateState({
           status: 'matched',
           match: {
@@ -285,28 +261,24 @@ export class RealTimeContactExchangeService {
     while (!this.motionDetectionCancelled) { // Keep waiting for motion until exchange is cancelled
       try {
         const isFirstHit = hitCount === 0;
-        console.log(`🔍 Starting motion detection... ${isFirstHit ? '(no server hit until motion detected)' : '(additional hits during matching window)'}`);
         
         // Detect motion/bump - this will wait until actual motion is detected or cancelled
         const motionResult = await MotionDetector.detectMotion();
         
         if (!motionResult.hasMotion) {
-          console.log('⏰ Motion detection cancelled or no motion detected');
-          // Motion detector was cancelled externally (by our timeout) or no motion detected
-          return;
+          return; // Cancelled or timed out
         }
 
         // Rate limiting: ensure minimum time between hits
         const now = Date.now();
         if (!isFirstHit && (now - lastHitTime) < HIT_COOLDOWN_MS) {
-          console.log(`⏱️ Hit cooldown active, ignoring motion (${now - lastHitTime}ms < ${HIT_COOLDOWN_MS}ms)`);
           continue; // Skip this hit, continue listening
         }
         
         hitCount++;
         lastHitTime = now;
         
-        console.log(`🎯 Motion detected! Sending hit #${hitCount} to server...`);
+        console.log(`🚀 Hit #${hitCount} (mag=${motionResult.magnitude.toFixed(2)})`);
         
         // Prepare exchange request - use the timestamp from when motion was actually detected
         const tSent = performance.now();
@@ -337,7 +309,7 @@ export class RealTimeContactExchangeService {
 
         // If we got an immediate match, handle it
         if (response.matched && response.token) {
-          console.log(`✅ Match found on hit #${hitCount}!`);
+          console.log(`🎉 Instant match!`);
           await this.handleMatch(response.token, response.youAre || 'A');
           return; // Exit after successful match
         } else {
@@ -388,7 +360,6 @@ export class RealTimeContactExchangeService {
     // Use clock sync RTT if available, otherwise measure fresh
     const clockSyncInfo = getClockSyncInfo();
     if (clockSyncInfo?.roundTripTime) {
-      console.log(`📊 Using clock sync RTT: ${clockSyncInfo.roundTripTime.toFixed(1)}ms`);
       return clockSyncInfo.roundTripTime;
     }
     
@@ -397,10 +368,8 @@ export class RealTimeContactExchangeService {
     try {
       await fetch('/api/system/ping', { method: 'HEAD' });
       const rtt = performance.now() - start;
-      console.log(`📊 Measured fresh RTT: ${rtt.toFixed(1)}ms`);
       return rtt;
     } catch {
-      console.log('📊 RTT measurement failed, using fallback: 100ms');
       return 100; // Default fallback
     }
   }
