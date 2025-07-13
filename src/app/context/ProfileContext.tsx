@@ -718,15 +718,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     (window as any).loadVCardTests = async () => {
       try {
         const vCardService = await import('@/lib/services/vCardService');
-        (window as any).testVCardPhoto = vCardService.testVCardPhoto;
-        (window as any).debugVCardPhoto = vCardService.debugVCardPhoto;
         (window as any).generateVCard = vCardService.generateVCard;
-        (window as any).generateTestVCardWithPhoto = vCardService.generateTestVCardWithPhoto;
+        (window as any).generateVCard30 = vCardService.generateVCard30;
+        (window as any).generateSimpleVCard = vCardService.generateSimpleVCard;
+        (window as any).createVCardFile = vCardService.createVCardFile;
+        (window as any).downloadVCard = vCardService.downloadVCard;
+        (window as any).saveVCard = vCardService.saveVCard;
+        (window as any).displayVCardInlineForIOS = vCardService.displayVCardInlineForIOS;
         console.log('✅ vCard testing functions loaded! Available functions:');
-        console.log('- testVCardPhoto(profile)');
-        console.log('- debugVCardPhoto(imageUrl)');
         console.log('- generateVCard(profile)');
-        console.log('- generateTestVCardWithPhoto(profile)');
+        console.log('- generateVCard30(profile)');
+        console.log('- generateSimpleVCard(profile)');
+        console.log('- createVCardFile(profile)');
+        console.log('- downloadVCard(profile)');
+        console.log('- saveVCard(profile)');
+        console.log('- displayVCardInlineForIOS(profile)');
         return true;
       } catch (error) {
         console.error('❌ Failed to load vCard testing functions:', error);
