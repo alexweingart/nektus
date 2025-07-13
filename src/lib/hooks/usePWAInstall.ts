@@ -16,6 +16,7 @@ export const usePWAInstall = () => {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
+  const [showAndroidModal, setShowAndroidModal] = useState(false);
 
   useEffect(() => {
     // Check if app is already installed (running in standalone mode)
@@ -25,17 +26,15 @@ export const usePWAInstall = () => {
     
     setIsInstalled(isInstalled);
     
-    // In development or if already installed, don't show the button
+    // If already installed, don't show the button
     if (isInstalled) {
       setIsInstallable(false);
       return;
     }
 
-    // For iOS devices, always show the button (since they don't fire beforeinstallprompt)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS && !isInstalled) {
-      setIsInstallable(true);
-    }
+    // Show button for all platforms when not installed
+    // This ensures consistent behavior across iOS and Android
+    setIsInstallable(true);
 
     const handleBeforeInstallPrompt = (e: Event) => {
       console.log('PWA: beforeinstallprompt event fired');
@@ -43,7 +42,7 @@ export const usePWAInstall = () => {
       e.preventDefault();
       // Stash the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setIsInstallable(true);
+      // Button is already visible, so no need to set isInstallable again
     };
 
     const handleAppInstalled = () => {
@@ -71,8 +70,11 @@ export const usePWAInstall = () => {
       return;
     }
 
+    // For Android/other platforms
     if (!deferredPrompt) {
-      console.log('PWA: No deferred prompt available');
+      console.log('PWA: No deferred prompt available - this can happen if Chrome hasn\'t fired the beforeinstallprompt event yet');
+      // Show manual installation instructions for Android
+      setShowAndroidModal(true);
       return;
     }
 
@@ -102,11 +104,17 @@ export const usePWAInstall = () => {
     setShowIOSModal(false);
   };
 
+  const closeAndroidModal = () => {
+    setShowAndroidModal(false);
+  };
+
   return {
     isInstallable: isInstallable && !isInstalled,
     isInstalled,
     installPWA,
     showIOSModal,
-    closeIOSModal
+    closeIOSModal,
+    showAndroidModal,
+    closeAndroidModal
   };
 };

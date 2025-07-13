@@ -94,7 +94,7 @@ const ProfileView: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   // PWA install hook
-  const { isInstallable, installPWA, showIOSModal, closeIOSModal } = usePWAInstall();
+  const { isInstallable, installPWA, showIOSModal, closeIOSModal, showAndroidModal, closeAndroidModal } = usePWAInstall();
   
   const router = useRouter();
 
@@ -400,6 +400,21 @@ const ProfileView: React.FC = () => {
         onPrimaryButtonClick={() => {
           console.log('📱 PWA install modal button clicked');
           closeIOSModal();
+        }}
+        variant="info"
+        showSecondaryButton={false}
+      />
+
+      {/* PWA Install Modal - shows for Android users when native prompt isn't available */}
+      <StandardModal
+        isOpen={showAndroidModal}
+        onClose={closeAndroidModal}
+        title="Add to Home Screen"
+        subtitle="Tap the menu button (⋮) in your browser, then select &quot;Add to Home screen&quot;"
+        primaryButtonText="Got it!"
+        onPrimaryButtonClick={() => {
+          console.log('🤖 Android PWA install modal button clicked');
+          closeAndroidModal();
         }}
         variant="info"
         showSecondaryButton={false}

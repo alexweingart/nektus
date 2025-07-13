@@ -317,7 +317,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           subtitle={`${profile.name}'s contact has been saved successfully!`}
           primaryButtonText="Say hi 👋"
           onPrimaryButtonClick={handleSayHi}
-          secondaryButtonText="I'm done"
+          secondaryButtonText="Nah, they'll text me"
           variant="success"
         />
 
@@ -326,7 +326,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showUpsellModal}
           onClose={dismissUpsellModal}
           title="Save to Google Contacts?"
-          subtitle="We saved your contact to Nekt, but we need permission to save to Google so you can easily text them."
+          subtitle={`We saved ${profile.name}'s contact to Nekt, but we need permission to save to Google so you can easily text them.`}
           primaryButtonText="Yes!"
           onPrimaryButtonClick={handleUpsellAccept}
           secondaryButtonText="Nah, just Nekt is fine"

@@ -29,18 +29,19 @@ const SEQUENTIAL_DETECTION = {
   }
 };
 
-// Motion detection configuration
-const MOTION_TIMEOUT = 15000; // 15 seconds (longer than exchange timeout to avoid conflicts)
-const SPIKE_DURATION_MS = 500; // Look for spikes within 500ms
+const SPIKE_DURATION_MS = 500;
 
 export class MotionDetector {
-  // Persistent sequential detection state across multiple motion detections
+  // Persistent sequential detection state - now properly managed per session
   private static sequentialState = {
     magnitudePrimed: false,
     jerkPrimed: false,
     sessionStartTime: 0,
     lastResetTime: 0
   };
+
+  // External cancellation control
+  private static isCancelled = false;
 
   /**
    * Reset sequential detection state for a new exchange session
@@ -52,7 +53,30 @@ export class MotionDetector {
       sessionStartTime: Date.now(),
       lastResetTime: Date.now()
     };
+    this.isCancelled = false;
     console.log('🔄 Sequential detection state reset for new session');
+  }
+
+  /**
+   * Clear sequential detection state when exchange ends
+   */
+  static clearSequentialState(): void {
+    this.sequentialState = {
+      magnitudePrimed: false,
+      jerkPrimed: false,
+      sessionStartTime: 0,
+      lastResetTime: Date.now()
+    };
+    this.isCancelled = true;
+    console.log('🧹 Sequential detection state cleared - exchange ended');
+  }
+
+  /**
+   * Cancel ongoing motion detection
+   */
+  static cancelDetection(): void {
+    this.isCancelled = true;
+    console.log('🚫 Motion detection cancelled externally');
   }
 
   /**
@@ -211,23 +235,24 @@ export class MotionDetector {
       };
     }
 
+    // Reset cancellation for new detection
+    this.isCancelled = false;
+
     // Determine the appropriate threshold based on device (initial)
     const browserInfo = this.getBrowserInfo();
     let currentThresholds = this.calculateAdaptiveThresholds(browserInfo, []);
     
-      // Simplified logging
-      
-      // Note: Permission should already be granted by the calling service
-      console.log('✅ Starting motion detection...');
-      console.log(`🎯 Dual threshold detection system:`);
-      console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
-      console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
-      console.log(`🔄 Sequential detection system (persistent across hits):`);
-      console.log(`   📈 Magnitude Primed: magnitude≥${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} → jerk≥${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
-      console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
-      console.log(`   🔄 Current state: magnitudePrimed=${this.sequentialState.magnitudePrimed}, jerkPrimed=${this.sequentialState.jerkPrimed}`);
-      console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
-      console.log(`⏱️ Motion detector timeout: ${MOTION_TIMEOUT}ms (controlled by exchange service timeout)`);
+    // Note: Permission should already be granted by the calling service
+    console.log('✅ Starting motion detection...');
+    console.log(`🎯 Dual threshold detection system:`);
+    console.log(`   🥊 Strong Bump: magnitude≥${DETECTION_PROFILES.strongBump.magnitude} + jerk≥${DETECTION_PROFILES.strongBump.jerk}`);
+    console.log(`   👆 Sharp Tap: magnitude≥${DETECTION_PROFILES.sharpTap.magnitude} + jerk≥${DETECTION_PROFILES.sharpTap.jerk}`);
+    console.log(`🔄 Sequential detection system (10-second session only):`);
+    console.log(`   📈 Magnitude Primed: magnitude≥${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} → jerk≥${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
+    console.log(`   📊 Jerk Primed: jerk≥${SEQUENTIAL_DETECTION.jerkPrime.jerk} → magnitude≥${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
+    console.log(`   🔄 Current state: magnitudePrimed=${this.sequentialState.magnitudePrimed}, jerkPrimed=${this.sequentialState.jerkPrimed}`);
+    console.log(`   📱 Device: ${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'} (standardized thresholds)`);
+    console.log(`⏱️ Motion detector: Running until cancelled by exchange service`);
 
     return new Promise((resolve) => {
       let resolved = false;
@@ -238,16 +263,16 @@ export class MotionDetector {
       let allMotionEvents: any[] = []; // Store all motion events for analytics
       const sessionStartTime = getServerNow();
       
-      // Track peak events for debugging timeouts
+      // Track peak events for debugging
       let peakMagnitudeEvent: any = null;
       let peakJerkEvent: any = null;
       
-      // Use persistent sequential detection state (maintains across multiple detectMotion calls)
+      // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
       let magnitudePrimed = this.sequentialState.magnitudePrimed;
       let jerkPrimed = this.sequentialState.jerkPrimed;
       
       const handleMotion = (event: DeviceMotionEvent) => {
-        if (resolved) return;
+        if (resolved || this.isCancelled) return;
         
         motionEventCount++;
         
@@ -281,7 +306,7 @@ export class MotionDetector {
           currentThresholds = this.calculateAdaptiveThresholds(browserInfo, recentMagnitudes);
         }
         
-        // Track peak events for timeout debugging
+        // Track peak events for debugging
         if (!peakMagnitudeEvent || magnitude > peakMagnitudeEvent.magnitude) {
           peakMagnitudeEvent = {
             eventNumber: motionEventCount,
@@ -332,7 +357,7 @@ export class MotionDetector {
           };
         }
         
-        // Simplified logging - just track basic motion events for timeout debugging
+        // Store all motion events for analytics
         allMotionEvents.push({
           timestamp: now,
           magnitude: magnitude,
@@ -386,32 +411,10 @@ export class MotionDetector {
             console.log(`   Jerk Primed: Previous jerk ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}, Current magnitude: ${magnitude.toFixed(2)} >= ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
           }
           
-          // Log comprehensive session summary on successful detection
-          const sessionSummary = {
-            outcome: 'success',
-            detectionType: detectionType,
-            confidence: confidence,
-            totalEvents: motionEventCount,
-            duration: now - (now - (motionEventCount * 16.67)), // Approximate duration based on 60fps
-            deviceInfo: browserInfo,
-            thresholds: {
-              magnitude: currentThresholds.magnitude,
-              jerk: currentThresholds.jerk
-            },
-            triggerEvent: {
-              magnitude: magnitude,
-              jerk: jerk,
-              acceleration: { x: accel.x, y: accel.y, z: accel.z }
-            },
-            recentMagnitudes: recentMagnitudes,
-            maxMagnitude: recentMagnitudes.length > 0 ? Math.max(...recentMagnitudes.map(m => m.magnitude)) : magnitude,
-            avgMagnitude: recentMagnitudes.length > 0 ? recentMagnitudes.reduce((sum, m) => sum + m.magnitude, 0) / recentMagnitudes.length : magnitude
-          };
-          
-          // Simplified logging - just console output for successful detection
           console.log(`✅ Motion detected successfully - ${motionEventCount} events, trigger_mag=${magnitude.toFixed(2)}, trigger_jerk=${jerk.toFixed(1)}`);
           
           resolved = true;
+          clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
           resolve({
             hasMotion: true,
@@ -430,69 +433,26 @@ export class MotionDetector {
         previousTimestamp = now;
       };
 
-      // Analytics removed - was sending to debug endpoint
-
-      const timeout = setTimeout(() => {
-        if (!resolved) {
-          console.log(`⏰ Motion detection timeout after ${MOTION_TIMEOUT}ms (${motionEventCount} events processed)`);
-          
-          // Show peak events to help debug why detection didn't trigger
-          if (peakMagnitudeEvent) {
-            console.log(`🔥 PEAK MAGNITUDE EVENT #${peakMagnitudeEvent.eventNumber}:`);
-            console.log(`   Magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)}, Jerk: ${peakMagnitudeEvent.jerk.toFixed(1)}`);
-            console.log(`   Acceleration: x=${peakMagnitudeEvent.acceleration.x.toFixed(2)}, y=${peakMagnitudeEvent.acceleration.y.toFixed(2)}, z=${peakMagnitudeEvent.acceleration.z.toFixed(2)}`);
-            console.log(`   🥊 Strong Bump (mag≥10 + jerk≥125): ${peakMagnitudeEvent.metStrongBump ? '✅ YES' : '❌ NO'}`);
-            console.log(`   👆 Sharp Tap (mag≥5 + jerk≥250): ${peakMagnitudeEvent.metSharpTap ? '✅ YES' : '❌ NO'}`);
-            console.log(`   🎯 Either Profile Met: ${peakMagnitudeEvent.metEitherProfile ? '✅ YES' : '❌ NO'}`);
-          }
-          
-          if (peakJerkEvent && peakJerkEvent.eventNumber !== peakMagnitudeEvent?.eventNumber) {
-            console.log(`⚡ PEAK JERK EVENT #${peakJerkEvent.eventNumber}:`);
-            console.log(`   Jerk: ${peakJerkEvent.jerk.toFixed(1)}, Magnitude: ${peakJerkEvent.magnitude.toFixed(2)}`);
-            console.log(`   Acceleration: x=${peakJerkEvent.acceleration.x.toFixed(2)}, y=${peakJerkEvent.acceleration.y.toFixed(2)}, z=${peakJerkEvent.acceleration.z.toFixed(2)}`);
-            console.log(`   🥊 Strong Bump (mag≥10 + jerk≥125): ${peakJerkEvent.metStrongBump ? '✅ YES' : '❌ NO'}`);
-            console.log(`   👆 Sharp Tap (mag≥5 + jerk≥250): ${peakJerkEvent.metSharpTap ? '✅ YES' : '❌ NO'}`);
-            console.log(`   🎯 Either Profile Met: ${peakJerkEvent.metEitherProfile ? '✅ YES' : '❌ NO'}`);
-          }
-          
-          if (!peakMagnitudeEvent && !peakJerkEvent) {
-            console.log(`📊 No significant motion detected - all events were very low magnitude/jerk`);
-          }
-          
-          // Log comprehensive session summary on timeout
-          const sessionSummary = {
-            outcome: 'timeout',
-            totalEvents: motionEventCount,
-            duration: MOTION_TIMEOUT,
-            deviceInfo: browserInfo,
-            thresholds: {
-              magnitude: currentThresholds.magnitude,
-              jerk: currentThresholds.jerk
-            },
-            peakMagnitudeEvent: peakMagnitudeEvent,
-            peakJerkEvent: peakJerkEvent,
-            recentMagnitudes: recentMagnitudes,
-            maxMagnitude: recentMagnitudes.length > 0 ? Math.max(...recentMagnitudes.map(m => m.magnitude)) : 0,
-            avgMagnitude: recentMagnitudes.length > 0 ? recentMagnitudes.reduce((sum, m) => sum + m.magnitude, 0) / recentMagnitudes.length : 0
-          };
-          
-          // Simplified logging for timeout
-          console.log(`⏰ Motion detection session timed out - ${motionEventCount} events, max_mag=${sessionSummary.maxMagnitude.toFixed(2)}, avg_mag=${sessionSummary.avgMagnitude.toFixed(2)}`);
-          
+      // Check for cancellation periodically
+      const checkCancellation = () => {
+        if (this.isCancelled && !resolved) {
+          console.log(`🚫 Motion detection cancelled externally after ${motionEventCount} events`);
           resolved = true;
+          clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
           resolve({
             hasMotion: false,
             magnitude: 0,
-            timestamp: getServerNow() // Add timestamp for timeout case too
+            timestamp: getServerNow()
           });
         }
-      }, MOTION_TIMEOUT);
+      };
+
+      // Check for cancellation every 100ms
+      const cancellationInterval = setInterval(checkCancellation, 100);
 
       window.addEventListener('devicemotion', handleMotion);
-      console.log('👂 Started listening for devicemotion events...');
-      
-      // Cleanup function is handled by the timeout
+      console.log('👂 Started listening for devicemotion events (will run until cancelled)...');
     });
   }
 

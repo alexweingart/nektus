@@ -3,13 +3,11 @@
  * Replaces the simulated exchange with real server communication
  */
 
-import { MotionDetector } from '@/lib/utils/motionDetector';
 import { initializeClockSync, isClockSyncInitialized, getServerNow, getClockSyncInfo } from '@/lib/utils/clockSync';
 import type { 
   ContactExchangeRequest, 
   ContactExchangeResponse,
-  ContactExchangeState,
-  SavedContact
+  ContactExchangeState
 } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 
@@ -27,7 +25,6 @@ export class RealTimeContactExchangeService {
   private motionDetectionCancelled: boolean = false;
   private waitingForBumpTimeout: NodeJS.Timeout | null = null;
   private matchPollingInterval: NodeJS.Timeout | null = null;
-  private pollingInterval: NodeJS.Timeout | null = null;
 
   constructor(sessionId: string, onStateChange?: (state: ContactExchangeState) => void) {
     this.sessionId = sessionId;
@@ -43,7 +40,7 @@ export class RealTimeContactExchangeService {
   }
 
   /**
-   * Start the contact exchange process with polling
+   * Start the contact exchange process with single timeout control
    */
   async startExchange(
     permissionAlreadyGranted: boolean = false, 
@@ -52,10 +49,11 @@ export class RealTimeContactExchangeService {
     try {
       console.log(`🚀 Starting exchange process with sharing category: ${sharingCategory}`);
       
-      // Reset cancellation flag for new exchange
+      // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
       
-      // Reset sequential detection state for new session
+      // Reset motion detector sequential state for new session
+      const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.resetSequentialState();
       
       // Initialize clock sync first thing
@@ -71,22 +69,16 @@ export class RealTimeContactExchangeService {
         console.log('✅ Clock sync already initialized');
       }
       
-      // Log to server for debugging
-      await this.logToServer('exchange_start', `Exchange started with category: ${sharingCategory}, permission already granted: ${permissionAlreadyGranted}`);
       
       this.updateState({ status: 'requesting-permission', sessionId: this.sessionId });
 
       // Only request motion permission if it wasn't already granted
       if (!permissionAlreadyGranted) {
         console.log('📱 Requesting motion permission...');
-        await this.logToServer('permission_request', 'Requesting motion permission from service');
         
         const permissionResult = await this.requestMotionPermission();
         
-        await this.logToServer('permission_result', `Service permission result: ${JSON.stringify(permissionResult)}`);
-        
         if (!permissionResult.success) {
-          await this.logToServer('permission_denied', `Motion permission denied: ${permissionResult.message}`);
           this.updateState({ 
             status: 'error', 
             error: permissionResult.message || 'Motion permission denied. Please allow motion access in browser settings or try again.' 
@@ -95,7 +87,6 @@ export class RealTimeContactExchangeService {
         }
       } else {
         console.log('✅ Motion permission already granted, skipping request');
-        await this.logToServer('permission_skipped', 'Permission already granted in button handler');
       }
 
       // Start listening for motion (but don't send hit yet)
@@ -103,23 +94,20 @@ export class RealTimeContactExchangeService {
       console.log('✅ Ready for motion detection - waiting for bump...');
       console.log('🔄 Enhanced multi-hit system: continues listening during entire 10-second exchange window');
       console.log('⏱️ Rate limiting: 500ms cooldown between hits to prevent spam');
-      console.log('⏰ Simplified timeout: Single 10-second window for entire exchange process');
-      await this.logToServer('waiting_for_bump', 'Now waiting for motion detection with multi-hit capability');
+      console.log('⏰ Single timeout: 10-second window controls entire exchange process');
       
-      // Set 10-second timeout for entire exchange process
-      this.waitingForBumpTimeout = setTimeout(() => {
-        console.log('⏰ Exchange timed out after 10 seconds');
-        this.logToServer('exchange_timeout', 'Exchange timed out after 10 seconds');
-        this.updateState({ status: 'timeout' });
-        this.disconnect();
-      }, 10000); // 10 seconds total
+      // Set single 10-second timeout for entire exchange process
+              this.waitingForBumpTimeout = setTimeout(() => {
+          console.log('⏰ Exchange timed out after 10 seconds');
+          this.updateState({ status: 'timeout' });
+          this.disconnect();
+        }, 10000);
       
       // Start the motion detection loop
       await this.waitForBump(true, sharingCategory);
 
     } catch (error) {
       console.error('Exchange failed:', error);
-      await this.logToServer('exchange_error', `Exchange failed: ${error}`);
       this.updateState({ 
         status: 'error', 
         error: error instanceof Error ? error.message : 'Exchange failed' 
@@ -127,59 +115,7 @@ export class RealTimeContactExchangeService {
     }
   }
 
-  /**
-   * Accept a matched contact
-   */
-  async acceptContact(token: string): Promise<SavedContact | null> {
-    try {
-      const response = await fetch(`/api/exchange/pair/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: true })
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to accept contact');
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.profile) {
-        // Save to Firebase
-        const savedContact = await this.saveContact(result.profile, token);
-        this.updateState({ status: 'accepted' });
-        return savedContact;
-      }
-
-      throw new Error(result.message || 'Failed to accept contact');
-
-    } catch (error) {
-      console.error('Failed to accept contact:', error);
-      this.updateState({ 
-        status: 'error', 
-        error: error instanceof Error ? error.message : 'Failed to accept contact' 
-      });
-      return null;
-    }
-  }
-
-  /**
-   * Reject a matched contact
-   */
-  async rejectContact(token: string): Promise<void> {
-    try {
-      await fetch(`/api/exchange/pair/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: false })
-      });
-
-      this.updateState({ status: 'rejected' });
-
-    } catch (error) {
-      console.error('Failed to reject contact:', error);
-    }
-  }
 
   /**
    * Reset the exchange state
@@ -190,11 +126,17 @@ export class RealTimeContactExchangeService {
   }
 
   /**
-   * Disconnect and cleanup
+   * Disconnect and cleanup - now includes motion state cleanup
    */
   disconnect(): void {
     // Cancel motion detection
     this.motionDetectionCancelled = true;
+    
+    // Clear motion detector sequential state when exchange ends
+    import('@/lib/utils/motionDetector').then(({ MotionDetector }) => {
+      MotionDetector.clearSequentialState();
+      MotionDetector.cancelDetection();
+    });
     
     // Clear any active timeouts
     if (this.waitingForBumpTimeout) {
@@ -226,22 +168,26 @@ export class RealTimeContactExchangeService {
     }
     
     // For non-iOS, use the MotionDetector method
+    const { MotionDetector } = await import('@/lib/utils/motionDetector');
     return await MotionDetector.requestPermission();
   }
 
   /**
-   * Start polling for matches after sending hit
+   * Start polling for matches after sending hit - no separate timeout
    */
   private async startMatchPolling(): Promise<void> {
     console.log('🔄 Starting match polling...');
     
-    // Poll every 1 second for up to 10 seconds
-    let pollCount = 0;
-    const maxPolls = 10;
-    
+    // Poll every 1 second - controlled by main exchange timeout
     this.matchPollingInterval = setInterval(async () => {
-      pollCount++;
-      console.log(`🔍 Polling for match (attempt ${pollCount}/${maxPolls})...`);
+      // Check if exchange has been cancelled/timed out
+      if (this.motionDetectionCancelled || this.state.status === 'timeout' || this.state.status === 'error') {
+        console.log('🛑 Stopping match polling - exchange ended');
+        this.clearPolling();
+        return;
+      }
+      
+      console.log('🔍 Polling for match...');
       
       try {
         const response = await fetch(`/api/exchange/status/${this.sessionId}`);
@@ -256,7 +202,7 @@ export class RealTimeContactExchangeService {
           // Found a match!
           console.log('🎉 Match found via polling!', result.match);
           
-          // Clear polling and timeout
+          // Clear polling
           this.clearPolling();
           
           // Handle the match
@@ -264,41 +210,33 @@ export class RealTimeContactExchangeService {
           return;
         }
         
-        // No match yet, continue polling unless we've reached max attempts
-        if (pollCount >= maxPolls) {
-          console.log('⏰ Polling timeout - no match found');
-          this.clearPolling();
-          this.updateState({ status: 'timeout' });
-        }
+        // No match yet, continue polling (controlled by main timeout)
         
       } catch (error) {
         console.error('Polling error:', error);
-        this.clearPolling();
-        this.updateState({ 
-          status: 'error', 
-          error: 'Failed to check for matches' 
-        });
+        // Don't stop polling on single error - let main timeout handle it
       }
     }, 1000); // Poll every 1 second
   }
 
   /**
-   * Clear polling interval and timeout
+   * Clear polling interval - no separate timeout to clear
    */
   private clearPolling(): void {
     if (this.matchPollingInterval) {
       clearInterval(this.matchPollingInterval);
       this.matchPollingInterval = null;
     }
-    // Clear the single exchange timeout when match is found
-    if (this.waitingForBumpTimeout) {
-      clearTimeout(this.waitingForBumpTimeout);
-      this.waitingForBumpTimeout = null;
-    }
   }
 
   private async handleMatch(token: string, youAre: 'A' | 'B'): Promise<void> {
     try {
+      // Clear the main exchange timeout when match is found
+      if (this.waitingForBumpTimeout) {
+        clearTimeout(this.waitingForBumpTimeout);
+        this.waitingForBumpTimeout = null;
+      }
+      
       // Fetch the matched user's profile
       console.log(`🔍 CLIENT: Fetching profile for token: ${token}`);
       const response = await fetch(`/api/exchange/pair/${token}`);
@@ -342,18 +280,19 @@ export class RealTimeContactExchangeService {
     let lastHitTime = 0;
     const HIT_COOLDOWN_MS = 500; // 500ms cooldown between hits
     
-    while (!this.motionDetectionCancelled) { // Keep waiting for motion until user cancels or motion is detected
+    const { MotionDetector } = await import('@/lib/utils/motionDetector');
+    
+    while (!this.motionDetectionCancelled) { // Keep waiting for motion until exchange is cancelled
       try {
         const isFirstHit = hitCount === 0;
         console.log(`🔍 Starting motion detection... ${isFirstHit ? '(no server hit until motion detected)' : '(additional hits during matching window)'}`);
         
-        // Detect motion/bump - this will wait until actual motion is detected
+        // Detect motion/bump - this will wait until actual motion is detected or cancelled
         const motionResult = await MotionDetector.detectMotion();
         
         if (!motionResult.hasMotion) {
-          console.log('⏰ Motion detection timed out - no bump detected, stopping...');
-          // Stop trying instead of restarting - user can tap button again if needed
-          this.updateState({ status: 'timeout' });
+          console.log('⏰ Motion detection cancelled or no motion detected');
+          // Motion detector was cancelled externally (by our timeout) or no motion detected
           return;
         }
 
@@ -369,14 +308,8 @@ export class RealTimeContactExchangeService {
         
         console.log(`🎯 Motion detected! Sending hit #${hitCount} to server...`);
         
-        // Clear the waiting for bump timeout since we detected motion (only on first hit)
-        if (isFirstHit && this.waitingForBumpTimeout) {
-          clearTimeout(this.waitingForBumpTimeout);
-          this.waitingForBumpTimeout = null;
-        }
-        
         // Prepare exchange request - use the timestamp from when motion was actually detected
-        const tSent = performance.now(); // Capture when we're about to send
+        const tSent = performance.now();
         const request: ContactExchangeRequest = {
           ts: motionResult.timestamp || getServerNow(), // Use motion detection timestamp (already synchronized)
           mag: motionResult.magnitude,
@@ -398,32 +331,25 @@ export class RealTimeContactExchangeService {
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
           this.updateState({ status: 'processing' });
-          // No separate timeout needed - using single 10-second exchange timeout
         }
         
         const response = await this.sendHit(request);
 
-        // If we got an immediate match, handle it and clear timeout
+        // If we got an immediate match, handle it
         if (response.matched && response.token) {
           console.log(`✅ Match found on hit #${hitCount}!`);
-          if (this.waitingForBumpTimeout) {
-            clearTimeout(this.waitingForBumpTimeout);
-            this.waitingForBumpTimeout = null;
-          }
           await this.handleMatch(response.token, response.youAre || 'A');
           return; // Exit after successful match
         } else {
           // Start polling as fallback in case SSE fails (only on first hit)
           if (isFirstHit) {
-            await this.logToServer('polling_start', 'Starting polling fallback for match detection');
             this.startMatchPolling();
           }
         }
-        // SSE will also notify if available, but polling ensures we don't miss matches
         
         // Continue listening for more motion instead of breaking
         // This allows sequential detection to maintain primed states
-        // and enables multiple hits during the 3-second matching window
+        // and enables multiple hits during the 10-second matching window
         
       } catch (error) {
         console.error('❌ Error in waitForBump:', error);
@@ -456,41 +382,7 @@ export class RealTimeContactExchangeService {
     return result;
   }
 
-  private async saveContact(profile: UserProfile, matchToken: string): Promise<SavedContact> {
-    const contact: SavedContact = {
-      ...profile,
-      addedAt: Date.now(),
-      matchToken
-    };
 
-    try {
-      // Get current user session directly
-      const response = await fetch('/api/auth/session');
-      if (!response.ok) {
-        throw new Error('Failed to get session');
-      }
-      
-      const session = await response.json();
-      if (!session?.user?.email) {
-        throw new Error('User not authenticated');
-      }
-
-      // Save to Firebase using dynamic import to avoid server-side bundling issues
-      try {
-        const { ClientProfileService } = await import('@/lib/firebase/clientProfileService');
-        await ClientProfileService.saveContact(session.user.email, contact);
-        console.log('Contact saved to Firebase:', contact);
-      } catch (firebaseError) {
-        console.warn('Failed to save to Firebase, continuing anyway:', firebaseError);
-      }
-      
-      return contact;
-    } catch (error) {
-      console.error('Failed to save contact to Firebase:', error);
-      // Still return the contact object even if Firebase save fails
-      return contact;
-    }
-  }
 
   private async estimateRTT(): Promise<number> {
     // Use clock sync RTT if available, otherwise measure fresh
@@ -513,23 +405,7 @@ export class RealTimeContactExchangeService {
     }
   }
 
-  private async logToServer(event: string, message: string): Promise<void> {
-    try {
-      await fetch('/api/system/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event, 
-          message, 
-          sessionId: this.sessionId,
-          timestamp: getServerNow() 
-        })
-      });
-    } catch (error) {
-      // Ignore logging errors
-      console.warn('Failed to log to server:', error);
-    }
-  }
+
 
   private updateState(updates: Partial<ContactExchangeState>): void {
     this.state = { ...this.state, ...updates };

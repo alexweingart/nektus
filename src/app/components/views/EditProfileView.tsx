@@ -409,6 +409,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           value={digits}
           placeholder="Phone number"
           className="w-full"
+          autoFocus={false}
           inputProps={{
             id: "phone-input",
             autoComplete: "tel",
