@@ -591,7 +591,8 @@ export async function saveContactFlow(
         platform
       };
     } else {
-      console.log('⚠️ Auth return detected but conditions not met');
+      // User returned from auth but didn't complete it (e.g., tapped back button)
+      console.log('🔙 User returned from auth without completing (likely tapped back), showing upsell modal');
       console.log('🔍 Conditions check:', {
         hasSuccess: authReturn.success,
         hasContactSaveToken: !!authReturn.contactSaveToken,
@@ -599,6 +600,18 @@ export async function saveContactFlow(
         authProfileId: authReturn.profileId,
         expectedProfileId: profile.userId
       });
+      
+      // Clear saved state
+      clearContactSaveState();
+      
+      // Treat as cancellation - show upsell modal
+      return {
+        success: true,
+        firebase: { success: true }, // Firebase was saved before auth
+        google: { success: false, error: 'User cancelled Google auth' },
+        showUpsellModal: true,
+        platform
+      };
     }
   } else {
     console.log('🔍 Not returning from incremental auth, proceeding with normal flow');
