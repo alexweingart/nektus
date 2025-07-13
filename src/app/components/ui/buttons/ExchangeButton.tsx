@@ -108,6 +108,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         // Navigate to connect page only when we have a match
         if (state.status === 'matched' && state.match) {
           router.push(`/connect?token=${state.match.token}`);
+          // Clear service reference after match to force fresh service on next tap
+          setExchangeService(null);
         }
         
         // Handle timeout - wait for cleanup to complete before allowing button to be tappable
@@ -116,6 +118,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           setTimeout(async () => {
             await service.disconnect();
             setStatus('idle');
+            setExchangeService(null); // Clear service reference
           }, 1000); // Show timeout for 1 second, then cleanup and reset
         }
         
@@ -124,6 +127,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           setTimeout(async () => {
             await service.disconnect();
             setStatus('idle');
+            setExchangeService(null); // Clear service reference
           }, 2000); // Show error for 2 seconds, then cleanup and reset
         }
       });

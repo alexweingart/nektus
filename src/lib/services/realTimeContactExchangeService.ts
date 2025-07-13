@@ -244,6 +244,9 @@ export class RealTimeContactExchangeService {
             profile: result.profile
           }
         });
+        
+        // Clean up the service after match is found to prevent reuse
+        await this.disconnect();
       } else {
         throw new Error('Invalid match response');
       }
