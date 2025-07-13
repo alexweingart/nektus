@@ -87,8 +87,17 @@ export class RealTimeContactExchangeService {
             // Set single 10-second timeout for entire exchange process
       this.waitingForBumpTimeout = setTimeout(async () => {
         console.log('⏰ Exchange timed out after 10 seconds');
-        this.updateState({ status: 'timeout' });
+        
+        // Stop motion detection and polling immediately
         await this.disconnect();
+        
+        // Only show timeout if we haven't found a match
+        if (this.state.status !== 'matched') {
+          console.log('⏰ Showing timeout UI');
+          this.updateState({ status: 'timeout' });
+        } else {
+          console.log('✅ Match found - not showing timeout');
+        }
       }, 10000);
       
       // Start the motion detection loop
