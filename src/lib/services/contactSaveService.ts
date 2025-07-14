@@ -128,44 +128,65 @@ function isPermissionError(error?: string): boolean {
 }
 
 /**
- * Store contact save state for resuming after authorization
+ * Store contact save state (for auth flow continuity)
  */
 function storeContactSaveState(token: string, profileId: string): void {
   try {
-    sessionStorage.setItem('contact_save_token', token);
-    sessionStorage.setItem('contact_save_profile_id', profileId);
-    sessionStorage.setItem('contact_save_timestamp', Date.now().toString());
-  } catch {
-    // Silently fail if sessionStorage is not available
+    const state = {
+      token,
+      profileId,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('contact_save_state', JSON.stringify(state));
+    console.log('💾 Stored contact save state:', state);
+  } catch (error) {
+    console.warn('Failed to store contact save state:', error);
   }
 }
 
 /**
- * Get stored contact save state
+ * Get contact save state (with expiration check)
  */
 function getContactSaveState(): { token?: string; profileId?: string; timestamp?: number } {
   try {
-    const token = sessionStorage.getItem('contact_save_token') || undefined;
-    const profileId = sessionStorage.getItem('contact_save_profile_id') || undefined;
-    const timestampStr = sessionStorage.getItem('contact_save_timestamp');
-    const timestamp = timestampStr ? parseInt(timestampStr, 10) : undefined;
+    const stored = localStorage.getItem('contact_save_state');
+    if (!stored) {
+      console.log('🔍 State check: No stored state found');
+      return {};
+    }
     
-    return { token, profileId, timestamp };
-  } catch {
+    const state = JSON.parse(stored);
+    console.log('🔍 State check: Raw stored state:', state);
+    
+    // Check if state is expired (5 minutes)
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    const age = Date.now() - (state.timestamp || 0);
+    console.log('🔍 State check: State age:', age, 'ms (max:', maxAge, 'ms)');
+    
+    if (age > maxAge) {
+      console.log('🗑️ State check: Stored state is expired, clearing...');
+      clearContactSaveState();
+      return {};
+    }
+    
+    console.log('🔍 State check: Valid stored state found:', state);
+    return state;
+  } catch (error) {
+    console.warn('Failed to get contact save state:', error);
+    clearContactSaveState();
     return {};
   }
 }
 
 /**
- * Clear stored contact save state
+ * Clear contact save state
  */
 function clearContactSaveState(): void {
   try {
-    sessionStorage.removeItem('contact_save_token');
-    sessionStorage.removeItem('contact_save_profile_id');
-    sessionStorage.removeItem('contact_save_timestamp');
-  } catch {
-    // Silently fail if sessionStorage is not available
+    localStorage.removeItem('contact_save_state');
+    console.log('🗑️ Cleared contact save state');
+  } catch (error) {
+    console.warn('Failed to clear contact save state:', error);
   }
 }
 
@@ -449,16 +470,34 @@ function isReturningFromIncrementalAuth(): boolean {
   const hasAuthParams = authResult === 'success' || authResult === 'denied';
   console.log('🔍 Auth check: Has auth params:', hasAuthParams);
   
-  // Check if we have stored state (indicates user went through auth flow)
+  if (hasAuthParams) {
+    console.log('🔍 Auth check: Detected auth return via URL params');
+    return true;
+  }
+  
+  // Check if we have RECENT stored state (indicating user just went through auth flow)
   const storedState = getContactSaveState();
   console.log('🔍 Auth check: Stored state:', storedState);
-  const hasStoredState = !!(storedState && storedState.token && storedState.profileId);
-  console.log('🔍 Auth check: Has stored state:', hasStoredState);
   
-  const isReturning = hasAuthParams || hasStoredState;
-  console.log('🔍 Auth check: Is returning from auth:', isReturning);
+  if (storedState && storedState.token && storedState.profileId && storedState.timestamp) {
+    // Only consider it a "return from auth" if the stored state is very recent (within last 2 minutes)
+    const authReturnWindow = 2 * 60 * 1000; // 2 minutes
+    const age = Date.now() - storedState.timestamp;
+    console.log('🔍 Auth check: State age:', age, 'ms (auth return window:', authReturnWindow, 'ms)');
+    
+    if (age <= authReturnWindow) {
+      console.log('🔍 Auth check: Recent stored state detected - likely returning from auth');
+      return true;
+    } else {
+      console.log('🔍 Auth check: Stored state too old to be considered auth return');
+      // Clear old stored state since it's not relevant anymore
+      clearContactSaveState();
+      return false;
+    }
+  }
   
-  return isReturning;
+  console.log('🔍 Auth check: No evidence of auth return - proceeding with fresh flow');
+  return false;
 }
 
 /**
@@ -513,17 +552,27 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
   const existingState = getContactSaveState();
   console.log('🔍 Auth return: Existing state:', existingState);
   
-  if (existingState && existingState.token && existingState.profileId) {
-    console.log('🔙 No URL params but have stored state - user likely tapped back on auth');
-    console.log('🔍 Auth return: Stored state:', existingState);
+  if (existingState && existingState.token && existingState.profileId && existingState.timestamp) {
+    // Only treat as "tapped back" if the stored state is very recent (within last 2 minutes)
+    const backButtonWindow = 2 * 60 * 1000; // 2 minutes
+    const age = Date.now() - existingState.timestamp;
+    console.log('🔍 Auth return: State age:', age, 'ms (back button window:', backButtonWindow, 'ms)');
     
-    // Return the stored state as a "cancelled" auth
-    return { 
-      success: false, 
-      denied: true, 
-      contactSaveToken: existingState.token, 
-      profileId: existingState.profileId 
-    };
+    if (age <= backButtonWindow) {
+      console.log('🔙 No URL params but have recent stored state - user likely tapped back on auth');
+      console.log('🔍 Auth return: Stored state:', existingState);
+      
+      // Return the stored state as a "cancelled" auth
+      return { 
+        success: false, 
+        denied: true, 
+        contactSaveToken: existingState.token, 
+        profileId: existingState.profileId 
+      };
+    } else {
+      console.log('🔍 Auth return: Stored state too old to be considered back button - clearing and treating as no auth');
+      clearContactSaveState();
+    }
   }
   
   console.log('🔍 Auth return: No auth return detected, returning empty result');
@@ -576,6 +625,15 @@ export async function saveContactFlow(
   
   const platform = detectPlatform();
   console.log('🔍 Flow: Platform detected:', platform);
+  
+  // Clear any stale stored state before checking for auth returns
+  console.log('🔍 Flow: Checking for stale stored state...');
+  const currentState = getContactSaveState(); // This will auto-clear if expired
+  if (currentState && currentState.token && currentState.profileId) {
+    console.log('🔍 Flow: Found stored state, will check if it\'s a recent auth return');
+  } else {
+    console.log('🔍 Flow: No stored state found, proceeding with fresh flow');
+  }
   
   // Check if we're returning from incremental auth
   console.log('🔍 Flow: Checking if returning from incremental auth...');
