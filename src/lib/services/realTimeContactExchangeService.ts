@@ -287,7 +287,7 @@ export class RealTimeContactExchangeService {
         hitCount++;
         lastHitTime = now;
         
-        console.log(`🚀 Hit #${hitCount} (mag=${motionResult.magnitude.toFixed(2)})`);
+        console.log(`🚀 Hit #${hitCount} detected (mag=${motionResult.magnitude.toFixed(2)}, ts=${motionResult.timestamp || getServerNow()})`);
         
         // Prepare exchange request - use the timestamp from when motion was actually detected
         const tSent = performance.now();
@@ -314,6 +314,7 @@ export class RealTimeContactExchangeService {
           this.updateState({ status: 'processing' });
         }
         
+        console.log(`📤 Sending hit #${hitCount} to server (ts=${request.ts})`);
         const response = await this.sendHit(request);
 
         // If we got an immediate match, handle it

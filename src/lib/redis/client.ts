@@ -151,6 +151,7 @@ export async function findMatchingExchange(
       const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
       
       console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
+      console.log(`📊 Timestamp comparison: ${sessionId}=${currentTimestamp}, ${candidateSessionId}=${candidateData.timestamp}`);
       
       if (timeDiff <= dynamicWindow) {
         // Within time window - check if this is the best match so far

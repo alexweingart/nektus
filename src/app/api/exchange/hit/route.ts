@@ -131,12 +131,13 @@ export async function POST(request: NextRequest) {
       sharingCategory: exchangeRequest.sharingCategory || 'All' // Store the selected sharing category
     };
 
-    console.log(`Exchange hit from ${session.user.email} (${exchangeRequest.session}):`, {
+    console.log(`📨 Hit from ${session.user.email} (session: ${exchangeRequest.session}):`, {
       timestamp: exchangeRequest.ts,
       magnitude: exchangeRequest.mag,
       ipBlock,
       hasVector: !!exchangeRequest.vector,
-      sharingCategory: exchangeData.sharingCategory
+      sharingCategory: exchangeData.sharingCategory,
+      hitNumber: exchangeRequest.hitNumber || 'unknown'
     });
 
     // Look for matching exchange using improved time-based + broad geo matching
@@ -188,48 +189,8 @@ export async function POST(request: NextRequest) {
       await storePendingExchange(exchangeRequest.session, exchangeData, 30);
       console.log(`💾 Stored pending exchange for session ${exchangeRequest.session}`);
       
-      // Check again for matches after storing (to handle race conditions)
-      console.log(`🔄 Checking again for matches after storing...`);
-      const secondMatchResult = await findMatchingExchange(
-        exchangeRequest.session, 
-        clientIP,
-        null,
-        500, // 500ms time window (precise timing with clock sync)
-        exchangeRequest.ts,
-        exchangeRequest.rtt // pass RTT for dynamic window calculation
-      );
-      
-      if (secondMatchResult) {
-        console.log(`🎉 Found match on second check between ${exchangeRequest.session} and ${secondMatchResult.sessionId}`);
-        
-        // Remove ourselves from pending since we found a match
-        await removePendingExchange(exchangeRequest.session, clientIP);
-        
-        // Generate exchange token
-        const exchangeToken = generateExchangeToken();
-        console.log(`🔑 Generated exchange token: ${exchangeToken}`);
-        
-        // Store the match in Redis with both users' sharing categories
-        await storeExchangeMatch(
-          exchangeToken,
-          exchangeRequest.session,
-          secondMatchResult.sessionId,
-          session.user.id, // Use user ID instead of email
-          secondMatchResult.matchData.userId,
-          exchangeData.sharingCategory, // Current user's sharing category
-          secondMatchResult.matchData.sharingCategory || 'All' // Matched user's sharing category
-        );
-        
-        // Note: Clients will discover the match via polling instead of SSE
-        console.log(`🎉 Second match created - clients will discover via polling`);
-        
-        return NextResponse.json({
-          success: true,
-          matched: true,
-          token: exchangeToken,
-          youAre: 'A'
-        } as ContactExchangeResponse);
-      }
+      // NOTE: Removed duplicate findMatchingExchange call to avoid double logging
+      // The race condition handling wasn't providing value and was causing confusion
       
       return NextResponse.json({
         success: true,
