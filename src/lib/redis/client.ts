@@ -237,19 +237,22 @@ export async function storeExchangeMatch(
     sharingCategoryB: sharingCategoryB || 'All'
   };
 
-  // Store by token
-  await redis!.setex(`exchange_match:${token}`, 600, JSON.stringify(matchData)); // 10 minutes TTL
-
-  // Also store references by session IDs for lookup
-  await redis!.setex(`exchange_session:${sessionA}`, 600, JSON.stringify({
-    token,
-    youAre: 'A'
-  }));
-
-  await redis!.setex(`exchange_session:${sessionB}`, 600, JSON.stringify({
-    token,
-    youAre: 'B'
-  }));
+  // Store all match data atomically to prevent race conditions
+  await Promise.all([
+    // Store by token
+    redis!.setex(`exchange_match:${token}`, 600, JSON.stringify(matchData)), // 10 minutes TTL
+    
+    // Store references by session IDs for lookup
+    redis!.setex(`exchange_session:${sessionA}`, 600, JSON.stringify({
+      token,
+      youAre: 'A'
+    })),
+    
+    redis!.setex(`exchange_session:${sessionB}`, 600, JSON.stringify({
+      token,
+      youAre: 'B'
+    }))
+  ]);
 
   console.log(`💾 Stored exchange match ${token} with sharing categories A:${sharingCategoryA} B:${sharingCategoryB}`);
 }

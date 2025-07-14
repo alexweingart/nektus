@@ -171,6 +171,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
 
     // Now we can do async operations after getting permission
+    console.log(`🎯 ExchangeButton: iOS permission granted: ${permissionGranted}, category: ${selectedCategory}`);
     fetch('/api/system/ping', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

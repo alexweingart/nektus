@@ -69,15 +69,20 @@ export class RealTimeContactExchangeService {
 
       // Only request motion permission if it wasn't already granted
       if (!permissionAlreadyGranted) {
+        console.log('📱 Service requesting motion permission (not already granted)');
         const permissionResult = await this.requestMotionPermission();
         
         if (!permissionResult.success) {
+          console.log('❌ Service permission request failed:', permissionResult.message);
           this.updateState({ 
             status: 'error', 
             error: permissionResult.message || 'Motion permission denied. Please allow motion access in browser settings or try again.' 
           });
           return;
         }
+        console.log('✅ Service permission request succeeded');
+      } else {
+        console.log('✅ Service skipping permission request (already granted)');
       }
 
       // Start listening for motion (but don't send hit yet)
@@ -146,9 +151,10 @@ export class RealTimeContactExchangeService {
   }
 
   private async requestMotionPermission(): Promise<{ success: boolean; message?: string }> {
-    // For iOS, just use the standard permission check without validation
+    // For iOS, check current permission state first to avoid duplicate requests
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
+        // Check current permission state first
         const permission = await (DeviceMotionEvent as any).requestPermission();
         if (permission === 'granted') {
           return { success: true };
