@@ -170,79 +170,38 @@ function clearContactSaveState(): void {
 }
 
 /**
- * Detect if we're in an embedded browser that doesn't support popups well
+ * Check if we're in an embedded browser (like in-app browsers)
  */
 function isEmbeddedBrowser(): boolean {
-  if (typeof window === 'undefined') return false;
-  
   const userAgent = navigator.userAgent.toLowerCase();
+  console.log('🔍 Browser detection: User agent:', userAgent);
   
-  // Common embedded browser patterns
-  const embeddedPatterns = [
-    // Google app
-    'gsa/',
-    'googleapp/',
-    'googlesearch',
-    
-    // Social media apps
-    'fban',        // Facebook app
-    'fbav',        // Facebook app
-    'instagram',   // Instagram app
-    'twitter',     // Twitter app
-    'twitterandroid',
-    'line/',       // Line app
-    'snapchat',    // Snapchat app
-    'whatsapp',    // WhatsApp app
-    'telegram',    // Telegram app
-    'linkedin',    // LinkedIn app
-    'pinterest',   // Pinterest app
-    'reddit',      // Reddit app
-    'discord',     // Discord app
-    
-    // Other common webview indicators
-    'webview',
-    'wv)',         // Android WebView
-    'version/',    // Often indicates embedded browser on Android
+  const embeddedIndicators = [
+    'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'
   ];
   
-  // Check for embedded patterns
-  const matchedPatterns = embeddedPatterns.filter(pattern => userAgent.includes(pattern));
-  const isEmbedded = matchedPatterns.length > 0;
+  const isEmbedded = embeddedIndicators.some(indicator => userAgent.includes(indicator));
+  console.log('🔍 Browser detection: Is embedded browser:', isEmbedded);
+  console.log('🔍 Browser detection: Matching indicators:', embeddedIndicators.filter(indicator => userAgent.includes(indicator)));
   
-  // Additional check for iOS apps (they often don't include specific identifiers)
-  const isIOSApp = /iphone|ipad|ipod/.test(userAgent) && 
-                   !/safari/.test(userAgent) && 
-                   !/crios/.test(userAgent) && // Chrome iOS
-                   !/fxios/.test(userAgent);   // Firefox iOS
-  
-  // Log detection details for debugging
-  console.log('🕵️ Browser detection details:', {
-    userAgent,
-    matchedPatterns,
-    isEmbedded,
-    isIOSApp,
-    finalResult: isEmbedded || isIOSApp
-  });
-  
-  return isEmbedded || isIOSApp;
+  return isEmbedded;
 }
 
 /**
- * Detect if popups are likely to work in this browser
+ * Check if the browser supports reliable popups
  */
 function supportsReliablePopups(): boolean {
-  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent.toLowerCase();
+  console.log('🔍 Popup support: User agent:', userAgent);
   
-  // Don't use popups in embedded browsers
+  // Don't use popups for embedded browsers (they often block them)
   if (isEmbeddedBrowser()) {
+    console.log('🔍 Popup support: Embedded browser detected, using redirect');
     return false;
   }
   
-  // Check if popup window.open is available
-  if (!window.open) {
-    return false;
-  }
-  
+  // Use popups for standalone browsers
+  console.log('🔍 Popup support: Standalone browser detected, using popup');
   return true;
 }
 
@@ -250,26 +209,39 @@ function supportsReliablePopups(): boolean {
  * Redirect to Google for incremental authorization with contacts scope
  */
 function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): void {
+  console.log('🔍 Redirect: Starting Google auth redirect...');
+  console.log('🔍 Redirect: contactSaveToken:', contactSaveToken);
+  console.log('🔍 Redirect: profileId:', profileId);
+  
   // Determine whether to use popup or redirect based on browser capabilities
   const usePopup = supportsReliablePopups();
   
   console.log(`🔄 Browser detection: embedded=${isEmbeddedBrowser()}, usePopup=${usePopup}`);
   
   if (usePopup) {
+    console.log('🔍 Redirect: Using popup flow...');
     // Use popup for standalone browsers (better cookie handling)
     openGoogleAuthPopup(contactSaveToken, profileId);
   } else {
+    console.log('🔍 Redirect: Using redirect flow...');
     // Use redirect for embedded browsers (more reliable)
     redirectToGoogleAuth(contactSaveToken, profileId);
   }
+  
+  console.log('🔍 Redirect: Redirect function completed');
 }
 
 /**
  * Open Google auth in a popup (for standalone browsers)
  */
 function openGoogleAuthPopup(contactSaveToken: string, profileId: string): void {
+  console.log('🔍 Popup: Starting popup auth...');
+  console.log('🔍 Popup: contactSaveToken:', contactSaveToken);
+  console.log('🔍 Popup: profileId:', profileId);
+  
   // Use popup callback URL as return URL
   const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
+  console.log('🔍 Popup: returnUrl:', returnUrl);
   
   // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
   const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
@@ -277,11 +249,14 @@ function openGoogleAuthPopup(contactSaveToken: string, profileId: string): void 
   console.log('🔄 Opening Google auth popup for incremental contacts permission (silent first):', authUrl);
   
   // Open popup instead of redirecting current page
+  console.log('🔍 Popup: About to open window.open...');
   const popup = window.open(
     authUrl,
     'google-auth-popup',
     'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
   );
+
+  console.log('🔍 Popup: window.open result:', popup);
 
   if (!popup) {
     console.error('❌ Popup blocked! Falling back to redirect...');
@@ -290,22 +265,33 @@ function openGoogleAuthPopup(contactSaveToken: string, profileId: string): void 
     return;
   }
 
+  console.log('🔍 Popup: Popup opened successfully, setting up listener...');
   // Listen for popup completion
   listenForPopupCompletion(popup, contactSaveToken, profileId);
+  console.log('🔍 Popup: Listener set up, popup flow initiated');
 }
 
 /**
  * Redirect to Google auth in same tab (for embedded browsers)
  */
 function redirectToGoogleAuth(contactSaveToken: string, profileId: string): void {
+  console.log('🔍 Direct redirect: Starting same-tab redirect...');
+  console.log('🔍 Direct redirect: contactSaveToken:', contactSaveToken);
+  console.log('🔍 Direct redirect: profileId:', profileId);
+  
   // Use current URL as return URL (traditional redirect flow)
   const returnUrl = window.location.href;
+  console.log('🔍 Direct redirect: returnUrl:', returnUrl);
   
   // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
   const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
   
   console.log('🔄 Redirecting to Google for incremental contacts permission (embedded browser):', authUrl);
+  console.log('🔍 Direct redirect: About to set window.location.href...');
+  
   window.location.href = authUrl;
+  
+  console.log('🔍 Direct redirect: window.location.href set (this may not log if redirect is immediate)');
 }
 
 /**
@@ -448,51 +434,53 @@ async function saveContactToAPI(token: string, skipGoogleContacts = false): Prom
 }
 
 /**
- * Check if we're returning from incremental Google authorization
+ * Check if user is returning from incremental auth
  */
 function isReturningFromIncrementalAuth(): boolean {
-  if (typeof window === 'undefined') return false;
+  console.log('🔍 Auth check: Checking if returning from incremental auth...');
   
   const urlParams = new URLSearchParams(window.location.search);
-  const hasIncrementalAuth = urlParams.has('incremental_auth');
+  const authResult = urlParams.get('incremental_auth');
   
-  console.log('🔍 Checking for incremental auth return...');
-  console.log('🔍 Current URL:', window.location.href);
-  console.log('🔍 URL params:', urlParams.toString());
-  console.log('🔍 Has incremental_auth param:', hasIncrementalAuth);
+  console.log('🔍 Auth check: URL params:', Object.fromEntries(urlParams.entries()));
+  console.log('🔍 Auth check: Auth result param:', authResult);
   
-  // If we have the URL parameter, definitely returning from auth
-  if (hasIncrementalAuth) {
-    return true;
-  }
+  // Check if we have URL params indicating return from auth
+  const hasAuthParams = authResult === 'success' || authResult === 'denied';
+  console.log('🔍 Auth check: Has auth params:', hasAuthParams);
   
-  // If no URL parameter, check if we have stored contact save state
-  // This indicates user was redirected for auth but returned without completing it (e.g., tapped back)
-  const existingState = getContactSaveState();
-  if (existingState && existingState.token && existingState.profileId) {
-    console.log('🔙 Detected return from auth without URL params (likely tapped back), treating as auth return');
-    console.log('🔍 Existing state:', existingState);
-    return true;
-  }
+  // Check if we have stored state (indicates user went through auth flow)
+  const storedState = getContactSaveState();
+  console.log('🔍 Auth check: Stored state:', storedState);
+  const hasStoredState = !!(storedState && storedState.token && storedState.profileId);
+  console.log('🔍 Auth check: Has stored state:', hasStoredState);
   
-  return false;
+  const isReturning = hasAuthParams || hasStoredState;
+  console.log('🔍 Auth check: Is returning from auth:', isReturning);
+  
+  return isReturning;
 }
 
 /**
  * Handle return from incremental auth
  */
 function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: string; profileId?: string; denied?: boolean } {
+  console.log('🔍 Auth return: Starting handleIncrementalAuthReturn...');
+  
   const urlParams = new URLSearchParams(window.location.search);
   const authResult = urlParams.get('incremental_auth');
   
-  console.log('🔍 Handling incremental auth return...');
-  console.log('🔍 Auth result:', authResult);
+  console.log('🔍 Auth return: Handling incremental auth return...');
+  console.log('🔍 Auth return: Auth result:', authResult);
+  console.log('🔍 Auth return: Current URL:', window.location.href);
+  console.log('🔍 Auth return: URL params:', Object.fromEntries(urlParams.entries()));
   
   if (authResult === 'success') {
+    console.log('🔍 Auth return: Success result detected');
     const contactSaveToken = urlParams.get('contact_save_token') || undefined;
     const profileId = urlParams.get('profile_id') || undefined;
     
-    console.log('🔍 Success return parameters:', { contactSaveToken, profileId });
+    console.log('🔍 Auth return: Success return parameters:', { contactSaveToken, profileId });
     
     // Clean up URL parameters
     const url = new URL(window.location.href);
@@ -501,12 +489,13 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     url.searchParams.delete('profile_id');
     window.history.replaceState({}, document.title, url.toString());
     
-    console.log('🔍 Cleaned URL:', url.toString());
+    console.log('🔍 Auth return: Cleaned URL:', url.toString());
     
     return { success: true, contactSaveToken, profileId };
   }
   
   if (authResult === 'denied') {
+    console.log('🔍 Auth return: Denied result detected');
     console.log('🚫 User denied Google Contacts permission');
     
     // Clean up URL
@@ -514,14 +503,19 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     url.searchParams.delete('incremental_auth');
     window.history.replaceState({}, document.title, url.toString());
     
+    console.log('🔍 Auth return: Cleaned URL after denial:', url.toString());
+    
     return { success: false, denied: true };
   }
   
   // If no URL params but we have stored state, user likely tapped back
+  console.log('🔍 Auth return: No URL params, checking stored state...');
   const existingState = getContactSaveState();
+  console.log('🔍 Auth return: Existing state:', existingState);
+  
   if (existingState && existingState.token && existingState.profileId) {
     console.log('🔙 No URL params but have stored state - user likely tapped back on auth');
-    console.log('🔍 Stored state:', existingState);
+    console.log('🔍 Auth return: Stored state:', existingState);
     
     // Return the stored state as a "cancelled" auth
     return { 
@@ -532,7 +526,7 @@ function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: s
     };
   }
   
-  console.log('🔍 No valid auth result found');
+  console.log('🔍 Auth return: No auth return detected, returning empty result');
   return { success: false };
 }
 
@@ -575,16 +569,23 @@ export async function saveContactFlow(
   profile: UserProfile, 
   token: string
 ): Promise<ContactSaveFlowResult> {
+  console.log('🔍 Flow: Starting saveContactFlow...');
+  console.log('🔍 Flow: Profile:', profile.name);
+  console.log('🔍 Flow: Token:', token);
+  console.log('🔍 Flow: Current URL:', window.location.href);
+  
   const platform = detectPlatform();
-  console.log(`💾 Starting contact save flow for ${platform}:`, profile.name);
+  console.log('🔍 Flow: Platform detected:', platform);
   
   // Check if we're returning from incremental auth
-  if (isReturningFromIncrementalAuth()) {
-    console.log('🔄 Detected return from incremental auth, processing...');
+  console.log('🔍 Flow: Checking if returning from incremental auth...');
+  const isReturning = isReturningFromIncrementalAuth();
+  console.log('🔍 Flow: Is returning from auth:', isReturning);
+  
+  if (isReturning) {
+    console.log('🔍 Flow: Processing auth return...');
     const authReturn = handleIncrementalAuthReturn();
-    
-    console.log('🔍 Auth return result:', authReturn);
-    console.log('🔍 Expected profile ID:', profile.userId);
+    console.log('🔍 Flow: Auth return result:', authReturn);
     
     if (authReturn.success && authReturn.contactSaveToken && authReturn.profileId === profile.userId) {
       console.log('🔄 Detected successful return from incremental auth');
@@ -632,6 +633,7 @@ export async function saveContactFlow(
         };
       }
     } else if (authReturn.denied) {
+      console.log('🔍 Flow: User denied or cancelled auth');
       console.log('🚫 User denied Google Contacts permission, showing upsell modal');
       // Clear saved state
       clearContactSaveState();
@@ -645,6 +647,7 @@ export async function saveContactFlow(
         platform
       };
     } else {
+      console.log('🔍 Flow: Auth return but conditions not met');
       // User returned from auth but didn't complete it (e.g., tapped back button)
       console.log('🔙 User returned from auth without completing (likely tapped back), showing upsell modal');
       console.log('🔍 Conditions check:', {
@@ -668,7 +671,7 @@ export async function saveContactFlow(
       };
     }
   } else {
-    console.log('🔍 Not returning from incremental auth, proceeding with normal flow');
+    console.log('🔍 Flow: Not returning from incremental auth, proceeding with normal flow');
   }
 
   try {
@@ -696,6 +699,8 @@ export async function saveContactFlow(
       const googleSaveResult = await saveContactToGoogleOnly(token);
       googleResult = googleSaveResult.google;
       console.log('📊 Google Contacts save result:', JSON.stringify(googleResult, null, 2));
+      console.log('🔍 Client: Google result success:', googleResult.success);
+      console.log('🔍 Client: Google result error:', googleResult.error);
     } catch (error) {
       console.warn('⚠️ Google Contacts save failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
@@ -706,8 +711,12 @@ export async function saveContactFlow(
       };
     }
 
+    console.log('🔍 Client: Platform detected as:', platform);
+    console.log('🔍 Client: About to enter platform-specific logic...');
+
     // Step 3: Platform-specific logic for Google Contacts
     if (platform === 'android') {
+      console.log('🔍 Client: Entering Android flow...');
       // Android Flow
       if (googleResult.success) {
         // Both Firebase and Google Contacts saved successfully
@@ -728,6 +737,7 @@ export async function saveContactFlow(
         console.log('🔍 Android: Platform detection:', platform);
         console.log('🔍 Android: User agent:', navigator.userAgent);
         
+        console.log('🔍 Android: About to call isPermissionError...');
         const isPermError = isPermissionError(googleResult.error);
         console.log('🔍 Android: isPermissionError result:', isPermError);
         
@@ -737,11 +747,14 @@ export async function saveContactFlow(
           console.log('ℹ️ Android: Firebase is already saved, just need Google permission');
           
           // Store state for when we return
+          console.log('🔍 Android: Storing contact save state...');
           storeContactSaveState(token, profile.userId || '');
           
           // Redirect to Google auth for contacts permission
+          console.log('🔍 Android: About to redirect to Google auth...');
           redirectToGoogleContactsAuth(token, profile.userId || '');
           
+          console.log('🔍 Android: Redirect initiated, returning result...');
           // Return immediately without modal flags - we're redirecting now
           // The redirect will happen before any modal can show
           return {
