@@ -143,6 +143,7 @@ export async function findMatchingExchange(
     
     // Time-based matching: find the closest timestamp within window
     if (currentTimestamp) {
+      console.log(`🔍 DEBUG: Comparing timestamps for ${sessionId} vs ${candidateSessionId}`);
       const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
       
       // Adjust time window based on RTT compensation (as suggested in the user's guidance)

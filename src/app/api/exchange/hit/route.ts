@@ -51,6 +51,7 @@ function generateExchangeToken(): string {
 }
 
 export async function POST(request: NextRequest) {
+  console.log(`🎯 === HIT ENDPOINT CALLED ===`);
   try {
     // Get session for user authentication
     const session = await getServerSession(authOptions);
