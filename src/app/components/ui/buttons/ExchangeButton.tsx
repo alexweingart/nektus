@@ -32,6 +32,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const caretRef = useRef<HTMLDivElement>(null);
+  const lastPingTimeRef = useRef<number>(0); // Add ref to track last ping time
 
   // Load selected category from localStorage on mount
   useEffect(() => {
@@ -172,15 +173,21 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     // Now we can do async operations after getting permission
     const platform = typeof (DeviceMotionEvent as any).requestPermission === 'function' ? 'iOS' : 'Android/Other';
     console.log(`🎯 ExchangeButton: iOS permission granted: ${permissionGranted}, category: ${selectedCategory}, platform: ${platform}`);
-    fetch('/api/system/ping', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        event: 'exchange_button_called',
-        message: `[${platform}] ExchangeButton called with category: ${selectedCategory}, iOS permission granted: ${permissionGranted}`,
-        timestamp: Date.now()
-      })
-    }).catch(() => {});
+    
+    // Debounce ping requests to prevent duplicates (React Strict Mode can cause double execution)
+    const now = Date.now();
+    if (now - lastPingTimeRef.current > 1000) { // Only send ping if last one was more than 1 second ago
+      lastPingTimeRef.current = now;
+      fetch('/api/system/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          event: 'exchange_button_called',
+          message: `[${platform}] ExchangeButton called with category: ${selectedCategory}, iOS permission granted: ${permissionGranted}`,
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+    }
     
     try {
       // Always create a fresh service and session for each exchange attempt

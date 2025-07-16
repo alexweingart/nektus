@@ -144,25 +144,37 @@ export async function findMatchingExchange(
     // Time-based matching: find the closest timestamp within window
     if (currentTimestamp) {
       console.log(`🔍 DEBUG: Comparing timestamps for ${sessionId} vs ${candidateSessionId}`);
-      const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+      console.log(`🔍 RAW DATA: currentTimestamp=${currentTimestamp}, candidateData.timestamp=${candidateData.timestamp}`);
       
-      // Adjust time window based on RTT compensation (as suggested in the user's guidance)
-      const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
-      const rttB = currentRTT || 100; // Use current request's RTT or fallback
-      const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
+      if (!candidateData.timestamp) {
+        console.log(`❌ Candidate ${candidateSessionId} has no timestamp, skipping`);
+        continue;
+      }
       
-      console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
-      console.log(`🕐 TIMESTAMPS: ${sessionId}=${currentTimestamp} vs ${candidateSessionId}=${candidateData.timestamp} (diff=${timeDiff}ms)`);
-      
-      if (timeDiff <= dynamicWindow) {
-        // Within time window - check if this is the best match so far
-        if (!bestMatch || timeDiff < bestMatch.timeDiff) {
-          bestMatch = {
-            sessionId: candidateSessionId,
-            matchData: candidateData,
-            timeDiff
-          };
+      try {
+        const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+        
+        // Adjust time window based on RTT compensation (as suggested in the user's guidance)
+        const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
+        const rttB = currentRTT || 100; // Use current request's RTT or fallback
+        const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
+        
+        console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
+        console.log(`🕐 TIMESTAMPS: ${sessionId}=${currentTimestamp} vs ${candidateSessionId}=${candidateData.timestamp} (diff=${timeDiff}ms)`);
+        
+        if (timeDiff <= dynamicWindow) {
+          // Within time window - check if this is the best match so far
+          if (!bestMatch || timeDiff < bestMatch.timeDiff) {
+            bestMatch = {
+              sessionId: candidateSessionId,
+              matchData: candidateData,
+              timeDiff
+            };
+          }
         }
+      } catch (error) {
+        console.log(`❌ Error calculating time diff for ${candidateSessionId}:`, error);
+        continue;
       }
     } else {
       // Fallback to immediate match (original behavior)

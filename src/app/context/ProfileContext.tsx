@@ -690,7 +690,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const current = profileRef.current;
       if (!current || !current.userId) return;
       
-      const merged = { ...current, ...data, userId: session.user.id };
+      // CRITICAL: Get fresh profile data from Firebase before saving to prevent overwrites
+      // This ensures we have the latest bio and other data if they were generated in parallel
+      const freshProfile = await ProfileService.getProfile(session.user.id);
+      if (!freshProfile) {
+        console.error('[ProfileContext] Fresh profile not found, falling back to local data');
+        const merged = { ...current, ...data, userId: session.user.id };
+        profileRef.current = merged;
+        await ProfileService.saveProfile(merged);
+        return;
+      }
+      
+      // Build merged profile preserving fresh Firebase data
+      const merged = { 
+        ...freshProfile, // Start with fresh Firebase data
+        ...data, // Apply the specific updates we want to make
+        userId: session.user.id,
+        lastUpdated: Date.now()
+      };
+      
       profileRef.current = merged; // Update ref only, no React state
       
       await ProfileService.saveProfile(merged);
