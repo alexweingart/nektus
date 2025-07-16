@@ -183,14 +183,18 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }).catch(() => {});
     
     try {
+      // Always create a fresh service and session for each exchange attempt
+      // This prevents hit counter reuse and session confusion
       setStatus('requesting-permission');
       
-      // Initialize service if not already done
-      let service = exchangeService;
-      if (!service) {
-        service = await initializeService();
-        if (!service) return;
+      // Clean up any existing service first
+      if (exchangeService && exchangeService.disconnect) {
+        exchangeService.disconnect();
       }
+      setExchangeService(null);
+      
+      const service = await initializeService();
+      if (!service) return;
 
       // Start the exchange process with the selected sharing category
       console.log(`🎯 Starting exchange with sharing category: ${selectedCategory}`);

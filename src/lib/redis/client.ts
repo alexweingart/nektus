@@ -128,7 +128,7 @@ export async function findMatchingExchange(
     
     if (!candidateDataStr) {
       // Clean up stale session from bucket
-      console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket`);
+      console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket ${geoBucketKey}`);
       await redis!.srem(geoBucketKey, candidateSessionId);
       continue;
     }
@@ -151,7 +151,7 @@ export async function findMatchingExchange(
       const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
       
       console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
-      console.log(`📊 Timestamp comparison: ${sessionId}=${currentTimestamp}, ${candidateSessionId}=${candidateData.timestamp}`);
+      console.log(`🕐 TIMESTAMPS: ${sessionId}=${currentTimestamp} vs ${candidateSessionId}=${candidateData.timestamp} (diff=${timeDiff}ms)`);
       
       if (timeDiff <= dynamicWindow) {
         // Within time window - check if this is the best match so far
