@@ -27,6 +27,8 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const res = await fetch(imageUrl, { 
       signal: controller.signal,
       mode: 'cors',
+      // Bypass service worker cache for image processing to ensure fresh response
+      cache: 'no-cache',
       headers: {
         'User-Agent': 'Nektus/1.0',
         'Accept': 'image/*',
