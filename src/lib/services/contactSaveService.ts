@@ -229,7 +229,7 @@ function supportsReliablePopups(): boolean {
 /**
  * Redirect to Google for incremental authorization with contacts scope
  */
-function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): void {
+async function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
   console.log('🔍 Redirect: Starting Google auth redirect...');
   console.log('🔍 Redirect: contactSaveToken:', contactSaveToken);
   console.log('🔍 Redirect: profileId:', profileId);
@@ -242,54 +242,59 @@ function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: strin
   if (usePopup) {
     console.log('🔍 Redirect: Using popup flow...');
     // Use popup for standalone browsers (better cookie handling)
-    openGoogleAuthPopup(contactSaveToken, profileId);
+    const result = await openGoogleAuthPopup(contactSaveToken, profileId);
+    console.log('🔍 Redirect: Popup result:', result);
+    return result;
   } else {
     console.log('🔍 Redirect: Using redirect flow...');
     // Use redirect for embedded browsers (more reliable)
     redirectToGoogleAuth(contactSaveToken, profileId);
+    // For redirects, we can't wait for completion, so return immediately
+    return { success: false, showUpsellModal: false };
   }
-  
-  console.log('🔍 Redirect: Redirect function completed');
 }
 
 /**
  * Open Google auth in a popup (for standalone browsers)
  */
-function openGoogleAuthPopup(contactSaveToken: string, profileId: string): void {
+function openGoogleAuthPopup(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
   console.log('🔍 Popup: Starting popup auth...');
   console.log('🔍 Popup: contactSaveToken:', contactSaveToken);
   console.log('🔍 Popup: profileId:', profileId);
   
-  // Use popup callback URL as return URL
-  const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
-  console.log('🔍 Popup: returnUrl:', returnUrl);
-  
-  // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
-  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
-  
-  console.log('🔄 Opening Google auth popup for incremental contacts permission (silent first):', authUrl);
-  
-  // Open popup instead of redirecting current page
-  console.log('🔍 Popup: About to open window.open...');
-  const popup = window.open(
-    authUrl,
-    'google-auth-popup',
-    'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
-  );
+  return new Promise((resolve) => {
+    // Use popup callback URL as return URL
+    const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
+    console.log('🔍 Popup: returnUrl:', returnUrl);
+    
+    // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
+    const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
+    
+    console.log('🔄 Opening Google auth popup for incremental contacts permission (silent first):', authUrl);
+    
+    // Open popup instead of redirecting current page
+    console.log('🔍 Popup: About to open window.open...');
+    const popup = window.open(
+      authUrl,
+      'google-auth-popup',
+      'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
+    );
 
-  console.log('🔍 Popup: window.open result:', popup);
+    console.log('🔍 Popup: window.open result:', popup);
 
-  if (!popup) {
-    console.error('❌ Popup blocked! Falling back to redirect...');
-    // Fallback to redirect if popup is blocked
-    redirectToGoogleAuth(contactSaveToken, profileId);
-    return;
-  }
+    if (!popup) {
+      console.error('❌ Popup blocked! Falling back to redirect...');
+      // Fallback to redirect if popup is blocked
+      redirectToGoogleAuth(contactSaveToken, profileId);
+      resolve({ success: false, showUpsellModal: false });
+      return;
+    }
 
-  console.log('🔍 Popup: Popup opened successfully, setting up listener...');
-  // Listen for popup completion
-  listenForPopupCompletion(popup, contactSaveToken, profileId);
-  console.log('🔍 Popup: Listener set up, popup flow initiated');
+    console.log('🔍 Popup: Popup opened successfully, setting up listener...');
+    // Listen for popup completion
+    listenForPopupCompletion(popup, contactSaveToken, profileId, resolve);
+    console.log('🔍 Popup: Listener set up, popup flow initiated');
+  });
 }
 
 /**
@@ -318,7 +323,12 @@ function redirectToGoogleAuth(contactSaveToken: string, profileId: string): void
 /**
  * Listen for popup completion and handle the auth result
  */
-function listenForPopupCompletion(popup: Window, contactSaveToken: string, profileId: string): void {
+function listenForPopupCompletion(
+  popup: Window, 
+  contactSaveToken: string, 
+  profileId: string, 
+  resolve: (value: { success: boolean; showUpsellModal?: boolean }) => void
+): void {
   const messageHandler = (event: MessageEvent) => {
     // Verify origin for security
     if (event.origin !== window.location.origin) {
@@ -330,6 +340,7 @@ function listenForPopupCompletion(popup: Window, contactSaveToken: string, profi
       console.log('🎉 Received popup auth completion:', event.data);
       
       // Clean up
+      clearInterval(checkClosed);
       window.removeEventListener('message', messageHandler);
       popup.close();
 
@@ -340,9 +351,11 @@ function listenForPopupCompletion(popup: Window, contactSaveToken: string, profi
         const tokenToUse = event.data.contactSaveToken || contactSaveToken;
         const profileIdToUse = event.data.profileId || profileId;
         handlePopupAuthSuccess(tokenToUse, profileIdToUse);
+        resolve({ success: true });
       } else {
         console.error('❌ Popup auth failed:', event.data.error, event.data.message);
-        // Could show an error message or handle gracefully
+        console.log('🚫 Popup auth failed, showing upsell modal');
+        resolve({ success: false, showUpsellModal: true });
       }
     }
   };
@@ -355,7 +368,8 @@ function listenForPopupCompletion(popup: Window, contactSaveToken: string, profi
     if (popup.closed) {
       clearInterval(checkClosed);
       window.removeEventListener('message', messageHandler);
-      console.log('ℹ️ Popup was closed by user');
+      console.log('ℹ️ Popup was closed by user, showing upsell modal');
+      resolve({ success: false, showUpsellModal: true });
     }
   }, 1000);
 }
@@ -810,17 +824,29 @@ export async function saveContactFlow(
           
           // Redirect to Google auth for contacts permission
           console.log('🔍 Android: About to redirect to Google auth...');
-          redirectToGoogleContactsAuth(token, profile.userId || '');
+          const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
           
-          console.log('🔍 Android: Redirect initiated, returning result...');
-          // Return immediately without modal flags - we're redirecting now
-          // The redirect will happen before any modal can show
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: { success: false, error: 'Redirecting for permissions...' },
-            platform
-          };
+          console.log('🔍 Android: Auth result:', authResult);
+          
+          if (authResult.showUpsellModal) {
+            console.log('🚫 Android: User closed popup or auth failed, showing upsell modal');
+            return {
+              success: true,
+              firebase: firebaseResult.firebase,
+              google: { success: false, error: 'User closed auth popup' },
+              showUpsellModal: true,
+              platform
+            };
+          } else {
+            console.log('🔍 Android: Auth redirect completed, returning redirect result...');
+            // For redirects, the user will be taken to auth page
+            return {
+              success: true,
+              firebase: firebaseResult.firebase,
+              google: { success: false, error: 'Redirecting for permissions...' },
+              platform
+            };
+          }
         } else {
           // Other error - show upsell modal (Firebase is still saved!)
           console.log('❌ Android: Google Contacts save failed with non-permission error, showing upsell modal');
@@ -865,26 +891,41 @@ export async function saveContactFlow(
             storeContactSaveState(token, profile.userId || '');
             
             // Redirect to Google auth for contacts permission
-            redirectToGoogleContactsAuth(token, profile.userId || '');
+            const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
             
-            // Return a pending result (this won't actually be used due to redirect)
+            console.log('🔍 iOS: Auth result:', authResult);
+            
+            if (authResult.showUpsellModal) {
+              console.log('🚫 iOS: User closed popup or auth failed, showing upsell modal');
+              return {
+                success: true,
+                firebase: firebaseResult.firebase,
+                google: { success: false, error: 'User closed auth popup' },
+                showUpsellModal: true,
+                platform
+              };
+            } else {
+              console.log('🔍 iOS: Auth redirect completed, returning redirect result...');
+              // Return a pending result (this won't actually be used due to redirect)
+              return {
+                success: true,
+                firebase: firebaseResult.firebase,
+                google: { success: false, error: 'Redirecting for permissions...' },
+                platform
+              };
+            }
+          } else {
+            // Other error - show upsell modal (Firebase is still saved!)
+            console.log('❌ Google Contacts save failed on iOS embedded browser with non-permission error, showing upsell modal');
+            console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
             return {
               success: true,
               firebase: firebaseResult.firebase,
-              google: { success: false, error: 'Redirecting for permissions...' },
+              google: googleResult,
+              showUpsellModal: true,
               platform
             };
           }
-          // Other error - show upsell modal (Firebase is still saved!)
-          console.log('❌ Google Contacts save failed on iOS embedded browser with non-permission error, showing upsell modal');
-          console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showUpsellModal: true,
-            platform
-          };
         }
       } else {
         // iOS Safari Flow (traditional vCard)
@@ -964,10 +1005,15 @@ export async function retryGoogleContactsPermission(
       storeContactSaveState(token, profile.userId || '');
       
       // Redirect to Google auth for contacts permission
-      redirectToGoogleContactsAuth(token, profile.userId || '');
+      const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
       
-      // This won't execute due to redirect
-      return { success: true };
+      if (authResult.showUpsellModal) {
+        console.log('🚫 Retry: User closed popup or auth failed');
+        return { success: false };
+      } else {
+        // This won't execute due to redirect
+        return { success: true };
+      }
     } else {
       // For other platforms (iOS Safari, web), just try Google Contacts save only
       try {
