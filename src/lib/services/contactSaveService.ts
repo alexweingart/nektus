@@ -1160,18 +1160,17 @@ export async function saveContactFlow(
           console.warn('Failed to display vCard inline for iOS Safari:', error);
         }
         
-        // Determine modal to show based on per-exchange token logic
+        // Determine modal to show based on global first-time status (iOS Safari = once EVER)
         let shouldShowUpsellModal = false;
         
-        // Check if upsell has been shown for this specific exchange token
-        if (!hasShownUpsellForToken(token)) {
-          // First time showing upsell for this exchange - show upsell to encourage Google account connection
-          console.log('🆕 iOS Safari: First time showing upsell for this exchange, showing modal');
-          markUpsellShownForToken(token);
+        if (isFirstTimeIOSUpsell()) {
+          // First time EVER saving on iOS Safari - show upsell to encourage Google account connection
+          console.log('🆕 iOS Safari: First time EVER showing upsell, showing modal');
+          markIOSUpsellShown();
           shouldShowUpsellModal = true;
         } else {
-          // Upsell already shown for this exchange - show success modal
-          console.log('🔁 iOS Safari: Upsell already shown for this exchange, showing success instead');
+          // Already shown upsell before - always show success modal
+          console.log('🔁 iOS Safari: Upsell already shown before, showing success instead');
           shouldShowUpsellModal = false;
         }
         
