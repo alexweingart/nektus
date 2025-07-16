@@ -44,9 +44,9 @@ export class MotionDetector {
   private static isCancelled = false;
 
   /**
-   * Reset sequential detection state for a new exchange session
+   * Start a new motion detection session - clears priming state and prepares for detection
    */
-  static resetSequentialState(): void {
+  static startNewSession(): void {
     this.sequentialState = {
       magnitudePrimed: false,
       jerkPrimed: false,
@@ -54,28 +54,21 @@ export class MotionDetector {
       lastResetTime: Date.now()
     };
     this.isCancelled = false;
-    console.log('🔄 Motion state reset');
+    console.log('🔄 Motion session started');
   }
 
   /**
-   * Clear sequential detection state when exchange ends
+   * End session - cancels detection and clears all state
    */
-  static clearSequentialState(): void {
+  static endSession(): void {
+    this.isCancelled = true;
     this.sequentialState = {
       magnitudePrimed: false,
       jerkPrimed: false,
       sessionStartTime: 0,
       lastResetTime: Date.now()
     };
-    this.isCancelled = true;
-    console.log('🧹 Motion state cleared');
-  }
-
-  /**
-   * Cancel ongoing motion detection
-   */
-  static cancelDetection(): void {
-    this.isCancelled = true;
+    console.log('🧹 Motion session ended');
   }
 
   /**

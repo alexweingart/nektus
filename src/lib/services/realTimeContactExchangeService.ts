@@ -52,9 +52,9 @@ export class RealTimeContactExchangeService {
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
       
-      // Reset motion detector sequential state for new session
+      // Start fresh motion detection session 
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
-      MotionDetector.resetSequentialState();
+      MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
       
               // Initialize clock sync first thing
         if (!isClockSyncInitialized()) {
@@ -117,10 +117,9 @@ export class RealTimeContactExchangeService {
     // Cancel motion detection
     this.motionDetectionCancelled = true;
     
-    // Clear motion detector sequential state when exchange ends (now synchronous)
+    // End motion detection session completely
     const { MotionDetector } = await import('@/lib/utils/motionDetector');
-    MotionDetector.clearSequentialState();
-    MotionDetector.cancelDetection();
+    MotionDetector.endSession(); // This cancels detection AND clears all state
     
     // Clear any active timeouts
     if (this.waitingForBumpTimeout) {

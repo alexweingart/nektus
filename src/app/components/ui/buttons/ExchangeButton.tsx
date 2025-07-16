@@ -187,9 +187,9 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       // This prevents hit counter reuse and session confusion
       setStatus('requesting-permission');
       
-      // Clean up any existing service first
+      // Clean up any existing service first and wait for complete cleanup
       if (exchangeService && exchangeService.disconnect) {
-        exchangeService.disconnect();
+        await exchangeService.disconnect(); // ✅ Now properly awaited
       }
       setExchangeService(null);
       
