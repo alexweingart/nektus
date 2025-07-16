@@ -317,22 +317,35 @@ export class RealTimeContactExchangeService {
 
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
+          console.log('🔄 Updating state to processing for first hit');
           this.updateState({ status: 'processing' });
         }
         
         console.log(`📤 Sending hit #${hitCount} to server (ts=${request.ts})`);
-        const response = await this.sendHit(request);
+        
+        try {
+          const response = await this.sendHit(request);
+          console.log('✅ Hit sent successfully, response:', response);
 
-        // If we got an immediate match, handle it
-        if (response.matched && response.token) {
-          console.log(`🎉 Instant match!`);
-          await this.handleMatch(response.token, response.youAre || 'A');
-          return; // Exit after successful match
-        } else {
-          // Start polling as fallback in case SSE fails (only on first hit)
-          if (isFirstHit) {
-            this.startMatchPolling();
+          // If we got an immediate match, handle it
+          if (response.matched && response.token) {
+            console.log(`🎉 Instant match!`);
+            await this.handleMatch(response.token, response.youAre || 'A');
+            return; // Exit after successful match
+          } else {
+            console.log('📡 No immediate match, starting polling');
+            // Start polling as fallback in case SSE fails (only on first hit)
+            if (isFirstHit) {
+              this.startMatchPolling();
+            }
           }
+        } catch (sendError) {
+          console.error('❌ Error sending hit to server:', sendError);
+          this.updateState({ 
+            status: 'error', 
+            error: 'Failed to send exchange request - please try again' 
+          });
+          break; // Exit loop on send error
         }
         
         // Continue listening for more motion instead of breaking
@@ -351,23 +364,36 @@ export class RealTimeContactExchangeService {
   }
 
   private async sendHit(request: ContactExchangeRequest): Promise<ContactExchangeResponse> {
-    const response = await fetch('/api/exchange/hit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to send exchange request');
-    }
-
-    const result: ContactExchangeResponse = await response.json();
+    console.log('🌐 Making fetch request to /api/exchange/hit');
     
-    if (!result.success) {
-      throw new Error(result.message || 'Exchange request failed');
-    }
+    try {
+      const response = await fetch('/api/exchange/hit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+      });
 
-    return result;
+      console.log('🌐 Fetch response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HTTP error response:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to send exchange request'}`);
+      }
+
+      const result: ContactExchangeResponse = await response.json();
+      console.log('📥 Parsed JSON response:', result);
+      
+      if (!result.success) {
+        console.error('❌ Server returned failure:', result.message);
+        throw new Error(result.message || 'Exchange request failed');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Network or parsing error in sendHit:', error);
+      throw error;
+    }
   }
 
 
@@ -393,7 +419,9 @@ export class RealTimeContactExchangeService {
 
 
   private updateState(updates: Partial<ContactExchangeState>): void {
+    const previousStatus = this.state.status;
     this.state = { ...this.state, ...updates };
+    console.log(`🔄 State transition: ${previousStatus} → ${this.state.status}`, updates);
     this.onStateChange?.(this.state);
   }
 

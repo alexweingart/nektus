@@ -103,6 +103,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       const { RealTimeContactExchangeService, generateSessionId } = await import('@/lib/services/realTimeContactExchangeService');
       const sessionId = generateSessionId();
       const service = new RealTimeContactExchangeService(sessionId, async (state: ContactExchangeState) => {
+        console.log('🎯 ExchangeButton received state change:', state.status, state);
         setStatus(state.status);
         
         // Navigate to connect page only when we have a match
