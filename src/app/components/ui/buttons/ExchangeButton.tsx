@@ -109,27 +109,25 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         // Navigate to connect page only when we have a match
         if (state.status === 'matched' && state.match) {
           router.push(`/connect?token=${state.match.token}`);
-          // Clear service reference after match to force fresh service on next tap
+          // Clear service reference immediately - service has already disconnected itself
           setExchangeService(null);
         }
         
-        // Handle timeout - wait for cleanup to complete before allowing button to be tappable
+        // Handle timeout - service has already disconnected itself, just manage UI
         if (state.status === 'timeout') {
-          // Keep the timeout state visible during cleanup
-          setTimeout(async () => {
-            await service.disconnect();
+          // Keep the timeout state visible for user feedback
+          setTimeout(() => {
             setStatus('idle');
             setExchangeService(null); // Clear service reference
-          }, 1000); // Show timeout for 1 second, then cleanup and reset
+          }, 1000); // Show timeout for 1 second, then reset UI
         }
         
-        // Handle error - wait for cleanup to complete before allowing button to be tappable
+        // Handle error - service has already disconnected itself, just manage UI  
         if (state.status === 'error') {
-          setTimeout(async () => {
-            await service.disconnect();
+          setTimeout(() => {
             setStatus('idle');
             setExchangeService(null); // Clear service reference
-          }, 2000); // Show error for 2 seconds, then cleanup and reset
+          }, 2000); // Show error for 2 seconds, then reset UI
         }
       });
       setExchangeService(service);
@@ -172,13 +170,14 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
 
     // Now we can do async operations after getting permission
-    console.log(`🎯 ExchangeButton: iOS permission granted: ${permissionGranted}, category: ${selectedCategory}`);
+    const platform = typeof (DeviceMotionEvent as any).requestPermission === 'function' ? 'iOS' : 'Android/Other';
+    console.log(`🎯 ExchangeButton: iOS permission granted: ${permissionGranted}, category: ${selectedCategory}, platform: ${platform}`);
     fetch('/api/system/ping', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         event: 'exchange_button_called',
-        message: `ExchangeButton called with category: ${selectedCategory}, iOS permission granted: ${permissionGranted}`,
+        message: `[${platform}] ExchangeButton called with category: ${selectedCategory}, iOS permission granted: ${permissionGranted}`,
         timestamp: Date.now()
       })
     }).catch(() => {});
