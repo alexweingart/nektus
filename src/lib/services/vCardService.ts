@@ -15,6 +15,12 @@ export interface VCardOptions {
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
+    // Check if this is a Google profile image that might need special handling
+    const isGoogleImage = imageUrl.includes('googleusercontent.com') || imageUrl.includes('lh3.googleusercontent.com');
+    if (isGoogleImage) {
+      console.log('[vCard] Detected Google profile image, attempting to fetch with appropriate headers...');
+    }
+    
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     
@@ -23,12 +29,18 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
       mode: 'cors',
       headers: {
         'User-Agent': 'Nektus/1.0',
-        'Accept': 'image/*'
+        'Accept': 'image/*',
+        // Add referer to help with Google image access
+        ...(isGoogleImage && { 'Referer': 'https://accounts.google.com/' })
       }
     });
     clearTimeout(timeoutId);
     
     if (!res.ok) {
+      // For Google images, provide more specific error info
+      if (isGoogleImage) {
+        console.warn(`[vCard] Google image fetch failed: ${res.status} ${res.statusText}. This may indicate the image needs to be rehosted.`);
+      }
       throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
     }
     
@@ -46,6 +58,14 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     
   } catch (error) {
     console.warn('Failed to encode photo as base64, falling back to URI:', error);
+    
+    // For Google images that fail, provide better fallback - skip the photo entirely
+    // rather than including a broken URL
+    if (imageUrl.includes('googleusercontent.com') || imageUrl.includes('lh3.googleusercontent.com')) {
+      console.warn('[vCard] Skipping Google profile image due to access restrictions. Consider rehosting the image to Firebase Storage.');
+      return ''; // Return empty string to skip the photo
+    }
+    
     return `PHOTO;VALUE=URI:${imageUrl}`;
   }
 }
@@ -113,7 +133,10 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
   if (includePhoto && profile.profileImage) {
     try {
       const photoLine = await makePhotoLine(profile.profileImage);
-      lines.push(photoLine);
+      // Only add the photo line if it's not empty (empty means we skipped it)
+      if (photoLine.trim() !== '') {
+        lines.push(photoLine);
+      }
     } catch (error) {
       console.warn('Failed to encode photo for vCard 3.0:', error);
     }
