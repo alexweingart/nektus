@@ -6,6 +6,45 @@
 import { UserProfile } from '@/types/profile';
 import { ContactSaveResult } from '@/types/contactExchange';
 import { displayVCardInlineForIOS } from './vCardService';
+import { detectPlatform as detectPlatformUtil } from '@/lib/utils/platformDetection';
+
+// Constants for permission error detection
+const PERMISSION_KEYWORDS = [
+  'permission',
+  'scope', 
+  'authorization',
+  'not authorized',
+  'insufficient',
+  'access denied',
+  'forbidden',
+  '403',
+  '401',
+  'unauthorized',
+  'Google Contacts API error: 403',
+  'Google Contacts API error: 401',
+  'Insufficient Permission',
+  'Request had insufficient authentication scopes',
+  'No Google Contacts access token available',
+  'no google contacts access token',
+  'access token available',
+  'access token',
+  'token',
+  'authentication'
+];
+
+const TOKEN_ERROR_PATTERNS = [
+  /no.*token.*available/i,
+  /token.*not.*available/i,
+  /missing.*token/i,
+  /invalid.*token/i,
+  /expired.*token/i,
+  /token.*required/i,
+  /no.*access.*token/i
+];
+
+const EMBEDDED_BROWSER_INDICATORS = [
+  'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'
+];
 
 export interface ContactSaveFlowResult {
   success: boolean;
@@ -17,15 +56,10 @@ export interface ContactSaveFlowResult {
 }
 
 /**
- * Simple platform detection
+ * Platform detection using shared utility
  */
 function detectPlatform(): 'android' | 'ios' | 'web' {
-  if (typeof window === 'undefined') return 'web';
-  
-  const userAgent = navigator.userAgent.toLowerCase();
-  if (/android/.test(userAgent)) return 'android';
-  if (/iphone|ipad|ipod/.test(userAgent)) return 'ios';
-  return 'web';
+  return (detectPlatformUtil().platform || 'web') as 'android' | 'ios' | 'web';
 }
 
 /**
@@ -158,35 +192,13 @@ function isPermissionError(error?: string): boolean {
   console.log('🔍 Permission check: Error type:', typeof error);
   console.log('🔍 Permission check: Error length:', error.length);
   
-  // Common permission error messages and HTTP status codes from Google API
-  const permissionKeywords = [
-    'permission',
-    'scope',
-    'authorization',
-    'not authorized',
-    'insufficient',
-    'access denied',
-    'forbidden',
-    '403',
-    '401',
-    'unauthorized',
-    'Google Contacts API error: 403', // Specific format from our googleContactsService
-    'Google Contacts API error: 401', // Unauthorized
-    'Insufficient Permission',
-    'Request had insufficient authentication scopes',
-    'No Google Contacts access token available', // When no token is available
-    'no google contacts access token', // Case variations
-    'access token available',
-    'access token',
-    'token',
-    'authentication'
-  ];
+  // Check against common permission error keywords
   
   const lowerError = error.toLowerCase();
   console.log('🔍 Permission check: Lowercase error:', JSON.stringify(lowerError));
   
   // Check each keyword individually for debugging
-  const matchingKeywords = permissionKeywords.filter(keyword => 
+  const matchingKeywords = PERMISSION_KEYWORDS.filter(keyword => 
     lowerError.includes(keyword.toLowerCase())
   );
   console.log('🔍 Permission check: Matching keywords:', matchingKeywords);
@@ -198,17 +210,7 @@ function isPermissionError(error?: string): boolean {
     console.log('🔍 Permission check: No keyword matches, checking regex patterns...');
     
     // Check for specific patterns that indicate permission issues
-    const tokenPatterns = [
-      /no.*token.*available/i,
-      /token.*not.*available/i,
-      /missing.*token/i,
-      /invalid.*token/i,
-      /expired.*token/i,
-      /token.*required/i,
-      /no.*access.*token/i // Additional pattern for "no access token"
-    ];
-    
-    const matchingPatterns = tokenPatterns.filter(pattern => pattern.test(error));
+    const matchingPatterns = TOKEN_ERROR_PATTERNS.filter(pattern => pattern.test(error));
     console.log('🔍 Permission check: Matching patterns:', matchingPatterns.length);
     
     if (matchingPatterns.length > 0) {
@@ -291,13 +293,9 @@ function isEmbeddedBrowser(): boolean {
   const userAgent = navigator.userAgent.toLowerCase();
   console.log('🔍 Browser detection: User agent:', userAgent);
   
-  const embeddedIndicators = [
-    'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'
-  ];
-  
-  const isEmbedded = embeddedIndicators.some(indicator => userAgent.includes(indicator));
+  const isEmbedded = EMBEDDED_BROWSER_INDICATORS.some(indicator => userAgent.includes(indicator));
   console.log('🔍 Browser detection: Is embedded browser:', isEmbedded);
-  console.log('🔍 Browser detection: Matching indicators:', embeddedIndicators.filter(indicator => userAgent.includes(indicator)));
+  console.log('🔍 Browser detection: Matching indicators:', EMBEDDED_BROWSER_INDICATORS.filter(indicator => userAgent.includes(indicator)));
   
   return isEmbedded;
 }
@@ -324,23 +322,16 @@ function supportsReliablePopups(): boolean {
  * Redirect to Google for incremental authorization with contacts scope
  */
 async function redirectToGoogleContactsAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
-  console.log('🔍 Redirect: Starting Google auth redirect...');
-  console.log('🔍 Redirect: contactSaveToken:', contactSaveToken);
-  console.log('🔍 Redirect: profileId:', profileId);
+  console.log('🔄 Starting Google auth for contacts permission...');
   
   // Determine whether to use popup or redirect based on browser capabilities
   const usePopup = supportsReliablePopups();
   
-  console.log(`🔄 Browser detection: embedded=${isEmbeddedBrowser()}, usePopup=${usePopup}`);
-  
   if (usePopup) {
-    console.log('🔍 Redirect: Using popup flow...');
     // Use popup for standalone browsers (better cookie handling)
     const result = await openGoogleAuthPopup(contactSaveToken, profileId);
-    console.log('🔍 Redirect: Popup result:', result);
     return result;
   } else {
-    console.log('🔍 Redirect: Using redirect flow...');
     // Use redirect for embedded browsers (more reliable)
     redirectToGoogleAuth(contactSaveToken, profileId);
     // For redirects, we can't wait for completion, so return immediately
@@ -352,29 +343,16 @@ async function redirectToGoogleContactsAuth(contactSaveToken: string, profileId:
  * Open Google auth in a popup (for standalone browsers)
  */
 function openGoogleAuthPopup(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
-  console.log('🔍 Popup: Starting popup auth...');
-  console.log('🔍 Popup: contactSaveToken:', contactSaveToken);
-  console.log('🔍 Popup: profileId:', profileId);
-  
   return new Promise((resolve) => {
-    // Use popup callback URL as return URL
-    const returnUrl = `${window.location.origin}/api/auth/google-incremental/popup-callback`;
-    console.log('🔍 Popup: returnUrl:', returnUrl);
+    // Build auth URL using existing endpoint
+    const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(`${window.location.origin}/api/auth/google-incremental/popup-callback`)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
     
-    // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
-    const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
-    
-    console.log('🔄 Opening Google auth popup for incremental contacts permission (silent first):', authUrl);
-    
-    // Open popup instead of redirecting current page
-    console.log('🔍 Popup: About to open window.open...');
+    // Open popup for auth
     const popup = window.open(
       authUrl,
       'google-auth-popup',
       'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
     );
-
-    console.log('🔍 Popup: window.open result:', popup);
 
     if (!popup) {
       console.error('❌ Popup blocked! Falling back to redirect...');
@@ -384,10 +362,8 @@ function openGoogleAuthPopup(contactSaveToken: string, profileId: string): Promi
       return;
     }
 
-    console.log('🔍 Popup: Popup opened successfully, setting up listener...');
     // Listen for popup completion
     listenForPopupCompletion(popup, contactSaveToken, profileId, resolve);
-    console.log('🔍 Popup: Listener set up, popup flow initiated');
   });
 }
 
@@ -395,23 +371,12 @@ function openGoogleAuthPopup(contactSaveToken: string, profileId: string): Promi
  * Redirect to Google auth in same tab (for embedded browsers)
  */
 function redirectToGoogleAuth(contactSaveToken: string, profileId: string): void {
-  console.log('🔍 Direct redirect: Starting same-tab redirect...');
-  console.log('🔍 Direct redirect: contactSaveToken:', contactSaveToken);
-  console.log('🔍 Direct redirect: profileId:', profileId);
+  console.log('🔄 Redirecting to Google for incremental contacts permission...');
   
-  // Use current URL as return URL (traditional redirect flow)
-  const returnUrl = window.location.href;
-  console.log('🔍 Direct redirect: returnUrl:', returnUrl);
-  
-  // Build incremental auth URL with required parameters - START WITH SILENT ATTEMPT
-  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(returnUrl)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
-  
-  console.log('🔄 Redirecting to Google for incremental contacts permission (embedded browser):', authUrl);
-  console.log('🔍 Direct redirect: About to set window.location.href...');
+  // Build auth URL using existing endpoint  
+  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
   
   window.location.href = authUrl;
-  
-  console.log('🔍 Direct redirect: window.location.href set (this may not log if redirect is immediate)');
 }
 
 /**
@@ -476,7 +441,7 @@ async function handlePopupAuthSuccess(contactSaveToken: string, profileId: strin
     console.log('🔄 Retrying Google Contacts save after popup auth...');
     
     // Retry the Google Contacts save
-    const result = await saveContactToGoogleOnly(contactSaveToken);
+    const result = await callSaveContactAPI(contactSaveToken, { googleOnly: true });
     
     if (result.success) {
       console.log('✅ Contact saved to Google after popup auth!');
@@ -492,74 +457,29 @@ async function handlePopupAuthSuccess(contactSaveToken: string, profileId: strin
   }
 }
 
+
 /**
- * Save contact to Firebase only
+ * Helper function to call save-contact API with different options
  */
-async function saveContactToFirebase(token: string): Promise<ContactSaveResult> {
+async function callSaveContactAPI(token: string, options: { skipGoogleContacts?: boolean; skipFirebase?: boolean; googleOnly?: boolean } = {}): Promise<ContactSaveResult> {
   const response = await fetch('/api/save-contact', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      token,
-      skipGoogleContacts: true // Only save to Firebase
-    })
+    body: JSON.stringify({ token, ...options })
   });
 
-  if (!response.ok) {
-    throw new Error(`Firebase save API request failed: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Save contact to Google Contacts only (assumes Firebase already done)
- */
-async function saveContactToGoogleOnly(token: string): Promise<ContactSaveResult> {
-  const response = await fetch('/api/save-contact', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      token,
-      googleOnly: true // Only save to Google Contacts
-    })
-  });
-
-  // Read the response body regardless of status code
   const result = await response.json();
   
   if (!response.ok) {
-    // Check if we have a specific error message in the response
-    if (result.google?.error) {
+    // For Google-only calls, check if we have a specific error message
+    if (options.googleOnly && result.google?.error) {
       console.warn('⚠️ Google Contacts save failed with specific error:', result.google.error);
-      // Return the result with the specific error instead of throwing
-      return result;
+      return result; // Return the result with the specific error instead of throwing
     }
-    // Fallback to generic error if no specific error in response
-    throw new Error(`Google Contacts save API request failed: ${response.status}`);
-  }
-
-  return result;
-}
-
-/**
- * Save contact to Firebase and Google Contacts via API (legacy function for compatibility)
- */
-async function saveContactToAPI(token: string, skipGoogleContacts = false): Promise<ContactSaveResult> {
-  const response = await fetch('/api/save-contact', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      token,
-      skipGoogleContacts
-    })
-  });
-
-  if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`);
   }
 
-  return response.json();
+  return result;
 }
 
 /**
@@ -766,7 +686,7 @@ export async function saveContactFlow(
       // Try Google Contacts save only (Firebase was already saved before we went to auth)
       try {
         console.log('🔄 Attempting Google Contacts save with new token...');
-        const googleSaveResult = await saveContactToGoogleOnly(authReturn.contactSaveToken);
+        const googleSaveResult = await callSaveContactAPI(authReturn.contactSaveToken, { googleOnly: true });
         console.log('🔍 Google save result after auth:', JSON.stringify(googleSaveResult, null, 2));
         
         if (googleSaveResult.google.success) {
@@ -907,7 +827,7 @@ export async function saveContactFlow(
   try {
     // Step 1: Always save to Firebase first (immediate success feedback)
     console.log('🔄 Saving to Firebase first...');
-    const firebaseResult = await saveContactToFirebase(token);
+    const firebaseResult = await callSaveContactAPI(token, { skipGoogleContacts: true });
     
     if (!firebaseResult.firebase.success) {
       console.error('❌ Firebase save failed');
@@ -926,7 +846,7 @@ export async function saveContactFlow(
     let googleResult;
     
     try {
-      const googleSaveResult = await saveContactToGoogleOnly(token);
+      const googleSaveResult = await callSaveContactAPI(token, { googleOnly: true });
       googleResult = googleSaveResult.google;
       console.log('📊 Google Contacts save result:', JSON.stringify(googleResult, null, 2));
       console.log('🔍 Client: Google result success:', googleResult.success);
@@ -945,254 +865,53 @@ export async function saveContactFlow(
     console.log('🔍 Client: About to enter platform-specific logic...');
 
     // Step 3: Platform-specific logic for Google Contacts
-    if (platform === 'android') {
-      console.log('🔍 Client: Entering Android flow...');
-      // Android Flow
-              if (googleResult.success) {
-          // Both Firebase and Google Contacts saved successfully
-          console.log('✅ Both Firebase and Google Contacts saved on Android');
-          // Clear upsell tracking since the exchange was successful
-          clearUpsellTrackingForToken(token);
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showSuccessModal: true,
-            platform
-          };
-        } else {
-        // Check if this is a permission error with comprehensive logging
-        console.log('🔍 Android: Google Contacts save failed, checking if permission-related...');
-        console.log('🔍 Android: Error string:', googleResult.error);
-        console.log('🔍 Android: Error type:', typeof googleResult.error);
-        console.log('🔍 Android: Error length:', googleResult.error?.length);
-        console.log('🔍 Android: Platform detection:', platform);
-        console.log('🔍 Android: User agent:', navigator.userAgent);
-        
-        console.log('🔍 Android: About to call isPermissionError...');
-        const isPermError = isPermissionError(googleResult.error);
-        console.log('🔍 Android: isPermissionError result:', isPermError);
-        
-        if (isPermError) {
-          console.log('⚠️ Android: Google Contacts permission error detected, redirecting to auth');
-          console.log('🔍 Android: Error details:', googleResult.error);
-          console.log('ℹ️ Android: Firebase is already saved, just need Google permission');
-          
-          // Store state for when we return
-          console.log('🔍 Android: Storing contact save state...');
-          storeContactSaveState(token, profile.userId || '');
-          
-          // Redirect to Google auth for contacts permission
-          console.log('🔍 Android: About to redirect to Google auth...');
-          const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
-          
-          console.log('🔍 Android: Auth result:', authResult);
-          
-          if (authResult.showUpsellModal) {
-            console.log('🚫 Android: User closed popup or auth failed');
-            
-            // Only show upsell modal if we haven't shown it for this token yet
-            if (!hasShownUpsellForToken(token)) {
-              console.log('🆕 Android: First time showing upsell for this exchange, showing modal');
-              markUpsellShownForToken(token);
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: { success: false, error: 'User closed auth popup' },
-                showUpsellModal: true,
-                platform
-              };
-            } else {
-              console.log('🔁 Android: Upsell already shown for this exchange, showing success instead');
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: { success: false, error: 'User closed auth popup' },
-                showSuccessModal: true,
-                platform
-              };
-            }
-          } else {
-            console.log('🔍 Android: Auth redirect completed, returning redirect result...');
-            // For redirects, the user will be taken to auth page
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: { success: false, error: 'Redirecting for permissions...' },
-              platform
-            };
-          }
-        } else {
-          // Other error - show upsell modal (Firebase is still saved!)
-          console.log('❌ Android: Google Contacts save failed with non-permission error');
-          console.log('🔍 Android: Error details:', googleResult.error);
-          console.log('🔍 Android: This should have been a permission error but wasn\'t detected as one');
-          console.log('ℹ️ Android: Contact is saved to Firebase, just not Google Contacts');
-          
-          // Only show upsell modal if we haven't shown it for this token yet
-          if (!hasShownUpsellForToken(token)) {
-            console.log('🆕 Android: First time showing upsell for this exchange, showing modal');
-            markUpsellShownForToken(token);
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: googleResult,
-              showUpsellModal: true,
-              platform
-            };
-          } else {
-            console.log('🔁 Android: Upsell already shown for this exchange, showing success instead');
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: googleResult,
-              showSuccessModal: true,
-              platform
-            };
-          }
-        }
-      }
-    } else if (platform === 'ios') {
-      // iOS Flow - different behavior for embedded browsers vs Safari
-      const userAgent = navigator.userAgent.toLowerCase();
-      const isEmbedded = ['gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'].some(indicator => userAgent.includes(indicator));
+    
+    // iOS Safari/Chrome Flow (traditional vCard) - the only truly different platform
+    if (platform === 'ios' && !isEmbeddedBrowser()) {
+      console.log('🍎 iOS Safari flow: displaying vCard inline');
       
-      if (isEmbedded) {
-        // iOS Embedded Browser Flow (like Android)
-        console.log('🍎 iOS embedded browser flow: using Google Contacts approach');
-        
-        if (googleResult.success) {
-          // Both Firebase and Google Contacts saved successfully
-          console.log('✅ Both Firebase and Google Contacts saved on iOS embedded browser');
-          // Clear upsell tracking since the exchange was successful
-          clearUpsellTrackingForToken(token);
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showSuccessModal: true,
-            platform
-          };
-        } else {
-          // Check if this is a permission error
-          if (isPermissionError(googleResult.error)) {
-            console.log('⚠️ Google Contacts permission error detected on iOS, redirecting to auth');
-            console.log('ℹ️ Firebase is already saved, just need Google permission');
-            
-            // Store state for when we return
-            storeContactSaveState(token, profile.userId || '');
-            
-            // Redirect to Google auth for contacts permission
-            const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
-            
-            console.log('🔍 iOS: Auth result:', authResult);
-            
-            if (authResult.showUpsellModal) {
-              console.log('🚫 iOS: User closed popup or auth failed');
-              
-              // Only show upsell modal if we haven't shown it for this token yet
-              if (!hasShownUpsellForToken(token)) {
-                console.log('🆕 iOS: First time showing upsell for this exchange, showing modal');
-                markUpsellShownForToken(token);
-                return {
-                  success: true,
-                  firebase: firebaseResult.firebase,
-                  google: { success: false, error: 'User closed auth popup' },
-                  showUpsellModal: true,
-                  platform
-                };
-              } else {
-                console.log('🔁 iOS: Upsell already shown for this exchange, showing success instead');
-                return {
-                  success: true,
-                  firebase: firebaseResult.firebase,
-                  google: { success: false, error: 'User closed auth popup' },
-                  showSuccessModal: true,
-                  platform
-                };
-              }
-            } else {
-              console.log('🔍 iOS: Auth redirect completed, returning redirect result...');
-              // Return a pending result (this won't actually be used due to redirect)
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: { success: false, error: 'Redirecting for permissions...' },
-                platform
-              };
-            }
-          } else {
-            // Other error - show upsell modal (Firebase is still saved!)
-            console.log('❌ Google Contacts save failed on iOS embedded browser with non-permission error');
-            console.log('ℹ️ Contact is saved to Firebase, just not Google Contacts');
-            
-            // Only show upsell modal if we haven't shown it for this token yet
-            if (!hasShownUpsellForToken(token)) {
-              console.log('🆕 iOS: First time showing upsell for this exchange, showing modal');
-              markUpsellShownForToken(token);
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: googleResult,
-                showUpsellModal: true,
-                platform
-              };
-            } else {
-              console.log('🔁 iOS: Upsell already shown for this exchange, showing success instead');
-              return {
-                success: true,
-                firebase: firebaseResult.firebase,
-                google: googleResult,
-                showSuccessModal: true,
-                platform
-              };
-            }
-          }
-        }
-      } else {
-        // iOS Safari Flow (traditional vCard)
-        console.log('🍎 iOS Safari flow: displaying vCard inline');
-        
-        // Try to show vCard inline for Safari
-        try {
-          await displayVCardInlineForIOS(profile);
-        } catch (error) {
-          console.warn('Failed to display vCard inline for iOS Safari:', error);
-        }
-        
-        // Determine modal to show based on global first-time status (iOS Safari = once EVER)
-        let shouldShowUpsellModal = false;
-        
-        if (isFirstTimeIOSUpsell()) {
-          // First time EVER saving on iOS Safari - show upsell to encourage Google account connection
-          console.log('🆕 iOS Safari: First time EVER showing upsell, showing modal');
-          markIOSUpsellShown();
-          shouldShowUpsellModal = true;
-        } else {
-          // Already shown upsell before - always show success modal
-          console.log('🔁 iOS Safari: Upsell already shown before, showing success instead');
-          shouldShowUpsellModal = false;
-        }
-        
-        // Clear upsell tracking if showing success modal (Firebase saved successfully)
-        if (!shouldShowUpsellModal) {
-          clearUpsellTrackingForToken(token);
-        }
-        
-        const result: ContactSaveFlowResult = {
-          success: true,
-          firebase: firebaseResult.firebase,
-          google: googleResult,
-          showUpsellModal: shouldShowUpsellModal,
-          showSuccessModal: !shouldShowUpsellModal,
-          platform
-        };
-        
-        return result;
+      // Try to show vCard inline for Safari
+      try {
+        await displayVCardInlineForIOS(profile);
+      } catch (error) {
+        console.warn('Failed to display vCard inline for iOS Safari:', error);
       }
-    } else {
-      // Web/Desktop - just show success
-      console.log('🖥️ Desktop flow: showing success modal');
+      
+      // Determine modal to show based on global first-time status (iOS Safari = once EVER)
+      let shouldShowUpsellModal = false;
+      
+      if (isFirstTimeIOSUpsell()) {
+        // First time EVER saving on iOS Safari - show upsell to encourage Google account connection
+        console.log('🆕 iOS Safari: First time EVER showing upsell, showing modal');
+        markIOSUpsellShown();
+        shouldShowUpsellModal = true;
+      } else {
+        // Already shown upsell before - always show success modal
+        console.log('🔁 iOS Safari: Upsell already shown before, showing success instead');
+        shouldShowUpsellModal = false;
+      }
+      
+      // Clear upsell tracking if showing success modal (Firebase saved successfully)
+      if (!shouldShowUpsellModal) {
+        clearUpsellTrackingForToken(token);
+      }
+      
+      return {
+        success: true,
+        firebase: firebaseResult.firebase,
+        google: googleResult,
+        showUpsellModal: shouldShowUpsellModal,
+        showSuccessModal: !shouldShowUpsellModal,
+        platform
+      };
+    }
+
+    // All other platforms (Android, iOS Embedded, Web/Desktop) - unified logic
+    console.log(`🔍 ${platform} flow: using unified Google Contacts approach`);
+    
+    if (googleResult.success) {
+      // Both Firebase and Google Contacts saved successfully
+      console.log(`✅ Both Firebase and Google Contacts saved on ${platform}`);
       // Clear upsell tracking since the exchange was successful
       clearUpsellTrackingForToken(token);
       return {
@@ -1202,6 +921,88 @@ export async function saveContactFlow(
         showSuccessModal: true,
         platform
       };
+    } else {
+      // Check if this is a permission error
+      console.log(`🔍 ${platform}: Google Contacts save failed, checking if permission-related...`);
+      console.log(`🔍 ${platform}: Error string:`, googleResult.error);
+      
+      const isPermError = isPermissionError(googleResult.error);
+      console.log(`🔍 ${platform}: isPermissionError result:`, isPermError);
+      
+      if (isPermError && (platform === 'android' || platform === 'ios')) {
+        // Only Android and iOS embedded can do incremental auth
+        console.log(`⚠️ ${platform}: Google Contacts permission error detected, redirecting to auth`);
+        console.log(`ℹ️ ${platform}: Firebase is already saved, just need Google permission`);
+        
+        // Store state for when we return
+        storeContactSaveState(token, profile.userId || '');
+        
+        // Redirect to Google auth for contacts permission
+        const authResult = await redirectToGoogleContactsAuth(token, profile.userId || '');
+        
+        console.log(`🔍 ${platform}: Auth result:`, authResult);
+        
+        if (authResult.showUpsellModal) {
+          console.log(`🚫 ${platform}: User closed popup or auth failed`);
+          
+          // Only show upsell modal if we haven't shown it for this token yet
+          if (!hasShownUpsellForToken(token)) {
+            console.log(`🆕 ${platform}: First time showing upsell for this exchange, showing modal`);
+            markUpsellShownForToken(token);
+            return {
+              success: true,
+              firebase: firebaseResult.firebase,
+              google: { success: false, error: 'User closed auth popup' },
+              showUpsellModal: true,
+              platform
+            };
+          } else {
+            console.log(`🔁 ${platform}: Upsell already shown for this exchange, showing success instead`);
+            return {
+              success: true,
+              firebase: firebaseResult.firebase,
+              google: { success: false, error: 'User closed auth popup' },
+              showSuccessModal: true,
+              platform
+            };
+          }
+        } else {
+          console.log(`🔍 ${platform}: Auth redirect completed, returning redirect result...`);
+          // For redirects, the user will be taken to auth page
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: { success: false, error: 'Redirecting for permissions...' },
+            platform
+          };
+        }
+      } else {
+        // Other error (non-permission error, or web platform) - show upsell modal (Firebase is still saved!)
+        console.log(`❌ ${platform}: Google Contacts save failed with non-permission error or platform doesn't support auth`);
+        console.log(`ℹ️ ${platform}: Contact is saved to Firebase, just not Google Contacts`);
+        
+        // Only show upsell modal if we haven't shown it for this token yet
+        if (!hasShownUpsellForToken(token)) {
+          console.log(`🆕 ${platform}: First time showing upsell for this exchange, showing modal`);
+          markUpsellShownForToken(token);
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showUpsellModal: true,
+            platform
+          };
+        } else {
+          console.log(`🔁 ${platform}: Upsell already shown for this exchange, showing success instead`);
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showSuccessModal: true,
+            platform
+          };
+        }
+      }
     }
   } catch (error) {
     console.error(`❌ Contact save flow failed for ${platform}:`, error);
@@ -1226,8 +1027,7 @@ export async function retryGoogleContactsPermission(
   
   try {
     const platform = detectPlatform();
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isEmbedded = ['gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'].some(indicator => userAgent.includes(indicator));
+    const isEmbedded = isEmbeddedBrowser();
     
     if (platform === 'android' || (platform === 'ios' && isEmbedded)) {
       // Store state for when we return
@@ -1246,7 +1046,7 @@ export async function retryGoogleContactsPermission(
     } else {
       // For other platforms (iOS Safari, web), just try Google Contacts save only
       try {
-        const googleSaveResult = await saveContactToGoogleOnly(token);
+        const googleSaveResult = await callSaveContactAPI(token, { googleOnly: true });
         
         return {
           success: googleSaveResult.google.success,

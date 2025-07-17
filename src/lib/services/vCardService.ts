@@ -15,15 +15,11 @@ export interface VCardOptions {
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
-    // Check if this is a Google profile image that might need special handling
-    const isGoogleImage = imageUrl.includes('googleusercontent.com') || imageUrl.includes('lh3.googleusercontent.com');
-    if (isGoogleImage) {
-      console.log('[vCard] Detected Google profile image, attempting to fetch with appropriate headers...');
-    }
-    
+    // Try to fetch image with proper error handling
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
     
+    // Add more headers to avoid CORS issues
     const res = await fetch(imageUrl, { 
       signal: controller.signal,
       mode: 'cors',
@@ -31,18 +27,12 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
       cache: 'no-cache',
       headers: {
         'User-Agent': 'Nektus/1.0',
-        'Accept': 'image/*',
-        // Add referer to help with Google image access
-        ...(isGoogleImage && { 'Referer': 'https://accounts.google.com/' })
+        'Accept': 'image/*'
       }
     });
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      // For Google images, provide more specific error info
-      if (isGoogleImage) {
-        console.warn(`[vCard] Google image fetch failed: ${res.status} ${res.statusText}. This may indicate the image needs to be rehosted.`);
-      }
       throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
     }
     
