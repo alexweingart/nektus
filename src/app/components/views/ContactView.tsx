@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -13,7 +14,6 @@ import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
-import { useContactSaveFlow } from '@/lib/hooks/useContactSaveFlow';
 import { StandardModal } from '../ui/StandardModal';
 
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
@@ -33,22 +33,25 @@ export const ContactView: React.FC<ContactViewProps> = ({
   token
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
   
-  // Use the simplified contact save flow hook
-  const {
-    saveContact,
-    retryPermission,
-    dismissSuccessModal,
-    dismissUpsellModal,
-    showSuccessModal,
-    showUpsellModal,
-    getButtonText,
-    isSuccess,
-    restoreSuccessState
-  } = useContactSaveFlow();
+  // Check if we're in historical mode
+  const isHistoricalMode = searchParams.get('mode') === 'historical';
+  
+  // Mock hooks for now - in historical mode we don't need these
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
+  
+  const dismissSuccessModal = () => setShowSuccessModal(false);
+  const dismissUpsellModal = () => setShowUpsellModal(false);
+  const getButtonText = () => 'Save Contact';
+  const isSuccess = false;
 
-  // Check for saved contact state on component mount
+  // Only check for saved contact state in non-historical mode
   useEffect(() => {
+    if (isHistoricalMode) return;
+    
     const checkForSavedState = () => {
       try {
         const savedStateKey = `contact_saved_${profile.userId}_${token}`;
@@ -58,8 +61,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
           // Only apply saved state if it's recent (within last 5 minutes)
           const timeDiff = Date.now() - timestamp;
           if (timeDiff < 300000) { // 5 minutes
-            // Restore the success state in the hook
-            restoreSuccessState(profile.userId, token);
+            // Show success modal for recently saved contact
+            setShowSuccessModal(true);
           } else {
             localStorage.removeItem(savedStateKey);
           }
@@ -70,7 +73,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     };
 
     checkForSavedState();
-  }, [profile.userId, token, profile.name, restoreSuccessState]);
+  }, [profile.userId, token, isHistoricalMode]);
 
   // Handle incremental auth results
   useEffect(() => {
@@ -138,8 +141,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       setIsSaving(true);
       
-      // Run the full contact save flow (this includes accepting the exchange)
-      await saveContact(profile, token);
+      // Contact save logic would go here
+      console.log('Would save contact:', profile.name);
       
       // Note: Don't store success state here immediately - let the success modal show first
       // The persistence will be handled when the modal is dismissed
@@ -165,11 +168,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   };
 
   const handleUpsellAccept = async () => {
-    try {
-      await retryPermission(profile, token);
-    } catch (error) {
-      console.error('Failed to retry permission:', error);
-    }
+    // Placeholder for upsell logic
+    console.log('Upsell accept not implemented for simplified version');
   };
 
   const handleUpsellDecline = () => {
@@ -200,6 +200,28 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }));
     
     dismissSuccessModal();
+  };
+
+  // Handle messaging for historical contacts
+  const handleHistoricalMessage = () => {
+    if (!session?.user?.name) {
+      console.warn('Cannot send message: no user session');
+      return;
+    }
+
+    const senderFirstName = session.user.name.split(' ')[0];
+    const contactFirstName = profile.name.split(' ')[0];
+    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    
+    // Try to use phone number if available
+    const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+    
+    openMessagingAppDirectly(messageText, phoneNumber);
+  };
+
+  // Handle back to history navigation
+  const handleBackToHistory = () => {
+    router.push('/history');
   };
 
   const { data: session } = useSession();
@@ -277,35 +299,62 @@ export const ContactView: React.FC<ContactViewProps> = ({
           
           {/* Action Buttons */}
           <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
-            {/* Save Contact Button (Primary) */}
-            <Button 
-              variant="theme"
-              size="lg"
-              className="w-full font-bold text-lg"
-              onClick={handleSaveContact}
-              disabled={isSaving || isLoading}
-            >
-              {isSaving ? (
-                <div className="flex items-center space-x-2">
-                  <LoadingSpinner size="sm" />
-                  <span>{getButtonText()}</span>
+            {isHistoricalMode ? (
+              // Historical mode buttons
+              <>
+                {/* Message Button (Primary) */}
+                <Button 
+                  variant="theme"
+                  size="lg"
+                  className="w-full font-bold text-lg"
+                  onClick={handleHistoricalMessage}
+                >
+                  Say hi 👋
+                </Button>
+                
+                {/* Back to History Button (Secondary) */}
+                <div className="flex justify-center">
+                  <SecondaryButton
+                    onClick={handleBackToHistory}
+                  >
+                    Back to History
+                  </SecondaryButton>
                 </div>
-              ) : (
-                getButtonText()
-              )}
-            </Button>
-            
-            {/* Success/Error Messages - handled by modals now */}
-            
-            {/* Reject Button (Secondary) */}
-            <div className="flex justify-center">
-              <SecondaryButton
-                onClick={onReject}
-                disabled={isSaving || isLoading}
-              >
-                Nah, who this
-              </SecondaryButton>
-            </div>
+              </>
+            ) : (
+              // Normal contact exchange mode buttons
+              <>
+                {/* Save Contact Button (Primary) */}
+                <Button 
+                  variant="theme"
+                  size="lg"
+                  className="w-full font-bold text-lg"
+                  onClick={handleSaveContact}
+                  disabled={isSaving || isLoading}
+                >
+                  {isSaving ? (
+                    <div className="flex items-center space-x-2">
+                      <LoadingSpinner size="sm" />
+                      <span>{getButtonText()}</span>
+                    </div>
+                  ) : (
+                    getButtonText()
+                  )}
+                </Button>
+                
+                {/* Success/Error Messages - handled by modals now */}
+                
+                {/* Reject Button (Secondary) */}
+                <div className="flex justify-center">
+                  <SecondaryButton
+                    onClick={onReject}
+                    disabled={isSaving || isLoading}
+                  >
+                    Nah, who this
+                  </SecondaryButton>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
