@@ -145,13 +145,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       setIsSaving(true);
       
-      console.log('💾 Saving contact:', profile.name);
+      console.log('Saving contact:', profile.name);
       
       // Call the actual contact save service
       const result = await saveContactFlow(profile, token);
       
       if (result.success) {
-        console.log('✅ Contact saved successfully');
+        console.log('Contact saved successfully');
         if (result.showSuccessModal) {
           setShowSuccessModal(true);
         }
@@ -159,7 +159,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
           setShowUpsellModal(true);
         }
       } else {
-        console.error('❌ Failed to save contact:', result.error);
+        console.error('Failed to save contact:', {
+          firebase: result.firebase,
+          google: result.google
+        });
         // Could show an error state here
       }
       
