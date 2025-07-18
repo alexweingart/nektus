@@ -116,7 +116,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         }
       }
     }
-  }, [value, phoneInput, setSelectedCountry]); // Add value to dependency array to update when value changes
+  }, [value]); // Remove phoneInput from dependency to prevent race conditions
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
@@ -188,20 +188,11 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         // Use the national number for formatting
         const formattedPhone = formatPhoneNumber(nationalNumber);
         
+        // Update local state immediately (synchronously)
+        setPhoneInput(formattedPhone);
+        
         // Call the parent's onChange with just the national number digits
         onChange(nationalNumber);
-        
-        // Update the input value
-        requestAnimationFrame(() => {
-          setPhoneInput(formattedPhone);
-          
-          // Restore cursor position if possible
-          if (inputRef.current) {
-            const newCursorPosition = Math.min(cursorPosition, formattedPhone.length);
-            inputRef.current.selectionStart = newCursorPosition;
-            inputRef.current.selectionEnd = newCursorPosition;
-          }
-        });
         
         return;
       }
@@ -210,22 +201,16 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     // Default handling for regular phone numbers
     const formattedPhone = digits ? formatPhoneNumber(digits) : '';
     
+    // Update local state immediately (synchronously) to prevent race conditions
+    setPhoneInput(formattedPhone);
+    
     // Call the parent's onChange with just the digits
     onChange(digits);
     
-    // Update the input value in a way that preserves cursor position
+    // Handle cursor position restoration after state update
     requestAnimationFrame(() => {
-      setPhoneInput((prev: string) => {
-        // Only update if the formatted value is different
-        if (prev !== formattedPhone) {
-          return formattedPhone;
-        }
-        return prev;
-      });
-      
-      // Restore cursor position after state update
       if (inputRef.current) {
-        // Calculate new cursor position
+        // Calculate new cursor position based on formatting changes
         let newCursorPosition = cursorPosition;
         const isAdding = formattedPhone.length > phoneInput.length;
         
