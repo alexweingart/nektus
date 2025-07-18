@@ -119,6 +119,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get IP location data (should be cached from ping endpoint)
+    const { getIPLocation } = await import('@/lib/utils/ipGeolocation');
+    const locationData = await getIPLocation(clientIP);
+    
+    console.log(`📍 Location data for ${clientIP} (cached: ${locationData.cached ? 'yes' : 'no'}):`, {
+      city: locationData.city,
+      state: locationData.state,
+      isVPN: locationData.isVPN,
+      confidence: locationData.confidence
+    });
+
     // Prepare exchange data
     const ipBlock = getIPBlock(clientIP);
     const exchangeData = {
@@ -129,6 +140,7 @@ export async function POST(request: NextRequest) {
       vector: exchangeRequest.vector,
       rtt: exchangeRequest.rtt,
       ipBlock,
+      location: locationData, // Add location data
       sharingCategory: exchangeRequest.sharingCategory || 'All' // Store the selected sharing category
     };
 
@@ -136,18 +148,19 @@ export async function POST(request: NextRequest) {
       timestamp: exchangeRequest.ts,
       magnitude: exchangeRequest.mag,
       ipBlock,
+      location: `${locationData.city || 'unknown'}, ${locationData.state || 'unknown'}`,
+      isVPN: locationData.isVPN,
+      confidence: locationData.confidence,
       hasVector: !!exchangeRequest.vector,
       sharingCategory: exchangeData.sharingCategory,
       hitNumber: exchangeRequest.hitNumber || 'unknown'
     });
 
-    // Look for matching exchange using improved time-based + broad geo matching
+    // Look for matching exchange using confidence-based geographic matching
     console.log(`🔍 Looking for matches for session ${exchangeRequest.session} with timestamp ${exchangeRequest.ts}`);
     const matchResult = await findMatchingExchange(
       exchangeRequest.session, 
-      clientIP,
-      null, // location - we'll use IP-based geo instead
-      500, // 500ms time window (precise timing with clock sync)
+      locationData, // Pass location data for geographic matching
       exchangeRequest.ts, // pass timestamp for time-based matching
       exchangeRequest.rtt // pass RTT for dynamic window calculation
     );

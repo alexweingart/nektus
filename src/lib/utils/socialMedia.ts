@@ -1,8 +1,7 @@
 import { SocialProfile } from '@/types/profile';
 
 /**
- * @deprecated Use SocialLinkGenerationService instead for new profile generation
- * This function is kept for backward compatibility only
+his function is kept for editing existing profiles
  */
 
 // Social media URL patterns

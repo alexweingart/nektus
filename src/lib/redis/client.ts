@@ -78,45 +78,39 @@ export async function storePendingExchange(
 
   const key = `pending_exchange:${sessionId}`;
   
-  // Use broader geographic bucket based on IP prefix
-  const ipPrefix = exchangeData.ipBlock.split('.').slice(0, 2).join('.');
-  const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  // Use single global bucket for all exchanges
+  const globalBucketKey = 'geo_bucket:global';
   
   // Store the exchange data with TTL
   await redis!.setex(key, ttlSeconds, JSON.stringify(exchangeData));
   
-  // Add session to geographic bucket for matching
-  await redis!.sadd(geoBucketKey, sessionId);
-  await redis!.expire(geoBucketKey, ttlSeconds);
+  // Add session to global bucket for matching
+  await redis!.sadd(globalBucketKey, sessionId);
+  await redis!.expire(globalBucketKey, ttlSeconds);
   
-  console.log(`💾 Stored pending exchange ${sessionId} in geo bucket ${geoBucketKey}`);
+  console.log(`💾 Stored pending exchange ${sessionId} in global bucket (VPN: ${exchangeData.location?.isVPN}, confidence: ${exchangeData.location?.confidence})`);
 }
 
 /**
- * Find matching exchange with improved time-based + broad geography matching
+ * Find matching exchange with confidence-based geographic matching
  */
 export async function findMatchingExchange(
   sessionId: string,
-  clientIP: string,
-  location: { lat: number; lng: number } | null,
-  timeWindowMs: number = 1000, // 1 second default
+  currentLocation: any, // Location data from IP geolocation
   currentTimestamp?: number,
-  currentRTT?: number // Add current request's RTT for better matching
+  currentRTT?: number
 ): Promise<{ sessionId: string; matchData: any } | null> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for finding matching exchanges');
   }
 
-  // Get broad geography from IP (city/region level)
-  const ipPrefix = clientIP.split('.').slice(0, 2).join('.'); // Broader IP matching (/16 instead of /24)
-  const geoBucketKey = `geo_bucket:${ipPrefix}`;
+  // Get all candidates from global bucket
+  const globalBucketKey = 'geo_bucket:global';
+  const candidates = await redis!.smembers(globalBucketKey) as string[];
   
-  // Get all candidates in the same broad geographic area
-  const candidates = await redis!.smembers(geoBucketKey) as string[];
+  console.log(`🔍 Global bucket contains ${candidates.length} candidates:`, candidates);
   
-  console.log(`🔍 Geo bucket ${geoBucketKey} contains ${candidates.length} candidates:`, candidates);
-  
-  let bestMatch: { sessionId: string; matchData: any; timeDiff: number } | null = null;
+  let bestMatch: { sessionId: string; matchData: any; timeDiff: number; confidence: string } | null = null;
   
   for (const candidateSessionId of candidates) {
     if (candidateSessionId === sessionId) continue;
@@ -128,8 +122,8 @@ export async function findMatchingExchange(
     
     if (!candidateDataStr) {
       // Clean up stale session from bucket
-      console.log(`🧹 Cleaning up stale session ${candidateSessionId} from geo bucket ${geoBucketKey}`);
-      await redis!.srem(geoBucketKey, candidateSessionId);
+      console.log(`🧹 Cleaning up stale session ${candidateSessionId} from global bucket`);
+      await redis!.srem(globalBucketKey, candidateSessionId);
       continue;
     }
     
@@ -141,10 +135,9 @@ export async function findMatchingExchange(
       candidateData = candidateDataStr; // Already an object
     }
     
-    // Time-based matching: find the closest timestamp within window
-    if (currentTimestamp) {
-      console.log(`🔍 DEBUG: Comparing timestamps for ${sessionId} vs ${candidateSessionId}`);
-      console.log(`🔍 RAW DATA: currentTimestamp=${currentTimestamp}, candidateData.timestamp=${candidateData.timestamp}`);
+    // Geographic confidence-based matching
+    if (currentTimestamp && currentLocation && candidateData.location) {
+      console.log(`🔍 Geographic comparison: ${sessionId} vs ${candidateSessionId}`);
       
       if (!candidateData.timestamp) {
         console.log(`❌ Candidate ${candidateSessionId} has no timestamp, skipping`);
@@ -154,33 +147,49 @@ export async function findMatchingExchange(
       try {
         const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
         
-        // Adjust time window based on RTT compensation (as suggested in the user's guidance)
-        const rttA = candidateData.rtt || 100; // Fallback to 100ms if RTT not available
-        const rttB = currentRTT || 100; // Use current request's RTT or fallback
-        const dynamicWindow = Math.max(timeWindowMs, (rttA / 2) + (rttB / 2) + 50); // +50ms padding for mobile jitter
+        // Import and use the geographic matching logic
+        const { getMatchConfidence } = await import('@/lib/utils/ipGeolocation');
+        const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
         
-        console.log(`⏰ Time diff between ${sessionId} and ${candidateSessionId}: ${timeDiff}ms (window: ${dynamicWindow}ms, RTTs: A=${rttA}ms, B=${rttB}ms)`);
-        console.log(`🕐 TIMESTAMPS: ${sessionId}=${currentTimestamp} vs ${candidateSessionId}=${candidateData.timestamp} (diff=${timeDiff}ms)`);
+        console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
+        console.log(`⏰ Time diff: ${timeDiff}ms`);
+        console.log(`🕐 Locations: ${JSON.stringify({
+          current: { city: currentLocation.city, state: currentLocation.state, isVPN: currentLocation.isVPN },
+          candidate: { city: candidateData.location.city, state: candidateData.location.state, isVPN: candidateData.location.isVPN }
+        })}`);
         
-        if (timeDiff <= dynamicWindow) {
+        if (matchInfo.confidence === 'no_match') {
+          console.log(`❌ No geographic overlap between ${sessionId} and ${candidateSessionId}`);
+          continue;
+        }
+        
+        if (timeDiff <= matchInfo.timeWindow) {
           // Within time window - check if this is the best match so far
-          if (!bestMatch || timeDiff < bestMatch.timeDiff) {
+          // Priority: 1. Same city > 2. Same state > 3. Same octet > 4. VPN
+          // Within same confidence level, prefer shorter time gap
+          const confidenceRank = { city: 4, state: 3, octet: 2, vpn: 1 };
+          const currentRank = confidenceRank[matchInfo.confidence];
+          const bestRank = bestMatch ? confidenceRank[bestMatch.confidence] : 0;
+          
+          if (!bestMatch || currentRank > bestRank || 
+              (currentRank === bestRank && timeDiff < bestMatch.timeDiff)) {
             bestMatch = {
               sessionId: candidateSessionId,
               matchData: candidateData,
-              timeDiff
+              timeDiff,
+              confidence: matchInfo.confidence
             };
           }
         }
       } catch (error) {
-        console.log(`❌ Error calculating time diff for ${candidateSessionId}:`, error);
+        console.log(`❌ Error in geographic matching for ${candidateSessionId}:`, error);
         continue;
       }
     } else {
       // Fallback to immediate match (original behavior)
       // Clean up the candidate
       await redis!.del(candidateKey);
-      await redis!.srem(geoBucketKey, candidateSessionId);
+      await redis!.srem(globalBucketKey, candidateSessionId);
       
       return {
         sessionId: candidateSessionId,
@@ -191,12 +200,12 @@ export async function findMatchingExchange(
   
   // If we found a best match within time window, use it
   if (bestMatch) {
-    console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms`);
+    console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms (confidence: ${bestMatch.confidence})`);
     
     // Clean up the matched candidate
     const candidateKey = `pending_exchange:${bestMatch.sessionId}`;
     await redis!.del(candidateKey);
-    await redis!.srem(geoBucketKey, bestMatch.sessionId);
+    await redis!.srem(globalBucketKey, bestMatch.sessionId);
     
     return {
       sessionId: bestMatch.sessionId,
