@@ -10,7 +10,7 @@ import {
   getIncrementalAuthState, 
   deleteIncrementalAuthState, 
   storeContactsAccessToken 
-} from '@/lib/services/server/incrementalAuthService';
+} from '@/lib/services/server/serverIncrementalAuthService';
 
 export async function GET(request: NextRequest) {
   try {

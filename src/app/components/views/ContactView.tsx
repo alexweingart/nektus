@@ -19,7 +19,8 @@ import { StandardModal } from '../ui/StandardModal';
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
-import { saveContactFlow, startIncrementalAuth } from '@/lib/services/client/contactSaveService';
+import { saveContactFlow } from '@/lib/services/client/contactSaveService';
+import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
 
 interface ContactViewProps {
   profile: UserProfile;

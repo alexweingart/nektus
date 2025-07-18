@@ -9,7 +9,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getProfile, getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import { saveToGoogleContacts } from '@/lib/services/server/googleContactsService';
 import { getExchangeMatch } from '@/lib/redis/client';
-import { getContactsAccessToken } from '@/lib/services/server/incrementalAuthService';
+import { getContactsAccessToken } from '@/lib/services/server/serverIncrementalAuthService';
 import type { ContactSaveResult } from '@/types/contactExchange';
 
 /**
