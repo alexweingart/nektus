@@ -17,9 +17,12 @@ try {
 }
 
 // Check if Upstash Redis is available
-function isRedisAvailable(): boolean {
+export function isRedisAvailable(): boolean {
   return redis !== null;
 }
+
+// Export redis instance for use in other modules
+export { redis };
 
 /**
  * Rate limiting with Upstash Redis
@@ -167,7 +170,7 @@ export async function findMatchingExchange(
           // Within time window - check if this is the best match so far
           // Priority: 1. Same city > 2. Same state > 3. Same octet > 4. VPN
           // Within same confidence level, prefer shorter time gap
-          const confidenceRank = { city: 4, state: 3, octet: 2, vpn: 1 };
+          const confidenceRank: Record<string, number> = { city: 4, state: 3, octet: 2, vpn: 1 };
           const currentRank = confidenceRank[matchInfo.confidence];
           const bestRank = bestMatch ? confidenceRank[bestMatch.confidence] : 0;
           

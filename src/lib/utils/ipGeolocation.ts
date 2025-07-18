@@ -63,8 +63,8 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
   if (isRedisAvailable()) {
     try {
       const cached = await redis!.get(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
+      if (cached && typeof cached === 'string') {
+        const parsed = JSON.parse(cached) as ProcessedLocation;
         parsed.cached = true;
         console.log(`📍 Using cached location for ${ip}: ${parsed.city || parsed.state || 'unknown'}`);
         return parsed;
@@ -79,13 +79,18 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
   try {
     console.log(`🌍 Fetching location for IP: ${ip}`);
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
     const response = await fetch(`https://ipinfo.io/${ip}/json`, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Nektus/1.0'
       },
-      timeout: 3000 // 3 second timeout
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`IPinfo API error: ${response.status}`);
