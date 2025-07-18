@@ -19,6 +19,7 @@ import { StandardModal } from '../ui/StandardModal';
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
 import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
+import { saveContactFlow } from '@/lib/services/contactSaveService';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -144,11 +145,23 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       setIsSaving(true);
       
-      // Contact save logic would go here
-      console.log('Would save contact:', profile.name);
+      console.log('💾 Saving contact:', profile.name);
       
-      // Note: Don't store success state here immediately - let the success modal show first
-      // The persistence will be handled when the modal is dismissed
+      // Call the actual contact save service
+      const result = await saveContactFlow(profile, token);
+      
+      if (result.success) {
+        console.log('✅ Contact saved successfully');
+        if (result.showSuccessModal) {
+          setShowSuccessModal(true);
+        }
+        if (result.showUpsellModal) {
+          setShowUpsellModal(true);
+        }
+      } else {
+        console.error('❌ Failed to save contact:', result.error);
+        // Could show an error state here
+      }
       
     } catch (error) {
       console.error('Failed to save contact:', error);
