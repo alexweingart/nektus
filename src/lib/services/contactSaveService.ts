@@ -872,7 +872,12 @@ export async function saveContactFlow(
       
       // Try to show vCard inline for Safari
       try {
-        await displayVCardInlineForIOS(profile);
+        // Generate contact URL for the profile
+        const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/contact/${profile.userId}`;
+        
+        await displayVCardInlineForIOS(profile, { 
+          contactUrl 
+        });
       } catch (error) {
         console.warn('Failed to display vCard inline for iOS Safari:', error);
       }

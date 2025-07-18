@@ -8,6 +8,7 @@ export interface VCardOptions {
   includePhoto?: boolean;
   includeSocialMedia?: boolean;
   includeNotes?: boolean;
+  contactUrl?: string; // Optional contact URL to include in notes
 }
 
 /**
@@ -96,7 +97,8 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
   const {
     includePhoto = true,
     includeSocialMedia = true,
-    includeNotes = true
+    includeNotes = true,
+    contactUrl
   } = options;
 
   const lines: string[] = [];
@@ -154,8 +156,24 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
     });
   }
   
-  if (includeNotes && profile.bio) {
-    lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
+  if (includeNotes) {
+    let notes = '';
+    
+    // Add bio if available
+    if (profile.bio) {
+      notes += profile.bio;
+    }
+    
+    // Add contact URL if provided
+    if (contactUrl) {
+      if (notes) notes += '\\n\\n'; // Add spacing if bio exists
+      notes += `View full profile: ${contactUrl}`;
+    }
+    
+    // Only add NOTE line if we have content
+    if (notes) {
+      lines.push(`NOTE:${escapeVCardValue(notes)}`);
+    }
   }
   
   if (profile.userId) {
@@ -335,7 +353,7 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   
   console.log('📱 Safari detected, attempting vCard download');
   
-  const vCardContent = await generateSimpleVCard(profile);
+  const vCardContent = await generateSimpleVCard(profile, options?.contactUrl);
   const filename = generateVCardFilename(profile);
   
   console.log('📱 Generated simplified vCard content length:', vCardContent.length);
@@ -450,11 +468,12 @@ const showVCardInstructions = (profile: UserProfile, vCardContent: string): void
 /**
  * Generate a simplified vCard 3.0 without social media
  */
-export const generateSimpleVCard = async (profile: UserProfile): Promise<string> => {
+export const generateSimpleVCard = async (profile: UserProfile, contactUrl?: string): Promise<string> => {
   const options: VCardOptions = {
     includePhoto: true,
     includeSocialMedia: false,
-    includeNotes: true
+    includeNotes: true,
+    contactUrl
   };
   
   return generateVCard30(profile, options);
