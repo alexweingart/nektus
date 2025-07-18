@@ -293,7 +293,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       bioAndSocialGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] Making unified bio and social API call');
 
-      bioAndSocialGenerationPromise = fetch('/api/bio-and-social', { method: 'POST' })
+      bioAndSocialGenerationPromise = fetch('/api/generate-profile/bio-and-social', { method: 'POST' })
         .then(res => {
           if (!res.ok) {
             throw new Error(`Bio and social generation API request failed with status: ${res.status}`);
@@ -379,7 +379,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          return fetch('/api/media/profile-image', { 
+          return fetch('/api/generate-profile/profile-image', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ streamingBio: bioToUse }) 
@@ -413,7 +413,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       backgroundGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] Making background image API call');
 
-      const backgroundGeneration = fetch('/api/media/background-image', { 
+      const backgroundGeneration = fetch('/api/generate-profile/background-image', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ streamingBio })

@@ -136,7 +136,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       
       // Call the new API to upload the profile image
       try {
-        await fetch('/api/media/profile-image', {
+        await fetch('/api/generate-profile/profile-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageData }),
@@ -161,7 +161,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       
       // Call the API to upload the background image
       try {
-        await fetch('/api/media/background-image', {
+        await fetch('/api/generate-profile/background-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageData }),

@@ -130,7 +130,7 @@ export class PhoneBasedSocialService {
       console.log(`[PhoneBasedSocialService] Verifying ${platform} via server-side API`);
       
       // Use server-side verification API to bypass CORS limitations
-      const response = await fetch('/api/verify-phone-socials', {
+      const response = await fetch('/api/generate-profile/verify-phone-socials', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

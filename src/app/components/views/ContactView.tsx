@@ -187,8 +187,19 @@ export const ContactView: React.FC<ContactViewProps> = ({
   };
 
   const handleUpsellAccept = async () => {
-    // Placeholder for upsell logic
-    console.log('Upsell accept not implemented for simplified version');
+    try {
+      console.log('🔄 Starting Google auth for contacts permission...');
+      
+      // Call the API to start incremental auth flow
+      const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(token)}&profileId=${encodeURIComponent(profile.userId)}`;
+      
+      // Redirect to Google auth
+      window.location.href = authUrl;
+      
+    } catch (error) {
+      console.error('Failed to start Google auth:', error);
+      // Keep the upsell modal open on error
+    }
   };
 
   const handleUpsellDecline = () => {
