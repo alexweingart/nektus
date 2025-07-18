@@ -10,8 +10,10 @@ import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { HistoryContactItem } from '../ui/HistoryContactItem';
+import { Heading, Text } from '../ui/Typography';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import type { SavedContact } from '@/types/contactExchange';
+import { FaArrowLeft } from 'react-icons/fa';
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
@@ -78,12 +80,10 @@ export const HistoryView: React.FC = () => {
             className="w-14 h-14"
             onClick={handleGoBack}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
+            <FaArrowLeft className="h-5 w-5" />
           </Button>
           
-          <h1 className="text-white text-xl font-semibold">History</h1>
+          <Heading as="h1">History</Heading>
           
           <div className="w-14 h-14" /> {/* Spacer for centering */}
         </div>
@@ -92,7 +92,7 @@ export const HistoryView: React.FC = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <LoadingSpinner size="sm" className="mx-auto mb-4" />
-            <p className="text-gray-300 text-sm">Loading your contact history...</p>
+            <Text variant="small" className="text-gray-300">Loading your contact history...</Text>
           </div>
         </div>
       </div>
@@ -111,12 +111,10 @@ export const HistoryView: React.FC = () => {
             className="w-14 h-14"
             onClick={handleGoBack}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
+            <FaArrowLeft className="h-5 w-5" />
           </Button>
           
-          <h1 className="text-white text-xl font-semibold">History</h1>
+          <Heading as="h1">History</Heading>
           
           <div className="w-14 h-14" /> {/* Spacer for centering */}
         </div>
@@ -149,12 +147,10 @@ export const HistoryView: React.FC = () => {
           className="w-14 h-14"
           onClick={handleGoBack}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
+          <FaArrowLeft className="h-5 w-5" />
         </Button>
         
-        <h1 className="text-white text-xl font-semibold">History</h1>
+        <Heading as="h1">History</Heading>
         
         <div className="w-14 h-14" /> {/* Spacer for centering */}
       </div>
@@ -181,10 +177,10 @@ export const HistoryView: React.FC = () => {
                   />
                 </svg>
               </div>
-              <h2 className="text-white text-lg font-medium mb-2">No contacts yet</h2>
-              <p className="text-gray-300 text-sm mb-6">
+              <Heading as="h2" className="text-lg font-medium mb-2">No contacts yet</Heading>
+              <Text variant="base" className="text-gray-300 mb-6">
                 When you nekt with someone, they'll appear here so you can easily reconnect later.
-              </p>
+              </Text>
               <Button 
                 onClick={handleGoBack}
                 variant="theme"

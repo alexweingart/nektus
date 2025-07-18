@@ -7,8 +7,9 @@ import { ContactView } from '../components/views/ContactView';
 import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
-import type { ContactSaveResult } from '@/types/contactExchange';
+import type { ContactSaveResult, SavedContact } from '@/types/contactExchange';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,8 @@ function ConnectPageContent() {
   
   // Get the exchange token from URL parameters
   const token = searchParams.get('token');
+  const mode = searchParams.get('mode');
+  const isHistoricalMode = mode === 'historical';
 
   useEffect(() => {
     async function fetchMatchedProfile() {
@@ -42,34 +45,49 @@ function ConnectPageContent() {
 
       try {
         setIsLoading(true);
-        console.log('🔍 Fetching matched profile for token:', token);
+        console.log('🔍 Fetching matched profile for token:', token, isHistoricalMode ? '(historical)' : '(active)');
         
-        // Fetch the matched user's profile using the exchange token
-        const response = await fetch(`/api/exchange/pair/${token}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch matched profile');
-        }
-        
-        const result = await response.json();
-        
-        if (result.success && result.profile) {
-          console.log('✅ Loaded matched profile:', result.profile.name);
-          setContactProfile(result.profile);
+        if (isHistoricalMode) {
+          // For historical mode, fetch from saved contacts
+          const contacts = await ClientProfileService.getContacts(session.user.id);
+          
+          // Find the contact with matching token
+          const contact = contacts.find((c: SavedContact) => c.matchToken === token);
+          
+          if (contact) {
+            console.log('✅ Loaded historical contact:', contact.name);
+            setContactProfile(contact);
+          } else {
+            throw new Error('Historical contact not found');
+          }
         } else {
-          throw new Error('Invalid profile response');
+          // For active exchanges, use the exchange API
+          const response = await fetch(`/api/exchange/pair/${token}`);
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch matched profile');
+          }
+          
+          const result = await response.json();
+          
+          if (result.success && result.profile) {
+            console.log('✅ Loaded matched profile:', result.profile.name);
+            setContactProfile(result.profile);
+          } else {
+            throw new Error('Invalid profile response');
+          }
         }
         
       } catch (error) {
         console.error('Failed to load matched profile:', error);
-        setError('Failed to load contact profile');
+        setError(isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile');
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchMatchedProfile();
-  }, [session, status, router, token]);
+  }, [session, status, router, token, isHistoricalMode]);
 
   const handleMessageContact = (profile: UserProfile) => {
     if (!session?.user?.name || !profile.name) {

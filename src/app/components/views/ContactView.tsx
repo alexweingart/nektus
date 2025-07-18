@@ -18,26 +18,29 @@ import { StandardModal } from '../ui/StandardModal';
 
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
 import { useSession } from 'next-auth/react';
+import { FaArrowLeft } from 'react-icons/fa';
 
 interface ContactViewProps {
   profile: UserProfile;
   onReject: () => void;
   isLoading?: boolean;
   token: string;
+  isHistoricalContact?: boolean;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
   profile,
   onReject,
   isLoading = false,
-  token
+  token,
+  isHistoricalContact = false
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   
-  // Check if we're in historical mode
-  const isHistoricalMode = searchParams.get('mode') === 'historical';
+  // Check if we're in historical mode (either from URL param or prop)
+  const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
   
   // Mock hooks for now - in historical mode we don't need these
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -251,9 +254,22 @@ export const ContactView: React.FC<ContactViewProps> = ({
     <div className="fixed inset-0 z-[1000] bg-black/20 backdrop-blur-sm">
       <div className="h-[100dvh] flex flex-col items-center px-4 py-2 relative z-[1001]">
         
-        {/* Top spacing - no navigation buttons for contact view */}
+        {/* Header with back button for historical contacts */}
         <div className="w-full max-w-[var(--max-content-width,448px)] py-4 mb-4 flex-shrink-0">
-          {/* Empty space where nav buttons would be */}
+          {isHistoricalContact ? (
+            <div className="flex justify-start items-center">
+              <Button 
+                variant="circle"
+                size="icon"
+                className="w-14 h-14"
+                onClick={onReject}
+              >
+                <FaArrowLeft className="h-5 w-5" />
+              </Button>
+            </div>
+          ) : (
+            <div>{/* Empty space for non-historical contact view */}</div>
+          )}
         </div>
         
         {/* Fixed Content Area - No scroll */}
@@ -312,14 +328,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   Say hi 👋
                 </Button>
                 
-                {/* Back to History Button (Secondary) */}
-                <div className="flex justify-center">
-                  <SecondaryButton
-                    onClick={handleBackToHistory}
-                  >
-                    Back to History
-                  </SecondaryButton>
-                </div>
+                {/* No secondary button for historical contacts when using new route */}
               </>
             ) : (
               // Normal contact exchange mode buttons

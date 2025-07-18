@@ -27,26 +27,41 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return 'Today';
+      // Today - show time
+      const timeString = date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return `Today • ${timeString}`;
     } else if (diffDays === 1) {
       return 'Yesterday';
     } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
-    } else if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+      // Within the last week - show day of week
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-      });
+      // Greater than 6 days old - show date with ordinal
+      const day = date.getDate();
+      const ordinal = (day: number) => {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      };
+      
+      const month = date.toLocaleDateString('en-US', { month: 'long' });
+      const year = date.getFullYear();
+      
+      return `${month} ${day}${ordinal(day)}, ${year}`;
     }
   };
 
   const handleContactTap = () => {
-    // Navigate to connect page with historical mode parameter
-    router.push(`/connect?token=${contact.matchToken}&mode=historical`);
+    // Navigate to the new contact page using userId
+    router.push(`/contact/${contact.userId}`);
   };
 
   const handleMessageTap = (e: React.MouseEvent) => {
@@ -69,7 +84,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
 
   return (
     <div 
-      className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 cursor-pointer transition-all duration-200 hover:bg-white/10 active:scale-98"
+      className="flex items-center p-4 bg-black/40 rounded-2xl backdrop-blur-sm cursor-pointer transition-all duration-200 hover:bg-black/50 active:scale-98"
       onClick={handleContactTap}
     >
       {/* Avatar */}
@@ -86,7 +101,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
           {contact.name}
         </h3>
         <p className="text-gray-300 text-sm truncate">
-          Matched {formatMatchDate(contact.addedAt)}
+          {formatMatchDate(contact.addedAt)}
         </p>
       </div>
       
