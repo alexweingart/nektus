@@ -5,7 +5,7 @@ import {
   getIncrementalAuthState, 
   deleteIncrementalAuthState, 
   storeContactsAccessToken 
-} from '@/lib/services/incrementalAuthService';
+} from '@/lib/services/server/incrementalAuthService';
 
 /**
  * Popup callback route for Google incremental auth

@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
-import { openMessagingApp } from '@/lib/services/messagingService';
+import { openMessagingApp } from '@/lib/services/client/messagingService';
 
 // Custom X logo component (formerly Twitter)
 const XIcon = ({ className }: { className?: string }) => (

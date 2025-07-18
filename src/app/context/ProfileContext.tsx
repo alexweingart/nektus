@@ -568,12 +568,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 
                 // Create WhatsApp profile
                 const whatsappProfile = {
-                  platform: 'whatsapp',
                   username: phoneNumber.replace(/\D/g, ''),
                   url: `https://wa.me/${phoneNumber.replace(/\D/g, '')}`,
-                  verified: true,
-                  source: 'phone_generated',
-                  confidence: 0.9
+                  userConfirmed: true
                 };
                 
                 // Update WhatsApp profile in Firebase
@@ -595,8 +592,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                     snapchat: freshProfile?.contactChannels?.snapchat || merged.contactChannels.snapchat,
                     wechat: freshProfile?.contactChannels?.wechat || merged.contactChannels.wechat,
                     // Override with new phone-based socials
-                    whatsapp: result.whatsapp || freshProfile?.contactChannels?.whatsapp || merged.contactChannels.whatsapp,
-                    telegram: result.telegram || freshProfile?.contactChannels?.telegram || merged.contactChannels.telegram
+                    whatsapp: whatsappProfile || freshProfile?.contactChannels?.whatsapp || merged.contactChannels.whatsapp,
+                    telegram: freshProfile?.contactChannels?.telegram || merged.contactChannels.telegram
                   };
                   
                   // Update both Firebase and React state for immediate UI feedback

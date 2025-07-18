@@ -7,7 +7,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from './Avatar';
-import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
+import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import type { SavedContact } from '@/types/contactExchange';
 

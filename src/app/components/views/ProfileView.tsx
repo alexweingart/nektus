@@ -17,7 +17,7 @@ import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profi
 import ReactMarkdown from 'react-markdown';
 import { Heading } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
-import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
+import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import type { UserProfile } from '@/types/profile';
 

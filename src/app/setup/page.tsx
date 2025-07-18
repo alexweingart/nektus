@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
-import { isNewUser } from '@/lib/services/newUserService';
+import { isNewUser } from '@/lib/services/server/newUserService';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 
