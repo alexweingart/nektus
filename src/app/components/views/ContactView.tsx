@@ -190,8 +190,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       console.log('🔄 Starting Google auth for contacts permission...');
       
-      // Call the API to start incremental auth flow
-      const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(token)}&profileId=${encodeURIComponent(profile.userId)}`;
+      // Call the API to start incremental auth flow - use current user's ID, not contact's ID
+      const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(token)}&profileId=${encodeURIComponent(session?.user?.id || '')}`;
       
       // Redirect to Google auth
       window.location.href = authUrl;
