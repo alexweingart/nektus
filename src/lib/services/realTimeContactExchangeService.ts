@@ -56,12 +56,13 @@ export class RealTimeContactExchangeService {
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
       
-              // Initialize clock sync first thing
-        if (!isClockSyncInitialized()) {
-          const syncSuccess = await initializeClockSync();
-          if (!syncSuccess) {
-            console.warn('⚠️ Clock sync failed, using local time');
-          }
+              // Initialize fresh clock sync for each exchange
+        console.log('🔄 Refreshing clock sync for new exchange');
+        const syncSuccess = await initializeClockSync();
+        if (!syncSuccess) {
+          console.warn('⚠️ Clock sync failed, using local time');
+        } else {
+          console.log('✅ Clock sync refreshed successfully');
         }
       
       
