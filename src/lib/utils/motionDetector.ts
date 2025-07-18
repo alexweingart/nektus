@@ -1,5 +1,5 @@
 import { MotionDetectionResult } from '@/types/contactExchange';
-import { getServerNow } from './clockSync';
+import { getServerNow } from '../services/client/clockSyncService';
 
 // Dual threshold system - either condition can trigger detection
 const DETECTION_PROFILES = {

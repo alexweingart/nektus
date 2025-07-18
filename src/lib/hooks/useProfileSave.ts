@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import type { CountryCode } from 'libphonenumber-js';
 import type { UserProfile } from '@/types/profile';
 import type { ProfileFormData } from '@/types/forms';
-import { saveProfileData as saveProfileDataService } from '@/lib/services/profileSaveService';
+import { saveProfileData as saveProfileDataService } from '@/lib/services/client/profileSaveService';
 
 // Hook props interface
 interface UseProfileSaveProps {

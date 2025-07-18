@@ -106,47 +106,6 @@ function fallbackCopyText(text: string): void {
   }
 }
 
-/**
- * Opens the appropriate messaging app with pre-populated text and vCard attachment
- * Used for the "Say hi" functionality in success modals
- */
-export function openMessagingAppWithVCard(
-  messageText: string, 
-  senderProfile: UserProfile,
-  phoneNumber?: string
-): void {
-  const platform = detectPlatform();
-  console.log(`📱 Opening messaging app on ${platform} with vCard`);
-  
-  // First open the messaging app with just the text
-  openMessagingApp(messageText, phoneNumber);
-  
-  // Then handle the vCard based on platform
-  setTimeout(() => {
-    if (platform === 'ios') {
-      // iOS has better support for direct vCard handling
-      import('./vCardService').then(({ displayVCardInlineForIOS }) => {
-        displayVCardInlineForIOS(senderProfile);
-      }).catch(error => {
-        console.error('Failed to generate vCard for iOS:', error);
-      });
-    } else if (platform === 'android') {
-      // Android doesn't handle vCard attachments well via web
-      import('./vCardService').then(async ({ downloadVCard }) => {
-        await downloadVCard(senderProfile);
-      }).catch(error => {
-        console.error('Failed to download vCard for Android:', error);
-      });
-    } else {
-      // Web fallback
-      import('./vCardService').then(async ({ downloadVCard }) => {
-        await downloadVCard(senderProfile);
-      }).catch(error => {
-        console.error('Failed to download vCard for web:', error);
-      });
-    }
-  }, 500); // Short delay to ensure messaging app opens first
-}
 
 /**
  * Opens the messaging app with pre-populated text only (no vCard)

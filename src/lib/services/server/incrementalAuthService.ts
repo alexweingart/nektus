@@ -186,33 +186,4 @@ export async function deleteContactsAccessToken(userId: string): Promise<void> {
   }
 }
 
-/**
- * Get refresh token for a user (if available)
- */
-export async function getContactsRefreshToken(userId: string): Promise<string | null> {
-  if (!isRedisAvailable()) {
-    console.error('❌ Redis is not available for getting refresh token');
-    return null;
-  }
-
-  try {
-    const data = await redis!.get(`contacts_token:${userId}`);
-    
-    if (!data) {
-      return null;
-    }
-    
-    // Handle both string and object responses from Redis
-    let tokenData: ContactsTokenData;
-    if (typeof data === 'string') {
-      tokenData = JSON.parse(data);
-    } else {
-      tokenData = data as ContactsTokenData;
-    }
-    
-    return tokenData.refreshToken || null;
-  } catch (error) {
-    console.error('❌ Failed to get contacts refresh token:', error);
-    return null;
-  }
-} 
+ 

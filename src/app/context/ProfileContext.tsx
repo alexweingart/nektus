@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
 import { UserProfile } from '@/types/profile';
-import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/newUserService';
-import { shouldGenerateAvatarForGoogleUser } from '@/lib/utils/googleProfileImageDetector';
+import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
+import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
 
 // Types
@@ -160,7 +160,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                   const accessToken = session?.accessToken;
                   if (accessToken) {
                     console.log('[ProfileContext] Checking Google profile image via People API...');
-                    const shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+                    const shouldGenerate = await isGoogleInitialsImage(accessToken);
                     if (shouldGenerate) {
                       console.log('[ProfileContext] Google profile image is auto-generated initials, will generate custom one');
                       shouldGenerateProfileImage = true;
@@ -351,7 +351,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         try {
           const accessToken = session?.accessToken;
           if (accessToken) {
-            shouldGenerate = await shouldGenerateAvatarForGoogleUser(accessToken);
+            shouldGenerate = await isGoogleInitialsImage(accessToken);
           } else {
             // Fallback to simple string check if no access token
             shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
@@ -508,7 +508,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         ? { ...current, ...data, userId: session.user.id, lastUpdated: Date.now() }
         : { ...mergeNonEmpty(current, data), userId: session.user.id, lastUpdated: Date.now() };
 
-      // Phone-based social media generation is now handled by PhoneBasedSocialService
+      // Phone-based social media generation is now handled by verify-phone-socials API
       // after the profile is successfully saved (see phone save trigger below)
 
       // Always update the ref so subsequent operations can access updated data
@@ -547,20 +547,38 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const phoneNumber = merged.contactChannels.phoneInfo.internationalPhone;
           console.log('[ProfileContext] Phone saved, triggering phone-based social generation');
           
-          // Import and call PhoneBasedSocialService asynchronously (don't block)
-          import('@/lib/services/phoneBasedSocialService').then(({ PhoneBasedSocialService }) => {
-            PhoneBasedSocialService.generatePhoneBasedSocials(phoneNumber).then(result => {
-              if (result.success && (result.whatsapp || result.telegram)) {
-                console.log('[ProfileContext] Phone-based socials generated:', {
-                  whatsapp: !!result.whatsapp,
-                  telegram: !!result.telegram,
-                  profilesVerified: result.profilesVerified
+          // Generate and verify WhatsApp profile asynchronously (don't block)
+          fetch('/api/generate-profile/verify-phone-socials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phoneNumber: phoneNumber,
+              platforms: ['whatsapp']
+            })
+          }).then(async response => {
+            if (response.ok) {
+              const data = await response.json();
+              const whatsappResult = data.results?.find((r: any) => r.platform === 'whatsapp');
+              
+              if (whatsappResult && whatsappResult.verified) {
+                console.log('[ProfileContext] WhatsApp profile verified:', {
+                  phoneNumber: phoneNumber,
+                  verified: true
                 });
                 
-                // Update only phone-based social profiles in Firebase
+                // Create WhatsApp profile
+                const whatsappProfile = {
+                  platform: 'whatsapp',
+                  username: phoneNumber.replace(/\D/g, ''),
+                  url: `https://wa.me/${phoneNumber.replace(/\D/g, '')}`,
+                  verified: true,
+                  source: 'phone_generated',
+                  confidence: 0.9
+                };
+                
+                // Update WhatsApp profile in Firebase
                 const phoneBasedUpdate: any = {};
-                if (result.whatsapp) phoneBasedUpdate['contactChannels.whatsapp'] = result.whatsapp;
-                if (result.telegram) phoneBasedUpdate['contactChannels.telegram'] = result.telegram;
+                phoneBasedUpdate['contactChannels.whatsapp'] = whatsappProfile;
                 
                 // Save phone-based socials to Firebase and update UI
                 if (Object.keys(phoneBasedUpdate).length > 0) {
@@ -601,12 +619,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                     console.error('[ProfileContext] Failed to save phone-based socials:', error);
                   });
                 }
+              } else {
+                console.log('[ProfileContext] WhatsApp verification failed or not verified');
               }
-            }).catch(error => {
-              console.error('[ProfileContext] Phone-based social generation failed:', error);
-            });
+            } else {
+              console.error('[ProfileContext] WhatsApp verification API failed:', response.status);
+            }
           }).catch(error => {
-            console.error('[ProfileContext] Failed to import PhoneBasedSocialService:', error);
+            console.error('[ProfileContext] WhatsApp verification request failed:', error);
           });
         }
         
@@ -735,7 +755,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     // Helper to load vCard testing functions
     (window as any).loadVCardTests = async () => {
       try {
-        const vCardService = await import('@/lib/services/vCardService');
+        const vCardService = await import('@/lib/utils/vCardGeneration');
         (window as any).generateVCard = vCardService.generateVCard;
         (window as any).generateVCard30 = vCardService.generateVCard30;
         (window as any).generateSimpleVCard = vCardService.generateSimpleVCard;

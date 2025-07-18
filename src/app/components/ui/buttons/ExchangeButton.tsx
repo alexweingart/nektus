@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './Button';
-import { initializeClockSync } from '@/lib/utils/clockSync';
+import { initializeClockSync } from '@/lib/services/client/clockSyncService';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';

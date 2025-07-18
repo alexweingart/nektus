@@ -16,10 +16,10 @@ import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import { StandardModal } from '../ui/StandardModal';
 
-import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/messagingService';
+import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
-import { saveContactFlow } from '@/lib/services/contactSaveService';
+import { saveContactFlow, startIncrementalAuth } from '@/lib/services/client/contactSaveService';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -190,11 +190,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       console.log('🔄 Starting Google auth for contacts permission...');
       
-      // Call the API to start incremental auth flow - use current user's ID, not contact's ID
-      const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(token)}&profileId=${encodeURIComponent(session?.user?.id || '')}`;
-      
-      // Redirect to Google auth
-      window.location.href = authUrl;
+      // Use the proper startIncrementalAuth function with current user's ID
+      await startIncrementalAuth(token, session?.user?.id || '');
       
     } catch (error) {
       console.error('Failed to start Google auth:', error);

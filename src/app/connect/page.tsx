@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
-import { generateMessageText, openMessagingApp } from '@/lib/services/messagingService';
+import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
 import type { ContactSaveResult, SavedContact } from '@/types/contactExchange';

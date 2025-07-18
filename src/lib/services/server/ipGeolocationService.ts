@@ -185,22 +185,6 @@ function detectVPN(data: IPLocationData): boolean {
   return false;
 }
 
-/**
- * Get geographic key for matching
- */
-export function getGeographicKey(location: ProcessedLocation): string {
-  const { city, state, country } = location;
-  
-  if (city && state && country) {
-    return `${city.toLowerCase().replace(/\s+/g, '_')}_${state.toLowerCase().replace(/\s+/g, '_')}_${country.toLowerCase()}`;
-  }
-  
-  if (state && country) {
-    return `${state.toLowerCase().replace(/\s+/g, '_')}_${country.toLowerCase()}`;
-  }
-  
-  return location.octet;
-}
 
 /**
  * Compare two locations for matching confidence

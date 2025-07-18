@@ -81,16 +81,3 @@ export function isClockSyncInitialized(): boolean {
   return clockSyncData !== null;
 }
 
-/**
- * Force re-sync if needed (e.g., after extended idle time)
- */
-export async function refreshClockSync(): Promise<boolean> {
-  const wasInitialized = isClockSyncInitialized();
-  const success = await initializeClockSync();
-  
-  if (success && wasInitialized) {
-    console.log('Clock sync refreshed');
-  }
-  
-  return success;
-}

@@ -3,7 +3,7 @@
  * Replaces the simulated exchange with real server communication
  */
 
-import { initializeClockSync, isClockSyncInitialized, getServerNow, getClockSyncInfo } from '@/lib/utils/clockSync';
+import { initializeClockSync, isClockSyncInitialized, getServerNow, getClockSyncInfo } from '@/lib/services/client/clockSyncService';
 import type { 
   ContactExchangeRequest, 
   ContactExchangeResponse,

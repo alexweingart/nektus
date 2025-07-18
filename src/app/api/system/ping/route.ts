@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       const clientIP = forwarded?.split(',')[0].trim() || realIp || '127.0.0.1';
       
       // Pre-cache geolocation in background (don't wait for it)
-      const { getIPLocation } = await import('@/lib/utils/ipGeolocation');
+      const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
       getIPLocation(clientIP).then(location => {
         console.log(`✅ Pre-cached geolocation for ${clientIP}: ${location.city || 'unknown'}, ${location.state || 'unknown'} (VPN: ${location.isVPN})`);
       }).catch(error => {

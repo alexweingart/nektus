@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { AdminProfileService } from '@/lib/firebase/adminProfileService';
-import { BioAndSocialGenerationService } from '@/lib/services/bioAndSocialGenerationService';
+import { BioAndSocialGenerationService } from '@/lib/services/server/bioAndSocialGenerationService';
 import { UserProfile } from '@/types/profile';
 
 export async function POST(request: NextRequest) {

@@ -26,28 +26,6 @@ export function isNewUser(session: Session | null): boolean {
   return (session as any).isNewUser === true;
 }
 
-/**
- * Checks if a profile image needs to be re-hosted and does it if necessary
- * Returns the final profile image URL (either original or re-hosted)
- */
-export async function ensureProfileImageHosted(profileImage: string, userId: string): Promise<string> {
-  try {
-    // Check if this is a Google profile image that needs re-hosting
-    if (profileImage && (profileImage.includes('googleusercontent.com') || profileImage.includes('lh3.googleusercontent.com'))) {
-      console.log('[NewUserService] Re-hosting Google profile image for user:', userId);
-      const rehostedUrl = await rehostGoogleProfileImage(profileImage, userId);
-      console.log('[NewUserService] Successfully re-hosted profile image');
-      return rehostedUrl;
-    }
-    
-    // Return original URL if it's not a Google URL or if it's empty
-    return profileImage;
-  } catch (error) {
-    console.error('[NewUserService] Failed to rehost profile image, using original:', error);
-    // Fallback to original URL if rehosting fails
-    return profileImage;
-  }
-}
 
 /**
  * Creates a default profile for new users with auto-generated social media
@@ -93,10 +71,3 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
   };
 }
 
-/**
- * Logs new user detection for debugging
- */
-export function logNewUserDetection(session: Session | null, pathname: string): void {
-  if (!session) return;
-
-}

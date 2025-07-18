@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get IP location data (should be cached from ping endpoint)
-    const { getIPLocation } = await import('@/lib/utils/ipGeolocation');
+    const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
     const locationData = await getIPLocation(clientIP);
     
     console.log(`📍 Location data for ${clientIP} (cached: ${locationData.cached ? 'yes' : 'no'}):`, {

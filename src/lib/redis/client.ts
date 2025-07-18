@@ -151,7 +151,7 @@ export async function findMatchingExchange(
         const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
         
         // Import and use the geographic matching logic
-        const { getMatchConfidence } = await import('@/lib/utils/ipGeolocation');
+        const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
         const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
         
         console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);

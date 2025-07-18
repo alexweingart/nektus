@@ -39,11 +39,3 @@ export async function isGoogleInitialsImage(accessToken: string): Promise<boolea
   }
 }
 
-/**
- * Wrapper function that checks if we should generate an avatar for a Google user
- * @param accessToken - Google OAuth access token
- * @returns Promise<boolean> - true if we should generate an avatar
- */
-export async function shouldGenerateAvatarForGoogleUser(accessToken: string): Promise<boolean> {
-  return await isGoogleInitialsImage(accessToken);
-}
