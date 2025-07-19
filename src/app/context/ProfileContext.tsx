@@ -129,10 +129,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               needsGeneration = true;
             }
             
-            if (!existingProfile.backgroundImage) {
-              console.log('[ProfileContext] Background image missing, will generate');
-              needsGeneration = true;
-            }
+            // Note: Background generation logic moved to generateProfileAssets() 
+            // to properly wait for profile image generation decisions
             
             // Check if we need to generate a profile image
             let shouldGenerateProfileImage = false;
@@ -291,7 +289,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) return;
     
-    const generations = [];
+    const generations: Promise<any>[] = [];
     let bioAndSocialGenerationPromise: Promise<any> | null = null;
     
     // Generate bio and social links together if not already triggered
@@ -417,28 +415,79 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Generate background image if not already triggered and background doesn't exist in current profile
+    // Generate background image only if user has a non-initials profile image
+    // Wait for profile image generation decision before triggering background generation
     if (!backgroundGenerationTriggeredRef.current && !profile?.backgroundImage) {
+      
+      // Only generate background if we have a custom (non-initials) profile image
+      const shouldGenerateBackground = async () => {
+        // If profile image generation is happening, wait for it to complete
+        if (shouldGenerateProfileImage && generations.length > 0) {
+          try {
+            await Promise.all(generations);
+            // After profile image generation, check if we now have a custom profile image
+            const updatedProfile = await ProfileService.getProfile(userId);
+            return updatedProfile?.profileImage && !updatedProfile.profileImage.includes('googleusercontent.com');
+          } catch (error) {
+            console.error('[ProfileContext] Error waiting for profile image generation:', error);
+            return false;
+          }
+        } else {
+          // Check current profile image state
+          const currentProfileImage = profile?.profileImage || session?.user?.image;
+          
+          // Only generate background if we have a custom profile image (not Google initials)
+          if (!currentProfileImage) return false;
+          if (currentProfileImage.includes('googleusercontent.com')) {
+            // Check if it's initials
+            try {
+              const accessToken = session?.accessToken;
+              if (accessToken) {
+                const isInitials = await isGoogleInitialsImage(accessToken);
+                return !isInitials; // Generate background only if it's NOT initials
+              } else {
+                // Fallback: if URL contains =s96-c, it's likely initials
+                return !currentProfileImage.includes('=s96-c');
+              }
+            } catch (error) {
+              console.error('[ProfileContext] Error checking if Google image is initials:', error);
+              return !currentProfileImage.includes('=s96-c');
+            }
+          }
+          
+          // For Firebase-stored images (custom uploads), generate background
+          return true;
+        }
+      };
+      
       backgroundGenerationTriggeredRef.current = true;
-      console.log('[ProfileContext] Making background image API call');
-
-      const backgroundGeneration = fetch('/api/generate-profile/background-image', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ streamingBio })
+      
+      const backgroundGeneration = shouldGenerateBackground().then(async (shouldGenerate) => {
+        if (!shouldGenerate) {
+          console.log('[ProfileContext] Skipping background generation - user has initials or no custom profile image');
+          return;
+        }
+        
+        console.log('[ProfileContext] Making background image API call');
+        
+        return fetch('/api/generate-profile/background-image', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ streamingBio })
+        })
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Background generation API failed with status: ${res.status}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (data.imageUrl) {
+              console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
+              // Background image will be handled by individual view components
+            }
+          });
       })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Background generation API failed with status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.imageUrl) {
-            console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
-            // Background image will be handled by individual view components
-          }
-        })
         .catch(error => {
           console.error('[ProfileContext] Background generation failed:', error);
           backgroundGenerationTriggeredRef.current = false;

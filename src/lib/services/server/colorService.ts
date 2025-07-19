@@ -112,4 +112,15 @@ export function pickAccentColors(palette: string[], count = 2): string[] {
     .sort((a, b) => b.score - a.score)
     .slice(0, count)
     .map(c => c.hex);
+}
+
+/**
+ * Returns a complementary background color for profile image generation.
+ * This should harmonize with our default background's green accent theme.
+ * Based on the default background green (#22c55e), returns a warm contrasting color.
+ */
+export function getDefaultBackgroundColor(): string {
+  // Warm orange-red complementary to our green theme
+  // This creates good contrast while remaining subtle for profile avatars
+  return '#2d1b3d'; // Deep purple-grey that complements green accents
 } 

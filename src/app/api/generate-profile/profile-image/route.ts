@@ -5,6 +5,7 @@ import { AdminProfileService } from '@/lib/firebase/adminProfileService';
 import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
 import { UserProfile } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
+import { getDefaultBackgroundColor } from '@/lib/services/server/colorService';
 
 /**
  * Converts a base64 string to a buffer
@@ -25,12 +26,13 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
   console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profile.name}`);
   try {
     const client = getOpenAIClient();
+    const backgroundColor = getDefaultBackgroundColor();
     const prompt = `Create a profile picture for a person with this bio: ${profile.bio || 'no bio available'}. ` +
       `The image should be a simple, casual, abstract, and modern. ` +
-      `Use a clean, minimalist style with a solid color background. ` +
+      `Use a clean, minimalist style with a solid ${backgroundColor} color background. ` +
       `There should be no text on the image`;
       
-    console.log(`[API/PROFILE-IMAGE] Using prompt for ${profile.name}:`, prompt);
+    console.log(`[API/PROFILE-IMAGE] Using prompt for ${profile.name} with background ${backgroundColor}:`, prompt);
 
     const response = await client.images.generate({
       model: 'gpt-image-1',

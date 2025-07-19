@@ -398,7 +398,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         )}
         
         {/* Fixed Content Area - No scroll */}
-        <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-hidden">
+        <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center justify-center flex-1 overflow-hidden">
           {/* Profile Image */}
           <div className="mb-4">
             <div className="border-4 border-white shadow-lg rounded-full">
