@@ -440,7 +440,7 @@ Bio Creation:
     try {
       switch (platform) {
         case 'instagram':
-          return await this.verifyInstagramProfile(username, timeoutMs);
+          return true; // Skip verification - trust AI discovery
         case 'linkedin':
           return await this.verifyLinkedInProfile(username, timeoutMs);
         case 'facebook':

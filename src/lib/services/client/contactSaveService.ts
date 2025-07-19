@@ -6,15 +6,11 @@
 import { UserProfile } from '@/types/profile';
 import { ContactSaveResult } from '@/types/contactExchange';
 import { displayVCardInlineForIOS } from '@/lib/utils/vCardGeneration';
-import { detectPlatform as detectPlatformUtil } from '@/lib/utils/platformDetection';
+import { detectPlatform as detectPlatformUtil, isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 import {
   isPermissionError,
   hasShownUpsell,
   markUpsellShown,
-  storeContactSaveState,
-  getContactSaveState,
-  clearContactSaveState,
-  isEmbeddedBrowser,
   isReturningFromIncrementalAuth,
   handleIncrementalAuthReturn,
   startIncrementalAuth
@@ -34,6 +30,63 @@ export interface ContactSaveFlowResult {
  */
 function detectPlatform(): 'android' | 'ios' | 'web' {
   return (detectPlatformUtil().platform || 'web') as 'android' | 'ios' | 'web';
+}
+
+/**
+ * Store contact save state (for auth flow continuity)
+ */
+function storeContactSaveState(token: string, profileId: string): void {
+  try {
+    const state = {
+      token,
+      profileId,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('contact_save_state', JSON.stringify(state));
+    console.log('💾 Stored contact save state:', state);
+  } catch (error) {
+    console.warn('Failed to store contact save state:', error);
+  }
+}
+
+/**
+ * Get contact save state (with expiration check)
+ */
+function getContactSaveState(): { token?: string; profileId?: string; timestamp?: number } {
+  try {
+    const stored = localStorage.getItem('contact_save_state');
+    if (!stored) {
+      return {};
+    }
+    
+    const state = JSON.parse(stored);
+    
+    // Check if state is expired (5 minutes)
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    const age = Date.now() - (state.timestamp || 0);
+    
+    if (age > maxAge) {
+      clearContactSaveState();
+      return {};
+    }
+    
+    return state;
+  } catch (error) {
+    console.warn('Failed to get contact save state:', error);
+    clearContactSaveState();
+    return {};
+  }
+}
+
+/**
+ * Clear contact save state
+ */
+function clearContactSaveState(): void {
+  try {
+    localStorage.removeItem('contact_save_state');
+  } catch (error) {
+    console.warn('Failed to clear contact save state:', error);
+  }
 }
 
 /**
@@ -73,16 +126,26 @@ export async function saveContactFlow(
   
   const platform = detectPlatform();
   const currentState = getContactSaveState(); // This will auto-clear if expired
-  const isReturning = isReturningFromIncrementalAuth();
+  const isReturning = isReturningFromIncrementalAuth(currentState);
   
   if (isReturning) {
-    const authReturn = handleIncrementalAuthReturn();
+    const authReturn = handleIncrementalAuthReturn(currentState);
+    
+    // Handle state clearing based on auth result
+    if (authReturn.success || authReturn.denied) {
+      // Clear state if we got a definitive result
+      clearContactSaveState();
+    } else if (currentState && currentState.timestamp) {
+      // Clear state if it's too old (older than auth return window)
+      const authReturnWindow = 2 * 60 * 1000; // 2 minutes
+      const age = Date.now() - currentState.timestamp;
+      if (age > authReturnWindow) {
+        clearContactSaveState();
+      }
+    }
     
     if (authReturn.success && authReturn.contactSaveToken && authReturn.profileId === profile.userId) {
       console.log('🔄 Retrying Google Contacts after successful auth');
-      
-      // Clear saved state since we're handling the return
-      clearContactSaveState();
       
       // Try Google Contacts save only (Firebase was already saved before we went to auth)
       try {
@@ -156,8 +219,6 @@ export async function saveContactFlow(
     } else if (authReturn.denied) {
       console.log('🔍 Flow: User denied or cancelled auth');
       console.log('🚫 User denied Google Contacts permission');
-      // Clear saved state
-      clearContactSaveState();
       
       // Only show upsell modal if we haven't shown it for this token yet
       if (!hasShownUpsell(platform, token)) {
@@ -192,8 +253,6 @@ export async function saveContactFlow(
         expectedProfileId: profile.userId
       });
       
-      // Clear saved state
-      clearContactSaveState();
       
       // Only show upsell modal if we haven't shown it for this token yet
       if (!hasShownUpsell(platform, token)) {

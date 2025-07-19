@@ -3,6 +3,7 @@
  */
 
 import { UserProfile } from '@/types/profile';
+import { isEmbeddedBrowser } from './platformDetection';
 
 export interface VCardOptions {
   includePhoto?: boolean;
@@ -46,28 +47,69 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
       console.warn('Image size exceeds 200KB, may cause vCard compatibility issues');
     }
     
+    // Detect image type from Content-Type header or image data
+    const imageType = detectImageType(res, arrayBuffer);
+    
     const b64 = Buffer.from(arrayBuffer).toString('base64');
-    return formatPhotoLine(b64);
+    return formatPhotoLine(b64, imageType);
     
   } catch (error) {
     console.warn('Failed to encode photo as base64, falling back to URI:', error);
     
-    // For Google images that fail, provide better fallback - skip the photo entirely
-    // rather than including a broken URL
-    if (imageUrl.includes('googleusercontent.com') || imageUrl.includes('lh3.googleusercontent.com')) {
-      console.warn('[vCard] Skipping Google profile image due to access restrictions. Consider rehosting the image to Firebase Storage.');
-      return ''; // Return empty string to skip the photo
-    }
+    // Note: Removed Google image skipping - let it fall back to URI method
     
     return `PHOTO;VALUE=URI:${imageUrl}`;
   }
 }
 
 /**
+ * Detect image type from response headers or image data
+ */
+function detectImageType(response: Response, arrayBuffer: ArrayBuffer): string {
+  // First try Content-Type header
+  const contentType = response.headers.get('content-type');
+  if (contentType) {
+    if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) return 'JPEG';
+    if (contentType.includes('image/png')) return 'PNG';
+    if (contentType.includes('image/gif')) return 'GIF';
+    if (contentType.includes('image/webp')) return 'WEBP';
+  }
+  
+  // Fallback: detect from image data magic bytes
+  const uint8Array = new Uint8Array(arrayBuffer);
+  
+  // JPEG: FF D8 FF
+  if (uint8Array.length >= 3 && uint8Array[0] === 0xFF && uint8Array[1] === 0xD8 && uint8Array[2] === 0xFF) {
+    return 'JPEG';
+  }
+  
+  // PNG: 89 50 4E 47
+  if (uint8Array.length >= 4 && uint8Array[0] === 0x89 && uint8Array[1] === 0x50 && uint8Array[2] === 0x4E && uint8Array[3] === 0x47) {
+    return 'PNG';
+  }
+  
+  // GIF: 47 49 46
+  if (uint8Array.length >= 3 && uint8Array[0] === 0x47 && uint8Array[1] === 0x49 && uint8Array[2] === 0x46) {
+    return 'GIF';
+  }
+  
+  // WebP: starts with RIFF and contains WEBP
+  if (uint8Array.length >= 12 && 
+      uint8Array[0] === 0x52 && uint8Array[1] === 0x49 && uint8Array[2] === 0x46 && uint8Array[3] === 0x46 &&
+      uint8Array[8] === 0x57 && uint8Array[9] === 0x45 && uint8Array[10] === 0x42 && uint8Array[11] === 0x50) {
+    return 'WEBP';
+  }
+  
+  // Default to JPEG if unknown
+  return 'JPEG';
+}
+
+/**
  * Format base64 data into proper vCard photo line with line folding
  */
-function formatPhotoLine(base64Data: string): string {
-  const photoPrefix = 'PHOTO;ENCODING=b;TYPE=JPEG:';
+function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string {
+  // Use proper vCard 3.0 encoding format
+  const photoPrefix = `PHOTO;ENCODING=BASE64;TYPE=${imageType}:`;
   const prefixLength = photoPrefix.length;
   const firstLineSpace = 75 - prefixLength;
   const firstChunk = base64Data.slice(0, firstLineSpace);
@@ -156,23 +198,15 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
     });
   }
   
+  // Add website URL as proper URL field
+  if (contactUrl) {
+    lines.push(`URL:${contactUrl}`);
+  }
+  
   if (includeNotes) {
-    let notes = '';
-    
-    // Add bio if available
+    // Only add bio to notes, not the contact URL
     if (profile.bio) {
-      notes += profile.bio;
-    }
-    
-    // Add contact URL if provided
-    if (contactUrl) {
-      if (notes) notes += '\\n\\n'; // Add spacing if bio exists
-      notes += `View full profile: ${contactUrl}`;
-    }
-    
-    // Only add NOTE line if we have content
-    if (notes) {
-      lines.push(`NOTE:${escapeVCardValue(notes)}`);
+      lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
     }
   }
   
@@ -306,36 +340,6 @@ export const saveVCard = async (
   return downloadVCard(profile, vCardOptions);
 };
 
-/**
- * Check if we're in an embedded browser
- */
-const isEmbeddedBrowser = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
-  const userAgent = navigator.userAgent.toLowerCase();
-  
-  const embeddedIndicators = [
-    'gsa/',
-    'googleapp',
-    'fb',
-    'fban',
-    'fbav',
-    'instagram',
-    'twitter',
-    'line/',
-    'wechat',
-    'weibo',
-    'webview',
-    'chrome-mobile',
-  ];
-  
-  const isEmbedded = embeddedIndicators.some(indicator => userAgent.includes(indicator));
-  
-  console.log('🔍 User Agent:', userAgent);
-  console.log('🔍 Is Embedded Browser:', isEmbedded);
-  
-  return isEmbedded;
-};
 
 /**
  * Display vCard inline for iOS

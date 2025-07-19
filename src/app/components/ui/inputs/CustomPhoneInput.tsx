@@ -168,11 +168,46 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   // Handle phone input change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Keep track of cursor position
     const cursorPosition = e.target.selectionStart || 0;
     
     // Get all digits from input
     const digits = input.replace(/\D/g, '');
+    const previousDigits = phoneInput.replace(/\D/g, '');
+    
+    // Detect if this was a backspace/delete operation by comparing input lengths
+    const isDeleting = input.length < phoneInput.length;
+    
+    // Special case: Handle backspace when cursor is after a formatting character
+    // If the input got shorter but digit count stayed the same, user deleted a formatting char
+    if (isDeleting && digits.length === previousDigits.length) {
+      // This means user tried to delete a formatting character
+      // We should delete the actual last digit instead
+      const newDigits = previousDigits.slice(0, -1);
+      const newFormattedPhone = newDigits ? formatPhoneNumber(newDigits) : '';
+      
+      setPhoneInput(newFormattedPhone);
+      onChange(newDigits);
+      
+      // Position cursor appropriately for the new digit count
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          let newCursorPosition;
+          if (newDigits.length === 0) {
+            newCursorPosition = 0;
+          } else if (newDigits.length === 3) {
+            newCursorPosition = 6; // After ") "
+          } else if (newDigits.length === 6) {
+            newCursorPosition = 10; // After "-"
+          } else {
+            const lastDigitIndex = newFormattedPhone.lastIndexOf(newDigits[newDigits.length - 1]);
+            newCursorPosition = lastDigitIndex + 1;
+          }
+          newCursorPosition = Math.max(0, Math.min(newCursorPosition, newFormattedPhone.length));
+          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      });
+      return;
+    }
     
     // Check if this looks like an international number (more than 10 digits)
     if (digits.length > 10) {
@@ -187,55 +222,49 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         
         // Use the national number for formatting
         const formattedPhone = formatPhoneNumber(nationalNumber);
-        
-        // Update local state immediately (synchronously)
         setPhoneInput(formattedPhone);
-        
-        // Call the parent's onChange with just the national number digits
         onChange(nationalNumber);
-        
         return;
       }
     }
     
     // Default handling for regular phone numbers
     const formattedPhone = digits ? formatPhoneNumber(digits) : '';
+    const previousFormatted = phoneInput;
     
-    // Update local state immediately (synchronously) to prevent race conditions
+    // Update local state
     setPhoneInput(formattedPhone);
-    
-    // Call the parent's onChange with just the digits
     onChange(digits);
     
-    // Handle cursor position restoration after state update
+    // Handle cursor positioning
     requestAnimationFrame(() => {
-      if (inputRef.current) {
-        // Calculate new cursor position based on formatting changes
-        let newCursorPosition = cursorPosition;
-        const isAdding = formattedPhone.length > phoneInput.length;
+      if (inputRef.current && formattedPhone !== previousFormatted) {
+        let newCursorPosition;
         
-        // If we added a formatting character, move cursor forward
-        if (isAdding && cursorPosition > 0 && 
-            (formattedPhone[cursorPosition - 1] === ')' || 
-             formattedPhone[cursorPosition - 1] === ' ' || 
-             formattedPhone[cursorPosition - 1] === '-')) {
-          newCursorPosition = cursorPosition + 1;
-        }
-        // If we removed a formatting character, keep cursor in same position
-        else if (!isAdding && cursorPosition > 0 && 
-                cursorPosition <= phoneInput.length &&
-                (phoneInput[cursorPosition - 1] === ')' || 
-                 phoneInput[cursorPosition - 1] === ' ' || 
-                 phoneInput[cursorPosition - 1] === '-')) {
-          newCursorPosition = Math.max(0, cursorPosition - 1);
+        // Simple rule-based positioning:
+        // 1. Cursor always after last digit
+        // 2. Exception: 3 digits -> after ") " (position 6) 
+        // 3. Exception: 6 digits -> after "-" (position 10)
+        
+        if (digits.length === 0) {
+          newCursorPosition = 0;
+        } else if (digits.length === 3) {
+          // "(818) " - cursor after ") " at position 6
+          newCursorPosition = 6;
+        } else if (digits.length === 6) {
+          // "(818) 292-" - cursor after "-" at position 10
+          newCursorPosition = 10;
+        } else {
+          // For all other cases, position cursor after the last digit
+          // Count characters to find where last digit is
+          const lastDigitIndex = formattedPhone.lastIndexOf(digits[digits.length - 1]);
+          newCursorPosition = lastDigitIndex + 1;
         }
         
         // Ensure cursor stays within bounds
-        newCursorPosition = Math.min(newCursorPosition, formattedPhone.length);
+        newCursorPosition = Math.max(0, Math.min(newCursorPosition, formattedPhone.length));
         
-        // Set the cursor position
-        inputRef.current.selectionStart = newCursorPosition;
-        inputRef.current.selectionEnd = newCursorPosition;
+        inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
       }
     });
   };

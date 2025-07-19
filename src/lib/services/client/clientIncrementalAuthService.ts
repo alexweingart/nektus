@@ -1,6 +1,6 @@
 /**
  * Client-side incremental authorization service for Google OAuth
- * Handles popup/redirect flows, state management, and upsell tracking
+ * Simplified to redirect-only flow to avoid COOP issues
  */
 
 // Constants for permission error detection
@@ -35,10 +35,6 @@ export const TOKEN_ERROR_PATTERNS = [
   /expired.*token/i,
   /token.*required/i,
   /no.*access.*token/i
-];
-
-const EMBEDDED_BROWSER_INDICATORS = [
-  'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'
 ];
 
 /**
@@ -123,83 +119,11 @@ export function markUpsellShown(platform: string, token: string): void {
   }
 }
 
-/**
- * Store contact save state (for auth flow continuity)
- */
-export function storeContactSaveState(token: string, profileId: string): void {
-  try {
-    const state = {
-      token,
-      profileId,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('contact_save_state', JSON.stringify(state));
-    console.log('💾 Stored contact save state:', state);
-  } catch (error) {
-    console.warn('Failed to store contact save state:', error);
-  }
-}
-
-/**
- * Get contact save state (with expiration check)
- */
-export function getContactSaveState(): { token?: string; profileId?: string; timestamp?: number } {
-  try {
-    const stored = localStorage.getItem('contact_save_state');
-    if (!stored) {
-      return {};
-    }
-    
-    const state = JSON.parse(stored);
-    
-    // Check if state is expired (5 minutes)
-    const maxAge = 5 * 60 * 1000; // 5 minutes
-    const age = Date.now() - (state.timestamp || 0);
-    
-    if (age > maxAge) {
-      clearContactSaveState();
-      return {};
-    }
-    
-    return state;
-  } catch (error) {
-    console.warn('Failed to get contact save state:', error);
-    clearContactSaveState();
-    return {};
-  }
-}
-
-/**
- * Clear contact save state
- */
-export function clearContactSaveState(): void {
-  try {
-    localStorage.removeItem('contact_save_state');
-  } catch (error) {
-    console.warn('Failed to clear contact save state:', error);
-  }
-}
-
-/**
- * Check if we're in an embedded browser (like in-app browsers)
- */
-export function isEmbeddedBrowser(): boolean {
-  const userAgent = navigator.userAgent.toLowerCase();
-  return EMBEDDED_BROWSER_INDICATORS.some(indicator => userAgent.includes(indicator));
-}
-
-/**
- * Check if the browser supports reliable popups
- */
-export function supportsReliablePopups(): boolean {
-  // Don't use popups for embedded browsers (they often block them)
-  return !isEmbeddedBrowser();
-}
 
 /**
  * Check if user is returning from incremental auth
  */
-export function isReturningFromIncrementalAuth(): boolean {
+export function isReturningFromIncrementalAuth(currentState?: { token?: string; profileId?: string; timestamp?: number }): boolean {
   console.log('🔍 Auth check: Checking if returning from incremental auth...');
   
   const urlParams = new URLSearchParams(window.location.search);
@@ -218,13 +142,12 @@ export function isReturningFromIncrementalAuth(): boolean {
   }
   
   // Check if we have RECENT stored state (indicating user just went through auth flow)
-  const storedState = getContactSaveState();
-  console.log('🔍 Auth check: Stored state:', storedState);
+  console.log('🔍 Auth check: Stored state:', currentState);
   
-  if (storedState && storedState.token && storedState.profileId && storedState.timestamp) {
+  if (currentState && currentState.token && currentState.profileId && currentState.timestamp) {
     // Only consider it a "return from auth" if the stored state is very recent (within last 2 minutes)
     const authReturnWindow = 2 * 60 * 1000; // 2 minutes
-    const age = Date.now() - storedState.timestamp;
+    const age = Date.now() - currentState.timestamp;
     console.log('🔍 Auth check: State age:', age, 'ms (auth return window:', authReturnWindow, 'ms)');
     
     if (age <= authReturnWindow) {
@@ -232,8 +155,6 @@ export function isReturningFromIncrementalAuth(): boolean {
       return true;
     } else {
       console.log('🔍 Auth check: Stored state too old to be considered auth return');
-      // Clear old stored state since it's not relevant anymore
-      clearContactSaveState();
       return false;
     }
   }
@@ -245,7 +166,7 @@ export function isReturningFromIncrementalAuth(): boolean {
 /**
  * Handle return from incremental auth
  */
-export function handleIncrementalAuthReturn(): { success: boolean; contactSaveToken?: string; profileId?: string; denied?: boolean } {
+export function handleIncrementalAuthReturn(existingState?: { token?: string; profileId?: string; timestamp?: number }): { success: boolean; contactSaveToken?: string; profileId?: string; denied?: boolean } {
   console.log('🔍 Auth return: Starting handleIncrementalAuthReturn...');
   
   const urlParams = new URLSearchParams(window.location.search);
@@ -291,7 +212,6 @@ export function handleIncrementalAuthReturn(): { success: boolean; contactSaveTo
   
   // If no URL params but we have stored state, user likely tapped back
   console.log('🔍 Auth return: No URL params, checking stored state...');
-  const existingState = getContactSaveState();
   console.log('🔍 Auth return: Existing state:', existingState);
   
   if (existingState && existingState.token && existingState.profileId && existingState.timestamp) {
@@ -312,8 +232,7 @@ export function handleIncrementalAuthReturn(): { success: boolean; contactSaveTo
         profileId: existingState.profileId 
       };
     } else {
-      console.log('🔍 Auth return: Stored state too old to be considered back button - clearing and treating as no auth');
-      clearContactSaveState();
+      console.log('🔍 Auth return: Stored state too old to be considered back button - treating as no auth');
     }
   }
   
@@ -321,88 +240,19 @@ export function handleIncrementalAuthReturn(): { success: boolean; contactSaveTo
   return { success: false };
 }
 
-/**
- * Open Google auth in a popup (for standalone browsers)
- */
-function popupIncrementalAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
-  return new Promise((resolve) => {
-    // Build auth URL using existing endpoint
-    const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(`${window.location.origin}/api/auth/google-incremental/popup-callback`)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
-    
-    // Open popup for auth
-    const popup = window.open(
-      authUrl,
-      'google-auth-popup',
-      'width=500,height=600,scrollbars=yes,resizable=yes,status=yes'
-    );
-
-    if (!popup) {
-      console.error('❌ Popup blocked! Falling back to redirect...');
-      // Fallback to redirect if popup is blocked
-      redirectIncrementalAuth(contactSaveToken, profileId);
-      resolve({ success: false, showUpsellModal: false });
-      return;
-    }
-
-    // Listen for popup completion via postMessage
-    const messageHandler = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data?.type === 'GOOGLE_AUTH_COMPLETE') {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageHandler);
-        popup.close();
-        
-        if (event.data.success) {
-          resolve({ success: true });
-        } else {
-          resolve({ success: false, showUpsellModal: true });
-        }
-      }
-    };
-    
-    window.addEventListener('message', messageHandler);
-    
-    // Check if popup is closed manually
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageHandler);
-        resolve({ success: false, showUpsellModal: true });
-      }
-    }, 1000);
-  });
-}
 
 /**
- * Redirect to Google auth in same tab (for embedded browsers)
+ * Start incremental authorization with Google for contacts scope
+ * Simplified to redirect-only flow to avoid COOP issues
  */
-function redirectIncrementalAuth(contactSaveToken: string, profileId: string): void {
-  console.log('🔄 Redirecting to Google for incremental contacts permission...');
+export async function startIncrementalAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
+  console.log('🔄 Starting Google auth for contacts permission...');
   
   // Build auth URL using existing endpoint  
   const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
   
   window.location.href = authUrl;
-}
-
-/**
- * Redirect to Google for incremental authorization with contacts scope
- */
-export async function startIncrementalAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
-  console.log('🔄 Starting Google auth for contacts permission...');
   
-  // Determine whether to use popup or redirect based on browser capabilities
-  const usePopup = supportsReliablePopups();
-  
-  if (usePopup) {
-    // Use popup for standalone browsers (better cookie handling)
-    const result = await popupIncrementalAuth(contactSaveToken, profileId);
-    return result;
-  } else {
-    // Use redirect for embedded browsers (more reliable)
-    redirectIncrementalAuth(contactSaveToken, profileId);
-    // For redirects, we can't wait for completion, so return immediately
-    return { success: false, showUpsellModal: false };
-  }
+  // For redirects, we can't wait for completion, so return immediately
+  return { success: false, showUpsellModal: false };
 }
