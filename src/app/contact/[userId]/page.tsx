@@ -105,22 +105,8 @@ function ContactPageContent() {
     );
   }
 
-  // Fallback - should not reach here
-  return (
-    <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
-      <div className="text-center">
-        <p className="text-gray-400">Something went wrong</p>
-        <Button 
-          onClick={handleGoBack}
-          variant="theme"
-          size="lg"
-          className="mt-4 w-full"
-        >
-          Back to History
-        </Button>
-      </div>
-    </div>
-  );
+  // Wait for contact to load - no visual fallback
+  return null;
 }
 
 export default function ContactPage() {
