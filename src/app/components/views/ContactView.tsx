@@ -311,7 +311,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = profile.name.split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    const messageText = generateMessageText(contactFirstName, senderFirstName,undefined,profile.userId);
     
     // Try to use phone number if available
     const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;

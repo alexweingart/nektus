@@ -424,6 +424,66 @@ export async function getRedisClient(): Promise<any> {
 }
 
 /**
+ * Clean up all pending exchanges for a specific user
+ */
+export async function cleanupUserExchanges(userId: string): Promise<void> {
+  if (!isRedisAvailable()) {
+    throw new Error('Redis is not available for cleaning up user exchanges');
+  }
+
+  const globalBucketKey = 'geo_bucket:global';
+  
+  try {
+    // Get all current candidates in the global bucket
+    const allCandidates = await redis!.smembers(globalBucketKey) as string[];
+    const pipeline = redis!.multi();
+    let cleanedCount = 0;
+    
+    console.log(`🧹 Checking ${allCandidates.length} candidates for cleanup for user ${userId}`);
+    
+    // Check each candidate to see if it belongs to this user
+    for (const candidateSessionId of allCandidates) {
+      const candidateKey = `pending_exchange:${candidateSessionId}`;
+      const candidateDataStr = await redis!.get(candidateKey);
+      
+      if (!candidateDataStr) {
+        // Remove stale session from bucket
+        pipeline.srem(globalBucketKey, candidateSessionId);
+        cleanedCount++;
+        continue;
+      }
+      
+      // Parse the candidate data to check user ID
+      let candidateData;
+      if (typeof candidateDataStr === 'string') {
+        candidateData = JSON.parse(candidateDataStr);
+      } else {
+        candidateData = candidateDataStr;
+      }
+      
+      // If this exchange belongs to the user, clean it up
+      if (candidateData.userId === userId) {
+        console.log(`🧹 Removing old exchange ${candidateSessionId} for user ${userId}`);
+        pipeline.del(candidateKey);
+        pipeline.srem(globalBucketKey, candidateSessionId);
+        cleanedCount++;
+      }
+    }
+    
+    // Execute all cleanup operations atomically
+    if (cleanedCount > 0) {
+      await pipeline.exec();
+      console.log(`🧹 Cleaned up ${cleanedCount} old exchanges for user ${userId}`);
+    } else {
+      console.log(`✅ No old exchanges found for user ${userId}`);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error cleaning up exchanges for user ${userId}:`, error);
+  }
+}
+
+/**
  * Close Redis connection
  */
 export async function closeRedisConnection(): Promise<void> {

@@ -13,7 +13,8 @@ import {
   findMatchingExchange,
   atomicExchangeAndMatch,
   storeExchangeMatch,
-  removePendingExchange
+  removePendingExchange,
+  cleanupUserExchanges
 } from '@/lib/redis/client';
 
 function getClientIP(request: NextRequest): string {
@@ -156,6 +157,12 @@ export async function POST(request: NextRequest) {
       sharingCategory: exchangeData.sharingCategory,
       hitNumber: exchangeRequest.hitNumber || 'unknown'
     });
+
+    // Clean up user's old exchanges on first hit of a new exchange session
+    if (exchangeRequest.hitNumber === 1) {
+      console.log(`🧹 First hit detected - cleaning up old exchanges for user ${session.user.id}`);
+      await cleanupUserExchanges(session.user.id);
+    }
 
     // Use atomic exchange and match operation to prevent race conditions
     console.log(`🔍 Atomically storing and checking for matches for session ${exchangeRequest.session}`);
