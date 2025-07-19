@@ -10,14 +10,21 @@ import { UserProfile } from '@/types/profile';
 export function generateMessageText(
   contactFirstName: string, 
   senderFirstName: string, 
-  meetingDate: Date = new Date()
+  meetingDate: Date = new Date(),
+  senderUserId?: string
 ): string {
   const dateStr = meetingDate.toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric' 
   });
   
-  return `👋 Hi ${contactFirstName}, this is ${senderFirstName}. We nekt'd on ${dateStr}. It was great meeting you - let's hang out soon!`;
+  const baseMessage = `👋 Hi ${contactFirstName}, this is ${senderFirstName}. We nekt'd on ${dateStr}. It was great meeting you - let's hang out soon!`;
+  
+  if (senderUserId) {
+    return `${baseMessage} Here's my profile: https://nekt.us/contact/${senderUserId}`;
+  }
+  
+  return baseMessage;
 }
 
 /**
