@@ -280,8 +280,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
       <div className="h-[100dvh] flex flex-col items-center px-4 py-2 relative z-[1001]">
         
         {/* Header with back button for historical contacts */}
-        <div className="w-full max-w-[var(--max-content-width,448px)] py-4 mb-4 flex-shrink-0">
-          {isHistoricalContact ? (
+        {isHistoricalContact && (
+          <div className="w-full max-w-[var(--max-content-width,448px)] flex-shrink-0">
             <div className="flex justify-start items-center">
               <Button 
                 variant="circle"
@@ -292,10 +292,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 <FaArrowLeft className="h-5 w-5" />
               </Button>
             </div>
-          ) : (
-            <div>{/* Empty space for non-historical contact view */}</div>
-          )}
-        </div>
+          </div>
+        )}
         
         {/* Fixed Content Area - No scroll */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-hidden">
