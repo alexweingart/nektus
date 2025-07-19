@@ -20,7 +20,7 @@ import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
-import { getExchangeState, shouldShowSuccess, shouldShowUpsell } from '@/lib/services/client/exchangeStateService';
+import { getExchangeState, setExchangeState, shouldShowSuccess, shouldShowUpsell } from '@/lib/services/client/exchangeStateService';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -90,12 +90,42 @@ export const ContactView: React.FC<ContactViewProps> = ({
         const urlParams = new URLSearchParams(window.location.search);
         const authResult = urlParams.get('incremental_auth');
         
-        if (authResult === 'success' || authResult === 'denied') {
-          console.log('🔄 Found auth result in URL, calling saveContactFlow to handle auth return');
+        if (authResult === 'success') {
+          console.log('✅ Auth successful detected in URL - showing success modal immediately');
           
-          // Call saveContactFlow to handle auth return regardless of current state
+          // Show success modal immediately - we know auth succeeded!
+          setShowSuccessModal(true);
+          
+          // Clean up URL parameters
+          const url = new URL(window.location.href);
+          url.searchParams.delete('incremental_auth');
+          url.searchParams.delete('contact_save_token');
+          url.searchParams.delete('profile_id');
+          window.history.replaceState({}, document.title, url.toString());
+          
+          // Update exchange state to completed_success immediately
+          setExchangeState(token, {
+            state: 'completed_success',
+            platform: exchangeState?.platform || 'android',
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
+          
+          // Make Google API call in background (don't wait for it)
+          saveContactFlow(profile, token).catch(error => {
+            console.warn('Background Google save failed:', error);
+            // Could optionally show a toast notification if the background save fails
+          });
+          
+          return;
+        }
+        
+        if (authResult === 'denied') {
+          console.log('🚫 Auth denied detected in URL, calling saveContactFlow to handle denial');
+          
+          // For denied, we still need to call saveContactFlow to handle the denial logic
           const result = await saveContactFlow(profile, token);
-          console.log('📊 SaveContactFlow result from mount (auth return):', JSON.stringify(result, null, 2));
+          console.log('📊 SaveContactFlow result from mount (auth denied):', JSON.stringify(result, null, 2));
           
           if (result.showUpsellModal) {
             console.log('🆙 Setting showUpsellModal to true from mount check');
