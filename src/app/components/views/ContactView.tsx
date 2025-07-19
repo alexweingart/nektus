@@ -14,7 +14,7 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import { StandardModal } from '../ui/StandardModal';
-
+import { Text } from "../ui/Typography";
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
@@ -311,7 +311,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   }, [profile?.bio]);
 
   const markdownComponents = useMemo(() => ({
-    p: ({node, ...props}: any) => <p className="text-white text-sm leading-relaxed mb-2" {...props} />,
+    p: ({node, ...props}: any) => <Text variant="small" className="leading-relaxed mb-2" {...props} />,
     a: ({ node: _node, ...props }: any) => (
       <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
     ),

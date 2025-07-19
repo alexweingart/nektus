@@ -15,7 +15,7 @@ import { StandardModal } from '../ui/StandardModal';
 import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profileFiltering';
 
 import ReactMarkdown from 'react-markdown';
-import { Heading } from '../ui/Typography';
+import { Heading, Text } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
@@ -340,7 +340,7 @@ const ProfileView: React.FC = () => {
             <div className="bio-content text-white">
               <ReactMarkdown 
                 components={{
-                  p: ({node, ...props}) => <p className="text-sm text-white" {...props} />,
+                  p: ({node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
                   a: ({ node: _node, ...props }) => (
                     <a {...props} target="_blank" rel="noopener noreferrer" />
                   )

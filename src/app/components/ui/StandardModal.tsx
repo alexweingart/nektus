@@ -60,7 +60,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
             
             {/* Subtitle */}
             <Dialog.Description asChild>
-              <Text variant="base" className="leading-relaxed break-words">
+              <Text variant="small" className="leading-relaxed break-words">
                 {subtitle}
               </Text>
             </Dialog.Description>
