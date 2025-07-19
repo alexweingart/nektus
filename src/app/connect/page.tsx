@@ -121,7 +121,7 @@ function ConnectPageContent() {
           <Button 
             onClick={() => router.push('/')}
             variant="theme"
-            size="lg"
+            size="xl"
             className="w-full"
           >
             Go Back

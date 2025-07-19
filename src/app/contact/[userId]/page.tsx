@@ -82,7 +82,7 @@ function ContactPageContent() {
           <Button 
             onClick={handleGoBack}
             variant="theme"
-            size="lg"
+            size="xl"
             className="w-full"
           >
             Back to History

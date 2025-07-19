@@ -71,8 +71,8 @@ export const StandardModal: React.FC<StandardModalProps> = ({
             <Button
               onClick={handlePrimaryClick}
               variant="white"
-              size="lg"
-              className="w-full text-xl font-semibold"
+              size="xl"
+              className="w-full font-semibold"
             >
               {primaryButtonText}
             </Button>

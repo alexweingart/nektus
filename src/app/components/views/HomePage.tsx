@@ -68,8 +68,8 @@ const HomePage: React.FC = () => {
         
         <Button
           variant="white"
-          size="lg"
-          className="w-full mb-2 text-gray-700 text-lg font-medium"
+          size="xl"
+          className="w-full mb-2 text-gray-700 font-medium"
           onClick={() => signIn('google', { callbackUrl: '/setup' })}
           icon={<GoogleIcon />}
         >

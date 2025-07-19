@@ -349,7 +349,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
               <Avatar 
                 src={profile.profileImage} 
                 alt={profile.name || 'Contact'}
-                size="lg"
+                size="xl"
               />
             </div>
           </div>
@@ -390,8 +390,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 {/* Message Button (Primary) */}
                 <Button 
                   variant="theme"
-                  size="lg"
-                  className="w-full font-bold text-lg"
+                  size="xl"
+                  className="w-full font-bold"
                   onClick={handleHistoricalMessage}
                 >
                   Say hi 👋
@@ -405,8 +405,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 {/* Save Contact Button (Primary) */}
                 <Button 
                   variant="theme"
-                  size="lg"
-                  className="w-full font-bold text-lg"
+                  size="xl"
+                  className="w-full font-bold"
                   onClick={handleSaveContact}
                   disabled={isSaving || isLoading}
                 >

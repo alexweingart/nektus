@@ -122,7 +122,7 @@ function ProfileSetupView() {
                 <Avatar 
                   src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
                   alt={session?.user?.name || 'Profile'}
-                  size="lg"
+                  size="xl"
                 />
               </div>
             </div>
@@ -159,7 +159,7 @@ function ProfileSetupView() {
                 <Button
                   type="button"
                   variant="theme"
-                  size="lg"
+                  size="xl"
                   className="w-full font-medium"
                   disabled={isProfileSaving || (digits.replace(/\D/g, '').length < 10)}
                   aria-busy={isProfileSaving}

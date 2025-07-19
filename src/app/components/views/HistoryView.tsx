@@ -126,7 +126,7 @@ export const HistoryView: React.FC = () => {
             <Button 
               onClick={handleRetry}
               variant="theme"
-              size="lg"
+              size="xl"
               className="w-full"
             >
               Try Again
@@ -184,7 +184,7 @@ export const HistoryView: React.FC = () => {
               <Button 
                 onClick={handleGoBack}
                 variant="theme"
-                size="lg"
+                size="xl"
                 className="w-full"
               >
                 Start Nekt'ing

@@ -345,9 +345,9 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         onClick={handleButtonClick}
         disabled={isDisabled}
         variant={getButtonVariant()}
-        size="lg"
+        size="xl"
         className={`
-          w-full text-xl font-semibold
+          w-full font-semibold
           transition-all duration-200 ease-in-out
           ${isActive ? 'animate-pulse' : ''}
           ${className || ''}

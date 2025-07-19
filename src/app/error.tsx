@@ -34,7 +34,7 @@ export default function Error({
               router.push('/');
             }}
             variant="theme"
-            size="lg"
+            size="xl"
             className="w-full"
           >
             Go back home
