@@ -251,7 +251,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     // Create new background div if we have a background image
     if (currentBackgroundImage) {
       // Clean the URL to remove any newlines or whitespace that could break CSS
-      const cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
+      let cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
+      
+      // Add cache busting for Firebase Storage URLs to ensure fresh images
+      if (cleanedUrl.includes('firebase') || cleanedUrl.includes('googleusercontent.com')) {
+        const separator = cleanedUrl.includes('?') ? '&' : '?';
+        cleanedUrl = `${cleanedUrl}${separator}v=${Date.now()}`;
+      }
       
       const backgroundDiv = document.createElement('div');
       backgroundDiv.id = 'app-background';
@@ -392,8 +398,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           })
           .then(data => {
             if (data.imageUrl) {
+              // Add cache busting to ensure fresh image display
+              const cacheBustingUrl = `${data.imageUrl}?v=${Date.now()}`;
+              
               // Update streaming state for immediate UI feedback
-              setStreamingProfileImage(data.imageUrl);
+              setStreamingProfileImage(cacheBustingUrl);
               
               // API already saved to Firebase, no local state update needed
             }

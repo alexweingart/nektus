@@ -296,6 +296,32 @@ export async function deleteUserProfile(userId: string): Promise<void> {
         // Don't fail the entire deletion if storage cleanup fails
       }
 
+      // Delete contacts subcollection before deleting the main profile document
+      try {
+        const contactsRef = profileRef.collection('contacts');
+        const contactsSnapshot = await contactsRef.get();
+        
+        if (!contactsSnapshot.empty) {
+          // Use batched writes for efficient deletion of multiple contacts
+          const batchSize = 500; // Firestore batch limit
+          const contacts = contactsSnapshot.docs;
+          
+          for (let i = 0; i < contacts.length; i += batchSize) {
+            const batch = db.batch();
+            const batchContacts = contacts.slice(i, i + batchSize);
+            
+            batchContacts.forEach(contactDoc => {
+              batch.delete(contactDoc.ref);
+            });
+            
+            await batch.commit();
+          }
+        }
+      } catch (contactsError) {
+        console.error(`[deleteUserProfile] Error deleting contacts subcollection for user ${userId}:`, contactsError);
+        // Don't fail the entire deletion if contacts cleanup fails
+      }
+
       // Delete the profile document from Firestore
       await profileRef.delete();
 

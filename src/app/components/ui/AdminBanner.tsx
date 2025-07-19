@@ -118,6 +118,37 @@ export default function AdminBanner() {
         console.error('Error clearing storage:', err);
       }
 
+      // Clear Service Worker cache
+      try {
+        if ('serviceWorker' in navigator && 'caches' in window) {
+          console.log('Clearing service worker cache...');
+          const cacheNames = await caches.keys();
+          console.log('Found caches:', cacheNames);
+          
+          const deleteCachePromises = cacheNames.map(async (cacheName) => {
+            try {
+              const deleted = await caches.delete(cacheName);
+              console.log(`Cache ${cacheName} deleted:`, deleted);
+              return deleted;
+            } catch (err) {
+              console.warn(`Failed to delete cache ${cacheName}:`, err);
+              return false;
+            }
+          });
+          
+          await Promise.allSettled(deleteCachePromises);
+          console.log('Service worker cache clearing completed');
+          
+          // Also try to force service worker to update
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+          }
+        }
+      } catch (err) {
+        console.error('Error clearing service worker cache:', err);
+        // Continue with cleanup even if cache clearing fails
+      }
+
       // Clear Firebase Auth state
       try {
         if (firebaseAuth.isAuthenticated()) {
