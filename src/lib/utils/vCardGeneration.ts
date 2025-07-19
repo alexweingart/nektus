@@ -24,8 +24,8 @@ function getOptimizedImageUrl(imageUrl: string): string {
   // If it's a Firebase Storage URL, optimize it through Next.js
   if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('firebasestorage.app')) {
     const encodedUrl = encodeURIComponent(imageUrl);
-    // Use smaller size for vCard compatibility (max 400px, lower quality)
-    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=400&q=60`;
+    // Use very small size for vCard compatibility (150px max, low quality for smaller file size)
+    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=150&q=40`;
   }
   
   // For other URLs, return as-is
@@ -47,7 +47,7 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
     
     // Simplified fetch without potentially problematic headers
-    const res = await fetch(optimizedUrl, { 
+    let res = await fetch(optimizedUrl, { 
       signal: controller.signal,
       
       // Bypass service worker cache for image processing to ensure fresh response
@@ -55,14 +55,32 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     });
     clearTimeout(timeoutId);
     
+    // If Next.js optimization fails, try the original URL as fallback
+    if (!res.ok && optimizedUrl !== imageUrl) {
+      console.log(`[vCard] Optimization failed (${res.status}), trying original URL...`);
+      const fallbackController = new AbortController();
+      const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 8000);
+      
+      try {
+        res = await fetch(imageUrl, { 
+          signal: fallbackController.signal,
+          cache: 'no-cache',
+        });
+        clearTimeout(fallbackTimeoutId);
+      } catch (fallbackError) {
+        clearTimeout(fallbackTimeoutId);
+        throw new Error(`Both optimized and original URLs failed: ${res.status} ${res.statusText}`);
+      }
+    }
+    
     if (!res.ok) {
       throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
     }
     
     const arrayBuffer = await res.arrayBuffer();
     
-    if (arrayBuffer.byteLength > 1024 * 1024) {
-      throw new Error('Image too large (>1MB)');
+    if (arrayBuffer.byteLength > 2 * 1024 * 1024) {
+      throw new Error('Image too large (>2MB)');
     }
     if (arrayBuffer.byteLength > 200 * 1024) {
       console.warn('Image size exceeds 200KB, may cause vCard compatibility issues');
