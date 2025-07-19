@@ -379,7 +379,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1000] backdrop-blur-sm">
-      <div className="h-[100dvh] flex flex-col items-center px-4 py-2 relative z-[1001]">
+      <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         
         {/* Header with back button for historical contacts */}
         {isHistoricalContact && (
