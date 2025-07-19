@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
 import { UserProfile } from '@/types/profile';
@@ -234,10 +233,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     loadProfile();
   }, [authStatus, session?.user?.id, update]);
 
-  // Centralized background image management - single fixed background across all views
+  // Centralized background image management - handles both default and custom backgrounds
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    const pathname = window.location.pathname;
     const currentBackgroundImage = profile?.backgroundImage;
     
     // Clean up existing background div
@@ -246,7 +246,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       existingBg.remove();
     }
 
-    // Create new background div if we have a background image
+    // Remove default background class from body
+    document.body.classList.remove('default-nekt-background');
+
+    // Setup page always shows default background (no custom backgrounds)
+    if (pathname === '/setup') {
+      document.body.classList.add('default-nekt-background');
+      return;
+    }
+
+    // For other pages: show custom background if available, otherwise show default
     if (currentBackgroundImage) {
       // Clean the URL to remove any newlines or whitespace that could break CSS
       let cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
@@ -273,6 +282,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         pointer-events: none;
       `;
       document.body.appendChild(backgroundDiv);
+    } else {
+      // No custom background, show default pattern
+      document.body.classList.add('default-nekt-background');
     }
 
     // Cleanup function
@@ -281,6 +293,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (bgDiv) {
         bgDiv.remove();
       }
+      document.body.classList.remove('default-nekt-background');
     };
   }, [profile?.backgroundImage]);
 
