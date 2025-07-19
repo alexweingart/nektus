@@ -33,6 +33,16 @@ function detectPlatform(): 'android' | 'ios' | 'web' {
 }
 
 /**
+ * Check if user likely has Google Contacts permission
+ * Uses localStorage upsell history as a smart indicator
+ */
+function likelyHasGoogleContactsPermission(platform: string, token: string): boolean {
+  // If we've never shown the upsell, they might still have permission
+  // If we have shown the upsell, they definitely don't have permission
+  return !hasShownUpsell(platform, token);
+}
+
+/**
  * Store contact save state (for auth flow continuity)
  */
 function storeContactSaveState(token: string, profileId: string): void {
@@ -281,9 +291,60 @@ export async function saveContactFlow(
   }
 
   try {
-    // Step 1: Always save to Firebase first (immediate success feedback)
-    console.log('🔄 Saving to Firebase first...');
-    const firebaseResult = await callSaveContactAPI(token, { skipGoogleContacts: true });
+    // Smart permission check to avoid unnecessary API calls
+    const likelyHasPermission = likelyHasGoogleContactsPermission(platform, token);
+    console.log('🔍 Permission check: User likely has Google Contacts permission:', likelyHasPermission);
+    
+    // If we know they don't have permission and can do incremental auth, skip Google attempt
+    if (!likelyHasPermission && (platform === 'android' || platform === 'ios')) {
+      console.log('🚀 Fast path: Skipping Google attempt, going straight to incremental auth');
+      
+      // Start Firebase save and incremental auth in parallel
+      const [firebaseResult] = await Promise.all([
+        callSaveContactAPI(token, { skipGoogleContacts: true }),
+        (async () => {
+          // Store state for auth flow continuity
+          storeContactSaveState(token, profile.userId || '');
+          // Start incremental auth (non-blocking)
+          return startIncrementalAuth(token, profile.userId || '');
+        })()
+      ]);
+      
+      if (!firebaseResult.firebase.success) {
+        console.error('❌ Firebase save failed');
+        return {
+          success: false,
+          firebase: firebaseResult.firebase,
+          google: { success: false, error: 'Firebase save failed' },
+          platform
+        };
+      }
+      
+      console.log('✅ Firebase save successful - contact is saved!');
+      // Auth flow is already started, user will be redirected
+      return {
+        success: true,
+        firebase: firebaseResult.firebase,
+        google: { success: false, error: 'Redirecting to Google auth' },
+        platform
+      };
+    }
+    
+    // Traditional flow: try both Firebase and Google
+    console.log('🔄 Traditional flow: Trying Firebase and Google in parallel...');
+    const [firebaseResult, googleSaveResult] = await Promise.all([
+      callSaveContactAPI(token, { skipGoogleContacts: true }),
+      callSaveContactAPI(token, { googleOnly: true }).catch(error => {
+        console.warn('⚠️ Google Contacts save failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
+        return {
+          google: { 
+            success: false, 
+            error: errorMessage 
+          }
+        };
+      })
+    ]);
     
     if (!firebaseResult.firebase.success) {
       console.error('❌ Firebase save failed');
@@ -296,24 +357,9 @@ export async function saveContactFlow(
     }
 
     console.log('✅ Firebase save successful - contact is saved!');
+    const googleResult = googleSaveResult.google;
 
-    // Step 2: Try Google Contacts separately (this can fail without affecting Firebase success)
-    console.log('🔄 Now attempting Google Contacts save...');
-    let googleResult;
-    
-    try {
-      const googleSaveResult = await callSaveContactAPI(token, { googleOnly: true });
-      googleResult = googleSaveResult.google;
-    } catch (error) {
-      console.warn('⚠️ Google Contacts save failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
-      googleResult = { 
-        success: false, 
-        error: errorMessage 
-      };
-    }
-
-    // Step 3: Platform-specific logic for Google Contacts
+    // Step 2: Platform-specific logic for Google Contacts
     
     // iOS Safari/Chrome Flow (traditional vCard) - the only truly different platform
     if (platform === 'ios' && !isEmbeddedBrowser()) {

@@ -92,7 +92,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
         src={contact.profileImage}
         alt={contact.name}
         size="sm"
-        className="flex-shrink-0"
+        className="flex-shrink-0 !w-10 !h-10"
       />
       
       {/* Contact Info */}

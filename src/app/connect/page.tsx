@@ -8,7 +8,6 @@ import { generateMessageText, openMessagingApp } from '@/lib/services/client/mes
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
 import type { ContactSaveResult, SavedContact } from '@/types/contactExchange';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -19,7 +18,7 @@ function ConnectPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Get the exchange token from URL parameters
@@ -44,7 +43,6 @@ function ConnectPageContent() {
       }
 
       try {
-        setIsLoading(true);
         console.log('🔍 Fetching matched profile for token:', token, isHistoricalMode ? '(historical)' : '(active)');
         
         if (isHistoricalMode) {
@@ -82,7 +80,7 @@ function ConnectPageContent() {
         console.error('Failed to load matched profile:', error);
         setError(isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile');
       } finally {
-        setIsLoading(false);
+        // No loading state needed
       }
     }
 
@@ -106,18 +104,9 @@ function ConnectPageContent() {
     openMessagingApp(messageText, phoneNumber);
   };
 
-  // Show loading while checking auth or fetching profile
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center">
-          <LoadingSpinner size="sm" className="mx-auto" />
-          <p className="mt-2 text-sm text-gray-500">
-            {status === 'loading' ? 'Loading...' : 'Loading contact...'}
-          </p>
-        </div>
-      </div>
-    );
+  // Show loading only while checking auth
+  if (status === 'loading') {
+    return null; // No visual loading state
   }
 
   // Show error state
@@ -171,14 +160,7 @@ function ConnectPageContent() {
 
 export default function ConnectPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center">
-          <LoadingSpinner size="sm" className="mx-auto" />
-          <p className="mt-2 text-sm text-gray-500">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={null}>
       <ConnectPageContent />
     </Suspense>
   );

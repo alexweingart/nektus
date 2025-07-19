@@ -17,7 +17,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
 }) => {
   const variantStyles = {
     dark: "bg-black/40 backdrop-blur-sm hover:bg-black/50",
-    subtle: "bg-white/20 border border-white/40 hover:bg-white/30"
+    subtle: "bg-white/20 hover:bg-white/30"
   };
 
   return (

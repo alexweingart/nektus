@@ -9,7 +9,6 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
 import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
@@ -80,7 +79,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     checkForSavedState();
   }, [profile.userId, token, isHistoricalMode]);
 
-  // Handle incremental auth results
+  // Handle incremental auth results and back navigation
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const authResult = urlParams.get('incremental_auth');
@@ -93,6 +92,33 @@ export const ContactView: React.FC<ContactViewProps> = ({
       window.history.replaceState({}, document.title, url.toString());
     }
   }, []);
+
+  // Check for auth return on page visibility change (handles back navigation)
+  useEffect(() => {
+    if (isHistoricalMode) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔍 Page became visible, checking for auth return...');
+        
+        // Check if we should trigger save flow due to auth return
+        const result = await saveContactFlow(profile, token);
+        
+        if (result.showUpsellModal) {
+          setShowUpsellModal(true);
+        }
+        if (result.showSuccessModal) {
+          setShowSuccessModal(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [profile, token, isHistoricalMode]);
 
   // Apply the contact's background image to the screen
   useEffect(() => {
@@ -265,14 +291,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   }), []);
 
   if (!profile) {
-    return (
-      <div className="flex items-center justify-center min-h-dvh">
-        <div className="text-center">
-          <LoadingSpinner size="sm" className="mx-auto" />
-          <p className="mt-2 text-sm text-gray-500">Loading contact...</p>
-        </div>
-      </div>
-    );
+    return null; // No visual loading state
   }
 
   return (
@@ -364,14 +383,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   onClick={handleSaveContact}
                   disabled={isSaving || isLoading}
                 >
-                  {isSaving ? (
-                    <div className="flex items-center space-x-2">
-                      <LoadingSpinner size="sm" />
-                      <span>{getButtonText()}</span>
-                    </div>
-                  ) : (
-                    getButtonText()
-                  )}
+                  {getButtonText()}
                 </Button>
                 
                 {/* Success/Error Messages - handled by modals now */}
