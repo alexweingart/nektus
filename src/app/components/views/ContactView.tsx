@@ -43,9 +43,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
   
-  // Mock hooks for now - in historical mode we don't need these
+  // Modal state with logging
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
+  
+  // Add logging when modal states change
+  useEffect(() => {
+    console.log('🔄 Modal state changed - Success:', showSuccessModal, 'Upsell:', showUpsellModal);
+  }, [showSuccessModal, showUpsellModal]);
   
   const dismissSuccessModal = () => setShowSuccessModal(false);
   const dismissUpsellModal = () => setShowUpsellModal(false);
@@ -81,15 +86,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle incremental auth results and back navigation
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const authResult = urlParams.get('incremental_auth');
-    
-    if (authResult === 'denied') {
-      console.log('🚫 User denied Google Contacts permission');
-      // Clean up URL - the ContactSaveService will handle showing upsell modal
-      const url = new URL(window.location.href);
-      url.searchParams.delete('incremental_auth');
-      window.history.replaceState({}, document.title, url.toString());
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const authResult = urlParams.get('incremental_auth');
+      console.log('🔍 Auth result from URL params:', authResult);
+      
+      if (authResult === 'denied') {
+        console.log('🚫 User denied Google Contacts permission');
+        // Clean up URL - the ContactSaveService will handle showing upsell modal
+        const url = new URL(window.location.href);
+        url.searchParams.delete('incremental_auth');
+        window.history.replaceState({}, document.title, url.toString());
+      }
+    } catch (error) {
+      console.error('❌ Error handling incremental auth URL params:', error);
     }
   }, []);
 
@@ -98,21 +108,36 @@ export const ContactView: React.FC<ContactViewProps> = ({
     if (isHistoricalMode) return;
 
     const handleVisibilityChange = async () => {
+      console.log('📱 Visibility change detected:', document.visibilityState);
+      
       if (document.visibilityState === 'visible') {
         console.log('🔍 Page became visible, checking for auth return...');
+        console.log('📄 Current URL:', window.location.href);
+        console.log('🔍 URL search params:', window.location.search);
+        console.log('👤 Profile:', profile.name);
+        console.log('🎫 Token:', token);
         
         try {
           // Check if we should trigger save flow due to auth return
+          console.log('🚀 Calling saveContactFlow...');
           const result = await saveContactFlow(profile, token);
+          console.log('📊 SaveContactFlow result:', JSON.stringify(result, null, 2));
           
           if (result.showUpsellModal) {
+            console.log('🆙 Setting showUpsellModal to true');
             setShowUpsellModal(true);
           }
           if (result.showSuccessModal) {
+            console.log('✅ Setting showSuccessModal to true');
             setShowSuccessModal(true);
           }
+          
+          if (!result.showUpsellModal && !result.showSuccessModal) {
+            console.log('❌ No modals to show from saveContactFlow result');
+          }
         } catch (error) {
-          console.error('Error handling auth return:', error);
+          console.error('❌ Error handling auth return:', error);
+          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
           // Silently handle errors - auth flow cancellation should not crash the app
         }
       }
@@ -127,71 +152,81 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Apply the contact's background image to the screen
   useEffect(() => {
-    if (!profile?.backgroundImage) return;
+    try {
+      if (!profile?.backgroundImage) return;
 
-    // Clean up any existing contact background
-    const existingBg = document.getElementById('contact-background');
-    if (existingBg) {
-      existingBg.remove();
-    }
-
-    // Create background div with contact's background image
-    const cleanedUrl = profile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-    const backgroundDiv = document.createElement('div');
-    backgroundDiv.id = 'contact-background';
-    backgroundDiv.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: url(${cleanedUrl});
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      z-index: 999;
-      pointer-events: none;
-    `;
-    document.body.appendChild(backgroundDiv);
-
-    // Cleanup function
-    return () => {
-      const bgDiv = document.getElementById('contact-background');
-      if (bgDiv) {
-        bgDiv.remove();
+      // Clean up any existing contact background
+      const existingBg = document.getElementById('contact-background');
+      if (existingBg) {
+        existingBg.remove();
       }
-    };
+
+      // Create background div with contact's background image
+      const cleanedUrl = profile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
+      const backgroundDiv = document.createElement('div');
+      backgroundDiv.id = 'contact-background';
+      backgroundDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url(${cleanedUrl});
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: 999;
+        pointer-events: none;
+      `;
+      document.body.appendChild(backgroundDiv);
+
+      // Cleanup function
+      return () => {
+        try {
+          const bgDiv = document.getElementById('contact-background');
+          if (bgDiv) {
+            bgDiv.remove();
+          }
+        } catch (cleanupError) {
+          console.warn('❌ Error cleaning up background:', cleanupError);
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error applying contact background image:', error);
+    }
   }, [profile?.backgroundImage]);
 
   const handleSaveContact = async () => {
-    // Check if contact is already saved (button shows "I'm Done")
-    if (isSuccess) {
-      // Clean up any saved state
-      const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-      localStorage.removeItem(savedStateKey);
-      // Close the ContactView by calling onReject (which navigates back)
-      onReject();
-      return;
-    }
-
     try {
+      // Check if contact is already saved (button shows "I'm Done")
+      if (isSuccess) {
+        // Clean up any saved state
+        const savedStateKey = `contact_saved_${profile.userId}_${token}`;
+        localStorage.removeItem(savedStateKey);
+        // Close the ContactView by calling onReject (which navigates back)
+        onReject();
+        return;
+      }
+
       setIsSaving(true);
-      
-      console.log('Saving contact:', profile.name);
+      console.log('💾 Saving contact:', profile.name);
       
       // Call the actual contact save service
       const result = await saveContactFlow(profile, token);
+      console.log('💾 Save contact flow result:', JSON.stringify(result, null, 2));
       
       if (result.success) {
-        console.log('Contact saved successfully');
+        console.log('✅ Contact saved successfully');
         if (result.showSuccessModal) {
+          console.log('✅ Showing success modal');
           setShowSuccessModal(true);
         }
         if (result.showUpsellModal) {
+          console.log('🆙 Showing upsell modal');
           setShowUpsellModal(true);
         }
       } else {
-        console.error('Failed to save contact:', {
+        console.error('❌ Failed to save contact:', {
           firebase: result.firebase,
           google: result.google
         });
@@ -199,7 +234,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
       
     } catch (error) {
-      console.error('Failed to save contact:', error);
+      console.error('❌ Failed to save contact (exception):', error);
+      console.error('❌ Save contact error stack:', error instanceof Error ? error.stack : 'No stack');
     } finally {
       setIsSaving(false);
     }
