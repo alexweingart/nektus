@@ -57,15 +57,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const getButtonText = () => 'Save Contact';
   const isSuccess = false;
 
-  // Check for saved contact state AND auth return state on mount
+  // Check for saved contact state on mount (but NOT auth return state)
   useEffect(() => {
     if (isHistoricalMode) return;
     
     const checkForSavedState = async () => {
       try {
-        console.log('🔍 Checking for saved state and auth return on component mount...');
+        console.log('🔍 Checking for saved state on component mount...');
         
-        // First check for saved state (existing logic)
+        // Only check for saved state (existing logic) - do NOT trigger saveContactFlow
         const savedStateKey = `contact_saved_${profile.userId}_${token}`;
         const savedState = localStorage.getItem(savedStateKey);
         if (savedState) {
@@ -75,39 +75,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
           if (timeDiff < 300000) { // 5 minutes
             console.log('✅ Found recent saved state, showing success modal');
             setShowSuccessModal(true);
-            return; // Don't check for auth return if we already have saved state
+            return;
           } else {
             localStorage.removeItem(savedStateKey);
           }
         }
         
-        // Check for auth return state (new logic)
-        console.log('🔍 Checking for auth return state...');
-        console.log('📄 Current URL:', window.location.href);
-        console.log('🔍 URL search params:', window.location.search);
-        
-        try {
-          // Check if we should trigger save flow due to auth return
-          console.log('🚀 Calling saveContactFlow from mount check...');
-          const result = await saveContactFlow(profile, token);
-          console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
-          
-          if (result.showUpsellModal) {
-            console.log('🆙 Setting showUpsellModal to true from mount check');
-            setShowUpsellModal(true);
-          }
-          if (result.showSuccessModal) {
-            console.log('✅ Setting showSuccessModal to true from mount check');
-            setShowSuccessModal(true);
-          }
-          
-          if (!result.showUpsellModal && !result.showSuccessModal) {
-            console.log('❌ No modals to show from saveContactFlow result (mount check)');
-          }
-        } catch (error) {
-          console.error('❌ Error handling auth return from mount:', error);
-          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
-        }
+        console.log('ℹ️ No recent saved state found, waiting for user action');
       } catch (error) {
         console.error('Error checking for saved state:', error);
       }
@@ -135,7 +109,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   }, []);
 
-  // Check for auth return on page visibility change (handles back navigation)
+  // Check for auth return on page visibility change (handles back navigation from auth)
   useEffect(() => {
     if (isHistoricalMode) return;
 
@@ -146,12 +120,22 @@ export const ContactView: React.FC<ContactViewProps> = ({
         console.log('🔍 Page became visible, checking for auth return...');
         console.log('📄 Current URL:', window.location.href);
         console.log('🔍 URL search params:', window.location.search);
+        
+        // Only trigger saveContactFlow if there are auth-related URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasAuthParams = urlParams.has('incremental_auth') || urlParams.has('code') || urlParams.has('state');
+        
+        if (!hasAuthParams) {
+          console.log('ℹ️ No auth-related URL params found, skipping auth check');
+          return;
+        }
+        
         console.log('👤 Profile:', profile.name);
         console.log('🎫 Token:', token);
         
         try {
-          // Check if we should trigger save flow due to auth return
-          console.log('🚀 Calling saveContactFlow...');
+          // Only call saveContactFlow if we're returning from auth
+          console.log('🚀 Calling saveContactFlow for auth return...');
           const result = await saveContactFlow(profile, token);
           console.log('📊 SaveContactFlow result:', JSON.stringify(result, null, 2));
           
