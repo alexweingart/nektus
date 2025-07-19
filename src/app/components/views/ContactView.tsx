@@ -57,15 +57,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const getButtonText = () => 'Save Contact';
   const isSuccess = false;
 
-  // Check for saved contact state on mount (but NOT auth return state)
+  // Check for saved contact state AND auth return state on mount
   useEffect(() => {
     if (isHistoricalMode) return;
     
     const checkForSavedState = async () => {
       try {
-        console.log('🔍 Checking for saved state on component mount...');
+        console.log('🔍 Checking for saved state and potential auth return on component mount...');
         
-        // Only check for saved state (existing logic) - do NOT trigger saveContactFlow
+        // First check for UI saved state (existing logic)
         const savedStateKey = `contact_saved_${profile.userId}_${token}`;
         const savedState = localStorage.getItem(savedStateKey);
         if (savedState) {
@@ -75,13 +75,30 @@ export const ContactView: React.FC<ContactViewProps> = ({
           if (timeDiff < 300000) { // 5 minutes
             console.log('✅ Found recent saved state, showing success modal');
             setShowSuccessModal(true);
-            return;
+            return; // Don't check for auth return if we already have saved state
           } else {
             localStorage.removeItem(savedStateKey);
           }
         }
         
-        console.log('ℹ️ No recent saved state found, waiting for user action');
+        // Check for auth return state by calling saveContactFlow
+        // This will detect recent stored state from the contact save flow
+        console.log('🚀 Calling saveContactFlow to check for auth return...');
+        const result = await saveContactFlow(profile, token);
+        console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
+        
+        if (result.showUpsellModal) {
+          console.log('🆙 Setting showUpsellModal to true from mount check');
+          setShowUpsellModal(true);
+        }
+        if (result.showSuccessModal) {
+          console.log('✅ Setting showSuccessModal to true from mount check');
+          setShowSuccessModal(true);
+        }
+        
+        if (!result.showUpsellModal && !result.showSuccessModal) {
+          console.log('ℹ️ No modals to show - waiting for user action');
+        }
       } catch (error) {
         console.error('Error checking for saved state:', error);
       }
@@ -109,62 +126,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   }, []);
 
-  // Check for auth return on page visibility change (handles back navigation from auth)
-  useEffect(() => {
-    if (isHistoricalMode) return;
-
-    const handleVisibilityChange = async () => {
-      console.log('📱 Visibility change detected:', document.visibilityState);
-      
-      if (document.visibilityState === 'visible') {
-        console.log('🔍 Page became visible, checking for auth return...');
-        console.log('📄 Current URL:', window.location.href);
-        console.log('🔍 URL search params:', window.location.search);
-        
-        // Only trigger saveContactFlow if there are auth-related URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasAuthParams = urlParams.has('incremental_auth') || urlParams.has('code') || urlParams.has('state');
-        
-        if (!hasAuthParams) {
-          console.log('ℹ️ No auth-related URL params found, skipping auth check');
-          return;
-        }
-        
-        console.log('👤 Profile:', profile.name);
-        console.log('🎫 Token:', token);
-        
-        try {
-          // Only call saveContactFlow if we're returning from auth
-          console.log('🚀 Calling saveContactFlow for auth return...');
-          const result = await saveContactFlow(profile, token);
-          console.log('📊 SaveContactFlow result:', JSON.stringify(result, null, 2));
-          
-          if (result.showUpsellModal) {
-            console.log('🆙 Setting showUpsellModal to true');
-            setShowUpsellModal(true);
-          }
-          if (result.showSuccessModal) {
-            console.log('✅ Setting showSuccessModal to true');
-            setShowSuccessModal(true);
-          }
-          
-          if (!result.showUpsellModal && !result.showSuccessModal) {
-            console.log('❌ No modals to show from saveContactFlow result');
-          }
-        } catch (error) {
-          console.error('❌ Error handling auth return:', error);
-          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
-          // Silently handle errors - auth flow cancellation should not crash the app
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [profile, token, isHistoricalMode]);
 
   // Apply the contact's background image to the screen
   useEffect(() => {
