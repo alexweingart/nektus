@@ -20,6 +20,7 @@ import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
+import { getExchangeState, shouldShowSuccess, shouldShowUpsell } from '@/lib/services/client/exchangeStateService';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -57,54 +58,76 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const getButtonText = () => 'Save Contact';
   const isSuccess = false;
 
-  // Check for saved contact state AND auth return state on mount
+  // Check for exchange state on mount
   useEffect(() => {
     if (isHistoricalMode) return;
     
-    const checkForSavedState = async () => {
+    const checkExchangeState = async () => {
       try {
-        console.log('🔍 Checking for saved state and potential auth return on component mount...');
+        console.log('🔍 Checking exchange state on component mount...');
         
-        // First check for UI saved state (existing logic)
-        const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-        const savedState = localStorage.getItem(savedStateKey);
-        if (savedState) {
-          const { timestamp } = JSON.parse(savedState);
-          // Only apply saved state if it's recent (within last 5 minutes)
-          const timeDiff = Date.now() - timestamp;
-          if (timeDiff < 300000) { // 5 minutes
-            console.log('✅ Found recent saved state, showing success modal');
-            setShowSuccessModal(true);
-            return; // Don't check for auth return if we already have saved state
-          } else {
-            localStorage.removeItem(savedStateKey);
-          }
+        const exchangeState = getExchangeState(token);
+        console.log('🔍 Exchange state:', exchangeState);
+        
+        if (!exchangeState) {
+          console.log('ℹ️ No exchange state found - waiting for user action');
+          return;
         }
         
-        // Check for auth return state by calling saveContactFlow
-        // This will detect recent stored state from the contact save flow
-        console.log('🚀 Calling saveContactFlow to check for auth return...');
-        const result = await saveContactFlow(profile, token);
-        console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
-        
-        if (result.showUpsellModal) {
-          console.log('🆙 Setting showUpsellModal to true from mount check');
-          setShowUpsellModal(true);
+        // Check if this matches the current profile
+        if (exchangeState.profileId !== profile.userId) {
+          console.log('🔍 Exchange state profile mismatch:', {
+            stored: exchangeState.profileId,
+            current: profile.userId
+          });
+          return;
         }
-        if (result.showSuccessModal) {
-          console.log('✅ Setting showSuccessModal to true from mount check');
+        
+        // Handle different states
+        if (exchangeState.state === 'completed_success') {
+          console.log('✅ Found completed success state, showing success modal');
           setShowSuccessModal(true);
+          return;
         }
         
-        if (!result.showUpsellModal && !result.showSuccessModal) {
-          console.log('ℹ️ No modals to show - waiting for user action');
+        if (exchangeState.state === 'auth_in_progress') {
+          console.log('🔄 Found auth in progress, calling saveContactFlow to handle auth return');
+          
+          // Call saveContactFlow to handle potential auth return
+          const result = await saveContactFlow(profile, token);
+          console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
+          
+          if (result.showUpsellModal) {
+            console.log('🆙 Setting showUpsellModal to true from mount check');
+            setShowUpsellModal(true);
+          }
+          if (result.showSuccessModal) {
+            console.log('✅ Setting showSuccessModal to true from mount check');
+            setShowSuccessModal(true);
+          }
+          
+          return;
         }
+        
+        if (exchangeState.state === 'completed_firebase_only') {
+          // Check if we should show upsell based on platform rules
+          if (shouldShowUpsell(token, exchangeState.platform)) {
+            console.log('🆙 Should show upsell modal for completed Firebase-only state');
+            setShowUpsellModal(true);
+          } else {
+            console.log('✅ Should show success modal for completed Firebase-only state');
+            setShowSuccessModal(true);
+          }
+          return;
+        }
+        
+        console.log('ℹ️ Exchange state in pending state - waiting for user action');
       } catch (error) {
-        console.error('Error checking for saved state:', error);
+        console.error('Error checking exchange state:', error);
       }
     };
 
-    checkForSavedState();
+    checkExchangeState();
   }, [profile.userId, token, isHistoricalMode]);
 
   // Handle incremental auth results and back navigation
@@ -221,14 +244,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Handle navigation after success modal is dismissed
   const handleSuccessModalClose = () => {
     dismissSuccessModal();
-    
-    // Store success state for persistence across navigation when modal is closed
-    const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-    localStorage.setItem(savedStateKey, JSON.stringify({
-      timestamp: Date.now(),
-      profileId: profile.userId,
-      token: token
-    }));
+    // Exchange state already persists the completion status
   };
 
   const handleUpsellAccept = async () => {
@@ -263,14 +279,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     
     openMessagingAppDirectly(messageText, phoneNumber);
     
-    // Store success state for persistence and dismiss modal
-    const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-    localStorage.setItem(savedStateKey, JSON.stringify({
-      timestamp: Date.now(),
-      profileId: profile.userId,
-      token: token
-    }));
-    
+    // Exchange state already persists the completion status
     dismissSuccessModal();
   };
 

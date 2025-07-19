@@ -7,14 +7,16 @@ import { UserProfile } from '@/types/profile';
 import { ContactSaveResult } from '@/types/contactExchange';
 import { displayVCardInlineForIOS } from '@/lib/utils/vCardGeneration';
 import { detectPlatform as detectPlatformUtil, isEmbeddedBrowser } from '@/lib/utils/platformDetection';
+import { isPermissionError, startIncrementalAuth } from './clientIncrementalAuthService';
 import {
-  isPermissionError,
-  hasShownUpsell,
+  getExchangeState,
+  setExchangeState,
+  clearExchangeState,
   markUpsellShown,
-  isReturningFromIncrementalAuth,
-  handleIncrementalAuthReturn,
-  startIncrementalAuth
-} from './clientIncrementalAuthService';
+  shouldShowUpsell,
+  shouldShowSuccess,
+  isReturningFromAuth
+} from './exchangeStateService';
 
 export interface ContactSaveFlowResult {
   success: boolean;
@@ -34,69 +36,12 @@ function detectPlatform(): 'android' | 'ios' | 'web' {
 
 /**
  * Check if user likely has Google Contacts permission
- * Uses localStorage upsell history as a smart indicator
+ * Uses exchange state history as a smart indicator
  */
 function likelyHasGoogleContactsPermission(platform: string, token: string): boolean {
   // If we've never shown the upsell, they might still have permission
   // If we have shown the upsell, they definitely don't have permission
-  return !hasShownUpsell(platform, token);
-}
-
-/**
- * Store contact save state (for auth flow continuity)
- */
-function storeContactSaveState(token: string, profileId: string): void {
-  try {
-    const state = {
-      token,
-      profileId,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('contact_save_state', JSON.stringify(state));
-    console.log('💾 Stored contact save state:', state);
-  } catch (error) {
-    console.warn('Failed to store contact save state:', error);
-  }
-}
-
-/**
- * Get contact save state (with expiration check)
- */
-function getContactSaveState(): { token?: string; profileId?: string; timestamp?: number } {
-  try {
-    const stored = localStorage.getItem('contact_save_state');
-    if (!stored) {
-      return {};
-    }
-    
-    const state = JSON.parse(stored);
-    
-    // Check if state is expired (5 minutes)
-    const maxAge = 5 * 60 * 1000; // 5 minutes
-    const age = Date.now() - (state.timestamp || 0);
-    
-    if (age > maxAge) {
-      clearContactSaveState();
-      return {};
-    }
-    
-    return state;
-  } catch (error) {
-    console.warn('Failed to get contact save state:', error);
-    clearContactSaveState();
-    return {};
-  }
-}
-
-/**
- * Clear contact save state
- */
-function clearContactSaveState(): void {
-  try {
-    localStorage.removeItem('contact_save_state');
-  } catch (error) {
-    console.warn('Failed to clear contact save state:', error);
-  }
+  return !shouldShowUpsell(token, platform);
 }
 
 /**
@@ -132,55 +77,60 @@ export async function saveContactFlow(
 ): Promise<ContactSaveFlowResult> {
   console.log('🔍 Starting saveContactFlow for:', profile.name);
   
-  // No cleanup needed - iOS Safari never expires, others auto-expire
-  
   const platform = detectPlatform();
-  const currentState = getContactSaveState(); // This will auto-clear if expired
-  const isReturning = isReturningFromIncrementalAuth(currentState);
+  const isReturning = isReturningFromAuth(token);
   
   if (isReturning) {
-    const authReturn = handleIncrementalAuthReturn(currentState);
+    console.log('🔍 Flow: Returning from incremental auth, processing auth result...');
     
-    // Handle state clearing based on auth result
-    if (authReturn.success || authReturn.denied) {
-      // Clear state if we got a definitive result
-      clearContactSaveState();
-    } else if (currentState && currentState.timestamp) {
-      // Clear state if it's too old (older than auth return window)
-      const authReturnWindow = 2 * 60 * 1000; // 2 minutes
-      const age = Date.now() - currentState.timestamp;
-      if (age > authReturnWindow) {
-        clearContactSaveState();
-      }
-    }
+    // Check URL params for auth result
+    const urlParams = new URLSearchParams(window.location.search);
+    const authResult = urlParams.get('incremental_auth');
     
-    if (authReturn.success && authReturn.contactSaveToken && authReturn.profileId === profile.userId) {
-      console.log('🔄 Retrying Google Contacts after successful auth');
+    if (authResult === 'success') {
+      console.log('✅ Auth successful, attempting Google Contacts save');
+      const contactSaveToken = urlParams.get('contact_save_token') || token;
       
-      // Try Google Contacts save only (Firebase was already saved before we went to auth)
+      // Clean up URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('incremental_auth');
+      url.searchParams.delete('contact_save_token');
+      url.searchParams.delete('profile_id');
+      window.history.replaceState({}, document.title, url.toString());
+      
       try {
-        console.log('🔄 Attempting Google Contacts save with new token...');
-        const googleSaveResult = await callSaveContactAPI(authReturn.contactSaveToken, { googleOnly: true });
-        console.log('🔍 Google save result after auth:', JSON.stringify(googleSaveResult, null, 2));
+        const googleSaveResult = await callSaveContactAPI(contactSaveToken, { googleOnly: true });
         
         if (googleSaveResult.google.success) {
-          console.log('✅ Google Contacts save successful after auth!');
+          // Both Firebase and Google successful
+          setExchangeState(token, {
+            state: 'completed_success',
+            platform,
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
+          
           return {
             success: true,
-            firebase: { success: true }, // Firebase was saved before auth
+            firebase: { success: true },
             google: googleSaveResult.google,
             showSuccessModal: true,
             platform
           };
         } else {
-          console.warn('⚠️ Google Contacts save still failed after auth');
+          // Firebase saved, Google failed
+          setExchangeState(token, {
+            state: 'completed_firebase_only',
+            platform,
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
           
-          // Only show upsell modal if we haven't shown it for this token yet
-          if (!hasShownUpsell(platform, token)) {
-            markUpsellShown(platform, token);
+          if (shouldShowUpsell(token, platform)) {
+            markUpsellShown(token);
             return {
               success: true,
-              firebase: { success: true }, // Firebase was saved before auth
+              firebase: { success: true },
               google: googleSaveResult.google,
               showUpsellModal: true,
               platform
@@ -188,7 +138,7 @@ export async function saveContactFlow(
           } else {
             return {
               success: true,
-              firebase: { success: true }, // Firebase was saved before auth
+              firebase: { success: true },
               google: googleSaveResult.google,
               showSuccessModal: true,
               platform
@@ -198,88 +148,89 @@ export async function saveContactFlow(
       } catch (error) {
         console.error('❌ Google Contacts save failed after auth:', error);
         
-        // Only show upsell modal if we haven't shown it for this token yet
-        if (!hasShownUpsell(platform, token)) {
-          console.log('🆕 Auth error: First time showing upsell for this exchange, showing modal');
-          markUpsellShown(platform, token);
+        setExchangeState(token, {
+          state: 'completed_firebase_only',
+          platform,
+          profileId: profile.userId || '',
+          timestamp: Date.now()
+        });
+        
+        if (shouldShowUpsell(token, platform)) {
+          markUpsellShown(token);
           return {
             success: true,
-            firebase: { success: true }, // Firebase was saved before auth
-            google: { 
-              success: false, 
-              error: error instanceof Error ? error.message : 'Google save failed after auth' 
-            },
+            firebase: { success: true },
+            google: { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' },
             showUpsellModal: true,
             platform
           };
         } else {
-          console.log('🔁 Auth error: Upsell already shown for this exchange, showing success instead');
           return {
             success: true,
-            firebase: { success: true }, // Firebase was saved before auth
-            google: { 
-              success: false, 
-              error: error instanceof Error ? error.message : 'Google save failed after auth' 
-            },
+            firebase: { success: true },
+            google: { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' },
             showSuccessModal: true,
             platform
           };
         }
       }
-    } else if (authReturn.denied) {
-      console.log('🔍 Flow: User denied or cancelled auth');
+    } else if (authResult === 'denied') {
       console.log('🚫 User denied Google Contacts permission');
       
-      // Only show upsell modal if we haven't shown it for this token yet
-      if (!hasShownUpsell(platform, token)) {
-        console.log('🆕 Auth denied: First time showing upsell for this exchange, showing modal');
-        markUpsellShown(platform, token);
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('incremental_auth');
+      window.history.replaceState({}, document.title, url.toString());
+      
+      setExchangeState(token, {
+        state: 'completed_firebase_only',
+        platform,
+        profileId: profile.userId || '',
+        timestamp: Date.now()
+      });
+      
+      if (shouldShowUpsell(token, platform)) {
+        markUpsellShown(token);
         return {
           success: true,
-          firebase: { success: true }, // Firebase was saved before auth
+          firebase: { success: true },
           google: { success: false, error: 'User denied permission' },
           showUpsellModal: true,
           platform
         };
       } else {
-        console.log('🔁 Auth denied: Upsell already shown for this exchange, showing success instead');
         return {
           success: true,
-          firebase: { success: true }, // Firebase was saved before auth
+          firebase: { success: true },
           google: { success: false, error: 'User denied permission' },
           showSuccessModal: true,
           platform
         };
       }
     } else {
-      console.log('🔍 Flow: Auth return but conditions not met');
-      // User returned from auth but didn't complete it (e.g., tapped back button)
+      // User likely tapped back without completing auth
       console.log('🔙 User returned from auth without completing (likely tapped back)');
-      console.log('🔍 Conditions check:', {
-        hasSuccess: authReturn.success,
-        hasContactSaveToken: !!authReturn.contactSaveToken,
-        profileIdMatch: authReturn.profileId === profile.userId,
-        authProfileId: authReturn.profileId,
-        expectedProfileId: profile.userId
+      
+      setExchangeState(token, {
+        state: 'completed_firebase_only',
+        platform,
+        profileId: profile.userId || '',
+        timestamp: Date.now()
       });
       
-      
-      // Only show upsell modal if we haven't shown it for this token yet
-      if (!hasShownUpsell(platform, token)) {
-        console.log('🆕 Auth incomplete: First time showing upsell for this exchange, showing modal');
-        markUpsellShown(platform, token);
+      if (shouldShowUpsell(token, platform)) {
+        markUpsellShown(token);
         return {
           success: true,
-          firebase: { success: true }, // Firebase was saved before auth
+          firebase: { success: true },
           google: { success: false, error: 'User cancelled Google auth' },
           showUpsellModal: true,
           platform
         };
       } else {
-        console.log('🔁 Auth incomplete: Upsell already shown for this exchange, showing success instead');
         return {
           success: true,
-          firebase: { success: true }, // Firebase was saved before auth
+          firebase: { success: true },
           google: { success: false, error: 'User cancelled Google auth' },
           showSuccessModal: true,
           platform
@@ -299,19 +250,23 @@ export async function saveContactFlow(
     if (!likelyHasPermission && (platform === 'android' || platform === 'ios')) {
       console.log('🚀 Fast path: Skipping Google attempt, going straight to incremental auth');
       
+      // Set state to auth_in_progress
+      setExchangeState(token, {
+        state: 'auth_in_progress',
+        platform,
+        profileId: profile.userId || '',
+        timestamp: Date.now()
+      });
+      
       // Start Firebase save and incremental auth in parallel
       const [firebaseResult] = await Promise.all([
         callSaveContactAPI(token, { skipGoogleContacts: true }),
-        (async () => {
-          // Store state for auth flow continuity
-          storeContactSaveState(token, profile.userId || '');
-          // Start incremental auth (non-blocking)
-          return startIncrementalAuth(token, profile.userId || '');
-        })()
+        startIncrementalAuth(token, profile.userId || '')
       ]);
       
       if (!firebaseResult.firebase.success) {
         console.error('❌ Firebase save failed');
+        clearExchangeState(token);
         return {
           success: false,
           firebase: firebaseResult.firebase,
@@ -376,30 +331,62 @@ export async function saveContactFlow(
         console.warn('Failed to display vCard inline for iOS Safari:', error);
       }
       
-      // Determine modal to show based on global first-time status (iOS Safari = once EVER)
-      let shouldShowUpsellModal = false;
-      
-      if (!hasShownUpsell('ios_safari', token)) {
-        markUpsellShown('ios_safari', token);
-        shouldShowUpsellModal = true;
+      if (googleResult.success) {
+        // Both Firebase and Google successful
+        setExchangeState(token, {
+          state: 'completed_success',
+          platform: 'ios_safari',
+          profileId: profile.userId || '',
+          timestamp: Date.now()
+        });
+        
+        return {
+          success: true,
+          firebase: firebaseResult.firebase,
+          google: googleResult,
+          showSuccessModal: true,
+          platform
+        };
       } else {
-        shouldShowUpsellModal = false;
+        // Firebase saved, Google failed - iOS Safari shows upsell once ever
+        setExchangeState(token, {
+          state: 'completed_firebase_only',
+          platform: 'ios_safari',
+          profileId: profile.userId || '',
+          timestamp: Date.now()
+        });
+        
+        if (shouldShowUpsell(token, 'ios_safari')) {
+          markUpsellShown(token);
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showUpsellModal: true,
+            platform
+          };
+        } else {
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showSuccessModal: true,
+            platform
+          };
+        }
       }
-      
-      
-      return {
-        success: true,
-        firebase: firebaseResult.firebase,
-        google: googleResult,
-        showUpsellModal: shouldShowUpsellModal,
-        showSuccessModal: !shouldShowUpsellModal,
-        platform
-      };
     }
 
     // All other platforms (Android, iOS Embedded, Web/Desktop) - unified logic
     if (googleResult.success) {
       // Both Firebase and Google Contacts saved successfully
+      setExchangeState(token, {
+        state: 'completed_success',
+        platform,
+        profileId: profile.userId || '',
+        timestamp: Date.now()
+      });
+      
       return {
         success: true,
         firebase: firebaseResult.firebase,
@@ -415,8 +402,13 @@ export async function saveContactFlow(
         // Only Android and iOS embedded can do incremental auth
         console.log(`⚠️ ${platform}: Permission error detected, redirecting to auth`);
         
-        // Store state for when we return
-        storeContactSaveState(token, profile.userId || '');
+        // Set state to auth_in_progress
+        setExchangeState(token, {
+          state: 'auth_in_progress',
+          platform,
+          profileId: profile.userId || '',
+          timestamp: Date.now()
+        });
         
         // Redirect to Google auth for contacts permission
         const authResult = await startIncrementalAuth(token, profile.userId || '');
@@ -426,10 +418,15 @@ export async function saveContactFlow(
         if (authResult.showUpsellModal) {
           console.log(`🚫 ${platform}: User closed popup or auth failed`);
           
-          // Only show upsell modal if we haven't shown it for this token yet
-          if (!hasShownUpsell(platform, token)) {
-            console.log(`🆕 ${platform}: First time showing upsell for this exchange, showing modal`);
-            markUpsellShown(platform, token);
+          setExchangeState(token, {
+            state: 'completed_firebase_only',
+            platform,
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
+          
+          if (shouldShowUpsell(token, platform)) {
+            markUpsellShown(token);
             return {
               success: true,
               firebase: firebaseResult.firebase,
@@ -438,7 +435,6 @@ export async function saveContactFlow(
               platform
             };
           } else {
-            console.log(`🔁 ${platform}: Upsell already shown for this exchange, showing success instead`);
             return {
               success: true,
               firebase: firebaseResult.firebase,
@@ -462,10 +458,15 @@ export async function saveContactFlow(
         console.log(`❌ ${platform}: Google Contacts save failed with non-permission error or platform doesn't support auth`);
         console.log(`ℹ️ ${platform}: Contact is saved to Firebase, just not Google Contacts`);
         
-        // Only show upsell modal if we haven't shown it for this token yet
-        if (!hasShownUpsell(platform, token)) {
-          console.log(`🆕 ${platform}: First time showing upsell for this exchange, showing modal`);
-          markUpsellShown(platform, token);
+        setExchangeState(token, {
+          state: 'completed_firebase_only',
+          platform,
+          profileId: profile.userId || '',
+          timestamp: Date.now()
+        });
+        
+        if (shouldShowUpsell(token, platform)) {
+          markUpsellShown(token);
           return {
             success: true,
             firebase: firebaseResult.firebase,
@@ -474,7 +475,6 @@ export async function saveContactFlow(
             platform
           };
         } else {
-          console.log(`🔁 ${platform}: Upsell already shown for this exchange, showing success instead`);
           return {
             success: true,
             firebase: firebaseResult.firebase,
