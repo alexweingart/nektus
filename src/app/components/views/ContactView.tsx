@@ -59,7 +59,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Check if contact is already saved by checking exchange state
   const exchangeState = getExchangeState(token);
   const isSuccess = exchangeState?.state === 'completed_success' || exchangeState?.state === 'completed_firebase_only';
-  const getButtonText = () => isSuccess ? "I'm done" : 'Save Contact';
+  const getButtonText = () => isSuccess ? "Done" : 'Save Contact';
 
   // Check for exchange state on mount
   useEffect(() => {

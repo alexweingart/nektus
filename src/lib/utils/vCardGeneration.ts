@@ -21,16 +21,12 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
     
-    // Add more headers to avoid CORS issues
+    // Simplified fetch without potentially problematic headers
     const res = await fetch(imageUrl, { 
       signal: controller.signal,
-      mode: 'cors',
+      
       // Bypass service worker cache for image processing to ensure fresh response
       cache: 'no-cache',
-      headers: {
-        'User-Agent': 'Nektus/1.0',
-        'Accept': 'image/*'
-      }
     });
     clearTimeout(timeoutId);
     
@@ -57,13 +53,13 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     return formatPhotoLine(b64, imageType);
     
   } catch (error) {
-    console.warn('Failed to encode photo as base64, falling back to URI:', error);
+    console.warn('Failed to encode photo as base64, skipping photo:', error);
     console.warn('Error details:', error instanceof Error ? error.message : error);
     console.warn('Image URL that failed:', imageUrl);
     
     // Note: Removed Google image skipping - let it fall back to URI method
     
-    return `PHOTO;VALUE=URI:${imageUrl}`;
+    return "";  // Mobile contact apps don't support URI photos
   }
 }
 
