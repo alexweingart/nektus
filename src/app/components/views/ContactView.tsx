@@ -83,7 +83,30 @@ export const ContactView: React.FC<ContactViewProps> = ({
           return;
         }
         
-        // Handle different states
+        // Check for auth success URL params first
+        const urlParams = new URLSearchParams(window.location.search);
+        const authResult = urlParams.get('incremental_auth');
+        
+        if (authResult === 'success' || authResult === 'denied') {
+          console.log('🔄 Found auth result in URL, calling saveContactFlow to handle auth return');
+          
+          // Call saveContactFlow to handle auth return regardless of current state
+          const result = await saveContactFlow(profile, token);
+          console.log('📊 SaveContactFlow result from mount (auth return):', JSON.stringify(result, null, 2));
+          
+          if (result.showUpsellModal) {
+            console.log('🆙 Setting showUpsellModal to true from mount check');
+            setShowUpsellModal(true);
+          }
+          if (result.showSuccessModal) {
+            console.log('✅ Setting showSuccessModal to true from mount check');
+            setShowSuccessModal(true);
+          }
+          
+          return;
+        }
+        
+        // Handle different states (only if no auth params)
         if (exchangeState.state === 'completed_success') {
           console.log('✅ Found completed success state, showing success modal');
           setShowSuccessModal(true);
@@ -91,7 +114,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         }
         
         if (exchangeState.state === 'auth_in_progress') {
-          console.log('🔄 Found auth in progress, calling saveContactFlow to handle auth return');
+          console.log('🔄 Found auth in progress, calling saveContactFlow to handle potential auth return');
           
           // Call saveContactFlow to handle potential auth return
           const result = await saveContactFlow(profile, token);
