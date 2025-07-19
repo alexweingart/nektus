@@ -46,7 +46,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 backdrop-blur-sm animate-in fade-in-0 z-[2000]" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-[2000] grid w-[calc(100%-2rem)] max-w-[var(--max-content-width,448px)] translate-x-[-50%] translate-y-[-50%] gap-6 bg-black/60 backdrop-blur-sm border border-white/20 p-8 shadow-lg duration-200 animate-in fade-in-0 zoom-in-95 rounded-2xl">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-[2000] grid w-[calc(100%-2rem)] max-w-[var(--max-content-width,448px)] translate-x-[-50%] translate-y-[-50%] gap-6 bg-black/80 border border-white/20 p-8 shadow-lg duration-200 animate-in fade-in-0 zoom-in-95 rounded-2xl">
           <div className="text-center space-y-4">
             {/* Title */}
             <Dialog.Title asChild>
@@ -78,7 +78,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
           {/* Secondary Button */}
           {showSecondaryButton && (
             <div className="flex justify-center">
-              <SecondaryButton onClick={handleSecondaryClick}>
+              <SecondaryButton variant="subtle" onClick={handleSecondaryClick}>
                 {secondaryButtonText}
               </SecondaryButton>
             </div>

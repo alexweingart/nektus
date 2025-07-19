@@ -108,7 +108,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
       {/* Message Button */}
       <button
         onClick={handleMessageTap}
-        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center transition-all duration-200 hover:bg-white/20 active:scale-95"
+        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 border border-white/40 flex items-center justify-center transition-all duration-200 hover:bg-white/30 active:scale-95"
         aria-label={`Message ${contact.name}`}
       >
         <svg 
