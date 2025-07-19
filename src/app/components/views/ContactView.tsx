@@ -57,12 +57,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const getButtonText = () => 'Save Contact';
   const isSuccess = false;
 
-  // Only check for saved contact state in non-historical mode
+  // Check for saved contact state AND auth return state on mount
   useEffect(() => {
     if (isHistoricalMode) return;
     
-    const checkForSavedState = () => {
+    const checkForSavedState = async () => {
       try {
+        console.log('🔍 Checking for saved state and auth return on component mount...');
+        
+        // First check for saved state (existing logic)
         const savedStateKey = `contact_saved_${profile.userId}_${token}`;
         const savedState = localStorage.getItem(savedStateKey);
         if (savedState) {
@@ -70,11 +73,40 @@ export const ContactView: React.FC<ContactViewProps> = ({
           // Only apply saved state if it's recent (within last 5 minutes)
           const timeDiff = Date.now() - timestamp;
           if (timeDiff < 300000) { // 5 minutes
-            // Show success modal for recently saved contact
+            console.log('✅ Found recent saved state, showing success modal');
             setShowSuccessModal(true);
+            return; // Don't check for auth return if we already have saved state
           } else {
             localStorage.removeItem(savedStateKey);
           }
+        }
+        
+        // Check for auth return state (new logic)
+        console.log('🔍 Checking for auth return state...');
+        console.log('📄 Current URL:', window.location.href);
+        console.log('🔍 URL search params:', window.location.search);
+        
+        try {
+          // Check if we should trigger save flow due to auth return
+          console.log('🚀 Calling saveContactFlow from mount check...');
+          const result = await saveContactFlow(profile, token);
+          console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
+          
+          if (result.showUpsellModal) {
+            console.log('🆙 Setting showUpsellModal to true from mount check');
+            setShowUpsellModal(true);
+          }
+          if (result.showSuccessModal) {
+            console.log('✅ Setting showSuccessModal to true from mount check');
+            setShowSuccessModal(true);
+          }
+          
+          if (!result.showUpsellModal && !result.showSuccessModal) {
+            console.log('❌ No modals to show from saveContactFlow result (mount check)');
+          }
+        } catch (error) {
+          console.error('❌ Error handling auth return from mount:', error);
+          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
         }
       } catch (error) {
         console.error('Error checking for saved state:', error);

@@ -18,7 +18,6 @@ function ConnectPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Get the exchange token from URL parameters
@@ -29,6 +28,9 @@ function ConnectPageContent() {
   useEffect(() => {
     async function fetchMatchedProfile() {
       if (status === 'loading') return; // Still loading auth
+      
+      setIsLoading(true);
+      setError(null);
       
       if (!session) {
         console.log('No session, redirecting to home');
@@ -80,7 +82,7 @@ function ConnectPageContent() {
         console.error('Failed to load matched profile:', error);
         setError(isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile');
       } finally {
-        // No loading state needed
+        setIsLoading(false);
       }
     }
 
@@ -104,9 +106,16 @@ function ConnectPageContent() {
     openMessagingApp(messageText, phoneNumber);
   };
 
-  // Show loading only while checking auth
-  if (status === 'loading') {
-    return null; // No visual loading state
+  // Show loading state
+  if (status === 'loading' || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading contact...</p>
+        </div>
+      </div>
+    );
   }
 
   // Show error state
