@@ -50,7 +50,19 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const uint8Array = new Uint8Array(arrayBuffer);
     const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
     const b64 = btoa(binaryString);
-    return formatPhotoLine(b64, imageType);
+    
+    console.log(`[vCard] Image details:`, {
+      url: imageUrl,
+      size: arrayBuffer.byteLength,
+      type: imageType,
+      base64Length: b64.length,
+      base64Preview: b64.substring(0, 50) + '...'
+    });
+    
+    const photoLine = formatPhotoLine(b64, imageType);
+    console.log(`[vCard] Generated photo line preview:`, photoLine.substring(0, 100) + '...');
+    
+    return photoLine;
     
   } catch (error) {
     console.warn('Failed to encode photo as base64, skipping photo:', error);
@@ -109,7 +121,15 @@ function detectImageType(response: Response, arrayBuffer: ArrayBuffer): string {
  * Format base64 data into proper vCard photo line with line folding
  */
 function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string {
-  // Use proper vCard 3.0 encoding format
+  // Try data URI format first (RFC 6350 compliant)
+  const mimeType = imageType.toLowerCase() === 'jpeg' ? 'image/jpeg' : `image/${imageType.toLowerCase()}`;
+  const dataUri = `data:${mimeType};base64,${base64Data}`;
+  
+  if (dataUri.length < 75) {
+    return `PHOTO:${dataUri}`;
+  }
+  
+  // If data URI is too long, use traditional BASE64 encoding with line folding
   const photoPrefix = `PHOTO;ENCODING=BASE64;TYPE=${imageType}:`;
   const prefixLength = photoPrefix.length;
   const firstLineSpace = 75 - prefixLength;
