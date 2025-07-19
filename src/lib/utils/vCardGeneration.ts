@@ -13,16 +13,41 @@ export interface VCardOptions {
 }
 
 /**
+ * Convert Firebase Storage URL to Next.js optimized image URL for vCard compatibility
+ */
+function getOptimizedImageUrl(imageUrl: string): string {
+  // If already a Next.js optimized URL, return as-is
+  if (imageUrl.includes('/_next/image?')) {
+    return imageUrl;
+  }
+  
+  // If it's a Firebase Storage URL, optimize it through Next.js
+  if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('firebasestorage.app')) {
+    const encodedUrl = encodeURIComponent(imageUrl);
+    // Use smaller size for vCard compatibility (max 400px, lower quality)
+    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=400&q=60`;
+  }
+  
+  // For other URLs, return as-is
+  return imageUrl;
+}
+
+/**
  * Create a base64-encoded photo line for vCard 3.0
  */
 async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
+    // Use optimized image URL for better vCard compatibility
+    const optimizedUrl = getOptimizedImageUrl(imageUrl);
+    console.log(`[vCard] Original URL: ${imageUrl}`);
+    console.log(`[vCard] Optimized URL: ${optimizedUrl}`);
+    
     // Try to fetch image with proper error handling
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
     
     // Simplified fetch without potentially problematic headers
-    const res = await fetch(imageUrl, { 
+    const res = await fetch(optimizedUrl, { 
       signal: controller.signal,
       
       // Bypass service worker cache for image processing to ensure fresh response
@@ -52,7 +77,8 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const b64 = btoa(binaryString);
     
     console.log(`[vCard] Image details:`, {
-      url: imageUrl,
+      originalUrl: imageUrl,
+      optimizedUrl: optimizedUrl,
       size: arrayBuffer.byteLength,
       type: imageType,
       base64Length: b64.length,
