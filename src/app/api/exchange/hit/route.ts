@@ -158,12 +158,6 @@ export async function POST(request: NextRequest) {
       hitNumber: exchangeRequest.hitNumber || 'unknown'
     });
 
-    // Clean up user's old exchanges on first hit of a new exchange session
-    if (exchangeRequest.hitNumber === 1) {
-      console.log(`🧹 First hit detected - cleaning up old exchanges for user ${session.user.id}`);
-      await cleanupUserExchanges(session.user.id);
-    }
-
     // Use atomic exchange and match operation to prevent race conditions
     console.log(`🔍 Atomically storing and checking for matches for session ${exchangeRequest.session}`);
     const matchResult = await atomicExchangeAndMatch(
@@ -209,6 +203,7 @@ export async function POST(request: NextRequest) {
     } else {
       // No match found - exchange was stored atomically and remains pending
       console.log(`⏳ No match found, exchange ${exchangeRequest.session} stored and waiting for match`);
+      
       
       return NextResponse.json({
         success: true,

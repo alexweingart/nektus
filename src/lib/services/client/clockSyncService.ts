@@ -7,9 +7,10 @@
  */
 
 interface ClockSyncData {
-  serverTime: number;      // Server timestamp when sync was performed
+  clockOffset: number;     // Calculated offset between client and server clocks
   clientT0: number;        // Client performance.now() when sync was performed
-  roundTripTime?: number;  // Measured RTT for diagnostics
+  roundTripTime: number;   // Measured RTT for diagnostics
+  syncAccuracy: number;    // Estimated accuracy of the sync (half of RTT)
 }
 
 let clockSyncData: ClockSyncData | null = null;
@@ -17,8 +18,10 @@ let clockSyncData: ClockSyncData | null = null;
 /**
  * Perform clock synchronization with the server
  */
-export async function initializeClockSync(): Promise<boolean> {
+async function performSingleSync(): Promise<{ offset: number; rtt: number } | null> {
   try {
+    // Record client timestamp when request is sent
+    const clientSendTime = Date.now();
     const t0 = performance.now();
     
     const response = await fetch('/api/system/sync-clock', {
@@ -28,22 +31,63 @@ export async function initializeClockSync(): Promise<boolean> {
       },
     });
 
+    // Record client timestamp when response is received
+    const clientReceiveTime = Date.now();
     const t1 = performance.now();
     
     if (!response.ok) {
-      console.error('Clock sync failed:', response.statusText);
-      return false;
+      return null;
     }
 
     const data = await response.json();
+    const serverTime = data.serverTime;
     const roundTripTime = t1 - t0;
     
+    // Calculate clock offset using NTP algorithm
+    // Assume network delay is symmetric (half RTT each way)
+    const networkDelay = roundTripTime / 2;
+    const estimatedServerTimeWhenReceived = serverTime + networkDelay;
+    const clockOffset = estimatedServerTimeWhenReceived - clientReceiveTime;
+    
+    return { offset: clockOffset, rtt: roundTripTime };
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function initializeClockSync(): Promise<boolean> {
+  try {
+    console.log('⏰ Starting clock synchronization...');
+    
+    // Perform multiple sync attempts and use the one with lowest RTT
+    const syncAttempts = [];
+    for (let i = 0; i < 3; i++) {
+      const result = await performSingleSync();
+      if (result) {
+        syncAttempts.push(result);
+      }
+      // Small delay between attempts
+      if (i < 2) await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    if (syncAttempts.length === 0) {
+      console.error('Clock sync failed: no successful attempts');
+      return false;
+    }
+    
+    // Use the sync with the lowest RTT (most accurate)
+    const bestSync = syncAttempts.reduce((best, current) => 
+      current.rtt < best.rtt ? current : best
+    );
+    
     clockSyncData = {
-      serverTime: data.serverTime,
-      clientT0: t0,
-      roundTripTime
+      clockOffset: bestSync.offset,
+      clientT0: performance.now(),
+      roundTripTime: bestSync.rtt,
+      syncAccuracy: bestSync.rtt / 2
     };
 
+    console.log(`⏰ Clock sync completed: offset=${bestSync.offset}ms, RTT=${bestSync.rtt}ms, accuracy=±${bestSync.rtt/2}ms (${syncAttempts.length} attempts)`);
     return true;
   } catch (error) {
     console.error('Clock sync initialization failed:', error);
@@ -61,8 +105,8 @@ export function getServerNow(): number {
     return Date.now();
   }
 
-  const clientElapsed = performance.now() - clockSyncData.clientT0;
-  const serverNow = clockSyncData.serverTime + clientElapsed;
+  // Apply the calculated clock offset to current local time
+  const serverNow = Date.now() + clockSyncData.clockOffset;
   
   return Math.round(serverNow);
 }

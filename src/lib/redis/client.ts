@@ -171,11 +171,12 @@ export async function atomicExchangeAndMatch(
         const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
         
         console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
-        console.log(`⏰ Time diff: ${timeDiff}ms`);
+        console.log(`⏰ Time diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
         console.log(`🕐 Locations: ${JSON.stringify({
           current: { city: currentLocation.city, state: currentLocation.state, isVPN: currentLocation.isVPN },
           candidate: { city: candidateData.location.city, state: candidateData.location.state, isVPN: candidateData.location.isVPN }
         })}`);
+        console.log(`📊 Timestamps: current=${currentTimestamp}, candidate=${candidateData.timestamp}, diff=${timeDiff}ms`);
         
         if (matchInfo.confidence === 'no_match') {
           console.log(`❌ No geographic overlap between ${sessionId} and ${candidateSessionId}`);
@@ -183,6 +184,7 @@ export async function atomicExchangeAndMatch(
         }
         
         if (timeDiff <= matchInfo.timeWindow) {
+          console.log(`✅ TIMING MATCH: ${timeDiff}ms ≤ ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
           // Within time window - check if this is the best match so far
           // Priority: 1. Same city > 2. Same state > 3. Same octet > 4. VPN
           // Within same confidence level, prefer shorter time gap
@@ -199,6 +201,8 @@ export async function atomicExchangeAndMatch(
               confidence: matchInfo.confidence
             };
           }
+        } else {
+          console.log(`❌ TIMING FAILED: ${timeDiff}ms > ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
         }
       } catch (error) {
         console.log(`❌ Error in geographic matching for ${candidateSessionId}:`, error);

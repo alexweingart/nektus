@@ -85,3 +85,14 @@ The app uses dual Firebase configurations:
 - Use `npm run dev:https` or `npm run dev:local:https` for motion API access
 - Physical devices required for motion testing
 - Clock synchronization critical for accurate matching
+
+## CRITICAL CONSTRAINTS
+
+### Time Window Constraints (NEVER MODIFY WITHOUT PERMISSION)
+The geographic matching time windows in `src/lib/services/server/ipGeolocationService.ts` are:
+- VPN: 200ms
+- City: 500ms  
+- State: 400ms
+- Octet: 300ms
+
+**DO NOT modify these values without explicit user permission.** These windows are precisely calibrated and any changes must solve timing issues through proper clock synchronization, not by expanding the windows.
