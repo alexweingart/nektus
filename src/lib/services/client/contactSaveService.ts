@@ -87,6 +87,9 @@ export async function saveContactFlow(
     const urlParams = new URLSearchParams(window.location.search);
     const authResult = urlParams.get('incremental_auth');
     
+    console.log('🔍 Auth return - URL params:', Object.fromEntries(urlParams.entries()));
+    console.log('🔍 Auth return - authResult:', authResult);
+    
     if (authResult === 'success') {
       console.log('✅ Auth successful, attempting Google Contacts save');
       const contactSaveToken = urlParams.get('contact_save_token') || token;
@@ -100,6 +103,7 @@ export async function saveContactFlow(
       
       try {
         const googleSaveResult = await callSaveContactAPI(contactSaveToken, { googleOnly: true });
+        console.log('🔍 Auth return - Google save result:', JSON.stringify(googleSaveResult, null, 2));
         
         if (googleSaveResult.google.success) {
           // Both Firebase and Google successful
