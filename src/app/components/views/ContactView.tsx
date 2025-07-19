@@ -101,14 +101,19 @@ export const ContactView: React.FC<ContactViewProps> = ({
       if (document.visibilityState === 'visible') {
         console.log('🔍 Page became visible, checking for auth return...');
         
-        // Check if we should trigger save flow due to auth return
-        const result = await saveContactFlow(profile, token);
-        
-        if (result.showUpsellModal) {
-          setShowUpsellModal(true);
-        }
-        if (result.showSuccessModal) {
-          setShowSuccessModal(true);
+        try {
+          // Check if we should trigger save flow due to auth return
+          const result = await saveContactFlow(profile, token);
+          
+          if (result.showUpsellModal) {
+            setShowUpsellModal(true);
+          }
+          if (result.showSuccessModal) {
+            setShowSuccessModal(true);
+          }
+        } catch (error) {
+          console.error('Error handling auth return:', error);
+          // Silently handle errors - auth flow cancellation should not crash the app
         }
       }
     };

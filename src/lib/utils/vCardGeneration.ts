@@ -50,11 +50,16 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     // Detect image type from Content-Type header or image data
     const imageType = detectImageType(res, arrayBuffer);
     
-    const b64 = Buffer.from(arrayBuffer).toString('base64');
+    // Convert ArrayBuffer to base64 (Browser-compatible approach)
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
+    const b64 = btoa(binaryString);
     return formatPhotoLine(b64, imageType);
     
   } catch (error) {
     console.warn('Failed to encode photo as base64, falling back to URI:', error);
+    console.warn('Error details:', error instanceof Error ? error.message : error);
+    console.warn('Image URL that failed:', imageUrl);
     
     // Note: Removed Google image skipping - let it fall back to URI method
     
