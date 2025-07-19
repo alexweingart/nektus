@@ -314,7 +314,7 @@ const ProfileView: React.FC = () => {
             <Avatar 
               src={profileImageSrc} 
               alt={currentProfile?.name || 'Profile'}
-              size="xl"
+              size="lg"
             />
           </div>
         </div>
