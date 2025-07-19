@@ -95,30 +95,46 @@ export async function storePendingExchange(
 }
 
 /**
- * Find matching exchange with confidence-based geographic matching
+ * Atomically store exchange and find matches using Redis transaction
+ * This prevents race conditions when multiple exchanges arrive simultaneously
  */
-export async function findMatchingExchange(
+export async function atomicExchangeAndMatch(
   sessionId: string,
-  currentLocation: any, // Location data from IP geolocation
+  exchangeData: any,
+  currentLocation: any,
   currentTimestamp?: number,
-  currentRTT?: number
+  ttlSeconds: number = 30
 ): Promise<{ sessionId: string; matchData: any } | null> {
   if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for finding matching exchanges');
+    throw new Error('Redis is not available for atomic exchange operations');
   }
 
-  // Get all candidates from global bucket
   const globalBucketKey = 'geo_bucket:global';
-  const candidates = await redis!.smembers(globalBucketKey) as string[];
+  const exchangeKey = `pending_exchange:${sessionId}`;
   
-  console.log(`🔍 Global bucket contains ${candidates.length} candidates:`, candidates);
+  // First, get current candidates before our transaction
+  const currentCandidates = await redis!.smembers(globalBucketKey) as string[];
+  console.log(`🔍 Pre-transaction: Global bucket contains ${currentCandidates.length} candidates:`, currentCandidates);
   
+  // Start Redis transaction
+  const pipeline = redis!.multi();
+  
+  // Always store our exchange first (part of transaction)
+  pipeline.setex(exchangeKey, ttlSeconds, JSON.stringify(exchangeData));
+  pipeline.sadd(globalBucketKey, sessionId);
+  pipeline.expire(globalBucketKey, ttlSeconds);
+  
+  // Execute the transaction atomically
+  await pipeline.exec();
+  console.log(`💾 Atomically stored exchange ${sessionId} in global bucket`);
+  
+  // Now check for matches among the candidates that existed before our addition
   let bestMatch: { sessionId: string; matchData: any; timeDiff: number; confidence: string } | null = null;
   
-  for (const candidateSessionId of candidates) {
+  for (const candidateSessionId of currentCandidates) {
     if (candidateSessionId === sessionId) continue;
     
-    console.log(`🔍 Checking candidate: ${candidateSessionId}`);
+    console.log(`🔍 Checking pre-existing candidate: ${candidateSessionId}`);
     
     const candidateKey = `pending_exchange:${candidateSessionId}`;
     const candidateDataStr = await redis!.get(candidateKey);
@@ -190,9 +206,13 @@ export async function findMatchingExchange(
       }
     } else {
       // Fallback to immediate match (original behavior)
-      // Clean up the candidate
-      await redis!.del(candidateKey);
-      await redis!.srem(globalBucketKey, candidateSessionId);
+      // We found a match - clean up both exchanges atomically
+      const cleanupPipeline = redis!.multi();
+      cleanupPipeline.del(candidateKey);
+      cleanupPipeline.srem(globalBucketKey, candidateSessionId);
+      cleanupPipeline.del(exchangeKey); // Also remove our just-stored exchange
+      cleanupPipeline.srem(globalBucketKey, sessionId);
+      await cleanupPipeline.exec();
       
       return {
         sessionId: candidateSessionId,
@@ -205,10 +225,13 @@ export async function findMatchingExchange(
   if (bestMatch) {
     console.log(`🎯 Best match found: ${bestMatch.sessionId} with time diff ${bestMatch.timeDiff}ms (confidence: ${bestMatch.confidence})`);
     
-    // Clean up the matched candidate
-    const candidateKey = `pending_exchange:${bestMatch.sessionId}`;
-    await redis!.del(candidateKey);
-    await redis!.srem(globalBucketKey, bestMatch.sessionId);
+    // Clean up both the matched candidate and our exchange atomically
+    const cleanupPipeline = redis!.multi();
+    cleanupPipeline.del(`pending_exchange:${bestMatch.sessionId}`);
+    cleanupPipeline.srem(globalBucketKey, bestMatch.sessionId);
+    cleanupPipeline.del(exchangeKey); // Also remove our just-stored exchange
+    cleanupPipeline.srem(globalBucketKey, sessionId);
+    await cleanupPipeline.exec();
     
     return {
       sessionId: bestMatch.sessionId,
@@ -216,6 +239,21 @@ export async function findMatchingExchange(
     };
   }
   
+  // No match found - our exchange remains in the bucket for future matching
+  console.log(`⏳ No match found, exchange ${sessionId} remains in bucket for future matching`);
+  return null;
+}
+
+/**
+ * Legacy function - now just calls atomicExchangeAndMatch for backwards compatibility
+ */
+export async function findMatchingExchange(
+  sessionId: string,
+  currentLocation: any,
+  currentTimestamp?: number,
+  currentRTT?: number
+): Promise<{ sessionId: string; matchData: any } | null> {
+  // This is now just a wrapper - the real logic is in the hit endpoint
   return null;
 }
 

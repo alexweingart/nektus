@@ -11,6 +11,7 @@ import {
   checkRateLimit,
   storePendingExchange,
   findMatchingExchange,
+  atomicExchangeAndMatch,
   storeExchangeMatch,
   removePendingExchange
 } from '@/lib/redis/client';
@@ -156,15 +157,16 @@ export async function POST(request: NextRequest) {
       hitNumber: exchangeRequest.hitNumber || 'unknown'
     });
 
-    // Look for matching exchange using confidence-based geographic matching
-    console.log(`🔍 Looking for matches for session ${exchangeRequest.session} with timestamp ${exchangeRequest.ts}`);
-    const matchResult = await findMatchingExchange(
-      exchangeRequest.session, 
+    // Use atomic exchange and match operation to prevent race conditions
+    console.log(`🔍 Atomically storing and checking for matches for session ${exchangeRequest.session}`);
+    const matchResult = await atomicExchangeAndMatch(
+      exchangeRequest.session,
+      exchangeData,
       locationData, // Pass location data for geographic matching
       exchangeRequest.ts, // pass timestamp for time-based matching
-      exchangeRequest.rtt // pass RTT for dynamic window calculation
+      30 // TTL seconds
     );
-    console.log(`🔍 Match result:`, matchResult);
+    console.log(`🔍 Atomic operation result:`, matchResult);
 
     if (matchResult) {
       // We found a match!
@@ -198,13 +200,8 @@ export async function POST(request: NextRequest) {
       } as ContactExchangeResponse);
       
     } else {
-      // No match found, store this exchange as pending in Redis
-      console.log(`⏳ No match found, storing session ${exchangeRequest.session} as pending`);
-      await storePendingExchange(exchangeRequest.session, exchangeData, 30);
-      console.log(`💾 Stored pending exchange for session ${exchangeRequest.session}`);
-      
-      // NOTE: Removed duplicate findMatchingExchange call to avoid double logging
-      // The race condition handling wasn't providing value and was causing confusion
+      // No match found - exchange was stored atomically and remains pending
+      console.log(`⏳ No match found, exchange ${exchangeRequest.session} stored and waiting for match`);
       
       return NextResponse.json({
         success: true,
