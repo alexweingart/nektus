@@ -139,18 +139,9 @@ MANDATORY VERIFICATION STEP:
 Before returning ANY username, you MUST verify each URL actually works by checking it with web search.
 For each platform where you found a username:
 1. Search for the exact URL (e.g., "site:instagram.com/username" or direct URL check)
-2. If the URL returns a 404, doesn't exist, or shows "user not found", set that platform to null
-3. Only return usernames for URLs that actually exist and belong to the right person
-
-Example of what NOT to do:
-- Finding "Alex Wei" and returning "alwei1335" for Instagram ❌
-- Finding "Alex Wei LinkedIn" and returning "alex-wei-123" ❌
-- Taking email prefix "alwei" and guessing "alwei_official" ❌
-
-Example of what TO do:
-- Search finds "instagram.com/alexwei" that actually exists ✅
-- Search finds "linkedin.com/in/alex-wei" that actually exists ✅
-- No valid profile found? Return null ✅
+2. If the URL returns a 404, doesn't exist,  shows "user not found", or shows "Sorry, this page isn't available", set that platform to null
+3. Only return usernames for URLs that actually exist and belong to the right person; 
+it's better to return null than a fake/non-existent username
 
 PLATFORM EXTRACTION RULES:
 - LinkedIn: extract slug after "linkedin.com/in/" (e.g., "cool_username" from "linkedin.com/in/cool_username")
