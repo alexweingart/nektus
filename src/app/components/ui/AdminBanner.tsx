@@ -114,6 +114,12 @@ export default function AdminBanner() {
         localStorage.clear();
         sessionStorage.clear();
         console.log('Storage cleared');
+        
+        // Note: Motion permissions cannot be programmatically revoked
+        // If user needs to reset motion permissions, they must:
+        // 1. Clear site data in browser settings, or
+        // 2. Use incognito/private browsing mode
+        console.log('⚠️ Note: Motion detection permissions cannot be automatically cleared. If needed, clear site data in browser settings.');
       } catch (err) {
         console.error('Error clearing storage:', err);
       }

@@ -115,8 +115,10 @@ export class MotionDetector {
     // Detect Chrome on iOS (Chrome on iOS uses Safari's WebKit but identifies as Chrome)
     const isChromeOnIOS = isIOS && /CriOS/.test(userAgent);
     
-    // Detect Safari on iOS 
-    const isSafariOnIOS = isIOS && !isChromeOnIOS && /Safari/.test(userAgent);
+    // Detect Safari on iOS or other iOS browsers that support motion (like Google app)
+    const isSafariOnIOS = isIOS && !isChromeOnIOS && (/Safari/.test(userAgent) || 
+                         (typeof DeviceMotionEvent !== 'undefined' && 
+                          typeof (DeviceMotionEvent as any).requestPermission === 'function'));
     
     // Detect desktop Safari
     const isDesktopSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent) && !isIOS;
