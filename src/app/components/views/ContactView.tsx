@@ -349,7 +349,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
               <Avatar 
                 src={profile.profileImage} 
                 alt={profile.name || 'Contact'}
-                size="xl"
+                size="lg"
               />
             </div>
           </div>
