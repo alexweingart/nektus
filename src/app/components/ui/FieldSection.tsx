@@ -32,7 +32,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
       {/* Content or Empty State */}
       {isEmpty ? (
         <div className="mb-6 w-full max-w-md mx-auto">
-          <div className="bg-black/20 backdrop-blur-sm rounded-lg p-6 text-center">
+          <div className="bg-black/40 backdrop-blur-sm rounded-lg p-6 text-center">
             <p className="text-white/70 text-sm">
               {emptyText}
             </p>

@@ -320,7 +320,7 @@ const ProfileView: React.FC = () => {
         </div>
         
         {/* Content with blur background */}
-        <div className="w-full bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+        <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           {/* Profile Name - Double click to activate admin mode */}
           <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
             <Heading as="h1">{currentProfile?.name}</Heading>

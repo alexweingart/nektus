@@ -276,7 +276,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-black/20 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1000] backdrop-blur-sm">
       <div className="h-[100dvh] flex flex-col items-center px-4 py-2 relative z-[1001]">
         
         {/* Header with back button for historical contacts */}
@@ -311,7 +311,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           </div>
           
           {/* Content with blur background */}
-          <div className="w-full bg-black/40 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+          <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
             {/* Name */}
             <div className="text-center mb-4">
               <h1 className="text-white text-2xl font-bold">{profile.name || 'Anonymous'}</h1>
