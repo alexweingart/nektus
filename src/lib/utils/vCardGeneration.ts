@@ -79,8 +79,8 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     
     const arrayBuffer = await res.arrayBuffer();
     
-    if (arrayBuffer.byteLength > 2 * 1024 * 1024) {
-      throw new Error('Image too large (>2MB)');
+    if (arrayBuffer.byteLength > 1024 * 1024) {
+      throw new Error('Image too large (>1MB)');
     }
     if (arrayBuffer.byteLength > 200 * 1024) {
       console.warn('Image size exceeds 200KB, may cause vCard compatibility issues');
