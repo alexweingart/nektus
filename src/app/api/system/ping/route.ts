@@ -11,7 +11,7 @@ export async function HEAD() {
   return NextResponse.json({ success: true });
 }
 
-// For POST requests (logging + IP geolocation caching)
+// For POST requests (logging + IP geolocation caching + cleanup)
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
@@ -22,11 +22,25 @@ export async function POST(request: NextRequest) {
       data.sessionId ? `(session: ${data.sessionId})` : ''
     );
     
-    // If this is an exchange start event, pre-cache IP geolocation
+    // If this is an exchange start event, clean up user exchanges and pre-cache IP geolocation
     if (data.event === 'exchange_start' && data.sessionId) {
-      console.log(`📍 Pre-caching IP geolocation for exchange session ${data.sessionId}`);
+      console.log(`🧹 Exchange start detected - performing cleanup and pre-caching for session ${data.sessionId}`);
       
-      // Get client IP
+      // Get user session for cleanup
+      const { getServerSession } = await import('next-auth');
+      const { authOptions } = await import('@/app/api/auth/[...nextauth]/options');
+      const session = await getServerSession(authOptions);
+      
+      if (session?.user?.id) {
+        // Clean up old exchanges for this user to prevent stale session matches
+        const { cleanupUserExchanges } = await import('@/lib/redis/client');
+        await cleanupUserExchanges(session.user.id);
+        console.log(`🧹 Cleaned up old exchanges for user ${session.user.id}`);
+      } else {
+        console.warn(`⚠️ No authenticated user found for exchange_start cleanup`);
+      }
+      
+      // Get client IP for geolocation pre-caching
       const forwarded = request.headers.get('x-forwarded-for');
       const realIp = request.headers.get('x-real-ip');
       const clientIP = forwarded?.split(',')[0].trim() || realIp || '127.0.0.1';

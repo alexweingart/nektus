@@ -49,6 +49,23 @@ export class RealTimeContactExchangeService {
     try {
       console.log(`🎯 Starting exchange (${sharingCategory})`);
       
+      // Send exchange_start event to trigger server-side cleanup
+      try {
+        await fetch('/api/system/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'exchange_start',
+            sessionId: this.sessionId,
+            message: `Starting new exchange session with sharing: ${sharingCategory}`
+          })
+        });
+        console.log('📡 Sent exchange_start event for cleanup');
+      } catch (error) {
+        console.warn('⚠️ Failed to send exchange_start event:', error);
+        // Continue anyway - this is just for cleanup optimization
+      }
+      
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
       
