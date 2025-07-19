@@ -122,7 +122,7 @@ function ProfileSetupView() {
                 <Avatar 
                   src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
                   alt={session?.user?.name || 'Profile'}
-                  size="xl"
+                  size="lg"
                 />
               </div>
             </div>
