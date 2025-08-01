@@ -199,6 +199,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         await exchangeService.disconnect(); // ✅ Now properly awaited
       }
       setExchangeService(null);
+      setStatus('idle'); // Reset UI state before starting fresh session
       
       const service = await initializeService();
       if (!service) return;

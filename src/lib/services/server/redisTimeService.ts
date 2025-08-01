@@ -23,7 +23,7 @@ export async function getRedisTime(): Promise<number> {
     const [seconds, microseconds] = timeResult;
     
     // Convert to milliseconds (standard JavaScript timestamp)
-    const timestamp = parseInt(seconds) * 1000 + Math.floor(parseInt(microseconds) / 1000);
+    const timestamp = parseInt(seconds.toString()) * 1000 + Math.floor(parseInt(microseconds.toString()) / 1000);
     
     return timestamp;
   } catch (error) {
