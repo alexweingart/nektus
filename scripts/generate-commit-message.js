@@ -17,18 +17,28 @@ const openai = new OpenAI({
 
 async function generateCommitMessage() {
   try {
-    // Get git diff for staged changes
+    // Get git diff for staged changes, excluding auto-generated files
     let diff;
     try {
-      diff = execSync('git diff --staged --no-color', { encoding: 'utf8' });
+      // Exclude service worker and other auto-generated files from AI analysis
+      diff = execSync('git diff --staged --no-color -- . ":(exclude)public/sw.js" ":(exclude)*.map" ":(exclude).next/*"', { encoding: 'utf8' });
     } catch (error) {
       console.error('Error: Unable to get git diff. Make sure you have staged changes.');
       process.exit(1);
     }
 
     if (!diff.trim()) {
-      console.error('Error: No staged changes found. Please stage your changes first.');
-      process.exit(1);
+      // If no meaningful changes after excluding auto-generated files, 
+      // check if we only have service worker changes
+      const swDiff = execSync('git diff --staged --no-color public/sw.js', { encoding: 'utf8' });
+      if (swDiff.trim()) {
+        // Only service worker changes - use a standard message
+        console.log('Update service worker to include new app build assets');
+        return;
+      } else {
+        console.error('Error: No staged changes found. Please stage your changes first.');
+        process.exit(1);
+      }
     }
 
     // Limit diff size to avoid token limits (keep first 4000 characters)

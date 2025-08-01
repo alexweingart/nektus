@@ -240,6 +240,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const pathname = window.location.pathname;
     const currentBackgroundImage = profile?.backgroundImage;
     
+    console.log('[ProfileContext] Background effect triggered:', { 
+      pathname, 
+      hasBackground: !!currentBackgroundImage, 
+      backgroundUrl: currentBackgroundImage?.substring(0, 100) 
+    });
+    
     // Clean up existing background div
     const existingBg = document.getElementById('app-background');
     if (existingBg) {
@@ -257,6 +263,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // For other pages: show custom background if available, otherwise show default
     if (currentBackgroundImage) {
+      // Remove body's base background so custom background shows through
+      document.body.style.background = 'transparent';
       // Clean the URL to remove any newlines or whitespace that could break CSS
       let cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
       
@@ -281,9 +289,44 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         z-index: -1;
         pointer-events: none;
       `;
+      
+      console.log('[ProfileContext] Setting background URL:', cleanedUrl);
+      console.log('[ProfileContext] Generated CSS:', backgroundDiv.style.cssText);
+      
+      // Test if the image loads successfully
+      const testImg = new Image();
+      testImg.onload = () => {
+        console.log('[ProfileContext] ✅ Background image loaded successfully');
+      };
+      testImg.onerror = (error) => {
+        console.error('[ProfileContext] ❌ Background image failed to load:', error);
+        console.error('[ProfileContext] Failed URL:', cleanedUrl);
+      };
+      testImg.src = cleanedUrl;
+      
       document.body.appendChild(backgroundDiv);
+      
+      // Verify the div was actually added and is visible
+      setTimeout(() => {
+        const addedDiv = document.getElementById('app-background');
+        if (addedDiv) {
+          const computedStyle = window.getComputedStyle(addedDiv);
+          console.log('[ProfileContext] Background div verification:', {
+            exists: !!addedDiv,
+            backgroundImage: computedStyle.backgroundImage,
+            zIndex: computedStyle.zIndex,
+            position: computedStyle.position,
+            display: computedStyle.display,
+            visibility: computedStyle.visibility,
+            opacity: computedStyle.opacity
+          });
+        } else {
+          console.error('[ProfileContext] Background div not found after creation!');
+        }
+      }, 100);
     } else {
-      // No custom background, show default pattern
+      // No custom background, show default pattern and restore body background
+      document.body.style.background = '';
       document.body.classList.add('default-nekt-background');
     }
 
@@ -293,6 +336,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (bgDiv) {
         bgDiv.remove();
       }
+      document.body.style.background = '';
       document.body.classList.remove('default-nekt-background');
     };
   }, [profile?.backgroundImage]);
