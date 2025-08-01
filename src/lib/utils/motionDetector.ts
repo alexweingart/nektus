@@ -59,6 +59,7 @@ export class MotionDetector {
    * Start a new motion detection session - clears priming state and prepares for detection
    */
   static startNewSession(): void {
+    // Force complete state reset - iOS Safari can persist static state across browser contexts
     this.sequentialState = {
       magnitudePrimed: false,
       strongMagnitudePrimed: false,
@@ -68,14 +69,33 @@ export class MotionDetector {
       lastResetTime: Date.now()
     };
     this.isCancelled = false;
-    console.log('🔄 Motion session started');
+    
+    // Additional iOS-specific state cleanup
+    if (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      // Force garbage collection of any lingering state references on iOS
+      this.sequentialState = Object.assign({}, this.sequentialState);
+      console.log('🍎 iOS-specific state cleanup applied');
+    }
+    
+    console.log('🔄 Motion session started', this.sequentialState);
   }
+
+  // Track active motion listener for proper cleanup
+  private static activeMotionListener: ((event: DeviceMotionEvent) => void) | null = null;
 
   /**
    * End session - cancels detection and clears all state
    */
   static endSession(): void {
     this.isCancelled = true;
+    
+    // Immediately remove active motion listener to prevent race conditions
+    if (this.activeMotionListener && typeof window !== 'undefined') {
+      window.removeEventListener('devicemotion', this.activeMotionListener);
+      this.activeMotionListener = null;
+      console.log('🧹 Immediately removed motion listener');
+    }
+    
     this.sequentialState = {
       magnitudePrimed: false,
       strongMagnitudePrimed: false,
@@ -244,6 +264,22 @@ export class MotionDetector {
       let peakJerkEvent: any = null;
       
       // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
+      // Verify state is properly reset - log any unexpected primed state on iOS
+      if (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
+                                 this.sequentialState.strongMagnitudePrimed || 
+                                 this.sequentialState.jerkPrimed || 
+                                 this.sequentialState.strongJerkPrimed;
+        if (hasAnyPrimedState) {
+          console.warn('🚨 iOS: Found persistent primed state at session start:', this.sequentialState);
+          // Force reset again if any primed state found
+          this.sequentialState.magnitudePrimed = false;
+          this.sequentialState.strongMagnitudePrimed = false;
+          this.sequentialState.jerkPrimed = false;
+          this.sequentialState.strongJerkPrimed = false;
+        }
+      }
+      
       let magnitudePrimed = this.sequentialState.magnitudePrimed;
       let strongMagnitudePrimed = this.sequentialState.strongMagnitudePrimed;
       let jerkPrimed = this.sequentialState.jerkPrimed;
@@ -421,6 +457,7 @@ export class MotionDetector {
           resolved = true;
           clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
+          this.activeMotionListener = null; // Clear listener reference
           resolve({
             hasMotion: true,
             acceleration: {
@@ -460,6 +497,7 @@ export class MotionDetector {
           resolved = true;
           clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
+          this.activeMotionListener = null; // Clear listener reference
           resolve({
             hasMotion: false,
             magnitude: 0,
@@ -471,6 +509,8 @@ export class MotionDetector {
       // Check for cancellation every 100ms
       const cancellationInterval = setInterval(checkCancellation, 100);
 
+      // Store listener reference for synchronous cleanup
+      this.activeMotionListener = handleMotion;
       window.addEventListener('devicemotion', handleMotion);
     });
   }
