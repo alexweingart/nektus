@@ -332,19 +332,19 @@ export class MotionDetector {
         }
 
         const magnitude = Math.hypot(accel.x, accel.y, accel.z);
-        const now = getServerNow();
+        const eventTime = getServerNow(); // For jerk calculations and filtering
         
         // Calculate jerk (rate of change of acceleration)
         let jerk = 0;
         if (previousTimestamp > 0) {
-          const deltaTime = (now - previousTimestamp) / 1000; // Convert to seconds
+          const deltaTime = (eventTime - previousTimestamp) / 1000; // Convert to seconds
           const deltaMagnitude = magnitude - previousMagnitude;
           jerk = Math.abs(deltaMagnitude / deltaTime); // m/s³
         }
         
         // Keep track of recent magnitudes for spike detection
-        recentMagnitudes.push({ magnitude, timestamp: now });
-        recentMagnitudes = recentMagnitudes.filter(m => now - m.timestamp <= SPIKE_DURATION_MS);
+        recentMagnitudes.push({ magnitude, timestamp: eventTime });
+        recentMagnitudes = recentMagnitudes.filter(m => eventTime - m.timestamp <= SPIKE_DURATION_MS);
         
         // Recalculate adaptive thresholds periodically based on recent motion
         if (motionEventCount % 10 === 0) { // Every 10 events, recalculate
@@ -358,7 +358,7 @@ export class MotionDetector {
             magnitude: magnitude,
             jerk: jerk,
             acceleration: { x: accel.x, y: accel.y, z: accel.z },
-            timestamp: now,
+            timestamp: eventTime,
             thresholds: { ...currentThresholds },
             metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
             metJerkThreshold: jerk >= currentThresholds.jerk,
@@ -387,7 +387,7 @@ export class MotionDetector {
             magnitude: magnitude,
             jerk: jerk,
             acceleration: { x: accel.x, y: accel.y, z: accel.z },
-            timestamp: now,
+            timestamp: eventTime,
             thresholds: { ...currentThresholds },
             metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
             metJerkThreshold: jerk >= currentThresholds.jerk,
@@ -412,7 +412,7 @@ export class MotionDetector {
         
         // Store all motion events for analytics
         allMotionEvents.push({
-          timestamp: now,
+          timestamp: eventTime,
           magnitude: magnitude,
           jerk: jerk,
           acceleration: { x: accel.x, y: accel.y, z: accel.z }
@@ -489,6 +489,10 @@ export class MotionDetector {
           clearInterval(cancellationInterval);
           window.removeEventListener('devicemotion', handleMotion);
           this.activeMotionListener = null; // Clear listener reference
+          
+          // Capture fresh timestamp AFTER all motion detection processing completes
+          const detectionCompleteTime = getServerNow();
+          
           resolve({
             hasMotion: true,
             acceleration: {
@@ -497,13 +501,13 @@ export class MotionDetector {
               z: accel.z
             },
             magnitude,
-            timestamp: now
+            timestamp: detectionCompleteTime
           });
         }
         
         // Store for next jerk calculation
         previousMagnitude = magnitude;
-        previousTimestamp = now;
+        previousTimestamp = eventTime;
       };
 
       // Check for cancellation periodically

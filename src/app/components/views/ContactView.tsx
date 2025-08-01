@@ -20,7 +20,7 @@ import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
-import { getExchangeState, setExchangeState, shouldShowSuccess, shouldShowUpsell } from '@/lib/services/client/exchangeStateService';
+import { getExchangeState, setExchangeState, shouldShowSuccess, shouldShowUpsell, markUpsellShown } from '@/lib/services/client/exchangeStateService';
 import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 
 interface ContactViewProps {
@@ -327,6 +327,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   const handleUpsellDecline = () => {
     dismissUpsellModal();
+    // Mark upsell as shown to prevent it from showing again
+    markUpsellShown(token);
   };
 
   const handleSayHi = () => {
