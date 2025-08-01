@@ -40,18 +40,7 @@ export async function POST(request: NextRequest) {
         console.warn(`⚠️ No authenticated user found for exchange_start cleanup`);
       }
       
-      // Get client IP for geolocation pre-caching
-      const forwarded = request.headers.get('x-forwarded-for');
-      const realIp = request.headers.get('x-real-ip');
-      const clientIP = forwarded?.split(',')[0].trim() || realIp || '127.0.0.1';
-      
-      // Pre-cache geolocation in background (don't wait for it)
-      const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
-      getIPLocation(clientIP).then(location => {
-        console.log(`✅ Pre-cached geolocation for ${clientIP}: ${location.city || 'unknown'}, ${location.state || 'unknown'} (VPN: ${location.isVPN})`);
-      }).catch(error => {
-        console.warn(`❌ Failed to pre-cache geolocation for ${clientIP}:`, error);
-      });
+      // Location lookup moved to hit endpoint only to reduce API usage
     }
     
     return NextResponse.json({ success: true });

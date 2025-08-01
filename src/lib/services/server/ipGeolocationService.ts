@@ -109,14 +109,17 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
   } catch (error) {
     console.warn(`Failed to fetch location for ${ip}:`, error);
     
-    // Return fallback with octet matching
-    return {
+    // Return fallback with octet matching (ensure this always works)
+    const fallback = {
       ip,
       isVPN: false,
       octet: ip.split('.')[0],
-      confidence: 'octet',
+      confidence: 'octet' as const,
       cached: false
     };
+    
+    console.log(`📍 Using fallback location for ${ip}:`, fallback);
+    return fallback;
   }
 
   // Process the location data
