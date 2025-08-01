@@ -166,15 +166,20 @@ export async function atomicExchangeAndMatch(
       try {
         const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
         
+        console.log(`🔍 Starting geographic comparison for ${candidateSessionId}`);
+        console.log(`🔍 Current location:`, currentLocation);
+        console.log(`🔍 Candidate location:`, candidateData.location);
+        
+        if (!currentLocation || !candidateData.location) {
+          console.log(`❌ Missing location data - current: ${!!currentLocation}, candidate: ${!!candidateData.location}`);
+          continue;
+        }
+        
         // Import and use the geographic matching logic
         const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
         
-        console.log(`🔍 Matching locations:`, {
-          current: currentLocation,
-          candidate: candidateData.location
-        });
-        
         const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
+        console.log(`🔍 Match info result:`, matchInfo);
         
         console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
         console.log(`⏰ Time diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
