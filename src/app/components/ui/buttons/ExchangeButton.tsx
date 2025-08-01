@@ -112,6 +112,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           router.push(`/connect?token=${state.match.token}`);
           // Clear service reference immediately - service has already disconnected itself
           setExchangeService(null);
+          // Reset status to idle after successful match
+          setStatus('idle');
         }
         
         // Handle timeout - service has already disconnected itself, just manage UI
