@@ -41,7 +41,8 @@ function detectPlatform(): 'android' | 'ios' | 'web' {
 function likelyHasGoogleContactsPermission(platform: string, token: string): boolean {
   // If we've never shown the upsell, they might still have permission
   // If we have shown the upsell, they definitely don't have permission
-  return !shouldShowUpsell(token, platform);
+  const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+  return !shouldShowUpsell(token, platform, iosNonEmbedded);
 }
 
 /**
@@ -130,7 +131,8 @@ export async function saveContactFlow(
             timestamp: Date.now()
           });
           
-          if (shouldShowUpsell(token, platform)) {
+          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+          if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
             markUpsellShown(token);
             return {
               success: true,
@@ -159,7 +161,8 @@ export async function saveContactFlow(
           timestamp: Date.now()
         });
         
-        if (shouldShowUpsell(token, platform)) {
+        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
           markUpsellShown(token);
           return {
             success: true,
@@ -193,7 +196,8 @@ export async function saveContactFlow(
         timestamp: Date.now()
       });
       
-      if (shouldShowUpsell(token, platform)) {
+      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+      if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
         markUpsellShown(token);
         return {
           success: true,
@@ -222,7 +226,8 @@ export async function saveContactFlow(
         timestamp: Date.now()
       });
       
-      if (shouldShowUpsell(token, platform)) {
+      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+      if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
         markUpsellShown(token);
         return {
           success: true,
@@ -320,8 +325,9 @@ export async function saveContactFlow(
 
     // Step 2: Platform-specific logic for Google Contacts
     
-    // iOS Safari/Chrome Flow (traditional vCard) - the only truly different platform
-    if (platform === 'ios' && !isEmbeddedBrowser()) {
+    // iOS non-embedded browsers (Safari/Chrome/Edge) - the only truly different platform
+    const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+    if (iosNonEmbedded) {
       
       // Try to show vCard inline for Safari and wait for dismissal
       try {
@@ -341,7 +347,7 @@ export async function saveContactFlow(
         // Both Firebase and Google successful
         setExchangeState(token, {
           state: 'completed_success',
-          platform: 'ios_safari',
+          platform,
           profileId: profile.userId || '',
           timestamp: Date.now()
         });
@@ -354,15 +360,15 @@ export async function saveContactFlow(
           platform
         };
       } else {
-        // Firebase saved, Google failed - iOS Safari shows upsell once ever
+        // Firebase saved, Google failed - iOS non-embedded shows upsell once ever
         setExchangeState(token, {
           state: 'completed_firebase_only',
-          platform: 'ios_safari',
+          platform,
           profileId: profile.userId || '',
           timestamp: Date.now()
         });
         
-        if (shouldShowUpsell(token, 'ios_safari')) {
+        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
           markUpsellShown(token);
           return {
             success: true,
@@ -431,7 +437,8 @@ export async function saveContactFlow(
             timestamp: Date.now()
           });
           
-          if (shouldShowUpsell(token, platform)) {
+          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+          if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
             markUpsellShown(token);
             return {
               success: true,
@@ -471,7 +478,8 @@ export async function saveContactFlow(
           timestamp: Date.now()
         });
         
-        if (shouldShowUpsell(token, platform)) {
+        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
           markUpsellShown(token);
           return {
             success: true,

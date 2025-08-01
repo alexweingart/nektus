@@ -33,9 +33,9 @@ export function getExchangeState(token: string): ExchangeStateData | null {
       return null;
     }
     
-    // Completed states expire after 15 minutes (except iOS Safari which persists forever)
+    // Completed states expire after 15 minutes (except iOS which persists forever for consistency)
     if ((data.state === 'completed_success' || data.state === 'completed_firebase_only')) {
-      if (data.platform !== 'ios_safari' && age > 15 * 60 * 1000) {
+      if (data.platform !== 'ios' && age > 15 * 60 * 1000) {
         clearExchangeState(token);
         return null;
       }
@@ -98,15 +98,15 @@ export function markUpsellShown(token: string): void {
 /**
  * Check if upsell should be shown based on exchange state and platform rules
  */
-export function shouldShowUpsell(token: string, platform: string): boolean {
+export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded: boolean = false): boolean {
   const state = getExchangeState(token);
   if (!state) return false;
   
   // Only show upsell if contact was saved to Firebase but not Google
   if (state.state !== 'completed_firebase_only') return false;
   
-  // iOS Safari: show only once ever
-  if (platform === 'ios_safari') {
+  // iOS non-embedded browsers (Safari/Chrome/Edge): show only once ever
+  if (iosNonEmbedded) {
     return !state.upsellShown;
   }
   
