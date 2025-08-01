@@ -147,9 +147,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       return; // Button should be disabled, but just in case
     }
 
-    // Show immediate feedback to user
-    setStatus('requesting-permission');
-    
     let permissionGranted = false;
     
     // For iOS, request permission IMMEDIATELY as the first action
@@ -175,7 +172,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 
     // Now we can do async operations after getting permission
     const platform = typeof (DeviceMotionEvent as any).requestPermission === 'function' ? 'iOS' : 'Android/Other';
-    console.log(`🎯 ExchangeButton: iOS permission granted: ${permissionGranted}, category: ${selectedCategory}, platform: ${platform}`);
     
     // Debounce ping requests to prevent duplicates (React Strict Mode can cause double execution)
     const now = Date.now();
@@ -195,19 +191,18 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     try {
       // Always create a fresh service and session for each exchange attempt
       // This prevents hit counter reuse and session confusion
+      setStatus('requesting-permission');
       
       // Clean up any existing service first and wait for complete cleanup
       if (exchangeService && exchangeService.disconnect) {
         await exchangeService.disconnect(); // ✅ Now properly awaited
       }
       setExchangeService(null);
-      setStatus('idle'); // Reset UI state before starting fresh session
       
       const service = await initializeService();
       if (!service) return;
 
       // Start the exchange process with the selected sharing category
-      console.log(`🎯 Starting exchange with sharing category: ${selectedCategory}`);
       await service.startExchange(permissionGranted, selectedCategory);
       
     } catch (error) {
