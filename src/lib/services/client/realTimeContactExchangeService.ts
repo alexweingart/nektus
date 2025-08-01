@@ -73,14 +73,17 @@ export class RealTimeContactExchangeService {
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
       
-              // Initialize fresh clock sync for each exchange
+              // Initialize fresh clock sync for each exchange (non-blocking)
         console.log('🔄 Refreshing clock sync for new exchange');
-        const syncSuccess = await initializeClockSync();
-        if (!syncSuccess) {
+        initializeClockSync().then(syncSuccess => {
+          if (!syncSuccess) {
+            console.warn('⚠️ Clock sync failed, using local time');
+          } else {
+            console.log('✅ Clock sync refreshed successfully');
+          }
+        }).catch(() => {
           console.warn('⚠️ Clock sync failed, using local time');
-        } else {
-          console.log('✅ Clock sync refreshed successfully');
-        }
+        });
       
       
       // Permission is always handled by ExchangeButton - no need to check again

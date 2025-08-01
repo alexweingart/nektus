@@ -147,6 +147,9 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       return; // Button should be disabled, but just in case
     }
 
+    // Show immediate feedback to user
+    setStatus('requesting-permission');
+    
     let permissionGranted = false;
     
     // For iOS, request permission IMMEDIATELY as the first action
@@ -192,7 +195,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     try {
       // Always create a fresh service and session for each exchange attempt
       // This prevents hit counter reuse and session confusion
-      setStatus('requesting-permission');
       
       // Clean up any existing service first and wait for complete cleanup
       if (exchangeService && exchangeService.disconnect) {
