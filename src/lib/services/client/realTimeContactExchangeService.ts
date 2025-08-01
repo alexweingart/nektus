@@ -317,6 +317,7 @@ export class RealTimeContactExchangeService {
 
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
+          console.log(`🚨 iOS: Setting status to processing (first hit detected)`);
           this.updateState({ status: 'processing' });
         }
         

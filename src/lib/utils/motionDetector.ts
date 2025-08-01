@@ -59,6 +59,19 @@ export class MotionDetector {
    * Start a new motion detection session - clears priming state and prepares for detection
    */
   static startNewSession(): void {
+    const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    // Log current state before reset for debugging
+    if (isIOS) {
+      const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
+                               this.sequentialState.strongMagnitudePrimed || 
+                               this.sequentialState.jerkPrimed || 
+                               this.sequentialState.strongJerkPrimed;
+      if (hasAnyPrimedState) {
+        console.warn('🚨 iOS: Found persistent primed state before session start:', this.sequentialState);
+      }
+    }
+    
     // Force complete state reset - iOS Safari can persist static state across browser contexts
     this.sequentialState = {
       magnitudePrimed: false,
@@ -70,11 +83,29 @@ export class MotionDetector {
     };
     this.isCancelled = false;
     
-    // Additional iOS-specific state cleanup
-    if (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      // Force garbage collection of any lingering state references on iOS
+    // Additional iOS-specific state cleanup with multiple strategies
+    if (isIOS) {
+      // Strategy 1: Force garbage collection of any lingering state references
       this.sequentialState = Object.assign({}, this.sequentialState);
-      console.log('🍎 iOS-specific state cleanup applied');
+      
+      // Strategy 2: Explicit property overwrite to combat persistent references
+      this.sequentialState.magnitudePrimed = false;
+      this.sequentialState.strongMagnitudePrimed = false; 
+      this.sequentialState.jerkPrimed = false;
+      this.sequentialState.strongJerkPrimed = false;
+      
+      // Strategy 3: Force a new object reference
+      const cleanState = {
+        magnitudePrimed: false,
+        strongMagnitudePrimed: false,
+        jerkPrimed: false,
+        strongJerkPrimed: false,
+        sessionStartTime: Date.now(),
+        lastResetTime: Date.now()
+      };
+      this.sequentialState = cleanState;
+      
+      console.log('🍎 iOS-specific aggressive state cleanup applied');
     }
     
     console.log('🔄 Motion session started', this.sequentialState);

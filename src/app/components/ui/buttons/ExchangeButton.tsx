@@ -152,10 +152,11 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     // Force reset to idle if we're in any non-idle state
     // This handles edge cases where state might be inconsistent after navigation
     if (status !== 'idle') {
-      console.log(`⚠️ Exchange button clicked in non-idle state: ${status}, forcing reset`);
+      const isIOS = typeof (DeviceMotionEvent as any).requestPermission === 'function';
+      console.log(`⚠️ [${isIOS ? 'iOS' : 'Other'}] Exchange button clicked in non-idle state: ${status}, forcing reset`);
       setStatus('idle');
       // Small delay to ensure state updates before continuing
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     let permissionGranted = false;
