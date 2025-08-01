@@ -168,6 +168,12 @@ export async function atomicExchangeAndMatch(
         
         // Import and use the geographic matching logic
         const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
+        
+        console.log(`🔍 Matching locations:`, {
+          current: currentLocation,
+          candidate: candidateData.location
+        });
+        
         const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
         
         console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);

@@ -1,15 +1,18 @@
 /**
  * API endpoint for clock synchronization
- * Returns the current server timestamp for client-server time normalization
+ * Returns the current Redis timestamp for consistent time across all serverless instances
  */
 
 import { NextResponse } from 'next/server';
+import { getRedisTime } from '@/lib/services/server/redisTimeService';
 
 export async function GET() {
   try {
+    const serverTime = await getRedisTime();
+    
     return NextResponse.json({
       success: true,
-      serverTime: Date.now()
+      serverTime
     });
   } catch (error) {
     console.error('Clock sync error:', error);

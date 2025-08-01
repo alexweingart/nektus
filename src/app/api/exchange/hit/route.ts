@@ -16,6 +16,7 @@ import {
   removePendingExchange,
   cleanupUserExchanges
 } from '@/lib/redis/client';
+import { getRedisTime } from '@/lib/services/server/redisTimeService';
 
 function getClientIP(request: NextRequest): string {
   // Get IP address for matching
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request
     const exchangeRequest: ContactExchangeRequest = await request.json();
-    const tReceived = Date.now(); // Server receive time
+    const tReceived = await getRedisTime(); // Redis consistent time
     
     // Validate required fields
     if (!exchangeRequest.session || !exchangeRequest.ts) {
@@ -96,13 +97,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate timing deltas for diagnostics
-    const now = Date.now();
+    const now = await getRedisTime();
     const clientTimestamp = exchangeRequest.ts;
     const timeDiff = Math.abs(now - clientTimestamp);
     const clockSkew = now - clientTimestamp; // positive = client clock is behind server
     
-    // Calculate network delay: tReceived - tSent (if tSent is provided)
-    const networkDelay = exchangeRequest.tSent ? (tReceived - (clientTimestamp + exchangeRequest.tSent - performance.now())) : undefined;
+    // Calculate network delay estimate (if RTT is provided from client)
+    const networkDelay = exchangeRequest.rtt ? exchangeRequest.rtt / 2 : undefined;
     
     console.log(`📊 TIMING BREAKDOWN:
       - Server receive time: ${tReceived}
