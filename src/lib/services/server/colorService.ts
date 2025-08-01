@@ -120,7 +120,7 @@ export function pickAccentColors(palette: string[], count = 2): string[] {
  * Based on the default background green (#22c55e), returns a warm contrasting color.
  */
 export function getDefaultBackgroundColor(): string {
-  // Warm orange-red complementary to our green theme
-  // This creates good contrast while remaining subtle for profile avatars
-  return '#2d1b3d'; // Deep purple-grey that complements green accents
+  // Green color that matches the app's theme
+  // This creates good contrast while remaining consistent with the brand
+  return '#71E454'; // Green that matches the app's accent color
 } 

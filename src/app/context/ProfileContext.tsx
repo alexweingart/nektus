@@ -445,7 +445,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             await Promise.all(generations);
             // After profile image generation, check if we now have a custom profile image
             const updatedProfile = await ProfileService.getProfile(userId);
-            return updatedProfile?.profileImage && !updatedProfile.profileImage.includes('googleusercontent.com');
+            // Only generate background for user-uploaded images, not AI-generated ones
+            return updatedProfile?.profileImage && 
+                   !updatedProfile.profileImage.includes('googleusercontent.com') &&
+                   !updatedProfile.aiGeneration?.avatarGenerated;
           } catch (error) {
             console.error('[ProfileContext] Error waiting for profile image generation:', error);
             return false;
@@ -473,8 +476,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          // For Firebase-stored images (custom uploads), generate background
-          return true;
+          // For Firebase-stored images, only generate background if it's user-uploaded (not AI-generated)
+          return !profile?.aiGeneration?.avatarGenerated;
         }
       };
       

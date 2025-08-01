@@ -330,7 +330,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   return (
     <div 
       className="flex flex-col items-center px-4 py-4 pb-8"
-          >
+    >
       <div className="w-full max-w-[var(--max-content-width,448px)] mb-6">
         <EditTitleBar 
           onBack={() => router.back()}
@@ -358,7 +358,11 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
               {formData.picture ? (
                 <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                   <Image
-                    src={formData.picture}
+                    src={formData.picture.includes('firebasestorage.app') 
+                      ? (formData.picture.includes('?') 
+                          ? `${formData.picture}&cb=${Date.now()}` 
+                          : `${formData.picture}?cb=${Date.now()}`)
+                      : formData.picture}
                     alt="Profile"
                     width={32}
                     height={32}

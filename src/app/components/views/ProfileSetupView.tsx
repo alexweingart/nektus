@@ -23,7 +23,7 @@ function ProfileSetupView() {
     required: true,
   });
   
-  const { saveProfile, profile, isSaving: isProfileSaving } = useProfile();
+  const { saveProfile, profile, isSaving: isProfileSaving, streamingProfileImage } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -120,7 +120,7 @@ function ProfileSetupView() {
             <div className="mb-4">
               <div className="border-4 border-white shadow-lg rounded-full">
                 <Avatar 
-                  src={profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
+                  src={streamingProfileImage || profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                 />

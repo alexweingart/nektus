@@ -24,12 +24,21 @@ const Avatar: React.FC<AvatarProps> = ({
   const sizeClass = sizeClasses[size];
 
   React.useEffect(() => {
-    setImgSrc(src);
+    // For Firebase Storage URLs, add cache-busting to ensure fresh images
+    if (src && src.includes('firebasestorage.app')) {
+      const cacheBustingUrl = src.includes('?') 
+        ? `${src}&cb=${Date.now()}` 
+        : `${src}?cb=${Date.now()}`;
+      setImgSrc(cacheBustingUrl);
+    } else {
+      setImgSrc(src);
+    }
   }, [src]);
 
   return (
     <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
       <Image
+        key={imgSrc} // Force remount when image URL changes
         src={imgSrc || '/default-avatar.png'}
         alt={alt}
         fill
