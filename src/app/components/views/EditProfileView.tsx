@@ -367,6 +367,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
                     width={32}
                     height={32}
                     className="object-cover w-full h-full"
+                    unoptimized={formData.picture?.includes('firebasestorage.app')}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.onerror = null;

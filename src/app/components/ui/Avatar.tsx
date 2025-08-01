@@ -46,7 +46,7 @@ const Avatar: React.FC<AvatarProps> = ({
         priority={size === 'lg'}
         className="object-cover"
         onError={() => setImgSrc('/default-avatar.png')}
-        unoptimized={imgSrc?.startsWith('data:')}
+        unoptimized={imgSrc?.startsWith('data:') || imgSrc?.includes('firebasestorage.app')}
       />
     </div>
   );
