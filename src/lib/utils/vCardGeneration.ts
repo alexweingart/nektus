@@ -437,19 +437,51 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
   console.log('📲 Opening vCard for iOS Safari:', filename);
   console.log('📲 Blob URL:', url);
   
-  try {
-    console.log('📱 Using direct navigation for Safari');
-    window.location.href = url;
-  } catch (error) {
-    console.warn('📱 Safari vCard approach failed, showing instructions:', error);
-    showVCardInstructions(profile, vCardContent);
-  }
-  
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 5000);
-  
-  console.log('📱 displayVCardInlineForIOS completed');
+  return new Promise<void>((resolve) => {
+    try {
+      console.log('📱 Using direct navigation for Safari');
+      window.location.href = url;
+      
+      // Wait for user to dismiss the vCard popup before resolving
+      // We detect this by listening for focus/visibility events
+      const handleFocusReturn = () => {
+        console.log('📱 Focus returned to page, vCard likely dismissed');
+        cleanup();
+        resolve();
+      };
+      
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('📱 Page became visible again, vCard likely dismissed');
+          cleanup();
+          resolve();
+        }
+      };
+      
+      const cleanup = () => {
+        window.removeEventListener('focus', handleFocusReturn);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        URL.revokeObjectURL(url);
+      };
+      
+      // Listen for when user returns to the page (vCard dismissed)
+      window.addEventListener('focus', handleFocusReturn);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Fallback timeout in case events don't fire
+      setTimeout(() => {
+        console.log('📱 Timeout reached, assuming vCard was dismissed');
+        cleanup();
+        resolve();
+      }, 10000); // 10 second timeout
+      
+    } catch (error) {
+      console.warn('📱 Safari vCard approach failed, showing instructions:', error);
+      showVCardInstructions(profile, vCardContent);
+      URL.revokeObjectURL(url);
+      resolve(); // Resolve immediately if error occurs
+    }
+  });
 };
 
 /**

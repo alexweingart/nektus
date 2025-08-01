@@ -323,14 +323,16 @@ export async function saveContactFlow(
     // iOS Safari/Chrome Flow (traditional vCard) - the only truly different platform
     if (platform === 'ios' && !isEmbeddedBrowser()) {
       
-      // Try to show vCard inline for Safari
+      // Try to show vCard inline for Safari and wait for dismissal
       try {
         // Generate contact URL for the profile
         const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/contact/${profile.userId}`;
         
+        console.log('📱 Displaying vCard for iOS Safari and waiting for dismissal...');
         await displayVCardInlineForIOS(profile, { 
           contactUrl 
         });
+        console.log('📱 vCard dismissed, now showing appropriate modal');
       } catch (error) {
         console.warn('Failed to display vCard inline for iOS Safari:', error);
       }
