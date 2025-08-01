@@ -21,6 +21,7 @@ import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
 import { getExchangeState, setExchangeState, shouldShowSuccess, shouldShowUpsell } from '@/lib/services/client/exchangeStateService';
+import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -167,7 +168,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
         
         if (exchangeState.state === 'completed_firebase_only') {
           // Check if we should show upsell based on platform rules
-          if (shouldShowUpsell(token, exchangeState.platform)) {
+          const iosNonEmbedded = exchangeState.platform === 'ios' && !isEmbeddedBrowser();
+          if (shouldShowUpsell(token, exchangeState.platform, iosNonEmbedded)) {
             console.log('🆙 Should show upsell modal for completed Firebase-only state');
             setShowUpsellModal(true);
           } else {
