@@ -207,6 +207,22 @@ const ProfileView: React.FC = () => {
     return socialChannels.some(channel => channel && !channel.userConfirmed);
   }, [contactChannels]);
 
+  // Ensure profile view always shows correct background when mounted
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Clean up any contact background that might be lingering
+    const existingContactBg = document.getElementById('contact-background');
+    if (existingContactBg) {
+      existingContactBg.remove();
+    }
+    
+    // If we have no background image, ensure green pattern is shown
+    if (!currentProfile?.backgroundImage) {
+      document.body.classList.add('default-nekt-background');
+    }
+  }, [currentProfile?.backgroundImage]);
+
   // Track background image transitions (from no background to having background)
   const previousBackgroundImage = useRef<string | null>(null);
   const [shouldAnimateBackground, setShouldAnimateBackground] = useState(false);

@@ -211,14 +211,21 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Apply the contact's background image or default pattern to the screen
   useEffect(() => {
     try {
-      // Clean up any existing contact background
-      const existingBg = document.getElementById('contact-background');
-      if (existingBg) {
-        existingBg.remove();
+      // Clean up any existing backgrounds (both contact and app backgrounds)
+      const existingContactBg = document.getElementById('contact-background');
+      if (existingContactBg) {
+        existingContactBg.remove();
+      }
+      
+      // Clean up any app background that might be showing user's background
+      const existingAppBg = document.getElementById('app-background');
+      if (existingAppBg) {
+        existingAppBg.remove();
       }
 
-      // Remove default background class from body
+      // Remove default background class from body and reset body background
       document.body.classList.remove('default-nekt-background');
+      document.body.style.background = '';
 
       if (profile?.backgroundImage) {
         // Create background div with contact's background image
@@ -240,7 +247,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
         `;
         document.body.appendChild(backgroundDiv);
       } else {
-        // No background image, use default green pattern
+        // No contact background image, always use default green pattern
+        // NEVER show the user's own background image in contact view
         document.body.classList.add('default-nekt-background');
       }
 
@@ -252,6 +260,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             bgDiv.remove();
           }
           document.body.classList.remove('default-nekt-background');
+          document.body.style.background = '';
         } catch (cleanupError) {
           console.warn('❌ Error cleaning up background:', cleanupError);
         }
