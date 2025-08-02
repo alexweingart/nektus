@@ -295,19 +295,30 @@ export class MotionDetector {
       let peakJerkEvent: any = null;
       
       // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
-      // Verify state is properly reset - log any unexpected primed state on iOS
+      // iOS Safari bug: Static state persists despite cleanup attempts
       if (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
         const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
                                  this.sequentialState.strongMagnitudePrimed || 
                                  this.sequentialState.jerkPrimed || 
                                  this.sequentialState.strongJerkPrimed;
         if (hasAnyPrimedState) {
-          console.warn('🚨 iOS: Found persistent primed state at session start:', this.sequentialState);
-          // Force reset again if any primed state found
-          this.sequentialState.magnitudePrimed = false;
-          this.sequentialState.strongMagnitudePrimed = false;
-          this.sequentialState.jerkPrimed = false;
-          this.sequentialState.strongJerkPrimed = false;
+          console.warn('🚨 iOS: Found persistent primed state at session start, forcing complete reset:', this.sequentialState);
+          
+          // Nuclear option: Completely recreate the static object on iOS
+          const cleanState = {
+            magnitudePrimed: false,
+            strongMagnitudePrimed: false,
+            jerkPrimed: false,
+            strongJerkPrimed: false,
+            sessionStartTime: Date.now(),
+            lastResetTime: Date.now()
+          };
+          
+          // Delete all properties and reassign
+          delete (this as any).sequentialState;
+          this.sequentialState = cleanState;
+          
+          console.log('🍎 iOS: Nuclear state reset completed:', this.sequentialState);
         }
       }
       
