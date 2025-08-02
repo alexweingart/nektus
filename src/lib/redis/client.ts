@@ -112,21 +112,29 @@ export async function atomicExchangeAndMatch(
   const globalBucketKey = 'geo_bucket:global';
   const exchangeKey = `pending_exchange:${sessionId}`;
   
+  // Check if this session already exists (multiple hits from same session)
+  const existingExchangeData = await redis!.get(exchangeKey);
+  const sessionAlreadyExists = !!existingExchangeData;
+  
   // First, get current candidates before our transaction
   const currentCandidates = await redis!.smembers(globalBucketKey) as string[];
   console.log(`🔍 Pre-transaction: Global bucket contains ${currentCandidates.length} candidates:`, currentCandidates);
   
-  // Start Redis transaction
-  const pipeline = redis!.multi();
-  
-  // Always store our exchange first (part of transaction)
-  pipeline.setex(exchangeKey, ttlSeconds, JSON.stringify(exchangeData));
-  pipeline.sadd(globalBucketKey, sessionId);
-  pipeline.expire(globalBucketKey, ttlSeconds);
-  
-  // Execute the transaction atomically
-  await pipeline.exec();
-  console.log(`💾 Atomically stored exchange ${sessionId} in global bucket`);
+  if (sessionAlreadyExists) {
+    console.log(`🔄 Session ${sessionId} already exists - using existing data for comparison, not overwriting yet`);
+  } else {
+    // Start Redis transaction - only store if session doesn't exist
+    const pipeline = redis!.multi();
+    
+    // Store our exchange first (part of transaction)
+    pipeline.setex(exchangeKey, ttlSeconds, JSON.stringify(exchangeData));
+    pipeline.sadd(globalBucketKey, sessionId);
+    pipeline.expire(globalBucketKey, ttlSeconds);
+    
+    // Execute the transaction atomically
+    await pipeline.exec();
+    console.log(`💾 Atomically stored exchange ${sessionId} in global bucket`);
+  }
   
   // Now check for matches among the candidates that existed before our addition
   let bestMatch: { sessionId: string; matchData: any; timeDiff: number; confidence: string } | null = null;
@@ -254,7 +262,13 @@ export async function atomicExchangeAndMatch(
     };
   }
   
-  // No match found - our exchange remains in the bucket for future matching
+  // No match found - now it's safe to update exchange data if session already existed
+  if (sessionAlreadyExists) {
+    console.log(`🔄 No match found, now updating existing session ${sessionId} with newer data`);
+    await redis!.setex(exchangeKey, ttlSeconds, JSON.stringify(exchangeData));
+    console.log(`💾 Updated exchange ${sessionId} with newer timestamp`);
+  }
+  
   console.log(`⏳ No match found, exchange ${sessionId} remains in bucket for future matching`);
   return null;
 }
