@@ -12,7 +12,6 @@ import {
   getExchangeState,
   setExchangeState,
   clearExchangeState,
-  markUpsellShown,
   shouldShowUpsell,
   shouldShowSuccess,
   isReturningFromAuth
@@ -133,7 +132,6 @@ export async function saveContactFlow(
           
           const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
           if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-            markUpsellShown(token);
             return {
               success: true,
               firebase: { success: true },
@@ -163,7 +161,6 @@ export async function saveContactFlow(
         
         const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
         if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          markUpsellShown(token);
           return {
             success: true,
             firebase: { success: true },
@@ -198,7 +195,6 @@ export async function saveContactFlow(
       
       const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
       if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-        markUpsellShown(token);
         return {
           success: true,
           firebase: { success: true },
@@ -228,7 +224,6 @@ export async function saveContactFlow(
       
       const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
       if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-        markUpsellShown(token);
         return {
           success: true,
           firebase: { success: true },
@@ -369,7 +364,6 @@ export async function saveContactFlow(
         });
         
         if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          markUpsellShown(token);
           return {
             success: true,
             firebase: firebaseResult.firebase,
@@ -439,7 +433,6 @@ export async function saveContactFlow(
           
           const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
           if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-            markUpsellShown(token);
             return {
               success: true,
               firebase: firebaseResult.firebase,
@@ -480,7 +473,6 @@ export async function saveContactFlow(
         
         const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
         if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          markUpsellShown(token);
           return {
             success: true,
             firebase: firebaseResult.firebase,

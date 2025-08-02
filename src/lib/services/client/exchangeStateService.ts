@@ -96,6 +96,28 @@ export function markUpsellShown(token: string): void {
 }
 
 /**
+ * Check if user has dismissed Google contacts upsell globally (iOS Safari/Chrome/Edge only)
+ */
+function hasUserDismissedUpsellGlobally(): boolean {
+  try {
+    return localStorage.getItem('google_contacts_upsell_dismissed') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark that user has dismissed Google contacts upsell globally (iOS Safari/Chrome/Edge only)
+ */
+export function markUpsellDismissedGlobally(): void {
+  try {
+    localStorage.setItem('google_contacts_upsell_dismissed', 'true');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
  * Check if upsell should be shown based on exchange state and platform rules
  */
 export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded: boolean = false): boolean {
@@ -105,9 +127,9 @@ export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded
   // Only show upsell if contact was saved to Firebase but not Google
   if (state.state !== 'completed_firebase_only') return false;
   
-  // iOS non-embedded browsers (Safari/Chrome/Edge): show only once ever
+  // iOS non-embedded browsers (Safari/Chrome/Edge): show only if never dismissed globally
   if (iosNonEmbedded) {
-    return !state.upsellShown;
+    return !hasUserDismissedUpsellGlobally();
   }
   
   // All other platforms: show every time (for now - simplified as requested)
