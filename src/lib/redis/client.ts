@@ -168,6 +168,7 @@ export async function atomicExchangeAndMatch(
       
       if (!candidateData.timestamp) {
         console.log(`❌ Candidate ${candidateSessionId} has no timestamp, skipping`);
+        console.log(`❌ Candidate data:`, JSON.stringify(candidateData, null, 2));
         continue;
       }
       
