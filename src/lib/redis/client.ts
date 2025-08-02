@@ -95,7 +95,7 @@ export async function storePendingExchange(
 }
 
 /**
- * Atomically store exchange and find matches using Redis transaction
+ * Atomically store exchange and find matches using Redis Lua script
  * This prevents race conditions when multiple exchanges arrive simultaneously
  */
 export async function atomicExchangeAndMatch(
@@ -119,6 +119,7 @@ export async function atomicExchangeAndMatch(
   // First, get current candidates before our transaction
   const currentCandidates = await redis!.smembers(globalBucketKey) as string[];
   console.log(`🔍 Pre-transaction: Global bucket contains ${currentCandidates.length} candidates:`, currentCandidates);
+  console.log(`🔍 Current session ${sessionId} checking against bucket ${globalBucketKey}`);
   
   if (sessionAlreadyExists) {
     console.log(`🔄 Session ${sessionId} already exists - using existing data for comparison, not overwriting yet`);
@@ -134,10 +135,16 @@ export async function atomicExchangeAndMatch(
     // Execute the transaction atomically
     await pipeline.exec();
     console.log(`💾 Atomically stored exchange ${sessionId} in global bucket`);
+    
+    // Double-check that our session was added to the bucket
+    const postStoreBucket = await redis!.smembers(globalBucketKey) as string[];
+    console.log(`✅ Post-store bucket now contains ${postStoreBucket.length} candidates:`, postStoreBucket);
   }
   
   // Now check for matches among the candidates that existed before our addition
   let bestMatch: { sessionId: string; matchData: any; timeDiff: number; confidence: string } | null = null;
+  
+  console.log(`🔍 Starting candidate loop - checking ${currentCandidates.length} candidates that existed before our session`);
   
   for (const candidateSessionId of currentCandidates) {
     if (candidateSessionId === sessionId) continue;
@@ -261,6 +268,81 @@ export async function atomicExchangeAndMatch(
       sessionId: bestMatch.sessionId,
       matchData: bestMatch.matchData
     };
+  }
+  
+  // No match found in pre-existing candidates, but let's also check if any new candidates arrived after we stored
+  if (!sessionAlreadyExists) {
+    console.log(`🔍 Checking for any new candidates that may have arrived after our storage...`);
+    const newCandidates = await redis!.smembers(globalBucketKey) as string[];
+    const additionalCandidates = newCandidates.filter(c => c !== sessionId && !currentCandidates.includes(c));
+    console.log(`🔍 Found ${additionalCandidates.length} additional candidates:`, additionalCandidates);
+    
+    // Check these additional candidates too
+    for (const candidateSessionId of additionalCandidates) {
+      console.log(`🔍 Checking additional candidate: ${candidateSessionId}`);
+      
+      const candidateKey = `pending_exchange:${candidateSessionId}`;
+      const candidateDataStr = await redis!.get(candidateKey);
+      
+      if (!candidateDataStr) {
+        console.log(`🧹 Cleaning up stale additional session ${candidateSessionId} from global bucket`);
+        await redis!.srem(globalBucketKey, candidateSessionId);
+        continue;
+      }
+      
+      // Handle both string and object responses from Redis
+      let candidateData;
+      if (typeof candidateDataStr === 'string') {
+        candidateData = JSON.parse(candidateDataStr);
+      } else {
+        candidateData = candidateDataStr;
+      }
+      
+      // Geographic confidence-based matching (same logic as above)
+      if (currentTimestamp && currentLocation && candidateData.location) {
+        console.log(`🔍 Geographic comparison (additional): ${sessionId} vs ${candidateSessionId}`);
+        
+        if (!candidateData.timestamp) {
+          console.log(`❌ Additional candidate ${candidateSessionId} has no timestamp, skipping`);
+          console.log(`❌ Additional candidate data:`, JSON.stringify(candidateData, null, 2));
+          continue;
+        }
+        
+        try {
+          const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+          
+          const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
+          const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
+          
+          console.log(`📍 Additional geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
+          console.log(`⏰ Additional time diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
+          
+          if (matchInfo.confidence !== 'no_match' && timeDiff <= matchInfo.timeWindow) {
+            console.log(`✅ TIMING MATCH (additional): ${timeDiff}ms ≤ ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
+            
+            // Clean up both the matched candidate and our exchange atomically
+            const cleanupPipeline = redis!.multi();
+            cleanupPipeline.del(`pending_exchange:${candidateSessionId}`);
+            cleanupPipeline.srem(globalBucketKey, candidateSessionId);
+            cleanupPipeline.del(exchangeKey);
+            cleanupPipeline.srem(globalBucketKey, sessionId);
+            await cleanupPipeline.exec();
+            
+            console.log(`🎯 Additional match found: ${candidateSessionId} with time diff ${timeDiff}ms (confidence: ${matchInfo.confidence})`);
+            
+            return {
+              sessionId: candidateSessionId,
+              matchData: candidateData
+            };
+          } else {
+            console.log(`❌ TIMING FAILED (additional): ${timeDiff}ms > ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
+          }
+        } catch (error) {
+          console.log(`❌ Error in additional geographic matching for ${candidateSessionId}:`, error);
+          continue;
+        }
+      }
+    }
   }
   
   // No match found - now it's safe to update exchange data if session already existed
