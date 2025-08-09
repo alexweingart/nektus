@@ -2,7 +2,7 @@
 
 import React from 'react';
 import SocialIcon from './SocialIcon';
-import type { ContactChannels } from '@/types/profile';
+import type { ContactChannels, ContactEntry } from '@/types/profile';
 import type { FieldSection } from '@/types/forms';
 
 interface SocialIconsListProps {
@@ -18,17 +18,17 @@ const PLATFORM_CONFIG = {
   phone: { section: 'universal', defaultOrder: 0 },
   email: { section: 'universal', defaultOrder: 1 },
   
-  // Personal section
-  facebook: { section: 'personal', defaultOrder: 0 },
-  instagram: { section: 'personal', defaultOrder: 1 },
-  x: { section: 'personal', defaultOrder: 2 },
-  snapchat: { section: 'personal', defaultOrder: 3 },
-  whatsapp: { section: 'personal', defaultOrder: 4 },
-  telegram: { section: 'personal', defaultOrder: 5 },
-  wechat: { section: 'personal', defaultOrder: 6 },
+  // Personal section  
+  facebook: { section: 'personal', defaultOrder: 2 },
+  instagram: { section: 'personal', defaultOrder: 3 },
+  x: { section: 'personal', defaultOrder: 4 },
+  snapchat: { section: 'personal', defaultOrder: 5 },
+  whatsapp: { section: 'personal', defaultOrder: 6 },
+  telegram: { section: 'personal', defaultOrder: 7 },
+  wechat: { section: 'personal', defaultOrder: 8 },
   
   // Work section
-  linkedin: { section: 'work', defaultOrder: 0 },
+  linkedin: { section: 'work', defaultOrder: 9 },
 } as const;
 
 // Define platform types
@@ -48,68 +48,54 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   variant = 'default',
   className = ''
 }) => {
-  // Transform contact channels into social items
+  // Transform contact channels into social items - NEW ARRAY FORMAT
   const socialItems: SocialItem[] = [];
   
-  // Add phone if available
-  if (contactChannels?.phoneInfo?.internationalPhone) {
-    socialItems.push({
-      platform: 'phone',
-      username: contactChannels.phoneInfo.internationalPhone,
-      url: `sms:${contactChannels.phoneInfo.internationalPhone}`,
-      section: 'universal',
-      order: 0
-    });
-  }
-  
-  // Add email if available
-  if (contactChannels?.email?.email) {
-    socialItems.push({
-      platform: 'email',
-      username: contactChannels.email.email,
-      url: `mailto:${contactChannels.email.email}`,
-      section: 'universal',
-      order: 1
-    });
-  }
-  
-  // Add social platforms
-  const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'] as const;
-  
-  socialPlatforms.forEach(platform => {
-    const channel = contactChannels[platform];
-    if (channel && channel.username) {
-      const config = PLATFORM_CONFIG[platform];
-      const fieldSection = channel.fieldSection;
+  // Process entries directly from the new array format
+  if (contactChannels?.entries) {
+    contactChannels.entries.forEach((entry, index) => {
+      // Only include if has content and is visible (not explicitly hidden)
+      const hasContent = entry.platform === 'phone' ? !!entry.internationalPhone :
+                         entry.platform === 'email' ? !!entry.email :
+                         !!entry.username?.trim();
       
-      // Use the saved section if available, otherwise use default
-      const section = fieldSection?.section || config.section;
-      const order = fieldSection?.order !== undefined ? fieldSection.order : config.defaultOrder;
+      const isVisible = entry.isVisible !== false; // Default to visible if not specified
       
-      // Only include if not hidden and has content
-      if (section !== 'hidden' && channel.username.trim()) {
+      // Only show entries that have content AND are visible
+      if (hasContent && isVisible) {
+        const username = entry.platform === 'phone' ? entry.internationalPhone! :
+                         entry.platform === 'email' ? entry.email! :
+                         entry.username!;
+        
+        const url = entry.platform === 'phone' ? `sms:${entry.internationalPhone}` :
+                    entry.platform === 'email' ? `mailto:${entry.email}` :
+                    entry.url || getUrlForPlatform(entry.platform as PlatformType, entry.username!);
+        
+        const config = PLATFORM_CONFIG[entry.platform as keyof typeof PLATFORM_CONFIG];
+        
         socialItems.push({
-          platform,
-          username: channel.username,
-          url: channel.url || '',
-          section,
-          order
+          platform: entry.platform as PlatformType,
+          username,
+          url,
+          section: entry.section,
+          order: entry.order ?? config?.defaultOrder ?? index // Use saved order first, then defaultOrder, then index
         });
       }
-    }
-  });
+    });
+  }
   
   // Sort items by section order, then by order within section
   const sectionOrder: Record<FieldSection, number> = {
     universal: 0,
     personal: 1,
-    work: 2,
-    hidden: 3
+    work: 2
   };
   
   socialItems.sort((a, b) => {
     const sectionDiff = sectionOrder[a.section] - sectionOrder[b.section];
     if (sectionDiff !== 0) return sectionDiff;
+    
+    // Within the same section, use the order field (which includes custom user ordering)
     return a.order - b.order;
   });
   
@@ -173,7 +159,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
     <div className={`flex flex-wrap justify-center gap-4 ${className}`}>
       {socialItems.map((item) => (
         <a
-          key={item.platform}
+          key={`${item.platform}-${item.section}`}
           href={getUrlForPlatform(item.platform, item.username)}
           target={item.platform === 'phone' || item.platform === 'email' ? undefined : '_blank'}
           rel={item.platform === 'phone' || item.platform === 'email' ? undefined : 'noopener noreferrer'}

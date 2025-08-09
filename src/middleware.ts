@@ -48,8 +48,8 @@ export async function middleware(request: NextRequest) {
     // If on setup page but already has profile, redirect to home
     if (pathname === '/setup') {
       try {
-        const hasPhone = token.profile?.contactChannels?.phoneInfo?.internationalPhone &&
-                        token.profile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+        const phoneEntry = token.profile?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+        const hasPhone = phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '';
         
         if (hasPhone) {
           return NextResponse.redirect(new URL('/', request.url));

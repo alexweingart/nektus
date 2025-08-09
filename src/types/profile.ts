@@ -1,3 +1,4 @@
+// Legacy interface - keep for backward compatibility during migration
 export interface SocialProfile {
   username: string;
   url: string;
@@ -11,15 +12,54 @@ export interface SocialProfile {
   };
 }
 
+// New unified contact entry interface
+export interface ContactEntry {
+  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
+  section: 'personal' | 'work' | 'universal';
+  userConfirmed: boolean;
+  isVisible?: boolean; // Whether this field is shown (visible) or hidden in the section
+  automatedVerification?: boolean;
+  discoveryMethod?: 'ai' | 'manual' | 'email-guess' | 'phone-guess';
+  order?: number; // User's custom ordering within section
+  
+  // Platform-specific data
+  // For phone
+  internationalPhone?: string;
+  nationalPhone?: string;
+  
+  // For email
+  email?: string;
+  
+  // For social platforms
+  username?: string;
+  url?: string;
+}
+
+// New ContactChannels structure - array-based
 export interface ContactChannels {
+  entries: ContactEntry[];
+}
+
+// Legacy ContactChannels interface - keep for backward compatibility during migration
+export interface LegacyContactChannels {
   phoneInfo: {
     internationalPhone: string;
     nationalPhone: string;
     userConfirmed: boolean;
+    fieldSection?: {
+      section: 'personal' | 'work' | 'hidden' | 'universal';
+      originalSection?: 'personal' | 'work';
+      order?: number;
+    };
   };
   email: {
     email: string;
     userConfirmed: boolean;
+    fieldSection?: {
+      section: 'personal' | 'work' | 'hidden' | 'universal';
+      originalSection?: 'personal' | 'work';
+      order?: number;
+    };
   };
   facebook: SocialProfile;
   instagram: SocialProfile;

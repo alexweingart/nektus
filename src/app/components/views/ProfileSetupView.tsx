@@ -84,12 +84,16 @@ function ProfileSetupView() {
     }
     const phoneUpdateData: Partial<UserProfile> = {
       contactChannels: {
-        phoneInfo: {
-          internationalPhone,
-          nationalPhone,
-          userConfirmed: true,
-        },
-      } as any,
+        entries: [
+          {
+            platform: 'phone',
+            section: 'universal',
+            userConfirmed: true,
+            internationalPhone,
+            nationalPhone,
+          }
+        ]
+      },
     };
 
     router.replace('/');

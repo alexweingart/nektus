@@ -6,16 +6,13 @@ import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
-import Avatar from '../ui/Avatar';
-import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/StandardModal';
-import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profileFiltering';
+import { ProfileInfo } from '../ui/ProfileInfo';
+import { type SharingCategory } from '@/lib/utils/profileFiltering';
 
-import ReactMarkdown from 'react-markdown';
-import { Heading, Text } from '../ui/Typography';
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
@@ -34,58 +31,6 @@ const ProfileView: React.FC = () => {
     streamingSocialContacts
   } = useProfile();
 
-  // State to track selected sharing category
-  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('All');
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
-
-  // Load selected category from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
-      if (savedCategory && ['All', 'Personal', 'Work'].includes(savedCategory)) {
-        setSelectedCategory(savedCategory);
-      }
-      setHasLoadedFromStorage(true);
-    } catch (error) {
-      console.warn('Failed to load sharing category from localStorage:', error);
-      setHasLoadedFromStorage(true);
-    }
-  }, []);
-
-  // Listen for localStorage changes to update the display when category changes
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'nekt-sharing-category' && e.newValue) {
-        const newCategory = e.newValue as SharingCategory;
-        if (['All', 'Personal', 'Work'].includes(newCategory)) {
-          setSelectedCategory(newCategory);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  // Also check for changes periodically since storage event only fires from other tabs
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-
-    const checkForCategoryChange = () => {
-      try {
-        const currentCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
-        if (currentCategory && ['All', 'Personal', 'Work'].includes(currentCategory) && currentCategory !== selectedCategory) {
-          setSelectedCategory(currentCategory);
-        }
-      } catch (error) {
-        console.warn('Failed to check sharing category from localStorage:', error);
-      }
-    };
-
-    // Check every 500ms for changes
-    const interval = setInterval(checkForCategoryChange, 500);
-    return () => clearInterval(interval);
-  }, [selectedCategory, hasLoadedFromStorage]);
 
   // Get the latest profile
   const currentProfile = profile;
@@ -145,7 +90,15 @@ const ProfileView: React.FC = () => {
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
     // Try to use phone number if available
-    const phoneNumber = savedContactProfile.contactChannels?.phoneInfo?.internationalPhone;
+    const contactChannelsAny = savedContactProfile.contactChannels as any;
+    let phoneNumber = '';
+    
+    if (contactChannelsAny?.entries) {
+      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
+      phoneNumber = phoneEntry?.internationalPhone || '';
+    } else if (contactChannelsAny?.phoneInfo) {
+      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    }
     
     console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
     openMessagingApp(messageText, phoneNumber);
@@ -164,83 +117,53 @@ const ProfileView: React.FC = () => {
     return streamingProfileImage || currentProfile?.profileImage;
   }, [streamingProfileImage, currentProfile?.profileImage]);
 
-  // Contact channels with streaming support and profile filtering
+  // Contact channels with streaming support
   const contactChannels = useMemo(() => {
-    const baseChannels = streamingSocialContacts || currentProfile?.contactChannels;
-    
-    // If we have contact channels and a profile, apply filtering
-    if (baseChannels && currentProfile && hasLoadedFromStorage) {
-      const profileWithChannels = { ...currentProfile, contactChannels: baseChannels };
-      const filteredProfile = filterProfileByCategory(profileWithChannels, selectedCategory);
-      return filteredProfile.contactChannels;
-    }
-    
-    return baseChannels;
-  }, [streamingSocialContacts, currentProfile, selectedCategory, hasLoadedFromStorage]);
+    return streamingSocialContacts || currentProfile?.contactChannels;
+  }, [streamingSocialContacts, currentProfile]);
 
   // Check if any contact channels are unconfirmed
   const hasUnconfirmedChannels = useMemo(() => {
     if (!contactChannels) return false;
     
+    const contactChannelsAny = contactChannels as any;
+    
+    // New array format
+    if (contactChannelsAny?.entries) {
+      return contactChannelsAny.entries.some((entry: any) => {
+        const hasContent = entry.platform === 'phone' ? !!entry.nationalPhone || !!entry.internationalPhone :
+                          entry.platform === 'email' ? !!entry.email :
+                          !!entry.username;
+        return hasContent && !entry.userConfirmed;
+      });
+    }
+    
+    // Legacy format fallback
     // Check phone info
-    if (contactChannels.phoneInfo && !contactChannels.phoneInfo.userConfirmed) {
+    if (contactChannelsAny.phoneInfo && !contactChannelsAny.phoneInfo.userConfirmed) {
       return true;
     }
     
     // Check email
-    if (contactChannels.email && !contactChannels.email.userConfirmed) {
+    if (contactChannelsAny.email && !contactChannelsAny.email.userConfirmed) {
       return true;
     }
     
     // Check all social media channels
     const socialChannels = [
-      contactChannels.facebook,
-      contactChannels.instagram,
-      contactChannels.x,
-      contactChannels.linkedin,
-      contactChannels.snapchat,
-      contactChannels.whatsapp,
-      contactChannels.telegram,
-      contactChannels.wechat
+      contactChannelsAny.facebook,
+      contactChannelsAny.instagram,
+      contactChannelsAny.x,
+      contactChannelsAny.linkedin,
+      contactChannelsAny.snapchat,
+      contactChannelsAny.whatsapp,
+      contactChannelsAny.telegram,
+      contactChannelsAny.wechat
     ];
     
     return socialChannels.some(channel => channel && !channel.userConfirmed);
   }, [contactChannels]);
 
-  // Ensure profile view always shows correct background when mounted
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    // Clean up any contact background that might be lingering
-    const existingContactBg = document.getElementById('contact-background');
-    if (existingContactBg) {
-      existingContactBg.remove();
-    }
-    
-    // If we have no background image, ensure green pattern is shown
-    if (!currentProfile?.backgroundImage) {
-      document.body.classList.add('default-nekt-background');
-    }
-  }, [currentProfile?.backgroundImage]);
-
-  // Track background image transitions (from no background to having background)
-  const previousBackgroundImage = useRef<string | null>(null);
-  const [shouldAnimateBackground, setShouldAnimateBackground] = useState(false);
-
-  useEffect(() => {
-    const currentBg = currentProfile?.backgroundImage;
-    const previousBg = previousBackgroundImage.current;
-    
-    // Animate only when transitioning from no background to having a background
-    if (!previousBg && currentBg) {
-      setShouldAnimateBackground(true);
-    } else {
-      setShouldAnimateBackground(false);
-    }
-    
-    // Update ref for next comparison
-    previousBackgroundImage.current = currentBg || null;
-  }, [currentProfile?.backgroundImage]);
 
   // Show loading state while checking auth status or loading profile
   if (isProfileLoading || sessionStatus === 'loading') {
@@ -324,59 +247,17 @@ const ProfileView: React.FC = () => {
       
       {/* Fixed Content Area - No scroll */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-hidden">
-        {/* Profile Image */}
-        <div className="mb-4">
-          <div className="border-4 border-white shadow-lg rounded-full">
-            <Avatar 
-              src={profileImageSrc} 
-              alt={currentProfile?.name || 'Profile'}
-              size="lg"
+        {/* Profile Info with Carousel */}
+        <div className="w-full flex flex-col items-center" {...adminModeProps}>
+          {currentProfile && (
+            <ProfileInfo
+              profile={currentProfile}
+              profileImageSrc={profileImageSrc}
+              bioContent={bioContent}
+              contactChannels={contactChannels}
+              className="w-full flex flex-col items-center"
             />
-          </div>
-        </div>
-        
-        {/* Content with blur background */}
-        <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
-          {/* Profile Name - Double click to activate admin mode */}
-          <div className="mb-3 text-center cursor-pointer" {...adminModeProps}>
-            <Heading as="h1">{currentProfile?.name}</Heading>
-          </div>
-          
-          {/* Bio with markdown support */}
-          <div className="mb-4 text-center">
-            <style>{`
-              .bio-content a {
-                color: white;
-                text-decoration: underline;
-              }
-              .bio-content a:hover {
-                color: rgba(255, 255, 255, 0.8);
-              }
-            `}</style>
-            <div className="bio-content text-white">
-              <ReactMarkdown 
-                components={{
-                  p: ({node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
-                  a: ({ node: _node, ...props }) => (
-                    <a {...props} target="_blank" rel="noopener noreferrer" />
-                  )
-                }}
-              >
-                {bioContent}
-              </ReactMarkdown>
-            </div>
-          </div>
-          
-          {/* Contact Icons */}
-          <div className="w-full">
-            {contactChannels && (
-              <SocialIconsList
-                contactChannels={contactChannels}
-                size="md"
-                variant="white"
-              />
-            )}
-          </div>
+          )}
         </div>
         
         {/* Action Buttons */}

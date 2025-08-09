@@ -3,12 +3,83 @@
  * Handles conversion between form state and saved profile data
  */
 
-import type { UserProfile, ContactChannels, SocialProfile } from '@/types/profile';
-import type { ProfileFormData, SocialProfileFormEntry, SocialPlatform } from '@/types/forms';
+import type { UserProfile, ContactChannels, LegacyContactChannels, ContactEntry, SocialProfile } from '@/types/profile';
+import type { ProfileFormData, SocialProfileFormEntry, SocialPlatform, FieldSection } from '@/types/forms';
 import type { CountryCode } from 'libphonenumber-js';
 
 /**
- * Transform a saved UserProfile into form data for editing
+ * Convert legacy ContactChannels format to new array-based format
+ */
+export function migrateLegacyContactChannels(legacy: LegacyContactChannels): ContactChannels {
+  const entries: ContactEntry[] = [];
+  
+  // Migrate phone
+  if (legacy.phoneInfo?.internationalPhone || legacy.phoneInfo?.nationalPhone) {
+    entries.push({
+      platform: 'phone',
+      section: (legacy.phoneInfo.fieldSection?.section as any) === 'hidden' ? 'personal' : 
+               (legacy.phoneInfo.fieldSection?.section || 'universal') as 'personal' | 'work' | 'universal',
+      userConfirmed: legacy.phoneInfo.userConfirmed,
+      internationalPhone: legacy.phoneInfo.internationalPhone,
+      nationalPhone: legacy.phoneInfo.nationalPhone
+    });
+  }
+  
+  // Migrate email
+  if (legacy.email?.email) {
+    entries.push({
+      platform: 'email',
+      section: (legacy.email.fieldSection?.section as any) === 'hidden' ? 'personal' : 
+               (legacy.email.fieldSection?.section || 'universal') as 'personal' | 'work' | 'universal',
+      userConfirmed: legacy.email.userConfirmed,
+      email: legacy.email.email
+    });
+  }
+  
+  // Migrate social platforms
+  const socialPlatforms: (keyof Omit<LegacyContactChannels, 'phoneInfo' | 'email'>)[] = [
+    'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'
+  ];
+  
+  socialPlatforms.forEach(platform => {
+    const socialProfile = legacy[platform];
+    if (socialProfile?.username) {
+      entries.push({
+        platform: platform as any,
+        section: (socialProfile.fieldSection?.section as any) === 'hidden' ? 'personal' : 
+                 (socialProfile.fieldSection?.section || (platform === 'linkedin' ? 'work' : 'personal')) as 'personal' | 'work' | 'universal',
+        userConfirmed: socialProfile.userConfirmed,
+        username: socialProfile.username,
+        url: socialProfile.url,
+        automatedVerification: socialProfile.automatedVerification,
+        discoveryMethod: socialProfile.discoveryMethod
+      });
+    }
+  });
+  
+  return { entries };
+}
+
+/**
+ * Check if ContactChannels is in legacy format and migrate if needed
+ */
+export function ensureNewContactChannelsFormat(contactChannels: any): ContactChannels {
+  // If it already has entries array, it's the new format
+  if (contactChannels?.entries) {
+    return contactChannels as ContactChannels;
+  }
+  
+  // If it has the old structure, migrate it
+  if (contactChannels?.phoneInfo || contactChannels?.email || contactChannels?.facebook) {
+    return migrateLegacyContactChannels(contactChannels as LegacyContactChannels);
+  }
+  
+  // Empty or invalid, return empty new format
+  return { entries: [] };
+}
+
+/**
+ * Transform a saved UserProfile into form data for editing - SIMPLIFIED ARRAY APPROACH
  */
 export function profileToFormData(
   profileData?: UserProfile | null,
@@ -21,105 +92,82 @@ export function profileToFormData(
   // Initialize form data with profile data or session fallbacks
   const name = profileData?.name || sessionUser?.name || '';
   const bio = profileData?.bio || '';
-  const email = profileData?.contactChannels?.email?.email || sessionUser?.email || '';
   const picture = profileData?.profileImage || sessionUser?.image || '/default-avatar.png';
   const backgroundImage = profileData?.backgroundImage || '';
   
-  // Initialize social profiles from contactChannels
-  const socialProfiles: Array<SocialProfileFormEntry> = [];
+  // Get contact channels (migrate if needed)
+  const contactChannels = profileData?.contactChannels ? 
+    ensureNewContactChannelsFormat(profileData.contactChannels) : 
+    { entries: [] };
   
-  // Add phone if available
-  if (profileData?.contactChannels?.phoneInfo) {
-    socialProfiles.push({
-      platform: 'phone',
-      username: profileData.contactChannels.phoneInfo.nationalPhone || '',
-      shareEnabled: true,
-      filled: !!profileData.contactChannels.phoneInfo.nationalPhone,
-      confirmed: profileData.contactChannels.phoneInfo.userConfirmed,
-      section: 'universal',
-      order: 0
-    });
-  }
+  // Find email for form email field
+  const emailEntry = contactChannels.entries.find(e => e.platform === 'email');
+  const email = emailEntry?.email || sessionUser?.email || '';
   
-  // Add email
-  if (profileData?.contactChannels?.email) {
-    socialProfiles.push({
-      platform: 'email',
-      username: profileData.contactChannels.email.email || '',
-      shareEnabled: true,
-      filled: !!profileData.contactChannels.email.email,
-      confirmed: profileData.contactChannels.email.userConfirmed,
-      section: 'universal',
-      order: 1
-    });
-  }
-  
-  // Add social profiles with proper sequential ordering
-  const socialPlatforms: (keyof ContactChannels)[] = [
-    'facebook', 'instagram', 'x', 'whatsapp', 'snapchat', 'telegram', 'wechat', 'linkedin'
-  ];
-  
-
-  
-  // First, collect all social profiles with their current section/order info
-  const tempSocialProfiles: Array<SocialProfileFormEntry> = [];
-  
-  socialPlatforms.forEach(platform => {
-    const channel = profileData?.contactChannels?.[platform] as SocialProfile | undefined;
-
-    
-    // Always include all social platforms, even if empty
-    const savedSectionInfo = channel?.fieldSection;
-    const defaultSection = platform === 'linkedin' ? 'work' : 'personal';
-
-    const defaultOrder = platform === 'linkedin' ? 0 : 
-                 platform === 'facebook' ? 0 :
-                 platform === 'instagram' ? 1 :
-                 platform === 'x' ? 2 :
-                 platform === 'snapchat' ? 3 :
-                 platform === 'whatsapp' ? 4 :
-                 platform === 'telegram' ? 5 :
-                 platform === 'wechat' ? 6 : 999;
-    
-    const username = channel?.username || '';
+  // Convert contact entries directly to form entries - PERFECT 1:1 MAPPING
+  const socialProfiles: Array<SocialProfileFormEntry> = contactChannels.entries.map(entry => {
+    const username = entry.platform === 'phone' ? (entry.nationalPhone || '') :
+                     entry.platform === 'email' ? (entry.email || '') :
+                     (entry.username || '');
     const hasContent = !!username;
     
-    // If field has no content and no saved section info, put it in hidden by default
-    const section = hasContent ? (savedSectionInfo?.section || defaultSection) : (savedSectionInfo?.section || 'hidden');
-    const currentOrder = savedSectionInfo?.order !== undefined ? savedSectionInfo.order : defaultOrder;
-    const originalSection = savedSectionInfo?.originalSection;
-    
-    tempSocialProfiles.push({
-      platform,
+    return {
+      platform: entry.platform,
       username,
       shareEnabled: true,
       filled: hasContent,
-      confirmed: channel?.userConfirmed || false,
-      section,
-      order: currentOrder,
-      originalSection
+      confirmed: entry.userConfirmed,
+      section: entry.section,
+      // Preserve visibility state, default to visible if has content
+      isVisible: entry.isVisible !== undefined ? entry.isVisible : hasContent
+    };
+  });
+  
+  // Add missing empty entries for all platforms in all sections
+  const allPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
+  const allSections: FieldSection[] = ['personal', 'work'];
+  
+  allPlatforms.forEach(platform => {
+    allSections.forEach(section => {
+      const exists = socialProfiles.some(p => p.platform === platform && p.section === section);
+      if (!exists) {
+        socialProfiles.push({
+          platform,
+          username: '',
+          shareEnabled: true,
+          filled: false,
+          confirmed: false,
+          section,
+          isVisible: false // Empty fields start hidden
+        });
+      }
     });
   });
-
-  // Group by section and assign clean sequential orders
-  const sections = {
-    universal: tempSocialProfiles.filter(p => p.section === 'universal'),
-    personal: tempSocialProfiles.filter(p => p.section === 'personal'),
-    work: tempSocialProfiles.filter(p => p.section === 'work'),
-    hidden: tempSocialProfiles.filter(p => p.section === 'hidden')
-  };
-
-  // Sort each section by current order, then assign sequential orders
-  Object.keys(sections).forEach(sectionKey => {
-    const sectionProfiles = sections[sectionKey as keyof typeof sections];
-    sectionProfiles.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-    sectionProfiles.forEach((profile, index) => {
-      profile.order = index; // Assign clean sequential order
+  
+  // Add universal phone/email if missing
+  if (!socialProfiles.some(p => p.platform === 'phone')) {
+    socialProfiles.push({
+      platform: 'phone',
+      username: '',
+      shareEnabled: true,
+      filled: false,
+      confirmed: false,
+      section: 'universal',
+      isVisible: false
     });
-  });
-
-  // Add all social profiles to the main array
-  socialProfiles.push(...sections.universal, ...sections.personal, ...sections.work, ...sections.hidden);
+  }
+  
+  if (!socialProfiles.some(p => p.platform === 'email') && email) {
+    socialProfiles.push({
+      platform: 'email',
+      username: email,
+      shareEnabled: true,
+      filled: !!email,
+      confirmed: true,
+      section: 'universal',
+      isVisible: !!email
+    });
+  }
 
   return {
     name,
@@ -166,7 +214,7 @@ export function extractPhoneData(
 }
 
 /**
- * Transform form data into a ContactChannels structure
+ * Transform form data into a ContactChannels structure - NEW ARRAY-BASED FORMAT
  */
 export function formDataToContactChannels(
   formData: ProfileFormData,
@@ -175,143 +223,57 @@ export function formDataToContactChannels(
   generateSocialUrl: (platform: SocialPlatform, username: string) => string,
   existingContactChannels?: ContactChannels
 ): ContactChannels {
-  // Create base contact channels structure
-  const baseContactChannels: ContactChannels = {
-    // Initialize required fields with defaults
-    phoneInfo: {
-      internationalPhone: '',
-      nationalPhone: '',
-      userConfirmed: false
-    },
-    email: {
-      email: '',
-      userConfirmed: false
-    },
-    // Initialize all social platforms
-    facebook: { username: '', url: '', userConfirmed: false },
-    instagram: { username: '', url: '', userConfirmed: false },
-    x: { username: '', url: '', userConfirmed: false },
-    linkedin: { username: '', url: '', userConfirmed: false },
-    snapchat: { username: '', url: '', userConfirmed: false },
-    whatsapp: { username: '', url: '', userConfirmed: false },
-    telegram: { username: '', url: '', userConfirmed: false },
-    wechat: { username: '', url: '', userConfirmed: false }
-  };
+  const entries: ContactEntry[] = [];
 
-  // Update phone info
-  if (hasPhoneNumber) {
-    baseContactChannels.phoneInfo = {
-      internationalPhone: phoneData.internationalPhone,
-      nationalPhone: phoneData.nationalPhone,
-      userConfirmed: true // Phone is always confirmed when provided
-    };
-  } else if (existingContactChannels?.phoneInfo) {
-    // Preserve existing phone info if no new phone number
-    baseContactChannels.phoneInfo = existingContactChannels.phoneInfo;
-  }
-
-  // Update email info
-  if (formData.email) {
-    baseContactChannels.email = {
-      email: formData.email,
-      userConfirmed: true // All channels are confirmed when saving
-    };
-  } else if (existingContactChannels?.email) {
-    // Mark existing email as confirmed when saving
-    baseContactChannels.email = {
-      ...existingContactChannels.email,
-      userConfirmed: true
-    };
-  }
-
-  // Process social profiles from form data
-  const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
-  
-  // First, collect all social platforms that are present in the form data (exclude phone/email)
-  const presentPlatforms = new Set(formData.socialProfiles
-    .filter((p: SocialProfileFormEntry) => p.platform !== 'phone' && p.platform !== 'email')
-    .map((p: SocialProfileFormEntry) => p.platform));
-  
-  // Process all known social platforms
-  socialPlatforms.forEach(platform => {
-    // If platform is not in present platforms, preserve existing or set to empty but confirmed
-    if (!presentPlatforms.has(platform)) {
-      const existingChannel = existingContactChannels && (existingContactChannels as any)[platform];
-      if (existingChannel && existingChannel.username) {
-        // Preserve existing channel but mark as confirmed
-        (baseContactChannels as any)[platform] = {
-          ...existingChannel,
-          userConfirmed: true
-        };
-      } else {
-        // Set to empty but confirmed
-        (baseContactChannels as any)[platform] = { username: '', url: '', userConfirmed: true };
-      }
-    }
-  });
-  
-  // Then process the ones that are in the form data
-  formData.socialProfiles.forEach((profileEntry: SocialProfileFormEntry) => {
-    const { platform, username, section, originalSection, order } = profileEntry;
+  // Process ALL entries from form data directly - save exactly what user has populated
+  formData.socialProfiles.forEach((profileEntry: SocialProfileFormEntry, index: number) => {
+    const { platform, username, section } = profileEntry;
     
-    // Handle email separately (already processed above)
-    if (platform === 'email') {
+    // Handle phone
+    if (platform === 'phone' && hasPhoneNumber) {
+      entries.push({
+        platform: 'phone',
+        section: section as 'personal' | 'work' | 'universal',
+        userConfirmed: true,
+        internationalPhone: phoneData.internationalPhone,
+        nationalPhone: phoneData.nationalPhone,
+        order: 0 // Phone should always be first (matches PLATFORM_CONFIG)
+      });
       return;
     }
     
-    // Skip phone as it's handled separately
-    if (platform === 'phone') {
+    // Handle email
+    if (platform === 'email' && formData.email) {
+      entries.push({
+        platform: 'email',
+        section: section as 'personal' | 'work' | 'universal',
+        userConfirmed: true,
+        email: formData.email,
+        order: 1 // Email should always be second (matches PLATFORM_CONFIG)
+      });
       return;
     }
     
-    // Handle other social platforms
-    if (socialPlatforms.includes(platform)) {
-      const url = username ? generateSocialUrl(platform as SocialPlatform, username) : '';
+    // Handle social platforms - only save if has content
+    const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
+    
+    if (socialPlatforms.includes(platform) && username.trim()) {
+      const url = generateSocialUrl(platform as SocialPlatform, username);
+      const isVisible = (profileEntry as any).isVisible;
       
-      const socialChannel: SocialProfile = {
-        username: username || '',
+      entries.push({
+        platform: platform as any,
+        section: section as 'personal' | 'work' | 'universal',
+        userConfirmed: true,
+        username: username.trim(),
         url,
-        userConfirmed: true // All channels are confirmed when saving
-      };
-
-      // Add section info for all sections (including universal)
-      socialChannel.fieldSection = {
-        section: section as 'personal' | 'work' | 'hidden' | 'universal',
-        ...(originalSection && { originalSection }), // Only include if not undefined
-        ...(order !== undefined && { order }) // Only include if not undefined
-      };
-      
-      // Type-safe way to update the social channel
-      switch (platform) {
-        case 'facebook':
-          baseContactChannels.facebook = socialChannel;
-          break;
-        case 'instagram':
-          baseContactChannels.instagram = socialChannel;
-          break;
-        case 'x':
-          baseContactChannels.x = socialChannel;
-          break;
-        case 'whatsapp':
-          baseContactChannels.whatsapp = socialChannel;
-          break;
-        case 'snapchat':
-          baseContactChannels.snapchat = socialChannel;
-          break;
-        case 'telegram':
-          baseContactChannels.telegram = socialChannel;
-          break;
-        case 'wechat':
-          baseContactChannels.wechat = socialChannel;
-          break;
-        case 'linkedin':
-          baseContactChannels.linkedin = socialChannel;
-          break;
-      }
+        isVisible, // Preserve visibility state
+        order: index // Preserve user's custom order
+      });
     }
   });
 
-  return baseContactChannels;
+  return { entries };
 }
 
 /**

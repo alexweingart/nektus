@@ -90,28 +90,26 @@ export async function GET(
           backgroundImage: '',
           lastUpdated: Date.now(),
           contactChannels: {
-            phoneInfo: {
-              internationalPhone: '+1 (555) 123-4567',
-              nationalPhone: '5551234567',
-              userConfirmed: false
-            },
-            email: {
-              email: 'mock@example.com',
-              userConfirmed: false
-            },
-            facebook: { username: '', url: '', userConfirmed: false },
-            instagram: { username: '', url: '', userConfirmed: false },
-            x: { username: '', url: '', userConfirmed: false },
-            linkedin: { username: '', url: '', userConfirmed: false },
-            snapchat: { username: '', url: '', userConfirmed: false },
-            whatsapp: { username: '', url: '', userConfirmed: false },
-            telegram: { username: '', url: '', userConfirmed: false },
-            wechat: { username: '', url: '', userConfirmed: false }
+            entries: [
+              {
+                platform: 'phone',
+                section: 'universal',
+                userConfirmed: false,
+                internationalPhone: '+1 (555) 123-4567',
+                nationalPhone: '5551234567'
+              },
+              {
+                platform: 'email',
+                section: 'universal',
+                userConfirmed: false,
+                email: 'mock@example.com'
+              }
+            ]
           }
         };
         
         // Filter the mock profile based on the sharing category they selected
-        const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'All');
+        const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'Personal');
         
         console.log(`🎭 Returning filtered mock profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
         return NextResponse.json({
@@ -122,7 +120,7 @@ export async function GET(
       }
 
       // Filter the profile based on the sharing category the other user selected
-      const filteredProfile = filterProfileByCategory(otherUserProfile, otherUserSharingCategory || 'All');
+      const filteredProfile = filterProfileByCategory(otherUserProfile, otherUserSharingCategory || 'Personal');
 
       console.log(`✅ Successfully returning filtered profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
       return NextResponse.json({
@@ -144,28 +142,47 @@ export async function GET(
         backgroundImage: '',
         lastUpdated: Date.now(),
         contactChannels: {
-          phoneInfo: {
-            internationalPhone: '+1234567890',
-            nationalPhone: '(123) 456-7890',
-            userConfirmed: true
-          },
-          email: {
-            email: 'john.doe@example.com',
-            userConfirmed: true
-          },
-          facebook: { username: '', url: '', userConfirmed: false },
-          instagram: { username: 'johndoe', url: 'https://instagram.com/johndoe', userConfirmed: true },
-          x: { username: 'john_doe', url: 'https://x.com/john_doe', userConfirmed: true },
-          linkedin: { username: 'johndoe', url: 'https://linkedin.com/in/johndoe', userConfirmed: true },
-          snapchat: { username: '', url: '', userConfirmed: false },
-          whatsapp: { username: '', url: '', userConfirmed: false },
-          telegram: { username: '', url: '', userConfirmed: false },
-          wechat: { username: '', url: '', userConfirmed: false }
+          entries: [
+            {
+              platform: 'phone',
+              section: 'universal',
+              userConfirmed: true,
+              internationalPhone: '+1234567890',
+              nationalPhone: '(123) 456-7890'
+            },
+            {
+              platform: 'email',
+              section: 'universal',
+              userConfirmed: true,
+              email: 'john.doe@example.com'
+            },
+            {
+              platform: 'instagram',
+              section: 'personal',
+              userConfirmed: true,
+              username: 'johndoe',
+              url: 'https://instagram.com/johndoe'
+            },
+            {
+              platform: 'x',
+              section: 'personal',
+              userConfirmed: true,
+              username: 'john_doe',
+              url: 'https://x.com/john_doe'
+            },
+            {
+              platform: 'linkedin',
+              section: 'work',
+              userConfirmed: true,
+              username: 'johndoe',
+              url: 'https://linkedin.com/in/johndoe'
+            }
+          ]
         }
       };
 
       // Filter the mock profile based on the sharing category they selected
-      const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'All');
+      const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'Personal');
 
       return NextResponse.json({
         success: true,
@@ -262,23 +279,42 @@ export async function POST(
           backgroundImage: '',
           lastUpdated: Date.now(),
           contactChannels: {
-            phoneInfo: {
-              internationalPhone: '+1234567890',
-              nationalPhone: '(123) 456-7890',
-              userConfirmed: true
-            },
-            email: {
-              email: 'john.doe@example.com',
-              userConfirmed: true
-            },
-            facebook: { username: '', url: '', userConfirmed: false },
-            instagram: { username: 'johndoe', url: 'https://instagram.com/johndoe', userConfirmed: true },
-            x: { username: 'john_doe', url: 'https://x.com/john_doe', userConfirmed: true },
-            linkedin: { username: 'johndoe', url: 'https://linkedin.com/in/johndoe', userConfirmed: true },
-            snapchat: { username: '', url: '', userConfirmed: false },
-            whatsapp: { username: '', url: '', userConfirmed: false },
-            telegram: { username: '', url: '', userConfirmed: false },
-            wechat: { username: '', url: '', userConfirmed: false }
+            entries: [
+              {
+                platform: 'phone',
+                section: 'universal',
+                userConfirmed: true,
+                internationalPhone: '+1234567890',
+                nationalPhone: '(123) 456-7890'
+              },
+              {
+                platform: 'email',
+                section: 'universal',
+                userConfirmed: true,
+                email: 'john.doe@example.com'
+              },
+              {
+                platform: 'instagram',
+                section: 'personal',
+                userConfirmed: true,
+                username: 'johndoe',
+                url: 'https://instagram.com/johndoe'
+              },
+              {
+                platform: 'x',
+                section: 'personal',
+                userConfirmed: true,
+                username: 'john_doe',
+                url: 'https://x.com/john_doe'
+              },
+              {
+                platform: 'linkedin',
+                section: 'work',
+                userConfirmed: true,
+                username: 'johndoe',
+                url: 'https://linkedin.com/in/johndoe'
+              }
+            ]
           }
         };
         

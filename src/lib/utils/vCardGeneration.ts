@@ -223,12 +223,17 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
     lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
   }
   
-  if (profile.contactChannels?.phoneInfo?.internationalPhone) {
-    lines.push(`TEL;TYPE=CELL:${profile.contactChannels.phoneInfo.internationalPhone}`);
-  }
-  
-  if (profile.contactChannels?.email?.email) {
-    lines.push(`EMAIL:${escapeVCardValue(profile.contactChannels.email.email)}`);
+  // Handle phone and email from new array format
+  if (profile.contactChannels?.entries) {
+    const phoneEntry = profile.contactChannels.entries.find(e => e.platform === 'phone');
+    if (phoneEntry?.internationalPhone) {
+      lines.push(`TEL;TYPE=CELL:${phoneEntry.internationalPhone}`);
+    }
+    
+    const emailEntry = profile.contactChannels.entries.find(e => e.platform === 'email');
+    if (emailEntry?.email) {
+      lines.push(`EMAIL:${escapeVCardValue(emailEntry.email)}`);
+    }
   }
   
   if (includePhoto && profile.profileImage) {
@@ -243,16 +248,16 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
     }
   }
   
-  if (includeSocialMedia && profile.contactChannels) {
+  if (includeSocialMedia && profile.contactChannels?.entries) {
     const processedPlatforms = new Set<string>();
     
-    Object.entries(profile.contactChannels).forEach(([platform, data]) => {
-      if (platform === 'phoneInfo' || platform === 'email') return;
+    profile.contactChannels.entries.forEach((entry) => {
+      if (entry.platform === 'phone' || entry.platform === 'email') return;
       
-      if (data && typeof data === 'object' && 'username' in data && data.username) {
-        const url = getSocialMediaUrl(platform, data.username);
+      if (entry.username) {
+        const url = getSocialMediaUrl(entry.platform, entry.username);
         if (url) {
-          const platformType = getPlatformTypeForIOS(platform);
+          const platformType = getPlatformTypeForIOS(entry.platform);
           
           if (!processedPlatforms.has(platformType)) {
             processedPlatforms.add(platformType);

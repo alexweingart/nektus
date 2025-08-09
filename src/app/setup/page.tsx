@@ -23,8 +23,8 @@ function SetupPageContent() {
   };
 
   const userIsNew = isNewUser(session);
-  const hasPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone &&
-                  session.profile.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+  const phoneEntry = session?.profile?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+  const hasPhone = phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '';
                   
   const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
 

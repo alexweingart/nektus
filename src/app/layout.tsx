@@ -7,6 +7,7 @@ import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/AdminBanner';
+import { LayoutBackground } from './components/layout/LayoutBackground';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -80,6 +81,7 @@ export default async function RootLayout({
         <SessionProvider session={session}>
           <ProfileProvider>
             <AdminModeProvider>
+              <LayoutBackground />
               <AdminBanner />
               {children}
             </AdminModeProvider>

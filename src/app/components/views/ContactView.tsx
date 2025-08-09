@@ -360,8 +360,16 @@ export const ContactView: React.FC<ContactViewProps> = ({
     const contactFirstName = profile.name.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName,undefined,profile.userId);
     
-    // Try to use phone number if available
-    const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+    // Try to use phone number if available - check new array format
+    const contactChannelsAny = profile.contactChannels as any;
+    let phoneNumber = '';
+    
+    if (contactChannelsAny?.entries) {
+      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
+      phoneNumber = phoneEntry?.internationalPhone || '';
+    } else if (contactChannelsAny?.phoneInfo) {
+      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    }
     
     openMessagingAppDirectly(messageText, phoneNumber);
     
@@ -380,8 +388,16 @@ export const ContactView: React.FC<ContactViewProps> = ({
     const contactFirstName = profile.name.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
-    // Try to use phone number if available
-    const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+    // Try to use phone number if available - check new array format
+    const contactChannelsAny = profile.contactChannels as any;
+    let phoneNumber = '';
+    
+    if (contactChannelsAny?.entries) {
+      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
+      phoneNumber = phoneEntry?.internationalPhone || '';
+    } else if (contactChannelsAny?.phoneInfo) {
+      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    }
     
     openMessagingAppDirectly(messageText, phoneNumber);
   };
@@ -407,8 +423,33 @@ export const ContactView: React.FC<ContactViewProps> = ({
     return null; // No visual loading state
   }
 
+  // Render contact's background if available
+  const renderContactBackground = () => {
+    if (!profile.backgroundImage) return null;
+
+    // Clean the URL and add cache busting for Firebase Storage URLs
+    let cleanedUrl = profile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
+    if (cleanedUrl.includes('firebase') || cleanedUrl.includes('googleusercontent.com')) {
+      const separator = cleanedUrl.includes('?') ? '&' : '?';
+      cleanedUrl = `${cleanedUrl}${separator}v=${Date.now()}`;
+    }
+
+    return (
+      <div
+        id="contact-background"
+        className="custom-background-overlay"
+        style={{
+          backgroundImage: `url("${cleanedUrl}")`,
+        }}
+      />
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[1000]">
+      {/* Contact's background overlay */}
+      {renderContactBackground()}
+      
       <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         
         {/* Header with back button for historical contacts */}

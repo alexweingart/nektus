@@ -27,11 +27,14 @@ declare module "next-auth" {
     firebaseToken?: string;
     profile?: {
       contactChannels: {
-        phoneInfo: {
-          internationalPhone: string;
-          nationalPhone: string;
+        entries: Array<{
+          platform: string;
+          section: string;
           userConfirmed: boolean;
-        };
+          internationalPhone?: string;
+          nationalPhone?: string;
+          email?: string;
+        }>;
       };
     };
     user: {
@@ -58,11 +61,14 @@ declare module "next-auth/jwt" {
     user?: User;
     profile?: {
       contactChannels: {
-        phoneInfo: {
-          internationalPhone: string;
-          nationalPhone: string;
+        entries: Array<{
+          platform: string;
+          section: string;
           userConfirmed: boolean;
-        };
+          internationalPhone?: string;
+          nationalPhone?: string;
+          email?: string;
+        }>;
       };
     };
     isNewUser?: boolean;
@@ -176,18 +182,23 @@ export const authOptions: NextAuthOptions = {
             if (profileDoc.exists) {
               const profileData = profileDoc.data();
               // Store phone info in token if it exists in Firebase
-              if (profileData?.contactChannels?.phoneInfo?.internationalPhone) {
+              const phoneEntry = profileData?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+              if (phoneEntry?.internationalPhone) {
                 token.profile = {
                   contactChannels: {
-                    phoneInfo: {
-                      internationalPhone: profileData.contactChannels.phoneInfo.internationalPhone,
-                      nationalPhone: profileData.contactChannels.phoneInfo.nationalPhone || '',
-                      userConfirmed: profileData.contactChannels.phoneInfo.userConfirmed || false
-                    }
+                    entries: [
+                      {
+                        platform: 'phone',
+                        section: phoneEntry.section || 'universal',
+                        userConfirmed: phoneEntry.userConfirmed || false,
+                        internationalPhone: phoneEntry.internationalPhone,
+                        nationalPhone: phoneEntry.nationalPhone || ''
+                      }
+                    ]
                   }
                 };
               }
-              token.isNewUser = !(profileData?.contactChannels?.phoneInfo?.internationalPhone);
+              token.isNewUser = !phoneEntry?.internationalPhone;
               token.profileImage = profileData?.profileImage || null;
               token.backgroundImage = profileData?.backgroundImage || null;
             } else {
@@ -209,11 +220,14 @@ export const authOptions: NextAuthOptions = {
       // Define empty profile structure
       const emptyProfile = {
         contactChannels: {
-          phoneInfo: {
-            internationalPhone: '',
-            nationalPhone: '',
-            userConfirmed: false
-          }
+          entries: [] as Array<{
+            platform: string;
+            section: string;
+            userConfirmed: boolean;
+            internationalPhone?: string;
+            nationalPhone?: string;
+            email?: string;
+          }>
         }
       };
       // Initialize token profile if it doesn't exist
@@ -224,17 +238,25 @@ export const authOptions: NextAuthOptions = {
       if (!token.profile.contactChannels) {
         token.profile.contactChannels = { ...emptyProfile.contactChannels };
       }
-      // Ensure phoneInfo exists
-      if (!token.profile.contactChannels.phoneInfo) {
-        token.profile.contactChannels.phoneInfo = { ...emptyProfile.contactChannels.phoneInfo };
+      // Ensure entries array exists
+      if (!token.profile.contactChannels.entries) {
+        token.profile.contactChannels.entries = [];
       }
       // Update with user's phone if available
       if (user?.phone) {
-        token.profile.contactChannels.phoneInfo = {
+        const phoneIndex = token.profile.contactChannels.entries.findIndex(e => e.platform === 'phone');
+        const phoneEntry = {
+          platform: 'phone',
+          section: 'universal',
+          userConfirmed: true,
           internationalPhone: user.phone,
-          nationalPhone: user.phone,
-          userConfirmed: true
+          nationalPhone: user.phone
         };
+        if (phoneIndex >= 0) {
+          token.profile.contactChannels.entries[phoneIndex] = phoneEntry;
+        } else {
+          token.profile.contactChannels.entries.push(phoneEntry);
+        }
       }
       // Update with session data if available
       if (trigger === 'update' && session?.profile) {
@@ -247,10 +269,7 @@ export const authOptions: NextAuthOptions = {
           contactChannels: {
             ...emptyProfile.contactChannels,
             ...(session.profile.contactChannels || {}),
-            phoneInfo: {
-              ...emptyProfile.contactChannels.phoneInfo,
-              ...(session.profile.contactChannels?.phoneInfo || {})
-            }
+            entries: session.profile.contactChannels?.entries || []
           }
         };
       } else if (trigger === 'update' && !session?.profile) {
@@ -289,11 +308,7 @@ export const authOptions: NextAuthOptions = {
         if (token.profile) {
           session.profile = {
             contactChannels: {
-              phoneInfo: {
-                internationalPhone: token.profile.contactChannels?.phoneInfo?.internationalPhone || '',
-                nationalPhone: token.profile.contactChannels?.phoneInfo?.nationalPhone || '',
-                userConfirmed: token.profile.contactChannels?.phoneInfo?.userConfirmed || false
-              }
+              entries: token.profile.contactChannels?.entries || []
             }
           };
         }

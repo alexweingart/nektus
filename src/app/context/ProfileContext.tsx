@@ -93,22 +93,26 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
             
             // Android-specific: Ensure session is synced with loaded profile
-            if (isAndroid && existingProfile.contactChannels?.phoneInfo?.internationalPhone) {
-              const sessionPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone;
-              const profilePhone = existingProfile.contactChannels.phoneInfo.internationalPhone;
+            if (isAndroid && existingProfile.contactChannels?.entries) {
+              const phoneEntry = existingProfile.contactChannels.entries.find(e => e.platform === 'phone');
+              const sessionPhoneEntry = (session?.profile?.contactChannels as any)?.entries?.find((e: any) => e.platform === 'phone');
               
-              if (sessionPhone !== profilePhone) {
+              if (phoneEntry?.internationalPhone && sessionPhoneEntry?.internationalPhone !== phoneEntry.internationalPhone) {
                 // Force session update to sync with Firebase data
                 try {
                   if (update) {
                     await update({
                       profile: {
                         contactChannels: {
-                          phoneInfo: {
-                            internationalPhone: existingProfile.contactChannels.phoneInfo.internationalPhone,
-                            nationalPhone: existingProfile.contactChannels.phoneInfo.nationalPhone || '',
-                            userConfirmed: existingProfile.contactChannels.phoneInfo.userConfirmed || false
-                          }
+                          entries: [
+                            {
+                              platform: 'phone',
+                              section: phoneEntry.section,
+                              userConfirmed: phoneEntry.userConfirmed,
+                              internationalPhone: phoneEntry.internationalPhone,
+                              nationalPhone: phoneEntry.nationalPhone || ''
+                            }
+                          ]
                         }
                       }
                     });
@@ -233,74 +237,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     loadProfile();
   }, [authStatus, session?.user?.id, update]);
 
-  // Centralized background image management - handles both default and custom backgrounds
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!profile) return;
-
-    const pathname = window.location.pathname;
-    const currentBackgroundImage = profile?.backgroundImage;
-    
-    // Clean up existing background div
-    const existingBg = document.getElementById('app-background');
-    if (existingBg) {
-      existingBg.remove();
-    }
-
-    // Remove default background class from body
-    document.body.classList.remove('default-nekt-background');
-
-    // Setup page always shows default background (no custom backgrounds)
-    if (pathname === '/setup') {
-      document.body.classList.add('default-nekt-background');
-      return;
-    }
-
-    // For other pages: show custom background if available, otherwise show default
-    if (currentBackgroundImage) {
-      // Remove body's base background so custom background shows through
-      document.body.style.background = 'transparent';
-      // Clean the URL to remove any newlines or whitespace that could break CSS
-      let cleanedUrl = currentBackgroundImage.replace(/[\n\r\t]/g, '').trim();
-      
-      // Add cache busting for Firebase Storage URLs to ensure fresh images
-      if (cleanedUrl.includes('firebase') || cleanedUrl.includes('googleusercontent.com')) {
-        const separator = cleanedUrl.includes('?') ? '&' : '?';
-        cleanedUrl = `${cleanedUrl}${separator}v=${Date.now()}`;
-      }
-      
-      const backgroundDiv = document.createElement('div');
-      backgroundDiv.id = 'app-background';
-      backgroundDiv.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: url("${cleanedUrl}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        z-index: -1;
-        pointer-events: none;
-      `;
-      document.body.appendChild(backgroundDiv);
-    } else {
-      // No custom background, show default pattern and restore body background
-      document.body.style.background = '';
-      document.body.classList.add('default-nekt-background');
-    }
-
-    // Cleanup function
-    return () => {
-      const bgDiv = document.getElementById('app-background');
-      if (bgDiv) {
-        bgDiv.remove();
-      }
-      document.body.style.background = '';
-      document.body.classList.remove('default-nekt-background');
-    };
-  }, [profile?.backgroundImage]);
 
   // Helper function to generate bio, background image, and social links
   const generateProfileAssets = async () => {
@@ -311,7 +247,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     let bioAndSocialGenerationPromise: Promise<any> | null = null;
     
     // Generate bio and social links together if not already triggered
-    if (!bioAndSocialGenerationTriggeredRef.current && (!profile?.bio || !profile?.contactChannels?.facebook?.username)) {
+    if (!bioAndSocialGenerationTriggeredRef.current && (!profile?.bio || !profile?.contactChannels?.entries?.some(e => e.platform === 'facebook' && e.username))) {
       bioAndSocialGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] Making unified bio and social API call');
 
@@ -569,10 +505,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     savingRef.current = true;
 
     // Set saving state to prevent setup effects from running during form submission
+    const phoneEntry = data.contactChannels?.entries?.find(e => e.platform === 'phone');
     const wasFormSubmission = !options.directUpdate && 
-      data.contactChannels?.phoneInfo && 
-      data.contactChannels.phoneInfo.internationalPhone && 
-      data.contactChannels.phoneInfo.internationalPhone.trim() !== '';
+      phoneEntry?.internationalPhone && 
+      phoneEntry.internationalPhone.trim() !== '';
     
     // Save operation starting
     if (wasFormSubmission) {
@@ -622,8 +558,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Trigger phone-based social generation if phone number was saved
-        if (wasFormSubmission && merged.contactChannels?.phoneInfo?.internationalPhone) {
-          const phoneNumber = merged.contactChannels.phoneInfo.internationalPhone;
+        const mergedPhoneEntry = merged.contactChannels?.entries?.find(e => e.platform === 'phone');
+        if (wasFormSubmission && mergedPhoneEntry?.internationalPhone) {
+          const phoneNumber = mergedPhoneEntry.internationalPhone;
           console.log('[ProfileContext] Phone saved, triggering phone-based social generation');
           
           // Generate and verify WhatsApp profile asynchronously (don't block)
@@ -660,20 +597,29 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 if (Object.keys(phoneBasedUpdate).length > 0) {
                   // Get fresh profile data to avoid overwriting concurrent AI social updates
                   const freshProfile = profileRef.current;
-                  const updatedContactChannels = { 
-                    // Use fresh contact channels data, with fallbacks to avoid undefined errors
-                    phoneInfo: freshProfile?.contactChannels?.phoneInfo || merged.contactChannels.phoneInfo,
-                    email: freshProfile?.contactChannels?.email || merged.contactChannels.email,
-                    facebook: freshProfile?.contactChannels?.facebook || merged.contactChannels.facebook,
-                    instagram: freshProfile?.contactChannels?.instagram || merged.contactChannels.instagram,
-                    x: freshProfile?.contactChannels?.x || merged.contactChannels.x,
-                    linkedin: freshProfile?.contactChannels?.linkedin || merged.contactChannels.linkedin,
-                    snapchat: freshProfile?.contactChannels?.snapchat || merged.contactChannels.snapchat,
-                    wechat: freshProfile?.contactChannels?.wechat || merged.contactChannels.wechat,
-                    // Override with new phone-based socials
-                    whatsapp: whatsappProfile || freshProfile?.contactChannels?.whatsapp || merged.contactChannels.whatsapp,
-                    telegram: freshProfile?.contactChannels?.telegram || merged.contactChannels.telegram
-                  };
+                  // Use fresh profile data or fallback to merged, then update with new phone-based socials
+                  const baseEntries = freshProfile?.contactChannels?.entries || merged.contactChannels?.entries || [];
+                  const updatedEntries = [...baseEntries];
+                  
+                  // Add or update WhatsApp entry if generated
+                  if (whatsappProfile) {
+                    const whatsappIndex = updatedEntries.findIndex(e => e.platform === 'whatsapp');
+                    const whatsappEntry = {
+                      platform: 'whatsapp' as const,
+                      section: 'personal' as const,
+                      userConfirmed: false, // Phone-based generation is unconfirmed
+                      username: whatsappProfile.username,
+                      url: whatsappProfile.url
+                    };
+                    
+                    if (whatsappIndex >= 0) {
+                      updatedEntries[whatsappIndex] = whatsappEntry;
+                    } else {
+                      updatedEntries.push(whatsappEntry);
+                    }
+                  }
+                  
+                  const updatedContactChannels = { entries: updatedEntries };
                   
                   // Update both Firebase and React state for immediate UI feedback
                   silentSaveToFirebase({ contactChannels: updatedContactChannels }).then(() => {
@@ -708,12 +654,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         
         // Update session with new phone info ONLY for form submissions
         // This prevents session update cascades that cause profile reloads
-        const currentSessionPhone = session?.profile?.contactChannels?.phoneInfo?.internationalPhone;
-        const newPhone = merged.contactChannels?.phoneInfo?.internationalPhone;
+        const currentSessionPhoneEntry = session?.profile?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+        const newPhoneEntry = merged.contactChannels?.entries?.find(e => e.platform === 'phone');
         
         const shouldUpdateSession = wasFormSubmission && 
-                                  newPhone &&
-                                  currentSessionPhone !== newPhone; // Check if phone actually changed
+                                  newPhoneEntry?.internationalPhone &&
+                                  currentSessionPhoneEntry?.internationalPhone !== newPhoneEntry.internationalPhone; // Check if phone actually changed
                                   
         const currentSessionBg = session?.user?.backgroundImage;
         const newBg = merged.backgroundImage;
@@ -724,14 +670,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         let sessionUpdateData: any = {};
 
         // Include phone data if phone changed via form submission
-        if (shouldUpdateSession) {
+        if (shouldUpdateSession && newPhoneEntry) {
           sessionUpdateData.profile = {
             contactChannels: {
-              phoneInfo: {
-                internationalPhone: merged.contactChannels.phoneInfo.internationalPhone,
-                nationalPhone: merged.contactChannels.phoneInfo.nationalPhone,
-                userConfirmed: merged.contactChannels.phoneInfo.userConfirmed
-              }
+              entries: [
+                {
+                  platform: 'phone',
+                  section: newPhoneEntry.section || 'universal',
+                  userConfirmed: newPhoneEntry.userConfirmed || false,
+                  internationalPhone: newPhoneEntry.internationalPhone,
+                  nationalPhone: newPhoneEntry.nationalPhone || ''
+                }
+              ]
             }
           };
         }
@@ -887,13 +837,10 @@ export function useProfile() {
 
 // Helper function to check if profile has a valid phone number
 export function profileHasPhone(profile: UserProfile | null): boolean {
-  return !!(
-    profile &&
-    profile.contactChannels &&
-    profile.contactChannels.phoneInfo &&
-    profile.contactChannels.phoneInfo.internationalPhone &&
-    profile.contactChannels.phoneInfo.internationalPhone.trim() !== ''
-  );
+  if (!profile?.contactChannels?.entries) return false;
+  
+  const phoneEntry = profile.contactChannels.entries.find(e => e.platform === 'phone');
+  return !!(phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '');
 }
 
 // Helper function to merge objects deeply
@@ -902,7 +849,36 @@ function mergeNonEmpty<T extends object>(target: T, source: Partial<T>): T {
   
   for (const key in source) {
     if (source[key] !== undefined && source[key] !== null) {
-      if (typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      // Special handling for contactChannels to merge entries array properly
+      if (key === 'contactChannels' && typeof source[key] === 'object' && source[key] !== null) {
+        const targetChannels = (result[key] as any)?.entries || [];
+        const sourceChannels = (source[key] as any)?.entries || [];
+        
+        // Create a copy of target entries to avoid mutation
+        const mergedEntries = [...targetChannels];
+        
+        // Merge entries by platform - preserve existing entries and add/update new ones
+        for (const sourceEntry of sourceChannels) {
+          const existingIndex = mergedEntries.findIndex(
+            (entry: any) => entry.platform === sourceEntry.platform
+          );
+          
+          if (existingIndex >= 0) {
+            // Merge the existing entry with new data, preserving existing fields
+            mergedEntries[existingIndex] = {
+              ...mergedEntries[existingIndex],
+              ...sourceEntry
+            };
+          } else {
+            // Add new entry
+            mergedEntries.push(sourceEntry);
+          }
+        }
+        
+        result[key] = {
+          entries: mergedEntries
+        } as T[Extract<keyof T, string>];
+      } else if (typeof source[key] === 'object' && !Array.isArray(source[key])) {
         result[key] = {
           ...(result[key] as object),
           ...(source[key] as object)

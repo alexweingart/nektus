@@ -10,15 +10,17 @@ export class BioAndSocialGenerationService {
       console.log(`[BioAndSocialGeneration] Starting unified generation for ${profile.name}`);
       
       // Extract email username and phone for fallbacks
-      const emailUsername = this.extractUsernameFromEmail(profile.contactChannels?.email?.email || '');
-      const phoneNumber = profile.contactChannels?.phoneInfo?.internationalPhone;
+      const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
+      const phoneEntry = profile.contactChannels?.entries?.find(e => e.platform === 'phone');
+      const emailUsername = this.extractUsernameFromEmail(emailEntry?.email || '');
+      const phoneNumber = phoneEntry?.internationalPhone;
       
       // Single AI call for both bio and social discovery
       let aiResult: AIBioAndSocialResult;
       try {
         aiResult = await this.discoverSocialProfilesAndBio(
           profile.name, 
-          profile.contactChannels?.email?.email || ''
+          emailEntry?.email || ''
         );
         console.log(`[BioAndSocialGeneration] AI discovery successful for ${profile.name}`);
       } catch (error) {
@@ -39,28 +41,34 @@ export class BioAndSocialGenerationService {
       const socialProfilesDiscovered = Object.values(aiResult.socialProfiles).filter(p => p !== null && p !== undefined).length;
       const socialProfilesVerified = Object.values(verifiedProfiles).filter(p => p?.automatedVerification === true).length;
       
-      // Build contact channels with verified social profiles
+      // Build contact channels with verified social profiles using new array format
+      const existingEntries = profile.contactChannels?.entries || [];
+      const newEntries = [...existingEntries];
+      
+      // Add or update verified AI-discoverable social profiles
+      const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
+      socialPlatforms.forEach(platform => {
+        const verifiedProfile = verifiedProfiles[platform];
+        if (verifiedProfile && verifiedProfile.username) {
+          const existingIndex = newEntries.findIndex(e => e.platform === platform);
+          const entry = {
+            platform,
+            section: platform === 'linkedin' ? 'work' as const : 'personal' as const,
+            userConfirmed: false, // AI-generated profiles are unconfirmed
+            username: verifiedProfile.username,
+            url: verifiedProfile.url
+          };
+          
+          if (existingIndex >= 0) {
+            newEntries[existingIndex] = entry;
+          } else {
+            newEntries.push(entry);
+          }
+        }
+      });
+      
       const contactChannels: ContactChannels = {
-        // Preserve existing phone and email
-        phoneInfo: profile.contactChannels?.phoneInfo || {
-          internationalPhone: '',
-          nationalPhone: '',
-          userConfirmed: false
-        },
-        email: profile.contactChannels?.email || {
-          email: '',
-          userConfirmed: false
-        },
-        // Add verified AI-discoverable social profiles (null becomes empty profile)
-        facebook: verifiedProfiles.facebook || this.createEmptyProfile('facebook'),
-        instagram: verifiedProfiles.instagram || this.createEmptyProfile('instagram'),
-        x: verifiedProfiles.x || this.createEmptyProfile('x'),
-        linkedin: verifiedProfiles.linkedin || this.createEmptyProfile('linkedin'),
-        snapchat: verifiedProfiles.snapchat || this.createEmptyProfile('snapchat'),
-        // Preserve existing phone-based social profiles (handled by PhoneBasedSocialService)
-        whatsapp: profile.contactChannels?.whatsapp || this.createEmptyProfile('whatsapp'),
-        telegram: profile.contactChannels?.telegram || this.createEmptyProfile('telegram'),
-        wechat: profile.contactChannels?.wechat || this.createEmptyProfile('wechat')
+        entries: newEntries
       };
       
       console.log(`[BioAndSocialGeneration] Generation completed for ${profile.name}`, {
@@ -79,24 +87,41 @@ export class BioAndSocialGenerationService {
     } catch (error) {
       console.error(`[BioAndSocialGeneration] Error generating content for ${profile.name}:`, error);
       
-      // Return basic email-based fallback
-      const emailUsername = this.extractUsernameFromEmail(profile.contactChannels?.email?.email || '');
+      // Return basic email-based fallback using new array format
+      const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
+      const emailUsername = this.extractUsernameFromEmail(emailEntry?.email || '');
       const fallbackProfiles = this.generateHeuristicProfiles(emailUsername);
+      
+      // Build fallback entries array with existing entries plus fallback social profiles
+      const existingEntries = profile.contactChannels?.entries || [];
+      const fallbackEntries = [...existingEntries];
+      
+      // Add fallback social profiles
+      const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
+      socialPlatforms.forEach(platform => {
+        const fallbackProfile = fallbackProfiles[platform];
+        if (fallbackProfile && fallbackProfile.username) {
+          const existingIndex = fallbackEntries.findIndex(e => e.platform === platform);
+          const entry = {
+            platform,
+            section: platform === 'linkedin' ? 'work' as const : 'personal' as const,
+            userConfirmed: false,
+            username: fallbackProfile.username,
+            url: fallbackProfile.url
+          };
+          
+          if (existingIndex >= 0) {
+            fallbackEntries[existingIndex] = entry;
+          } else {
+            fallbackEntries.push(entry);
+          }
+        }
+      });
       
       return {
         bio: `No bio returned.`,
         contactChannels: {
-          phoneInfo: profile.contactChannels?.phoneInfo || { internationalPhone: '', nationalPhone: '', userConfirmed: false },
-          email: profile.contactChannels?.email || { email: '', userConfirmed: false },
-          facebook: fallbackProfiles.facebook,
-          instagram: fallbackProfiles.instagram,
-          x: fallbackProfiles.x,
-          linkedin: fallbackProfiles.linkedin,
-          snapchat: fallbackProfiles.snapchat,
-          // Preserve existing phone-based social profiles (handled by PhoneBasedSocialService)
-          whatsapp: profile.contactChannels?.whatsapp || this.createEmptyProfile('whatsapp'),
-          telegram: profile.contactChannels?.telegram || this.createEmptyProfile('telegram'),
-          wechat: profile.contactChannels?.wechat || this.createEmptyProfile('wechat')
+          entries: fallbackEntries
         },
         success: false,
         socialProfilesDiscovered: 0,
@@ -714,14 +739,16 @@ Bio Creation:
    */
   private static getDefaultOrder(platform: string): number {
     const orderMap: Record<string, number> = {
-      facebook: 1,
-      instagram: 2,
-      x: 3,
-      linkedin: 4,
+      phone: 0,
+      email: 1,
+      facebook: 2,
+      instagram: 3,
+      x: 4,
       snapchat: 5,
       whatsapp: 6,
       telegram: 7,
-      wechat: 8
+      wechat: 8,
+      linkedin: 9
     };
     
     return orderMap[platform] || 99;

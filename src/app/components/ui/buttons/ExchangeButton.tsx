@@ -9,16 +9,13 @@ import { useRouter } from 'next/navigation';
 import { Button } from './Button';
 import { initializeClockSync } from '@/lib/services/client/clockSyncService';
 import { LoadingSpinner } from '../LoadingSpinner';
-import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
 interface ExchangeButtonProps {
   className?: string;
 }
 
-type SharingCategory = 'All' | 'Personal' | 'Work';
-
-const SHARING_CATEGORIES: SharingCategory[] = ['All', 'Personal', 'Work'];
+type SharingCategory = 'Personal' | 'Work';
 
 export const ExchangeButton: React.FC<ExchangeButtonProps> = ({ 
   className 
@@ -26,60 +23,41 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const router = useRouter();
   const [status, setStatus] = useState<ExchangeStatus>('idle');
   const [exchangeService, setExchangeService] = useState<any>(null);
-  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('All');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const caretRef = useRef<HTMLDivElement>(null);
   const lastPingTimeRef = useRef<number>(0); // Add ref to track last ping time
 
-  // Load selected category from localStorage on mount
+  // Load selected category from localStorage on mount and listen for changes
   useEffect(() => {
-    try {
-      const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
-      if (savedCategory && SHARING_CATEGORIES.includes(savedCategory)) {
-        setSelectedCategory(savedCategory);
+    const loadCategory = () => {
+      try {
+        const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
+        if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
+          setSelectedCategory(savedCategory);
+        }
+        setHasLoadedFromStorage(true);
+      } catch (error) {
+        console.warn('Failed to load sharing category from localStorage:', error);
+        setHasLoadedFromStorage(true);
       }
-      setHasLoadedFromStorage(true);
-    } catch (error) {
-      console.warn('Failed to load sharing category from localStorage:', error);
-      setHasLoadedFromStorage(true);
-    }
+    };
+
+    // Load initial value
+    loadCategory();
+
+    // Listen for storage changes from ProfileInfo
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nekt-sharing-category' && e.newValue) {
+        const newCategory = e.newValue as SharingCategory;
+        if (['Personal', 'Work'].includes(newCategory)) {
+          setSelectedCategory(newCategory);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
-  // Save selected category to localStorage when it changes (but only after we've loaded from storage)
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-    
-    try {
-      localStorage.setItem('nekt-sharing-category', selectedCategory);
-    } catch (error) {
-      console.warn('Failed to save sharing category to localStorage:', error);
-    }
-  }, [selectedCategory, hasLoadedFromStorage]);
-
-  // Close dropdown when clicking outside or pressing escape
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isDropdownOpen) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isDropdownOpen]);
 
   // Initialize clock sync on component mount
   useEffect(() => {
@@ -225,26 +203,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
   };
 
-  const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    // Check if click came from caret area
-    if (caretRef.current && caretRef.current.contains(event.target as Node)) {
-      // Click was on caret area, don't start exchange
-      return;
-    }
-
-    // Close dropdown if it's open
-    if (isDropdownOpen) {
-      setIsDropdownOpen(false);
-      return;
-    }
-
-    // Start exchange
+  const handleButtonClick = () => {
     handleExchangeStart();
-  };
-
-  const handleCategorySelect = (category: SharingCategory) => {
-    setSelectedCategory(category);
-    setIsDropdownOpen(false);
   };
 
   // Cleanup on unmount
@@ -301,32 +261,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       
               default:
           return (
-            <div className="relative flex items-center justify-center w-full">
-              <div className="flex flex-col items-center">
-                <span className="text-xl font-semibold">Nekt</span>
-                <span className="text-xs opacity-80 mt-0">{selectedCategory}</span>
-              </div>
-              <div 
-                ref={caretRef}
-                className="absolute flex items-center justify-end rounded-r-full"
-                style={{ 
-                  top: '-4px', 
-                  bottom: '-4px', 
-                  right: '-32px', 
-                  left: 'auto', 
-                  width: '96px'
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsDropdownOpen(!isDropdownOpen);
-                }}
-              >
-                <div className="flex flex-col mr-8">
-                  <FaChevronUp className="h-3 w-3" />
-                  <FaChevronDown className="h-3 w-3" />
-                </div>
-              </div>
-            </div>
+            <span className="text-xl font-semibold">Nekt</span>
           );
     }
   };
@@ -349,45 +284,19 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const isActive = status !== 'idle';
 
   return (
-    <div className="w-full relative" ref={dropdownRef}>
-      <Button
-        ref={buttonRef}
-        onClick={handleButtonClick}
-        disabled={isDisabled}
-        variant={getButtonVariant()}
-        size="xl"
-        className={`
-          w-full font-semibold
-          transition-all duration-200 ease-in-out
-          ${isActive ? 'animate-pulse' : ''}
-          ${className || ''}
-        `}
-      >
-        {getButtonContent()}
-      </Button>
-      
-
-
-      {/* Dropdown menu */}
-      {isDropdownOpen && (
-        <div 
-          className="absolute z-50 left-0 right-0 mb-1 shadow-lg rounded-md max-h-60 overflow-y-auto backdrop-blur-sm [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200/70 [&::-webkit-scrollbar-thumb]:rounded-full animate-in slide-in-from-top-2 duration-200"
-          style={{ 
-            bottom: 'calc(100% + 0.25rem)', 
-            backgroundColor: 'rgba(255, 255, 255, 0.8)'
-          }}
-        >
-          {SHARING_CATEGORIES.map((category) => (
-            <div
-              key={category}
-              className="px-4 py-3 hover:bg-gray-100/80 cursor-pointer text-black text-center font-medium transition-colors duration-150"
-              onClick={() => handleCategorySelect(category)}
-            >
-              {category}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <Button
+      onClick={handleButtonClick}
+      disabled={isDisabled}
+      variant={getButtonVariant()}
+      size="xl"
+      className={`
+        w-full font-semibold
+        transition-all duration-200 ease-in-out
+        ${isActive ? 'animate-pulse' : ''}
+        ${className || ''}
+      `}
+    >
+      {getButtonContent()}
+    </Button>
   );
 };

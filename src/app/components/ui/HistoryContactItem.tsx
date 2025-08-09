@@ -76,8 +76,16 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
     const contactFirstName = contact.name.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
-    // Try to use phone number if available
-    const phoneNumber = contact.contactChannels?.phoneInfo?.internationalPhone;
+    // Try to use phone number if available - check new array format
+    const contactChannelsAny = contact.contactChannels as any;
+    let phoneNumber = '';
+    
+    if (contactChannelsAny?.entries) {
+      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
+      phoneNumber = phoneEntry?.internationalPhone || '';
+    } else if (contactChannelsAny?.phoneInfo) {
+      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    }
     
     openMessagingAppDirectly(messageText, phoneNumber);
   };

@@ -31,18 +31,24 @@ export async function createGoogleContact(
           familyName: profile.name.split(' ').slice(1).join(' ') || '',
         }
       ],
-      emailAddresses: profile.contactChannels.email?.email ? [
-        {
-          value: profile.contactChannels.email.email,
-          type: 'other'
-        }
-      ] : [],
-      phoneNumbers: profile.contactChannels.phoneInfo?.internationalPhone ? [
-        {
-          value: profile.contactChannels.phoneInfo.internationalPhone,
-          type: 'mobile'
-        }
-      ] : [],
+      emailAddresses: (() => {
+        const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
+        return emailEntry?.email ? [
+          {
+            value: emailEntry.email,
+            type: 'other'
+          }
+        ] : [];
+      })(),
+      phoneNumbers: (() => {
+        const phoneEntry = profile.contactChannels?.entries?.find(e => e.platform === 'phone');
+        return phoneEntry?.internationalPhone ? [
+          {
+            value: phoneEntry.internationalPhone,
+            type: 'mobile'
+          }
+        ] : [];
+      })(),
       biographies: profile.bio ? [
         {
           value: profile.bio,
@@ -52,17 +58,16 @@ export async function createGoogleContact(
       urls: [] as Array<{ value: string; type: string }>
     };
 
-    // Add social media URLs
-    const socialChannels = profile.contactChannels;
-    if (socialChannels.instagram?.url) {
-      contactData.urls.push({ value: socialChannels.instagram.url, type: 'other' });
-    }
-    if (socialChannels.linkedin?.url) {
-      contactData.urls.push({ value: socialChannels.linkedin.url, type: 'other' });
-    }
-    if (socialChannels.x?.url) {
-      contactData.urls.push({ value: socialChannels.x.url, type: 'other' });
-    }
+    // Add social media URLs from new array format
+    const socialEntries = profile.contactChannels?.entries || [];
+    const socialPlatforms = ['instagram', 'linkedin', 'x', 'facebook', 'snapchat'];
+    
+    socialPlatforms.forEach(platform => {
+      const entry = socialEntries.find(e => e.platform === platform);
+      if (entry?.url) {
+        contactData.urls.push({ value: entry.url, type: 'other' });
+      }
+    });
 
     const response = await fetch('https://people.googleapis.com/v1/people:createContact', {
       method: 'POST',
