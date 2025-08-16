@@ -105,7 +105,7 @@ export function profileToFormData(
   const email = emailEntry?.email || sessionUser?.email || '';
   
   // Convert contact entries directly to form entries - PERFECT 1:1 MAPPING
-  const socialProfiles: Array<SocialProfileFormEntry> = contactChannels.entries.map(entry => {
+  const socialProfiles: Array<SocialProfileFormEntry> = contactChannels.entries.map((entry, index) => {
     const username = entry.platform === 'phone' ? (entry.nationalPhone || '') :
                      entry.platform === 'email' ? (entry.email || '') :
                      (entry.username || '');
@@ -114,12 +114,12 @@ export function profileToFormData(
     return {
       platform: entry.platform,
       username,
-      shareEnabled: true,
       filled: hasContent,
       confirmed: entry.userConfirmed,
       section: entry.section,
       // Preserve visibility state, default to visible if has content
-      isVisible: entry.isVisible !== undefined ? entry.isVisible : hasContent
+      isVisible: entry.isVisible !== undefined ? entry.isVisible : hasContent,
+      order: entry.order || index // Use existing order or index as fallback
     };
   });
   
@@ -134,11 +134,11 @@ export function profileToFormData(
         socialProfiles.push({
           platform,
           username: '',
-          shareEnabled: true,
           filled: false,
           confirmed: false,
           section,
-          isVisible: false // Empty fields start hidden
+          isVisible: false, // Empty fields start hidden
+          order: socialProfiles.length // Use current length as order
         });
       }
     });
@@ -149,11 +149,11 @@ export function profileToFormData(
     socialProfiles.push({
       platform: 'phone',
       username: '',
-      shareEnabled: true,
       filled: false,
       confirmed: false,
       section: 'universal',
-      isVisible: false
+      isVisible: false,
+      order: socialProfiles.length
     });
   }
   
@@ -161,11 +161,11 @@ export function profileToFormData(
     socialProfiles.push({
       platform: 'email',
       username: email,
-      shareEnabled: true,
       filled: !!email,
       confirmed: true,
       section: 'universal',
-      isVisible: !!email
+      isVisible: !!email,
+      order: socialProfiles.length
     });
   }
 

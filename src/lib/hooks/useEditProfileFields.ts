@@ -3,31 +3,112 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { SocialProfileFormEntry, FieldSection, SocialPlatform } from '@/types/forms';
 
-// Default section assignments for social platforms
-const DEFAULT_SECTION_ASSIGNMENTS: Record<SocialPlatform, FieldSection> = {
-  // Universal fields (handled separately in the component)
-  phone: 'universal',
-  email: 'universal',
-  
-  // Personal section
-  facebook: 'personal',
-  instagram: 'personal',
-  x: 'personal',
-  snapchat: 'personal',
-  whatsapp: 'personal',
-  telegram: 'personal',
-  wechat: 'personal',
-  
-  // Work section
-  linkedin: 'work',
+/**
+ * Custom hook for handling image uploads (profile and background)
+ */
+export const useImageUpload = () => {
+  const handleImageUpload = useCallback(async (
+    file: File,
+    uploadType: 'profile' | 'background',
+    onSuccess: (imageData: string) => void
+  ) => {
+    const reader = new FileReader();
+    reader.onload = async (e: ProgressEvent<FileReader>) => {
+      const imageData = e.target?.result as string;
+      onSuccess(imageData);
+      
+      // Call the appropriate API endpoint
+      const endpoint = uploadType === 'profile' ? 'profile-image' : 'background-image';
+      try {
+        await fetch(`/api/generate-profile/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData }),
+        });
+      } catch (error) {
+        console.error(`Error uploading ${uploadType} image:`, error);
+        alert(`Failed to upload ${uploadType} image. Please try again.`);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const createUploadHandler = useCallback((
+    uploadType: 'profile' | 'background',
+    onSuccess: (imageData: string) => void
+  ) => {
+    return (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      handleImageUpload(file, uploadType, onSuccess);
+    };
+  }, [handleImageUpload]);
+
+  return { createUploadHandler };
+};
+
+/**
+ * Custom hook for managing profile view mode (Personal/Work) with localStorage and carousel
+ */
+export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) => {
+  const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+
+  // Load from localStorage on mount
+  const loadFromStorage = useCallback(() => {
+    try {
+      const savedCategory = localStorage.getItem('nekt-sharing-category') as 'Personal' | 'Work';
+      if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
+        setSelectedMode(savedCategory);
+      }
+      setHasLoadedFromStorage(true);
+    } catch (error) {
+      console.warn('Failed to load sharing category from localStorage:', error);
+      setHasLoadedFromStorage(true);
+    }
+  }, []);
+
+  // Save to localStorage and animate carousel
+  const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
+    if (mode === selectedMode) return;
+    
+    setSelectedMode(mode);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('nekt-sharing-category', mode);
+    } catch (error) {
+      console.warn('Failed to save sharing category to localStorage:', error);
+    }
+    
+    // Animate carousel
+    if (carouselRef.current) {
+      if (mode === 'Work') {
+        const container = carouselRef.current.parentElement;
+        const containerWidth = container?.offsetWidth || 0;
+        const translateAmount = -(containerWidth + 16); // Add gap
+        carouselRef.current.style.transform = `translateX(${translateAmount}px)`;
+      } else {
+        carouselRef.current.style.transform = 'translateX(0)';
+      }
+    }
+  }, [selectedMode, carouselRef]);
+
+  return {
+    selectedMode,
+    hasLoadedFromStorage,
+    loadFromStorage,
+    handleModeChange
+  };
 };
 
 // All supported social platforms (excluding email/phone which are universal)
-const ALL_SOCIAL_PLATFORMS: SocialPlatform[] = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'];
+const ALL_SOCIAL_PLATFORMS: SocialPlatform[] = ['facebook', 'instagram', 'x', 'snapchat', 'whatsapp', 'telegram', 'wechat', 'linkedin'];
 
 interface UseEditProfileFieldsProps {
   initialSocialProfiles: SocialProfileFormEntry[];
   onSocialProfilesChange: (profiles: SocialProfileFormEntry[]) => void;
+  profile?: any; // To access contactChannels for confirmation status
 }
 
 interface UseEditProfileFieldsReturn {
@@ -50,19 +131,60 @@ interface UseEditProfileFieldsReturn {
   // Field actions
   toggleFieldVisibility: (platform: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (platform: string, value: string, section: FieldSection) => void;
-  moveField: (platform: string, toSection: FieldSection, toIndex?: number, fromSection?: string) => void;
   splitUniversalField: (platform: string, currentValue: string, targetSection?: 'personal' | 'work', targetIndex?: number) => void;
   consolidateToUniversal: (platform: string, fromSection: string) => void;
   
   // Get field data
   getFieldData: (platform: string, section?: FieldSection) => SocialProfileFormEntry | undefined;
   isFieldHidden: (platform: string, viewMode: 'Personal' | 'Work') => boolean;
+  
+  // Confirmation handling
+  markChannelAsConfirmed: (platform: string) => void;
+  isChannelUnconfirmed: (platform: string) => boolean;
 }
 
 export const useEditProfileFields = ({ 
   initialSocialProfiles, 
-  onSocialProfilesChange 
+  onSocialProfilesChange,
+  profile
 }: UseEditProfileFieldsProps): UseEditProfileFieldsReturn => {
+  // Track confirmed channels locally
+  const [confirmedChannels, setConfirmedChannels] = useState<Set<string>>(new Set());
+  
+  // Mark a channel as confirmed
+  const markChannelAsConfirmed = useCallback((platform: string) => {
+    setConfirmedChannels(prev => new Set(prev).add(platform));
+    // Update the profiles to reflect confirmation
+    setProfiles(current => 
+      current.map(p => 
+        p.platform === platform 
+          ? { ...p, confirmed: true }
+          : p
+      )
+    );
+  }, []);
+  
+  // Check if a channel is unconfirmed based on Firebase data and local state
+  const isChannelUnconfirmed = useCallback((platform: string): boolean => {
+    // If locally confirmed, it's confirmed
+    if (confirmedChannels.has(platform)) {
+      return false;
+    }
+    
+    if (!profile?.contactChannels) return false;
+    
+    const contactChannels = profile.contactChannels as any;
+    if (contactChannels?.entries) {
+      const entry = contactChannels.entries.find((e: any) => e.platform === platform);
+      if (entry) {
+        const hasContent = platform === 'phone' ? !!entry.nationalPhone || !!entry.internationalPhone :
+                          platform === 'email' ? !!entry.email :
+                          !!entry.username;
+        return hasContent && !entry.userConfirmed;
+      }
+    }
+    return false;
+  }, [confirmedChannels, profile]);
 
 
   // Simple state - no reactive initialization, only use initial props once
@@ -94,10 +216,10 @@ export const useEditProfileFields = ({
         result.push({
           platform,
           username: '',
-          shareEnabled: true,
           filled: false,
           section: 'personal',
-          isVisible: false
+          isVisible: false,
+          order: result.length
         });
       }
       
@@ -105,10 +227,10 @@ export const useEditProfileFields = ({
         result.push({
           platform,
           username: '',
-          shareEnabled: true,
           filled: false,
           section: 'work',
-          isVisible: false
+          isVisible: false,
+          order: result.length
         });
       }
     });
@@ -137,12 +259,44 @@ export const useEditProfileFields = ({
   const toggleFieldVisibility = useCallback((platform: string, viewMode: 'Personal' | 'Work') => {
     const targetSection = viewMode.toLowerCase() as 'personal' | 'work';
     
-    // Check if this is a universal field being hidden
+    // Special handling for email and phone UNIVERSAL fields - these are stored outside socialProfiles
+    // Only apply this logic when hiding a universal field, not when toggling personal/work visibility
+    if ((platform === 'email' || platform === 'phone') && 
+        !profiles.some(p => p.platform === platform && (p.section === 'personal' || p.section === 'work'))) {
+      
+      // Remove any existing personal/work entries for this platform
+      const profilesWithoutPlatform = profiles.filter(p => p.platform !== platform);
+      
+      // Create Personal and Work entries as HIDDEN
+      // Note: The actual value is stored in formData.email or digits, not in socialProfiles
+      const personalEntry: SocialProfileFormEntry = {
+        platform: platform as any,
+        username: '', // Value will come from formData/digits
+        filled: true, // Assume filled if we're hiding it
+        section: 'personal',
+        isVisible: false, // Hidden by default
+        order: 0 // Will be updated later
+      };
+      
+      const workEntry: SocialProfileFormEntry = {
+        platform: platform as any,
+        username: '', // Value will come from formData/digits
+        filled: true, // Assume filled if we're hiding it
+        section: 'work',
+        isVisible: false, // Hidden by default
+        order: 0 // Will be updated later
+      };
+      
+      const updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
+      updateProfiles(updatedProfiles);
+      return;
+    }
+    
+    // Check if this is a regular universal field being hidden
     const universalField = profiles.find(p => p.platform === platform && p.section === 'universal');
     
     if (universalField) {
       // Universal field being hidden: split into both sections as hidden
-      console.log(`🔥 HIDING UNIVERSAL FIELD ${platform} - splitting to both sections as hidden`);
       
       // Remove the universal field
       const profilesWithoutUniversal = profiles.filter(profile => 
@@ -156,21 +310,21 @@ export const useEditProfileFields = ({
       const personalEntry: SocialProfileFormEntry = {
         platform: platform as any,
         username: universalField.username,
-        shareEnabled: universalField.shareEnabled,
         filled: universalField.filled,
         confirmed: universalField.confirmed,
         section: 'personal',
-        isVisible: false // Hidden by default
+        isVisible: false, // Hidden by default
+        order: universalField.order // Preserve order
       };
       
       const workEntry: SocialProfileFormEntry = {
         platform: platform as any,
         username: universalField.username,
-        shareEnabled: universalField.shareEnabled,
         filled: universalField.filled,
         confirmed: universalField.confirmed,
         section: 'work',
-        isVisible: false // Hidden by default
+        isVisible: false, // Hidden by default
+        order: universalField.order // Preserve order
       };
       
       const updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
@@ -209,61 +363,6 @@ export const useEditProfileFields = ({
     updateProfiles(updatedProfiles);
   }, [profiles, updateProfiles]);
 
-  // Simple array-based field moving
-  const moveField = useCallback((platform: string, toSection: FieldSection, toIndex?: number, fromSection?: string) => {
-    // Find the moving field - be more specific about which field we're moving
-    const movingField = profiles.find(p => {
-      if (fromSection) {
-        return p.platform === platform && p.section === fromSection;
-      } else {
-        // If no fromSection specified, find the first visible field with this platform
-        return p.platform === platform && p.isVisible;
-      }
-    });
-    
-    if (!movingField) return;
-    
-    // Remove ONLY the specific field we're moving
-    const otherProfiles = profiles.filter(p => p !== movingField);
-    
-    // Update the field's section and handle visibility properly
-    const updatedField = {
-      ...movingField,
-      section: toSection,
-      // If moving FROM universal, ensure it stays visible (universal fields are always visible)
-      // If moving within personal/work, preserve existing visibility
-      isVisible: movingField.section === 'universal' ? true : movingField.isVisible
-    };
-    
-    // Get VISIBLE fields in target section for positioning calculation
-    const visibleTargetFields = otherProfiles.filter(p => p.section === toSection && p.isVisible);
-    
-    // If moving within the same section, adjust index if the item was originally before the target position
-    let adjustedIndex = toIndex || 0;
-    if (movingField.section === toSection && movingField.isVisible) {
-      // Find where the moving field was in the visible list
-      const originalVisibleFields = profiles.filter(p => p.section === toSection && p.isVisible);
-      const originalIndex = originalVisibleFields.findIndex(p => p.platform === platform);
-      
-      // If moving from before the target position, decrement target index
-      if (originalIndex >= 0 && originalIndex < adjustedIndex) {
-        adjustedIndex--;
-      }
-    }
-    
-    // Insert at specified position within visible fields
-    const insertIndex = Math.min(Math.max(0, adjustedIndex), visibleTargetFields.length);
-    visibleTargetFields.splice(insertIndex, 0, updatedField);
-    
-    // Get hidden fields in target section (to preserve them)
-    const hiddenTargetFields = otherProfiles.filter(p => p.section === toSection && !p.isVisible);
-    
-    // Combine all sections: other sections + target visible fields + target hidden fields
-    const otherSectionFields = otherProfiles.filter(p => p.section !== toSection);
-    const finalProfiles = [...otherSectionFields, ...visibleTargetFields, ...hiddenTargetFields];
-    
-    updateProfiles(finalProfiles);
-  }, [profiles, updateProfiles]);
 
   // Get field data
   const getFieldData = useCallback((platform: string, section?: FieldSection) => {
@@ -284,23 +383,39 @@ export const useEditProfileFields = ({
   const getFieldsForView = useCallback((viewMode: 'Personal' | 'Work') => {
     const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
     
+    // Helper function to sort fields by their order property (from Firebase data)
+    const sortByOrder = (fields: SocialProfileFormEntry[]) => {
+      return fields.sort((a, b) => {
+        // Use the order field from the data
+        const orderA = a.order ?? 999;
+        const orderB = b.order ?? 999;
+        return orderA - orderB;
+      });
+    };
+    
     const result = {
-      // Universal fields always show
-      universalFields: profiles.filter(field => field.section === 'universal'),
-      
-      // Current section fields that are visible (in natural array order)
-      currentFields: profiles.filter(field => 
-        field.section === currentSectionName && field.isVisible
+      // Universal fields always show (sorted by order)
+      universalFields: sortByOrder(
+        profiles.filter(field => field.section === 'universal')
       ),
       
-      // Hidden fields = current section fields that are not visible AND don't exist in universal
-      hiddenFields: profiles.filter(field => {
-        if (field.section !== currentSectionName || field.isVisible) return false;
-        
-        // Don't show as hidden if this platform already exists in universal
-        const existsInUniversal = profiles.some(p => p.platform === field.platform && p.section === 'universal');
-        return !existsInUniversal;
-      })
+      // Current section fields that are visible (sorted by order)
+      currentFields: sortByOrder(
+        profiles.filter(field => 
+          field.section === currentSectionName && field.isVisible
+        )
+      ),
+      
+      // Hidden fields = current section fields that are not visible AND don't exist in universal (sorted by order)
+      hiddenFields: sortByOrder(
+        profiles.filter(field => {
+          if (field.section !== currentSectionName || field.isVisible) return false;
+          
+          // Don't show as hidden if this platform already exists in universal
+          const existsInUniversal = profiles.some(p => p.platform === field.platform && p.section === 'universal');
+          return !existsInUniversal;
+        })
+      )
     };
     
     return result;
@@ -308,33 +423,30 @@ export const useEditProfileFields = ({
 
   // Split a universal field into separate Personal and Work entries
   const splitUniversalField = useCallback((platform: string, currentValue: string, targetSection?: 'personal' | 'work', targetIndex?: number) => {
-    console.log(`🔥 SPLITTING ${platform} with value: ${currentValue}${targetSection ? ` to ${targetSection} at index ${targetIndex}` : ''}`);
-    console.log(`🔥 BEFORE SPLIT:`, profiles.filter(p => p.platform === platform));
     
     // Remove ALL entries for this platform (universal, personal, work) to avoid duplicates
     const profilesWithoutPlatform = profiles.filter(profile => 
       profile.platform !== platform
     );
     
-    console.log(`🔥 AFTER REMOVING PLATFORM:`, profilesWithoutPlatform.filter(p => p.platform === platform));
     
     // Create new Personal and Work entries with the current value
     const personalEntry: SocialProfileFormEntry = {
       platform: platform as any,
       username: currentValue,
-      shareEnabled: true,
       filled: Boolean(currentValue),
       section: 'personal',
-      isVisible: Boolean(currentValue) // Visible if has content
+      isVisible: Boolean(currentValue), // Visible if has content
+      order: 0 // Will be reassigned based on position
     };
     
     const workEntry: SocialProfileFormEntry = {
       platform: platform as any,
       username: currentValue,
-      shareEnabled: true,
       filled: Boolean(currentValue),
       section: 'work',
-      isVisible: Boolean(currentValue) // Visible if has content
+      isVisible: Boolean(currentValue), // Visible if has content
+      order: 0 // Will be reassigned based on position
     };
 
     let updatedProfiles: SocialProfileFormEntry[];
@@ -359,21 +471,17 @@ export const useEditProfileFields = ({
       }
 
       updatedProfiles = [...universalProfiles, ...newPersonalProfiles, ...newWorkProfiles];
-      console.log(`🔥 POSITIONED SPLIT: ${platform} added to ${targetSection} at index ${targetIndex}`);
     } else {
       // Default behavior: append to end
       updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
-      console.log(`🔥 DEFAULT SPLIT: ${platform} appended to end`);
     }
     
-    console.log(`🔥 FINAL PROFILES FOR ${platform}:`, updatedProfiles.filter(p => p.platform === platform));
     
     updateProfiles(updatedProfiles);
   }, [profiles, updateProfiles]);
 
   // Consolidate personal/work entries into a single universal entry
   const consolidateToUniversal = useCallback((platform: string, fromSection: string) => {
-    console.log(`🔥 CONSOLIDATING ${platform} from ${fromSection} to universal`);
     
     // Find the field being moved to get its current value
     const movingField = profiles.find(p => p.platform === platform && p.section === fromSection);
@@ -393,11 +501,11 @@ export const useEditProfileFields = ({
       const universalEntry: SocialProfileFormEntry = {
         platform: platform,
         username: movingField.username,
-        shareEnabled: movingField.shareEnabled,
         filled: movingField.filled || false,
         confirmed: movingField.confirmed,
         section: 'universal',
-        isVisible: true // Universal fields are always visible
+        isVisible: true, // Universal fields are always visible
+        order: movingField.order // Preserve order
       };
       
       updatedProfiles = [...profilesWithoutPlatform, universalEntry];
@@ -405,6 +513,7 @@ export const useEditProfileFields = ({
     
     updateProfiles(updatedProfiles);
   }, [profiles, updateProfiles]);
+
 
   return {
     // Field organization
@@ -422,12 +531,15 @@ export const useEditProfileFields = ({
     // Field actions
     toggleFieldVisibility,
     updateFieldValue,
-    moveField,
     splitUniversalField,
     consolidateToUniversal,
     
     // Get field data
     getFieldData,
     isFieldHidden,
+    
+    // Confirmation handling
+    markChannelAsConfirmed,
+    isChannelUnconfirmed,
   };
 }; 

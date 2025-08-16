@@ -13,6 +13,8 @@ export interface Country {
 
 // Define the social platform type for form handling
 export type SocialPlatform = 
+  | 'phone'
+  | 'email'
   | 'facebook' 
   | 'instagram' 
   | 'x' 
@@ -20,9 +22,7 @@ export type SocialPlatform =
   | 'snapchat' 
   | 'whatsapp' 
   | 'telegram' 
-  | 'wechat' 
-  | 'email' 
-  | 'phone';
+  | 'wechat';
 
 // Define field sections for the edit profile page
 export type FieldSection = 'universal' | 'personal' | 'work';
@@ -31,11 +31,11 @@ export type FieldSection = 'universal' | 'personal' | 'work';
 export interface SocialProfileFormEntry {
   platform: string;
   username: string;
-  shareEnabled: boolean;
   filled?: boolean;
   confirmed?: boolean;
   section: FieldSection;
   isVisible: boolean; // Whether this field is shown (eye open) or hidden (eye closed) in the current section
+  order: number; // User's custom ordering within section for drag & drop
 }
 
 // Define the main form data structure for profile editing

@@ -9,6 +9,7 @@ interface FieldSectionProps {
   emptyText: string;
   children: React.ReactNode;
   className?: string;
+  bottomButton?: React.ReactNode;
 }
 
 export const FieldSection: React.FC<FieldSectionProps> = ({
@@ -16,13 +17,14 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
   isEmpty,
   emptyText,
   children,
-  className = ''
+  className = '',
+  bottomButton
 }) => {
   return (
     <div className={`w-full ${className}`}>
       {/* Section Header */}
       {title && (
-        <div className="field-section-title mb-4 text-center">
+        <div className="field-section-title text-center mb-5">
           <Heading as="h2" className="text-white">
             {title}
           </Heading>
@@ -31,7 +33,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
       
       {/* Content or Empty State */}
       {isEmpty ? (
-        <div className="mb-6 w-full max-w-md mx-auto">
+        <div className="w-full max-w-md mx-auto">
           <div className="bg-black/40 backdrop-blur-sm rounded-lg p-6 text-center">
             <p className="text-white/70 text-sm">
               {emptyText}
@@ -39,8 +41,15 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
           </div>
         </div>
       ) : (
-        <div>
+        <div className="space-y-5">
           {children}
+        </div>
+      )}
+      
+      {/* Optional Bottom Button */}
+      {bottomButton && (
+        <div className="mt-5">
+          {bottomButton}
         </div>
       )}
     </div>

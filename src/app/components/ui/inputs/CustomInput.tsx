@@ -10,22 +10,10 @@ interface CustomInputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: 'default' | 'hideable';
   isHidden?: boolean;
   onToggleHide?: () => void;
-  dragState?: 'normal' | 'draggable' | 'active';
 }
 
 const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
-  ({ label, error, className = '', inputClassName = '', icon, iconClassName = '', variant = 'default', isHidden = false, onToggleHide, dragState = 'normal', ...props }, ref) => {
-    // Generate drag-specific classes
-    const getDragClasses = () => {
-      switch (dragState) {
-        case 'draggable':
-          return 'animate-pulse';
-        case 'active':
-          return 'scale-105 shadow-lg z-10';
-        default:
-          return '';
-      }
-    };
+  ({ label, error, className = '', inputClassName = '', icon, iconClassName = '', variant = 'default', isHidden = false, onToggleHide, ...props }, ref) => {
 
     return (
       <div className={`w-full ${className}`}>
@@ -35,9 +23,7 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
           </label>
         )}
         <div 
-          className={`flex w-full bg-white/80 border-2 border-white/80 rounded-full transition-all duration-200 text-black text-base h-12 ${
-            dragState === 'active' ? '' : 'focus-within:bg-white focus-within:border-white focus-within:shadow-2xl'
-          } ${getDragClasses()}`}
+          className="flex w-full bg-white/80 border-2 border-white/80 rounded-full transition-all duration-200 text-black text-base h-12 focus-within:bg-white focus-within:border-white focus-within:shadow-2xl"
           style={{
             height: '3.5rem',
             minHeight: '3.5rem',
@@ -60,26 +46,7 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
               border: 'none',
               outline: 'none',
               boxShadow: 'none',
-              borderRadius: variant === 'hideable' ? '0' : '0 9999px 9999px 0',
-              cursor: dragState === 'active' ? 'default' : 'text'
-            }}
-            readOnly={dragState === 'active'}
-            inputMode={dragState === 'active' ? 'none' : 'text'}
-            onFocus={(e) => {
-              if (dragState === 'active') {
-                e.target.blur();
-                e.preventDefault();
-              }
-              props.onFocus?.(e);
-            }}
-            onClick={(e) => {
-              console.log('🖱️ CustomInput onClick:', { dragState, inputId: props.id });
-              if (dragState === 'active') {
-                console.log('🛡️ Preventing click on active drag field');
-                e.preventDefault();
-                e.stopPropagation();
-              }
-              props.onClick?.(e);
+              borderRadius: variant === 'hideable' ? '0' : '0 9999px 9999px 0'
             }}
             {...props}
           />
