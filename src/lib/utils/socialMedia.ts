@@ -1,8 +1,14 @@
-import { SocialProfile } from '@/types/profile';
 
 /**
-his function is kept for editing existing profiles
+ * This function is kept for editing existing profiles
  */
+
+// Minimal interface for social profile processing
+interface SocialProfile {
+  username: string;
+  url: string;
+  userConfirmed: boolean;
+}
 
 // Social media URL patterns
 const SOCIAL_URL_PATTERNS = {

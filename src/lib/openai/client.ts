@@ -21,29 +21,25 @@ interface ImageGenerationResponse {
   }>;
 }
 
-// Types for the responses API
+// Types for the 2025 Responses API
 interface WebSearchTool {
-  type: 'web_search_preview';
-  user_location: {
-    type: string;
-    country: string;
-    region: string;
-    city: string;
-  };
-  search_context_size: string;
+  type: 'web_search';
 }
 
 interface ResponseCreateParams {
   model: string;
-  input: {
-    messages: Array<{
-      role: 'system' | 'user' | 'assistant';
-      content: string;
-    }>;
-  };
+  input: string | Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }>;
   tools?: Array<WebSearchTool>;
+  output?: {
+    type: 'json';
+    schema: Record<string, unknown>;
+  };
   temperature?: number;
   max_output_tokens?: number;
+  max_tool_calls?: number;
   top_p?: number;
   store?: boolean;
 }
@@ -51,9 +47,9 @@ interface ResponseCreateParams {
 interface ResponseOutput {
   output: {
     text: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Our custom OpenAI client with our specialized APIs
@@ -108,7 +104,7 @@ export function getOpenAIClient(): CustomOpenAI {
           };
           
           // Make the API call
-          const response = await standardClient.images.generate(finalParams as any);
+          const response = await standardClient.images.generate(finalParams as Parameters<typeof standardClient.images.generate>[0]);
           
           // Return our simplified format
           return {

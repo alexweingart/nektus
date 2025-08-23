@@ -148,7 +148,7 @@ export class MotionDetector {
   // Pattern analysis removed - was disabled and added complexity
 
   // Simplified - just use the strong bump profile as default thresholds
-  private static calculateAdaptiveThresholds(browserInfo: any, recentMagnitudes: Array<{magnitude: number, timestamp: number}>): {magnitude: number, jerk: number} {
+  private static calculateAdaptiveThresholds(_browserInfo: unknown, _recentMagnitudes: Array<{magnitude: number, timestamp: number}>): {magnitude: number, jerk: number} {
     // Use strong bump profile as the base threshold (standardized across all devices)
     return {
       magnitude: DETECTION_PROFILES.strongBump.magnitude,
@@ -169,7 +169,7 @@ export class MotionDetector {
     // Detect Safari on iOS or other iOS browsers that support motion (like Google app)
     const isSafariOnIOS = isIOS && !isChromeOnIOS && (/Safari/.test(userAgent) || 
                          (typeof DeviceMotionEvent !== 'undefined' && 
-                          typeof (DeviceMotionEvent as any).requestPermission === 'function'));
+                          typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'));
     
     // Detect desktop Safari
     const isDesktopSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent) && !isIOS;
@@ -190,7 +190,7 @@ export class MotionDetector {
       isChromeOnAndroid,
       hasDeviceMotionEvent: typeof DeviceMotionEvent !== 'undefined',
       hasRequestPermission: typeof DeviceMotionEvent !== 'undefined' && 
-                           typeof (DeviceMotionEvent as any).requestPermission === 'function'
+                           typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'
     };
   }
 
@@ -218,7 +218,7 @@ export class MotionDetector {
 
     if (browserInfo.isSafariOnIOS && browserInfo.hasRequestPermission) {
       try {
-        const permission = await (DeviceMotionEvent as any).requestPermission();
+        const permission = await (DeviceMotionEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
         
         if (permission === 'granted') {
           return { success: true };
@@ -287,12 +287,36 @@ export class MotionDetector {
       let recentMagnitudes: Array<{magnitude: number, timestamp: number}> = [];
       let previousMagnitude = 0;
       let previousTimestamp = 0;
-      let allMotionEvents: any[] = []; // Store all motion events for analytics
-      const sessionStartTime = getServerNow();
+      const allMotionEvents: Array<{
+        timestamp: number;
+        magnitude: number;
+        jerk: number;
+        acceleration: { x: number; y: number; z: number };
+      }> = []; // Store all motion events for analytics
       
       // Track peak events for debugging
-      let peakMagnitudeEvent: any = null;
-      let peakJerkEvent: any = null;
+      type PeakEvent = {
+        eventNumber: number;
+        magnitude: number;
+        jerk: number;
+        acceleration: { x: number; y: number; z: number };
+        timestamp: number;
+        thresholds: { magnitude: number; jerk: number };
+        metMagnitudeThreshold: boolean;
+        metJerkThreshold: boolean;
+        metBothThresholds: boolean;
+        metStrongBump: boolean;
+        metStrongTap: boolean;
+        metEitherProfile: boolean;
+        metMagnitudePrimed: boolean;
+        metStrongMagnitudePrimed: boolean;
+        metJerkPrimed: boolean;
+        metStrongJerkPrimed: boolean;
+        metSequential: boolean;
+        sequentialState: { magnitudePrimed: boolean; strongMagnitudePrimed: boolean; jerkPrimed: boolean; strongJerkPrimed: boolean };
+      };
+      let peakMagnitudeEvent: PeakEvent | null = null;
+      let peakJerkEvent: PeakEvent | null = null;
       
       // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
       // iOS Safari bug: Static state persists despite cleanup attempts
@@ -315,7 +339,7 @@ export class MotionDetector {
           };
           
           // Delete all properties and reassign
-          delete (this as any).sequentialState;
+          delete (this as unknown as { sequentialState?: typeof MotionDetector.sequentialState }).sequentialState;
           this.sequentialState = cleanState;
           
           console.log('🍎 iOS: Nuclear state reset completed:', this.sequentialState);
@@ -465,22 +489,6 @@ export class MotionDetector {
         
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
-          let detectionType = 'unknown';
-          let confidence = 1.0;
-          
-          if (strongBumpDetection) {
-            detectionType = 'strong_bump';
-          } else if (strongTapDetection) {
-            detectionType = 'strong_tap';
-          } else if (magnitudePrimedDetection) {
-            detectionType = 'magnitude_primed';
-          } else if (strongMagnitudePrimedDetection) {
-            detectionType = 'strong_magnitude_primed';
-          } else if (jerkPrimedDetection) {
-            detectionType = 'jerk_primed';
-          } else if (strongJerkPrimedDetection) {
-            detectionType = 'strong_jerk_primed';
-          }
           
           if (strongBumpDetection) {
             console.log(`🎯 Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);

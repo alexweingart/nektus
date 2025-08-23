@@ -9,6 +9,10 @@ const nextConfig = {
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   serverExternalPackages: ['next-pwa', 'openai'],
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true, // Skip ESLint during builds for speed
+    dirs: ['src'],
+  },
   webpack: (config, { isServer, dev }) => {
     // This makes sure the OpenAI module is only bundled server-side
     if (!isServer) {

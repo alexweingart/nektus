@@ -7,13 +7,13 @@ import { ProfileViewSelector, type ProfileViewMode } from './ProfileViewSelector
 import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profileFiltering';
 import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from './Typography';
-import type { UserProfile, ContactChannels } from '@/types/profile';
+import type { UserProfile } from '@/types/profile';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 interface ProfileInfoProps {
   profile: UserProfile;
   profileImageSrc?: string;
   bioContent: string;
-  contactChannels?: ContactChannels;
   className?: string;
 }
 
@@ -21,7 +21,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   profile,
   profileImageSrc,
   bioContent,
-  contactChannels,
   className
 }) => {
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
@@ -61,15 +60,14 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }
   }, [selectedMode, hasLoadedFromStorage]);
 
-  // Filter contact channels based on selected mode
-  const filteredContactChannels = useMemo(() => {
-    if (contactChannels && profile && hasLoadedFromStorage) {
-      const profileWithChannels = { ...profile, contactChannels };
-      const filteredProfile = filterProfileByCategory(profileWithChannels, selectedMode);
-      return filteredProfile.contactChannels;
+  // Filter contact entries based on selected mode
+  const filteredContactEntries = useMemo(() => {
+    if (profile?.contactEntries && hasLoadedFromStorage) {
+      const filteredProfile = filterProfileByCategory(profile, selectedMode);
+      return filteredProfile.contactEntries;
     }
-    return contactChannels;
-  }, [contactChannels, profile, selectedMode, hasLoadedFromStorage]);
+    return profile?.contactEntries || [];
+  }, [profile, selectedMode, hasLoadedFromStorage]);
 
   // Handle mode change from selector
   const handleModeChange = (mode: ProfileViewMode) => {
@@ -139,7 +137,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         <div className="border-4 border-white shadow-lg rounded-full">
           <Avatar 
             src={profileImageSrc} 
-            alt={profile?.name || 'Profile'}
+            alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
             size="lg"
           />
         </div>
@@ -158,7 +156,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
             <div className="mb-3 text-center">
-              <Heading as="h1">{profile?.name}</Heading>
+              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
             
             {/* Bio with markdown support */}
@@ -175,7 +173,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               <div className="bio-content text-white">
                 <ReactMarkdown 
                   components={{
-                    p: ({node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
+                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
                     a: ({ node: _node, ...props }) => (
                       <a {...props} target="_blank" rel="noopener noreferrer" />
                     )
@@ -188,9 +186,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             
             {/* Contact Icons */}
             <div className="w-full">
-              {filteredContactChannels && (
+              {filteredContactEntries && (
                 <SocialIconsList
-                  contactChannels={filteredContactChannels}
+                  contactEntries={filteredContactEntries}
                   size="md"
                   variant="white"
                 />
@@ -202,7 +200,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
             <div className="mb-3 text-center">
-              <Heading as="h1">{profile?.name}</Heading>
+              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
             
             {/* Bio with markdown support */}
@@ -210,7 +208,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               <div className="bio-content text-white">
                 <ReactMarkdown 
                   components={{
-                    p: ({node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
+                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
                     a: ({ node: _node, ...props }) => (
                       <a {...props} target="_blank" rel="noopener noreferrer" />
                     )
@@ -223,9 +221,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             
             {/* Contact Icons */}
             <div className="w-full">
-              {filteredContactChannels && (
+              {filteredContactEntries && (
                 <SocialIconsList
-                  contactChannels={filteredContactChannels}
+                  contactEntries={filteredContactEntries}
                   size="md"
                   variant="white"
                 />

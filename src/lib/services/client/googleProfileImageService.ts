@@ -21,7 +21,7 @@ export async function isGoogleInitialsImage(accessToken: string): Promise<boolea
     }
 
     const data = await response.json();
-    const primaryPhoto = data.photos?.find((photo: any) => photo.metadata?.primary);
+    const primaryPhoto = data.photos?.find((photo: { metadata?: { primary?: boolean } }) => photo.metadata?.primary);
     
     if (!primaryPhoto) {
       console.log('🔍 No primary photo found in People API response');

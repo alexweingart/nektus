@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         if (!email && token?.user?.email) {
           email = token.user.email;
         }
-      } catch (_e) {
+      } catch {
         // Error getting JWT token from NextAuth
       }
     }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         if (!email && session?.user?.email) {
           email = session.user.email;
         }
-      } catch (_e) {
+      } catch {
         // Error getting server session
       }
     }

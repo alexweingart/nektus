@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import type { SocialProfileFormEntry } from '@/types/forms';
+import type { ContactEntry } from '@/types/profile';
 import {
   createFloatingDragElement,
   updateFloatingDragElementPosition,
@@ -15,13 +15,13 @@ import {
 // No need for hardcoded platform order anymore
 
 interface DragDropInfo {
-  fields: SocialProfileFormEntry[];
-  draggedField: SocialProfileFormEntry;
+  fields: ContactEntry[];
+  draggedField: ContactEntry;
   dragType: 'same-section' | 'universal-to-section' | 'section-to-universal';
 }
 
 interface UseDragAndDropProps {
-  initialFields?: SocialProfileFormEntry[];  // Pass in initial fields for field array approach
+  initialFields?: ContactEntry[];  // Pass in initial fields for field array approach
   currentSection?: 'Personal' | 'Work'; // Current tab section
   onDragStateChange?: (isDragging: boolean) => void;
   onFieldArrayDrop?: (dropInfo: DragDropInfo) => void; // Enhanced with drag context
@@ -31,7 +31,7 @@ interface UseDragAndDropReturn {
   // State
   isDragMode: boolean; // Derived from dragState
   draggedField: string | null;
-  fieldOrder: SocialProfileFormEntry[];
+  fieldOrder: ContactEntry[];
   
   // Handlers for draggable elements
   onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
@@ -178,11 +178,11 @@ export const useDragAndDrop = ({
       animateSnapToPosition(dragElement, null, () => {
         // Call field array drop callback with enhanced context
         if (onFieldArrayDrop && draggedField && currentSwap) {
-          const draggedFieldData = fieldOrder.find(f => `${f.platform}-${f.section}` === currentSwap.from);
+          const draggedFieldData = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
           if (draggedFieldData) {
             // Determine drag type using utility function
-            const originalField = initialFields?.find(f => `${f.platform}-${f.section}` === currentSwap.from);
-            const targetField = fieldOrder.find(f => `${f.platform}-${f.section}` === currentSwap.to);
+            const originalField = initialFields?.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
+            const targetField = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.to);
             
             if (!originalField || !targetField) return;
             

@@ -88,9 +88,9 @@ export async function cleanupUserStorage(userId: string): Promise<void> {
       await Promise.all(deletePromises);
       console.log(`[Storage] Storage cleanup completed for user ${userId}`);
       
-    } catch (listError: any) {
+    } catch (listError) {
       // If folder doesn't exist or is empty, that's fine
-      if (listError?.code === 'storage/object-not-found') {
+      if ((listError as { code?: string })?.code === 'storage/object-not-found') {
         console.log(`[Storage] No storage files found for user ${userId}`);
       } else {
         console.error(`[Storage] Error listing files for user ${userId}:`, listError);
@@ -131,7 +131,7 @@ export async function rehostGoogleProfileImage(googleUrl: string, userId: string
     
     // Upload to Firebase Storage
     console.log('[Storage] Uploading to Firebase Storage...');
-    const snapshot = await uploadBytes(imageRef, blob);
+    await uploadBytes(imageRef, blob);
     console.log('[Storage] Upload successful');
     
     // Get the download URL

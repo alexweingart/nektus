@@ -11,7 +11,8 @@
     "build": "next build",
     "start": "next start",
     "start:https": "node scripts/start-https.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

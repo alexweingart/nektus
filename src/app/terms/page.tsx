@@ -18,7 +18,7 @@ export default function TermsPage() {
             </p>
             
             <p className="mb-4">
-              Welcome to Nekt.Us! These Terms of Use ("Terms") govern your use of our mobile web application and services. By accessing or using Nekt.Us, you agree to be bound by these Terms.
+              Welcome to Nekt.Us! These Terms of Use (&quot;Terms&quot;) govern your use of our mobile web application and services. By accessing or using Nekt.Us, you agree to be bound by these Terms.
             </p>
           </section>
 
@@ -61,7 +61,7 @@ export default function TermsPage() {
                   <li>Use the service for any illegal or unauthorized purpose</li>
                   <li>Share false, misleading, or inappropriate content</li>
                   <li>Harass, abuse, or harm other users</li>
-                  <li>Attempt to access other users' accounts without permission</li>
+                  <li>Attempt to access other users&apos; accounts without permission</li>
                   <li>Use automated systems to access the service</li>
                   <li>Reverse engineer or attempt to extract the source code</li>
                 </ul>
@@ -125,7 +125,7 @@ export default function TermsPage() {
               <div>
                 <h3 className="font-medium mb-2">Service Disclaimer</h3>
                 <p className="text-gray-300">
-                  The service is provided "as is" without warranties of any kind. We do not guarantee that the service will be error-free, secure, or available at all times.
+                  The service is provided &quot;as is&quot; without warranties of any kind. We do not guarantee that the service will be error-free, secure, or available at all times.
                 </p>
               </div>
               

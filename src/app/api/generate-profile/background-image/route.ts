@@ -24,7 +24,8 @@ function base64ToBuffer(base64: string): Buffer {
  * @returns A buffer containing the image data
  */
 async function generateBackgroundImageForProfile(profile: UserProfile, palette: string[]): Promise<Buffer> {
-  console.log(`[API/BACKGROUND] Starting background image generation for: ${profile.name}`);
+  const nameEntry = profile.contactEntries?.find(e => e.fieldType === 'name');
+  console.log(`[API/BACKGROUND] Starting background image generation for: ${nameEntry?.value || 'Unknown'}`);
   
   try {
     /**
@@ -43,8 +44,9 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
       colorPrompt = `Use only the colour ${dominantColor}. Avoid any other colours.`;
     }
 
+    const bioEntry = profile.contactEntries?.find(e => e.fieldType === 'bio');
     const prompt = `Generate a calm, minimal, dark, modern abstract background for a profile page.\n` +
-      `Optional context: ${profile.bio || 'no bio available'}.\n` +
+      `Optional context: ${bioEntry?.value || 'no bio available'}.\n` +
       `${colorPrompt}\n` +
       `No text, people, objects, or recognisable symbols. Design must be dark enough so that white text is readable. ` +
       `Limit to 2-3 large, soft-edge shapes or blobs.`;
@@ -70,7 +72,7 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
     });
     
     console.log('[API/BACKGROUND] Waiting for OpenAI response...');
-    const response = await Promise.race([imageGenerationPromise, timeoutPromise]) as any;
+    const response = await Promise.race([imageGenerationPromise, timeoutPromise]) as { data?: Array<{ b64_json?: string; url?: string }> };
     
     console.log('[API/BACKGROUND] Response received from OpenAI API');
     
@@ -115,7 +117,8 @@ export async function POST(req: NextRequest) {
     }
     
     // Use streaming bio if available, otherwise fall back to profile bio
-    const bioForGeneration = streamingBio || profile.bio;
+    const profileBioEntry = profile.contactEntries?.find(e => e.fieldType === 'bio');
+    const bioForGeneration = streamingBio || profileBioEntry?.value;
     
     // Log background generation start with request
     console.log('[API/BACKGROUND] Background generation starts', { 
@@ -126,8 +129,6 @@ export async function POST(req: NextRequest) {
       bioLength: bioForGeneration?.length || 0
     });
 
-    // Create a modified profile object with the streaming bio for generation
-    const profileForGeneration = { ...profile, bio: bioForGeneration };
 
     // 2. Get color palette from profile image
     const imageResponse = await fetch(profile.profileImage);
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
     console.log('[API/BACKGROUND] Generated color palette:', palette);
 
     // 3. Generate background image from AI service using the profile with streaming bio
-    const aiImageBuffer = await generateBackgroundImageForProfile(profileForGeneration, palette);
+    const aiImageBuffer = await generateBackgroundImageForProfile(profile, palette);
 
     // 4. Upload it to our own storage
     console.log('[API/BACKGROUND] Uploading image to Firebase Storage');

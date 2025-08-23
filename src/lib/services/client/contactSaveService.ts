@@ -8,12 +8,11 @@ import { ContactSaveResult } from '@/types/contactExchange';
 import { displayVCardInlineForIOS } from '@/lib/utils/vCardGeneration';
 import { detectPlatform as detectPlatformUtil, isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 import { isPermissionError, startIncrementalAuth } from './clientIncrementalAuthService';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 import {
-  getExchangeState,
   setExchangeState,
   clearExchangeState,
   shouldShowUpsell,
-  shouldShowSuccess,
   isReturningFromAuth
 } from './exchangeStateService';
 
@@ -30,7 +29,49 @@ export interface ContactSaveFlowResult {
  * Platform detection using shared utility
  */
 function detectPlatform(): 'android' | 'ios' | 'web' {
-  return (detectPlatformUtil().platform || 'web') as 'android' | 'ios' | 'web';
+  const platform = detectPlatformUtil().platform;
+  return (platform || 'web') as 'android' | 'ios' | 'web';
+}
+
+/**
+ * Clean up URL parameters after auth flow
+ */
+function cleanupAuthURLParams(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('incremental_auth');
+  url.searchParams.delete('contact_save_token');
+  url.searchParams.delete('profile_id');
+  window.history.replaceState({}, document.title, url.toString());
+}
+
+/**
+ * Create result for Firebase-only saves with appropriate modal
+ */
+function createFirebaseOnlyResult(
+  token: string,
+  platform: 'android' | 'ios' | 'web',
+  profileId: string,
+  firebase: { success: boolean; error?: string },
+  google: { success: boolean; error?: string; contactId?: string }
+): ContactSaveFlowResult {
+  setExchangeState(token, {
+    state: 'completed_firebase_only',
+    platform,
+    profileId,
+    timestamp: Date.now()
+  });
+
+  const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+  return {
+    success: true,
+    firebase,
+    google,
+    ...(shouldShowUpsell(token, platform, iosNonEmbedded) 
+      ? { showUpsellModal: true } 
+      : { showSuccessModal: true }
+    ),
+    platform
+  };
 }
 
 /**
@@ -75,7 +116,7 @@ export async function saveContactFlow(
   profile: UserProfile, 
   token: string
 ): Promise<ContactSaveFlowResult> {
-  console.log('🔍 Starting saveContactFlow for:', profile.name);
+  console.log('🔍 Starting saveContactFlow for:', getFieldValue(profile.contactEntries, 'name'));
   
   const platform = detectPlatform();
   const isReturning = isReturningFromAuth(token);
@@ -95,11 +136,7 @@ export async function saveContactFlow(
       const contactSaveToken = urlParams.get('contact_save_token') || token;
       
       // Clean up URL parameters
-      const url = new URL(window.location.href);
-      url.searchParams.delete('incremental_auth');
-      url.searchParams.delete('contact_save_token');
-      url.searchParams.delete('profile_id');
-      window.history.replaceState({}, document.title, url.toString());
+      cleanupAuthURLParams();
       
       try {
         const googleSaveResult = await callSaveContactAPI(contactSaveToken, { googleOnly: true });
@@ -123,123 +160,49 @@ export async function saveContactFlow(
           };
         } else {
           // Firebase saved, Google failed
-          setExchangeState(token, {
-            state: 'completed_firebase_only',
+          return createFirebaseOnlyResult(
+            token,
             platform,
-            profileId: profile.userId || '',
-            timestamp: Date.now()
-          });
-          
-          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-          if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-            return {
-              success: true,
-              firebase: { success: true },
-              google: googleSaveResult.google,
-              showUpsellModal: true,
-              platform
-            };
-          } else {
-            return {
-              success: true,
-              firebase: { success: true },
-              google: googleSaveResult.google,
-              showSuccessModal: true,
-              platform
-            };
-          }
+            profile.userId || '',
+            { success: true },
+            googleSaveResult.google
+          );
         }
       } catch (error) {
         console.error('❌ Google Contacts save failed after auth:', error);
         
-        setExchangeState(token, {
-          state: 'completed_firebase_only',
+        return createFirebaseOnlyResult(
+          token,
           platform,
-          profileId: profile.userId || '',
-          timestamp: Date.now()
-        });
-        
-        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          return {
-            success: true,
-            firebase: { success: true },
-            google: { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' },
-            showUpsellModal: true,
-            platform
-          };
-        } else {
-          return {
-            success: true,
-            firebase: { success: true },
-            google: { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' },
-            showSuccessModal: true,
-            platform
-          };
-        }
+          profile.userId || '',
+          { success: true },
+          { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' }
+        );
       }
     } else if (authResult === 'denied') {
       console.log('🚫 User denied Google Contacts permission');
       
       // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('incremental_auth');
-      window.history.replaceState({}, document.title, url.toString());
+      cleanupAuthURLParams();
       
-      setExchangeState(token, {
-        state: 'completed_firebase_only',
+      return createFirebaseOnlyResult(
+        token,
         platform,
-        profileId: profile.userId || '',
-        timestamp: Date.now()
-      });
-      
-      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-      if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-        return {
-          success: true,
-          firebase: { success: true },
-          google: { success: false, error: 'User denied permission' },
-          showUpsellModal: true,
-          platform
-        };
-      } else {
-        return {
-          success: true,
-          firebase: { success: true },
-          google: { success: false, error: 'User denied permission' },
-          showSuccessModal: true,
-          platform
-        };
-      }
+        profile.userId || '',
+        { success: true },
+        { success: false, error: 'User denied permission' }
+      );
     } else {
       // User likely tapped back without completing auth
       console.log('🔙 User returned from auth without completing (likely tapped back)');
       
-      setExchangeState(token, {
-        state: 'completed_firebase_only',
+      return createFirebaseOnlyResult(
+        token,
         platform,
-        profileId: profile.userId || '',
-        timestamp: Date.now()
-      });
-      
-      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-      if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-        return {
-          success: true,
-          firebase: { success: true },
-          google: { success: false, error: 'User cancelled Google auth' },
-          showUpsellModal: true,
-          platform
-        };
-      } else {
-        return {
-          success: true,
-          firebase: { success: true },
-          google: { success: false, error: 'User cancelled Google auth' },
-          showSuccessModal: true,
-          platform
-        };
-      }
+        profile.userId || '',
+        { success: true },
+        { success: false, error: 'User cancelled Google auth' }
+      );
     }
   } else {
     console.log('🔍 Flow: Not returning from incremental auth, proceeding with normal flow');
@@ -356,30 +319,13 @@ export async function saveContactFlow(
         };
       } else {
         // Firebase saved, Google failed - iOS non-embedded shows upsell once ever
-        setExchangeState(token, {
-          state: 'completed_firebase_only',
+        return createFirebaseOnlyResult(
+          token,
           platform,
-          profileId: profile.userId || '',
-          timestamp: Date.now()
-        });
-        
-        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showUpsellModal: true,
-            platform
-          };
-        } else {
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showSuccessModal: true,
-            platform
-          };
-        }
+          profile.userId || '',
+          firebaseResult.firebase,
+          googleResult
+        );
       }
     }
 
@@ -424,31 +370,13 @@ export async function saveContactFlow(
         if (authResult.showUpsellModal) {
           console.log(`🚫 ${platform}: User closed popup or auth failed`);
           
-          setExchangeState(token, {
-            state: 'completed_firebase_only',
+          return createFirebaseOnlyResult(
+            token,
             platform,
-            profileId: profile.userId || '',
-            timestamp: Date.now()
-          });
-          
-          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-          if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: { success: false, error: 'User closed auth popup' },
-              showUpsellModal: true,
-              platform
-            };
-          } else {
-            return {
-              success: true,
-              firebase: firebaseResult.firebase,
-              google: { success: false, error: 'User closed auth popup' },
-              showSuccessModal: true,
-              platform
-            };
-          }
+            profile.userId || '',
+            firebaseResult.firebase,
+            { success: false, error: 'User closed auth popup' }
+          );
         } else {
           console.log(`🔍 ${platform}: Auth redirect completed, returning redirect result...`);
           // For redirects, the user will be taken to auth page
@@ -464,31 +392,13 @@ export async function saveContactFlow(
         console.log(`❌ ${platform}: Google Contacts save failed with non-permission error or platform doesn't support auth`);
         console.log(`ℹ️ ${platform}: Contact is saved to Firebase, just not Google Contacts`);
         
-        setExchangeState(token, {
-          state: 'completed_firebase_only',
+        return createFirebaseOnlyResult(
+          token,
           platform,
-          profileId: profile.userId || '',
-          timestamp: Date.now()
-        });
-        
-        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-        if (shouldShowUpsell(token, platform, iosNonEmbedded)) {
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showUpsellModal: true,
-            platform
-          };
-        } else {
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showSuccessModal: true,
-            platform
-          };
-        }
+          profile.userId || '',
+          firebaseResult.firebase,
+          googleResult
+        );
       }
     }
   } catch (error) {

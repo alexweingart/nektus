@@ -21,7 +21,6 @@ let clockSyncData: ClockSyncData | null = null;
 async function performSingleSync(): Promise<{ offset: number; rtt: number } | null> {
   try {
     // Record client timestamp when request is sent
-    const clientSendTime = Date.now();
     const t0 = performance.now();
     
     const response = await fetch('/api/system/sync-clock', {
@@ -50,7 +49,7 @@ async function performSingleSync(): Promise<{ offset: number; rtt: number } | nu
     const clockOffset = estimatedServerTimeWhenReceived - clientReceiveTime;
     
     return { offset: clockOffset, rtt: roundTripTime };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

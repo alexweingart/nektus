@@ -3,6 +3,7 @@
  */
 
 import type { UserProfile } from '@/types/profile';
+import { getFieldValue, generateSocialUrl } from '@/lib/utils/profileTransforms';
 
 interface GoogleContactsCreateResponse {
   success: boolean;
@@ -27,45 +28,49 @@ export async function createGoogleContact(
     const contactData = {
       names: [
         {
-          givenName: profile.name.split(' ')[0] || profile.name,
-          familyName: profile.name.split(' ').slice(1).join(' ') || '',
+          givenName: getFieldValue(profile.contactEntries, 'name').split(' ')[0] || getFieldValue(profile.contactEntries, 'name'),
+          familyName: getFieldValue(profile.contactEntries, 'name').split(' ').slice(1).join(' ') || '',
         }
       ],
       emailAddresses: (() => {
-        const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
-        return emailEntry?.email ? [
+        const emailEntry = profile.contactEntries?.find(e => e.fieldType === 'email');
+        return emailEntry?.value ? [
           {
-            value: emailEntry.email,
+            value: emailEntry.value,
             type: 'other'
           }
         ] : [];
       })(),
       phoneNumbers: (() => {
-        const phoneEntry = profile.contactChannels?.entries?.find(e => e.platform === 'phone');
-        return phoneEntry?.internationalPhone ? [
+        const phoneEntry = profile.contactEntries?.find(e => e.fieldType === 'phone');
+        return phoneEntry?.value ? [
           {
-            value: phoneEntry.internationalPhone,
+            value: phoneEntry.value,
             type: 'mobile'
           }
         ] : [];
       })(),
-      biographies: profile.bio ? [
+      biographies: getFieldValue(profile.contactEntries, 'bio') ? [
         {
-          value: profile.bio,
+          value: getFieldValue(profile.contactEntries, 'bio'),
           contentType: 'TEXT_PLAIN'
         }
       ] : [],
       urls: [] as Array<{ value: string; type: string }>
     };
 
-    // Add social media URLs from new array format
-    const socialEntries = profile.contactChannels?.entries || [];
+    // Add social media URLs from contactEntries
+    const socialEntries = profile.contactEntries || [];
     const socialPlatforms = ['instagram', 'linkedin', 'x', 'facebook', 'snapchat'];
     
     socialPlatforms.forEach(platform => {
-      const entry = socialEntries.find(e => e.platform === platform);
-      if (entry?.url) {
-        contactData.urls.push({ value: entry.url, type: 'other' });
+      const entry = socialEntries.find(e => e.fieldType === platform);
+      if (entry?.value) {
+        // Generate the URL for the social platform
+        const url = generateSocialUrl(platform, entry.value);
+        if (url) {
+          contactData.urls.push({ value: url, type: 'other' });
+        }
       }
     });
 

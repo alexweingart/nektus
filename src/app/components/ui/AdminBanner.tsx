@@ -33,7 +33,7 @@ export default function AdminBanner() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
         
-        const revokeBody: any = {
+        const revokeBody: Record<string, string | number> = {
           timestamp: new Date().getTime() // Prevent caching
         };
         
@@ -265,7 +265,7 @@ export default function AdminBanner() {
       console.error('Error deleting account:', err);
       setDeleteStatus('error');
     }
-  }, [session, closeAdminMode]);
+  }, [session, closeAdminMode, update]);
 
   if (!isAdminMode) {
     return null;

@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import type { Country } from '@/types/forms';
+
+// Country type for phone input components
+export interface Country {
+  name: string;
+  code: string;
+  flag: string;
+  dialCode: string;
+}
 
 // List of countries with their info
 const countries: Country[] = [
@@ -116,7 +123,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         }
       }
     }
-  }, [value]); // Remove phoneInput from dependency to prevent race conditions
+  }, [value, phoneInput]); // Include phoneInput in dependencies
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
@@ -168,7 +175,6 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   // Handle phone input change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    const cursorPosition = e.target.selectionStart || 0;
     
     // Get all digits from input
     const digits = input.replace(/\D/g, '');
@@ -292,7 +298,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [dropdownRef]);
+  }, []);
 
   // Auto-focus on the input when component mounts (if enabled)
   useEffect(() => {

@@ -2,13 +2,35 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
+import { ProfileSaveService } from '@/lib/services/client/profileSaveService';
 import { UserProfile } from '@/types/profile';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
 import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 // Types
+interface SessionProfileEntry {
+  platform: string;
+  section?: string;
+  userConfirmed?: boolean;
+  internationalPhone?: string;
+  nationalPhone?: string;
+}
+
+interface SessionProfile {
+  contactChannels?: {
+    entries?: SessionProfileEntry[];
+  };
+}
+
+interface VerificationResult {
+  platform: string;
+  verified: boolean;
+}
+
 type ProfileContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
@@ -21,14 +43,15 @@ type ProfileContextType = {
   // Streaming states for immediate UI feedback during generation
   streamingBio: string | null;
   streamingProfileImage: string | null;
-  streamingSocialContacts: UserProfile['contactChannels'] | null;
+  streamingSocialContacts: UserProfile['contactEntries'] | null;
+  streamingBackgroundImage: string | null;
 };
 
 // Create context
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 // Helper functions
-const createDefaultProfile = (session?: any): UserProfile => {
+const createDefaultProfile = (session?: Session): UserProfile => {
   if (!session) {
     throw new Error('Session required to create default profile');
   }
@@ -44,13 +67,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDeletingAccount] = useState(false);
   const [isNavigatingFromSetup, setIsNavigatingFromSetup] = useState(false);
   
   // Separate streaming state for immediate updates during generation
   const [streamingBio, setStreamingBio] = useState<string | null>(null);
   const [streamingProfileImage, setStreamingProfileImage] = useState<string | null>(null);
-  const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactChannels'] | null>(null);
+  const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactEntries'] | null>(null);
+  const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
   
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
@@ -93,11 +117,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
             
             // Android-specific: Ensure session is synced with loaded profile
-            if (isAndroid && existingProfile.contactChannels?.entries) {
-              const phoneEntry = existingProfile.contactChannels.entries.find(e => e.platform === 'phone');
-              const sessionPhoneEntry = (session?.profile?.contactChannels as any)?.entries?.find((e: any) => e.platform === 'phone');
+            if (isAndroid && existingProfile.contactEntries) {
+              const phoneEntry = existingProfile.contactEntries.find(e => e.fieldType === 'phone');
+              const sessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionProfileEntry) => e.platform === 'phone');
               
-              if (phoneEntry?.internationalPhone && sessionPhoneEntry?.internationalPhone !== phoneEntry.internationalPhone) {
+              if (phoneEntry?.value && sessionPhoneEntry?.internationalPhone !== phoneEntry.value) {
                 // Force session update to sync with Firebase data
                 try {
                   if (update) {
@@ -108,9 +132,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                             {
                               platform: 'phone',
                               section: phoneEntry.section,
-                              userConfirmed: phoneEntry.userConfirmed,
-                              internationalPhone: phoneEntry.internationalPhone,
-                              nationalPhone: phoneEntry.nationalPhone || ''
+                              userConfirmed: phoneEntry.confirmed,
+                              internationalPhone: phoneEntry.value,
+                              nationalPhone: phoneEntry.value || ''
                             }
                           ]
                         }
@@ -127,7 +151,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Only generate what's actually missing
             let needsGeneration = false;
             
-            if (!existingProfile.bio) {
+            const existingBio = getFieldValue(existingProfile.contactEntries, 'bio');
+            if (!existingBio) {
               console.log('[ProfileContext] Bio missing, will generate');
               needsGeneration = true;
             }
@@ -235,6 +260,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
     };
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus, session?.user?.id, update]);
 
 
@@ -243,11 +269,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) return;
     
-    const generations: Promise<any>[] = [];
-    let bioAndSocialGenerationPromise: Promise<any> | null = null;
+    const generations: Promise<unknown>[] = [];
+    let bioAndSocialGenerationPromise: Promise<{ bio: string; contactChannels: unknown }> | null = null;
     
     // Generate bio and social links together if not already triggered
-    if (!bioAndSocialGenerationTriggeredRef.current && (!profile?.bio || !profile?.contactChannels?.entries?.some(e => e.platform === 'facebook' && e.username))) {
+    const profileBio = getFieldValue(profile?.contactEntries, 'bio');
+    const hasFacebook = profile?.contactEntries?.some(e => e.fieldType === 'facebook' && e.value);
+    if (!bioAndSocialGenerationTriggeredRef.current && (!profileBio || !hasFacebook)) {
       bioAndSocialGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] Making unified bio and social API call');
 
@@ -268,17 +296,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setStreamingBio(data.bio);
             setStreamingSocialContacts(data.contactChannels);
             
-            // Update local data state immediately to prevent race conditions
-            if (profileRef.current) {
-              profileRef.current = { 
-                ...profileRef.current, 
-                bio: data.bio,
-                contactChannels: data.contactChannels
-              };
-            }
+            // Note: Data is already being set through streaming states above
+            // The bio and social data will be properly merged when profile is reloaded from Firebase
             
             return { bio: data.bio, contactChannels: data.contactChannels };
           }
+          // Return default values if data is missing
+          return { bio: '', contactChannels: [] };
         })
         .catch(error => {
           console.error('[ProfileContext] Bio and social generation failed:', error);
@@ -286,7 +310,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           throw error;
         });
       
-      generations.push(bioAndSocialGenerationPromise);
+      if (bioAndSocialGenerationPromise) {
+        generations.push(bioAndSocialGenerationPromise);
+      }
     }
 
     // Check if we need to generate a profile image
@@ -332,7 +358,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             try {
               const result = await bioAndSocialGenerationPromise;
               bioToUse = result?.bio;
-            } catch (error) {
+            } catch {
               // Bio and social generation failed, proceeding with profile image without bio
             }
           }
@@ -441,7 +467,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           .then(data => {
             if (data.imageUrl) {
               console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
-              // Background image will be handled by individual view components
+              // Update streaming state for immediate UI feedback
+              setStreamingBackgroundImage(data.imageUrl);
             }
           });
       })
@@ -466,6 +493,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           setStreamingBio(null);
           setStreamingProfileImage(null);
           setStreamingSocialContacts(null);
+          setStreamingBackgroundImage(null);
           setProfile(updatedProfile);
         }
       } catch (error) {
@@ -505,10 +533,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     savingRef.current = true;
 
     // Set saving state to prevent setup effects from running during form submission
-    const phoneEntry = data.contactChannels?.entries?.find(e => e.platform === 'phone');
+    const phoneEntry = data.contactEntries?.find(e => e.fieldType === 'phone');
     const wasFormSubmission = !options.directUpdate && 
-      phoneEntry?.internationalPhone && 
-      phoneEntry.internationalPhone.trim() !== '';
+      phoneEntry?.value && 
+      phoneEntry.value.trim() !== '';
     
     // Save operation starting
     if (wasFormSubmission) {
@@ -518,10 +546,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     let merged: UserProfile;
 
     try {
-      const current = profileRef.current || profile || createDefaultProfile(session);
-      merged = options.directUpdate 
-        ? { ...current, ...data, userId: session.user.id, lastUpdated: Date.now() }
-        : { ...mergeNonEmpty(current, data), userId: session.user.id, lastUpdated: Date.now() };
+      const current = profileRef.current || createDefaultProfile(session);
+      
+      // Use ProfileSaveService for core saving logic
+      const saveResult = await ProfileSaveService.saveProfile(
+        session.user.id,
+        current,
+        data,
+        options
+      );
+
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Save failed');
+      }
+
+      merged = saveResult.profile!;
 
       // Phone-based social media generation is now handled by verify-phone-socials API
       // after the profile is successfully saved (see phone save trigger below)
@@ -540,28 +579,28 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       } else {
         // However, if this is a background operation and the current profile state is stale (empty userId),
         // we should update it to prevent UI showing empty data during streaming
-        if (options.directUpdate && (!profile || !profile.userId) && merged.userId) {
+        if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
           setProfile(merged);
         }
       }
       
-      // Save to Firebase
-      try {
-        await ProfileService.saveProfile(merged);
+      // Update the ref with the latest saved data
+      profileRef.current = merged;
+      
+      // Update React state with the saved data to ensure UI reflects confirmed channels
+      if (skipReactUpdate) {
+        setProfile(merged);
+      }
         
-        // Update the ref with the latest saved data
-        profileRef.current = merged;
+        // Only trigger phone-based social generation if phone number was saved AND WhatsApp is blank
+        const mergedPhoneEntry = merged.contactEntries?.find(e => e.fieldType === 'phone');
+        const existingWhatsApp = merged.contactEntries?.find(e => 
+          e.fieldType === 'whatsapp' && e.value && e.value.trim() !== ''
+        );
         
-        // Update React state with the saved data to ensure UI reflects confirmed channels
-        if (skipReactUpdate) {
-          setProfile(merged);
-        }
-        
-        // Trigger phone-based social generation if phone number was saved
-        const mergedPhoneEntry = merged.contactChannels?.entries?.find(e => e.platform === 'phone');
-        if (wasFormSubmission && mergedPhoneEntry?.internationalPhone) {
-          const phoneNumber = mergedPhoneEntry.internationalPhone;
-          console.log('[ProfileContext] Phone saved, triggering phone-based social generation');
+        if (wasFormSubmission && mergedPhoneEntry?.value && !existingWhatsApp) {
+          const phoneNumber = mergedPhoneEntry.value;
+          console.log('[ProfileContext] Phone saved and WhatsApp empty, triggering WhatsApp generation');
           
           // Generate and verify WhatsApp profile asynchronously (don't block)
           fetch('/api/generate-profile/verify-phone-socials', {
@@ -574,7 +613,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           }).then(async response => {
             if (response.ok) {
               const data = await response.json();
-              const whatsappResult = data.results?.find((r: any) => r.platform === 'whatsapp');
+              const whatsappResult = data.results?.find((r: VerificationResult) => r.platform === 'whatsapp');
               
               if (whatsappResult && whatsappResult.verified) {
                 console.log('[ProfileContext] WhatsApp profile verified:', {
@@ -590,7 +629,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 };
                 
                 // Update WhatsApp profile in Firebase
-                const phoneBasedUpdate: any = {};
+                const phoneBasedUpdate: Record<string, unknown> = {};
                 phoneBasedUpdate['contactChannels.whatsapp'] = whatsappProfile;
                 
                 // Save phone-based socials to Firebase and update UI
@@ -598,18 +637,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                   // Get fresh profile data to avoid overwriting concurrent AI social updates
                   const freshProfile = profileRef.current;
                   // Use fresh profile data or fallback to merged, then update with new phone-based socials
-                  const baseEntries = freshProfile?.contactChannels?.entries || merged.contactChannels?.entries || [];
+                  const baseEntries = freshProfile?.contactEntries || merged.contactEntries || [];
                   const updatedEntries = [...baseEntries];
                   
                   // Add or update WhatsApp entry if generated
                   if (whatsappProfile) {
-                    const whatsappIndex = updatedEntries.findIndex(e => e.platform === 'whatsapp');
+                    const whatsappIndex = updatedEntries.findIndex(e => e.fieldType === 'whatsapp');
                     const whatsappEntry = {
-                      platform: 'whatsapp' as const,
+                      fieldType: 'whatsapp' as const,
+                      value: whatsappProfile.username,
                       section: 'personal' as const,
-                      userConfirmed: false, // Phone-based generation is unconfirmed
-                      username: whatsappProfile.username,
-                      url: whatsappProfile.url
+                      order: updatedEntries.length,
+                      isVisible: true,
+                      confirmed: false // Phone-based generation is unconfirmed
                     };
                     
                     if (whatsappIndex >= 0) {
@@ -619,23 +659,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                     }
                   }
                   
-                  const updatedContactChannels = { entries: updatedEntries };
-                  
                   // Update both Firebase and React state for immediate UI feedback
-                  silentSaveToFirebase({ contactChannels: updatedContactChannels }).then(() => {
+                  silentSaveToFirebase({ contactEntries: updatedEntries }, session, profileRef).then(() => {
                     console.log('[ProfileContext] Phone-based socials saved to Firebase');
                     
                     // Update React state so UI shows the new social icons immediately
                     if (profileRef.current) {
                       const updatedProfile = {
                         ...profileRef.current,
-                        contactChannels: updatedContactChannels
+                        contactEntries: updatedEntries
                       };
                       profileRef.current = updatedProfile;
                       setProfile(updatedProfile);
                       
                       // Also update streaming state for immediate feedback
-                      setStreamingSocialContacts(updatedContactChannels);
+                      setStreamingSocialContacts(updatedEntries);
                     }
                   }).catch(error => {
                     console.error('[ProfileContext] Failed to save phone-based socials:', error);
@@ -654,12 +692,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         
         // Update session with new phone info ONLY for form submissions
         // This prevents session update cascades that cause profile reloads
-        const currentSessionPhoneEntry = session?.profile?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
-        const newPhoneEntry = merged.contactChannels?.entries?.find(e => e.platform === 'phone');
+        const currentSessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionProfileEntry) => e.platform === 'phone');
+        const newPhoneEntry = merged.contactEntries?.find(e => e.fieldType === 'phone');
         
         const shouldUpdateSession = wasFormSubmission && 
-                                  newPhoneEntry?.internationalPhone &&
-                                  currentSessionPhoneEntry?.internationalPhone !== newPhoneEntry.internationalPhone; // Check if phone actually changed
+                                  newPhoneEntry?.value &&
+                                  currentSessionPhoneEntry?.internationalPhone !== newPhoneEntry.value; // Check if phone actually changed
                                   
         const currentSessionBg = session?.user?.backgroundImage;
         const newBg = merged.backgroundImage;
@@ -667,7 +705,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
 
         // Build session update payload
-        let sessionUpdateData: any = {};
+        const sessionUpdateData: Record<string, unknown> = {};
 
         // Include phone data if phone changed via form submission
         if (shouldUpdateSession && newPhoneEntry) {
@@ -677,9 +715,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 {
                   platform: 'phone',
                   section: newPhoneEntry.section || 'universal',
-                  userConfirmed: newPhoneEntry.userConfirmed || false,
-                  internationalPhone: newPhoneEntry.internationalPhone,
-                  nationalPhone: newPhoneEntry.nationalPhone || ''
+                  userConfirmed: newPhoneEntry.confirmed || false,
+                  internationalPhone: newPhoneEntry.value,
+                  nationalPhone: newPhoneEntry.value || ''
                 }
               ]
             }
@@ -695,7 +733,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (Object.keys(sessionUpdateData).length && update) {
           try {
             // Cast to any to allow optional options param not present in older typings
-            const sessionUpdatePromise = (update as any)(sessionUpdateData, { broadcast: false });
+            const sessionUpdatePromise = (update as (data: Record<string, unknown>, options?: { broadcast?: boolean }) => Promise<Session | null>)(sessionUpdateData, { broadcast: false });
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Session update timeout')), 10000)
             );
@@ -706,16 +744,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Non-fatal
           }
         }
-      } catch (error) {
-        console.warn('[ProfileContext] Could not save to Firebase:', error);
-        if (isAndroid) {
-          console.error('[ProfileContext] 🤖 Android - Firebase save failed:', error);
-        }
-        // Re-throw the error so the caller knows the save failed
-        throw error;
-      }
     } catch (error) {
       console.error('[ProfileContext] Error saving profile:', error);
+      if (isAndroid) {
+        console.error('[ProfileContext] 🤖 Android - Firebase save failed:', error);
+      }
       throw error;
     } finally {
       // Always release the saving lock and reset saving state
@@ -726,10 +759,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
     
     return merged;
-  }, [session]);
+  }, [session, update]);
 
   // Silent save function for background operations - bypasses all React state management
-  const silentSaveToFirebase = useCallback(async (data: Partial<UserProfile>) => {
+  const silentSaveToFirebase = async (
+    data: Partial<UserProfile>,
+    session: Session | null,
+    profileRef: React.MutableRefObject<UserProfile | null>
+  ) => {
     try {
       if (!session?.user?.id) return;
       
@@ -739,29 +776,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // CRITICAL: Get fresh profile data from Firebase before saving to prevent overwrites
       // This ensures we have the latest bio and other data if they were generated in parallel
       const freshProfile = await ProfileService.getProfile(session.user.id);
-      if (!freshProfile) {
-        console.error('[ProfileContext] Fresh profile not found, falling back to local data');
-        const merged = { ...current, ...data, userId: session.user.id };
-        profileRef.current = merged;
-        await ProfileService.saveProfile(merged);
-        return;
+      const baseProfile = freshProfile || current;
+      
+      // Use ProfileSaveService for consistent saving logic
+      const saveResult = await ProfileSaveService.saveProfile(
+        session.user.id,
+        baseProfile,
+        data,
+        { directUpdate: true }
+      );
+      
+      if (saveResult.success && saveResult.profile) {
+        profileRef.current = saveResult.profile; // Update ref only, no React state
+      } else {
+        console.error('[ProfileContext] Silent save failed:', saveResult.error);
       }
-      
-      // Build merged profile preserving fresh Firebase data
-      const merged = { 
-        ...freshProfile, // Start with fresh Firebase data
-        ...data, // Apply the specific updates we want to make
-        userId: session.user.id,
-        lastUpdated: Date.now()
-      };
-      
-      profileRef.current = merged; // Update ref only, no React state
-      
-      await ProfileService.saveProfile(merged);
     } catch (error) {
       console.error('[ProfileContext] Silent save failed:', error);
     }
-  }, [session]);
+  };
 
   // Get the latest profile (for external use)
   const getLatestProfile = useCallback((): UserProfile | null => {
@@ -774,21 +807,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Make profile available globally for easy debugging
   if (typeof window !== 'undefined') {
-    (window as any).getProfile = () => {
+    (window as unknown as { getProfile: () => UserProfile | null }).getProfile = () => {
       return profileRef.current;
     };
     
     // Helper to load vCard testing functions
-    (window as any).loadVCardTests = async () => {
+    (window as unknown as { loadVCardTests: () => Promise<boolean> }).loadVCardTests = async () => {
       try {
         const vCardService = await import('@/lib/utils/vCardGeneration');
-        (window as any).generateVCard = vCardService.generateVCard;
-        (window as any).generateVCard30 = vCardService.generateVCard30;
-        (window as any).generateSimpleVCard = vCardService.generateSimpleVCard;
-        (window as any).createVCardFile = vCardService.createVCardFile;
-        (window as any).downloadVCard = vCardService.downloadVCard;
-        (window as any).saveVCard = vCardService.saveVCard;
-        (window as any).displayVCardInlineForIOS = vCardService.displayVCardInlineForIOS;
+        const windowWithVCard = window as unknown as {
+          generateVCard: typeof vCardService.generateVCard;
+          generateVCard30: typeof vCardService.generateVCard30;
+          generateSimpleVCard: typeof vCardService.generateSimpleVCard;
+          createVCardFile: typeof vCardService.createVCardFile;
+          downloadVCard: typeof vCardService.downloadVCard;
+          saveVCard: typeof vCardService.saveVCard;
+          displayVCardInlineForIOS: typeof vCardService.displayVCardInlineForIOS;
+        };
+        windowWithVCard.generateVCard = vCardService.generateVCard;
+        windowWithVCard.generateVCard30 = vCardService.generateVCard30;
+        windowWithVCard.generateSimpleVCard = vCardService.generateSimpleVCard;
+        windowWithVCard.createVCardFile = vCardService.createVCardFile;
+        windowWithVCard.downloadVCard = vCardService.downloadVCard;
+        windowWithVCard.saveVCard = vCardService.saveVCard;
+        windowWithVCard.displayVCardInlineForIOS = vCardService.displayVCardInlineForIOS;
         console.log('✅ vCard testing functions loaded! Available functions:');
         console.log('- generateVCard(profile)');
         console.log('- generateVCard30(profile)');
@@ -818,7 +860,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setNavigatingFromSetup,
         streamingBio,
         streamingProfileImage,
-        streamingSocialContacts
+        streamingSocialContacts,
+        streamingBackgroundImage
       }}
     >
       {children}
@@ -837,57 +880,9 @@ export function useProfile() {
 
 // Helper function to check if profile has a valid phone number
 export function profileHasPhone(profile: UserProfile | null): boolean {
-  if (!profile?.contactChannels?.entries) return false;
+  if (!profile?.contactEntries) return false;
   
-  const phoneEntry = profile.contactChannels.entries.find(e => e.platform === 'phone');
-  return !!(phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '');
+  const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
+  return !!(phoneEntry?.value && phoneEntry.value.trim() !== '');
 }
 
-// Helper function to merge objects deeply
-function mergeNonEmpty<T extends object>(target: T, source: Partial<T>): T {
-  const result = { ...target };
-  
-  for (const key in source) {
-    if (source[key] !== undefined && source[key] !== null) {
-      // Special handling for contactChannels to merge entries array properly
-      if (key === 'contactChannels' && typeof source[key] === 'object' && source[key] !== null) {
-        const targetChannels = (result[key] as any)?.entries || [];
-        const sourceChannels = (source[key] as any)?.entries || [];
-        
-        // Create a copy of target entries to avoid mutation
-        const mergedEntries = [...targetChannels];
-        
-        // Merge entries by platform - preserve existing entries and add/update new ones
-        for (const sourceEntry of sourceChannels) {
-          const existingIndex = mergedEntries.findIndex(
-            (entry: any) => entry.platform === sourceEntry.platform
-          );
-          
-          if (existingIndex >= 0) {
-            // Merge the existing entry with new data, preserving existing fields
-            mergedEntries[existingIndex] = {
-              ...mergedEntries[existingIndex],
-              ...sourceEntry
-            };
-          } else {
-            // Add new entry
-            mergedEntries.push(sourceEntry);
-          }
-        }
-        
-        result[key] = {
-          entries: mergedEntries
-        } as T[Extract<keyof T, string>];
-      } else if (typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = {
-          ...(result[key] as object),
-          ...(source[key] as object)
-        } as T[Extract<keyof T, string>];
-      } else {
-        result[key] = source[key] as T[Extract<keyof T, string>];
-      }
-    }
-  }
-  
-  return result;
-}

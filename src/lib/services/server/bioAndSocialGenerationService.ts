@@ -1,5 +1,19 @@
 import { getOpenAIClient } from '@/lib/openai/client';
-import { UserProfile, ContactChannels, SocialProfile, BioAndSocialGenerationResponse, AIBioAndSocialResult } from '@/types/profile';
+import { UserProfile, BioAndSocialGenerationResponse, AIBioAndSocialResult, ContactEntry } from '@/types/profile';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
+
+// Internal interface for social profile verification - used within this service only
+interface SocialProfile {
+  username: string;
+  url: string;
+  userConfirmed: boolean;
+  automatedVerification: boolean;
+  discoveryMethod: 'ai' | 'email-guess' | 'phone-guess' | 'manual';
+  fieldSection: {
+    section: 'personal' | 'work' | 'hidden';
+    order: number;
+  };
+}
 
 export class BioAndSocialGenerationService {
   /**
@@ -7,24 +21,32 @@ export class BioAndSocialGenerationService {
    */
   static async generateBioAndSocialLinks(profile: UserProfile): Promise<BioAndSocialGenerationResponse> {
     try {
-      console.log(`[BioAndSocialGeneration] Starting unified generation for ${profile.name}`);
+      const userName = getFieldValue(profile.contactEntries, 'name');
+      console.log(`[BioAndSocialGeneration] [DEBUG] Starting unified generation for "${userName}"`);
       
       // Extract email username and phone for fallbacks
-      const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
-      const phoneEntry = profile.contactChannels?.entries?.find(e => e.platform === 'phone');
-      const emailUsername = this.extractUsernameFromEmail(emailEntry?.email || '');
-      const phoneNumber = phoneEntry?.internationalPhone;
+      const emailEntry = profile.contactEntries?.find(e => e.fieldType === 'email');
+      const emailUsername = this.extractUsernameFromEmail(emailEntry?.value || '');
+      
+      console.log(`[BioAndSocialGeneration] [DEBUG] Profile data extracted:`, {
+        name: userName,
+        email: emailEntry?.value || 'none',
+        emailUsername,
+        hasPhone: false
+      });
       
       // Single AI call for both bio and social discovery
       let aiResult: AIBioAndSocialResult;
       try {
+        console.log(`[BioAndSocialGeneration] [DEBUG] About to call discoverSocialProfilesAndBio...`);
         aiResult = await this.discoverSocialProfilesAndBio(
-          profile.name, 
-          emailEntry?.email || ''
+          userName, 
+          emailEntry?.value || ''
         );
-        console.log(`[BioAndSocialGeneration] AI discovery successful for ${profile.name}`);
+        console.log(`[BioAndSocialGeneration] [DEBUG] AI discovery successful for ${userName}`);
       } catch (error) {
-        console.log(`[BioAndSocialGeneration] AI discovery failed for ${profile.name}, using fallbacks`);
+        console.error(`[BioAndSocialGeneration] [DEBUG] AI discovery failed for ${userName}:`, error);
+        console.log(`[BioAndSocialGeneration] AI discovery failed for ${userName}, using fallbacks`);
         aiResult = {
           bio: `No profile returned :(`,
           socialProfiles: {}
@@ -41,8 +63,8 @@ export class BioAndSocialGenerationService {
       const socialProfilesDiscovered = Object.values(aiResult.socialProfiles).filter(p => p !== null && p !== undefined).length;
       const socialProfilesVerified = Object.values(verifiedProfiles).filter(p => p?.automatedVerification === true).length;
       
-      // Build contact channels with verified social profiles using new array format
-      const existingEntries = profile.contactChannels?.entries || [];
+      // Build contact entries with verified social profiles
+      const existingEntries = profile.contactEntries || [];
       const newEntries = [...existingEntries];
       
       // Add or update verified AI-discoverable social profiles
@@ -50,13 +72,16 @@ export class BioAndSocialGenerationService {
       socialPlatforms.forEach(platform => {
         const verifiedProfile = verifiedProfiles[platform];
         if (verifiedProfile && verifiedProfile.username) {
-          const existingIndex = newEntries.findIndex(e => e.platform === platform);
-          const entry = {
-            platform,
+          const existingIndex = newEntries.findIndex(e => e.fieldType === platform);
+          const entry: ContactEntry = {
+            fieldType: platform,
+            value: verifiedProfile.username,
             section: platform === 'linkedin' ? 'work' as const : 'personal' as const,
-            userConfirmed: false, // AI-generated profiles are unconfirmed
-            username: verifiedProfile.username,
-            url: verifiedProfile.url
+            order: this.getDefaultOrder(platform),
+            isVisible: true,
+            confirmed: false, // AI-generated profiles are unconfirmed
+            automatedVerification: verifiedProfile.automatedVerification,
+            discoveryMethod: verifiedProfile.discoveryMethod
           };
           
           if (existingIndex >= 0) {
@@ -67,11 +92,9 @@ export class BioAndSocialGenerationService {
         }
       });
       
-      const contactChannels: ContactChannels = {
-        entries: newEntries
-      };
+      const contactEntries = newEntries;
       
-      console.log(`[BioAndSocialGeneration] Generation completed for ${profile.name}`, {
+      console.log(`[BioAndSocialGeneration] Generation completed for ${getFieldValue(profile.contactEntries, 'name')}`, {
         bioLength: aiResult.bio.length,
         socialProfilesDiscovered,
         socialProfilesVerified
@@ -79,21 +102,21 @@ export class BioAndSocialGenerationService {
       
       return {
         bio: aiResult.bio,
-        contactChannels,
+        contactEntries,
         success: true,
         socialProfilesDiscovered,
         socialProfilesVerified
       };
     } catch (error) {
-      console.error(`[BioAndSocialGeneration] Error generating content for ${profile.name}:`, error);
+      console.error(`[BioAndSocialGeneration] Error generating content for ${getFieldValue(profile.contactEntries, 'name')}:`, error);
       
-      // Return basic email-based fallback using new array format
-      const emailEntry = profile.contactChannels?.entries?.find(e => e.platform === 'email');
-      const emailUsername = this.extractUsernameFromEmail(emailEntry?.email || '');
+      // Return basic email-based fallback
+      const emailEntry = profile.contactEntries?.find(e => e.fieldType === 'email');
+      const emailUsername = this.extractUsernameFromEmail(emailEntry?.value || '');
       const fallbackProfiles = this.generateHeuristicProfiles(emailUsername);
       
       // Build fallback entries array with existing entries plus fallback social profiles
-      const existingEntries = profile.contactChannels?.entries || [];
+      const existingEntries = profile.contactEntries || [];
       const fallbackEntries = [...existingEntries];
       
       // Add fallback social profiles
@@ -101,13 +124,16 @@ export class BioAndSocialGenerationService {
       socialPlatforms.forEach(platform => {
         const fallbackProfile = fallbackProfiles[platform];
         if (fallbackProfile && fallbackProfile.username) {
-          const existingIndex = fallbackEntries.findIndex(e => e.platform === platform);
-          const entry = {
-            platform,
+          const existingIndex = fallbackEntries.findIndex(e => e.fieldType === platform);
+          const entry: ContactEntry = {
+            fieldType: platform,
+            value: fallbackProfile.username,
             section: platform === 'linkedin' ? 'work' as const : 'personal' as const,
-            userConfirmed: false,
-            username: fallbackProfile.username,
-            url: fallbackProfile.url
+            order: this.getDefaultOrder(platform),
+            isVisible: true,
+            confirmed: false,
+            automatedVerification: fallbackProfile.automatedVerification,
+            discoveryMethod: fallbackProfile.discoveryMethod
           };
           
           if (existingIndex >= 0) {
@@ -120,9 +146,7 @@ export class BioAndSocialGenerationService {
       
       return {
         bio: `No bio returned.`,
-        contactChannels: {
-          entries: fallbackEntries
-        },
+        contactEntries: fallbackEntries,
         success: false,
         socialProfilesDiscovered: 0,
         socialProfilesVerified: 0
@@ -134,22 +158,21 @@ export class BioAndSocialGenerationService {
    * Single AI call to discover both bio and social media profiles
    */
   private static async discoverSocialProfilesAndBio(name: string, email: string): Promise<AIBioAndSocialResult> {
+    console.log(`[BioAndSocialGeneration] [DEBUG] Starting discoverSocialProfilesAndBio for name="${name}", email="${email}"`);
+    
     const openai = getOpenAIClient();
+    console.log(`[BioAndSocialGeneration] [DEBUG] OpenAI client initialized successfully`);
     
-    // Create enhanced prompt with web search instructions (based on old bio generation)
-    const systemMessage = `You are a research assistant and excellent copywriter that finds social profiles and writes personalized bios. 
-    You have access to web search. Use it to find current, accurate information. Return only valid JSON objects.`;
-    
-    const userPrompt = `For "${name}" (email: ${email}), find their real social media profiles and create a personalized bio.
+    // Optimized prompt for GPT-5-mini with limited web searches for speed
+    const prompt = `Research "${name}" (email: ${email}) using web search to find their real social media profiles and create a personalized bio.
 
-SEARCH STRATEGY:
-1. Start with a web search for "${name} ${email}" to get a sense of who they are
-2. Search for each platform specifically: "${name} ${email} LinkedIn", "${name} ${email} Instagram", etc.
-3. Try direct URL checks:
-   - facebook.com/${email.split('@')[0]}
-   - instagram.com/${email.split('@')[0]}
-   - linkedin.com/in/${email.split('@')[0]}
-   - x.com/${email.split('@')[0]}
+SEARCH STRATEGY (EXACTLY 6 SEARCHES):
+1. ONE search for "${name} ${email}" to understand who they are
+2. ONE search for "${email.split('@')[0]} social media" to find profiles
+3. ONE search for "${name} Instagram" to find Instagram profile
+4. ONE search for "${name} X Twitter" to find X/Twitter profile
+5. ONE search for "${name} Facebook" to find Facebook profile
+6. ONE search for "${name} LinkedIn" to find LinkedIn profile
 
 CRITICAL USERNAME RULES:
 ❌ NEVER invent, guess, or create usernames that don't appear in your search results
@@ -157,14 +180,14 @@ CRITICAL USERNAME RULES:
 ❌ If you cannot find a real profile URL in your search results, return null
 
 ✅ ONLY return usernames that you found in actual URLs from web search
-✅ *IMPORTANT* If you find multiple profiles for the same person, ALWAYS prioritize the one where the username is "${email.split('@')[0]}" (the email prefix) over any other email usernames
+✅ *IMPORTANT* If you find multiple profiles for the same person, ALWAYS prioritize the one where the username is "${email.split('@')[0]}" (the email prefix) over any other usernames
 ✅ Names must match reasonably (nicknames acceptable, but be cautious)
 
 MANDATORY VERIFICATION STEP:
 Before returning ANY username, you MUST verify each URL actually works by checking it with web search.
 For each platform where you found a username:
 1. Search for the exact URL (e.g., "site:instagram.com/username" or direct URL check)
-2. If the URL returns a 404, doesn't exist,  shows "user not found", or shows "Sorry, this page isn't available", set that platform to null
+2. If the URL returns a 404, doesn't exist, shows "user not found", or shows "Sorry, this page isn't available", set that platform to null
 3. Only return usernames for URLs that actually exist and belong to the right person; 
 it's better to return null than a fake/non-existent username
 
@@ -176,108 +199,109 @@ PLATFORM EXTRACTION RULES:
 
 Bio Creation:
 - Generate a hyper-personalized bio (max 14 words, exclude their first/last name)
-- Research their background, interests, and professional info online
-- Prioritize recently updated information / websites, specifically from the 4 social networks; only incorporate other sources if you feel you don't have enough information.`;
+- Use information from your limited searches efficiently
+- PRIORITIZE SPEED: Don't over-research, use the first good results you find
+
+Return your findings as JSON with this exact structure:
+{
+  "bio": "personalized bio text here",
+  "socialProfiles": {
+    "facebook": "username_or_null",
+    "instagram": "username_or_null", 
+    "linkedin": "username_or_null",
+    "x": "username_or_null"
+  }
+}`;
 
     try {
-      // Use the responses API with web search and structured text format
+      console.log(`[BioAndSocialGeneration] [DEBUG] About to call OpenAI Responses API with prompt length: ${prompt.length}`);
+      console.log(`[BioAndSocialGeneration] [DEBUG] API call parameters:`, {
+        model: 'gpt-5-mini',
+        promptLength: prompt.length,
+        tools: ['web_search'],
+        max_output_tokens: 8000,
+        max_tool_calls: 6
+      });
+      
+      // Use GPT-5-mini with Responses API (GPT-5-nano has privacy restrictions, GPT-5-mini works perfectly)
       const response = await openai.responses.create({
-        model: 'gpt-4.1',
-        input: [
-          { role: "system" as const, content: systemMessage },
-          { role: "user" as const, content: userPrompt }
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "bio_and_social_response",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                bio: {
-                  type: "string",
-                  description: "Personalized bio (max 14 words, no name mentioned)"
-                },
-                socialProfiles: {
-                  type: "object",
-                  properties: {
-                    facebook: {
-                      type: ["string", "null"],
-                      description: "Facebook username or null"
-                    },
-                    instagram: {
-                      type: ["string", "null"], 
-                      description: "Instagram handle or null"
-                    },
-                    linkedin: {
-                      type: ["string", "null"],
-                      description: "LinkedIn slug or null"
-                    },
-                    x: {
-                      type: ["string", "null"],
-                      description: "X/Twitter handle or null"
-                    }
-                  },
-                  required: ["facebook", "instagram", "linkedin", "x"],
-                  additionalProperties: false
-                }
-              },
-              required: ["bio", "socialProfiles"],
-              additionalProperties: false
-            }
-          }
-        },
+        model: 'gpt-5-mini',
+        input: prompt,
         tools: [
           {
-            type: 'web_search_preview' as const,
-            user_location: {
-              type: 'approximate',
-              country: 'US',
-            },
-            search_context_size: 'medium'
+            type: 'web_search'
           }
         ],
-        temperature: 0.5,
-        max_output_tokens: 500,
-        top_p: 1,
+        max_output_tokens: 8000,
+        max_tool_calls: 6, // Limit to exactly 6 web searches for speed and cost control
         store: true
-      } as any);
+      });
       
-      console.log(`[BioAndSocialGeneration] AI discovery response:`, response);
+      console.log(`[BioAndSocialGeneration] [DEBUG] OpenAI API call completed successfully`);
+      console.log(`[BioAndSocialGeneration] GPT-5 discovery response:`, JSON.stringify(response, null, 2));
 
-      // Extract the generated text with multiple fallbacks (from old bio generation)
-      const anyResponse: any = response;
-      let generatedContent: string = '';
-
-      // Common field
-      if (anyResponse.generated_text) {
-        generatedContent = (anyResponse.generated_text as string).trim();
+      // Check if response is incomplete due to token limits
+      const anyResponse: { status?: string; incomplete_details?: { reason?: string }; output?: unknown; generated_text?: string } = response;
+      if (anyResponse.status === 'incomplete') {
+        console.error(`[BioAndSocialGeneration] [DEBUG] Response incomplete. Reason:`, anyResponse.incomplete_details?.reason);
+        throw new Error(`GPT-5 response incomplete: ${anyResponse.incomplete_details?.reason || 'unknown reason'}`);
       }
 
-      // Our custom type path
-      if (!generatedContent && anyResponse.output?.text) {
-        generatedContent = (anyResponse.output.text as string).trim();
-      }
+      // Extract JSON from 2025 Responses API - response structure is output[1].content[0].text
+      let result: AIBioAndSocialResult;
 
-      // Fallback: responses API may return an array under output
-      if (!generatedContent && Array.isArray(anyResponse.output)) {
-        const assistantItem = anyResponse.output.find((item: any) => item.role === 'assistant');
-        if (assistantItem && Array.isArray(assistantItem.content) && assistantItem.content.length > 0) {
-          const firstContent = assistantItem.content[0];
-          if (firstContent.text) {
-            generatedContent = (firstContent.text as string).trim();
+      console.log(`[BioAndSocialGeneration] [DEBUG] Starting response parsing...`);
+      console.log(`[BioAndSocialGeneration] [DEBUG] Response structure check:`, {
+        hasOutput: !!anyResponse.output,
+        outputType: Array.isArray(anyResponse.output) ? 'array' : typeof anyResponse.output,
+        outputLength: Array.isArray(anyResponse.output) ? anyResponse.output.length : 'n/a',
+        status: anyResponse.status
+      });
+
+      // 2025 Responses API: Text content is in output array -> message -> content -> text
+      if (anyResponse.output && Array.isArray(anyResponse.output)) {
+        console.log(`[BioAndSocialGeneration] [DEBUG] Found output array with ${anyResponse.output.length} items`);
+        
+        // Look for message type output (usually index 1 after reasoning)
+        const messageOutput = anyResponse.output.find((item: { type?: string; content?: Array<{ text?: string }> }) => item.type === 'message');
+        console.log(`[BioAndSocialGeneration] [DEBUG] Message output found:`, !!messageOutput);
+        
+        if (messageOutput?.content?.[0]?.text) {
+          console.log(`[BioAndSocialGeneration] [DEBUG] Raw response text:`, messageOutput.content[0].text);
+          try {
+            result = JSON.parse(messageOutput.content[0].text.trim());
+            console.log(`[BioAndSocialGeneration] [DEBUG] Successfully parsed JSON result:`, result);
+          } catch (parseError) {
+            console.error('[BioAndSocialGeneration] [DEBUG] Failed to parse JSON from message content:', parseError);
+            console.error('[BioAndSocialGeneration] [DEBUG] Raw text that failed to parse:', messageOutput.content[0].text);
+            throw new Error('Invalid JSON response from GPT-5');
           }
+        } else {
+          console.error('[BioAndSocialGeneration] [DEBUG] No message content found. Message output structure:', messageOutput);
+          throw new Error('No message content found in GPT-5 response');
         }
       }
+      // Fallback: Direct JSON in output field (for schema-validated responses)
+      else if (anyResponse.output && typeof anyResponse.output === 'object' && !Array.isArray(anyResponse.output)) {
+        console.log(`[BioAndSocialGeneration] [DEBUG] Using direct output object`);
+        result = anyResponse.output as unknown as AIBioAndSocialResult;
+      }
+      // Legacy fallback for older API responses
+      else if (anyResponse.generated_text) {
+        console.log(`[BioAndSocialGeneration] [DEBUG] Using legacy generated_text fallback`);
+        try {
+          result = JSON.parse(anyResponse.generated_text.trim());
+        } catch (parseError) {
+          console.error('[BioAndSocialGeneration] Failed to parse JSON from generated_text:', parseError);
+          throw new Error('Invalid JSON response from GPT-5');
+        }
+      }
+      else {
+        console.error('[BioAndSocialGeneration] [DEBUG] No valid output format found in response');
+        throw new Error('No valid output from GPT-5 response');
+      }
       
-
-      if (!generatedContent) throw new Error('No content from AI response');
-      
-      console.log(`[BioAndSocialGeneration] Generated content to parse:`, generatedContent);
-      
-      // Parse JSON response (should be clean JSON now with structured format)
-      const result = JSON.parse(generatedContent);
+      console.log(`[BioAndSocialGeneration] Parsed result:`, result);
       
       // Validate the response structure
       if (!result.bio || !result.socialProfiles) {
@@ -286,12 +310,18 @@ Bio Creation:
       
       console.log(`[BioAndSocialGeneration] AI discovery completed for ${name}`, {
         bioLength: result.bio.length,
-        socialProfilesFound: Object.values(result.socialProfiles).filter(p => p !== null).length
+        socialProfilesFound: result.socialProfiles ? Object.values(result.socialProfiles).filter(p => p !== null).length : 0
       });
       
-      return result;
+      return result as AIBioAndSocialResult;
           } catch (error) {
-        console.error('[BioAndSocialGeneration] AI Bio & Links failed:', error);
+        console.error('[BioAndSocialGeneration] [DEBUG] AI Bio & Links failed with error:', error);
+        console.error('[BioAndSocialGeneration] [DEBUG] Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : 'No stack trace',
+          type: typeof error,
+          errorObject: error
+        });
         throw error;
       }
   }

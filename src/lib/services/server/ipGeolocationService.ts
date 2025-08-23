@@ -17,7 +17,7 @@ interface IPLocationData {
   loc?: string; // "lat,lng"
 }
 
-interface ProcessedLocation {
+export interface ProcessedLocation {
   ip: string;
   city?: string;
   state?: string;

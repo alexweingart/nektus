@@ -7,16 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import type { ContactExchangeRequest, ContactExchangeResponse } from '@/types/contactExchange';
+import type { UserProfile } from '@/types/profile';
 import { 
   checkRateLimit,
-  storePendingExchange,
-  findMatchingExchange,
   atomicExchangeAndMatch,
-  storeExchangeMatch,
-  removePendingExchange,
-  cleanupUserExchanges
+  storeExchangeMatch
 } from '@/lib/redis/client';
 import { getRedisTime } from '@/lib/services/server/redisTimeService';
+import { getProfile } from '@/lib/firebase/adminConfig';
 
 function getClientIP(request: NextRequest): string {
   // Get IP address for matching
@@ -34,14 +32,6 @@ function getClientIP(request: NextRequest): string {
   return '127.0.0.1';
 }
 
-function getIPBlock(ip: string): string {
-  // Group by /24 subnet for local matching
-  const parts = ip.split('.');
-  if (parts.length === 4) {
-    return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
-  }
-  return ip;
-}
 
 function generateExchangeToken(): string {
   // Generate a secure random token
@@ -133,24 +123,31 @@ export async function POST(request: NextRequest) {
       confidence: locationData.confidence
     });
 
+    // Get user profile from Firebase
+    const userProfile = await getProfile(session.user.id);
+    if (!userProfile) {
+      return NextResponse.json(
+        { success: false, message: 'User profile not found' },
+        { status: 404 }
+      );
+    }
+
     // Prepare exchange data
-    const ipBlock = getIPBlock(clientIP);
     const exchangeData = {
-      userId: session.user.id, // Use the actual user ID, not email
-      userEmail: session.user.email, // Keep email for logging
+      userId: session.user.id,
+      profile: userProfile as unknown as UserProfile,
       timestamp: exchangeRequest.ts,
-      magnitude: exchangeRequest.mag,
-      vector: exchangeRequest.vector,
+      location: locationData,
       rtt: exchangeRequest.rtt,
-      ipBlock,
-      location: locationData, // Add location data
-      sharingCategory: exchangeRequest.sharingCategory || 'All' // Store the selected sharing category
+      mag: exchangeRequest.mag,
+      vector: exchangeRequest.vector,
+      sessionId: exchangeRequest.session,
+      sharingCategory: exchangeRequest.sharingCategory || 'All'
     };
 
     console.log(`📨 Hit from ${session.user.email} (session: ${exchangeRequest.session}):`, {
       timestamp: exchangeRequest.ts,
       magnitude: exchangeRequest.mag,
-      ipBlock,
       location: `${locationData.city || 'unknown'}, ${locationData.state || 'unknown'}`,
       isVPN: locationData.isVPN,
       confidence: locationData.confidence,
@@ -184,8 +181,8 @@ export async function POST(request: NextRequest) {
         exchangeToken,
         exchangeRequest.session,
         matchedSessionId,
-        session.user.id, // Use user ID instead of email
-        matchData.userId,
+        userProfile as unknown as UserProfile, // Current user's profile
+        matchData.profile, // Matched user's profile
         exchangeData.sharingCategory, // Current user's sharing category
         matchData.sharingCategory || 'All' // Matched user's sharing category
       );

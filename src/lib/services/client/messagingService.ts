@@ -2,8 +2,6 @@
  * Service for handling deep links to native messaging apps
  */
 
-import { UserProfile } from '@/types/profile';
-
 /**
  * Generates the message text template
  */

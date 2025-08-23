@@ -3,8 +3,7 @@
  * Filters profile data based on selected sharing categories (All, Personal, Work)
  */
 
-import type { UserProfile, ContactChannels, ContactEntry, LegacyContactChannels, SocialProfile } from '@/types/profile';
-import { ensureNewContactChannelsFormat } from './profileTransforms';
+import type { UserProfile, ContactEntry } from '@/types/profile';
 
 export type SharingCategory = 'Personal' | 'Work';
 
@@ -18,64 +17,41 @@ export function filterProfileByCategory(
   profile: UserProfile, 
   category: SharingCategory
 ): UserProfile {
-  // Filter contact channels by section (Personal or Work)
-  const filteredContactChannels = filterContactChannelsByCategory(
-    profile.contactChannels, 
+  // Filter contact entries by section (Personal or Work)
+  const filteredContactEntries = filterContactEntriesByCategory(
+    profile.contactEntries, 
     category
   );
   
   return {
     ...profile,
-    contactChannels: filteredContactChannels
+    contactEntries: filteredContactEntries
   };
 }
 
 /**
- * Filter contact channels based on sharing category - NEW ARRAY FORMAT
- * @param contactChannels - The complete contact channels object
+ * Filter contact entries based on sharing category
+ * @param contactEntries - The complete contact entries array
  * @param category - The sharing category ('Personal' or 'Work')
- * @returns Filtered contact channels
+ * @returns Filtered contact entries
  */
-function filterContactChannelsByCategory(
-  contactChannels: ContactChannels,
+function filterContactEntriesByCategory(
+  contactEntries: ContactEntry[] | undefined,
   category: 'Personal' | 'Work'
-): ContactChannels {
-  // Ensure we're working with the new format
-  const normalizedChannels = ensureNewContactChannelsFormat(contactChannels as any);
+): ContactEntry[] {
+  if (!contactEntries) return [];
   
   // Determine which sections to include
   const allowedSections = category === 'Personal' 
     ? ['universal', 'personal'] 
     : ['universal', 'work'];
   
-  // Filter entries based on allowed sections
-  const filteredEntries = normalizedChannels.entries.filter(entry => 
-    allowedSections.includes(entry.section)
+  // Filter entries based on allowed sections and visibility
+  return contactEntries.filter(entry => 
+    allowedSections.includes(entry.section) && entry.isVisible
   );
-  
-  return { entries: filteredEntries };
 }
 
-/**
- * Get the default section for a platform (fallback when fieldSection is not set)
- * @param platform - The social media platform
- * @returns The default section for the platform
- */
-function getDefaultSectionForPlatform(platform: keyof ContactChannels): string {
-  // Default section assignments based on platform
-  const defaultSections: Record<string, string> = {
-    facebook: 'personal',
-    instagram: 'personal', 
-    x: 'personal',
-    snapchat: 'personal',
-    whatsapp: 'personal',
-    telegram: 'personal',
-    wechat: 'personal',
-    linkedin: 'work'
-  };
-  
-  return defaultSections[platform as string] || 'personal';
-}
 
 /**
  * Check if a profile has any shareable channels for a given category
@@ -89,13 +65,10 @@ export function hasShareableChannelsForCategory(
   category: SharingCategory
 ): boolean {
   const filteredProfile = filterProfileByCategory(profile, category);
-  const { contactChannels } = filteredProfile;
+  const { contactEntries } = filteredProfile;
   
   // Check if there are any entries with content
-  return contactChannels.entries.some(entry => {
-    const hasContent = entry.platform === 'phone' ? !!entry.internationalPhone || !!entry.nationalPhone :
-                      entry.platform === 'email' ? !!entry.email :
-                      !!entry.username;
-    return hasContent;
+  return contactEntries.some(entry => {
+    return !!entry.value && entry.value.trim() !== '';
   });
-} 
+}

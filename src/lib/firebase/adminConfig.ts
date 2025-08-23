@@ -144,7 +144,7 @@ function initializeFirebaseAdmin(forceNew: boolean = false): App {
       projectId: env.projectId,
       storageBucket: storageBucket,
       // Add service account ID if available
-      serviceAccountId: env.useADC ? undefined : (env as any).clientEmail,
+      serviceAccountId: env.useADC ? undefined : (env as { clientEmail?: string }).clientEmail,
     });
 
     lastInitTime = Date.now();
@@ -162,19 +162,20 @@ async function withRetry<T>(
   operationName: string,
   maxRetries: number = 3
 ): Promise<T> {
-  let lastError: any;
+  let lastError: Error = new Error('No attempts made');
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
-    } catch (error: any) {
-      lastError = error;
+    } catch (error: unknown) {
+      lastError = error as Error;
       
       // Check if it's an authentication error that might be resolved by retry
-      const isAuthError = error?.code === 16 || // UNAUTHENTICATED
-                         error?.message?.includes('UNAUTHENTICATED') ||
-                         error?.message?.includes('ACCESS_TOKEN_EXPIRED') ||
-                         error?.message?.includes('invalid authentication credentials');
+      const errorObj = error as { code?: number; message?: string };
+      const isAuthError = errorObj?.code === 16 || // UNAUTHENTICATED
+                         errorObj?.message?.includes('UNAUTHENTICATED') ||
+                         errorObj?.message?.includes('ACCESS_TOKEN_EXPIRED') ||
+                         errorObj?.message?.includes('invalid authentication credentials');
       
       if (isAuthError && attempt < maxRetries) {
         // Force re-initialization on auth errors
@@ -234,7 +235,7 @@ export async function getFirestoreDB() {
   return db;
 }
 
-export async function getProfile(userId: string): Promise<any | null> {
+export async function getProfile(userId: string): Promise<Record<string, unknown> | null> {
   return withRetry(
     async () => {
       const { db } = await getFirebaseAdmin();
@@ -404,7 +405,7 @@ export async function createCustomTokenWithCorrectSub(uid: string): Promise<stri
 }
 
 // Legacy exports for backward compatibility
-export default {
+const adminConfigExport = {
   async auth() {
     const { auth } = await getFirebaseAdmin();
     return auth;
@@ -418,3 +419,5 @@ export default {
     return storage;
   },
 };
+
+export default adminConfigExport;

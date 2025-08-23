@@ -10,6 +10,7 @@ import Avatar from './Avatar';
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import type { SavedContact } from '@/types/contactExchange';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 interface HistoryContactItemProps {
   contact: SavedContact;
@@ -73,18 +74,15 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = contact.name.split(' ')[0];
+    const contactFirstName = getFieldValue(contact.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
-    // Try to use phone number if available - check new array format
-    const contactChannelsAny = contact.contactChannels as any;
+    // Try to use phone number if available from contactEntries
     let phoneNumber = '';
     
-    if (contactChannelsAny?.entries) {
-      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
-      phoneNumber = phoneEntry?.internationalPhone || '';
-    } else if (contactChannelsAny?.phoneInfo) {
-      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    if (contact.contactEntries) {
+      const phoneEntry = contact.contactEntries.find(e => e.fieldType === 'phone');
+      phoneNumber = phoneEntry?.value || '';
     }
     
     openMessagingAppDirectly(messageText, phoneNumber);
@@ -98,7 +96,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
       {/* Avatar */}
       <Avatar
         src={contact.profileImage}
-        alt={contact.name}
+        alt={getFieldValue(contact.contactEntries, 'name')}
         size="sm"
         className="flex-shrink-0 !w-10 !h-10"
       />
@@ -106,7 +104,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
       {/* Contact Info */}
       <div className="flex-1 ml-4 min-w-0">
         <h3 className="text-white font-medium text-lg truncate">
-          {contact.name}
+          {getFieldValue(contact.contactEntries, 'name')}
         </h3>
         <p className="text-gray-300 text-sm truncate">
           {formatMatchDate(contact.addedAt)}
@@ -117,7 +115,7 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
       <button
         onClick={handleMessageTap}
         className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 border border-white/40 flex items-center justify-center transition-all duration-200 hover:bg-white/30 active:scale-95"
-        aria-label={`Message ${contact.name}`}
+        aria-label={`Message ${getFieldValue(contact.contactEntries, 'name')}`}
       >
         <svg 
           xmlns="http://www.w3.org/2000/svg" 

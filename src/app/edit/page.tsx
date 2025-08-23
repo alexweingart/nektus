@@ -2,7 +2,6 @@
 
 import React, { Suspense, useState } from 'react';
 import dynamicImport from 'next/dynamic';
-import { useProfile } from '../context/ProfileContext';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 
@@ -20,7 +19,6 @@ const EditProfileView = dynamicImport(() => import('../components/views/EditProf
 });
 
 export default function EditPage() {
-  const { profile } = useProfile();
   const [isDragMode, setIsDragMode] = useState(false);
   
   const handleRefresh = async () => {

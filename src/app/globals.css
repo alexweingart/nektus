@@ -137,10 +137,16 @@ body {
     /* Subtle connection lines pattern */
     repeating-linear-gradient(45deg, transparent 0px, transparent 120px, rgba(34, 197, 94, 0.03) 120px, rgba(34, 197, 94, 0.03) 122px),
     repeating-linear-gradient(-45deg, transparent 0px, transparent 140px, rgba(34, 197, 94, 0.02) 140px, rgba(34, 197, 94, 0.02) 142px);
+  
+  /* Smooth transitions for background changes */
+  transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
 }
 
-/* Utility class for custom background overlays */
-.custom-background-overlay {
+/* OLD: Removed overlay approach - now using pseudo-element layering */
+
+/* Base pseudo-element - hidden by default */
+body::before {
+  content: '';
   position: fixed;
   top: 0;
   left: 0;
@@ -149,14 +155,17 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: -1;
-  pointer-events: none;
+  z-index: 1; /* Positive z-index, behind content but above body background */
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
 }
 
-/* Hide body background when custom background is active */
-body.has-custom-background {
-  background-image: none;
-  background-color: transparent;
+/* Custom background pseudo-element - layered over green pattern */
+body.has-custom-background::before {
+  background-image: var(--custom-background-image);
+  opacity: 1 !important; /* Override the default opacity: 0 */
+  display: block !important;
+  pointer-events: none !important;
 }
 
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import type { ContactEntry } from '@/types/profile';
 import { AdminProfileService } from '@/lib/firebase/adminProfileService';
 import { BioAndSocialGenerationService } from '@/lib/services/server/bioAndSocialGenerationService';
-import { UserProfile } from '@/types/profile';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,8 +23,6 @@ export async function POST(request: NextRequest) {
     if (!userProfile) {
       userProfile = {
         userId: userId,
-        name: session.user.name || '',
-        bio: '',
         profileImage: session.user.image || '',
         backgroundImage: '',
         lastUpdated: Date.now(),
@@ -33,28 +31,46 @@ export async function POST(request: NextRequest) {
           backgroundImageGenerated: false,
           avatarGenerated: false
         },
-        contactChannels: {
-          entries: [
-            {
-              platform: 'email',
-              section: 'universal',
-              userConfirmed: !!session.user.email,
-              email: session.user.email || ''
-            }
-          ]
-        }
+        contactEntries: [
+          {
+            fieldType: 'name',
+            value: session.user.name || '',
+            section: 'universal',
+            order: -2,
+            isVisible: true,
+            confirmed: true
+          },
+          {
+            fieldType: 'bio',
+            value: '',
+            section: 'universal',
+            order: -1,
+            isVisible: true,
+            confirmed: false
+          },
+          {
+            fieldType: 'email',
+            value: session.user.email || '',
+            section: 'universal',
+            order: 1,
+            isVisible: true,
+            confirmed: !!session.user.email
+          }
+        ]
       };
     }
 
-    // Get email from new array format
-    const emailEntry = userProfile.contactChannels?.entries?.find(e => e.platform === 'email');
-    const phoneEntry = userProfile.contactChannels?.entries?.find(e => e.platform === 'phone');
+    // Get email from new ContactEntry format
+    const nameEntry = userProfile.contactEntries?.find(e => e.fieldType === 'name');
+    const bioEntry = userProfile.contactEntries?.find(e => e.fieldType === 'bio');
+    const emailEntry = userProfile.contactEntries?.find(e => e.fieldType === 'email');
+    const phoneEntry = userProfile.contactEntries?.find(e => e.fieldType === 'phone');
     
     console.log(`[API/BIO-AND-SOCIAL] Profile info for user ${userId}:`, {
-      name: userProfile.name,
-      email: emailEntry?.email || 'none',
-      hasPhone: !!phoneEntry?.internationalPhone,
-      hasBio: !!userProfile.bio
+      name: nameEntry?.value || 'none',
+      email: emailEntry?.value || 'none',
+      hasPhone: !!phoneEntry?.value,
+      hasBio: !!bioEntry?.value
     });
     
     // Generate both bio and social links using the unified service
@@ -76,34 +92,46 @@ export async function POST(request: NextRequest) {
     }
 
     // CRITICAL: Merge generated social profiles with existing contact channels to preserve phone data
-    const generatedContactChannels = (result as any).contactChannels;
-    const existingEntries = freshProfile.contactChannels?.entries || [];
-    const generatedEntries = generatedContactChannels?.entries || [];
+    const existingEntries = freshProfile.contactEntries || [];
+    const generatedEntries = result.contactEntries || [];
     
     // Start with existing entries (preserves phone, WhatsApp, etc.)
     const mergedEntries = [...existingEntries];
     
     // Add or update entries from generated social profiles
-    generatedEntries.forEach((generatedEntry: any) => {
-      const existingIndex = mergedEntries.findIndex(e => e.platform === generatedEntry.platform);
+    generatedEntries.forEach((generatedEntry) => {
+      const existingIndex = mergedEntries.findIndex(e => e.fieldType === generatedEntry.fieldType);
       if (existingIndex >= 0) {
         // Update existing entry (like email with new data)
         mergedEntries[existingIndex] = { ...mergedEntries[existingIndex], ...generatedEntry };
       } else {
-        // Add new entry (social profiles)
-        mergedEntries.push(generatedEntry);
+        // Add new entry (social profiles) - cast to ContactEntry
+        mergedEntries.push(generatedEntry as ContactEntry);
       }
     });
     
-    const mergedContactChannels = { entries: mergedEntries };
-
     // TODO: Update logging to work with new array format
     
-    // Update profile in Firebase with merged data
+    // Update bio entry in the contactEntries array
+    const updatedContactEntries = [...mergedEntries];
+    const bioIndex = updatedContactEntries.findIndex(e => e.fieldType === 'bio');
+    if (bioIndex >= 0) {
+      updatedContactEntries[bioIndex] = { ...updatedContactEntries[bioIndex], value: result.bio, confirmed: true };
+    } else {
+      updatedContactEntries.push({
+        fieldType: 'bio',
+        value: result.bio,
+        section: 'universal',
+        order: -1,
+        isVisible: true,
+        confirmed: true
+      });
+    }
+
+    // Update profile in Firebase with merged data using unified schema
     try {
       await AdminProfileService.updateProfile(userId, {
-        bio: result.bio,
-        contactChannels: mergedContactChannels,
+        contactEntries: updatedContactEntries,
         aiGeneration: {
           bioGenerated: true,
           avatarGenerated: freshProfile.aiGeneration?.avatarGenerated || false,
@@ -121,7 +149,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       bio: result.bio,
-      contactChannels: mergedContactChannels,
+      contactChannels: updatedContactEntries,
       success: result.success,
       socialProfilesDiscovered: result.socialProfilesDiscovered,
       socialProfilesVerified: result.socialProfilesVerified

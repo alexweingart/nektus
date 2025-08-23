@@ -3,9 +3,10 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { AdminProfileService } from '@/lib/firebase/adminProfileService';
 import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
-import { UserProfile } from '@/types/profile';
+import { UserProfile, ContactEntry } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
 import { getDefaultBackgroundColor } from '@/lib/services/server/colorService';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 /**
  * Converts a base64 string to a buffer
@@ -23,16 +24,18 @@ function base64ToBuffer(base64: string): Buffer {
  * @returns A buffer containing the image data
  */
 async function generateProfileImageForProfile(profile: UserProfile): Promise<Buffer> {
-  console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profile.name}`);
+  const profileName = getFieldValue(profile.contactEntries, 'name');
+  console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profileName}`);
   try {
     const client = getOpenAIClient();
     const backgroundColor = getDefaultBackgroundColor();
-    const prompt = `Create a profile picture for a person with this bio: ${profile.bio || 'no bio available'}. ` +
+    const profileBio = getFieldValue(profile.contactEntries, 'bio');
+    const prompt = `Create a profile picture for a person with this bio: ${profileBio || 'no bio available'}. ` +
       `The image should be a simple, casual, abstract, and modern. ` +
       `Use a clean, minimalist style with a solid ${backgroundColor} color background. ` +
       `There should be no text on the image`;
       
-    console.log(`[API/PROFILE-IMAGE] Using prompt for ${profile.name} with background ${backgroundColor}:`, prompt);
+    console.log(`[API/PROFILE-IMAGE] Using prompt for ${profileName} with background ${backgroundColor}:`, prompt);
 
     const response = await client.images.generate({
       model: 'gpt-image-1',
@@ -95,17 +98,20 @@ export async function POST(req: NextRequest) {
       }
       
       // Use streaming bio if available, otherwise fall back to profile bio
-      const bioForGeneration = streamingBio || profile.bio;
+      const profileBio = getFieldValue(profile.contactEntries, 'bio');
+      const bioForGeneration = streamingBio || profileBio;
       
+      const profileName = getFieldValue(profile.contactEntries, 'name');
       console.log('[API/PROFILE-IMAGE] Using profile for generation:', {
-        name: profile.name,
+        name: profileName,
         usingStreamingBio: !!streamingBio,
         bioSource: streamingBio ? 'streaming' : 'profile',
         bioLength: bioForGeneration?.length || 0
       });
       
       // Create a modified profile object with the streaming bio for generation
-      const profileForGeneration = { ...profile, bio: bioForGeneration };
+      const bioEntry: ContactEntry = { fieldType: 'bio', value: bioForGeneration, section: 'universal', order: -1, isVisible: true, confirmed: true };
+      const profileForGeneration: UserProfile = { ...profile, contactEntries: [...(profile.contactEntries || []).filter(e => e.fieldType !== 'bio'), bioEntry] };
       
       // Generate image using OpenAI
       const imageBuffer = await generateProfileImageForProfile(profileForGeneration);

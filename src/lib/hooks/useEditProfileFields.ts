@@ -1,7 +1,67 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import type { SocialProfileFormEntry, FieldSection, SocialPlatform } from '@/types/forms';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import type { Session } from 'next-auth';
+import type { ContactEntry, FieldSection, UserProfile } from '@/types/profile';
+
+// All supported field types in the application
+const ALL_SUPPORTED_FIELD_TYPES = [
+  // Core fields (always in universal)
+  'name', 'bio', 'phone', 'email',
+  // Social platforms
+  'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'
+] as const;
+
+/**
+ * Unified field management hook - stores ALL field data (text + images) in one place
+ */
+interface UseEditProfileFieldsProps {
+  profile?: UserProfile | null; // Firebase profile object
+  session?: Session | null; // Session for fallback values
+  initialImages?: { profileImage: string; backgroundImage: string };
+  onFieldsChange?: (fields: ContactEntry[], images: { profileImage: string; backgroundImage: string }) => void;
+}
+
+interface UseEditProfileFieldsReturn {
+  // Unified field access
+  getFieldValue: (fieldType: string) => string;
+  setFieldValue: (fieldType: string, value: string) => void;
+  
+  // Image access
+  getImageValue: (type: 'profileImage' | 'backgroundImage') => string;
+  setImageValue: (type: 'profileImage' | 'backgroundImage', value: string) => void;
+  
+  // Field organization
+  universalFields: ContactEntry[];
+  personalFields: ContactEntry[];
+  workFields: ContactEntry[];
+  
+  // Field organization by current view mode
+  getFieldsForView: (viewMode: 'Personal' | 'Work') => {
+    universalFields: ContactEntry[];
+    currentFields: ContactEntry[];
+    hiddenFields: ContactEntry[];
+  };
+  
+  // Section state
+  isPersonalEmpty: boolean;
+  isWorkEmpty: boolean;
+  
+  // Field actions
+  toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
+  updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
+  splitUniversalField: (fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => void;
+  consolidateToUniversal: (fieldType: string, currentValue: string, targetIndex: number) => void;
+  reorderFieldsInSection: (originalFieldType: string, targetFieldType: string, section: FieldSection) => void;
+  
+  // Get field data
+  getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
+  isFieldHidden: (fieldType: string, viewMode: 'Personal' | 'Work') => boolean;
+  
+  // Confirmation handling
+  markChannelAsConfirmed: (fieldType: string) => void;
+  isChannelUnconfirmed: (fieldType: string) => boolean;
+}
 
 /**
  * Custom hook for handling image uploads (profile and background)
@@ -54,19 +114,35 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) =>
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
+  // Animate carousel to match selected mode
+  const animateCarousel = useCallback((mode: 'Personal' | 'Work') => {
+    if (carouselRef.current) {
+      if (mode === 'Work') {
+        const container = carouselRef.current.parentElement;
+        const containerWidth = container?.offsetWidth || 0;
+        const translateAmount = -(containerWidth + 16); // Add gap
+        carouselRef.current.style.transform = `translateX(${translateAmount}px)`;
+      } else {
+        carouselRef.current.style.transform = 'translateX(0)';
+      }
+    }
+  }, [carouselRef]);
+
   // Load from localStorage on mount
   const loadFromStorage = useCallback(() => {
     try {
       const savedCategory = localStorage.getItem('nekt-sharing-category') as 'Personal' | 'Work';
       if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
         setSelectedMode(savedCategory);
+        // Animate carousel after loading from storage
+        setTimeout(() => animateCarousel(savedCategory), 0);
       }
       setHasLoadedFromStorage(true);
     } catch (error) {
       console.warn('Failed to load sharing category from localStorage:', error);
       setHasLoadedFromStorage(true);
     }
-  }, []);
+  }, [animateCarousel]);
 
   // Save to localStorage and animate carousel
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
@@ -82,17 +158,8 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) =>
     }
     
     // Animate carousel
-    if (carouselRef.current) {
-      if (mode === 'Work') {
-        const container = carouselRef.current.parentElement;
-        const containerWidth = container?.offsetWidth || 0;
-        const translateAmount = -(containerWidth + 16); // Add gap
-        carouselRef.current.style.transform = `translateX(${translateAmount}px)`;
-      } else {
-        carouselRef.current.style.transform = 'translateX(0)';
-      }
-    }
-  }, [selectedMode, carouselRef]);
+    animateCarousel(mode);
+  }, [selectedMode, animateCarousel]);
 
   return {
     selectedMode,
@@ -102,290 +169,399 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) =>
   };
 };
 
-// All supported social platforms (excluding email/phone which are universal)
-const ALL_SOCIAL_PLATFORMS: SocialPlatform[] = ['facebook', 'instagram', 'x', 'snapchat', 'whatsapp', 'telegram', 'wechat', 'linkedin'];
-
-interface UseEditProfileFieldsProps {
-  initialSocialProfiles: SocialProfileFormEntry[];
-  onSocialProfilesChange: (profiles: SocialProfileFormEntry[]) => void;
-  profile?: any; // To access contactChannels for confirmation status
-}
-
-interface UseEditProfileFieldsReturn {
-  // Field organization
-  universalFields: SocialProfileFormEntry[];
-  personalFields: SocialProfileFormEntry[];
-  workFields: SocialProfileFormEntry[];
-  
-  // Field organization by current view mode
-  getFieldsForView: (viewMode: 'Personal' | 'Work') => {
-    universalFields: SocialProfileFormEntry[];
-    currentFields: SocialProfileFormEntry[];
-    hiddenFields: SocialProfileFormEntry[];
-  };
-  
-  // Section state
-  isPersonalEmpty: boolean;
-  isWorkEmpty: boolean;
-  
-  // Field actions
-  toggleFieldVisibility: (platform: string, viewMode: 'Personal' | 'Work') => void;
-  updateFieldValue: (platform: string, value: string, section: FieldSection) => void;
-  splitUniversalField: (platform: string, currentValue: string, targetSection?: 'personal' | 'work', targetIndex?: number) => void;
-  consolidateToUniversal: (platform: string, fromSection: string) => void;
-  
-  // Get field data
-  getFieldData: (platform: string, section?: FieldSection) => SocialProfileFormEntry | undefined;
-  isFieldHidden: (platform: string, viewMode: 'Personal' | 'Work') => boolean;
-  
-  // Confirmation handling
-  markChannelAsConfirmed: (platform: string) => void;
-  isChannelUnconfirmed: (platform: string) => boolean;
-}
-
 export const useEditProfileFields = ({ 
-  initialSocialProfiles, 
-  onSocialProfilesChange,
-  profile
+  profile,
+  session,
+  initialImages = { profileImage: '', backgroundImage: '' },
+  onFieldsChange
 }: UseEditProfileFieldsProps): UseEditProfileFieldsReturn => {
+  
   // Track confirmed channels locally
   const [confirmedChannels, setConfirmedChannels] = useState<Set<string>>(new Set());
+  const confirmedChannelsRef = useRef<Set<string>>(new Set());
   
-  // Mark a channel as confirmed
-  const markChannelAsConfirmed = useCallback((platform: string) => {
-    setConfirmedChannels(prev => new Set(prev).add(platform));
-    // Update the profiles to reflect confirmation
-    setProfiles(current => 
-      current.map(p => 
-        p.platform === platform 
-          ? { ...p, confirmed: true }
-          : p
-      )
-    );
+  // Calculate initial fields from Firebase profile data
+  const calculateInitialFields = useCallback((): ContactEntry[] => {
+    return profile?.contactEntries || [
+      { fieldType: 'name', value: session?.user?.name || '', section: 'universal', order: 0, isVisible: true, confirmed: false },
+      { fieldType: 'bio', value: '', section: 'universal', order: 1, isVisible: true, confirmed: false },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'universal', order: 2, isVisible: true, confirmed: false },
+      { fieldType: 'phone', value: '', section: 'universal', order: 3, isVisible: true, confirmed: false }
+    ];
+  }, [profile?.contactEntries, session?.user?.name, session?.user?.email]);
+  
+  // Helper function to ensure all fieldTypes exist in both Personal and Work sections
+  const ensureAllFieldsExist = useCallback((baseFields: ContactEntry[]): ContactEntry[] => {
+    const existingEntries = new Map<string, Set<string>>(); // fieldType -> Set of sections
+    
+    // Track what already exists
+    baseFields.forEach(field => {
+      if (!existingEntries.has(field.fieldType)) {
+        existingEntries.set(field.fieldType, new Set());
+      }
+      existingEntries.get(field.fieldType)!.add(field.section);
+    });
+    
+    
+    const missingFields: ContactEntry[] = [];
+    
+    // For each social platform, ensure it exists in BOTH personal and work sections
+    ALL_SUPPORTED_FIELD_TYPES.forEach(fieldType => {
+      if (!['name', 'bio', 'phone', 'email'].includes(fieldType)) {
+        const existingSections = existingEntries.get(fieldType) || new Set();
+        
+        // Ensure Personal section entry exists
+        if (!existingSections.has('personal')) {
+          missingFields.push({
+            fieldType,
+            value: '',
+            section: 'personal',
+            order: 1000 + missingFields.length,
+            isVisible: false,
+            confirmed: false
+          });
+        }
+        
+        // Ensure Work section entry exists
+        if (!existingSections.has('work')) {
+          missingFields.push({
+            fieldType,
+            value: '',
+            section: 'work',
+            order: 1000 + missingFields.length,
+            isVisible: false,
+            confirmed: false
+          });
+        }
+      }
+    });
+    
+    return [...baseFields, ...missingFields];
   }, []);
   
-  // Check if a channel is unconfirmed based on Firebase data and local state
-  const isChannelUnconfirmed = useCallback((platform: string): boolean => {
-    // If locally confirmed, it's confirmed
-    if (confirmedChannels.has(platform)) {
-      return false;
-    }
-    
-    if (!profile?.contactChannels) return false;
-    
-    const contactChannels = profile.contactChannels as any;
-    if (contactChannels?.entries) {
-      const entry = contactChannels.entries.find((e: any) => e.platform === platform);
-      if (entry) {
-        const hasContent = platform === 'phone' ? !!entry.nationalPhone || !!entry.internationalPhone :
-                          platform === 'email' ? !!entry.email :
-                          !!entry.username;
-        return hasContent && !entry.userConfirmed;
-      }
-    }
-    return false;
-  }, [confirmedChannels, profile]);
-
-
-  // Simple state - no reactive initialization, only use initial props once
-  const [profiles, setProfiles] = useState<SocialProfileFormEntry[]>(() => {
-    const result: SocialProfileFormEntry[] = [];
-    
-    // Add existing profiles directly, with minimal cleanup
-    initialSocialProfiles.forEach(profile => {
-      result.push({
-        ...profile,
-        // Fix legacy 'hidden' section references
-        section: (profile.section as any) === 'hidden' ? 'personal' : profile.section,
-        // Trust the visibility state from profileToFormData (it handles backward compatibility)
-        isVisible: profile.isVisible
+  // Unified state: ALL field data in one place (including hidden placeholders)
+  const [fields, setFields] = useState<ContactEntry[]>(() => ensureAllFieldsExist(calculateInitialFields()));
+  
+  // Update fields when profile changes (e.g., after save)
+  useEffect(() => {
+    const newInitialFields = calculateInitialFields();
+    if (newInitialFields && newInitialFields.length > 0) {
+      const newFields = ensureAllFieldsExist(newInitialFields);
+      
+      // Preserve existing confirmations when profile updates
+      const preservedFields = newFields.map(newField => {
+        const existingField = fields.find(f => 
+          f.fieldType === newField.fieldType && f.section === newField.section
+        );
+        
+        // If we have an existing field with local confirmations, preserve them
+        if (existingField) {
+          const isLocallyConfirmed = confirmedChannelsRef.current.has(newField.fieldType);
+          return {
+            ...newField,
+            confirmed: isLocallyConfirmed || newField.confirmed
+          };
+        }
+        
+        return newField;
       });
-    });
-    
-    // Only create missing personal/work entries for platforms that don't exist at all
-    ALL_SOCIAL_PLATFORMS.forEach(platform => {
-      const hasPersonal = result.some(p => p.platform === platform && p.section === 'personal');
-      const hasWork = result.some(p => p.platform === platform && p.section === 'work');
-      const hasUniversal = result.some(p => p.platform === platform && p.section === 'universal');
       
-      // Skip if this platform exists as universal
-      if (hasUniversal) return;
-      
-      // Create minimal entries only if completely missing
-      if (!hasPersonal) {
-        result.push({
-          platform,
-          username: '',
-          filled: false,
-          section: 'personal',
-          isVisible: false,
-          order: result.length
-        });
+      setFields(preservedFields);
+    }
+  }, [profile, calculateInitialFields, ensureAllFieldsExist]); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Image state (separate from text fields)
+  const [images, setImages] = useState<{ profileImage: string; backgroundImage: string }>(initialImages);
+  const imagesRef = useRef(images);
+  
+  // Keep ref updated
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  
+  // Update fields and notify
+  const updateFields = useCallback((newFields: ContactEntry[]) => {
+    setFields(newFields);
+    // Use ref to avoid dependency
+    onFieldsChange?.(newFields, imagesRef.current);
+  }, [onFieldsChange]);
+  
+  
+  // Update images and notify
+  const updateImages = useCallback((newImages: { profileImage: string; backgroundImage: string }) => {
+    setImages(newImages);
+    onFieldsChange?.(fields, newImages);
+  }, [onFieldsChange, fields]);
+  
+  // Get field value by fieldType
+  const getFieldValue = useCallback((fieldType: string): string => {
+    const field = fields.find(f => f.fieldType === fieldType);
+    return field?.value || '';
+  }, [fields]);
+  
+  // Set field value by fieldType
+  const setFieldValue = useCallback((fieldType: string, value: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.fieldType === fieldType) {
+        return {
+          ...field,
+          value: value
+        };
       }
-      
-      if (!hasWork) {
-        result.push({
-          platform,
-          username: '',
-          filled: false,
-          section: 'work',
-          isVisible: false,
-          order: result.length
-        });
-      }
+      return field;
     });
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Update field value and visibility (section-specific)
+  const updateFieldValue = useCallback((fieldType: string, value: string, section: FieldSection) => {
+    const updatedFields = fields.map(field => {
+      if (field.fieldType === fieldType && field.section === section) {
+        return {
+          ...field,
+          value: value,
+          isVisible: field.isVisible // Keep current visibility state
+        };
+      }
+      return field;
+    });
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Get image value
+  const getImageValue = useCallback((type: 'profileImage' | 'backgroundImage'): string => {
+    return images[type];
+  }, [images]);
+  
+  // Set image value
+  const setImageValue = useCallback((type: 'profileImage' | 'backgroundImage', value: string) => {
+    updateImages({ ...images, [type]: value });
+  }, [images, updateImages]);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    confirmedChannelsRef.current = confirmedChannels;
+  }, [confirmedChannels]);
+
+  // Mark a channel as confirmed
+  const markChannelAsConfirmed = useCallback((fieldType: string) => {
+    setConfirmedChannels(prev => {
+      const newSet = new Set(prev).add(fieldType);
+      confirmedChannelsRef.current = newSet;
+      return newSet;
+    });
+    // Use setFields directly to avoid batching conflicts with updateFieldValue
+    setFields(prevFields => prevFields.map(field => 
+      field.fieldType === fieldType ? { ...field, confirmed: true } : field
+    ));
+  }, []);
+  
+  // Check if a channel is unconfirmed
+  const isChannelUnconfirmed = useCallback((fieldType: string): boolean => {
+    // If user has manually confirmed it this session, it's confirmed
+    if (confirmedChannels.has(fieldType)) return false;
     
-    return result;
-  });
-
-  // Update parent when profiles change
-  const updateProfiles = useCallback((newProfiles: SocialProfileFormEntry[]) => {
-    setProfiles(newProfiles);
-    onSocialProfilesChange(newProfiles);
-  }, [onSocialProfilesChange]);
-
-  // Simple field organization by section
+    // Find the field entry
+    const field = fields.find(f => f.fieldType === fieldType);
+    if (!field) return false;
+    
+    // Only show as unconfirmed if it has content but isn't confirmed
+    return Boolean(field.value && field.value.trim() !== '') && !Boolean(field.confirmed);
+  }, [confirmedChannels, fields]);
+  
+  // Field organization by section
   const fieldsBySection = useMemo(() => ({
-    universal: profiles.filter(p => p.section === 'universal'),
-    personal: profiles.filter(p => p.section === 'personal'),
-    work: profiles.filter(p => p.section === 'work')
-  }), [profiles]);
-
-  // Check if sections are empty (excluding universal)
-  const isPersonalEmpty = fieldsBySection.personal.filter(p => p.isVisible && p.filled).length === 0;
-  const isWorkEmpty = fieldsBySection.work.filter(p => p.isVisible && p.filled).length === 0;
-
+    universal: fields.filter(f => f.section === 'universal'),
+    personal: fields.filter(f => f.section === 'personal'),
+    work: fields.filter(f => f.section === 'work')
+  }), [fields]);
+  
+  // Check if sections are empty
+  const isPersonalEmpty = fieldsBySection.personal.filter(f => f.isVisible && f.value && f.value.trim() !== '').length === 0;
+  const isWorkEmpty = fieldsBySection.work.filter(f => f.isVisible && f.value && f.value.trim() !== '').length === 0;
+  
   // Toggle field visibility (hide/show) - handles universal field splitting when hiding
-  const toggleFieldVisibility = useCallback((platform: string, viewMode: 'Personal' | 'Work') => {
+  const toggleFieldVisibility = useCallback((fieldType: string, viewMode: 'Personal' | 'Work') => {
     const targetSection = viewMode.toLowerCase() as 'personal' | 'work';
     
-    // Special handling for email and phone UNIVERSAL fields - these are stored outside socialProfiles
-    // Only apply this logic when hiding a universal field, not when toggling personal/work visibility
-    if ((platform === 'email' || platform === 'phone') && 
-        !profiles.some(p => p.platform === platform && (p.section === 'personal' || p.section === 'work'))) {
-      
-      // Remove any existing personal/work entries for this platform
-      const profilesWithoutPlatform = profiles.filter(p => p.platform !== platform);
-      
-      // Create Personal and Work entries as HIDDEN
-      // Note: The actual value is stored in formData.email or digits, not in socialProfiles
-      const personalEntry: SocialProfileFormEntry = {
-        platform: platform as any,
-        username: '', // Value will come from formData/digits
-        filled: true, // Assume filled if we're hiding it
-        section: 'personal',
-        isVisible: false, // Hidden by default
-        order: 0 // Will be updated later
-      };
-      
-      const workEntry: SocialProfileFormEntry = {
-        platform: platform as any,
-        username: '', // Value will come from formData/digits
-        filled: true, // Assume filled if we're hiding it
-        section: 'work',
-        isVisible: false, // Hidden by default
-        order: 0 // Will be updated later
-      };
-      
-      const updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
-      updateProfiles(updatedProfiles);
-      return;
-    }
-    
-    // Check if this is a regular universal field being hidden
-    const universalField = profiles.find(p => p.platform === platform && p.section === 'universal');
+    // Check if this is a universal field being hidden
+    const universalField = fields.find(f => f.fieldType === fieldType && f.section === 'universal');
     
     if (universalField) {
       // Universal field being hidden: split into both sections as hidden
-      
-      // Remove the universal field
-      const profilesWithoutUniversal = profiles.filter(profile => 
-        !(profile.platform === platform && profile.section === 'universal')
-      );
-      
-      // Also remove any existing personal/work entries for this platform to avoid duplicates
-      const profilesWithoutPlatform = profilesWithoutUniversal.filter(p => p.platform !== platform);
+      const fieldsWithoutFieldType = fields.filter(f => f.fieldType !== fieldType);
       
       // Create Personal and Work entries as HIDDEN
-      const personalEntry: SocialProfileFormEntry = {
-        platform: platform as any,
-        username: universalField.username,
-        filled: universalField.filled,
+      const personalEntry: ContactEntry = {
+        fieldType: fieldType,
+        value: universalField.value,
         confirmed: universalField.confirmed,
         section: 'personal',
         isVisible: false, // Hidden by default
         order: universalField.order // Preserve order
       };
       
-      const workEntry: SocialProfileFormEntry = {
-        platform: platform as any,
-        username: universalField.username,
-        filled: universalField.filled,
+      const workEntry: ContactEntry = {
+        fieldType: fieldType,
+        value: universalField.value,
         confirmed: universalField.confirmed,
         section: 'work',
         isVisible: false, // Hidden by default
         order: universalField.order // Preserve order
       };
       
-      const updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
-      updateProfiles(updatedProfiles);
+      updateFields([...fieldsWithoutFieldType, personalEntry, workEntry]);
       return;
     }
     
-    // Regular personal/work field visibility toggle
-    const updatedProfiles = profiles.map(profile => {
-      if (profile.platform === platform && profile.section === targetSection) {
+    // Regular personal/work field visibility toggle (all fields now exist in array)
+    const updatedFields = fields.map(field => {
+      if (field.fieldType === fieldType && field.section === targetSection) {
         return {
-          ...profile,
-          isVisible: !profile.isVisible
+          ...field,
+          isVisible: !field.isVisible
         };
       }
-      return profile;
+      return field;
     });
 
-    updateProfiles(updatedProfiles);
-  }, [profiles, updateProfiles]);
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Split a universal field into separate Personal and Work entries
+  const splitUniversalField = useCallback((fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => {
+    
+    // Remove ALL entries for this fieldType (universal, personal, work) to avoid duplicates
+    const fieldsWithoutFieldType = fields.filter(field => 
+      field.fieldType !== fieldType
+    );
+    
+    // Create new Personal and Work entries with the current value
+    const personalEntry: ContactEntry = {
+      fieldType: fieldType,
+      value: currentValue,
+      section: 'personal',
+      isVisible: Boolean(currentValue), // Visible if has content
+      order: 0, // Will be reassigned based on position
+      confirmed: true
+    };
+    
+    const workEntry: ContactEntry = {
+      fieldType: fieldType,
+      value: currentValue,
+      section: 'work',
+      isVisible: Boolean(currentValue), // Visible if has content
+      order: 0, // Will be reassigned based on position
+      confirmed: true
+    };
 
-  // Update field value and visibility
-  const updateFieldValue = useCallback((platform: string, value: string, section: FieldSection) => {
-    const updatedProfiles = profiles.map(profile => {
-      if (profile.platform === platform && profile.section === section) {
-        return {
-          ...profile,
-          username: value,
-          filled: value.trim() !== '',
-          isVisible: profile.isVisible // Keep current visibility state
-        };
-      }
-      return profile;
-    });
+    // Position-aware split: place target entry at specific position, other entry at top of its section
+    const personalFields = fieldsWithoutFieldType.filter(f => f.section === 'personal');
+    const workFields = fieldsWithoutFieldType.filter(f => f.section === 'work');
+    const universalFields = fieldsWithoutFieldType.filter(f => f.section === 'universal');
 
-    updateProfiles(updatedProfiles);
-  }, [profiles, updateProfiles]);
+    const newPersonalFields = [...personalFields];
+    const newWorkFields = [...workFields];
 
-
-  // Get field data
-  const getFieldData = useCallback((platform: string, section?: FieldSection) => {
-    if (section) {
-      return profiles.find(profile => profile.platform === platform && profile.section === section);
+    if (targetSection === 'personal') {
+      // Insert personal entry at target position, work entry at top
+      newPersonalFields.splice(targetIndex, 0, personalEntry);
+      newWorkFields.unshift(workEntry);
+    } else {
+      // Insert work entry at target position, personal entry at top
+      newWorkFields.splice(targetIndex, 0, workEntry);
+      newPersonalFields.unshift(personalEntry);
     }
-    return profiles.find(profile => profile.platform === platform);
-  }, [profiles]);
+
+    const updatedFields = [...universalFields, ...newPersonalFields, ...newWorkFields];
+    
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Consolidate personal/work entries into a single universal entry
+  const consolidateToUniversal = useCallback((fieldType: string, currentValue: string, targetIndex: number) => {
+    
+    // Remove ALL entries for this fieldType (both personal, work, and any existing universal)
+    // This includes empty placeholder entries that might exist
+    const fieldsWithoutFieldType = fields.filter(f => f.fieldType !== fieldType);
+    
+    // Create single universal entry with the provided value
+    const universalEntry: ContactEntry = {
+      fieldType: fieldType,
+      value: currentValue,
+      confirmed: true,
+      section: 'universal',
+      isVisible: true, // Universal fields are always visible
+      order: targetIndex
+    };
+    
+    const updatedFields = [...fieldsWithoutFieldType, universalEntry];
+    
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Reorder fields within the same section (for same-section drag and drop)
+  const reorderFieldsInSection = useCallback((originalFieldType: string, targetFieldType: string, section: FieldSection) => {
+    console.log('🔄 REORDER: Reordering fields in section', { originalFieldType, targetFieldType, section });
+    
+    // Get all fields in the target section
+    const sectionFields = fields.filter(f => f.section === section);
+    const otherFields = fields.filter(f => f.section !== section);
+    
+    // Find the original and target fields
+    const originalFieldIndex = sectionFields.findIndex(f => f.fieldType === originalFieldType);
+    const targetFieldIndex = sectionFields.findIndex(f => f.fieldType === targetFieldType);
+    
+    if (originalFieldIndex === -1 || targetFieldIndex === -1) {
+      console.warn('🚨 REORDER: Could not find fields to reorder', { originalFieldIndex, targetFieldIndex });
+      return;
+    }
+    
+    // Reorder the section fields by swapping
+    const reorderedSectionFields = [...sectionFields];
+    [reorderedSectionFields[originalFieldIndex], reorderedSectionFields[targetFieldIndex]] = 
+      [reorderedSectionFields[targetFieldIndex], reorderedSectionFields[originalFieldIndex]];
+    
+    // Update order properties to reflect new positions
+    const updatedSectionFields = reorderedSectionFields.map((field, index) => ({
+      ...field,
+      order: index
+    }));
+    
+    // Combine with other sections
+    const updatedFields = [...otherFields, ...updatedSectionFields];
+    
+    console.log('🔄 REORDER: Updated field order', {
+      originalOrder: sectionFields.map(f => f.fieldType),
+      newOrder: updatedSectionFields.map(f => f.fieldType)
+    });
+    
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+  
+  // Get field data
+  const getFieldData = useCallback((fieldType: string, section?: FieldSection) => {
+    if (section) {
+      return fields.find(field => field.fieldType === fieldType && field.section === section);
+    }
+    return fields.find(field => field.fieldType === fieldType);
+  }, [fields]);
 
   // Check if field is hidden
-  const isFieldHidden = useCallback((platform: string, viewMode: 'Personal' | 'Work') => {
+  const isFieldHidden = useCallback((fieldType: string, viewMode: 'Personal' | 'Work') => {
     const targetSection = viewMode.toLowerCase() as 'personal' | 'work';
-    const field = getFieldData(platform, targetSection);
+    const field = getFieldData(fieldType, targetSection);
     return !field?.isVisible;
   }, [getFieldData]);
-
+  
   // Get fields organized for specific view mode (Personal or Work)
   const getFieldsForView = useCallback((viewMode: 'Personal' | 'Work') => {
     const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
     
+    
     // Helper function to sort fields by their order property (from Firebase data)
-    const sortByOrder = (fields: SocialProfileFormEntry[]) => {
-      return fields.sort((a, b) => {
+    const sortByOrder = (fieldList: ContactEntry[]) => {
+      return fieldList.sort((a, b) => {
         // Use the order field from the data
         const orderA = a.order ?? 999;
         const orderB = b.order ?? 999;
@@ -396,132 +572,46 @@ export const useEditProfileFields = ({
     const result = {
       // Universal fields always show (sorted by order)
       universalFields: sortByOrder(
-        profiles.filter(field => field.section === 'universal')
+        fields.filter(field => field.section === 'universal')
       ),
       
       // Current section fields that are visible (sorted by order)
       currentFields: sortByOrder(
-        profiles.filter(field => 
+        fields.filter(field => 
           field.section === currentSectionName && field.isVisible
         )
       ),
       
-      // Hidden fields = current section fields that are not visible AND don't exist in universal (sorted by order)
+      // Hidden fields = current section fields that are not visible AND don't exist in universal
       hiddenFields: sortByOrder(
-        profiles.filter(field => {
+        fields.filter(field => {
           if (field.section !== currentSectionName || field.isVisible) return false;
           
           // Don't show as hidden if this platform already exists in universal
-          const existsInUniversal = profiles.some(p => p.platform === field.platform && p.section === 'universal');
+          const existsInUniversal = fields.some(f => f.fieldType === field.fieldType && f.section === 'universal');
           return !existsInUniversal;
         })
       )
     };
     
     return result;
-  }, [profiles]);
-
-  // Split a universal field into separate Personal and Work entries
-  const splitUniversalField = useCallback((platform: string, currentValue: string, targetSection?: 'personal' | 'work', targetIndex?: number) => {
-    
-    // Remove ALL entries for this platform (universal, personal, work) to avoid duplicates
-    const profilesWithoutPlatform = profiles.filter(profile => 
-      profile.platform !== platform
-    );
-    
-    
-    // Create new Personal and Work entries with the current value
-    const personalEntry: SocialProfileFormEntry = {
-      platform: platform as any,
-      username: currentValue,
-      filled: Boolean(currentValue),
-      section: 'personal',
-      isVisible: Boolean(currentValue), // Visible if has content
-      order: 0 // Will be reassigned based on position
-    };
-    
-    const workEntry: SocialProfileFormEntry = {
-      platform: platform as any,
-      username: currentValue,
-      filled: Boolean(currentValue),
-      section: 'work',
-      isVisible: Boolean(currentValue), // Visible if has content
-      order: 0 // Will be reassigned based on position
-    };
-
-    let updatedProfiles: SocialProfileFormEntry[];
-
-    if (targetSection && targetIndex !== undefined) {
-      // Position-aware split: place target entry at specific position, other entry at top of its section
-      const personalProfiles = profilesWithoutPlatform.filter(p => p.section === 'personal');
-      const workProfiles = profilesWithoutPlatform.filter(p => p.section === 'work');
-      const universalProfiles = profilesWithoutPlatform.filter(p => p.section === 'universal');
-
-      let newPersonalProfiles = [...personalProfiles];
-      let newWorkProfiles = [...workProfiles];
-
-      if (targetSection === 'personal') {
-        // Insert personal entry at target position, work entry at top
-        newPersonalProfiles.splice(targetIndex, 0, personalEntry);
-        newWorkProfiles.unshift(workEntry);
-      } else {
-        // Insert work entry at target position, personal entry at top
-        newWorkProfiles.splice(targetIndex, 0, workEntry);
-        newPersonalProfiles.unshift(personalEntry);
-      }
-
-      updatedProfiles = [...universalProfiles, ...newPersonalProfiles, ...newWorkProfiles];
-    } else {
-      // Default behavior: append to end
-      updatedProfiles = [...profilesWithoutPlatform, personalEntry, workEntry];
-    }
-    
-    
-    updateProfiles(updatedProfiles);
-  }, [profiles, updateProfiles]);
-
-  // Consolidate personal/work entries into a single universal entry
-  const consolidateToUniversal = useCallback((platform: string, fromSection: string) => {
-    
-    // Find the field being moved to get its current value
-    const movingField = profiles.find(p => p.platform === platform && p.section === fromSection);
-    if (!movingField) return;
-    
-    // Remove ALL entries for this platform (both personal, work, and any existing universal)
-    // This includes empty placeholder entries that might exist
-    const profilesWithoutPlatform = profiles.filter(p => p.platform !== platform);
-    
-    // Only create universal entry if the moving field has content or was visible
-    const shouldCreateUniversal = movingField.filled || movingField.isVisible || movingField.username.trim() !== '';
-    
-    let updatedProfiles = profilesWithoutPlatform;
-    
-    if (shouldCreateUniversal) {
-      // Create single universal entry with the value from the field being moved
-      const universalEntry: SocialProfileFormEntry = {
-        platform: platform,
-        username: movingField.username,
-        filled: movingField.filled || false,
-        confirmed: movingField.confirmed,
-        section: 'universal',
-        isVisible: true, // Universal fields are always visible
-        order: movingField.order // Preserve order
-      };
-      
-      updatedProfiles = [...profilesWithoutPlatform, universalEntry];
-    }
-    
-    updateProfiles(updatedProfiles);
-  }, [profiles, updateProfiles]);
-
-
+  }, [fields]);
+  
   return {
+    // Unified field access
+    getFieldValue,
+    setFieldValue,
+    
+    // Image access
+    getImageValue,
+    setImageValue,
+    
     // Field organization
     universalFields: fieldsBySection.universal,
     personalFields: fieldsBySection.personal,
     workFields: fieldsBySection.work,
     
-    // Field organization by current view mode
+    // Field organization by view mode
     getFieldsForView,
     
     // Section state
@@ -533,6 +623,7 @@ export const useEditProfileFields = ({
     updateFieldValue,
     splitUniversalField,
     consolidateToUniversal,
+    reorderFieldsInSection,
     
     // Get field data
     getFieldData,
@@ -542,4 +633,4 @@ export const useEditProfileFields = ({
     markChannelAsConfirmed,
     isChannelUnconfirmed,
   };
-}; 
+};

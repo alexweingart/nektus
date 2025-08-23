@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
-import { useRouter } from 'next/navigation';
 import { openMessagingApp } from '@/lib/services/client/messagingService';
 
 // Custom X logo component (formerly Twitter)
@@ -13,7 +12,7 @@ const XIcon = ({ className }: { className?: string }) => (
 );
 
 interface SocialIconProps {
-  platform: 'phone' | 'email' | 'facebook' | 'instagram' | 'x' | 'linkedin' | 'snapchat' | 'whatsapp' | 'telegram' | 'wechat';
+  platform: string;
   username?: string;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'white';
@@ -31,9 +30,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   className = '',
   disabled = false
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const router = useRouter();
   
   const getIconClass = () => {
     const baseSize = (() => {
@@ -158,8 +155,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     <div 
       className={`inline-block focus:outline-none ${className} ${disabled ? 'opacity-50' : ''}`}
       onClick={handleClick}
-      onMouseEnter={() => !disabled && setIsHovered(true)}
-      onMouseLeave={() => !disabled && setIsHovered(false)}
+      onMouseEnter={() => {/* hover handled by CSS */}}
+      onMouseLeave={() => {/* hover handled by CSS */}}
       onMouseDown={() => !disabled && setIsActive(true)}
       onMouseUp={() => !disabled && setIsActive(false)}
       onMouseOut={() => !disabled && setIsActive(false)}

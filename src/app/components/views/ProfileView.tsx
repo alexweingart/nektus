@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -11,12 +11,12 @@ import { useAdminModeActivator } from '../ui/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/StandardModal';
 import { ProfileInfo } from '../ui/ProfileInfo';
-import { type SharingCategory } from '@/lib/utils/profileFiltering';
 
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import type { UserProfile } from '@/types/profile';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
@@ -24,8 +24,6 @@ const ProfileView: React.FC = () => {
   const { 
     profile, 
     isLoading: isProfileLoading, 
-    saveProfile, 
-    setNavigatingFromSetup,
     streamingBio,
     streamingProfileImage,
     streamingSocialContacts
@@ -80,24 +78,22 @@ const ProfileView: React.FC = () => {
   }, [currentProfile]);
 
   const handleMessageContact = () => {
-    if (!session?.user?.name || !savedContactProfile?.name) {
+    const contactName = getFieldValue(savedContactProfile?.contactEntries, 'name');
+    if (!session?.user?.name || !contactName) {
       console.warn('Missing user names for message generation');
       return;
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = savedContactProfile.name.split(' ')[0];
+    const contactFirstName = contactName.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
     // Try to use phone number if available
-    const contactChannelsAny = savedContactProfile.contactChannels as any;
     let phoneNumber = '';
     
-    if (contactChannelsAny?.entries) {
-      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
-      phoneNumber = phoneEntry?.internationalPhone || '';
-    } else if (contactChannelsAny?.phoneInfo) {
-      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    if (savedContactProfile?.contactEntries) {
+      const phoneEntry = savedContactProfile.contactEntries.find(e => e.fieldType === 'phone');
+      phoneNumber = phoneEntry?.value || '';
     }
     
     console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
@@ -109,8 +105,9 @@ const ProfileView: React.FC = () => {
   // Memoized values that need to be declared before conditional returns
   const bioContent = useMemo(() => {
     // Prioritize streaming bio during generation, then profile bio, then default
-    return streamingBio || currentProfile?.bio || 'Welcome to my profile!';
-  }, [streamingBio, currentProfile?.bio]);
+    const profileBio = getFieldValue(currentProfile?.contactEntries, 'bio');
+    return streamingBio || profileBio || 'Generating bio...';
+  }, [streamingBio, currentProfile?.contactEntries]);
 
   // Profile image with streaming support
   const profileImageSrc = useMemo(() => {
@@ -119,49 +116,22 @@ const ProfileView: React.FC = () => {
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {
-    return streamingSocialContacts || currentProfile?.contactChannels;
-  }, [streamingSocialContacts, currentProfile]);
+    return streamingSocialContacts || currentProfile?.contactEntries;
+  }, [streamingSocialContacts, currentProfile?.contactEntries]);
 
   // Check if any contact channels are unconfirmed
   const hasUnconfirmedChannels = useMemo(() => {
     if (!contactChannels) return false;
     
-    const contactChannelsAny = contactChannels as any;
-    
-    // New array format
-    if (contactChannelsAny?.entries) {
-      return contactChannelsAny.entries.some((entry: any) => {
-        const hasContent = entry.platform === 'phone' ? !!entry.nationalPhone || !!entry.internationalPhone :
-                          entry.platform === 'email' ? !!entry.email :
-                          !!entry.username;
-        return hasContent && !entry.userConfirmed;
+    // contactChannels is now a ContactEntry array
+    if (Array.isArray(contactChannels)) {
+      return contactChannels.some(entry => {
+        // Check if entry has a value and is not confirmed
+        return entry.value && !entry.confirmed;
       });
     }
     
-    // Legacy format fallback
-    // Check phone info
-    if (contactChannelsAny.phoneInfo && !contactChannelsAny.phoneInfo.userConfirmed) {
-      return true;
-    }
-    
-    // Check email
-    if (contactChannelsAny.email && !contactChannelsAny.email.userConfirmed) {
-      return true;
-    }
-    
-    // Check all social media channels
-    const socialChannels = [
-      contactChannelsAny.facebook,
-      contactChannelsAny.instagram,
-      contactChannelsAny.x,
-      contactChannelsAny.linkedin,
-      contactChannelsAny.snapchat,
-      contactChannelsAny.whatsapp,
-      contactChannelsAny.telegram,
-      contactChannelsAny.wechat
-    ];
-    
-    return socialChannels.some(channel => channel && !channel.userConfirmed);
+    return false;
   }, [contactChannels]);
 
 
@@ -254,7 +224,6 @@ const ProfileView: React.FC = () => {
               profile={currentProfile}
               profileImageSrc={profileImageSrc}
               bioContent={bioContent}
-              contactChannels={contactChannels}
               className="w-full flex flex-col items-center"
             />
           )}

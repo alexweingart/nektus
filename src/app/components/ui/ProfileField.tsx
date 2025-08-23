@@ -4,11 +4,11 @@ import React from 'react';
 import CustomInput from './inputs/CustomInput';
 import CustomPhoneInput from './inputs/CustomPhoneInput';
 import SocialIcon from './SocialIcon';
-import type { SocialPlatform, SocialProfileFormEntry, FieldSection } from '@/types/forms';
+import type { ContactEntry, FieldSection } from '@/types/profile';
 
 interface ProfileFieldProps {
-  profile: SocialProfileFormEntry;
-  dragAndDrop: {
+  profile: ContactEntry;
+  dragAndDrop?: {
     isDragMode: boolean;
     draggedField: string | null;
     onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
@@ -16,21 +16,21 @@ interface ProfileFieldProps {
     onTouchEnd: () => void;
   };
   fieldSectionManager: {
-    isFieldHidden: (platform: string, viewMode: 'Personal' | 'Work') => boolean;
-    toggleFieldVisibility: (platform: string, viewMode: 'Personal' | 'Work') => void;
+    isFieldHidden: (fieldType: string, viewMode: 'Personal' | 'Work') => boolean;
+    toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   };
-  getValue: (platform: string, section?: string) => string;
-  onChange: (platform: SocialPlatform, value: string, section: FieldSection) => void;
-  isUnconfirmed: (platform: string) => boolean;
-  onConfirm: (platform: string) => void;
+  getValue: (fieldType: string, section?: FieldSection) => string;
+  onChange: (fieldType: string, value: string, section: FieldSection) => void;
+  isUnconfirmed: (fieldType: string) => boolean;
+  onConfirm: (fieldType: string) => void;
   showDragHandles?: boolean;
   currentViewMode: 'Personal' | 'Work';
   // Phone-specific props
   onPhoneChange?: (value: string) => void;
 }
 
-const getPlaceholder = (platform: string): string => {
-  switch (platform) {
+const getPlaceholder = (fieldType: string): string => {
+  switch (fieldType) {
     case 'phone':
       return 'Phone number';
     case 'email':
@@ -42,7 +42,7 @@ const getPlaceholder = (platform: string): string => {
     case 'whatsapp':
       return 'WhatsApp number';
     default:
-      return `${platform.charAt(0).toUpperCase() + platform.slice(1)} username`;
+      return `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} username`;
   }
 };
 
@@ -58,19 +58,19 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   currentViewMode,
   onPhoneChange
 }) => {
-  const platform = profile.platform;
-  const placeholder = getPlaceholder(platform);
-  const value = getValue(platform, profile.section);
+  const fieldType = profile.fieldType;
+  const placeholder = getPlaceholder(fieldType);
+  const value = getValue(fieldType, profile.section);
   
   // Use the isVisible flag from the profile
   const shouldShowAsHidden = !profile.isVisible;
 
   // Field ID for drag operations
-  const fieldId = `${platform}-${profile.section}`;
+  const fieldId = `${fieldType}-${profile.section}`;
   
   // Simplified drag state - just check if this field is being dragged
-  const isDragging = dragAndDrop.draggedField === fieldId;
-  const isDimmed = dragAndDrop.isDragMode && !isDragging;
+  const isDragging = dragAndDrop?.draggedField === fieldId;
+  const isDimmed = dragAndDrop?.isDragMode && !isDragging;
 
   return (
     <div 
@@ -85,16 +85,16 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         // Otherwise: normal or dimmed
         opacity: isDragging ? 0 : undefined,
       }}
-      onTouchStart={showDragHandles ? dragAndDrop.onTouchStart(fieldId) : undefined}
-      onTouchMove={showDragHandles ? dragAndDrop.onTouchMove : undefined}
-      onTouchEnd={showDragHandles ? dragAndDrop.onTouchEnd : undefined}
+      onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
+      onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
+      onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {platform === 'phone' ? (
+      {fieldType === 'phone' ? (
         <CustomPhoneInput
           onChange={(value) => {
             onPhoneChange?.(value);
-            onConfirm(platform);
+            onConfirm(fieldType);
           }}
           value={value}
           placeholder={placeholder}
@@ -108,11 +108,11 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         />
       ) : (
         <CustomInput
-          type={platform === 'email' ? 'email' : 'text'}
+          type={fieldType === 'email' ? 'email' : 'text'}
           id={fieldId}
           value={value}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            onChange(platform as SocialPlatform, e.target.value, profile.section);
+            onChange(fieldType, e.target.value, profile.section);
           }}
           placeholder={placeholder}
           className="w-full"
@@ -120,24 +120,23 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           variant="hideable"
           isHidden={shouldShowAsHidden}
           onToggleHide={() => {
-            fieldSectionManager.toggleFieldVisibility(platform, currentViewMode);
-            // Mark channel as confirmed when user hides/shows it
-            onConfirm(platform);
+            fieldSectionManager.toggleFieldVisibility(fieldType, currentViewMode);
+            // Don't auto-confirm when hiding/showing - let user confirm through other actions
           }}
           icon={
             <div className="w-5 h-5 flex items-center justify-center relative">
               <SocialIcon 
-                platform={platform as SocialPlatform} 
+                platform={fieldType} 
                 username={value}
                 size="sm" 
               />
-              {isUnconfirmed(platform) && (
+              {isUnconfirmed(fieldType) && (
                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
               )}
             </div>
           }
           iconClassName="text-gray-600"
-          autoComplete={platform === 'email' ? 'email' : undefined}
+          autoComplete={fieldType === 'email' ? 'email' : undefined}
         />
       )}
     </div>

@@ -11,11 +11,12 @@ import { saveToGoogleContacts } from '@/lib/services/server/googleContactsServic
 import { getExchangeMatch } from '@/lib/redis/client';
 import { getContactsAccessToken } from '@/lib/services/server/serverIncrementalAuthService';
 import type { ContactSaveResult } from '@/types/contactExchange';
+import type { UserProfile } from '@/types/profile';
 
 /**
  * Get Google Contacts access token - try incremental auth first, fallback to session
  */
-async function getGoogleContactsToken(session: any, userId: string): Promise<string | null> {
+async function getGoogleContactsToken(session: { accessToken?: string }, userId: string): Promise<string | null> {
   console.log('🔍 Token retrieval: Getting Google Contacts token for user:', userId);
   
   // First try incremental auth token (has contacts permission)
@@ -78,12 +79,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // For now, we'll still verify the exchange but won't require it to be active
       const matchData = await getExchangeMatch(token);
       if (matchData) {
-        const isUserA = matchData.userA === session.user.id;
-        const isUserB = matchData.userB === session.user.id;
+        const isUserA = matchData.userA.userId === session.user.id;
+        const isUserB = matchData.userB.userId === session.user.id;
         
         if (isUserA || isUserB) {
-          const otherUserId = isUserA ? matchData.userB : matchData.userA;
-          contactProfile = await getProfile(otherUserId);
+          const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
+          const rawProfile = await getProfile(otherUserId);
+          contactProfile = rawProfile as unknown as UserProfile;
         }
       }
       
@@ -104,8 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Verify user is part of this exchange
-      const isUserA = matchData.userA === session.user.id;
-      const isUserB = matchData.userB === session.user.id;
+      const isUserA = matchData.userA.userId === session.user.id;
+      const isUserB = matchData.userB.userId === session.user.id;
       
       if (!isUserA && !isUserB) {
         return NextResponse.json(
@@ -115,8 +117,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Get the other user's profile
-      const otherUserId = isUserA ? matchData.userB : matchData.userA;
-      contactProfile = await getProfile(otherUserId);
+      const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
+      const rawProfile = await getProfile(otherUserId);
+      contactProfile = rawProfile as unknown as UserProfile;
       
       if (!contactProfile) {
         return NextResponse.json(
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       success: false,
       firebase: { success: false },
       google: { success: false },
-      contact: contactProfile
+      contact: contactProfile as UserProfile
     };
 
     // Save to Firebase using Admin SDK (unless skipped or Google-only mode)
@@ -146,7 +149,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         };
         
         // Use the contact's userId as the document ID to prevent duplicates
-        const contactRef = db.collection('profiles').doc(session.user.id).collection('contacts').doc(contactProfile.userId);
+        const contactRef = db.collection('profiles').doc(session.user.id).collection('contacts').doc((contactProfile as UserProfile).userId);
         await contactRef.set(savedContact);
         
         result.firebase.success = true;
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (googleToken) {
         console.log('🔍 Google save: Found Google token, calling saveToGoogleContacts...');
         try {
-          const googleResult = await saveToGoogleContacts(googleToken, contactProfile);
+          const googleResult = await saveToGoogleContacts(googleToken, contactProfile as UserProfile);
           result.google.success = googleResult.success;
           result.google.contactId = googleResult.contactId;
           result.google.error = googleResult.error;

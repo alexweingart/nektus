@@ -3,6 +3,7 @@
  */
 
 import { UserProfile } from '@/types/profile';
+import { getFieldValue } from './profileTransforms';
 import { isEmbeddedBrowser } from './platformDetection';
 
 export interface VCardOptions {
@@ -67,7 +68,7 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
           cache: 'no-cache',
         });
         clearTimeout(fallbackTimeoutId);
-      } catch (fallbackError) {
+      } catch {
         clearTimeout(fallbackTimeoutId);
         throw new Error(`Both optimized and original URLs failed: ${res.status} ${res.statusText}`);
       }
@@ -214,25 +215,26 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
   lines.push('VERSION:3.0');
   lines.push('PRODID:-//Nektus//vCard 1.0//EN');
   
-  if (profile.name) {
-    lines.push(`FN:${escapeVCardValue(profile.name)}`);
+  const name = getFieldValue(profile.contactEntries, 'name');
+  if (name) {
+    lines.push(`FN:${escapeVCardValue(name)}`);
     
-    const nameParts = profile.name.split(' ');
+    const nameParts = name.split(' ');
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : profile.name;
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : name;
     lines.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)};;;`);
   }
   
-  // Handle phone and email from new array format
-  if (profile.contactChannels?.entries) {
-    const phoneEntry = profile.contactChannels.entries.find(e => e.platform === 'phone');
-    if (phoneEntry?.internationalPhone) {
-      lines.push(`TEL;TYPE=CELL:${phoneEntry.internationalPhone}`);
+  // Handle phone and email from contactEntries
+  if (profile.contactEntries) {
+    const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
+    if (phoneEntry?.value) {
+      lines.push(`TEL;TYPE=CELL:${phoneEntry.value}`);
     }
     
-    const emailEntry = profile.contactChannels.entries.find(e => e.platform === 'email');
-    if (emailEntry?.email) {
-      lines.push(`EMAIL:${escapeVCardValue(emailEntry.email)}`);
+    const emailEntry = profile.contactEntries.find(e => e.fieldType === 'email');
+    if (emailEntry?.value) {
+      lines.push(`EMAIL:${escapeVCardValue(emailEntry.value)}`);
     }
   }
   
@@ -248,16 +250,16 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
     }
   }
   
-  if (includeSocialMedia && profile.contactChannels?.entries) {
+  if (includeSocialMedia && profile.contactEntries) {
     const processedPlatforms = new Set<string>();
     
-    profile.contactChannels.entries.forEach((entry) => {
-      if (entry.platform === 'phone' || entry.platform === 'email') return;
+    profile.contactEntries.forEach((entry) => {
+      if (entry.fieldType === 'phone' || entry.fieldType === 'email' || entry.fieldType === 'name' || entry.fieldType === 'bio') return;
       
-      if (entry.username) {
-        const url = getSocialMediaUrl(entry.platform, entry.username);
+      if (entry.value) {
+        const url = getSocialMediaUrl(entry.fieldType, entry.value);
         if (url) {
-          const platformType = getPlatformTypeForIOS(entry.platform);
+          const platformType = getPlatformTypeForIOS(entry.fieldType);
           
           if (!processedPlatforms.has(platformType)) {
             processedPlatforms.add(platformType);
@@ -275,8 +277,9 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
   
   if (includeNotes) {
     // Only add bio to notes, not the contact URL
-    if (profile.bio) {
-      lines.push(`NOTE:${escapeVCardValue(profile.bio)}`);
+    const bio = getFieldValue(profile.contactEntries, 'bio');
+    if (bio) {
+      lines.push(`NOTE:${escapeVCardValue(bio)}`);
     }
   }
   
@@ -358,7 +361,7 @@ export const createVCardFile = async (profile: UserProfile, options?: VCardOptio
  * Generate a filename for the vCard
  */
 export const generateVCardFilename = (profile: UserProfile): string => {
-  const name = profile.name || 'contact';
+  const name = getFieldValue(profile.contactEntries, 'name') || 'contact';
   const safeName = name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
   return `${safeName}_contact.vcf`;
 };
@@ -415,7 +418,7 @@ export const saveVCard = async (
  * Display vCard inline for iOS
  */
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
-  console.log('📱 displayVCardInlineForIOS called for:', profile.name);
+  console.log('📱 displayVCardInlineForIOS called for:', getFieldValue(profile.contactEntries, 'name'));
   
   const isEmbedded = isEmbeddedBrowser();
   console.log('🔍 Embedded browser detected:', isEmbedded);
@@ -493,7 +496,7 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
  * Show instructions to user when automatic vCard handling fails
  */
 const showVCardInstructions = (profile: UserProfile, vCardContent: string): void => {
-  const contactName = profile.name || 'Contact';
+  const contactName = getFieldValue(profile.contactEntries, 'name') || 'Contact';
   
   const modal = document.createElement('div');
   modal.style.cssText = `

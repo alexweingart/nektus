@@ -52,8 +52,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getServerSession(authOptions);
-  
-  const backgroundImageUrl = session?.user?.backgroundImage;
 
   return (
       <html
@@ -64,10 +62,6 @@ export default async function RootLayout({
         }}
       >
       <head>
-        {/* Preload the user background image to avoid initial flash */}
-        {backgroundImageUrl && (
-          <link rel="preload" href={backgroundImageUrl} as="image" />
-        )}
         <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content, viewport-fit=cover" />
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -83,7 +77,9 @@ export default async function RootLayout({
             <AdminModeProvider>
               <LayoutBackground />
               <AdminBanner />
-              {children}
+              <div style={{ position: 'relative', zIndex: 10 }}>
+                {children}
+              </div>
             </AdminModeProvider>
           </ProfileProvider>
         </SessionProvider>

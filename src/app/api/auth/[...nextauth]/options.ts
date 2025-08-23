@@ -2,17 +2,6 @@ import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User } from "next-auth";
 import { getFirebaseAdmin, createCustomTokenWithCorrectSub } from "@/lib/firebase/adminConfig";
 
-// Helper to get environment variables with better error handling
-const getEnv = (key: string): string => {
-  const value = process.env[key];
-  if (!value && process.env.NODE_ENV !== 'test') {
-    // Log warning only in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`Missing environment variable: ${key}`);
-    }
-  }
-  return value || '';
-};
 
 // Set NEXTAUTH_URL if not set
 if (!process.env.NEXTAUTH_URL) {
@@ -132,7 +121,7 @@ export const authOptions: NextAuthOptions = {
   
   // Callbacks
   callbacks: {
-    async jwt({ token, account, user, trigger, session }): Promise<any> {
+    async jwt({ token, account, user, trigger, session }) {
       // Initial sign in
       if (account?.id_token) {
         // Ensure we have the user ID in the token FIRST
@@ -182,7 +171,7 @@ export const authOptions: NextAuthOptions = {
             if (profileDoc.exists) {
               const profileData = profileDoc.data();
               // Store phone info in token if it exists in Firebase
-              const phoneEntry = profileData?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+              const phoneEntry = profileData?.contactChannels?.entries?.find((e: { platform: string }) => e.platform === 'phone');
               if (phoneEntry?.internationalPhone) {
                 token.profile = {
                   contactChannels: {
@@ -343,7 +332,7 @@ export const authOptions: NextAuthOptions = {
   
   // Events
   events: {
-    async signIn(message) {
+    async signIn(_message) {
       // console.log('=== SIGN IN EVENT ===');
       // console.log('Sign in event details:', {
       //   user: message.user?.id,

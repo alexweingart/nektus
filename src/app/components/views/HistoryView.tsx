@@ -179,7 +179,7 @@ export const HistoryView: React.FC = () => {
               </div>
               <Heading as="h2" className="text-lg font-medium mb-2">No contacts yet</Heading>
               <Text variant="small" className="text-gray-300 mb-6">
-                When you nekt with someone, they'll appear here so you can easily reconnect later.
+                When you nekt with someone, they&apos;ll appear here so you can easily reconnect later.
               </Text>
               <Button 
                 onClick={handleGoBack}
@@ -187,7 +187,7 @@ export const HistoryView: React.FC = () => {
                 size="xl"
                 className="w-full"
               >
-                Start Nekt'ing
+                Start Nekt&apos;ing
               </Button>
             </div>
           </div>

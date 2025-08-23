@@ -6,13 +6,14 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
 import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { StandardModal } from '../ui/StandardModal';
 import { Text } from "../ui/Typography";
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
@@ -20,7 +21,7 @@ import { useSession } from 'next-auth/react';
 import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
-import { getExchangeState, setExchangeState, shouldShowSuccess, shouldShowUpsell, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
+import { getExchangeState, setExchangeState, shouldShowUpsell, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
 import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 
 interface ContactViewProps {
@@ -40,7 +41,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
-  const router = useRouter();
   
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
@@ -186,7 +186,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     };
 
     checkExchangeState();
-  }, [profile.userId, token, isHistoricalMode]);
+  }, [profile, profile.userId, token, isHistoricalMode]);
 
   // Handle incremental auth results and back navigation
   useEffect(() => {
@@ -283,7 +283,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
 
       setIsSaving(true);
-      console.log('💾 Saving contact:', profile.name);
+      console.log('💾 Saving contact:', getFieldValue(profile.contactEntries, 'name'));
       
       // Call the actual contact save service
       const result = await saveContactFlow(profile, token);
@@ -357,18 +357,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = profile.name.split(' ')[0];
+    const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName,undefined,profile.userId);
     
-    // Try to use phone number if available - check new array format
-    const contactChannelsAny = profile.contactChannels as any;
+    // Try to use phone number if available from contactEntries
     let phoneNumber = '';
     
-    if (contactChannelsAny?.entries) {
-      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
-      phoneNumber = phoneEntry?.internationalPhone || '';
-    } else if (contactChannelsAny?.phoneInfo) {
-      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    if (profile.contactEntries) {
+      const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
+      phoneNumber = phoneEntry?.value || '';
     }
     
     openMessagingAppDirectly(messageText, phoneNumber);
@@ -385,36 +382,29 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = profile.name.split(' ')[0];
+    const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     
-    // Try to use phone number if available - check new array format
-    const contactChannelsAny = profile.contactChannels as any;
+    // Try to use phone number if available from contactEntries
     let phoneNumber = '';
     
-    if (contactChannelsAny?.entries) {
-      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
-      phoneNumber = phoneEntry?.internationalPhone || '';
-    } else if (contactChannelsAny?.phoneInfo) {
-      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
+    if (profile.contactEntries) {
+      const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
+      phoneNumber = phoneEntry?.value || '';
     }
     
     openMessagingAppDirectly(messageText, phoneNumber);
   };
 
-  // Handle back to history navigation
-  const handleBackToHistory = () => {
-    router.push('/history');
-  };
 
   const { data: session } = useSession();
   const bioContent = useMemo(() => {
-    return profile?.bio || 'Welcome to my profile!';
-  }, [profile?.bio]);
+    return getFieldValue(profile?.contactEntries, 'bio') || 'Welcome to my profile!';
+  }, [profile?.contactEntries]);
 
   const markdownComponents = useMemo(() => ({
-    p: ({node, ...props}: any) => <Text variant="small" className="leading-relaxed mb-2" {...props} />,
-    a: ({ node: _node, ...props }: any) => (
+    p: (props: React.ComponentProps<'p'>) => <Text variant="small" className="leading-relaxed mb-2" {...props} />,
+    a: (props: React.ComponentProps<'a'>) => (
       <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
     ),
   }), []);
@@ -475,7 +465,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             <div className="border-4 border-white shadow-lg rounded-full">
               <Avatar 
                 src={profile.profileImage} 
-                alt={profile.name || 'Contact'}
+                alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
                 size="lg"
               />
             </div>
@@ -485,7 +475,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
             {/* Name */}
             <div className="text-center mb-4">
-              <h1 className="text-white text-2xl font-bold">{profile.name || 'Anonymous'}</h1>
+              <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'Anonymous'}</h1>
             </div>
             
             {/* Bio */}
@@ -499,9 +489,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
             
             {/* Social Media Icons */}
             <div className="w-full mb-4">
-              {profile.contactChannels && (
+              {profile.contactEntries && (
                 <SocialIconsList
-                  contactChannels={profile.contactChannels}
+                  contactEntries={profile.contactEntries}
                   size="md"
                   variant="white"
                 />
@@ -561,7 +551,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showSuccessModal}
           onClose={handleSuccessModalClose}
           title="Contact Saved! 🎉"
-          subtitle={`${profile.name}'s contact has been saved successfully!`}
+          subtitle={`${getFieldValue(profile.contactEntries, 'name')}'s contact has been saved successfully!`}
           primaryButtonText="Say hi 👋"
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"
@@ -573,7 +563,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showUpsellModal}
           onClose={dismissUpsellModal}
           title="Save to Google Contacts?"
-          subtitle={`We saved ${profile.name}'s contact to Nekt, but we need permission to save to Google so you can easily text them.`}
+          subtitle={`We saved ${getFieldValue(profile.contactEntries, 'name')}'s contact to Nekt, but we need permission to save to Google so you can easily text them.`}
           primaryButtonText="Yes!"
           onPrimaryButtonClick={handleUpsellAccept}
           secondaryButtonText="Nah, just Nekt is fine"

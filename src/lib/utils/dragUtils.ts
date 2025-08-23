@@ -1,12 +1,12 @@
-import type { SocialProfileFormEntry } from '@/types/forms';
+import type { ContactEntry } from '@/types/profile';
 
 /**
  * Utility function to reorder fields array based on drag operation
  */
-export const reorderFieldArray = (fields: SocialProfileFormEntry[], fromId: string, toId: string): SocialProfileFormEntry[] => {
+export const reorderFieldArray = (fields: ContactEntry[], fromId: string, toId: string): ContactEntry[] => {
   const result = [...fields];
-  const draggedIndex = result.findIndex(f => `${f.platform}-${f.section}` === fromId);
-  const targetIndex = result.findIndex(f => `${f.platform}-${f.section}` === toId);
+  const draggedIndex = result.findIndex(f => `${f.fieldType}-${f.section}` === fromId);
+  const targetIndex = result.findIndex(f => `${f.fieldType}-${f.section}` === toId);
   
   if (draggedIndex !== -1 && targetIndex !== -1) {
     // Swap the fields
@@ -21,8 +21,8 @@ export const reorderFieldArray = (fields: SocialProfileFormEntry[], fromId: stri
  * Detect the type of drag operation based on source and target fields
  */
 export const detectDragType = (
-  originalField: SocialProfileFormEntry,
-  targetField: SocialProfileFormEntry
+  originalField: ContactEntry,
+  targetField: ContactEntry
 ): 'same-section' | 'universal-to-section' | 'section-to-universal' => {
   if (originalField.section === 'universal' && targetField.section !== 'universal') {
     return 'universal-to-section';
@@ -55,14 +55,14 @@ export const calculateTargetY = (
  */
 export const findClosestField = (
   targetY: number,
-  visibleFields: SocialProfileFormEntry[],
+  visibleFields: ContactEntry[],
   scrollOffset: number
 ): string | null => {
   let targetFieldId: string | null = null;
   let closestDistance = Infinity;
   
   visibleFields.forEach(field => {
-    const fieldElement = document.querySelector(`[data-field-id="${field.platform}-${field.section}"]`);
+    const fieldElement = document.querySelector(`[data-field-id="${field.fieldType}-${field.section}"]`);
     if (fieldElement) {
       const rect = fieldElement.getBoundingClientRect();
       const fieldCenterY = rect.top + rect.height / 2 + scrollOffset;
@@ -70,7 +70,7 @@ export const findClosestField = (
       
       if (distance < closestDistance) {
         closestDistance = distance;
-        targetFieldId = `${field.platform}-${field.section}`;
+        targetFieldId = `${field.fieldType}-${field.section}`;
       }
     }
   });
@@ -78,10 +78,12 @@ export const findClosestField = (
   return targetFieldId;
 };
 
+// TODO: REMOVE - No longer used (replaced by opacity: 0 approach)
 export interface ReservedSpace {
   insertionIndex: number; // Direct insertion index: 0 = beginning, 3 = after 3rd field, etc.
 }
 
+// TODO: REMOVE - No longer used (simplified drag state in useDragAndDrop hook)
 export interface DragState {
   isDragMode: boolean;
   draggedField: string | null;
@@ -96,10 +98,11 @@ export interface DragState {
  * Get all draggable field elements with their positions and IDs
  * Only returns fields from the CURRENT SECTION (Personal or Work)
  */
+// TODO: REMOVE - No longer used (replaced by simpler field filtering in useDragAndDrop)
 export const getAllDraggableFields = (): Array<{ element: HTMLElement; fieldId: string; y: number; midY: number }> => {
   // First, determine which section we're in by checking which view is active
   // Look for the active profile view selector or check the carousel position
-  const personalSection = document.querySelector('[data-section="personal"]');
+  document.querySelector('[data-section="personal"]');
   const workSection = document.querySelector('[data-section="work"]');
   
   let currentSection: 'personal' | 'work' | 'universal' = 'personal';
@@ -162,20 +165,24 @@ export const getAllDraggableFields = (): Array<{ element: HTMLElement; fieldId: 
  * Returns exactly one reserved space following the spec rules
  */
 // Store the initial field order when drag starts
+// TODO: REMOVE - No longer used (unused state management)
 let initialFieldOrder: string[] | null = null;
 
+// TODO: REMOVE - No longer used (unused state management)
 export const setInitialFieldOrder = (order: string[] | null) => {
   initialFieldOrder = order;
 };
 
+// TODO: REMOVE - No longer used (unused state management)
 export const getInitialFieldOrder = (): string[] | null => {
   return initialFieldOrder;
 };
 
+// TODO: REMOVE - No longer used (replaced by opacity: 0 approach)
 export const calculateReservedSpace = (
   dragY: number,
   draggedFieldId: string,
-  currentReservedSpace?: ReservedSpace | null
+  _currentReservedSpace?: ReservedSpace | null
 ): ReservedSpace => {
   const fields = getAllDraggableFields();
   
@@ -244,7 +251,6 @@ export const calculateReservedSpace = (
  */
 export const createFloatingDragElement = (sourceElement: HTMLElement): HTMLElement => {
   const clone = sourceElement.cloneNode(true) as HTMLElement;
-  const rect = sourceElement.getBoundingClientRect();
   
   // Get dimensions first
   const fieldWidth = sourceElement.offsetWidth;
@@ -317,6 +323,7 @@ export const removeFloatingDragElement = (element: HTMLElement | null): void => 
 /**
  * Convert reserved space to drop information for fieldSectionManager
  */
+// TODO: REMOVE - No longer used (unused conversion function)
 export const getDropInfo = (reservedSpace: ReservedSpace, allFields: ReturnType<typeof getAllDraggableFields>, draggedFieldId?: string) => {
   // If insertion index is -1, it means no insertion point (return to original)
   if (reservedSpace.insertionIndex === -1) {
@@ -346,7 +353,7 @@ export const getDropInfo = (reservedSpace: ReservedSpace, allFields: ReturnType<
  */
 export const animateSnapToPosition = (
   dragElement: HTMLElement,
-  insertionPoint: any,
+  insertionPoint: { y: number; targetFieldId?: string },
   onComplete: () => void
 ): void => {
   if (!dragElement) {

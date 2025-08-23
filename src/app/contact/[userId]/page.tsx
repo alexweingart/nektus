@@ -7,6 +7,7 @@ import { ContactView } from '../../components/views/ContactView';
 import { Button } from '../../components/ui/buttons/Button';
 import type { SavedContact } from '@/types/contactExchange';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,6 @@ function ContactPageContent() {
   const router = useRouter();
   const params = useParams();
   const [contactProfile, setContactProfile] = useState<SavedContact | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const userId = params.userId as string;
@@ -47,7 +47,8 @@ function ContactPageContent() {
         const contact = contacts.find((c: SavedContact) => c.userId === userId);
         
         if (contact) {
-          console.log('✅ Loaded contact:', contact.name);
+          const contactName = getFieldValue(contact.contactEntries, 'name');
+          console.log('✅ Loaded contact:', contactName);
           setContactProfile(contact);
         } else {
           throw new Error('Contact not found in your saved contacts');

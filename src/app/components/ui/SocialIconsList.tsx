@@ -2,11 +2,10 @@
 
 import React from 'react';
 import SocialIcon from './SocialIcon';
-import type { ContactChannels, ContactEntry } from '@/types/profile';
-import type { FieldSection } from '@/types/forms';
+import type { ContactEntry, FieldSection } from '@/types/profile';
 
 interface SocialIconsListProps {
-  contactChannels: ContactChannels;
+  contactEntries: ContactEntry[];
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'white';
   className?: string;
@@ -43,62 +42,11 @@ interface SocialItem {
 }
 
 const SocialIconsList: React.FC<SocialIconsListProps> = ({
-  contactChannels,
+  contactEntries,
   size = 'md',
   variant = 'default',
   className = ''
 }) => {
-  // Transform contact channels into social items - NEW ARRAY FORMAT
-  const socialItems: SocialItem[] = [];
-  
-  // Process entries directly from the new array format
-  if (contactChannels?.entries) {
-    contactChannels.entries.forEach((entry, index) => {
-      // Only include if has content and is visible (not explicitly hidden)
-      const hasContent = entry.platform === 'phone' ? !!entry.internationalPhone :
-                         entry.platform === 'email' ? !!entry.email :
-                         !!entry.username?.trim();
-      
-      const isVisible = entry.isVisible !== false; // Default to visible if not specified
-      
-      // Only show entries that have content AND are visible
-      if (hasContent && isVisible) {
-        const username = entry.platform === 'phone' ? entry.internationalPhone! :
-                         entry.platform === 'email' ? entry.email! :
-                         entry.username!;
-        
-        const url = entry.platform === 'phone' ? `sms:${entry.internationalPhone}` :
-                    entry.platform === 'email' ? `mailto:${entry.email}` :
-                    entry.url || getUrlForPlatform(entry.platform as PlatformType, entry.username!);
-        
-        const config = PLATFORM_CONFIG[entry.platform as keyof typeof PLATFORM_CONFIG];
-        
-        socialItems.push({
-          platform: entry.platform as PlatformType,
-          username,
-          url,
-          section: entry.section,
-          order: entry.order ?? config?.defaultOrder ?? index // Use saved order first, then defaultOrder, then index
-        });
-      }
-    });
-  }
-  
-  // Sort items by section order, then by order within section
-  const sectionOrder: Record<FieldSection, number> = {
-    universal: 0,
-    personal: 1,
-    work: 2
-  };
-  
-  socialItems.sort((a, b) => {
-    const sectionDiff = sectionOrder[a.section] - sectionOrder[b.section];
-    if (sectionDiff !== 0) return sectionDiff;
-    
-    // Within the same section, use the order field (which includes custom user ordering)
-    return a.order - b.order;
-  });
-  
   // Helper function to get URL for platform
   const getUrlForPlatform = (platform: PlatformType, username: string): string => {
     switch (platform) {
@@ -126,6 +74,55 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
         return '';
     }
   };
+
+  // Transform contact channels into social items - NEW ARRAY FORMAT
+  const socialItems: SocialItem[] = [];
+  
+  // Process entries directly from the ContactEntry array
+  if (contactEntries?.length) {
+    contactEntries.forEach((entry, index) => {
+      // Only include if has content and is visible (not explicitly hidden)
+      const hasContent = entry.fieldType === 'phone' ? !!entry.value :
+                         entry.fieldType === 'email' ? !!entry.value :
+                         !!entry.value?.trim();
+      
+      const isVisible = entry.isVisible !== false; // Default to visible if not specified
+      
+      // Only show entries that have content AND are visible
+      if (hasContent && isVisible) {
+        const username = entry.value;
+        
+        const url = entry.fieldType === 'phone' ? `sms:${entry.value}` :
+                    entry.fieldType === 'email' ? `mailto:${entry.value}` :
+                    getUrlForPlatform(entry.fieldType as PlatformType, entry.value);
+        
+        const config = PLATFORM_CONFIG[entry.fieldType as keyof typeof PLATFORM_CONFIG];
+        
+        socialItems.push({
+          platform: entry.fieldType as PlatformType,
+          username,
+          url,
+          section: entry.section,
+          order: entry.order ?? config?.defaultOrder ?? index // Use saved order first, then defaultOrder, then index
+        });
+      }
+    });
+  }
+  
+  // Sort items by section order, then by order within section
+  const sectionOrder: Record<FieldSection, number> = {
+    universal: 0,
+    personal: 1,
+    work: 2
+  };
+  
+  socialItems.sort((a, b) => {
+    const sectionDiff = sectionOrder[a.section] - sectionOrder[b.section];
+    if (sectionDiff !== 0) return sectionDiff;
+    
+    // Within the same section, use the order field (which includes custom user ordering)
+    return a.order - b.order;
+  });
   
   // Helper function to get hover color class
   const getHoverColorClass = (platform: PlatformType): string => {

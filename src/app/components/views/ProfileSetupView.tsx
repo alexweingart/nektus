@@ -11,7 +11,7 @@ import Avatar from '../ui/Avatar';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
-import type { Country } from '@/types/forms';
+import type { Country } from '../ui/inputs/CustomPhoneInput';
 import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
@@ -75,25 +75,22 @@ function ProfileSetupView() {
     if (!session?.user?.email) return;
     if (isProfileSaving) return;
 
-    let nationalPhone = '';
     let internationalPhone = '';
     if (digits) {
       const phoneResult = formatPhoneNumber(digits, selectedCountry.code as CountryCode);
       internationalPhone = phoneResult.internationalPhone;
-      nationalPhone = phoneResult.nationalPhone;
     }
     const phoneUpdateData: Partial<UserProfile> = {
-      contactChannels: {
-        entries: [
-          {
-            platform: 'phone',
-            section: 'universal',
-            userConfirmed: true,
-            internationalPhone,
-            nationalPhone,
-          }
-        ]
-      },
+      contactEntries: [
+        {
+          fieldType: 'phone',
+          section: 'universal',
+          value: internationalPhone,
+          order: 0,
+          isVisible: true,
+          confirmed: true
+        }
+      ]
     };
 
     router.replace('/');

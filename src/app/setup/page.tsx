@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
-import { isNewUser } from '@/lib/services/server/newUserService';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 
@@ -22,8 +21,7 @@ function SetupPageContent() {
     window.location.reload();
   };
 
-  const userIsNew = isNewUser(session);
-  const phoneEntry = session?.profile?.contactChannels?.entries?.find((e: any) => e.platform === 'phone');
+  const phoneEntry = session?.profile?.contactChannels?.entries?.find((e: { platform?: string; internationalPhone?: string }) => e.platform === 'phone');
   const hasPhone = phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '';
                   
   const isLoading = status === 'loading' || (status === 'authenticated' && !profile);

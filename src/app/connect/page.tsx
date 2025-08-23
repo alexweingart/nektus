@@ -4,11 +4,11 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
-import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
-import type { ContactSaveResult, SavedContact } from '@/types/contactExchange';
+import type { SavedContact } from '@/types/contactExchange';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -58,7 +58,8 @@ function ConnectPageContent() {
           const contact = contacts.find((c: SavedContact) => c.matchToken === token);
           
           if (contact) {
-            console.log('✅ Loaded historical contact:', contact.name);
+            const contactName = getFieldValue(contact.contactEntries, 'name');
+            console.log('✅ Loaded historical contact:', contactName);
             setContactProfile(contact);
           } else {
             throw new Error('Historical contact not found');
@@ -90,30 +91,6 @@ function ConnectPageContent() {
     fetchMatchedProfile();
   }, [session, status, router, token, isHistoricalMode, contactProfile]);
 
-  const handleMessageContact = (profile: UserProfile) => {
-    if (!session?.user?.name || !profile.name) {
-      console.warn('Missing user names for message generation');
-      return;
-    }
-
-    const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = profile.name.split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName);
-    
-    // Try to use phone number if available - check new array format
-    const contactChannelsAny = profile.contactChannels as any;
-    let phoneNumber = '';
-    
-    if (contactChannelsAny?.entries) {
-      const phoneEntry = contactChannelsAny.entries.find((e: any) => e.platform === 'phone');
-      phoneNumber = phoneEntry?.internationalPhone || '';
-    } else if (contactChannelsAny?.phoneInfo) {
-      phoneNumber = contactChannelsAny.phoneInfo.internationalPhone || '';
-    }
-    
-    console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
-    openMessagingApp(messageText, phoneNumber);
-  };
 
   // Show loading only while checking auth
   if (status === 'loading') {

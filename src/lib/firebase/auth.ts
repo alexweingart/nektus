@@ -1,4 +1,4 @@
-import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signInWithCustomToken, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './clientConfig';
 
 /**
@@ -65,12 +65,15 @@ export class FirebaseAuthService {
       const userCredential = await signInWithCustomToken(this.auth, token);
       this.currentUser = userCredential.user;
       return this.currentUser;
-    } catch (error: any) {
+    } catch (error) {
       // Check if it's an invalid/expired token error
-      if (error?.code === 'auth/invalid-custom-token' || 
-          error?.code === 'auth/custom-token-mismatch' ||
-          error?.message?.includes('invalid') ||
-          error?.message?.includes('expired')) {
+      const errorCode = (error as { code?: string })?.code;
+      const errorMessage = (error as { message?: string })?.message;
+      
+      if (errorCode === 'auth/invalid-custom-token' || 
+          errorCode === 'auth/custom-token-mismatch' ||
+          errorMessage?.includes('invalid') ||
+          errorMessage?.includes('expired')) {
         
         try {
           // Try to refresh the token

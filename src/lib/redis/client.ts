@@ -3,6 +3,8 @@
  */
 
 import { Redis } from '@upstash/redis';
+import type { ProcessedLocation } from '@/lib/services/server/ipGeolocationService';
+import type { UserProfile } from '@/types/profile';
 
 // Initialize Redis using environment variables
 // Upstash will automatically use UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
@@ -23,6 +25,31 @@ export function isRedisAvailable(): boolean {
 
 // Export redis instance for use in other modules
 export { redis };
+
+// Exchange data interface
+interface ExchangeData {
+  userId: string;
+  profile: UserProfile;
+  timestamp: number;
+  location?: ProcessedLocation;
+  rtt?: number;
+  mag: number;
+  vector?: string;
+  sessionId: string;
+  sharingCategory?: string;
+}
+
+// Match data interface
+interface MatchData {
+  sessionA: string;
+  sessionB: string;
+  userA: UserProfile;
+  userB: UserProfile;
+  timestamp: number;
+  status: string;
+  sharingCategoryA?: string;
+  sharingCategoryB?: string;
+}
 
 /**
  * Rate limiting with Upstash Redis
@@ -72,7 +99,7 @@ export async function checkRateLimit(
  */
 export async function storePendingExchange(
   sessionId: string,
-  exchangeData: any,
+  exchangeData: ExchangeData,
   ttlSeconds: number = 30
 ): Promise<void> {
   if (!isRedisAvailable()) {
@@ -100,11 +127,11 @@ export async function storePendingExchange(
  */
 export async function atomicExchangeAndMatch(
   sessionId: string,
-  exchangeData: any,
-  currentLocation: any,
+  exchangeData: ExchangeData,
+  currentLocation: ProcessedLocation,
   currentTimestamp?: number,
   ttlSeconds: number = 30
-): Promise<{ sessionId: string; matchData: any } | null> {
+): Promise<{ sessionId: string; matchData: ExchangeData } | null> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for atomic exchange operations');
   }
@@ -142,7 +169,7 @@ export async function atomicExchangeAndMatch(
   }
   
   // Now check for matches among the candidates that existed before our addition
-  let bestMatch: { sessionId: string; matchData: any; timeDiff: number; confidence: string } | null = null;
+  let bestMatch: { sessionId: string; matchData: ExchangeData; timeDiff: number; confidence: string } | null = null;
   
   console.log(`🔍 Starting candidate loop - checking ${currentCandidates.length} candidates that existed before our session`);
   
@@ -360,16 +387,17 @@ export async function atomicExchangeAndMatch(
  * Legacy function - now just calls atomicExchangeAndMatch for backwards compatibility
  */
 export async function findMatchingExchange(
-  sessionId: string,
-  currentLocation: any,
-  currentTimestamp?: number,
-  currentRTT?: number
-): Promise<{ sessionId: string; matchData: any } | null> {
+  _sessionId: string,
+  _currentLocation: ProcessedLocation,
+  _currentTimestamp?: number,
+  _currentRTT?: number
+): Promise<{ sessionId: string; matchData: ExchangeData } | null> {
   // This is now just a wrapper - the real logic is in the hit endpoint
   return null;
 }
 
-// Helper function for distance calculation
+// Helper function for distance calculation (unused but kept for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function calculateDistance(pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }): number {
   const R = 6371e3; // Earth's radius in meters
   const φ1 = pos1.lat * Math.PI/180;
@@ -392,8 +420,8 @@ export async function storeExchangeMatch(
   token: string,
   sessionA: string,
   sessionB: string,
-  userA: any,
-  userB: any,
+  userA: UserProfile,
+  userB: UserProfile,
   sharingCategoryA?: string,
   sharingCategoryB?: string
 ): Promise<void> {
@@ -435,7 +463,7 @@ export async function storeExchangeMatch(
 /**
  * Get exchange match
  */
-export async function getExchangeMatch(token: string): Promise<any | null> {
+export async function getExchangeMatch(token: string): Promise<MatchData | null> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for retrieving exchange matches');
   }
@@ -450,13 +478,13 @@ export async function getExchangeMatch(token: string): Promise<any | null> {
     return JSON.parse(matchData);
   }
   
-  return matchData;
+  return matchData as MatchData;
 }
 
 /**
  * Store SSE connection
  */
-export async function storeSseConnection(sessionId: string, data: any): Promise<void> {
+export async function storeSseConnection(sessionId: string, data: Record<string, unknown>): Promise<void> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for storing SSE connections');
   }
@@ -488,7 +516,7 @@ export async function removePendingExchange(sessionId: string, clientIP: string)
 /**
  * Find exchange match by session ID
  */
-export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: any; youAre: 'A' | 'B' } | null> {
+export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: MatchData; youAre: 'A' | 'B' } | null> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for finding exchange matches');
   }
@@ -528,11 +556,11 @@ export async function findExchangeMatchBySession(sessionId: string): Promise<{ t
 /**
  * Get Redis client (for internal use)
  */
-export async function getRedisClient(): Promise<any> {
+export async function getRedisClient(): Promise<Redis> {
   if (!isRedisAvailable()) {
     throw new Error('Redis client is not available');
   }
-  return redis;
+  return redis!;
 }
 
 /**

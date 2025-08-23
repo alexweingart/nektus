@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './Button';
-import { initializeClockSync } from '@/lib/services/client/clockSyncService';
 import { LoadingSpinner } from '../LoadingSpinner';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
@@ -22,9 +21,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 }) => {
   const router = useRouter();
   const [status, setStatus] = useState<ExchangeStatus>('idle');
-  const [exchangeService, setExchangeService] = useState<any>(null);
+  const [exchangeService, setExchangeService] = useState<{ disconnect: () => Promise<void>; startExchange: (permissionGranted?: boolean, sharingCategory?: "All" | "Personal" | "Work") => Promise<void> } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('Personal');
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const lastPingTimeRef = useRef<number>(0); // Add ref to track last ping time
 
   // Load selected category from localStorage on mount and listen for changes
@@ -35,10 +33,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
           setSelectedCategory(savedCategory);
         }
-        setHasLoadedFromStorage(true);
       } catch (error) {
         console.warn('Failed to load sharing category from localStorage:', error);
-        setHasLoadedFromStorage(true);
       }
     };
 
@@ -59,21 +55,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Initialize clock sync on component mount
-  useEffect(() => {
-    const initClockSync = async () => {
-      try {
-        const success = await initializeClockSync();
-        if (!success) {
-          console.warn('⚠️ Clock sync initialization failed');
-        }
-      } catch (error) {
-        console.error('❌ Clock sync error:', error);
-      }
-    };
-    
-    initClockSync();
-  }, []);
 
   // Initialize exchange service when needed
   const initializeService = async () => {
@@ -130,7 +111,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     // Force reset to idle if we're in any non-idle state
     // This handles edge cases where state might be inconsistent after navigation
     if (status !== 'idle') {
-      const isIOS = typeof (DeviceMotionEvent as any).requestPermission === 'function';
+      const isIOS = typeof (DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> }).requestPermission === 'function';
       console.log(`⚠️ [${isIOS ? 'iOS' : 'Other'}] Exchange button clicked in non-idle state: ${status}, forcing reset`);
       setStatus('idle');
       // Small delay to ensure state updates before continuing
@@ -141,9 +122,10 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     
     // For iOS, request permission IMMEDIATELY as the first action
     // NO async operations before this call to preserve user gesture context
-    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+    const DeviceMotionEventWithPermission = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
+    if (typeof DeviceMotionEventWithPermission.requestPermission === 'function') {
       try {
-        const permission = await (DeviceMotionEvent as any).requestPermission();
+        const permission = await DeviceMotionEventWithPermission.requestPermission!();
         
         if (permission !== 'granted') {
           setStatus('error');
@@ -161,7 +143,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
 
     // Now we can do async operations after getting permission
-    const platform = typeof (DeviceMotionEvent as any).requestPermission === 'function' ? 'iOS' : 'Android/Other';
+    const platform = typeof DeviceMotionEventWithPermission.requestPermission === 'function' ? 'iOS' : 'Android/Other';
     
     // Debounce ping requests to prevent duplicates (React Strict Mode can cause double execution)
     const now = Date.now();

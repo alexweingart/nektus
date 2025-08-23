@@ -8,11 +8,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getProfile } from '@/lib/firebase/adminConfig';
 import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { getExchangeMatch } from '@/lib/redis/client';
 import { filterProfileByCategory } from '@/lib/utils/profileFiltering';
+
+/**
+ * Creates a mock profile for development/testing purposes
+ */
+function createMockProfile(includeExtendedData = true): UserProfile {
+  const baseEntries = [
+    {
+      fieldType: 'name',
+      value: 'John Doe',
+      section: 'universal' as const,
+      order: -2,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'bio',
+      value: 'Software Engineer passionate about technology and innovation.',
+      section: 'universal' as const,
+      order: -1,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'phone',
+      value: '1234567890',
+      section: 'universal' as const,
+      order: 0,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'email',
+      value: 'john.doe@example.com',
+      section: 'universal' as const,
+      order: 1,
+      isVisible: true,
+      confirmed: true
+    }
+  ];
+
+  const extendedEntries = includeExtendedData ? [
+    {
+      fieldType: 'instagram',
+      value: 'johndoe',
+      section: 'personal' as const,
+      order: 2,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'x',
+      value: 'john_doe',
+      section: 'personal' as const,
+      order: 3,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'linkedin',
+      value: 'johndoe',
+      section: 'work' as const,
+      order: 4,
+      isVisible: true,
+      confirmed: true
+    }
+  ] : [];
+
+  return {
+    userId: 'mock-user-123',
+    profileImage: '',
+    backgroundImage: '',
+    lastUpdated: Date.now(),
+    contactEntries: [...baseEntries, ...extendedEntries]
+  };
+}
 
 /**
  * GET /api/exchange/pair/[token]
@@ -58,8 +132,8 @@ export async function GET(
     console.log(`📋 Match data found:`, matchData);
 
     // Determine which user this is and get the other user's profile and sharing category
-    const isUserA = matchData.userA === session.user.id; // Compare with user ID
-    const otherUserId = isUserA ? matchData.userB : matchData.userA;
+    const isUserA = matchData.userA.userId === session.user.id; // Compare with user ID
+    const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
     const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
     
     console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}, otherUserSharingCategory: ${otherUserSharingCategory}`);
@@ -73,54 +147,32 @@ export async function GET(
     }
 
     try {
-      // Get the other user's profile from Firebase Admin
-      console.log(`🔥 Attempting to get profile for userId: ${otherUserId}`);
-      const otherUserProfile = await getProfile(otherUserId);
+      // Get the other user's profile from the match data (already available)
+      console.log(`🔥 Getting profile for userId: ${otherUserId}`);
+      const otherUserProfile = isUserA ? matchData.userB : matchData.userA;
       
       console.log(`🔥 Profile result:`, otherUserProfile ? 'Profile found' : 'Profile not found');
       
       if (!otherUserProfile) {
         console.log(`⚠️ Profile not found for ${otherUserId}, using mock profile`);
         // Use mock profile when real profile doesn't exist
-        const mockProfile: UserProfile = {
-          userId: 'mock-user-123',
-          name: 'John Doe',
-          bio: 'Software Engineer passionate about technology and innovation.',
-          profileImage: '',
-          backgroundImage: '',
-          lastUpdated: Date.now(),
-          contactChannels: {
-            entries: [
-              {
-                platform: 'phone',
-                section: 'universal',
-                userConfirmed: false,
-                internationalPhone: '+1 (555) 123-4567',
-                nationalPhone: '5551234567'
-              },
-              {
-                platform: 'email',
-                section: 'universal',
-                userConfirmed: false,
-                email: 'mock@example.com'
-              }
-            ]
-          }
-        };
+        const mockProfile = createMockProfile(false);
         
         // Filter the mock profile based on the sharing category they selected
-        const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'Personal');
+        const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+        const filteredMockProfile = filterProfileByCategory(mockProfile, category);
         
         console.log(`🎭 Returning filtered mock profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
         return NextResponse.json({
           success: true,
           profile: filteredMockProfile,
-          matchedAt: matchData.createdAt
+          matchedAt: matchData.timestamp
         } as ContactExchangeResponse);
       }
 
       // Filter the profile based on the sharing category the other user selected
-      const filteredProfile = filterProfileByCategory(otherUserProfile, otherUserSharingCategory || 'Personal');
+      const category2 = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+      const filteredProfile = filterProfileByCategory(otherUserProfile, category2);
 
       console.log(`✅ Successfully returning filtered profile for: ${otherUserId} with category: ${otherUserSharingCategory}`);
       return NextResponse.json({
@@ -134,55 +186,11 @@ export async function GET(
       
       console.log(`🎭 Returning mock profile due to Firebase error for: ${otherUserId}`);
       // Return a mock profile if Firebase fails (for development)
-      const mockProfile: UserProfile = {
-        userId: 'mock-user-123',
-        name: 'John Doe',
-        bio: 'Software Engineer passionate about technology and innovation.',
-        profileImage: '',
-        backgroundImage: '',
-        lastUpdated: Date.now(),
-        contactChannels: {
-          entries: [
-            {
-              platform: 'phone',
-              section: 'universal',
-              userConfirmed: true,
-              internationalPhone: '+1234567890',
-              nationalPhone: '(123) 456-7890'
-            },
-            {
-              platform: 'email',
-              section: 'universal',
-              userConfirmed: true,
-              email: 'john.doe@example.com'
-            },
-            {
-              platform: 'instagram',
-              section: 'personal',
-              userConfirmed: true,
-              username: 'johndoe',
-              url: 'https://instagram.com/johndoe'
-            },
-            {
-              platform: 'x',
-              section: 'personal',
-              userConfirmed: true,
-              username: 'john_doe',
-              url: 'https://x.com/john_doe'
-            },
-            {
-              platform: 'linkedin',
-              section: 'work',
-              userConfirmed: true,
-              username: 'johndoe',
-              url: 'https://linkedin.com/in/johndoe'
-            }
-          ]
-        }
-      };
+      const mockProfile = createMockProfile();
 
       // Filter the mock profile based on the sharing category they selected
-      const filteredMockProfile = filterProfileByCategory(mockProfile, otherUserSharingCategory || 'Personal');
+      const category3 = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+      const filteredMockProfile = filterProfileByCategory(mockProfile, category3);
 
       return NextResponse.json({
         success: true,
@@ -238,8 +246,8 @@ export async function POST(
     }
 
     // Verify user is part of this exchange (compare user IDs, not emails)
-    const isUserA = matchData.userA === session.user.id;
-    const isUserB = matchData.userB === session.user.id;
+    const isUserA = matchData.userA.userId === session.user.id;
+    const isUserB = matchData.userB.userId === session.user.id;
     
     if (!isUserA && !isUserB) {
       return NextResponse.json(
@@ -250,17 +258,17 @@ export async function POST(
 
     if (accept) {
       // User accepted - get the other user's profile and return it
-      const otherUserId = isUserA ? matchData.userB : matchData.userA;
+      const otherUserProfile = isUserA ? matchData.userB : matchData.userA;
+      const otherUserId = otherUserProfile.userId;
       
       try {
-        const otherUserProfile = await getProfile(otherUserId);
         
         if (otherUserProfile) {
           console.log(`User ${session.user.email} accepted exchange with ${otherUserId}`);
           
           return NextResponse.json({
             success: true,
-            profile: otherUserProfile,
+            profile: otherUserProfile as unknown,
             message: 'Exchange accepted'
           } as ContactExchangeResponse);
         } else {
@@ -271,52 +279,7 @@ export async function POST(
         console.error('Error fetching accepted profile:', error);
         
         // Return mock profile if Firebase fails
-        const mockProfile: UserProfile = {
-          userId: 'mock-user-123',
-          name: 'John Doe',
-          bio: 'Software Engineer passionate about technology and innovation.',
-          profileImage: '',
-          backgroundImage: '',
-          lastUpdated: Date.now(),
-          contactChannels: {
-            entries: [
-              {
-                platform: 'phone',
-                section: 'universal',
-                userConfirmed: true,
-                internationalPhone: '+1234567890',
-                nationalPhone: '(123) 456-7890'
-              },
-              {
-                platform: 'email',
-                section: 'universal',
-                userConfirmed: true,
-                email: 'john.doe@example.com'
-              },
-              {
-                platform: 'instagram',
-                section: 'personal',
-                userConfirmed: true,
-                username: 'johndoe',
-                url: 'https://instagram.com/johndoe'
-              },
-              {
-                platform: 'x',
-                section: 'personal',
-                userConfirmed: true,
-                username: 'john_doe',
-                url: 'https://x.com/john_doe'
-              },
-              {
-                platform: 'linkedin',
-                section: 'work',
-                userConfirmed: true,
-                username: 'johndoe',
-                url: 'https://linkedin.com/in/johndoe'
-              }
-            ]
-          }
-        };
+        const mockProfile = createMockProfile();
         
         return NextResponse.json({
           success: true,

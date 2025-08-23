@@ -21,8 +21,8 @@ export const usePWAInstall = () => {
   const checkPWAInstalled = async (): Promise<boolean> => {
     try {
       if ('getInstalledRelatedApps' in navigator) {
-        const relatedApps = await (navigator as any).getInstalledRelatedApps();
-        return relatedApps.some((app: any) => 
+        const relatedApps = await (navigator as unknown as { getInstalledRelatedApps: () => Promise<Array<{ platform: string; url?: string }>> }).getInstalledRelatedApps();
+        return relatedApps.some((app: { platform: string; url?: string }) => 
           app.platform === 'webapp' && app.url && app.url.endsWith('/manifest.json')
         );
       }
@@ -36,7 +36,7 @@ export const usePWAInstall = () => {
     const checkInstallation = async () => {
       // Check if app is already installed (running in standalone mode)
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isInWebAppiOS = (window.navigator as any).standalone === true;
+      const isInWebAppiOS = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
       
       // Check if PWA is installed via getInstalledRelatedApps (Chrome Android)
       const isPWAInstalled = await checkPWAInstalled();

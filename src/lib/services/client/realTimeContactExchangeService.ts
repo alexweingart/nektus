@@ -3,13 +3,12 @@
  * Replaces the simulated exchange with real server communication
  */
 
-import { initializeClockSync, isClockSyncInitialized, getServerNow, getClockSyncInfo } from '@/lib/services/client/clockSyncService';
+import { getServerNow, getClockSyncInfo } from '@/lib/services/client/clockSyncService';
 import type { 
   ContactExchangeRequest, 
   ContactExchangeResponse,
   ContactExchangeState
 } from '@/types/contactExchange';
-import type { UserProfile } from '@/types/profile';
 
 // Generate a unique session ID
 function generateSessionId(): string {
@@ -43,7 +42,7 @@ export class RealTimeContactExchangeService {
    * Start the contact exchange process with single timeout control
    */
   async startExchange(
-    permissionAlreadyGranted: boolean = false, 
+    _permissionAlreadyGranted: boolean = false, 
     sharingCategory: 'All' | 'Personal' | 'Work' = 'All'
   ): Promise<void> {
     try {
@@ -72,15 +71,6 @@ export class RealTimeContactExchangeService {
       // Start fresh motion detection session 
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
-      
-              // Initialize fresh clock sync for each exchange (blocking to ensure accuracy)
-        console.log('🔄 Refreshing clock sync for new exchange');
-        const syncSuccess = await initializeClockSync();
-        if (!syncSuccess) {
-          console.warn('⚠️ Clock sync failed, using local time');
-        } else {
-          console.log('✅ Clock sync refreshed successfully');
-        }
       
       
       // Permission is always handled by ExchangeButton - no need to check again
@@ -152,10 +142,10 @@ export class RealTimeContactExchangeService {
 
   private async requestMotionPermission(): Promise<{ success: boolean; message?: string }> {
     // For iOS, check current permission state first to avoid duplicate requests
-    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+    if (typeof (DeviceMotionEvent as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
       try {
         // Check current permission state first
-        const permission = await (DeviceMotionEvent as any).requestPermission();
+        const permission = await (DeviceMotionEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
         if (permission === 'granted') {
           return { success: true };
         } else {
