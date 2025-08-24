@@ -49,12 +49,7 @@ export function LayoutBackground() {
   };
 
   useEffect(() => {
-    console.log('🔵 [LayoutBackground] Component MOUNTED');
     setMounted(true);
-    
-    return () => {
-      console.log('🔴 [LayoutBackground] Component UNMOUNTING');
-    };
   }, []);
 
   // Handle hidden img loading events
@@ -90,17 +85,7 @@ export function LayoutBackground() {
   useEffect(() => {
     const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
     
-    console.log('🎨 [LayoutBackground] Effect triggered:', {
-      mounted,
-      backgroundImageUrl,
-      isLoading,
-      streamingBackgroundImage,
-      profileBackgroundImage: profile?.backgroundImage,
-      timestamp: Date.now()
-    });
-    
     if (!mounted || !backgroundImageUrl || isLoading) {
-      console.log('🎨 [LayoutBackground] Resetting - early exit:', { mounted, backgroundImageUrl: !!backgroundImageUrl, isLoading });
       setIsImageLoaded(false);
       setImageError(false);
       setShowBackground(false);
@@ -111,24 +96,15 @@ export function LayoutBackground() {
     const baseUrl = getBaseUrl(backgroundImageUrl);
     const cleanedUrl = cleanImageUrl(backgroundImageUrl);
     
-    console.log('🎨 [LayoutBackground] URL comparison:', {
-      baseUrl,
-      prevUrl: prevUrlRef.current,
-      same: prevUrlRef.current === baseUrl
-    });
-    
     // Only reset if the base URL actually changed (ignore cache busting)
     if (prevUrlRef.current === baseUrl) {
-      console.log('🎨 [LayoutBackground] Same URL - no reset needed');
       return; // Same base URL, no need to reset
     }
     
-    console.log('🎨 [LayoutBackground] URL changed - setting up loading');
     prevUrlRef.current = baseUrl;
 
     // Skip setup if image was already loaded this session
     if (loadedImagesRef.current.has(cleanedUrl)) {
-      console.log('🎨 [LayoutBackground] Image cached - showing immediately');
       setIsImageLoaded(true);
       setImageError(false);
       setShowBackground(true); // Show immediately for cached images
@@ -136,7 +112,6 @@ export function LayoutBackground() {
     }
 
     // Start loading state - the hidden img will trigger load events
-    console.log('🎨 [LayoutBackground] Starting fresh load');
     setImageError(false);
     setIsImageLoaded(false);
     setShowBackground(false);
@@ -146,16 +121,8 @@ export function LayoutBackground() {
   useEffect(() => {
     if (!mounted) return;
 
-    console.log('🟢 [LayoutBackground] CSS class effect triggered:', {
-      isLoading,
-      isImageLoaded,
-      imageError,
-      hasBackground: !!document.body.classList.contains('has-custom-background')
-    });
-
     // CRITICAL: Never hide green background during profile loading to prevent black flash
     if (isLoading) {
-      console.log('🟢 [LayoutBackground] Removing has-custom-background - isLoading=true');
       document.body.classList.remove('has-custom-background');
       return;
     }
@@ -167,28 +134,11 @@ export function LayoutBackground() {
 
   // Don't render on server, during profile loading, if no background image, or on error
   const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
-  
-  console.log('🖼️ [LayoutBackground] Render decision:', {
-    mounted,
-    isLoading,
-    backgroundImageUrl: !!backgroundImageUrl,
-    imageError,
-    willRender: !(!mounted || isLoading || !backgroundImageUrl || imageError)
-  });
-  
   if (!mounted || isLoading || !backgroundImageUrl || imageError) {
-    console.log('🚫 [LayoutBackground] NOT RENDERING - returning null');
     return null;
   }
 
   const cleanedUrl = cleanImageUrl(backgroundImageUrl);
-
-  console.log('🎆 [LayoutBackground] RENDERING div:', {
-    cleanedUrl,
-    isImageLoaded,
-    showBackground,
-    opacity: showBackground ? 1 : 0
-  });
 
   return (
     <>
@@ -223,11 +173,6 @@ export function LayoutBackground() {
             transition: 'opacity 1s ease-out' // Simple 1 second fade-in
           }}
         />
-      )}
-      {!isImageLoaded && (
-        <div style={{ display: 'none' }}>
-          {console.log('🟡 [LayoutBackground] Image not loaded - no div rendered')}
-        </div>
       )}
     </>
   );

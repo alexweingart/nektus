@@ -35,7 +35,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   onSaveRequest
 }, ref) => {
   const { profile } = useProfile(); // Get profile directly from context
-  console.log('🏭 FIELDRENDERER: Component render (expected to re-render)', { timestamp: Date.now() });
   const nameInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
