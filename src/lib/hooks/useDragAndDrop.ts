@@ -32,6 +32,7 @@ interface UseDragAndDropReturn {
   isDragMode: boolean; // Derived from dragState
   draggedField: string | null;
   fieldOrder: ContactEntry[];
+  currentSwap: {from: string, to: string} | null;
   
   // Handlers for draggable elements
   onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
