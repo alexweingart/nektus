@@ -533,10 +533,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     savingRef.current = true;
 
     // Set saving state to prevent setup effects from running during form submission
-    const phoneEntry = data.contactEntries?.find(e => e.fieldType === 'phone');
+    // Detect form submission by checking if we have contact entries (any field, not just phone)
     const wasFormSubmission = !options.directUpdate && 
-      phoneEntry?.value && 
-      phoneEntry.value.trim() !== '';
+      data.contactEntries && 
+      data.contactEntries.length > 0;
     
     // Save operation starting
     if (wasFormSubmission) {
@@ -569,10 +569,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       profileRef.current = merged;
       
       // Skip React state updates for:
-      // 1. Form submissions (navigating away immediately)  
-      // 2. Background operations (directUpdate - bio generation, social media generation)
-      // 3. Explicit skipUIUpdate requests
-      const skipReactUpdate = wasFormSubmission || options.skipUIUpdate;
+      // 1. Background operations (directUpdate - bio generation, social media generation)
+      // 2. Explicit skipUIUpdate requests
+      // Note: Removed form submission skip - we want UI to reflect saved changes immediately
+      const skipReactUpdate = options.skipUIUpdate;
       
       if (!skipReactUpdate) {
         setProfile(merged);
@@ -586,11 +586,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // Update the ref with the latest saved data
       profileRef.current = merged;
-      
-      // Update React state with the saved data to ensure UI reflects confirmed channels
-      if (skipReactUpdate) {
-        setProfile(merged);
-      }
         
         // Only trigger phone-based social generation if phone number was saved AND WhatsApp is blank
         const mergedPhoneEntry = merged.contactEntries?.find(e => e.fieldType === 'phone');

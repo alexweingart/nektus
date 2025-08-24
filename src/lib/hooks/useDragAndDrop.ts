@@ -175,7 +175,7 @@ export const useDragAndDrop = ({
     
     if (isValidDrop) {
       // Execute snap animation and drop
-      animateSnapToPosition(dragElement, null, () => {
+      animateSnapToPosition(dragElement, { y: 0 }, () => {
         // Call field array drop callback with enhanced context
         if (onFieldArrayDrop && draggedField && currentSwap) {
           const draggedFieldData = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
