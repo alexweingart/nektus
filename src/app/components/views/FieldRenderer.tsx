@@ -14,6 +14,7 @@ import { ProfileField } from '../ui/ProfileField';
 import { ProfileViewSelector } from '../ui/ProfileViewSelector';
 import { useEditProfileFields, useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import { useDragAndDrop } from '@/lib/hooks/useDragAndDrop';
 
 interface FieldRendererProps {
   session?: Session | null;
@@ -55,14 +56,108 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     initialImages
   });
   
-  // All fields combined for drag detection
-  const allFields = React.useMemo(() => [
-    ...fieldSectionManager.universalFields,
-    ...fieldSectionManager.personalFields,
-    ...fieldSectionManager.workFields
-  ], [fieldSectionManager.universalFields, fieldSectionManager.personalFields, fieldSectionManager.workFields]);
+  // All fields combined for drag detection - use field manager's order
+  const allFields = React.useMemo(() => {
+    // Get the field manager's complete order for both Personal and Work
+    const personalView = fieldSectionManager.getFieldsForView('Personal');
+    const workView = fieldSectionManager.getFieldsForView('Work');
+    
+    // Combine in the same order as field manager
+    const combined = [
+      ...personalView.universalFields,
+      ...personalView.currentFields,
+      ...personalView.hiddenFields,
+      ...workView.currentFields,
+      ...workView.hiddenFields
+    ];
+    
+    
+    return combined;
+  }, [fieldSectionManager]);
   
-  // No drag logic in FieldRenderer - it will be handled by stable parent
+  // Drag and drop functionality
+  const {
+    isDragMode,
+    draggedField,
+    fieldOrder,
+    currentSwap,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    exitDragMode
+  } = useDragAndDrop({
+    initialFields: allFields,
+    currentSection: selectedMode,
+    onDragStateChange,
+    onFieldArrayDrop: (dropInfo) => {
+      // Handle field reordering when drag is completed
+      const { fields, draggedField: draggedFieldData, dragType } = dropInfo;
+      
+      console.log('[FieldRenderer] onFieldArrayDrop called:', {
+        dragType,
+        draggedField: `${draggedFieldData.fieldType}-${draggedFieldData.section}`,
+        totalFields: fields.length,
+        fieldIds: fields.map(f => `${f.fieldType}-${f.section}`)
+      });
+      
+      if (dragType === 'same-section') {
+        // Use the existing reorder method for same-section drags
+        const fromId = `${draggedFieldData.fieldType}-${draggedFieldData.section}`;
+        const draggedIndex = fields.findIndex(f => `${f.fieldType}-${f.section}` === fromId);
+        
+        if (draggedIndex >= 0) {
+          // Find the target position based on field order
+          const targetField = fields[draggedIndex + 1] || fields[draggedIndex - 1];
+          if (targetField) {
+            fieldSectionManager.reorderFieldsInSection(
+              draggedFieldData.fieldType,
+              targetField.fieldType,
+              draggedFieldData.section
+            );
+          }
+        }
+      } else if (dragType === 'universal-to-section') {
+        // Moving from universal to personal/work section
+        console.log('[FieldRenderer] Universal-to-section drag:', {
+          draggedField: draggedFieldData.fieldType,
+          targetSection: dropInfo.draggedField.section, // This should be the target section
+          currentValue: draggedFieldData.value || ''
+        });
+        
+        const targetSection = dropInfo.draggedField.section as 'personal' | 'work';
+        fieldSectionManager.splitUniversalField(
+          draggedFieldData.fieldType,
+          draggedFieldData.value || '',
+          targetSection,
+          0 // Insert at beginning of section for now
+        );
+        
+      } else if (dragType === 'section-to-universal') {
+        // Moving from personal/work to universal section  
+        console.log('[FieldRenderer] Section-to-universal drag:', {
+          draggedField: draggedFieldData.fieldType,
+          fromSection: draggedFieldData.section,
+          currentValue: draggedFieldData.value || ''
+        });
+        
+        fieldSectionManager.consolidateToUniversal(
+          draggedFieldData.fieldType,
+          draggedFieldData.value || '',
+          0 // Insert at end of universal section for now
+        );
+      } else {
+        console.warn('Unknown drag type:', dragType);
+      }
+    }
+  });
+  
+  // TODO: For now, let's disable immediate swapping to avoid infinite loops
+  // We'll implement visual feedback through a different mechanism
+  // React.useEffect(() => {
+  //   if (currentSwap && isDragMode) {
+  //     // Apply swap immediately for real-time feedback
+  //   }
+  // }, [currentSwap, isDragMode, fieldSectionManager]);
   
   // Expose methods to parent via ref - including imperative drag API
   useImperativeHandle(ref, () => ({
@@ -139,8 +234,50 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   
   // Get current fields for view (use temp order during drag if available)
   const getCurrentFields = (viewMode: 'Personal' | 'Work') => {
-    // During drag, we could use tempFieldOrder if we implement it
-    // For now, just use the field manager's view
+    // During drag mode, use the reordered fieldOrder from drag hook for real-time preview
+    if (isDragMode && fieldOrder.length > 0) {
+      const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
+      const currentSectionName = selectedMode.toLowerCase() as 'personal' | 'work';
+      
+      // Only use fieldOrder for the current section being dragged
+      // For other sections, fall back to field manager
+      if (sectionName === currentSectionName) {
+        // Compare with field manager order
+        const fieldManagerOrder = fieldSectionManager.getFieldsForView(viewMode);
+        const fieldManagerIds = [
+          ...fieldManagerOrder.universalFields.map(f => `${f.fieldType}-${f.section}`),
+          ...fieldManagerOrder.currentFields.map(f => `${f.fieldType}-${f.section}`),
+          ...fieldManagerOrder.hiddenFields.map(f => `${f.fieldType}-${f.section}`)
+        ];
+        
+        console.log('[FieldRenderer] Using fieldOrder for visual feedback during drag:', {
+          viewMode,
+          sectionName,
+          totalFieldOrder: fieldOrder.length,
+          fieldOrderIds: fieldOrder.map(f => `${f.fieldType}-${f.section}`),
+          fieldManagerIds: fieldManagerIds,
+          currentSwap: currentSwap,
+          draggedField: draggedField,
+          orderMismatch: JSON.stringify(fieldOrder.map(f => `${f.fieldType}-${f.section}`)) !== JSON.stringify(fieldManagerIds)
+        });
+        // Filter fields for current view mode from the reordered fieldOrder
+        const currentFields = fieldOrder.filter(field => 
+          field.isVisible && field.section === sectionName
+        );
+        
+        const hiddenFields = fieldOrder.filter(field => 
+          !field.isVisible && field.section === sectionName
+        );
+        
+        const universalFields = fieldOrder.filter(field => 
+          field.section === 'universal'
+        );
+        
+        return { currentFields, hiddenFields, universalFields };
+      }
+    }
+    
+    // When not dragging or not the active section, use the field manager's view
     return fieldSectionManager.getFieldsForView(viewMode);
   };
   
@@ -170,6 +307,14 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                 onConfirm={fieldSectionManager.markChannelAsConfirmed}
                 currentViewMode={viewMode}
+                showDragHandles={true}
+                dragAndDrop={{
+                  isDragMode,
+                  draggedField,
+                  onTouchStart,
+                  onTouchMove,
+                  onTouchEnd
+                }}
               />
             );
           })}
@@ -195,8 +340,15 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   onChange={handleFieldChange}
                   isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                  showDragHandles={false}
                   currentViewMode={viewMode}
+                  showDragHandles={true}
+                  dragAndDrop={{
+                    isDragMode,
+                    draggedField,
+                    onTouchStart,
+                    onTouchMove,
+                    onTouchEnd
+                  }}
                 />
               );
             })}
@@ -207,10 +359,20 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   };
   
   // Get universal fields for the top section
-  const { universalFields } = getCurrentFields('Personal');
+  const getUniversalFields = () => {
+    if (isDragMode && fieldOrder.length > 0) {
+      // During drag mode, use reordered universal fields from fieldOrder
+      return fieldOrder.filter(field => field.section === 'universal');
+    }
+    // When not dragging, use the field manager's universal fields
+    const { universalFields } = fieldSectionManager.getFieldsForView('Personal');
+    return universalFields;
+  };
+  
+  const universalFields = getUniversalFields();
   
   return (
-    <div className="flex flex-col items-center px-4 py-4 pb-8 relative space-y-5" data-drag-container>
+    <div className="flex flex-col items-center py-4 pb-8 relative space-y-5" data-drag-container>
       {/* Universal Section */}
       <FieldSectionComponent
         isEmpty={false}
@@ -327,6 +489,14 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={selectedMode}
+                  showDragHandles={true}
+                  dragAndDrop={{
+                    isDragMode,
+                    draggedField,
+                    onTouchStart,
+                    onTouchMove,
+                    onTouchEnd
+                  }}
                 />
               </div>
             );
@@ -351,6 +521,14 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={selectedMode}
+                  showDragHandles={true}
+                  dragAndDrop={{
+                    isDragMode,
+                    draggedField,
+                    onTouchStart,
+                    onTouchMove,
+                    onTouchEnd
+                  }}
                 />
               </div>
             );
@@ -367,6 +545,14 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                 onConfirm={fieldSectionManager.markChannelAsConfirmed}
                 currentViewMode={selectedMode}
+                showDragHandles={true}
+                dragAndDrop={{
+                  isDragMode,
+                  draggedField,
+                  onTouchStart,
+                  onTouchMove,
+                  onTouchEnd
+                }}
               />
             </div>
           );

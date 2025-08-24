@@ -33,9 +33,17 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     // Get current fields at call time, not at creation time
     const currentFields = fieldRendererRef.current?.getAllFields() || [];
     
-    // Construct profile data for save
+    // Mark all fields with content as confirmed for Firebase save
+    const confirmedFields = currentFields.map(field => {
+      if (field.value && field.value.trim() !== '') {
+        return { ...field, confirmed: true };
+      }
+      return field;
+    });
+    
+    // Construct profile data for save with confirmed fields
     const profileData = {
-      contactEntries: currentFields,
+      contactEntries: confirmedFields,
       profileImage: profile?.profileImage || '',
       backgroundImage: profile?.backgroundImage || ''
     };

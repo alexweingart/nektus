@@ -218,7 +218,7 @@ export const useEditProfileFields = ({
             section: 'personal',
             order: 1000 + missingFields.length,
             isVisible: false,
-            confirmed: false
+            confirmed: true  // Blank fields should be confirmed by default
           });
         }
         
@@ -230,7 +230,7 @@ export const useEditProfileFields = ({
             section: 'work',
             order: 1000 + missingFields.length,
             isVisible: false,
-            confirmed: false
+            confirmed: true  // Blank fields should be confirmed by default
           });
         }
       }

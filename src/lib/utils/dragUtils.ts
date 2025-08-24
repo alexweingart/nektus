@@ -2,6 +2,7 @@ import type { ContactEntry } from '@/types/profile';
 
 /**
  * Utility function to reorder fields array based on drag operation
+ * Handles both same-section swaps and cross-section transitions
  */
 export const reorderFieldArray = (fields: ContactEntry[], fromId: string, toId: string): ContactEntry[] => {
   const result = [...fields];
@@ -9,8 +10,28 @@ export const reorderFieldArray = (fields: ContactEntry[], fromId: string, toId: 
   const targetIndex = result.findIndex(f => `${f.fieldType}-${f.section}` === toId);
   
   if (draggedIndex !== -1 && targetIndex !== -1) {
-    // Swap the fields
-    [result[draggedIndex], result[targetIndex]] = [result[targetIndex], result[draggedIndex]];
+    const draggedField = result[draggedIndex];
+    const targetField = result[targetIndex];
+    
+    // Detect if this is a cross-section boundary transition
+    const dragType = detectDragType(draggedField, targetField);
+    
+    if (dragType === 'same-section') {
+      // Simple swap for same-section drags
+      [result[draggedIndex], result[targetIndex]] = [result[targetIndex], result[draggedIndex]];
+    } else {
+      // Cross-section transition: change section but maintain exact same position
+      const newDraggedField = {
+        ...draggedField,
+        section: targetField.section // Change to target's section
+      };
+      
+      // Simply replace the dragged field at its current position with the new section
+      result[draggedIndex] = newDraggedField;
+      
+      // No position changes needed - the visual order stays exactly the same
+      
+    }
   }
   
   // Update order properties

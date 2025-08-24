@@ -170,14 +170,36 @@ export const useDragAndDrop = ({
 
   // Handle touch end - either cancel long press or execute drop
   const handleTouchEnd = useCallback(() => {
+    console.log('[useDragAndDrop] handleTouchEnd called:', {
+      dragState,
+      currentSwap,
+      draggedField,
+      dragElement: !!dragElement
+    });
+    
     // Check if this is a valid drop scenario - if there's a current swap
     const isValidDrop = dragState === 'dragging' && currentSwap && draggedField && dragElement;
     
+    console.log('[useDragAndDrop] Drop validation:', {
+      isValidDrop,
+      dragState,
+      hasCurrentSwap: !!currentSwap,
+      hasDraggedField: !!draggedField,
+      hasDragElement: !!dragElement
+    });
+    
     if (isValidDrop) {
+      console.log('[useDragAndDrop] Executing valid drop with swap:', currentSwap);
       // Execute snap animation and drop
       animateSnapToPosition(dragElement, { y: 0 }, () => {
+        console.log('[useDragAndDrop] animateSnapToPosition callback called - starting cleanup');
+        
         // Call field array drop callback with enhanced context
         if (onFieldArrayDrop && draggedField && currentSwap) {
+          console.log('[useDragAndDrop] Calling onFieldArrayDrop with:', {
+            draggedField,
+            currentSwap
+          });
           const draggedFieldData = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
           if (draggedFieldData) {
             // Determine drag type using utility function
@@ -196,6 +218,8 @@ export const useDragAndDrop = ({
           }
         }
         
+        console.log('[useDragAndDrop] Cleaning up drag state');
+        
         // Clean up drag state
         setDragState('idle');
         setDraggedField(null);
@@ -208,8 +232,12 @@ export const useDragAndDrop = ({
           setLongPressTimer(null);
         }
         setTouchStartPos(null);
+        
+        console.log('[useDragAndDrop] Cleanup completed');
       });
     } else {
+      console.log('[useDragAndDrop] Not a valid drop - canceling long press');
+      
       // Regular cancel long press behavior
       if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -484,6 +512,7 @@ export const useDragAndDrop = ({
     isDragMode,
     draggedField,
     fieldOrder,
+    currentSwap,
     
     // Handlers
     onTouchStart,

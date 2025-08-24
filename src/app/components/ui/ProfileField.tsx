@@ -68,8 +68,9 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   // Field ID for drag operations
   const fieldId = `${fieldType}-${profile.section}`;
   
-  // Simplified drag state - just check if this field is being dragged
-  const isDragging = dragAndDrop?.draggedField === fieldId;
+  // Drag state - check if this field is being dragged (handle cross-section field ID changes)
+  const isDragging = dragAndDrop?.draggedField === fieldId || 
+                     (dragAndDrop?.draggedField && dragAndDrop.draggedField.split('-')[0] === fieldType);
   const isDimmed = dragAndDrop?.isDragMode && !isDragging;
 
   return (
