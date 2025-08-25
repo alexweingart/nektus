@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 // Global drag state singleton to prevent multiple hook instances from conflicting
 class GlobalDragManager {
@@ -65,7 +65,6 @@ import {
   updateFloatingDragElementPosition,
   removeFloatingDragElement,
   animateSnapToPosition,
-  reorderFieldArray,
   detectDragType,
   findClosestField,
   calculateTargetY
@@ -141,38 +140,6 @@ export const useDragAndDrop = ({
   
   // Stabilized refs updated (logging removed for clarity)
   
-  // Phase 3: Direction calculation functions
-  const calculateSameSectionDirection = useCallback((
-    draggedField: ContactEntry, 
-    targetField: ContactEntry
-  ): 'up' | 'down' => {
-    const currentFieldOrder = fieldOrderRef.current;
-    const draggedIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === `${draggedField.fieldType}-${draggedField.section}`);
-    const targetIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === `${targetField.fieldType}-${targetField.section}`);
-    
-    // FIXED: Direction logic was backwards!
-    // When draggedIndex > targetIndex, we're moving to a lower index = moving UP in DOM = moving UP on screen
-    // When draggedIndex < targetIndex, we're moving to a higher index = moving DOWN in DOM = moving DOWN on screen
-    const direction = draggedIndex > targetIndex ? 'up' : 'down';
-    
-    console.log(`Direction: dragged=${draggedField.fieldType}(${draggedIndex}) → target=${targetField.fieldType}(${targetIndex}) = ${direction}`);
-    
-    return direction;
-  }, []);
-  
-  const calculateCrossSectionDirection = useCallback((
-    draggedSection: string, 
-    targetSection: string
-  ): 'up' | 'down' => {
-    // User's specification:
-    // - To universal = 'up' (always dragging UP to universal)
-    // - From universal = 'down' (always dragging DOWN from universal)
-    
-    
-    if (targetSection === 'universal') return 'up';
-    if (draggedSection === 'universal') return 'down';
-    return 'down'; // Default for personal ↔ work
-  }, []);
   
   // Phase 4: Reserved space application system
   const updateReservedSpace = useCallback((
@@ -437,8 +404,9 @@ export const useDragAndDrop = ({
   const handleSwapDetection = useCallback((targetY: number, draggedField: string) => {
     // Get current visible fields for swap detection - USE REFS
     const sectionName = currentSectionRef.current.toLowerCase() as 'personal' | 'work';
-    let visibleFields = initialFieldsRef.current.filter(f => f.isVisible && 
+    const baseVisibleFields = initialFieldsRef.current.filter(f => f.isVisible && 
       (f.section === sectionName || f.section === 'universal'));
+    let allVisibleFields = [...baseVisibleFields];
     
     // Special case: if dragged field is the only field in its section, include it as a target
     const draggedFieldData = initialFieldsRef.current.find(f => `${f.fieldType}-${f.section}` === draggedField);
@@ -459,10 +427,10 @@ export const useDragAndDrop = ({
         );
         
         // Find the insertion point in visibleFields
-        let insertIndex = visibleFields.length;
-        for (let i = 0; i < visibleFields.length; i++) {
+        let insertIndex = allVisibleFields.length;
+        for (let i = 0; i < allVisibleFields.length; i++) {
           const visibleFieldOriginalIndex = initialFieldsRef.current.findIndex(f => 
-            f.fieldType === visibleFields[i].fieldType && f.section === visibleFields[i].section
+            f.fieldType === allVisibleFields[i].fieldType && f.section === allVisibleFields[i].section
           );
           if (visibleFieldOriginalIndex > draggedOriginalIndex) {
             insertIndex = i;
@@ -471,11 +439,11 @@ export const useDragAndDrop = ({
         }
         
         // Check if already added to prevent duplicates
-        const alreadyAdded = visibleFields.some(f => `${f.fieldType}-${f.section}` === draggedField);
+        const alreadyAdded = allVisibleFields.some(f => `${f.fieldType}-${f.section}` === draggedField);
         if (!alreadyAdded) {
           // Insert at the correct position with isVisible true
           const draggedFieldForDetection = { ...draggedFieldData, isVisible: true };
-          visibleFields.splice(insertIndex, 0, draggedFieldForDetection);
+          allVisibleFields.splice(insertIndex, 0, draggedFieldForDetection);
           console.log(`[handleSwapDetection] Added single field ${draggedField} at index ${insertIndex}`);
         } else {
           console.log(`[handleSwapDetection] Field ${draggedField} already in visible fields, skipping`);
@@ -485,7 +453,7 @@ export const useDragAndDrop = ({
     
     // Calculate target position and find closest field
     const scrollOffset = getScrollOffset();
-    const swapResult = findClosestField(targetY, visibleFields, scrollOffset, draggedField);
+    const swapResult = findClosestField(targetY, allVisibleFields, scrollOffset, draggedField);
     
     // Only proceed if we have a swap result
     // Special case: allow targeting the dragged field itself (return to origin)
@@ -664,7 +632,6 @@ export const useDragAndDrop = ({
   
   // Handle drag mode interactions using GlobalDragManager singleton
   useEffect(() => {
-    const effectId = Math.random().toString(36).substr(2, 9);
     const globalManager = GlobalDragManager.getInstance();
     
     if (dragState === 'dragging') {

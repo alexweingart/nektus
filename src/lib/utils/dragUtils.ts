@@ -134,7 +134,6 @@ export const findClosestField = (
     fieldBelow = belowIndex < visibleFields.length ? visibleFields[belowIndex] : null;
   }
 
-  let targetFieldId: string | null = null;
   let closestDistance = Infinity;
   let aboveDistance = Infinity;
   let belowDistance = Infinity;
@@ -153,7 +152,6 @@ export const findClosestField = (
       
       if (aboveDistance < closestDistance) {
         closestDistance = aboveDistance;
-        targetFieldId = fieldId;
       }
     }
   }
@@ -170,7 +168,6 @@ export const findClosestField = (
       
       if (belowDistance < closestDistance) {
         closestDistance = belowDistance;
-        targetFieldId = fieldId;
       }
     }
   }
