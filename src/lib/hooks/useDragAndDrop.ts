@@ -440,9 +440,13 @@ export const useDragAndDrop = ({
         // Check if already added to prevent duplicates
         const alreadyAdded = allVisibleFields.some(f => `${f.fieldType}-${f.section}` === draggedField);
         if (!alreadyAdded) {
-          // Insert at the correct position with isVisible true
+          // Create new array with the dragged field inserted at correct position
           const draggedFieldForDetection = { ...draggedFieldData, isVisible: true };
-          allVisibleFields.splice(insertIndex, 0, draggedFieldForDetection);
+          allVisibleFields = [
+            ...allVisibleFields.slice(0, insertIndex),
+            draggedFieldForDetection,
+            ...allVisibleFields.slice(insertIndex)
+          ];
           console.log(`[handleSwapDetection] Added single field ${draggedField} at index ${insertIndex}`);
         } else {
           console.log(`[handleSwapDetection] Field ${draggedField} already in visible fields, skipping`);
