@@ -534,6 +534,9 @@ export const useDragAndDrop = ({
   // Handle touch move during drag
   const handleTouchMove = useCallback((event: React.TouchEvent) => {
     const touch = event.touches[0];
+    
+    if (!touchStartPos) return;
+    
     const deltaX = Math.abs(touch.clientX - touchStartPos.x);
     const deltaY = Math.abs(touch.clientY - touchStartPos.y);
 
