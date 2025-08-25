@@ -8,6 +8,8 @@ import EditTitleBar from '../ui/EditTitleBar';
 import FieldRenderer, { type FieldRendererHandle } from './FieldRenderer';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
+import type { DragDropInfo } from '@/lib/hooks/useDragAndDrop';
+import type { ContactEntry } from '@/types/profile';
 
 
 interface EditProfileViewProps {
@@ -60,24 +62,18 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     ];
     
     return combined;
-  }, [
-    // Depend on actual field data, not the manager object itself
-    fieldSectionManager.universalFields,
-    fieldSectionManager.personalFields, 
-    fieldSectionManager.workFields,
-    fieldSectionManager // Include the manager itself to satisfy exhaustive-deps
-  ]);
+  }, [fieldSectionManager]);
   
   
   // Drag completion handler - receives final result without managing drag state
-  const handleDragComplete = useCallback((dropInfo: any) => {
+  const handleDragComplete = useCallback((dropInfo: DragDropInfo) => {
     
     const { fields, draggedField: draggedFieldData, dragType } = dropInfo;
     
     if (dragType === 'same-section') {
       // Use the existing reorder method for same-section drags
       const fromId = `${draggedFieldData.fieldType}-${draggedFieldData.section}`;
-      const draggedIndex = fields.findIndex((f: any) => `${f.fieldType}-${f.section}` === fromId);
+      const draggedIndex = fields.findIndex((f: ContactEntry) => `${f.fieldType}-${f.section}` === fromId);
       
       if (draggedIndex >= 0) {
         // Find the target position based on field order
@@ -115,7 +111,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   // Mode change handler
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     setSelectedMode(mode);
-  }, [selectedMode]);
+  }, []);
 
   // Handle save profile
   const handleSave = useCallback(async (): Promise<void> => {

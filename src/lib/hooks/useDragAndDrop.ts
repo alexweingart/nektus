@@ -71,7 +71,7 @@ import {
 } from '@/lib/utils/dragUtils';
 // No need for hardcoded platform order anymore
 
-interface DragDropInfo {
+export interface DragDropInfo {
   fields: ContactEntry[];
   draggedField: ContactEntry;
   dragType: 'same-section' | 'universal-to-section' | 'section-to-universal';
@@ -330,7 +330,7 @@ export const useDragAndDrop = ({
     }, 1000); // 1 second long press
 
     setLongPressTimer(timer);
-  }, [dragState]);
+  }, [dragState, setInitialReservedSpace]);
 
   // Handle touch end - either cancel long press or execute drop
   const handleTouchEnd = useCallback(() => {
@@ -717,7 +717,7 @@ export const useDragAndDrop = ({
       // Ensure manager is deactivated when not dragging
       globalManager.deactivateDrag();
     }
-  }, [dragState]); // handleTouchMove and exitDragMode accessed via refs for stability
+  }, [dragState, stopEdgeScroll]); // handleTouchMove and exitDragMode accessed via refs for stability
 
   // Create touch start handler for a specific field
   const onTouchStart = useCallback((fieldId: string) => (event: React.TouchEvent) => {
