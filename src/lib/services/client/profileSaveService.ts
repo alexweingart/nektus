@@ -120,14 +120,14 @@ export class ProfileSaveService {
             }
           }
           
-          (result as any)[key] = mergedEntries;
+          (result as unknown as Record<string, unknown>)[key] = mergedEntries;
         } else if (typeof sourceValue === 'object' && !Array.isArray(sourceValue)) {
-          (result as any)[key] = {
-            ...((result as any)[key] || {}),
-            ...(sourceValue as object)
+          (result as unknown as Record<string, unknown>)[key] = {
+            ...((result as unknown as Record<string, unknown>)[key] || {}),
+            ...(sourceValue as Record<string, unknown>)
           };
         } else {
-          (result as any)[key] = sourceValue;
+          (result as unknown as Record<string, unknown>)[key] = sourceValue;
         }
       }
     }

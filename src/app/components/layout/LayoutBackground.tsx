@@ -29,7 +29,7 @@ export function LayoutBackground() {
   const stableTimestampRef = useRef<{ url: string; timestamp: number } | null>(null);
   
   // Helper function to clean and prepare image URL with stable cache busting
-  const cleanImageUrl = (url: string): string => {
+  const cleanImageUrl = useCallback((url: string): string => {
     const baseUrl = getBaseUrl(url);
     
     // Only generate new timestamp if base URL changed
@@ -46,7 +46,7 @@ export function LayoutBackground() {
       cleanedUrl = `${cleanedUrl}${separator}v=${stableTimestampRef.current.timestamp}`;
     }
     return cleanedUrl;
-  };
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -71,7 +71,7 @@ export function LayoutBackground() {
         }, 100); // Quick transition for fast blur-up
       }, 0); // No delay
     }
-  }, [streamingBackgroundImage, profile?.backgroundImage]);
+  }, [streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl]);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
@@ -115,7 +115,7 @@ export function LayoutBackground() {
     setImageError(false);
     setIsImageLoaded(false);
     setShowBackground(false);
-  }, [mounted, streamingBackgroundImage, profile?.backgroundImage]);
+  }, [mounted, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl, isLoading]);
 
   // Only hide green background AFTER profile loads AND custom image is loaded and ready
   useEffect(() => {
@@ -130,7 +130,7 @@ export function LayoutBackground() {
     return () => {
       // Cleanup: no DOM manipulation needed for direct div approach
     };
-  }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError]);
+  }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError, isLoading]);
 
   // Don't render on server, during profile loading, if no background image, or on error
   const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
