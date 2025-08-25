@@ -404,9 +404,8 @@ export const useDragAndDrop = ({
   const handleSwapDetection = useCallback((targetY: number, draggedField: string) => {
     // Get current visible fields for swap detection - USE REFS
     const sectionName = currentSectionRef.current.toLowerCase() as 'personal' | 'work';
-    const baseVisibleFields = initialFieldsRef.current.filter(f => f.isVisible && 
+    let allVisibleFields = initialFieldsRef.current.filter(f => f.isVisible && 
       (f.section === sectionName || f.section === 'universal'));
-    let allVisibleFields = [...baseVisibleFields];
     
     // Special case: if dragged field is the only field in its section, include it as a target
     const draggedFieldData = initialFieldsRef.current.find(f => `${f.fieldType}-${f.section}` === draggedField);
