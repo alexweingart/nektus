@@ -1,6 +1,64 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+
+// Global drag state singleton to prevent multiple hook instances from conflicting
+class GlobalDragManager {
+  private static instance: GlobalDragManager;
+  private isActive = false;
+  private listeners: { 
+    touchMove?: (e: TouchEvent) => void;
+    preventScrolling?: (e: TouchEvent) => void;
+  } = {};
+  
+  static getInstance() {
+    if (!GlobalDragManager.instance) {
+      GlobalDragManager.instance = new GlobalDragManager();
+    }
+    return GlobalDragManager.instance;
+  }
+  
+  activateDrag(handlers: { touchMove: (e: TouchEvent) => void }) {
+    if (this.isActive) {
+      return;
+    }
+    
+    this.isActive = true;
+    
+    // Prevent scrolling
+    const preventScrolling = (e: TouchEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    
+    this.listeners.touchMove = handlers.touchMove;
+    this.listeners.preventScrolling = preventScrolling;
+    
+    document.addEventListener('touchmove', handlers.touchMove, { passive: false });
+    document.addEventListener('touchmove', preventScrolling, { passive: false });
+    document.body.style.touchAction = 'none';
+  }
+  
+  deactivateDrag() {
+    if (!this.isActive) {
+      return;
+    }
+    
+    this.isActive = false;
+    
+    if (this.listeners.touchMove) {
+      document.removeEventListener('touchmove', this.listeners.touchMove);
+    }
+    if (this.listeners.preventScrolling) {
+      document.removeEventListener('touchmove', this.listeners.preventScrolling);
+    }
+    
+    document.body.style.touchAction = '';
+    this.listeners = {};
+  }
+}
 import type { ContactEntry } from '@/types/profile';
 import {
   createFloatingDragElement,
@@ -31,7 +89,8 @@ interface UseDragAndDropReturn {
   // State
   isDragMode: boolean; // Derived from dragState
   draggedField: string | null;
-  fieldOrder: ContactEntry[];
+  reservedSpaceState: Record<string, 'none' | 'above' | 'below'>;
+  reservedSpaceHeight: number;
   currentSwap: {from: string, to: string} | null;
   
   // Handlers for draggable elements
@@ -49,21 +108,156 @@ export const useDragAndDrop = ({
   onDragStateChange, 
   onFieldArrayDrop 
 }: UseDragAndDropProps = {}): UseDragAndDropReturn => {
+  
   // Simplified drag state
   type DragState = 'idle' | 'dragging';
   const [dragState, setDragState] = useState<DragState>('idle');
   const [draggedField, setDraggedField] = useState<string | null>(null);
   const [dragElement, setDragElement] = useState<HTMLElement | null>(null);
   
-  // No need for ref anymore - use initialFields directly
-  
   // Track current swap (only one at a time for simplicity)
   const [currentSwap, setCurrentSwap] = useState<{from: string, to: string} | null>(null);
   
-  // Compute field order on-demand based on initialFields + swaps
-  const fieldOrder = useMemo(() => {
+  // Reserved space state for visual feedback (triggers re-renders for spacing only)
+  const [reservedSpaceState, setReservedSpaceState] = useState<Record<string, 'none' | 'above' | 'below'>>({});
+  
+  // Height measurement for reserved space
+  const reservedSpaceHeightRef = useRef<number>(0);
+  
+  // Touch interaction state
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
+  
+  
+  // Create stable refs for values used in callbacks but shouldn't trigger callback recreation
+  const currentSectionRef = useRef(currentSection);
+  const initialFieldsRef = useRef(initialFields);
+  const onFieldArrayDropRef = useRef(onFieldArrayDrop);
+  
+  // Update refs on every render (doesn't trigger re-renders)
+  currentSectionRef.current = currentSection;
+  initialFieldsRef.current = initialFields;
+  onFieldArrayDropRef.current = onFieldArrayDrop;
+  
+  // Stabilized refs updated (logging removed for clarity)
+  
+  // Phase 3: Direction calculation functions
+  const calculateSameSectionDirection = useCallback((
+    draggedField: ContactEntry, 
+    targetField: ContactEntry
+  ): 'up' | 'down' => {
+    const currentFieldOrder = fieldOrderRef.current;
+    const draggedIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === `${draggedField.fieldType}-${draggedField.section}`);
+    const targetIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === `${targetField.fieldType}-${targetField.section}`);
+    
+    // FIXED: Direction logic was backwards!
+    // When draggedIndex > targetIndex, we're moving to a lower index = moving UP in DOM = moving UP on screen
+    // When draggedIndex < targetIndex, we're moving to a higher index = moving DOWN in DOM = moving DOWN on screen
+    const direction = draggedIndex > targetIndex ? 'up' : 'down';
+    
+    console.log(`Direction: dragged=${draggedField.fieldType}(${draggedIndex}) → target=${targetField.fieldType}(${targetIndex}) = ${direction}`);
+    
+    return direction;
+  }, []);
+  
+  const calculateCrossSectionDirection = useCallback((
+    draggedSection: string, 
+    targetSection: string
+  ): 'up' | 'down' => {
+    // User's specification:
+    // - To universal = 'up' (always dragging UP to universal)
+    // - From universal = 'down' (always dragging DOWN from universal)
+    
+    
+    if (targetSection === 'universal') return 'up';
+    if (draggedSection === 'universal') return 'down';
+    return 'down'; // Default for personal ↔ work
+  }, []);
+  
+  // Phase 4: Reserved space application system
+  const updateReservedSpace = useCallback((
+    targetFieldType: string,
+    direction: 'up' | 'down'
+  ) => {
+    setReservedSpaceState(prev => {
+      // Much simpler approach: clone prev and just change what we need
+      const reset = { ...prev };
+      
+      // Reset everything to 'none'
+      Object.keys(reset).forEach(key => {
+        reset[key] = 'none';
+      });
+      
+      // Set the target field
+      const targetFieldId = targetFieldType.includes('-') ? targetFieldType : `${targetFieldType}-${currentSectionRef.current.toLowerCase()}`;
+      const reservedSpaceValue = direction === 'up' ? 'above' : 'below';
+      reset[targetFieldId] = reservedSpaceValue;
+      
+      return reset;
+    });
+  }, []);
+  
+  // Set initial reserved space when entering drag mode
+  const setInitialReservedSpace = useCallback((draggedFieldId: string) => {
+    const currentFieldOrder = fieldOrderRef.current;
+    const draggedIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === draggedFieldId);
+    
+    if (draggedIndex === -1) {
+      console.warn('[useDragAndDrop] ⚠️ Could not find dragged field in order:', draggedFieldId);
+      return;
+    }
+    
+    const draggedField = currentFieldOrder[draggedIndex];
+    
+    // Check if this is the only visible field in its section (special case)
+    const visibleFieldsInSameSection = currentFieldOrder.filter(f => 
+      f.section === draggedField.section && f.isVisible
+    );
+    
+    if (visibleFieldsInSameSection.length === 1 && visibleFieldsInSameSection[0] === draggedField) {
+      // Special case: only field in section - target itself with space above
+      console.log(`[setInitialReservedSpace] ${draggedFieldId} -> ${draggedFieldId} (above) [only field in section]`);
+      updateReservedSpace(draggedFieldId, 'up');
+      return;
+    }
+    
+    // Normal case: multiple fields in section
+    let targetFieldId: string | null = null;
+    let reservedSpacePosition: 'above' | 'below' = 'above';
+    
+    // Check if this is the last VISIBLE field in its section
+    const nextVisibleFieldInSection = currentFieldOrder
+      .slice(draggedIndex + 1)
+      .find(f => f.section === draggedField.section && f.isVisible);
+    
+    const isLastVisibleInSection = !nextVisibleFieldInSection;
+    
+    if (isLastVisibleInSection && draggedIndex > 0) {
+      // Last visible in section: use field ABOVE the dragged field, put reserved space BELOW it
+      const prevField = currentFieldOrder[draggedIndex - 1];
+      targetFieldId = `${prevField.fieldType}-${prevField.section}`;
+      reservedSpacePosition = 'below';
+    } else if (nextVisibleFieldInSection) {
+      // Normal case: use next VISIBLE field BELOW the dragged field, put reserved space ABOVE it
+      targetFieldId = `${nextVisibleFieldInSection.fieldType}-${nextVisibleFieldInSection.section}`;
+      reservedSpacePosition = 'above';
+    }
+    
+    if (targetFieldId) {
+      console.log(`[setInitialReservedSpace] ${draggedFieldId} -> ${targetFieldId} (${reservedSpacePosition})`);
+      updateReservedSpace(targetFieldId, reservedSpacePosition === 'above' ? 'up' : 'down');
+    }
+  }, [updateReservedSpace]);
+  
+  
+  // Field order tracking - using ref to avoid re-renders
+  const fieldOrderRef = useRef<ContactEntry[]>([]);
+  
+  // Initialize and update fieldOrder ref when initialFields change
+  useEffect(() => {
     if (!initialFields || initialFields.length === 0) {
-      return [];
+      fieldOrderRef.current = [];
+      return;
     }
     
     // Filter to only fields from current section or universal
@@ -73,21 +267,10 @@ export const useDragAndDrop = ({
       const isInCurrentSection = field.section === sectionName || field.section === 'universal';
       return isInCurrentSection;
     });
-    // Fields are already in correct order from initialFields
-    let result = [...filteredFields];
     
-    // Apply current swap if exists
-    if (currentSwap) {
-      result = reorderFieldArray(result, currentSwap.from, currentSwap.to);
-    }
-    
-    return result;
-  }, [currentSwap, initialFields, currentSection]); // Depend on swap, initialFields, and current section
-    
-  // Touch interaction state
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
-
+    fieldOrderRef.current = [...filteredFields];
+  }, [initialFields, currentSection]); // Only depend on initialFields and currentSection, NOT currentSwap
+  
   // Continuous edge scroll refs
   const scrollAnimationFrame = useRef<number | null>(null);
   const edgeScrollDirection = useRef<'up' | 'down' | null>(null);
@@ -105,6 +288,11 @@ export const useDragAndDrop = ({
 
   // Store last touch Y for edge scroll updates
   const lastClientYRef = useRef<number>(0);
+  
+  // Create refs to avoid circular dependencies and enable persistent event handlers
+  const handleEdgeScrollRef = useRef<((clientY: number) => void) | null>(null);
+  const exitDragModeRef = useRef<(() => void) | null>(null);
+  const handleTouchMoveRef = useRef<((event: React.TouchEvent) => void) | null>(null);
 
   // Derive backward-compatible value
   const isDragMode = dragState === 'dragging';
@@ -118,6 +306,7 @@ export const useDragAndDrop = ({
   useEffect(() => {
     if (dragState === 'idle') {
       setCurrentSwap(null); // Clear swap
+      setReservedSpaceState({}); // Clear all reserved spaces
     }
   }, [dragState]);
 
@@ -127,7 +316,7 @@ export const useDragAndDrop = ({
     // If already in drag mode, exit current drag and start new one
     if (dragState === 'dragging') {
       // Clean up current drag
-      exitDragMode();
+      exitDragModeRef.current?.();
       
       // Small delay to ensure cleanup completes, then start new drag
       setTimeout(() => {
@@ -145,6 +334,10 @@ export const useDragAndDrop = ({
       let dragEl: HTMLElement | null = null;
       
       if (sourceElement) {
+        // Measure field height for reserved space
+        const fieldHeight = sourceElement.offsetHeight;
+        reservedSpaceHeightRef.current = fieldHeight;
+        
         // Create the ghost while the element is still visible
         dragEl = createFloatingDragElement(sourceElement);
         const rect = sourceElement.getBoundingClientRect();
@@ -160,6 +353,9 @@ export const useDragAndDrop = ({
         setDragElement(dragEl);
       }
       
+      // Set initial reserved space to show where the dragged item "came from"
+      setInitialReservedSpace(fieldId);
+      
       // Add haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(50);
@@ -171,55 +367,35 @@ export const useDragAndDrop = ({
 
   // Handle touch end - either cancel long press or execute drop
   const handleTouchEnd = useCallback(() => {
-    console.log('[useDragAndDrop] handleTouchEnd called:', {
-      dragState,
-      currentSwap,
-      draggedField,
-      dragElement: !!dragElement
-    });
     
     // Check if this is a valid drop scenario - if there's a current swap
     const isValidDrop = dragState === 'dragging' && currentSwap && draggedField && dragElement;
     
-    console.log('[useDragAndDrop] Drop validation:', {
-      isValidDrop,
-      dragState,
-      hasCurrentSwap: !!currentSwap,
-      hasDraggedField: !!draggedField,
-      hasDragElement: !!dragElement
-    });
     
     if (isValidDrop) {
-      console.log('[useDragAndDrop] Executing valid drop with swap:', currentSwap);
       // Execute snap animation and drop
       animateSnapToPosition(dragElement, { y: 0 }, () => {
-        console.log('[useDragAndDrop] animateSnapToPosition callback called - starting cleanup');
         
-        // Call field array drop callback with enhanced context
-        if (onFieldArrayDrop && draggedField && currentSwap) {
-          console.log('[useDragAndDrop] Calling onFieldArrayDrop with:', {
-            draggedField,
-            currentSwap
-          });
-          const draggedFieldData = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
+        // Call field array drop callback with enhanced context - USE REF
+        if (onFieldArrayDropRef.current && draggedField && currentSwap) {
+          const draggedFieldData = fieldOrderRef.current.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
           if (draggedFieldData) {
-            // Determine drag type using utility function
-            const originalField = initialFields?.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
-            const targetField = fieldOrder.find(f => `${f.fieldType}-${f.section}` === currentSwap.to);
+            // Determine drag type using utility function - USE REF
+            const originalField = initialFieldsRef.current?.find(f => `${f.fieldType}-${f.section}` === currentSwap.from);
+            const targetField = fieldOrderRef.current.find(f => `${f.fieldType}-${f.section}` === currentSwap.to);
             
             if (!originalField || !targetField) return;
             
             const dragType = detectDragType(originalField, targetField);
             
-            onFieldArrayDrop({
-              fields: fieldOrder,
+            onFieldArrayDropRef.current({
+              fields: fieldOrderRef.current,
               draggedField: draggedFieldData,
               dragType
             });
           }
         }
         
-        console.log('[useDragAndDrop] Cleaning up drag state');
         
         // Clean up drag state
         setDragState('idle');
@@ -234,10 +410,8 @@ export const useDragAndDrop = ({
         }
         setTouchStartPos(null);
         
-        console.log('[useDragAndDrop] Cleanup completed');
       });
     } else {
-      console.log('[useDragAndDrop] Not a valid drop - canceling long press');
       
       // Regular cancel long press behavior
       if (longPressTimer) {
@@ -247,7 +421,7 @@ export const useDragAndDrop = ({
       
       setTouchStartPos(null);
     }
-  }, [dragState, currentSwap, draggedField, dragElement, onFieldArrayDrop, fieldOrder, longPressTimer]);
+  }, [dragState, currentSwap, draggedField, dragElement, longPressTimer]); // Removed onFieldArrayDrop and fieldOrder - using refs
 
   // Cancel long press (for cases where we need to cancel without drop logic)
   const cancelLongPress = useCallback(() => {
@@ -259,10 +433,106 @@ export const useDragAndDrop = ({
     setTouchStartPos(null);
   }, [longPressTimer]);
 
+  // Shared swap detection logic
+  const handleSwapDetection = useCallback((targetY: number, draggedField: string) => {
+    // Get current visible fields for swap detection - USE REFS
+    const sectionName = currentSectionRef.current.toLowerCase() as 'personal' | 'work';
+    let visibleFields = initialFieldsRef.current.filter(f => f.isVisible && 
+      (f.section === sectionName || f.section === 'universal'));
+    
+    // Special case: if dragged field is the only field in its section, include it as a target
+    const draggedFieldData = initialFieldsRef.current.find(f => `${f.fieldType}-${f.section}` === draggedField);
+    if (draggedFieldData) {
+      const draggedFieldSection = draggedFieldData.section;
+      // Count all fields in section, treating the dragged field as visible for this check
+      const fieldsInSameSection = initialFieldsRef.current.filter(f => 
+        f.section === draggedFieldSection && 
+        (f.isVisible || `${f.fieldType}-${f.section}` === draggedField)
+      );
+      
+      // If only one field in section (the dragged field), include it as target
+      if (fieldsInSameSection.length === 1) {
+        // Need to insert it in the correct position based on original field order
+        // Find where it should be inserted based on initialFieldsRef order
+        const draggedOriginalIndex = initialFieldsRef.current.findIndex(f => 
+          `${f.fieldType}-${f.section}` === draggedField
+        );
+        
+        // Find the insertion point in visibleFields
+        let insertIndex = visibleFields.length;
+        for (let i = 0; i < visibleFields.length; i++) {
+          const visibleFieldOriginalIndex = initialFieldsRef.current.findIndex(f => 
+            f.fieldType === visibleFields[i].fieldType && f.section === visibleFields[i].section
+          );
+          if (visibleFieldOriginalIndex > draggedOriginalIndex) {
+            insertIndex = i;
+            break;
+          }
+        }
+        
+        // Check if already added to prevent duplicates
+        const alreadyAdded = visibleFields.some(f => `${f.fieldType}-${f.section}` === draggedField);
+        if (!alreadyAdded) {
+          // Insert at the correct position with isVisible true
+          const draggedFieldForDetection = { ...draggedFieldData, isVisible: true };
+          visibleFields.splice(insertIndex, 0, draggedFieldForDetection);
+          console.log(`[handleSwapDetection] Added single field ${draggedField} at index ${insertIndex}`);
+        } else {
+          console.log(`[handleSwapDetection] Field ${draggedField} already in visible fields, skipping`);
+        }
+      }
+    }
+    
+    // Calculate target position and find closest field
+    const scrollOffset = getScrollOffset();
+    const swapResult = findClosestField(targetY, visibleFields, scrollOffset, draggedField);
+    
+    // Only proceed if we have a swap result
+    // Special case: allow targeting the dragged field itself (return to origin)
+    if (swapResult) {
+      const currentTarget = currentSwap?.to;
+      
+      // Check if this is a cross-section drag
+      // Important: Use currentSwap.to to determine current section if we're in a swap
+      const effectiveDraggedField = currentSwap?.to || draggedField;
+      const draggedSection = effectiveDraggedField.split('-')[1];
+      const targetSection = swapResult.targetFieldId.split('-')[1];
+      const isCrossSection = draggedSection !== targetSection;
+      
+      // For cross-section drags: up -> below, down -> above
+      let finalDirection = swapResult.direction;
+      if (isCrossSection) {
+        finalDirection = swapResult.direction === 'up' ? 'down' : 'up';
+      }
+      
+      // Special case: if target is the dragged field (only field in section), force "above"
+      if (swapResult.targetFieldId === draggedField) {
+        finalDirection = 'up'; // Always above for "return to origin"
+      }
+      
+      // Get current reserved space position for the target field
+      const currentReservedSpace = reservedSpaceState[swapResult.targetFieldId];
+      const newReservedSpace = finalDirection === 'up' ? 'above' : 'below';
+      
+      // Update if target field changed OR direction changed
+      if (currentTarget !== swapResult.targetFieldId || currentReservedSpace !== newReservedSpace) {
+        console.log(`[handleSwapDetection] Updating: ${draggedField} (effective: ${effectiveDraggedField}) -> ${swapResult.targetFieldId} (${finalDirection})`);
+        console.log(`  Cross-section: ${isCrossSection}, Original direction: ${swapResult.direction}, Final direction: ${finalDirection}`);
+        console.log(`  Current reserved: ${currentReservedSpace}, New reserved: ${newReservedSpace}`);
+        
+        // Single atomic operation: update reserved space directly
+        updateReservedSpace(swapResult.targetFieldId, finalDirection);
+        setCurrentSwap({ from: draggedField, to: swapResult.targetFieldId });
+      } else {
+        console.log(`[handleSwapDetection] No update needed:`);
+        console.log(`  Current target: ${currentTarget}, New target: ${swapResult.targetFieldId}`);
+        console.log(`  Current reserved: ${currentReservedSpace}, New reserved: ${newReservedSpace}`);
+      }
+    }
+  }, [getScrollOffset, currentSwap, updateReservedSpace, reservedSpaceState]);
+
   // Handle touch move during drag
   const handleTouchMove = useCallback((event: React.TouchEvent) => {
-    if (!touchStartPos) return;
-
     const touch = event.touches[0];
     const deltaX = Math.abs(touch.clientX - touchStartPos.x);
     const deltaY = Math.abs(touch.clientY - touchStartPos.y);
@@ -286,7 +556,7 @@ export const useDragAndDrop = ({
         // Check if drag element is still valid after DOM changes
         if (!document.body.contains(dragElement)) {
           setDragElement(null);
-          exitDragMode();
+          exitDragModeRef.current?.();
           return;
         }
         updateFloatingDragElementPosition(dragElement, touch.clientX, touch.clientY);
@@ -299,25 +569,14 @@ export const useDragAndDrop = ({
       
       // Track swaps based on drag position
       if (draggedField) {
-        // Get current visible fields for swap detection
-        const sectionName = currentSection.toLowerCase() as 'personal' | 'work';
-        const visibleFields = initialFields.filter(f => f.isVisible && 
-          (f.section === sectionName || f.section === 'universal'));
-        
-        // Calculate target position and find closest field
         const targetY = calculateTargetY(touch, dragElement, scrollOffset);
-        const targetFieldId = findClosestField(targetY, visibleFields, scrollOffset);
-        
-        // Create swap if we found a different target
-        if (targetFieldId && targetFieldId !== draggedField) {
-          setCurrentSwap({ from: draggedField, to: targetFieldId });
-        }
+        handleSwapDetection(targetY, draggedField);
       }
       
       // Handle edge scrolling
-      handleEdgeScroll(touch.clientY);
+      handleEdgeScrollRef.current?.(touch.clientY);
     }
-  }, [touchStartPos, draggedField, dragElement, cancelLongPress, getScrollOffset]);
+  }, [touchStartPos, draggedField, dragElement, cancelLongPress, getScrollOffset, dragState, handleSwapDetection]);
 
   // Stop edge scroll
   const stopEdgeScroll = useCallback(() => {
@@ -343,30 +602,19 @@ export const useDragAndDrop = ({
       }
       
       // Recalculate swaps during edge scroll
-      const scrollOffset = getScrollOffset();
       const fingerY = lastClientYRef.current;
       
       if (draggedField) {
-        // Get current visible fields for swap detection
-        const sectionName = currentSection.toLowerCase() as 'personal' | 'work';
-        const visibleFields = initialFields.filter(f => f.isVisible && 
-          (f.section === sectionName || f.section === 'universal'));
-        
-        // Calculate target position and find closest field
+        const scrollOffset = getScrollOffset();
         const targetY = calculateTargetY({ clientY: fingerY }, dragElement, scrollOffset);
-        const targetFieldId = findClosestField(targetY, visibleFields, scrollOffset);
-        
-        // Create swap if we found a different target
-        if (targetFieldId && targetFieldId !== draggedField) {
-          setCurrentSwap({ from: draggedField, to: targetFieldId });
-        }
+        handleSwapDetection(targetY, draggedField);
       }
-
+      
       scrollAnimationFrame.current = requestAnimationFrame(step);
     };
 
     step();
-  }, [stopEdgeScroll, getScrollOffset, draggedField, dragElement]);
+  }, [stopEdgeScroll, getScrollOffset, draggedField, dragElement, handleSwapDetection]);
 
   // Handle edge scrolling when dragging near viewport edges
   const handleEdgeScroll = useCallback((clientY: number) => {
@@ -388,6 +636,9 @@ export const useDragAndDrop = ({
     }
   }, [dragState, startEdgeScroll, stopEdgeScroll]);
 
+  // Assign the function to ref to avoid circular dependencies
+  handleEdgeScrollRef.current = handleEdgeScroll;
+
   // Exit drag mode and clean up
   const exitDragMode = useCallback(() => {
     setDragState('idle');
@@ -403,25 +654,21 @@ export const useDragAndDrop = ({
     // Clean up touch state
     cancelLongPress();
   }, [dragElement, cancelLongPress, stopEdgeScroll]);
-
-  // Handle drag mode interactions (prevent scrolling, context menu, etc.)
+  
+  // Assign functions to refs for persistent access
+  exitDragModeRef.current = exitDragMode;
+  handleTouchMoveRef.current = handleTouchMove;
+  
+  // Handle drag mode interactions using GlobalDragManager singleton
   useEffect(() => {
+    const effectId = Math.random().toString(36).substr(2, 9);
+    const globalManager = GlobalDragManager.getInstance();
+    
     if (dragState === 'dragging') {
       
-      const preventContextMenu = (e: Event) => {
-        e.preventDefault();
-      };
-
-      const preventScrolling = (e: TouchEvent) => {
-        // Always prevent native scrolling while in drag mode so the gesture stays in drag context
-        if (e.cancelable) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      };
-
-      // Global touch move handler to capture movements during drag
+      // Global touch move handler to capture movements during drag - STABLE REFERENCE
       const globalTouchMove = (e: TouchEvent) => {
+        
         if (e.touches.length > 0) {
           const syntheticEvent = {
             touches: Array.from(e.touches).map(touch => ({
@@ -431,7 +678,12 @@ export const useDragAndDrop = ({
               pageY: touch.pageY
             }))
           } as unknown as React.TouchEvent<Element>;
-          handleTouchMove(syntheticEvent);
+          
+          // Call the current handler via ref to get latest logic
+          const currentHandler = handleTouchMoveRef.current;
+          if (currentHandler) {
+            currentHandler(syntheticEvent);
+          }
         }
       };
 
@@ -461,39 +713,38 @@ export const useDragAndDrop = ({
         // Only exit drag mode if the touch is NOT on any draggable field
         // If it is on a draggable field, let the startLongPress function handle it
         if (!draggableFieldElement) {
-          exitDragMode();
+          exitDragModeRef.current?.();
         }
       };
 
-      // Prevent context menu during drag mode
-      document.addEventListener('contextmenu', preventContextMenu);
-      
-      // Prevent all touch actions to disable scrolling during drag mode
-      document.body.style.touchAction = 'none';
+      const preventContextMenu = (e: Event) => {
+        e.preventDefault();
+      };
 
-      // Prevent all native scrolling – we will handle paging programmatically
-      document.addEventListener('touchmove', preventScrolling, { passive: false });
+      // Activate drag via singleton
+      globalManager.activateDrag({ touchMove: globalTouchMove });
       
-      // Add global touch move handler to capture drag movements
-      document.addEventListener('touchmove', globalTouchMove, { passive: false });
-      
-      // Handle click outside to exit drag mode
+      // Add additional non-touchmove listeners directly
+      document.addEventListener('contextmenu', preventContextMenu);
       document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
       return () => {
+        globalManager.deactivateDrag();
+        
+        // Remove additional listeners
         document.removeEventListener('contextmenu', preventContextMenu);
-        document.removeEventListener('touchmove', preventScrolling);
-        document.removeEventListener('touchmove', globalTouchMove);
         document.removeEventListener('touchstart', handleClickOutside);
-
-        // Restore original touch action
-        document.body.style.touchAction = '';
 
         // Ensure edge scrolling loop is cancelled
         stopEdgeScroll();
+        
       };
+    } else {
+      
+      // Ensure manager is deactivated when not dragging
+      globalManager.deactivateDrag();
     }
-  }, [dragState, exitDragMode, handleTouchMove]);
+  }, [dragState]); // handleTouchMove and exitDragMode accessed via refs for stability
 
   // Create touch start handler for a specific field
   const onTouchStart = useCallback((fieldId: string) => (event: React.TouchEvent) => {
@@ -512,7 +763,8 @@ export const useDragAndDrop = ({
     // State
     isDragMode,
     draggedField,
-    fieldOrder,
+    reservedSpaceState,
+    reservedSpaceHeight: reservedSpaceHeightRef.current,
     currentSwap,
     
     // Handlers

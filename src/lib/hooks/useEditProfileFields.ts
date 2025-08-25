@@ -22,7 +22,7 @@ interface UseEditProfileFieldsProps {
   onFieldsChange?: (fields: ContactEntry[], images: { profileImage: string; backgroundImage: string }) => void;
 }
 
-interface UseEditProfileFieldsReturn {
+export interface UseEditProfileFieldsReturn {
   // Unified field access
   getFieldValue: (fieldType: string) => string;
   setFieldValue: (fieldType: string, value: string) => void;
@@ -502,7 +502,6 @@ export const useEditProfileFields = ({
   
   // Reorder fields within the same section (for same-section drag and drop)
   const reorderFieldsInSection = useCallback((originalFieldType: string, targetFieldType: string, section: FieldSection) => {
-    console.log('🔄 REORDER: Reordering fields in section', { originalFieldType, targetFieldType, section });
     
     // Get all fields in the target section
     const sectionFields = fields.filter(f => f.section === section);
@@ -530,11 +529,6 @@ export const useEditProfileFields = ({
     
     // Combine with other sections
     const updatedFields = [...otherFields, ...updatedSectionFields];
-    
-    console.log('🔄 REORDER: Updated field order', {
-      originalOrder: sectionFields.map(f => f.fieldType),
-      newOrder: updatedSectionFields.map(f => f.fieldType)
-    });
     
     updateFields(updatedFields);
   }, [fields, updateFields]);

@@ -73,30 +73,143 @@ export const calculateTargetY = (
 
 /**
  * Find the closest field to a target position
+ * Compares only to adjacent fields (above/below the current reserved space)
  */
 export const findClosestField = (
   targetY: number,
   visibleFields: ContactEntry[],
-  scrollOffset: number
-): string | null => {
+  scrollOffset: number,
+  draggedFieldId?: string
+): { targetFieldId: string; direction: 'up' | 'down' } | null => {
+  // Find the field that currently has a reserved space
+  const currentReservedSpaceField = visibleFields.find(field => {
+    const fieldId = `${field.fieldType}-${field.section}`;
+    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+    if (!fieldElement) return false;
+    
+    const parentDiv = fieldElement.parentElement;
+    if (!parentDiv) return false;
+    
+    const hasReservedAbove = parentDiv.querySelector(':scope > div:first-child > div[style*="rgba(59, 130, 246"]') !== null;
+    const hasReservedBelow = parentDiv.querySelector(':scope > div:last-child > div[style*="rgba(59, 130, 246"]') !== null;
+    
+    return hasReservedAbove || hasReservedBelow;
+  });
+
+  if (!currentReservedSpaceField) {
+    return null;
+  }
+
+  const currentIndex = visibleFields.findIndex(f => f === currentReservedSpaceField);
+  
+  // Check if reserved space is above or below the current field
+  const reservedFieldId = `${currentReservedSpaceField.fieldType}-${currentReservedSpaceField.section}`;
+  const reservedElement = document.querySelector(`[data-field-id="${reservedFieldId}"]`);
+  const parentDiv = reservedElement?.parentElement;
+  const hasReservedAbove = parentDiv?.querySelector(':scope > div:first-child > div[style*="rgba(59, 130, 246"]') !== null;
+  const hasReservedBelow = parentDiv?.querySelector(':scope > div:last-child > div[style*="rgba(59, 130, 246"]') !== null;
+  
+  let fieldAbove: ContactEntry | null = null;
+  let fieldBelow: ContactEntry | null = null;
+  
+  if (hasReservedAbove) {
+    // Reserved space is above current field
+    // Above comparison: field above current field (skip dragged field)
+    // Below comparison: current field
+    let aboveIndex = currentIndex - 1;
+    while (aboveIndex >= 0 && draggedFieldId && `${visibleFields[aboveIndex].fieldType}-${visibleFields[aboveIndex].section}` === draggedFieldId) {
+          aboveIndex--;
+    }
+    fieldAbove = aboveIndex >= 0 ? visibleFields[aboveIndex] : null;
+    fieldBelow = currentReservedSpaceField;
+  } else if (hasReservedBelow) {
+    // Reserved space is below current field  
+    // Above comparison: current field
+    // Below comparison: field below current field (skip dragged field)
+    fieldAbove = currentReservedSpaceField;
+    let belowIndex = currentIndex + 1;
+    while (belowIndex < visibleFields.length && draggedFieldId && `${visibleFields[belowIndex].fieldType}-${visibleFields[belowIndex].section}` === draggedFieldId) {
+      belowIndex++;
+    }
+    fieldBelow = belowIndex < visibleFields.length ? visibleFields[belowIndex] : null;
+  }
+
   let targetFieldId: string | null = null;
   let closestDistance = Infinity;
-  
-  visibleFields.forEach(field => {
-    const fieldElement = document.querySelector(`[data-field-id="${field.fieldType}-${field.section}"]`);
+  let aboveDistance = Infinity;
+  let belowDistance = Infinity;
+  let abovePixels = 0;
+  let belowPixels = 0;
+
+  // Compare to field above (if exists and not the dragged field)
+  if (fieldAbove) {
+    const fieldId = `${fieldAbove.fieldType}-${fieldAbove.section}`;
+    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
     if (fieldElement) {
       const rect = fieldElement.getBoundingClientRect();
       const fieldCenterY = rect.top + rect.height / 2 + scrollOffset;
-      const distance = Math.abs(targetY - fieldCenterY);
+      abovePixels = fieldCenterY;
+      aboveDistance = Math.abs(targetY - fieldCenterY);
       
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        targetFieldId = `${field.fieldType}-${field.section}`;
+      if (aboveDistance < closestDistance) {
+        closestDistance = aboveDistance;
+        targetFieldId = fieldId;
       }
     }
-  });
+  }
+
+  // Compare to field below (if exists and not the dragged field)
+  if (fieldBelow) {
+    const fieldId = `${fieldBelow.fieldType}-${fieldBelow.section}`;
+    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+    if (fieldElement) {
+      const rect = fieldElement.getBoundingClientRect();
+      const fieldCenterY = rect.top + rect.height / 2 + scrollOffset;
+      belowPixels = fieldCenterY;
+      belowDistance = Math.abs(targetY - fieldCenterY);
+      
+      if (belowDistance < closestDistance) {
+        closestDistance = belowDistance;
+        targetFieldId = fieldId;
+      }
+    }
+  }
+
+  // Get reserved space center
+  const reservedSpaceElement = reservedElement?.parentElement?.querySelector('div[style*="rgba(59, 130, 246"]') as HTMLElement;
+  const reservedSpaceY = reservedSpaceElement ? reservedSpaceElement.getBoundingClientRect().top + reservedSpaceElement.getBoundingClientRect().height / 2 + scrollOffset : 0;
+
+  const reservedPosition = hasReservedAbove ? 'above' : 'below';
   
-  return targetFieldId;
+  // Calculate distances
+  const distanceToReserved = Math.abs(targetY - reservedSpaceY);
+  const distanceToAbove = fieldAbove ? Math.abs(targetY - abovePixels) : Infinity;
+  const distanceToBelow = fieldBelow ? Math.abs(targetY - belowPixels) : Infinity;
+  
+  
+  // Determine if we should swap and the direction
+  let result: { targetFieldId: string; direction: 'up' | 'down' } | null = null;
+  
+  if (distanceToAbove < distanceToReserved && fieldAbove) {
+    result = {
+      targetFieldId: `${fieldAbove.fieldType}-${fieldAbove.section}`,
+      direction: 'up'  // Swapping to field above = going up
+    };
+  } else if (distanceToBelow < distanceToReserved && fieldBelow) {
+    result = {
+      targetFieldId: `${fieldBelow.fieldType}-${fieldBelow.section}`,
+      direction: 'down'  // Swapping to field below = going down
+    };
+  }
+  
+  console.log(`🎯 SWAP DETECTION:
+  Reserved Space Current: ${reservedPosition} ${currentReservedSpaceField.fieldType}, px: ${reservedSpaceY}
+  AboveComparison: ${fieldAbove?.fieldType || 'none'}, px: ${abovePixels} (distance: ${distanceToAbove}px)
+  BelowComparison: ${fieldBelow?.fieldType || 'none'}, px: ${belowPixels} (distance: ${distanceToBelow}px)
+  CurrentDragPosition: px: ${targetY} (distance to reserved: ${distanceToReserved}px)
+  → Should swap to: ${result ? `${result.targetFieldId.split('-')[0]} (${result.direction})` : 'none'}`);
+
+  return result;
 };
 
 // TODO: REMOVE - No longer used (replaced by opacity: 0 approach)

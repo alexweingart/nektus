@@ -17,6 +17,7 @@ import { generateMessageText, openMessagingApp } from '@/lib/services/client/mes
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
 
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
@@ -111,8 +112,9 @@ const ProfileView: React.FC = () => {
 
   // Profile image with streaming support
   const profileImageSrc = useMemo(() => {
-    return streamingProfileImage || currentProfile?.profileImage;
-  }, [streamingProfileImage, currentProfile?.profileImage]);
+    const baseImageUrl = streamingProfileImage || currentProfile?.profileImage || session?.user?.image;
+    return getOptimalProfileImageUrl(baseImageUrl, 400);
+  }, [streamingProfileImage, currentProfile?.profileImage, session?.user?.image]);
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {

@@ -16,6 +16,7 @@ import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
 import { detectPlatform } from '@/lib/utils/platformDetection';
+import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
 
 function ProfileSetupView() {
   // Session and authentication
@@ -121,7 +122,7 @@ function ProfileSetupView() {
             <div className="mb-4">
               <div className="border-4 border-white shadow-lg rounded-full">
                 <Avatar 
-                  src={streamingProfileImage || profile?.profileImage || session?.user?.image || '/default-avatar.png'} 
+                  src={getOptimalProfileImageUrl(streamingProfileImage || profile?.profileImage || session?.user?.image, 400) || '/default-avatar.png'} 
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                 />

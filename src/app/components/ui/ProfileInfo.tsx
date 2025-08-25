@@ -185,7 +185,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             </div>
             
             {/* Contact Icons */}
-            <div className="w-full">
+            <div className="w-full text-center">
               {filteredContactEntries && (
                 <SocialIconsList
                   contactEntries={filteredContactEntries}
@@ -220,7 +220,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             </div>
             
             {/* Contact Icons */}
-            <div className="w-full">
+            <div className="w-full text-center">
               {filteredContactEntries && (
                 <SocialIconsList
                   contactEntries={filteredContactEntries}

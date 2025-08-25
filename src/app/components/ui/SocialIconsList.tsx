@@ -81,6 +81,11 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   // Process entries directly from the ContactEntry array
   if (contactEntries?.length) {
     contactEntries.forEach((entry, index) => {
+      // Skip name and bio - these are not social icons
+      if (entry.fieldType === 'name' || entry.fieldType === 'bio') {
+        return;
+      }
+      
       // Only include if has content and is visible (not explicitly hidden)
       const hasContent = entry.fieldType === 'phone' ? !!entry.value :
                          entry.fieldType === 'email' ? !!entry.value :
@@ -123,6 +128,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
     // Within the same section, use the order field (which includes custom user ordering)
     return a.order - b.order;
   });
+
   
   // Helper function to get hover color class
   const getHoverColorClass = (platform: PlatformType): string => {
@@ -153,14 +159,14 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   }
   
   return (
-    <div className={`flex flex-wrap justify-center gap-4 ${className}`}>
-      {socialItems.map((item) => (
+    <div className={`inline-block ${className}`}>
+      {socialItems.map((item, index) => (
         <a
-          key={`${item.platform}-${item.section}`}
+          key={`${item.platform}-${item.section}-${index}`}
           href={getUrlForPlatform(item.platform, item.username)}
           target={item.platform === 'phone' || item.platform === 'email' ? undefined : '_blank'}
           rel={item.platform === 'phone' || item.platform === 'email' ? undefined : 'noopener noreferrer'}
-          className={`text-white transition-colors ${getHoverColorClass(item.platform)}`}
+          className={`inline-block text-white transition-colors mr-4 last:mr-0 ${getHoverColorClass(item.platform)}`}
         >
           <SocialIcon
             platform={item.platform}

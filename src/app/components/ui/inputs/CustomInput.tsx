@@ -38,7 +38,7 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
           <input
             ref={ref}
             className={`flex-1 px-2 h-full bg-transparent focus:outline-none text-gray-800 font-medium text-base w-full ${
-              variant === 'hideable' ? 'pr-12' : 'pr-6'
+              variant === 'hideable' ? 'pr-8' : 'pr-6'
             } ${
               variant === 'hideable' ? 'rounded-none' : 'rounded-r-full'
             } ${inputClassName}`}

@@ -25,6 +25,10 @@ interface ProfileFieldProps {
   onConfirm: (fieldType: string) => void;
   showDragHandles?: boolean;
   currentViewMode: 'Personal' | 'Work';
+  // Reserved space props
+  reservedSpace?: 'none' | 'above' | 'below';
+  reservedSpaceHeight?: number;
+  isBeingDragged?: boolean;
   // Phone-specific props
   onPhoneChange?: (value: string) => void;
 }
@@ -56,6 +60,9 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   onConfirm,
   showDragHandles = true,
   currentViewMode,
+  reservedSpace = 'none',
+  reservedSpaceHeight = 0,
+  isBeingDragged = false,
   onPhoneChange
 }) => {
   const fieldType = profile.fieldType;
@@ -68,45 +75,90 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   // Field ID for drag operations
   const fieldId = `${fieldType}-${profile.section}`;
   
-  // Drag state - check if this field is being dragged (handle cross-section field ID changes)
-  const isDragging = dragAndDrop?.draggedField === fieldId || 
-                     (dragAndDrop?.draggedField && dragAndDrop.draggedField.split('-')[0] === fieldType);
-  const isDimmed = dragAndDrop?.isDragMode && !isDragging;
+
+  // Reserved space rendering function with proper spacing
+  const renderReservedSpace = (position: 'above' | 'below') => {
+    return (
+      <div style={{
+        // Add the same spacing that the dragged field had
+        marginTop: position === 'below' ? '20px' : '0',
+        marginBottom: position === 'above' ? '20px' : '0'
+      }}>
+        <div 
+          style={{ 
+            height: reservedSpaceHeight, 
+            backgroundColor: 'rgba(59, 130, 246, 0.1)', // Blue background for visual feedback
+            border: '2px dashed rgba(59, 130, 246, 0.3)',
+            borderRadius: '8px',
+            transition: 'all 0.2s ease',
+            margin: '0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            color: 'rgba(59, 130, 246, 0.7)',
+            fontWeight: '500'
+          }} 
+        >
+          Drop here
+        </div>
+      </div>
+    );
+  };
+
+  // Drag state - use new isBeingDragged prop for more accurate tracking
+  const isDimmed = dragAndDrop?.isDragMode && !isBeingDragged;
+
+  // Debug logging for reserved space
+  if (reservedSpace !== 'none') {
+    console.log(`ProfileField ${fieldType}: ${reservedSpace}`);
+  }
 
   return (
-    <div 
-      data-draggable={showDragHandles ? "true" : "false"}
-      data-field-id={fieldId}
-      className={`w-full max-w-[var(--max-content-width,448px)] transition-all duration-200 ${isDimmed ? 'opacity-50' : ''}`}
-      style={{
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-        // If being dragged: invisible (creates empty space)
-        // Otherwise: normal or dimmed
-        opacity: isDragging ? 0 : undefined,
-      }}
-      onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
-      onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
-      onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+    <div>
+      {/* Reserved space above */}
+      {reservedSpace === 'above' && renderReservedSpace('above')}
+      
+      {/* Main field content */}
+      <div 
+        data-draggable={showDragHandles ? "true" : "false"}
+        data-field-id={fieldId}
+        className={`w-full max-w-[var(--max-content-width,448px)] transition-all duration-200 ${isDimmed ? 'opacity-50' : ''}`}
+        style={{
+          // When being dragged: remove from layout flow completely to eliminate spacing
+          display: isBeingDragged ? 'none' : 'block',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
+        }}
+      >
       {fieldType === 'phone' ? (
-        <CustomPhoneInput
-          onChange={(value) => {
-            onPhoneChange?.(value);
-            onConfirm(fieldType);
-          }}
-          value={value}
-          placeholder={placeholder}
-          className="w-full"
-          autoFocus={false}
-          inputProps={{
-            id: fieldId,
-            autoComplete: "tel",
-            className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-          }}
-        />
+        <div className="relative w-full">
+          <CustomPhoneInput
+            onChange={(value) => {
+              onPhoneChange?.(value);
+              onConfirm(fieldType);
+            }}
+            value={value}
+            placeholder={placeholder}
+            className="w-full"
+            autoFocus={false}
+            inputProps={{
+              id: fieldId,
+              autoComplete: "tel",
+              className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+            }}
+          />
+          {/* Drag overlay for phone country selector area */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-16 z-20 flex items-center justify-center"
+            onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
+            onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
+            onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ pointerEvents: showDragHandles && dragAndDrop ? 'auto' : 'none' }}
+          />
+        </div>
       ) : (
         <CustomInput
           type={fieldType === 'email' ? 'email' : 'text'}
@@ -125,7 +177,13 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
             // Don't auto-confirm when hiding/showing - let user confirm through other actions
           }}
           icon={
-            <div className="w-5 h-5 flex items-center justify-center relative">
+            <div 
+              className="w-5 h-5 flex items-center justify-center relative"
+              onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
+              onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
+              onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
+              onContextMenu={(e) => e.preventDefault()}
+            >
               <SocialIcon 
                 platform={fieldType} 
                 username={value}
@@ -140,6 +198,10 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           autoComplete={fieldType === 'email' ? 'email' : undefined}
         />
       )}
+      </div>
+      
+      {/* Reserved space below */}
+      {reservedSpace === 'below' && renderReservedSpace('below')}
     </div>
   );
 }; 
