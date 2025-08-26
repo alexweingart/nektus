@@ -79,22 +79,22 @@ export const findClosestField = (
   targetY: number,
   visibleFields: ContactEntry[],
   scrollOffset: number,
+  reservedSpaceState: Record<string, 'none' | 'above' | 'below'>,
   draggedFieldId?: string
 ): { targetFieldId: string; direction: 'up' | 'down' } | null => {
-  // Find the field that currently has a reserved space
-  const currentReservedSpaceField = visibleFields.find(field => {
-    const fieldId = `${field.fieldType}-${field.section}`;
-    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
-    if (!fieldElement) return false;
-    
-    const parentDiv = fieldElement.parentElement;
-    if (!parentDiv) return false;
-    
-    const hasReservedAbove = parentDiv.querySelector(':scope > div:first-child > div[style*="hsla(122, 39%, 49%"]') !== null;
-    const hasReservedBelow = parentDiv.querySelector(':scope > div:last-child > div[style*="hsla(122, 39%, 49%"]') !== null;
-    
-    return hasReservedAbove || hasReservedBelow;
-  });
+  // Find the field that currently has a reserved space using state
+  const fieldIdWithReservedSpace = Object.keys(reservedSpaceState).find(
+    fieldId => reservedSpaceState[fieldId] !== 'none'
+  );
+
+  if (!fieldIdWithReservedSpace) {
+    return null;
+  }
+
+  // Find the field object that matches the fieldId
+  const currentReservedSpaceField = visibleFields.find(field => 
+    `${field.fieldType}-${field.section}` === fieldIdWithReservedSpace
+  );
 
   if (!currentReservedSpaceField) {
     return null;
@@ -102,12 +102,10 @@ export const findClosestField = (
 
   const currentIndex = visibleFields.findIndex(f => f === currentReservedSpaceField);
   
-  // Check if reserved space is above or below the current field
-  const reservedFieldId = `${currentReservedSpaceField.fieldType}-${currentReservedSpaceField.section}`;
-  const reservedElement = document.querySelector(`[data-field-id="${reservedFieldId}"]`);
-  const parentDiv = reservedElement?.parentElement;
-  const hasReservedAbove = parentDiv?.querySelector(':scope > div:first-child > div[style*="hsla(122, 39%, 49%"]') !== null;
-  const hasReservedBelow = parentDiv?.querySelector(':scope > div:last-child > div[style*="hsla(122, 39%, 49%"]') !== null;
+  // Check if reserved space is above or below the current field using state
+  const reservedSpacePosition = reservedSpaceState[fieldIdWithReservedSpace];
+  const hasReservedAbove = reservedSpacePosition === 'above';
+  const hasReservedBelow = reservedSpacePosition === 'below';
   
   let fieldAbove: ContactEntry | null = null;
   let fieldBelow: ContactEntry | null = null;
@@ -173,7 +171,8 @@ export const findClosestField = (
   }
 
   // Get reserved space center
-  const reservedSpaceElement = reservedElement?.parentElement?.querySelector('div[style*="rgba(59, 130, 246"]') as HTMLElement;
+  const reservedFieldElement = document.querySelector(`[data-field-id="${fieldIdWithReservedSpace}"]`);
+  const reservedSpaceElement = reservedFieldElement?.parentElement?.querySelector('div[style*="hsla(122, 39%, 49%"]') as HTMLElement;
   const reservedSpaceY = reservedSpaceElement ? reservedSpaceElement.getBoundingClientRect().top + reservedSpaceElement.getBoundingClientRect().height / 2 + scrollOffset : 0;
 
   const reservedPosition = hasReservedAbove ? 'above' : 'below';

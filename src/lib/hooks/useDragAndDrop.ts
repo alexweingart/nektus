@@ -457,7 +457,7 @@ export const useDragAndDrop = ({
     // Calculate target position and find closest field
     const scrollOffset = getScrollOffset();
     console.log(`[handleSwapDetection] Finding closest field for Y:${targetY}, with ${allVisibleFields.length} visible fields`);
-    const swapResult = findClosestField(targetY, allVisibleFields, scrollOffset, draggedField);
+    const swapResult = findClosestField(targetY, allVisibleFields, scrollOffset, reservedSpaceState, draggedField);
     
     if (!swapResult) {
       console.log('[handleSwapDetection] No swap result found');
