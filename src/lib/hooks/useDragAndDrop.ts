@@ -170,7 +170,7 @@ export const useDragAndDrop = ({
     const draggedIndex = currentFieldOrder.findIndex(f => `${f.fieldType}-${f.section}` === draggedFieldId);
     
     if (draggedIndex === -1) {
-      console.warn('[useDragAndDrop] ⚠️ Could not find dragged field in order:', draggedFieldId);
+      console.warn('[setInitialReservedSpace] ⚠️ Could not find dragged field in order:', draggedFieldId);
       return;
     }
     
@@ -183,7 +183,6 @@ export const useDragAndDrop = ({
     
     if (visibleFieldsInSameSection.length === 1 && visibleFieldsInSameSection[0] === draggedField) {
       // Special case: only field in section - target itself with space above
-      console.log(`[setInitialReservedSpace] ${draggedFieldId} -> ${draggedFieldId} (above) [only field in section]`);
       updateReservedSpace(draggedFieldId, 'up');
       return;
     }
@@ -211,7 +210,6 @@ export const useDragAndDrop = ({
     }
     
     if (targetFieldId) {
-      console.log(`[setInitialReservedSpace] ${draggedFieldId} -> ${targetFieldId} (${reservedSpacePosition})`);
       updateReservedSpace(targetFieldId, reservedSpacePosition === 'above' ? 'up' : 'down');
     }
   }, [updateReservedSpace]);
@@ -456,15 +454,11 @@ export const useDragAndDrop = ({
     
     // Calculate target position and find closest field
     const scrollOffset = getScrollOffset();
-    console.log(`[handleSwapDetection] Finding closest field for Y:${targetY}, with ${allVisibleFields.length} visible fields`);
     const swapResult = findClosestField(targetY, allVisibleFields, scrollOffset, reservedSpaceState, draggedField);
     
     if (!swapResult) {
-      console.log('[handleSwapDetection] No swap result found');
       return;
     }
-    
-    console.log(`[handleSwapDetection] Swap result:`, swapResult);
     
     // Only proceed if we have a swap result
     // Special case: allow targeting the dragged field itself (return to origin)
@@ -495,17 +489,9 @@ export const useDragAndDrop = ({
       
       // Update if target field changed OR direction changed
       if (currentTarget !== swapResult.targetFieldId || currentReservedSpace !== newReservedSpace) {
-        console.log(`[handleSwapDetection] Updating: ${draggedField} (effective: ${effectiveDraggedField}) -> ${swapResult.targetFieldId} (${finalDirection})`);
-        console.log(`  Cross-section: ${isCrossSection}, Original direction: ${swapResult.direction}, Final direction: ${finalDirection}`);
-        console.log(`  Current reserved: ${currentReservedSpace}, New reserved: ${newReservedSpace}`);
-        
         // Single atomic operation: update reserved space directly
         updateReservedSpace(swapResult.targetFieldId, finalDirection);
         setCurrentSwap({ from: draggedField, to: swapResult.targetFieldId });
-      } else {
-        console.log(`[handleSwapDetection] No update needed:`);
-        console.log(`  Current target: ${currentTarget}, New target: ${swapResult.targetFieldId}`);
-        console.log(`  Current reserved: ${currentReservedSpace}, New reserved: ${newReservedSpace}`);
       }
     }
   }, [getScrollOffset, currentSwap, updateReservedSpace, reservedSpaceState]);
@@ -521,26 +507,21 @@ export const useDragAndDrop = ({
 
     // Cancel long press if finger moves too much during initial press
     if (dragState === 'idle' && (deltaX > 10 || deltaY > 10)) {
-      console.log('[handleTouchMove] Canceling long press due to movement');
       cancelLongPress();
       return;
     }
 
     // If not in drag mode yet, don't process drag logic
     if (dragState === 'idle' || !draggedField) {
-      console.log('[handleTouchMove] Not in drag mode or no dragged field');
       return;
     }
 
     // Already in dragging state, process drag logic
     if (dragState === 'dragging') {
-      console.log('[handleTouchMove] Processing drag movement at Y:', touch.clientY);
-      
       // Update floating drag element position
       if (dragElement) {
         // Check if drag element is still valid after DOM changes
         if (!document.body.contains(dragElement)) {
-          console.warn('[handleTouchMove] Drag element no longer in DOM');
           setDragElement(null);
           exitDragModeRef.current?.();
           return;
@@ -552,12 +533,10 @@ export const useDragAndDrop = ({
       lastClientYRef.current = touch.clientY;
       
       const scrollOffset = getScrollOffset();
-      console.log('[handleTouchMove] Scroll offset:', scrollOffset);
       
       // Track swaps based on drag position
       if (draggedField) {
         const targetY = calculateTargetY(touch, dragElement, scrollOffset);
-        console.log('[handleTouchMove] Calculated targetY:', targetY, 'for field:', draggedField);
         handleSwapDetection(targetY, draggedField);
       }
       

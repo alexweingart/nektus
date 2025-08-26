@@ -109,10 +109,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   // Drag state - use new isBeingDragged prop for more accurate tracking
   const isDimmed = dragAndDrop?.isDragMode && !isBeingDragged;
 
-  // Debug logging for reserved space
-  if (reservedSpace !== 'none') {
-    console.log(`ProfileField ${fieldType}: ${reservedSpace}`);
-  }
 
   return (
     <div>

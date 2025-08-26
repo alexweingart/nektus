@@ -170,12 +170,25 @@ export const findClosestField = (
     }
   }
 
-  // Get reserved space center
+  // Get reserved space center - calculate from field position instead of searching DOM
   const reservedFieldElement = document.querySelector(`[data-field-id="${fieldIdWithReservedSpace}"]`);
-  const reservedSpaceElement = reservedFieldElement?.parentElement?.querySelector('div[style*="hsla(122, 39%, 49%"]') as HTMLElement;
-  const reservedSpaceY = reservedSpaceElement ? reservedSpaceElement.getBoundingClientRect().top + reservedSpaceElement.getBoundingClientRect().height / 2 + scrollOffset : 0;
+  let reservedSpaceY = 0;
+  
+  if (reservedFieldElement) {
+    const fieldRect = reservedFieldElement.getBoundingClientRect();
+    const fieldCenterY = fieldRect.top + fieldRect.height / 2 + scrollOffset;
+    
+    // Calculate reserved space position based on state (not DOM search)
+    if (hasReservedAbove) {
+      // Reserved space is above the field - approximate position
+      reservedSpaceY = fieldCenterY - 50; // Assume ~50px above field center
+    } else if (hasReservedBelow) {
+      // Reserved space is below the field - approximate position  
+      reservedSpaceY = fieldCenterY + 50; // Assume ~50px below field center
+    }
+    
+  }
 
-  const reservedPosition = hasReservedAbove ? 'above' : 'below';
   
   // Calculate distances
   const distanceToReserved = Math.abs(targetY - reservedSpaceY);
@@ -198,13 +211,6 @@ export const findClosestField = (
     };
   }
   
-  console.log(`🎯 SWAP DETECTION:
-  Reserved Space Current: ${reservedPosition} ${currentReservedSpaceField.fieldType}, px: ${reservedSpaceY}
-  AboveComparison: ${fieldAbove?.fieldType || 'none'}, px: ${abovePixels} (distance: ${distanceToAbove}px)
-  BelowComparison: ${fieldBelow?.fieldType || 'none'}, px: ${belowPixels} (distance: ${distanceToBelow}px)
-  CurrentDragPosition: px: ${targetY} (distance to reserved: ${distanceToReserved}px)
-  → Should swap to: ${result ? `${result.targetFieldId.split('-')[0]} (${result.direction})` : 'none'}`);
-
   return result;
 };
 
@@ -366,7 +372,6 @@ export const calculateReservedSpace = (
   let insertionIndex;
   if (distanceToClosestField < distanceToOriginal) {
     // Closer to the target field - swap with it
-    console.log('🎯 Decision: Swap with', closestField.fieldId);
     insertionIndex = closestFieldIndex;
   } else {
     // Closer to original position - stay there
