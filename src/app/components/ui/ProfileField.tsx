@@ -87,16 +87,16 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         <div 
           style={{ 
             height: reservedSpaceHeight, 
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', // Blue background for visual feedback
-            border: '2px dashed rgba(59, 130, 246, 0.3)',
-            borderRadius: '8px',
+            backgroundColor: 'hsla(122, 39%, 49%, 0.1)', // Theme green background
+            border: '2px dashed hsla(122, 39%, 49%, 0.3)', // Theme green border
+            borderRadius: '9999px', // Rounded corners matching CustomInput
             transition: 'all 0.2s ease',
             margin: '0',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '12px',
-            color: 'rgba(59, 130, 246, 0.7)',
+            color: 'hsla(122, 39%, 49%, 0.7)', // Theme green text
             fontWeight: '500'
           }} 
         >

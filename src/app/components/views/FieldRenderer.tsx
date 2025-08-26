@@ -5,6 +5,7 @@ import type { Session } from 'next-auth';
 import type { ContactEntry, FieldSection } from '@/types/profile';
 import type { UseEditProfileFieldsReturn } from '@/lib/hooks/useEditProfileFields';
 import Image from 'next/image';
+import { signOut } from 'next-auth/react';
 import CustomInput from '../ui/inputs/CustomInput';
 import CustomExpandingInput from '../ui/inputs/CustomExpandingInput';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
@@ -192,6 +193,16 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
             title="Hidden"
             isEmpty={false}
             emptyText=""
+            bottomButton={
+              <div className="text-center">
+                <SecondaryButton 
+                  className="cursor-pointer text-white bg-red-500/50 hover:bg-red-600/50"
+                  onClick={() => signOut()}
+                >
+                  Sign Out
+                </SecondaryButton>
+              </div>
+            }
           >
             {hiddenFields.map((profile, index) => {
               const fieldType = profile.fieldType;
