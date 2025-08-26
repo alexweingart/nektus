@@ -90,8 +90,8 @@ export const findClosestField = (
     const parentDiv = fieldElement.parentElement;
     if (!parentDiv) return false;
     
-    const hasReservedAbove = parentDiv.querySelector(':scope > div:first-child > div[style*="rgba(59, 130, 246"]') !== null;
-    const hasReservedBelow = parentDiv.querySelector(':scope > div:last-child > div[style*="rgba(59, 130, 246"]') !== null;
+    const hasReservedAbove = parentDiv.querySelector(':scope > div:first-child > div[style*="hsla(122, 39%, 49%"]') !== null;
+    const hasReservedBelow = parentDiv.querySelector(':scope > div:last-child > div[style*="hsla(122, 39%, 49%"]') !== null;
     
     return hasReservedAbove || hasReservedBelow;
   });
@@ -106,8 +106,8 @@ export const findClosestField = (
   const reservedFieldId = `${currentReservedSpaceField.fieldType}-${currentReservedSpaceField.section}`;
   const reservedElement = document.querySelector(`[data-field-id="${reservedFieldId}"]`);
   const parentDiv = reservedElement?.parentElement;
-  const hasReservedAbove = parentDiv?.querySelector(':scope > div:first-child > div[style*="rgba(59, 130, 246"]') !== null;
-  const hasReservedBelow = parentDiv?.querySelector(':scope > div:last-child > div[style*="rgba(59, 130, 246"]') !== null;
+  const hasReservedAbove = parentDiv?.querySelector(':scope > div:first-child > div[style*="hsla(122, 39%, 49%"]') !== null;
+  const hasReservedBelow = parentDiv?.querySelector(':scope > div:last-child > div[style*="hsla(122, 39%, 49%"]') !== null;
   
   let fieldAbove: ContactEntry | null = null;
   let fieldBelow: ContactEntry | null = null;

@@ -456,7 +456,15 @@ export const useDragAndDrop = ({
     
     // Calculate target position and find closest field
     const scrollOffset = getScrollOffset();
+    console.log(`[handleSwapDetection] Finding closest field for Y:${targetY}, with ${allVisibleFields.length} visible fields`);
     const swapResult = findClosestField(targetY, allVisibleFields, scrollOffset, draggedField);
+    
+    if (!swapResult) {
+      console.log('[handleSwapDetection] No swap result found');
+      return;
+    }
+    
+    console.log(`[handleSwapDetection] Swap result:`, swapResult);
     
     // Only proceed if we have a swap result
     // Special case: allow targeting the dragged field itself (return to origin)
@@ -513,22 +521,26 @@ export const useDragAndDrop = ({
 
     // Cancel long press if finger moves too much during initial press
     if (dragState === 'idle' && (deltaX > 10 || deltaY > 10)) {
+      console.log('[handleTouchMove] Canceling long press due to movement');
       cancelLongPress();
       return;
     }
 
     // If not in drag mode yet, don't process drag logic
     if (dragState === 'idle' || !draggedField) {
+      console.log('[handleTouchMove] Not in drag mode or no dragged field');
       return;
     }
 
     // Already in dragging state, process drag logic
     if (dragState === 'dragging') {
+      console.log('[handleTouchMove] Processing drag movement at Y:', touch.clientY);
       
       // Update floating drag element position
       if (dragElement) {
         // Check if drag element is still valid after DOM changes
         if (!document.body.contains(dragElement)) {
+          console.warn('[handleTouchMove] Drag element no longer in DOM');
           setDragElement(null);
           exitDragModeRef.current?.();
           return;
@@ -540,10 +552,12 @@ export const useDragAndDrop = ({
       lastClientYRef.current = touch.clientY;
       
       const scrollOffset = getScrollOffset();
+      console.log('[handleTouchMove] Scroll offset:', scrollOffset);
       
       // Track swaps based on drag position
       if (draggedField) {
         const targetY = calculateTargetY(touch, dragElement, scrollOffset);
+        console.log('[handleTouchMove] Calculated targetY:', targetY, 'for field:', draggedField);
         handleSwapDetection(targetY, draggedField);
       }
       
