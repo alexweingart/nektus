@@ -91,7 +91,8 @@ interface UseDragAndDropReturn {
   // State
   isDragMode: boolean; // Derived from dragState
   draggedField: ContactEntry | null;
-  // Removed reserved space props - now using DOM-only drop zones
+  reservedSpaceState: Record<string, 'none' | 'above' | 'below'>;
+  reservedSpaceHeight: number;
   
   // Handlers for draggable elements
   onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
@@ -116,9 +117,9 @@ export const useDragAndDrop = ({
   // Derived state for frequently used values
   const draggedFieldId = draggedField ? `${draggedField.fieldType}-${draggedField.section}` : null;
   
-  // Track current swap (only one at a time for simplicity)
-  // Removed currentSwap state - simplified to use direct field order updates
-  // Removed reservedSpaceState - now using DOM-only drop zones
+  // Visual feedback for drag operations
+  const [reservedSpaceState, setReservedSpaceState] = useState<Record<string, 'none' | 'above' | 'below'>>({});
+  const reservedSpaceHeightRef = useRef<number>(0);
   
   // Touch interaction state
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
@@ -133,17 +134,9 @@ export const useDragAndDrop = ({
   currentSectionRef.current = currentSection;
   onFieldArrayDropRef.current = onFieldArrayDrop;  
   
-  // Drop zone application system - DOM only, no React state
-  const updateReservedSpace = useCallback((dropZoneId: string) => {
-    // Pure DOM manipulation - no React re-renders
-    document.querySelectorAll('[data-drop-zone]').forEach(el => {
-      el.classList.remove('active');
-    });
-    
-    const targetDropZone = document.querySelector(`[data-drop-zone="${dropZoneId}"]`);
-    if (targetDropZone) {
-      targetDropZone.classList.add('active');
-    }
+  // Update reserved space for drag feedback
+  const updateReservedSpace = useCallback((targetFieldId: string, position: 'above' | 'below') => {
+    setReservedSpaceState({ [targetFieldId]: position });
   }, []);
   
   // Set initial reserved space when entering drag mode
@@ -640,6 +633,8 @@ export const useDragAndDrop = ({
     // State
     isDragMode,
     draggedField,
+    reservedSpaceState,
+    reservedSpaceHeight: reservedSpaceHeightRef.current,
     
     // Handlers
     onTouchStart,

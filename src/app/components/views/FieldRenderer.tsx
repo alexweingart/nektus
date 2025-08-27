@@ -152,13 +152,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           isEmpty={visibleFields.length === 0}
           emptyText={`You have no ${viewMode} networks right now. Drag & drop an input field to change that.`}
         >
-          {/* Top drop zone for the section */}
-          <DropZone 
-            id={`${viewMode.toLowerCase()}-top`}
-            section={viewMode.toLowerCase()}
-            order={0}
-          />
-          
           {visibleFields.map((profile, index) => {
             const fieldType = profile.fieldType;
             const fieldId = `${fieldType}-${profile.section}`;
@@ -176,6 +169,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={viewMode}
                   showDragHandles={true}
+                  reservedSpace={reservedSpaceState[fieldId] || 'none'}
+                  reservedSpaceHeight={reservedSpaceHeight}
                   isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
                   dragAndDrop={{
                     isDragMode,
@@ -184,12 +179,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                     onTouchMove,
                     onTouchEnd
                   }}
-                />
-                {/* Drop zone after each field */}
-                <DropZone 
-                  id={`${sectionName}-${profile.order || index + 1}`}
-                  section={sectionName}
-                  order={profile.order || index + 1}
                 />
               </React.Fragment>
             );
@@ -213,13 +202,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
               </div>
             }
           >
-            {/* Top drop zone for hidden section */}
-            <DropZone 
-              id="hidden-top"
-              section="hidden"
-              order={0}
-            />
-            
             {hiddenFields.map((profile, index) => {
               const fieldType = profile.fieldType;
               const fieldId = `${fieldType}-${profile.section}`;
@@ -236,6 +218,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                     onConfirm={fieldSectionManager.markChannelAsConfirmed}
                     currentViewMode={viewMode}
                     showDragHandles={true}
+                    reservedSpace={reservedSpaceState[fieldId] || 'none'}
+                    reservedSpaceHeight={reservedSpaceHeight}
                     isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
                     dragAndDrop={{
                       isDragMode,
@@ -244,12 +228,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                       onTouchMove,
                       onTouchEnd
                     }}
-                  />
-                  {/* Drop zone after each hidden field */}
-                  <DropZone 
-                    id={`hidden-${profile.order || index + 1}`}
-                    section="hidden"
-                    order={profile.order || index + 1}
                   />
                 </React.Fragment>
               );
