@@ -10,7 +10,7 @@ interface ProfileFieldProps {
   profile: ContactEntry;
   dragAndDrop?: {
     isDragMode: boolean;
-    draggedField: string | null;
+    draggedField: ContactEntry | null;
     onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
     onTouchMove: (event: React.TouchEvent) => void;
     onTouchEnd: () => void;
@@ -106,8 +106,13 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
     );
   };
 
-  // Drag state - use new isBeingDragged prop for more accurate tracking
-  const isDimmed = dragAndDrop?.isDragMode && !isBeingDragged;
+  // Drag state - use new isBeingDragged prop for more accurate tracking  
+  // Check if this field is being dragged by comparing ContactEntry objects
+  const isThisFieldBeingDragged = dragAndDrop?.draggedField && 
+    dragAndDrop.draggedField.fieldType === profile.fieldType &&
+    dragAndDrop.draggedField.section === profile.section;
+    
+  const isDimmed = dragAndDrop?.isDragMode && !isThisFieldBeingDragged;
 
 
   return (
@@ -122,7 +127,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         className={`w-full max-w-[var(--max-content-width,448px)] transition-all duration-200 ${isDimmed ? 'opacity-50' : ''}`}
         style={{
           // When being dragged: remove from layout flow completely to eliminate spacing
-          display: isBeingDragged ? 'none' : 'block',
+          display: isThisFieldBeingDragged ? 'none' : 'block',
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none'

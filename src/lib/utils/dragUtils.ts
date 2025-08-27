@@ -1,42 +1,5 @@
 import type { ContactEntry } from '@/types/profile';
 
-/**
- * Utility function to reorder fields array based on drag operation
- * Handles both same-section swaps and cross-section transitions
- */
-export const reorderFieldArray = (fields: ContactEntry[], fromId: string, toId: string): ContactEntry[] => {
-  const result = [...fields];
-  const draggedIndex = result.findIndex(f => `${f.fieldType}-${f.section}` === fromId);
-  const targetIndex = result.findIndex(f => `${f.fieldType}-${f.section}` === toId);
-  
-  if (draggedIndex !== -1 && targetIndex !== -1) {
-    const draggedField = result[draggedIndex];
-    const targetField = result[targetIndex];
-    
-    // Detect if this is a cross-section boundary transition
-    const dragType = detectDragType(draggedField, targetField);
-    
-    if (dragType === 'same-section') {
-      // Simple swap for same-section drags
-      [result[draggedIndex], result[targetIndex]] = [result[targetIndex], result[draggedIndex]];
-    } else {
-      // Cross-section transition: change section but maintain exact same position
-      const newDraggedField = {
-        ...draggedField,
-        section: targetField.section // Change to target's section
-      };
-      
-      // Simply replace the dragged field at its current position with the new section
-      result[draggedIndex] = newDraggedField;
-      
-      // No position changes needed - the visual order stays exactly the same
-      
-    }
-  }
-  
-  // Update order properties
-  return result.map((field, idx) => ({ ...field, order: idx }));
-};
 
 /**
  * Detect the type of drag operation based on source and target fields
@@ -81,7 +44,7 @@ export const findClosestField = (
   scrollOffset: number,
   reservedSpaceState: Record<string, 'none' | 'above' | 'below'>,
   draggedFieldId?: string
-): { targetFieldId: string; direction: 'up' | 'down' } | null => {
+): { targetFieldId: string; direction: 'up' | 'down'; closestFieldChanged: boolean; isCrossSection: boolean } | null => {
   // Find the field that currently has a reserved space using state
   const fieldIdWithReservedSpace = Object.keys(reservedSpaceState).find(
     fieldId => reservedSpaceState[fieldId] !== 'none'
@@ -197,189 +160,56 @@ export const findClosestField = (
   
   
   // Determine if we should swap and the direction
-  let result: { targetFieldId: string; direction: 'up' | 'down' } | null = null;
+  let result: { targetFieldId: string; direction: 'up' | 'down'; closestFieldChanged: boolean; isCrossSection: boolean } | null = null;
+  
+  // Get dragged field section from ID for cross-section detection
+  const draggedFieldSection = draggedFieldId ? draggedFieldId.split('-')[1] : null;
   
   if (distanceToAbove < distanceToReserved && fieldAbove) {
+    const newTargetId = `${fieldAbove.fieldType}-${fieldAbove.section}`;
+    
+    // Self-referential check - don't return dragged field as target
+    if (draggedFieldId && newTargetId === draggedFieldId) {
+      return null;
+    }
+    
+    const newDirection = 'up';
+    const currentReservedSpace = reservedSpaceState[newTargetId];
+    const newReservedSpace = newDirection === 'up' ? 'above' : 'below';
+    const isCrossSection = draggedFieldSection !== null && draggedFieldSection !== fieldAbove.section;
+    
     result = {
-      targetFieldId: `${fieldAbove.fieldType}-${fieldAbove.section}`,
-      direction: 'up'  // Swapping to field above = going up
+      targetFieldId: newTargetId,
+      direction: newDirection,
+      closestFieldChanged: currentReservedSpace !== newReservedSpace,
+      isCrossSection
     };
   } else if (distanceToBelow < distanceToReserved && fieldBelow) {
+    const newTargetId = `${fieldBelow.fieldType}-${fieldBelow.section}`;
+    
+    // Self-referential check - don't return dragged field as target
+    if (draggedFieldId && newTargetId === draggedFieldId) {
+      return null;
+    }
+    
+    const newDirection = 'down';
+    const currentReservedSpace = reservedSpaceState[newTargetId];
+    const newReservedSpace = newDirection === 'down' ? 'below' : 'above';
+    const isCrossSection = draggedFieldSection !== null && draggedFieldSection !== fieldBelow.section;
+    
     result = {
-      targetFieldId: `${fieldBelow.fieldType}-${fieldBelow.section}`,
-      direction: 'down'  // Swapping to field below = going down
+      targetFieldId: newTargetId,
+      direction: newDirection,
+      closestFieldChanged: currentReservedSpace !== newReservedSpace,
+      isCrossSection
     };
   }
   
   return result;
 };
 
-// TODO: REMOVE - No longer used (replaced by opacity: 0 approach)
-export interface ReservedSpace {
-  insertionIndex: number; // Direct insertion index: 0 = beginning, 3 = after 3rd field, etc.
-}
 
-// TODO: REMOVE - No longer used (simplified drag state in useDragAndDrop hook)
-export interface DragState {
-  isDragMode: boolean;
-  draggedField: string | null;
-  isDragging: boolean;
-  dragPosition: { x: number; y: number } | null;
-  dragElement: HTMLElement | null;
-  draggedFieldHeight: number;
-  reservedSpace: ReservedSpace | null;
-}
 
-/**
- * Get all draggable field elements with their positions and IDs
- * Only returns fields from the CURRENT SECTION (Personal or Work)
- */
-// TODO: REMOVE - No longer used (replaced by simpler field filtering in useDragAndDrop)
-export const getAllDraggableFields = (): Array<{ element: HTMLElement; fieldId: string; y: number; midY: number }> => {
-  // First, determine which section we're in by checking which view is active
-  // Look for the active profile view selector or check the carousel position
-  document.querySelector('[data-section="personal"]');
-  const workSection = document.querySelector('[data-section="work"]');
-  
-  let currentSection: 'personal' | 'work' | 'universal' = 'personal';
-  
-  // Check which section is currently visible/active
-  if (workSection) {
-    const workRect = workSection.getBoundingClientRect();
-    // If work section is in viewport, we're on work page
-    if (workRect.left >= -100 && workRect.left <= 100) {
-      currentSection = 'work';
-    }
-  }
-  
-  const draggableFields = document.querySelectorAll('[data-draggable="true"][data-field-id]');
-  
-  // Debug: Check for duplicate field IDs before filtering
-  const allFieldIds = Array.from(draggableFields).map(el => el.getAttribute('data-field-id'));
-  const duplicateIds = allFieldIds.filter((id, index) => allFieldIds.indexOf(id) !== index);
-  if (duplicateIds.length > 0) {
-    console.warn('🚨 Duplicate field IDs found in DOM:', duplicateIds);
-    console.warn('🚨 All field IDs:', allFieldIds);
-  }
-  
-  return Array.from(draggableFields)
-    .filter(element => {
-      const fieldId = element.getAttribute('data-field-id') || '';
-      const style = window.getComputedStyle(element);
-      
-      // Parse the field ID to get the section (format: "platform-section")
-      const fieldSection = fieldId.split('-').pop(); // Gets 'personal', 'work', or 'universal'
-      
-      // Only include fields from current section or universal fields
-      const isInCurrentSection = fieldSection === currentSection || fieldSection === 'universal';
-      
-      // Also check basic visibility
-      const isVisible = style.display !== 'none';
-      const rect = element.getBoundingClientRect();
-      const hasSize = rect.width > 0 && rect.height > 0;
-      
-      return isInCurrentSection && isVisible && hasSize;
-    })
-    .map(element => {
-      const rect = element.getBoundingClientRect();
-      const fieldId = element.getAttribute('data-field-id') || '';
-      const y = rect.top + window.scrollY;
-      const midY = y + rect.height / 2;
-      
-      return {
-        element: element as HTMLElement,
-        fieldId,
-        y,
-        midY
-      };
-    })
-    .sort((a, b) => a.y - b.y); // Sort by Y position
-};
-
-/**
- * Calculate reserved space based on floating drag position relative to all fields
- * Returns exactly one reserved space following the spec rules
- */
-// Store the initial field order when drag starts
-// TODO: REMOVE - No longer used (unused state management)
-let initialFieldOrder: string[] | null = null;
-
-// TODO: REMOVE - No longer used (unused state management)
-export const setInitialFieldOrder = (order: string[] | null) => {
-  initialFieldOrder = order;
-};
-
-// TODO: REMOVE - No longer used (unused state management)
-export const getInitialFieldOrder = (): string[] | null => {
-  return initialFieldOrder;
-};
-
-// TODO: REMOVE - No longer used (replaced by opacity: 0 approach)
-export const calculateReservedSpace = (
-  dragY: number,
-  draggedFieldId: string,
-  _currentReservedSpace?: ReservedSpace | null
-): ReservedSpace => {
-  const fields = getAllDraggableFields();
-  
-  
-  // Use initial field order if available, otherwise use current order
-  const fieldOrder = initialFieldOrder || fields.map(f => f.fieldId);
-  const draggedFieldOriginalIndex = fieldOrder.indexOf(draggedFieldId);
-  
-  // If no valid drag position, return original position (index where dragged field was)
-  if (draggedFieldOriginalIndex === -1) {
-    return { insertionIndex: 0 };
-  }
-  
-  // Find the closest field to the drag position
-  let closestField = null;
-  let minDistance = Infinity;
-  
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-    // Skip the dragged field itself
-    if (field.fieldId === draggedFieldId) continue;
-    
-    const distance = Math.abs(dragY - field.midY);
-    
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestField = field;
-    }
-  }
-  
-  // If no closest field found, return to original position
-  if (!closestField) {
-    return { insertionIndex: draggedFieldOriginalIndex };
-  }
-  
-  // Calculate insertion index by finding which insertion point is closest to the floating element
-  const closestFieldIndex = fieldOrder.indexOf(closestField.fieldId);
-  if (closestFieldIndex === -1) {
-    return { insertionIndex: draggedFieldOriginalIndex };
-  }
-  
-  // Get current position of the dragged field's original location
-  const currentPosition = draggedFieldOriginalIndex !== -1 && initialFieldOrder ? 
-    fields.find(f => f.fieldId === initialFieldOrder![draggedFieldOriginalIndex])?.midY || dragY : dragY;
-  
-  // Simple comparison: distance to original vs distance to closest field
-  const distanceToOriginal = Math.abs(dragY - currentPosition);
-  const distanceToClosestField = Math.abs(dragY - closestField.midY);
-  
-  
-  let insertionIndex;
-  if (distanceToClosestField < distanceToOriginal) {
-    // Closer to the target field - swap with it
-    insertionIndex = closestFieldIndex;
-  } else {
-    // Closer to original position - stay there
-    insertionIndex = draggedFieldOriginalIndex;
-  }
-  
-  return { insertionIndex };
-};
 
 /**
  * Create a floating drag element that follows the user's finger
@@ -456,47 +286,106 @@ export const removeFloatingDragElement = (element: HTMLElement | null): void => 
 };
 
 /**
- * Convert reserved space to drop information for fieldSectionManager
+ * Handle cross-section drag - only change section, keep same position
  */
-// TODO: REMOVE - No longer used (unused conversion function)
-export const getDropInfo = (reservedSpace: ReservedSpace, allFields: ReturnType<typeof getAllDraggableFields>, draggedFieldId?: string) => {
-  // If insertion index is -1, it means no insertion point (return to original)
-  if (reservedSpace.insertionIndex === -1) {
-    return null; // No drop - return to original position
+export const handleCrossSectionDrag = (
+  draggedField: ContactEntry,
+  targetField: ContactEntry,
+  fieldOrderRef: React.MutableRefObject<ContactEntry[]>,
+  setDraggedField: (field: ContactEntry) => void
+): void => {
+  console.log(`🔄 [Cross-section] ${draggedField.section} → ${targetField.section} (position unchanged)`);
+  
+  // Update only the section in fieldOrderRef, not the position
+  const currentFieldIndex = fieldOrderRef.current.findIndex(f => 
+    f.fieldType === draggedField.fieldType && f.section === draggedField.section
+  );
+  
+  if (currentFieldIndex !== -1) {
+    const updatedFields = [...fieldOrderRef.current];
+    updatedFields[currentFieldIndex] = {
+      ...updatedFields[currentFieldIndex],
+      section: targetField.section
+    };
+    fieldOrderRef.current = updatedFields;
+    console.log(`🔄 [Cross-section] Updated field section at position ${currentFieldIndex}`);
   }
   
-  // Use initial field order if available, otherwise use current order
-  const fieldOrder = initialFieldOrder || allFields.map(f => f.fieldId);
-  const draggedFieldOriginalIndex = draggedFieldId ? fieldOrder.indexOf(draggedFieldId) : -1;
-  
-  // If inserting at original position, it's not a real drop
-  if (reservedSpace.insertionIndex === draggedFieldOriginalIndex) {
-    return null; // No drop - return to original position  
-  }
-  
-  // For the fieldSectionManager, we just need the insertion index
-  // The manager will handle the actual reordering logic
-  return {
-    insertIndex: reservedSpace.insertionIndex
-  };
+  // Update draggedField state to reflect the new section
+  const updatedDraggedField = { ...draggedField, section: targetField.section };
+  setDraggedField(updatedDraggedField);
 };
 
-
-
 /**
- * Animate the floating element to snap to the insertion point
+ * Handle same-section drag - change position using field order logic
  */
-export const animateSnapToPosition = (
-  dragElement: HTMLElement,
-  insertionPoint: { y: number; targetFieldId?: string },
-  onComplete: () => void
+export const handleSameSectionDrag = (
+  draggedField: ContactEntry,
+  targetField: ContactEntry,
+  reservePosition: 'above' | 'below',
+  fieldOrderRef: React.MutableRefObject<ContactEntry[]>
 ): void => {
-  if (!dragElement) {
-    onComplete();
+  console.log(`🔄 [Same-section] Moving ${draggedField.fieldType}-${draggedField.section} ${reservePosition} ${targetField.fieldType}-${targetField.section}`);
+  
+  const currentOrder = [...fieldOrderRef.current];
+  console.log('  Before:', currentOrder.map(f => `${f.fieldType}-${f.section}`));
+  
+  // Find and remove dragged field
+  const draggedIndex = currentOrder.findIndex(f => 
+    f.fieldType === draggedField.fieldType && f.section === draggedField.section
+  );
+  
+  if (draggedIndex === -1) {
+    console.warn('❌ [handleSameSectionDrag] Dragged field not found in order');
     return;
   }
+  
+  const draggedFieldObj = currentOrder.splice(draggedIndex, 1)[0];
+  
+  // Find target field in the updated array (after removal)
+  const targetIndex = currentOrder.findIndex(f => 
+    f.fieldType === targetField.fieldType && f.section === targetField.section
+  );
+  
+  if (targetIndex === -1) {
+    console.warn('❌ [handleSameSectionDrag] Target field not found in order');
+    // Re-insert at original position if target not found
+    currentOrder.splice(draggedIndex, 0, draggedFieldObj);
+    return;
+  }
+  
+  // Insert dragged field at correct position
+  const insertIndex = reservePosition === 'above' ? targetIndex : targetIndex + 1;
+  currentOrder.splice(insertIndex, 0, draggedFieldObj);
+  
+  // Update ref (no re-render)
+  fieldOrderRef.current = currentOrder;
+  console.log('  After:', currentOrder.map(f => `${f.fieldType}-${f.section}`));
+};
 
-  // Simply complete immediately without any animation
-  // The field reordering will happen naturally without the confusing visual snap
-  onComplete();
-}; 
+/**
+ * Find the closest draggable parent element
+ */
+export const findDraggableParent = (element: Element): Element | null => {
+  // Check if the touch is on a draggable field or its children
+  let draggableFieldElement = element.closest('[data-draggable="true"]');
+  
+  // If not found, check if the target itself is a draggable element (might be hidden)
+  if (!draggableFieldElement) {
+    // Check if target has data-draggable attribute (even if hidden)
+    let currentElement = element;
+    while (currentElement) {
+      const hasDataDraggable = (currentElement as HTMLElement).getAttribute?.('data-draggable');
+      
+      if (hasDataDraggable === 'true') {
+        draggableFieldElement = currentElement;
+        break;
+      }
+      const parentEl = currentElement.parentElement;
+      if (!parentEl) break;
+      currentElement = parentEl;
+    }
+  }
+  
+  return draggableFieldElement;
+};

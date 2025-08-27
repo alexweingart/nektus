@@ -14,14 +14,7 @@ import { ProfileField } from '../ui/ProfileField';
 import { ProfileViewSelector } from '../ui/ProfileViewSelector';
 import { useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
-import { useDragAndDrop } from '@/lib/hooks/useDragAndDrop';
-
-// Drag completion info interface
-interface DragDropInfo {
-  fields: ContactEntry[];
-  draggedField: ContactEntry;
-  dragType: 'same-section' | 'universal-to-section' | 'section-to-universal';
-}
+import { useDragAndDrop, type DragDropInfo } from '@/lib/hooks/useDragAndDrop';
 
 interface FieldRendererProps {
   session?: Session | null;
@@ -88,9 +81,9 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
       
       // Mark all saved fields as confirmed
       const currentFields = [
-        ...fieldSectionManager.universalFields,
-        ...fieldSectionManager.personalFields.filter(f => f.isVisible || (f.value && f.value.trim() !== '')),
-        ...fieldSectionManager.workFields.filter(f => f.isVisible || (f.value && f.value.trim() !== ''))
+        ...fieldSectionManager.getFieldsBySection('universal'),
+        ...fieldSectionManager.getFieldsBySection('personal').filter(f => f.isVisible || (f.value && f.value.trim() !== '')),
+        ...fieldSectionManager.getFieldsBySection('work').filter(f => f.isVisible || (f.value && f.value.trim() !== ''))
       ];
       
       currentFields.forEach(field => {
@@ -137,52 +130,68 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     return fieldSectionManager.getFieldValue(fieldType);
   };
   
-  // Get current fields for view - ALWAYS use stable order from fieldSectionManager
-  const getCurrentFields = (viewMode: 'Personal' | 'Work') => {
-    // CRITICAL: Always use fieldSectionManager to maintain stable DOM order
-    // Reserved space will provide visual feedback without changing DOM structure
-    return fieldSectionManager.getFieldsForView(viewMode);
+  // Get fields for view using simplified API
+  const getFieldsForView = (viewMode: 'Personal' | 'Work') => {
+    const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
+    return {
+      // Only show fields that belong to this specific section (not universal fields)
+      visibleFields: fieldSectionManager.getVisibleFields(sectionName),
+      hiddenFields: fieldSectionManager.getHiddenFieldsForView(viewMode)
+    };
   };
   
   // Render content for a specific view (Personal or Work)
   const renderViewContent = (viewMode: 'Personal' | 'Work') => {
-    const { currentFields, hiddenFields } = getCurrentFields(viewMode);
+    const { visibleFields, hiddenFields } = getFieldsForView(viewMode);
     
     return (
       <>
         {/* Current Section */}
         <FieldSectionComponent
           title={viewMode}
-          isEmpty={currentFields.length === 0}
+          isEmpty={visibleFields.length === 0}
           emptyText={`You have no ${viewMode} networks right now. Drag & drop an input field to change that.`}
         >
-          {currentFields.map((profile, index) => {
+          {/* Top drop zone for the section */}
+          <DropZone 
+            id={`${viewMode.toLowerCase()}-top`}
+            section={viewMode.toLowerCase()}
+            order={0}
+          />
+          
+          {visibleFields.map((profile, index) => {
             const fieldType = profile.fieldType;
             const fieldId = `${fieldType}-${profile.section}`;
             const uniqueKey = `${profile.section}-${fieldType}-${index}`;
+            const sectionName = viewMode.toLowerCase();
               
             return (
-              <ProfileField
-                key={uniqueKey}
-                profile={profile}
-                fieldSectionManager={fieldSectionManager}
-                getValue={getFieldValue}
-                onChange={handleFieldChange}
-                isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                currentViewMode={viewMode}
-                showDragHandles={true}
-                reservedSpace={reservedSpaceState[fieldId] || 'none'}
-                reservedSpaceHeight={reservedSpaceHeight}
-                isBeingDragged={draggedField === fieldId}
-                dragAndDrop={{
-                  isDragMode,
-                  draggedField,
-                  onTouchStart,
-                  onTouchMove,
-                  onTouchEnd
-                }}
-              />
+              <React.Fragment key={uniqueKey}>
+                <ProfileField
+                  profile={profile}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getFieldValue}
+                  onChange={handleFieldChange}
+                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                  currentViewMode={viewMode}
+                  showDragHandles={true}
+                  isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
+                  dragAndDrop={{
+                    isDragMode,
+                    draggedField,
+                    onTouchStart,
+                    onTouchMove,
+                    onTouchEnd
+                  }}
+                />
+                {/* Drop zone after each field */}
+                <DropZone 
+                  id={`${sectionName}-${profile.order || index + 1}`}
+                  section={sectionName}
+                  order={profile.order || index + 1}
+                />
+              </React.Fragment>
             );
           })}
         </FieldSectionComponent>
@@ -204,33 +213,45 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
               </div>
             }
           >
+            {/* Top drop zone for hidden section */}
+            <DropZone 
+              id="hidden-top"
+              section="hidden"
+              order={0}
+            />
+            
             {hiddenFields.map((profile, index) => {
               const fieldType = profile.fieldType;
               const fieldId = `${fieldType}-${profile.section}`;
               const uniqueKey = `hidden-${fieldType}-${index}`;
                 
               return (
-                <ProfileField
-                  key={uniqueKey}
-                  profile={profile}
-                  fieldSectionManager={fieldSectionManager}
-                  getValue={getFieldValue}
-                  onChange={handleFieldChange}
-                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                  currentViewMode={viewMode}
-                  showDragHandles={true}
-                  reservedSpace={reservedSpaceState[fieldId] || 'none'}
-                  reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField === fieldId}
-                  dragAndDrop={{
-                    isDragMode,
-                    draggedField,
-                    onTouchStart,
-                    onTouchMove,
-                    onTouchEnd
-                  }}
-                />
+                <React.Fragment key={uniqueKey}>
+                  <ProfileField
+                    profile={profile}
+                    fieldSectionManager={fieldSectionManager}
+                    getValue={getFieldValue}
+                    onChange={handleFieldChange}
+                    isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                    onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                    currentViewMode={viewMode}
+                    showDragHandles={true}
+                    isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
+                    dragAndDrop={{
+                      isDragMode,
+                      draggedField,
+                      onTouchStart,
+                      onTouchMove,
+                      onTouchEnd
+                    }}
+                  />
+                  {/* Drop zone after each hidden field */}
+                  <DropZone 
+                    id={`hidden-${profile.order || index + 1}`}
+                    section="hidden"
+                    order={profile.order || index + 1}
+                  />
+                </React.Fragment>
               );
             })}
           </FieldSectionComponent>
@@ -239,14 +260,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     );
   };
   
-  // Get universal fields for the top section - ALWAYS use stable order
-  const getUniversalFields = () => {
-    // CRITICAL: Always use fieldSectionManager to maintain stable DOM order
-    const { universalFields } = fieldSectionManager.getFieldsForView('Personal');
-    return universalFields;
-  };
-  
-  const universalFields = getUniversalFields();
+  // Get universal fields for the top section
+  const universalFields = fieldSectionManager.getFieldsBySection('universal');
   
   return (
     <div className="flex flex-col items-center relative space-y-5" data-drag-container>
@@ -349,14 +364,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
             return (
               <div key={uniqueKey} className="w-full max-w-md mx-auto">
                 <ProfileField
-                  profile={{
-                    fieldType: 'phone',
-                    section: 'universal',
-                    value: '',
-                    isVisible: true,
-                    order: profile.order || 0,
-                    confirmed: profile.confirmed
-                  }}
+                  profile={profile}  // Use the actual profile object!
                   fieldSectionManager={fieldSectionManager}
                   getValue={getFieldValue}
                   onChange={handleFieldChange}
@@ -369,7 +377,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   showDragHandles={true}
                   reservedSpace={reservedSpaceState['phone-universal'] || 'none'}
                   reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField === 'phone-universal'}
+                  isBeingDragged={draggedField?.fieldType === 'phone' && draggedField?.section === 'universal'}
                   dragAndDrop={{
                     isDragMode,
                     draggedField,
@@ -387,14 +395,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
             return (
               <div key={uniqueKey} className="w-full max-w-md mx-auto">
                 <ProfileField
-                  profile={{
-                    fieldType: 'email',
-                    section: 'universal',
-                    value: '',
-                    isVisible: true,
-                    order: profile.order || 1,
-                    confirmed: profile.confirmed
-                  }}
+                  profile={profile}  // Use the actual profile object!
                   fieldSectionManager={fieldSectionManager}
                   getValue={getFieldValue}
                   onChange={handleFieldChange}
@@ -404,7 +405,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   showDragHandles={true}
                   reservedSpace={reservedSpaceState['email-universal'] || 'none'}
                   reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField === 'email-universal'}
+                  isBeingDragged={draggedField?.fieldType === 'email' && draggedField?.section === 'universal'}
                   dragAndDrop={{
                     isDragMode,
                     draggedField,
@@ -432,7 +433,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 showDragHandles={true}
                 reservedSpace={reservedSpaceState[fieldId] || 'none'}
                 reservedSpaceHeight={reservedSpaceHeight}
-                isBeingDragged={draggedField === fieldId}
+                isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
                 dragAndDrop={{
                   isDragMode,
                   draggedField,

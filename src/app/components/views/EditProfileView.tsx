@@ -48,18 +48,13 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   
   // Create frozen field snapshot ONCE for drag operations - truly stable during drag
   const initialFields = useMemo(() => {
-    // Get the field manager's complete order for both Personal and Work
-    const personalView = fieldSectionManager.getFieldsForView('Personal');
-    const workView = fieldSectionManager.getFieldsForView('Work');
+    // Get complete field list for all sections (universal + personal + work)
+    const universalFields = fieldSectionManager.getFieldsBySection('universal');
+    const personalFields = fieldSectionManager.getFieldsBySection('personal');
+    const workFields = fieldSectionManager.getFieldsBySection('work');
     
-    // Combine in the same order as field manager - this is our frozen snapshot
-    const combined = [
-      ...personalView.universalFields,
-      ...personalView.currentFields,
-      ...personalView.hiddenFields,
-      ...workView.currentFields,
-      ...workView.hiddenFields
-    ];
+    // Combine all fields in order - this is our frozen snapshot for drag operations
+    const combined = [...universalFields, ...personalFields, ...workFields];
     
     return combined;
   }, [fieldSectionManager]);
@@ -67,45 +62,16 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   
   // Drag completion handler - receives final result without managing drag state
   const handleDragComplete = useCallback((dropInfo: DragDropInfo) => {
+    console.log('📥 [handleDragComplete] Using final field order from ref');
+    console.log('  - Final order:', dropInfo.fields.map(f => `${f.fieldType}-${f.section}`));
+    console.log('  - Final dragged field:', `${dropInfo.draggedField.fieldType}-${dropInfo.draggedField.section}`);
+    console.log('  - Original dragged field:', dropInfo.originalField ? `${dropInfo.originalField.fieldType}-${dropInfo.originalField.section}` : 'none');
     
-    const { fields, draggedField: draggedFieldData, dragType } = dropInfo;
+    // Simple: just update FieldManager with the final field order
+    // Pass both original and final field info for cross-section detection
+    fieldSectionManager.updateFromDragDrop(dropInfo.fields, dropInfo.draggedField, dropInfo.originalField);
     
-    if (dragType === 'same-section') {
-      // Use the existing reorder method for same-section drags
-      const fromId = `${draggedFieldData.fieldType}-${draggedFieldData.section}`;
-      const draggedIndex = fields.findIndex((f: ContactEntry) => `${f.fieldType}-${f.section}` === fromId);
-      
-      if (draggedIndex >= 0) {
-        // Find the target position based on field order
-        const targetField = fields[draggedIndex + 1] || fields[draggedIndex - 1];
-        if (targetField) {
-          fieldSectionManager.reorderFieldsInSection(
-            draggedFieldData.fieldType,
-            targetField.fieldType,
-            draggedFieldData.section
-          );
-        }
-      }
-    } else if (dragType === 'universal-to-section') {
-      // Moving from universal to personal/work section
-      const targetSection = dropInfo.draggedField.section as 'personal' | 'work';
-      fieldSectionManager.splitUniversalField(
-        draggedFieldData.fieldType,
-        draggedFieldData.value || '',
-        targetSection,
-        0 // Insert at beginning of section for now
-      );
-      
-    } else if (dragType === 'section-to-universal') {
-      // Moving from personal/work to universal section  
-      fieldSectionManager.consolidateToUniversal(
-        draggedFieldData.fieldType,
-        draggedFieldData.value || '',
-        0 // Insert at end of universal section for now
-      );
-    } else {
-      console.warn('Unknown drag type:', dragType);
-    }
+    console.log('✅ [handleDragComplete] FieldManager updated with new order');
   }, [fieldSectionManager]);
   
   // Mode change handler
@@ -127,9 +93,9 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   const handleSaveRequest = useCallback(async () => {
     // Get current fields from field manager, not from ref
     const currentFields = [
-      ...fieldSectionManager.universalFields,
-      ...fieldSectionManager.personalFields.filter(f => f.isVisible || (f.value && f.value.trim() !== '')),
-      ...fieldSectionManager.workFields.filter(f => f.isVisible || (f.value && f.value.trim() !== ''))
+      ...fieldSectionManager.getFieldsBySection('universal'),
+      ...fieldSectionManager.getFieldsBySection('personal').filter(f => f.isVisible || (f.value && f.value.trim() !== '')),
+      ...fieldSectionManager.getFieldsBySection('work').filter(f => f.isVisible || (f.value && f.value.trim() !== ''))
     ];
     
     // Mark all fields with content as confirmed for Firebase save
