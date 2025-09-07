@@ -22,17 +22,16 @@ export const DropZone: React.FC<DropZoneProps> = ({ order, section, isActive }) 
       style={{
         height: '3.5rem', // Match CustomInput exact height (56px)
         minHeight: '3.5rem',
-        backgroundColor: 'hsla(122, 39%, 49%, 0.3)', // More visible green background
-        border: '3px solid hsla(122, 39%, 49%, 0.8)', // More visible green border
+        backgroundColor: 'transparent', // Transparent background
+        border: '2px dashed hsla(122, 39%, 49%, 0.7)', // Dotted green border
         borderRadius: '9999px', // Match CustomInput rounded-full
         transition: 'all 0.2s ease',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '14px',
-        color: 'hsla(122, 39%, 49%, 1)', // Full opacity green text
-        fontWeight: '700', // Bolder text
-        backdropFilter: 'blur(4px)', // Match CustomInput backdrop filter
+        fontSize: '12px',
+        color: 'hsla(122, 39%, 49%, 0.8)', // Slightly transparent green text
+        fontWeight: '600', // Medium weight text
         zIndex: 10, // Ensure it's above other elements
       }}
     >

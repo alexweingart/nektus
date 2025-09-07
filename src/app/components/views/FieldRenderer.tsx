@@ -150,7 +150,12 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     const dropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, viewMode, draggedField) : [];
     
     // Create an array that interleaves DropZones and Fields in the correct order
-    const renderItems: Array<{ type: 'dropzone' | 'field'; data: any; key: string }> = [];
+    type DropZoneData = { order: number; section: string; belowFieldType: string; midpointY?: number };
+    type FieldData = ContactEntry & { isBeingDragged?: boolean };
+    const renderItems: Array<
+      | { type: 'dropzone'; data: DropZoneData; key: string }
+      | { type: 'field'; data: FieldData; key: string }
+    > = [];
     
     // Get all DropZones for this section
     const sectionName = viewMode.toLowerCase();
@@ -401,7 +406,12 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           const universalDropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, selectedMode, draggedField) : [];
           
           // Create an array that interleaves DropZones and Fields
-          const renderItems: Array<{ type: 'dropzone' | 'field'; data: any; key: string }> = [];
+          type DropZoneData = { order: number; section: string; belowFieldType: string; midpointY?: number };
+          type FieldData = ContactEntry & { isBeingDragged?: boolean; fieldIndex?: number };
+          const renderItems: Array<
+            | { type: 'dropzone'; data: DropZoneData; key: string }
+            | { type: 'field'; data: FieldData; key: string }
+          > = [];
           
           // Get all universal DropZones
           const universalSectionDropZones = universalDropZoneMap.filter(dz => dz.section === 'universal');
