@@ -70,7 +70,7 @@ const HomePage: React.FC = () => {
           variant="white"
           size="xl"
           className="w-full mb-2 text-gray-700 font-medium"
-          onClick={() => signIn('google', { callbackUrl: '/setup' })}
+          onClick={() => signIn('google')}
           icon={<GoogleIcon />}
         >
           Sign in with Google

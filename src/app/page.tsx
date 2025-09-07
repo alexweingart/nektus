@@ -1,8 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { PullToRefresh } from './components/ui/PullToRefresh';
@@ -24,7 +25,16 @@ const ProfileView = dynamicImport(() => import('./components/views/ProfileView')
 export default function Home() {
   const { data: session, status } = useSession();
   const { profile } = useProfile();
+  const router = useRouter();
   const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
+
+  // Check if user needs setup based on server-side session data
+  useEffect(() => {
+    if (session?.isNewUser === true) {
+      console.log('[HomePage] User is new, redirecting to setup...');
+      router.push('/setup');
+    }
+  }, [session?.isNewUser, router]);
 
   const handleRefresh = async () => {
     // Reload the page to refresh all data

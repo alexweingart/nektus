@@ -121,6 +121,12 @@ export const authOptions: NextAuthOptions = {
   
   // Callbacks
   callbacks: {
+    async signIn({ user, account }) {
+      console.log('[SignIn Callback] Always allowing sign-in for user:', user?.id);
+      // Always allow sign-in - redirect callback will handle routing
+      return true;
+    },
+    
     async jwt({ token, account, user, trigger, session }) {
       // Initial sign in
       if (account?.id_token) {
@@ -170,24 +176,24 @@ export const authOptions: NextAuthOptions = {
             const profileDoc = await db.collection('profiles').doc(userId).get();
             if (profileDoc.exists) {
               const profileData = profileDoc.data();
-              // Store phone info in token if it exists in Firebase
-              const phoneEntry = profileData?.contactChannels?.entries?.find((e: { platform: string }) => e.platform === 'phone');
-              if (phoneEntry?.internationalPhone) {
+              // Store phone info in token if it exists in Firebase (new structure)
+              const phoneEntry = profileData?.contactEntries?.find((e: { fieldType: string }) => e.fieldType === 'phone');
+              if (phoneEntry?.value) {
                 token.profile = {
                   contactChannels: {
                     entries: [
                       {
                         platform: 'phone',
-                        section: phoneEntry.section || 'universal',
-                        userConfirmed: phoneEntry.userConfirmed || false,
-                        internationalPhone: phoneEntry.internationalPhone,
-                        nationalPhone: phoneEntry.nationalPhone || ''
+                        section: 'universal',
+                        userConfirmed: true,
+                        internationalPhone: phoneEntry.value,
+                        nationalPhone: phoneEntry.value
                       }
                     ]
                   }
                 };
               }
-              token.isNewUser = !phoneEntry?.internationalPhone;
+              token.isNewUser = !phoneEntry?.value;
               token.profileImage = profileData?.profileImage || null;
               token.backgroundImage = profileData?.backgroundImage || null;
             } else {
@@ -310,8 +316,11 @@ export const authOptions: NextAuthOptions = {
     },
     
     async redirect({ url, baseUrl }) {
+      console.log('[Redirect Callback] url:', url, 'baseUrl:', baseUrl);
+      
       // Handle cancellation and errors by redirecting to homepage
       if (url.includes('error=Callback') || url.includes('error=')) {
+        console.log('[Redirect Callback] Error detected, redirecting to homepage');
         return baseUrl;
       }
       
@@ -325,7 +334,9 @@ export const authOptions: NextAuthOptions = {
         return url;
       }
       
-      // Default to homepage
+      // For OAuth callback, always redirect to homepage
+      // Client-side will check session.isNewUser flag to handle routing
+      console.log('[Redirect Callback] OAuth flow complete, redirecting to homepage');
       return baseUrl;
     },
   },
