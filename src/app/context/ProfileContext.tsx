@@ -114,6 +114,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
+            console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
             setProfile(existingProfile);
             
             // Android-specific: Ensure session is synced with loaded profile
@@ -575,11 +576,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const skipReactUpdate = options.skipUIUpdate;
       
       if (!skipReactUpdate) {
+        console.log('📱 [ProfileContext] Setting profile after save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
         setProfile(merged);
       } else {
         // However, if this is a background operation and the current profile state is stale (empty userId),
         // we should update it to prevent UI showing empty data during streaming
         if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
+          console.log('📱 [ProfileContext] Setting profile after background save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
           setProfile(merged);
         }
       }
@@ -665,6 +668,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                         contactEntries: updatedEntries
                       };
                       profileRef.current = updatedProfile;
+                      console.log('📱 [ProfileContext] Setting profile from streaming update:', updatedProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
                       setProfile(updatedProfile);
                       
                       // Also update streaming state for immediate feedback

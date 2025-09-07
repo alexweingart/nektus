@@ -180,16 +180,23 @@ export const useEditProfileFields = ({
   
   // Calculate initial fields from Firebase profile data
   const calculateInitialFields = useCallback((): ContactEntry[] => {
-    return profile?.contactEntries || [
-      { fieldType: 'name', value: session?.user?.name || '', section: 'universal', order: 0, isVisible: true, confirmed: false },
-      { fieldType: 'bio', value: '', section: 'universal', order: 1, isVisible: true, confirmed: false },
-      { fieldType: 'phone', value: '', section: 'universal', order: 2, isVisible: true, confirmed: false },
-      { fieldType: 'email', value: session?.user?.email || '', section: 'universal', order: 3, isVisible: true, confirmed: false }
+    const firebaseData = profile?.contactEntries;
+    const defaultData: ContactEntry[] = [
+      { fieldType: 'name', value: session?.user?.name || '', section: 'universal' as FieldSection, order: 0, isVisible: true, confirmed: false },
+      { fieldType: 'bio', value: '', section: 'universal' as FieldSection, order: 1, isVisible: true, confirmed: false },
+      { fieldType: 'phone', value: '', section: 'universal' as FieldSection, order: 2, isVisible: true, confirmed: false },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'universal' as FieldSection, order: 3, isVisible: true, confirmed: false }
     ];
+    
+    const result = firebaseData || defaultData;
+    
+    
+    return result;
   }, [profile?.contactEntries, session?.user?.name, session?.user?.email]);
   
   // Helper function to ensure all fieldTypes exist in both Personal and Work sections
   const ensureAllFieldsExist = useCallback((baseFields: ContactEntry[]): ContactEntry[] => {
+    
     const existingEntries = new Map<string, Set<string>>(); // fieldType -> Set of sections
     
     // Track what already exists
@@ -210,11 +217,12 @@ export const useEditProfileFields = ({
         
         // Ensure Personal section entry exists
         if (!existingSections.has('personal')) {
+          const newOrder = 1000 + missingFields.length;
           missingFields.push({
             fieldType,
             value: '',
-            section: 'personal',
-            order: 1000 + missingFields.length,
+            section: 'personal' as FieldSection,
+            order: newOrder,
             isVisible: false,
             confirmed: true  // Blank fields should be confirmed by default
           });
@@ -222,11 +230,12 @@ export const useEditProfileFields = ({
         
         // Ensure Work section entry exists
         if (!existingSections.has('work')) {
+          const newOrder = 1000 + missingFields.length;
           missingFields.push({
             fieldType,
             value: '',
-            section: 'work',
-            order: 1000 + missingFields.length,
+            section: 'work' as FieldSection,
+            order: newOrder,
             isVisible: false,
             confirmed: true  // Blank fields should be confirmed by default
           });
@@ -234,7 +243,9 @@ export const useEditProfileFields = ({
       }
     });
     
-    return [...baseFields, ...missingFields];
+    const combined = [...baseFields, ...missingFields];
+    
+    return combined;
   }, []);
   
   // Unified state: ALL field data in one place (including hidden placeholders)
@@ -242,6 +253,10 @@ export const useEditProfileFields = ({
   
   // Update fields when profile changes (e.g., after save)
   useEffect(() => {
+    // Only process when profile actually changes (not on every render)
+    if (!profile?.contactEntries) return;
+    
+    
     const newInitialFields = calculateInitialFields();
     if (newInitialFields && newInitialFields.length > 0) {
       const newFields = ensureAllFieldsExist(newInitialFields);
@@ -266,7 +281,7 @@ export const useEditProfileFields = ({
       
       setFields(preservedFields);
     }
-  }, [profile, calculateInitialFields, ensureAllFieldsExist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.contactEntries]); // Only depend on the actual data, not the callbacks
   
   // Image state (separate from text fields)
   const [images, setImages] = useState<{ profileImage: string; backgroundImage: string }>(initialImages);

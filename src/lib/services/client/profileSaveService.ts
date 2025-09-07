@@ -38,18 +38,32 @@ export class ProfileSaveService {
     }
 
     try {
+      // Ensure contactEntries have unique orders if they're being updated
+      let processedUpdates = updates;
+      if (updates.contactEntries) {
+        const contactEntriesWithUniqueOrder = this.assignUniqueOrders(updates.contactEntries);
+        
+        processedUpdates = {
+          ...updates,
+          contactEntries: contactEntriesWithUniqueOrder
+        };
+        
+        console.log('💾 [ProfileSaveService] Applying unique orders before save:', 
+          contactEntriesWithUniqueOrder.map(f => `${f.fieldType}-${f.section}:${f.order}`));
+      }
+      
       // Determine merge strategy
       const merged = options.directUpdate 
         ? { 
             ...currentProfile, 
-            ...updates, 
+            ...processedUpdates, 
             userId, 
             lastUpdated: Date.now(),
-            profileImage: updates.profileImage || currentProfile?.profileImage || '',
-            backgroundImage: updates.backgroundImage || currentProfile?.backgroundImage || '',
-            contactEntries: updates.contactEntries || currentProfile?.contactEntries || []
+            profileImage: processedUpdates.profileImage || currentProfile?.profileImage || '',
+            backgroundImage: processedUpdates.backgroundImage || currentProfile?.backgroundImage || '',
+            contactEntries: processedUpdates.contactEntries || currentProfile?.contactEntries || []
           }
-        : this.mergeNonEmpty(currentProfile, updates, userId);
+        : this.mergeNonEmpty(currentProfile, processedUpdates, userId);
 
       // Save to Firebase
       await ClientProfileService.saveProfile(merged);
@@ -73,8 +87,15 @@ export class ProfileSaveService {
     contactEntries: ContactEntry[],
     images: { profileImage?: string; backgroundImage?: string } = {}
   ): Promise<SaveProfileResult> {
+    
+    // Ensure unique order numbers before saving to Firebase
+    const contactEntriesWithUniqueOrder = this.assignUniqueOrders(contactEntries);
+    
+    console.log('💾 [ProfileSaveService] Saving to Firebase with unique orders:', 
+      contactEntriesWithUniqueOrder.map(f => `${f.fieldType}-${f.section}:${f.order}`));
+    
     const updates: Partial<UserProfile> = {
-      contactEntries,
+      contactEntries: contactEntriesWithUniqueOrder,
       ...images
     };
 
@@ -133,6 +154,41 @@ export class ProfileSaveService {
     }
     
     return { ...result, userId, lastUpdated: Date.now() };
+  }
+
+  /**
+   * Assign unique orders while preserving semantic values for priority fields
+   */
+  private static assignUniqueOrders(entries: ContactEntry[]): ContactEntry[] {
+    const result: ContactEntry[] = [];
+    let currentOrder = 0;
+    
+    // First pass: handle priority fields with fixed orders
+    entries.forEach(entry => {
+      if (entry.fieldType === 'name') {
+        result.push({ ...entry, order: -2 });
+      } else if (entry.fieldType === 'bio') {
+        result.push({ ...entry, order: -1 });
+      } else if (entry.fieldType === 'phone') {
+        result.push({ ...entry, order: 0 });
+      } else if (entry.fieldType === 'email') {
+        result.push({ ...entry, order: 1 });
+      } else {
+        // Will be handled in second pass
+        result.push({ ...entry });
+      }
+    });
+    
+    // Second pass: assign sequential orders to remaining fields (starting from 2)
+    currentOrder = 2;
+    result.forEach((entry, index) => {
+      if (!['name', 'bio', 'phone', 'email'].includes(entry.fieldType)) {
+        result[index] = { ...entry, order: currentOrder };
+        currentOrder++;
+      }
+    });
+    
+    return result;
   }
 
   /**

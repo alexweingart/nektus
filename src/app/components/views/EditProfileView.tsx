@@ -56,22 +56,16 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     // Combine all fields in order - this is our frozen snapshot for drag operations
     const combined = [...universalFields, ...personalFields, ...workFields];
     
+    
     return combined;
   }, [fieldSectionManager]);
   
   
   // Drag completion handler - receives final result without managing drag state
   const handleDragComplete = useCallback((dropInfo: DragDropInfo) => {
-    console.log('📥 [handleDragComplete] Using final field order from ref');
-    console.log('  - Final order:', dropInfo.fields.map(f => `${f.fieldType}-${f.section}`));
-    console.log('  - Final dragged field:', `${dropInfo.draggedField.fieldType}-${dropInfo.draggedField.section}`);
-    console.log('  - Original dragged field:', dropInfo.originalField ? `${dropInfo.originalField.fieldType}-${dropInfo.originalField.section}` : 'none');
-    
     // Simple: just update FieldManager with the final field order
     // Pass both original and final field info for cross-section detection
     fieldSectionManager.updateFromDragDrop(dropInfo.fields, dropInfo.draggedField, dropInfo.originalField);
-    
-    console.log('✅ [handleDragComplete] FieldManager updated with new order');
   }, [fieldSectionManager]);
   
   // Mode change handler

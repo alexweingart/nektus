@@ -25,9 +25,6 @@ interface ProfileFieldProps {
   onConfirm: (fieldType: string) => void;
   showDragHandles?: boolean;
   currentViewMode: 'Personal' | 'Work';
-  // Reserved space props
-  reservedSpace?: 'none' | 'above' | 'below';
-  reservedSpaceHeight?: number;
   isBeingDragged?: boolean;
   // Phone-specific props
   onPhoneChange?: (value: string) => void;
@@ -60,8 +57,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   onConfirm,
   showDragHandles = true,
   currentViewMode,
-  reservedSpace = 'none',
-  reservedSpaceHeight = 0,
   isBeingDragged = false,
   onPhoneChange
 }) => {
@@ -76,35 +71,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   const fieldId = `${fieldType}-${profile.section}`;
   
 
-  // Reserved space rendering function with proper spacing
-  const renderReservedSpace = (position: 'above' | 'below') => {
-    return (
-      <div style={{
-        // Add the same spacing that the dragged field had
-        marginTop: position === 'below' ? '20px' : '0',
-        marginBottom: position === 'above' ? '20px' : '0'
-      }}>
-        <div 
-          style={{ 
-            height: reservedSpaceHeight, 
-            backgroundColor: 'hsla(122, 39%, 49%, 0.1)', // Theme green background
-            border: '2px dashed hsla(122, 39%, 49%, 0.3)', // Theme green border
-            borderRadius: '9999px', // Rounded corners matching CustomInput
-            transition: 'all 0.2s ease',
-            margin: '0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '12px',
-            color: 'hsla(122, 39%, 49%, 0.7)', // Theme green text
-            fontWeight: '500'
-          }} 
-        >
-          Drop here
-        </div>
-      </div>
-    );
-  };
 
   // Drag state - use new isBeingDragged prop for more accurate tracking  
   // Check if this field is being dragged by comparing ContactEntry objects
@@ -117,13 +83,12 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
 
   return (
     <div>
-      {/* Reserved space above */}
-      {reservedSpace === 'above' && renderReservedSpace('above')}
-      
       {/* Main field content */}
       <div 
-        data-draggable={showDragHandles ? "true" : "false"}
+        data-draggable={showDragHandles && !shouldShowAsHidden ? "true" : "false"}
         data-field-id={fieldId}
+        data-order={profile.order}
+        data-section={profile.section}
         className={`w-full max-w-[var(--max-content-width,448px)] transition-all duration-200 ${isDimmed ? 'opacity-50' : ''}`}
         style={{
           // When being dragged: remove from layout flow completely to eliminate spacing
@@ -153,11 +118,11 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           {/* Drag overlay for phone country selector area */}
           <div 
             className="absolute left-0 top-0 bottom-0 w-16 z-20 flex items-center justify-center"
-            onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
-            onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
-            onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
+            onTouchStart={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchStart(fieldId) : undefined}
+            onTouchMove={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchMove : undefined}
+            onTouchEnd={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchEnd : undefined}
             onContextMenu={(e) => e.preventDefault()}
-            style={{ pointerEvents: showDragHandles && dragAndDrop ? 'auto' : 'none' }}
+            style={{ pointerEvents: showDragHandles && dragAndDrop && !shouldShowAsHidden ? 'auto' : 'none' }}
           />
         </div>
       ) : (
@@ -180,9 +145,9 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           icon={
             <div 
               className="w-5 h-5 flex items-center justify-center relative"
-              onTouchStart={showDragHandles && dragAndDrop ? dragAndDrop.onTouchStart(fieldId) : undefined}
-              onTouchMove={showDragHandles && dragAndDrop ? dragAndDrop.onTouchMove : undefined}
-              onTouchEnd={showDragHandles && dragAndDrop ? dragAndDrop.onTouchEnd : undefined}
+              onTouchStart={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchStart(fieldId) : undefined}
+              onTouchMove={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchMove : undefined}
+              onTouchEnd={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchEnd : undefined}
               onContextMenu={(e) => e.preventDefault()}
             >
               <SocialIcon 
@@ -200,9 +165,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         />
       )}
       </div>
-      
-      {/* Reserved space below */}
-      {reservedSpace === 'below' && renderReservedSpace('below')}
     </div>
   );
 }; 

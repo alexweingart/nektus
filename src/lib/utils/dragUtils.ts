@@ -1,5 +1,214 @@
 import type { ContactEntry } from '@/types/profile';
 
+/**
+ * Capture field midpoints and store them in fieldOrderRef
+ */
+export const captureFieldMidpoints = (fieldOrderRef: ContactEntry[]): void => {
+  fieldOrderRef.forEach(field => {
+    if (field.isVisible) {
+      const fieldId = `${field.fieldType}-${field.section}`;
+      const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+      if (fieldElement) {
+        const rect = fieldElement.getBoundingClientRect();
+        const midpointY = rect.top + rect.height / 2 + window.scrollY;
+        // Mutate the field object to add midpoint
+        (field as any).midpointY = midpointY;
+      }
+    }
+  });
+};
+
+/**
+ * Calculate DropZone map for current view mode with renumbered sequential ordering
+ */
+export const calculateViewDropZoneMap = (
+  fields: ContactEntry[],
+  currentViewMode: 'Personal' | 'Work',
+  draggedField: ContactEntry | null
+): Array<{
+  order: number;
+  section: string;
+  belowFieldType: string | 'bottom';
+  midpointY?: number;
+}> => {
+  const currentSectionName = currentViewMode.toLowerCase() as 'personal' | 'work';
+  
+  // Get universal fields (exclude name/bio which aren't draggable)
+  const universalFields = fields
+    .filter(f => f.section === 'universal' && f.isVisible)
+    .filter(f => !['name', 'bio'].includes(f.fieldType))
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  
+  // Get current section fields
+  const sectionFields = fields
+    .filter(f => f.section === currentSectionName && f.isVisible)
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  
+  const dropZones: Array<{
+    order: number;
+    section: string;
+    belowFieldType: string | 'bottom';
+    midpointY?: number;
+  }> = [];
+  
+  let orderCounter = 0;
+  
+  // Field height constant (observed to be 76px)
+  const FIELD_HEIGHT = 76;
+  
+  // Create complete field render order (universal first, then current section)
+  const completeFieldOrder = [...universalFields, ...sectionFields];
+  
+  // Simple logic: get Y position for drop zones after dragged field is removed
+  const getDropZoneY = (field: ContactEntry): number => {
+    if (!draggedField) return (field as any).midpointY;
+    
+    // For cross-section moves, we need to adjust positions based on the visual layout
+    // Universal fields come first, then current section fields
+    const draggedIsUniversal = draggedField.section === 'universal';
+    const fieldIsInCurrentSection = field.section === currentSectionName;
+    
+    // If dragged field is universal and this field is in the current section,
+    // all current section fields shift up by one field height
+    if (draggedIsUniversal && fieldIsInCurrentSection) {
+      return (field as any).midpointY - FIELD_HEIGHT;
+    }
+    
+    // Same-section adjustment logic (existing)
+    if (field.section !== draggedField.section) {
+      return (field as any).midpointY;
+    }
+    
+    // Find positions within the same section
+    const sectionFields = completeFieldOrder.filter(f => f.section === draggedField.section);
+    const draggedIndex = sectionFields.findIndex(f => 
+      f.fieldType === draggedField.fieldType && f.section === draggedField.section
+    );
+    const fieldIndex = sectionFields.findIndex(f => 
+      f.fieldType === field.fieldType && f.section === field.section
+    );
+    
+    // If this field comes after the dragged field in the same section, it shifts up
+    if (draggedIndex !== -1 && fieldIndex > draggedIndex) {
+      // First field after dragged field gets dragged field's position
+      if (fieldIndex === draggedIndex + 1) {
+        return (draggedField as any).midpointY;
+      }
+      // Subsequent fields get the previous field's ORIGINAL position
+      const previousField = sectionFields[fieldIndex - 1];
+      return (previousField as any).midpointY;
+    }
+    
+    // Fields before dragged field or in different sections keep their original Y
+    return (field as any).midpointY;
+  };
+  
+  // Add DropZones for universal section
+  universalFields.forEach((field, index) => {
+    // Skip DropZone below dragged field
+    if (draggedField && draggedField.fieldType === field.fieldType && draggedField.section === field.section) {
+      return;
+    }
+    
+    // Use simple Y position logic
+    const dropZoneY = getDropZoneY(field);
+    
+    dropZones.push({
+      order: orderCounter++,
+      section: 'universal',
+      belowFieldType: field.fieldType,
+      midpointY: dropZoneY
+    });
+  });
+  
+  // Add final DropZone for universal section
+  let universalBottomY: number | undefined;
+  if (draggedField && universalFields.length > 0) {
+    const lastField = universalFields[universalFields.length - 1];
+    const isDraggingLastField = draggedField.fieldType === lastField.fieldType && 
+                                draggedField.section === lastField.section;
+    
+    if (isDraggingLastField) {
+      // If dragging the last field, bottom drop zone should be at the dragged field's original position
+      universalBottomY = (draggedField as any).midpointY;
+    } else {
+      // Otherwise, use the adjusted position of the last field
+      universalBottomY = getDropZoneY(lastField) + FIELD_HEIGHT;
+    }
+  } else if (universalFields.length > 0) {
+    // No field being dragged
+    const lastField = universalFields[universalFields.length - 1];
+    universalBottomY = (lastField as any).midpointY + FIELD_HEIGHT;
+  }
+  
+  dropZones.push({
+    order: orderCounter++,
+    section: 'universal',
+    belowFieldType: 'bottom',
+    midpointY: universalBottomY
+  });
+  
+  // Add DropZones for current section
+  sectionFields.forEach((field, index) => {
+    // Skip DropZone below dragged field
+    if (draggedField && draggedField.fieldType === field.fieldType && draggedField.section === field.section) {
+      return;
+    }
+    
+    // Use simple Y position logic
+    const dropZoneY = getDropZoneY(field);
+    
+    dropZones.push({
+      order: orderCounter++,
+      section: currentSectionName,
+      belowFieldType: field.fieldType,
+      midpointY: dropZoneY
+    });
+  });
+  
+  // Add final DropZone for current section
+  // For bottom drop zone, we need to handle cross-section moves and last field dragging
+  let sectionBottomY: number | undefined;
+  if (draggedField && sectionFields.length > 0) {
+    const lastField = sectionFields[sectionFields.length - 1];
+    const isDraggingLastField = draggedField.fieldType === lastField.fieldType && 
+                                draggedField.section === lastField.section;
+    
+    if (isDraggingLastField) {
+      // If dragging the last field, bottom drop zone should be at the dragged field's original position
+      sectionBottomY = (draggedField as any).midpointY;
+    } else {
+      // Use the adjusted position of the last field
+      const lastFieldAdjustedY = getDropZoneY(lastField);
+      sectionBottomY = lastFieldAdjustedY + FIELD_HEIGHT;
+    }
+  } else if (sectionFields.length > 0) {
+    // No field being dragged - use original position
+    const lastField = sectionFields[sectionFields.length - 1];
+    const lastFieldY = draggedField && draggedField.section === 'universal' && lastField.section === currentSectionName
+      ? (lastField as any).midpointY - FIELD_HEIGHT  // Adjust for universal field being removed
+      : (lastField as any).midpointY;
+    sectionBottomY = lastFieldY + FIELD_HEIGHT;
+  }
+  
+  dropZones.push({
+    order: orderCounter++,
+    section: currentSectionName,
+    belowFieldType: 'bottom',
+    midpointY: sectionBottomY
+  });
+  
+  // Log final drop zones for debugging
+  console.log('📍 [DROP ZONES] Final drop zone map:');
+  if (draggedField) {
+    console.log(`  (Dragging: ${draggedField.fieldType}-${draggedField.section})`);
+  }
+  dropZones.forEach(dz => {
+    console.log(`  - Order: ${dz.order} | Section: ${dz.section} | Below: ${dz.belowFieldType} | Y: ${dz.midpointY ? Math.round(dz.midpointY) : 'N/A'}`);
+  });
+  
+  return dropZones;
+};
 
 /**
  * Detect the type of drag operation based on source and target fields
@@ -34,181 +243,124 @@ export const calculateTargetY = (
   return targetY;
 };
 
+
 /**
- * Find the closest field to a target position
- * Compares only to adjacent fields (above/below the current reserved space)
+ * Find the closest DropZone using simplified view-mode logic
+ * Compares ghost position to current DropZone and adjacent fields
  */
-export const findClosestField = (
-  targetY: number,
-  visibleFields: ContactEntry[],
-  scrollOffset: number,
-  reservedSpaceState: Record<string, 'none' | 'above' | 'below'>,
-  draggedFieldId?: string
-): { targetFieldId: string; direction: 'up' | 'down'; closestFieldChanged: boolean; isCrossSection: boolean } | null => {
-  // Find the field that currently has a reserved space using state
-  const fieldIdWithReservedSpace = Object.keys(reservedSpaceState).find(
-    fieldId => reservedSpaceState[fieldId] !== 'none'
-  );
-
-  if (!fieldIdWithReservedSpace) {
-    return null;
-  }
-
-  // Find the field object that matches the fieldId
-  const currentReservedSpaceField = visibleFields.find(field => 
-    `${field.fieldType}-${field.section}` === fieldIdWithReservedSpace
-  );
-
-  if (!currentReservedSpaceField) {
-    return null;
-  }
-
-  const currentIndex = visibleFields.findIndex(f => f === currentReservedSpaceField);
-  
-  // Check if reserved space is above or below the current field using state
-  const reservedSpacePosition = reservedSpaceState[fieldIdWithReservedSpace];
-  const hasReservedAbove = reservedSpacePosition === 'above';
-  const hasReservedBelow = reservedSpacePosition === 'below';
-  
-  let fieldAbove: ContactEntry | null = null;
-  let fieldBelow: ContactEntry | null = null;
-  
-  if (hasReservedAbove) {
-    // Reserved space is above current field
-    // Above comparison: field above current field (skip dragged field)
-    // Below comparison: current field
-    let aboveIndex = currentIndex - 1;
-    while (aboveIndex >= 0 && draggedFieldId && `${visibleFields[aboveIndex].fieldType}-${visibleFields[aboveIndex].section}` === draggedFieldId) {
-          aboveIndex--;
-    }
-    fieldAbove = aboveIndex >= 0 ? visibleFields[aboveIndex] : null;
-    fieldBelow = currentReservedSpaceField;
-  } else if (hasReservedBelow) {
-    // Reserved space is below current field  
-    // Above comparison: current field
-    // Below comparison: field below current field (skip dragged field)
-    fieldAbove = currentReservedSpaceField;
-    let belowIndex = currentIndex + 1;
-    while (belowIndex < visibleFields.length && draggedFieldId && `${visibleFields[belowIndex].fieldType}-${visibleFields[belowIndex].section}` === draggedFieldId) {
-      belowIndex++;
-    }
-    fieldBelow = belowIndex < visibleFields.length ? visibleFields[belowIndex] : null;
-  }
-
-  let closestDistance = Infinity;
-  let aboveDistance = Infinity;
-  let belowDistance = Infinity;
-  let abovePixels = 0;
-  let belowPixels = 0;
-
-  // Compare to field above (if exists and not the dragged field)
-  if (fieldAbove) {
-    const fieldId = `${fieldAbove.fieldType}-${fieldAbove.section}`;
-    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
-    if (fieldElement) {
-      const rect = fieldElement.getBoundingClientRect();
-      const fieldCenterY = rect.top + rect.height / 2 + scrollOffset;
-      abovePixels = fieldCenterY;
-      aboveDistance = Math.abs(targetY - fieldCenterY);
-      
-      if (aboveDistance < closestDistance) {
-        closestDistance = aboveDistance;
-      }
-    }
-  }
-
-  // Compare to field below (if exists and not the dragged field)
-  if (fieldBelow) {
-    const fieldId = `${fieldBelow.fieldType}-${fieldBelow.section}`;
-    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
-    if (fieldElement) {
-      const rect = fieldElement.getBoundingClientRect();
-      const fieldCenterY = rect.top + rect.height / 2 + scrollOffset;
-      belowPixels = fieldCenterY;
-      belowDistance = Math.abs(targetY - fieldCenterY);
-      
-      if (belowDistance < closestDistance) {
-        closestDistance = belowDistance;
-      }
-    }
-  }
-
-  // Get reserved space center - calculate from field position instead of searching DOM
-  const reservedFieldElement = document.querySelector(`[data-field-id="${fieldIdWithReservedSpace}"]`);
-  let reservedSpaceY = 0;
-  
-  if (reservedFieldElement) {
-    const fieldRect = reservedFieldElement.getBoundingClientRect();
-    const fieldCenterY = fieldRect.top + fieldRect.height / 2 + scrollOffset;
-    
-    // Calculate reserved space position based on state (not DOM search)
-    if (hasReservedAbove) {
-      // Reserved space is above the field - approximate position
-      reservedSpaceY = fieldCenterY - 50; // Assume ~50px above field center
-    } else if (hasReservedBelow) {
-      // Reserved space is below the field - approximate position  
-      reservedSpaceY = fieldCenterY + 50; // Assume ~50px below field center
-    }
-    
-  }
-
+export const findClosestDropZone = (
+  ghostY: number,
+  fieldOrderRef: ContactEntry[],
+  activeDropZone: { order: number; section: string; belowFieldType: string | 'bottom'; midpointY: number },
+  dropZoneMap: Array<{ order: number; section: string; belowFieldType: string | 'bottom'; midpointY?: number }>,
+  draggedFieldId: string
+): {
+  newDropZone: { order: number; section: string; belowFieldType: string | 'bottom'; midpointY: number } | null;
+  swapInfo?: { draggedField: ContactEntry; targetField: ContactEntry };
+} => {
+  // Find adjacent DropZones (order ± 1)
+  const aboveDropZone = dropZoneMap.find(dz => dz.order === activeDropZone.order - 1);
+  const belowDropZone = dropZoneMap.find(dz => dz.order === activeDropZone.order + 1);
   
   // Calculate distances
-  const distanceToReserved = Math.abs(targetY - reservedSpaceY);
-  const distanceToAbove = fieldAbove ? Math.abs(targetY - abovePixels) : Infinity;
-  const distanceToBelow = fieldBelow ? Math.abs(targetY - belowPixels) : Infinity;
+  const currentDistance = Math.abs(ghostY - activeDropZone.midpointY);
+  const aboveDistance = aboveDropZone?.midpointY ? Math.abs(ghostY - aboveDropZone.midpointY) : Infinity;
+  const belowDistance = belowDropZone?.midpointY ? Math.abs(ghostY - belowDropZone.midpointY) : Infinity;
   
+  console.log(`🎯 [findClosestDropZone] Ghost Y: ${Math.round(ghostY)} | Current: ${Math.round(currentDistance)} (order ${activeDropZone.order}) | Above: ${Math.round(aboveDistance)} (order ${aboveDropZone?.order !== undefined ? aboveDropZone.order : 'N/A'}) | Below: ${Math.round(belowDistance)} (order ${belowDropZone?.order !== undefined ? belowDropZone.order : 'N/A'})`);
   
-  // Determine if we should swap and the direction
-  let result: { targetFieldId: string; direction: 'up' | 'down'; closestFieldChanged: boolean; isCrossSection: boolean } | null = null;
-  
-  // Get dragged field section from ID for cross-section detection
-  const draggedFieldSection = draggedFieldId ? draggedFieldId.split('-')[1] : null;
-  
-  if (distanceToAbove < distanceToReserved && fieldAbove) {
-    const newTargetId = `${fieldAbove.fieldType}-${fieldAbove.section}`;
-    
-    // Self-referential check - don't return dragged field as target
-    if (draggedFieldId && newTargetId === draggedFieldId) {
-      return null;
-    }
-    
-    const newDirection = 'up';
-    const currentReservedSpace = reservedSpaceState[newTargetId];
-    const newReservedSpace = newDirection === 'up' ? 'above' : 'below';
-    const isCrossSection = draggedFieldSection !== null && draggedFieldSection !== fieldAbove.section;
-    
-    result = {
-      targetFieldId: newTargetId,
-      direction: newDirection,
-      closestFieldChanged: currentReservedSpace !== newReservedSpace,
-      isCrossSection
-    };
-  } else if (distanceToBelow < distanceToReserved && fieldBelow) {
-    const newTargetId = `${fieldBelow.fieldType}-${fieldBelow.section}`;
-    
-    // Self-referential check - don't return dragged field as target
-    if (draggedFieldId && newTargetId === draggedFieldId) {
-      return null;
-    }
-    
-    const newDirection = 'down';
-    const currentReservedSpace = reservedSpaceState[newTargetId];
-    const newReservedSpace = newDirection === 'down' ? 'below' : 'above';
-    const isCrossSection = draggedFieldSection !== null && draggedFieldSection !== fieldBelow.section;
-    
-    result = {
-      targetFieldId: newTargetId,
-      direction: newDirection,
-      closestFieldChanged: currentReservedSpace !== newReservedSpace,
-      isCrossSection
-    };
+  // Find dragged field in fieldOrderRef
+  const draggedField = fieldOrderRef.find(f => `${f.fieldType}-${f.section}` === draggedFieldId);
+  if (!draggedField) {
+    return { newDropZone: null };
   }
   
-  return result;
+  // Check if should move to adjacent DropZone (with minimum threshold to prevent jitter)
+  const DISTANCE_THRESHOLD = 5; // Minimum distance difference to trigger a swap
+  if (aboveDistance < currentDistance - DISTANCE_THRESHOLD && aboveDropZone) {
+    // Moving up
+    if (aboveDropZone.belowFieldType === 'bottom') {
+      // Moving to a bottom drop zone - just change section, no swap needed
+      console.log(`🎯 [SECTION CHANGE] Moving to bottom of ${aboveDropZone.section} section`);
+      
+      // Create a pseudo-target that represents section change
+      const targetField = { ...draggedField, section: aboveDropZone.section };
+      
+      return {
+        newDropZone: {
+          order: aboveDropZone.order,
+          section: aboveDropZone.section,
+          belowFieldType: aboveDropZone.belowFieldType,
+          midpointY: aboveDropZone.midpointY || 0
+        },
+        swapInfo: { draggedField, targetField }
+      };
+    } else {
+      // Regular field swap
+      const targetField = fieldOrderRef.find(f => 
+        f.fieldType === aboveDropZone.belowFieldType && f.section === aboveDropZone.section
+      );
+      
+      if (targetField) {
+        const targetIndex = fieldOrderRef.findIndex(f => 
+          f.fieldType === targetField.fieldType && f.section === targetField.section
+        );
+        console.log(`🎯 [TARGET] DropZone: order=${aboveDropZone.order}, section=${aboveDropZone.section}, belowFieldType=${aboveDropZone.belowFieldType} → Target: array[${targetIndex}], order=${targetField.order}, section=${targetField.section}, fieldType=${targetField.fieldType}`);
+        
+        return {
+          newDropZone: {
+            order: aboveDropZone.order,
+            section: aboveDropZone.section,
+            belowFieldType: aboveDropZone.belowFieldType,
+            midpointY: aboveDropZone.midpointY || 0
+          },
+          swapInfo: { draggedField, targetField }
+        };
+      }
+    }
+  } else if (belowDistance < currentDistance - DISTANCE_THRESHOLD && belowDropZone) {
+    // Moving down
+    if (activeDropZone.belowFieldType === 'bottom') {
+      // Current position is at bottom of section - check if there's a next drop zone
+      const nextDropZone = dropZoneMap.find(dz => dz.order === activeDropZone.order + 1);
+      if (nextDropZone) {
+        console.log(`🎯 [SECTION CHANGE] Moving from bottom of ${activeDropZone.section} to ${nextDropZone.section} section`);
+        
+        // Create a pseudo-target that represents section change
+        const targetField = { ...draggedField, section: nextDropZone.section };
+        
+        return {
+          newDropZone: belowDropZone,
+          swapInfo: { draggedField, targetField }
+        };
+      }
+    } else {
+      // Regular field swap - use the field from the current drop zone
+      const targetField = fieldOrderRef.find(f => 
+        f.fieldType === activeDropZone.belowFieldType && f.section === activeDropZone.section
+      );
+      
+      if (targetField) {
+        const targetIndex = fieldOrderRef.findIndex(f => 
+          f.fieldType === targetField.fieldType && f.section === targetField.section
+        );
+        console.log(`🎯 [TARGET] DropZone: order=${belowDropZone.order}, section=${belowDropZone.section}, belowFieldType=${activeDropZone.belowFieldType} → Target: array[${targetIndex}], order=${targetField.order}, section=${targetField.section}, fieldType=${targetField.fieldType}`);
+        
+        return {
+          newDropZone: {
+            order: belowDropZone.order,
+            section: belowDropZone.section,
+            belowFieldType: belowDropZone.belowFieldType,
+            midpointY: belowDropZone.midpointY || 0
+          },
+          swapInfo: { draggedField, targetField }
+        };
+      }
+    }
+  }
+  
+  return { newDropZone: null };
 };
-
-
 
 
 /**
@@ -285,83 +437,6 @@ export const removeFloatingDragElement = (element: HTMLElement | null): void => 
   }
 };
 
-/**
- * Handle cross-section drag - only change section, keep same position
- */
-export const handleCrossSectionDrag = (
-  draggedField: ContactEntry,
-  targetField: ContactEntry,
-  fieldOrderRef: React.MutableRefObject<ContactEntry[]>,
-  setDraggedField: (field: ContactEntry) => void
-): void => {
-  console.log(`🔄 [Cross-section] ${draggedField.section} → ${targetField.section} (position unchanged)`);
-  
-  // Update only the section in fieldOrderRef, not the position
-  const currentFieldIndex = fieldOrderRef.current.findIndex(f => 
-    f.fieldType === draggedField.fieldType && f.section === draggedField.section
-  );
-  
-  if (currentFieldIndex !== -1) {
-    const updatedFields = [...fieldOrderRef.current];
-    updatedFields[currentFieldIndex] = {
-      ...updatedFields[currentFieldIndex],
-      section: targetField.section
-    };
-    fieldOrderRef.current = updatedFields;
-    console.log(`🔄 [Cross-section] Updated field section at position ${currentFieldIndex}`);
-  }
-  
-  // Update draggedField state to reflect the new section
-  const updatedDraggedField = { ...draggedField, section: targetField.section };
-  setDraggedField(updatedDraggedField);
-};
-
-/**
- * Handle same-section drag - change position using field order logic
- */
-export const handleSameSectionDrag = (
-  draggedField: ContactEntry,
-  targetField: ContactEntry,
-  reservePosition: 'above' | 'below',
-  fieldOrderRef: React.MutableRefObject<ContactEntry[]>
-): void => {
-  console.log(`🔄 [Same-section] Moving ${draggedField.fieldType}-${draggedField.section} ${reservePosition} ${targetField.fieldType}-${targetField.section}`);
-  
-  const currentOrder = [...fieldOrderRef.current];
-  console.log('  Before:', currentOrder.map(f => `${f.fieldType}-${f.section}`));
-  
-  // Find and remove dragged field
-  const draggedIndex = currentOrder.findIndex(f => 
-    f.fieldType === draggedField.fieldType && f.section === draggedField.section
-  );
-  
-  if (draggedIndex === -1) {
-    console.warn('❌ [handleSameSectionDrag] Dragged field not found in order');
-    return;
-  }
-  
-  const draggedFieldObj = currentOrder.splice(draggedIndex, 1)[0];
-  
-  // Find target field in the updated array (after removal)
-  const targetIndex = currentOrder.findIndex(f => 
-    f.fieldType === targetField.fieldType && f.section === targetField.section
-  );
-  
-  if (targetIndex === -1) {
-    console.warn('❌ [handleSameSectionDrag] Target field not found in order');
-    // Re-insert at original position if target not found
-    currentOrder.splice(draggedIndex, 0, draggedFieldObj);
-    return;
-  }
-  
-  // Insert dragged field at correct position
-  const insertIndex = reservePosition === 'above' ? targetIndex : targetIndex + 1;
-  currentOrder.splice(insertIndex, 0, draggedFieldObj);
-  
-  // Update ref (no re-render)
-  fieldOrderRef.current = currentOrder;
-  console.log('  After:', currentOrder.map(f => `${f.fieldType}-${f.section}`));
-};
 
 /**
  * Find the closest draggable parent element

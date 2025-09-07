@@ -39,7 +39,6 @@ interface ResponseCreateParams {
   };
   temperature?: number;
   max_output_tokens?: number;
-  max_tool_calls?: number;
   top_p?: number;
   store?: boolean;
 }

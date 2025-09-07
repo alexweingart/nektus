@@ -12,9 +12,11 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection as FieldSectionComponent } from '../ui/FieldSection';
 import { ProfileField } from '../ui/ProfileField';
 import { ProfileViewSelector } from '../ui/ProfileViewSelector';
+import { DropZone } from '../ui/DropZone';
 import { useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
 import { useDragAndDrop, type DragDropInfo } from '@/lib/hooks/useDragAndDrop';
+import { calculateViewDropZoneMap } from '@/lib/utils/dragUtils';
 
 interface FieldRendererProps {
   session?: Session | null;
@@ -54,8 +56,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   const {
     isDragMode,
     draggedField,
-    reservedSpaceState,
-    reservedSpaceHeight,
+    activeDropZone,
     onTouchStart,
     onTouchMove,
     onTouchEnd
@@ -65,6 +66,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     onDragStateChange,
     onFieldArrayDrop: onDragComplete // Event-based communication
   });
+  
   
   
   // Handle mode change - update both carousel and parent state
@@ -140,9 +142,56 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     };
   };
   
-  // Render content for a specific view (Personal or Work)
+  // Render content for a specific view (Personal or Work) with new DropZone logic
   const renderViewContent = (viewMode: 'Personal' | 'Work') => {
     const { visibleFields, hiddenFields } = getFieldsForView(viewMode);
+    
+    // Calculate DropZone map for this view
+    const dropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, viewMode, draggedField) : [];
+    
+    // Create an array that interleaves DropZones and Fields in the correct order
+    const renderItems: Array<{ type: 'dropzone' | 'field'; data: any; key: string }> = [];
+    
+    // Get all DropZones for this section
+    const sectionName = viewMode.toLowerCase();
+    const sectionDropZones = dropZoneMap.filter(dz => dz.section === sectionName);
+    
+    // Simple logic: Add drop zone before each field, then add field
+    visibleFields.forEach((profile, fieldIndex) => {
+      const isThisDraggedField = draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section;
+      
+      // Find the drop zone that should appear above this field
+      // It's the one with belowFieldType matching this field's fieldType
+      const dropZoneAbove = sectionDropZones.find(dz => 
+        dz.belowFieldType === profile.fieldType
+      );
+      
+      // Add drop zone above this field (if it exists and field isn't being dragged)
+      if (dropZoneAbove && !isThisDraggedField) {
+        renderItems.push({
+          type: 'dropzone',
+          data: dropZoneAbove,
+          key: `dz-${dropZoneAbove.order}-${dropZoneAbove.section}`
+        });
+      }
+      
+      // Add the field
+      renderItems.push({
+        type: 'field',
+        data: { ...profile, isBeingDragged: isThisDraggedField },
+        key: `field-${profile.section}-${profile.fieldType}-${fieldIndex}`
+      });
+    });
+    
+    // Add the final 'bottom' drop zone for this section
+    const bottomDropZone = sectionDropZones.find(dz => dz.belowFieldType === 'bottom');
+    if (bottomDropZone) {
+      renderItems.push({
+        type: 'dropzone',
+        data: bottomDropZone,
+        key: `dz-${bottomDropZone.order}-${bottomDropZone.section}`
+      });
+    }
     
     return (
       <>
@@ -152,15 +201,22 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           isEmpty={visibleFields.length === 0}
           emptyText={`You have no ${viewMode} networks right now. Drag & drop an input field to change that.`}
         >
-          {visibleFields.map((profile, index) => {
-            const fieldType = profile.fieldType;
-            const fieldId = `${fieldType}-${profile.section}`;
-            const uniqueKey = `${profile.section}-${fieldType}-${index}`;
-            const sectionName = viewMode.toLowerCase();
-              
-            return (
-              <React.Fragment key={uniqueKey}>
+          {renderItems.map(item => {
+            if (item.type === 'dropzone') {
+              const dropZone = item.data;
+              return (
+                <DropZone
+                  key={item.key}
+                  order={dropZone.order}
+                  section={dropZone.section}
+                  isActive={activeDropZone?.order === dropZone.order && activeDropZone?.section === dropZone.section}
+                />
+              );
+            } else {
+              const profile = item.data;
+              return (
                 <ProfileField
+                  key={item.key}
                   profile={profile}
                   fieldSectionManager={fieldSectionManager}
                   getValue={getFieldValue}
@@ -169,9 +225,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={viewMode}
                   showDragHandles={true}
-                  reservedSpace={reservedSpaceState[fieldId] || 'none'}
-                  reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
+                  isBeingDragged={profile.isBeingDragged}
                   dragAndDrop={{
                     isDragMode,
                     draggedField,
@@ -180,8 +234,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                     onTouchEnd
                   }}
                 />
-              </React.Fragment>
-            );
+              );
+            }
           })}
         </FieldSectionComponent>
 
@@ -209,6 +263,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 
               return (
                 <React.Fragment key={uniqueKey}>
+                  {/* NO DropZone above hidden fields - they can't be drop targets */}
                   <ProfileField
                     profile={profile}
                     fieldSectionManager={fieldSectionManager}
@@ -218,8 +273,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                     onConfirm={fieldSectionManager.markChannelAsConfirmed}
                     currentViewMode={viewMode}
                     showDragHandles={true}
-                    reservedSpace={reservedSpaceState[fieldId] || 'none'}
-                    reservedSpaceHeight={reservedSpaceHeight}
                     isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
                     dragAndDrop={{
                       isDragMode,
@@ -232,6 +285,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 </React.Fragment>
               );
             })}
+            
+            {/* NO final DropZone after hidden fields - they can't be drop targets */}
           </FieldSectionComponent>
         )}
       </>
@@ -332,97 +387,178 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           />
         </div>
 
-        {/* All Universal Fields (excluding name/bio) */}
-        {universalFields.filter(field => !['name', 'bio'].includes(field.fieldType)).map((profile, index) => {
-          const fieldType = profile.fieldType;
-          const uniqueKey = `universal-${fieldType}-${index}`;
+        {/* Universal Fields Section */}
+        <FieldSectionComponent
+          isEmpty={false}
+          emptyText=""
+          className="w-full"
+        >
+          {(() => {
+          // Get draggable universal fields (exclude name/bio)
+          const draggableUniversalFields = universalFields.filter(field => !['name', 'bio'].includes(field.fieldType));
           
-          // Special handling for phone field
-          if (fieldType === 'phone') {
-            return (
-              <div key={uniqueKey} className="w-full max-w-md mx-auto">
-                <ProfileField
-                  profile={profile}  // Use the actual profile object!
-                  fieldSectionManager={fieldSectionManager}
-                  getValue={getFieldValue}
-                  onChange={handleFieldChange}
-                  onPhoneChange={(value) => {
-                    handleFieldChange('phone', value, 'universal');
-                  }}
-                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                  currentViewMode={selectedMode}
-                  showDragHandles={true}
-                  reservedSpace={reservedSpaceState['phone-universal'] || 'none'}
-                  reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField?.fieldType === 'phone' && draggedField?.section === 'universal'}
-                  dragAndDrop={{
-                    isDragMode,
-                    draggedField,
-                    onTouchStart,
-                    onTouchMove,
-                    onTouchEnd
-                  }}
-                />
-              </div>
+          // Calculate DropZone map for universal fields if in drag mode
+          const universalDropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, selectedMode, draggedField) : [];
+          
+          // Create an array that interleaves DropZones and Fields
+          const renderItems: Array<{ type: 'dropzone' | 'field'; data: any; key: string }> = [];
+          
+          // Get all universal DropZones
+          const universalSectionDropZones = universalDropZoneMap.filter(dz => dz.section === 'universal');
+          
+          // Simple logic: Add drop zone before each field, then add field
+          draggableUniversalFields.forEach((profile, fieldIndex) => {
+            const isThisDraggedField = draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section;
+            
+            // Find the drop zone that should appear above this field
+            const dropZoneAbove = universalSectionDropZones.find(dz => 
+              dz.belowFieldType === profile.fieldType
             );
+            
+            // Add drop zone above this field (if it exists and field isn't being dragged)
+            if (dropZoneAbove && !isThisDraggedField) {
+              renderItems.push({
+                type: 'dropzone',
+                data: dropZoneAbove,
+                key: `dz-${dropZoneAbove.order}-${dropZoneAbove.section}`
+              });
+            }
+            
+            // Add the field
+            renderItems.push({
+              type: 'field',
+              data: { ...profile, isBeingDragged: isThisDraggedField, fieldIndex },
+              key: `universal-${profile.fieldType}-${fieldIndex}`
+            });
+          });
+          
+          // Add the final 'bottom' drop zone for universal section
+          const bottomDropZone = universalSectionDropZones.find(dz => dz.belowFieldType === 'bottom');
+          if (bottomDropZone) {
+            renderItems.push({
+              type: 'dropzone',
+              data: bottomDropZone,
+              key: `dz-${bottomDropZone.order}-${bottomDropZone.section}`
+            });
           }
           
-          // Special handling for email field
-          if (fieldType === 'email') {
-            return (
-              <div key={uniqueKey} className="w-full max-w-md mx-auto">
-                <ProfileField
-                  profile={profile}  // Use the actual profile object!
-                  fieldSectionManager={fieldSectionManager}
-                  getValue={getFieldValue}
-                  onChange={handleFieldChange}
-                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                  currentViewMode={selectedMode}
-                  showDragHandles={true}
-                  reservedSpace={reservedSpaceState['email-universal'] || 'none'}
-                  reservedSpaceHeight={reservedSpaceHeight}
-                  isBeingDragged={draggedField?.fieldType === 'email' && draggedField?.section === 'universal'}
-                  dragAndDrop={{
-                    isDragMode,
-                    draggedField,
-                    onTouchStart,
-                    onTouchMove,
-                    onTouchEnd
-                  }}
+          // Now render the interleaved items
+          return renderItems.map(item => {
+            if (item.type === 'dropzone') {
+              const dropZone = item.data;
+              return (
+                <DropZone
+                  key={item.key}
+                  order={dropZone.order}
+                  section={dropZone.section}
+                  isActive={activeDropZone?.order === dropZone.order && activeDropZone?.section === dropZone.section}
                 />
-              </div>
-            );
-          }
+              );
+            } else {
+              const profile = item.data;
+              const fieldType = profile.fieldType;
+              const isThisDraggedField = profile.isBeingDragged;
           
-          // Regular universal social fields
-          const fieldId = `${fieldType}-universal`;
-          return (
-            <div key={uniqueKey} className="w-full max-w-md mx-auto">
-              <ProfileField
-                profile={profile}
-                fieldSectionManager={fieldSectionManager}
-                getValue={getFieldValue}
-                onChange={handleFieldChange}
-                isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                currentViewMode={selectedMode}
-                showDragHandles={true}
-                reservedSpace={reservedSpaceState[fieldId] || 'none'}
-                reservedSpaceHeight={reservedSpaceHeight}
-                isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
-                dragAndDrop={{
-                  isDragMode,
-                  draggedField,
-                  onTouchStart,
-                  onTouchMove,
-                  onTouchEnd
-                }}
-              />
-            </div>
-          );
-        })}
+              // Special handling for phone field
+              if (fieldType === 'phone') {
+                return (
+                  <div 
+                    key={item.key}
+                    className="w-full max-w-md mx-auto"
+                    style={{
+                      display: isThisDraggedField ? 'none' : 'block'
+                    }}
+                  >
+                    <ProfileField
+                      profile={profile}
+                      fieldSectionManager={fieldSectionManager}
+                      getValue={getFieldValue}
+                      onChange={handleFieldChange}
+                      onPhoneChange={(value) => {
+                        handleFieldChange('phone', value, 'universal');
+                      }}
+                      isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                      onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                      currentViewMode={selectedMode}
+                      showDragHandles={true}
+                      isBeingDragged={isThisDraggedField}
+                      dragAndDrop={{
+                        isDragMode,
+                        draggedField,
+                        onTouchStart,
+                        onTouchMove,
+                        onTouchEnd
+                      }}
+                    />
+                  </div>
+                );
+              }
+              
+              // Special handling for email field
+              if (fieldType === 'email') {
+                return (
+                  <div 
+                    key={item.key}
+                    className="w-full max-w-md mx-auto"
+                    style={{
+                      display: isThisDraggedField ? 'none' : 'block'
+                    }}
+                  >
+                    <ProfileField
+                      profile={profile}
+                      fieldSectionManager={fieldSectionManager}
+                      getValue={getFieldValue}
+                      onChange={handleFieldChange}
+                      isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                      onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                      currentViewMode={selectedMode}
+                      showDragHandles={true}
+                      isBeingDragged={isThisDraggedField}
+                      dragAndDrop={{
+                        isDragMode,
+                        draggedField,
+                        onTouchStart,
+                        onTouchMove,
+                        onTouchEnd
+                      }}
+                    />
+                  </div>
+                );
+              }
+              
+              // Regular universal social fields
+              return (
+                <div 
+                  key={item.key}
+                  className="w-full max-w-md mx-auto"
+                  style={{
+                    display: isThisDraggedField ? 'none' : 'block'
+                  }}
+                >
+                  <ProfileField
+                    profile={profile}
+                    fieldSectionManager={fieldSectionManager}
+                    getValue={getFieldValue}
+                    onChange={handleFieldChange}
+                    isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                    onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                    currentViewMode={selectedMode}
+                    showDragHandles={true}
+                    isBeingDragged={isThisDraggedField}
+                    dragAndDrop={{
+                      isDragMode,
+                      draggedField,
+                      onTouchStart,
+                      onTouchMove,
+                      onTouchEnd
+                    }}
+                  />
+                </div>
+              );
+            }
+          });
+        })()}
+        </FieldSectionComponent>
       </FieldSectionComponent>
 
       {/* Carousel Container */}
