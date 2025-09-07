@@ -1,4 +1,4 @@
-import type { ContactEntry } from '@/types/profile';
+import type { ContactEntry, FieldSection } from '@/types/profile';
 
 /**
  * Capture field midpoints and store them in fieldOrderRef
@@ -27,7 +27,7 @@ export const calculateViewDropZoneMap = (
   draggedField: ContactEntry | null
 ): Array<{
   order: number;
-  section: string;
+  section: FieldSection;
   belowFieldType: string | 'bottom';
   midpointY?: number;
 }> => {
@@ -46,7 +46,7 @@ export const calculateViewDropZoneMap = (
   
   const dropZones: Array<{
     order: number;
-    section: string;
+    section: FieldSection;
     belowFieldType: string | 'bottom';
     midpointY?: number;
   }> = [];
@@ -139,6 +139,16 @@ export const calculateViewDropZoneMap = (
     // No field being dragged
     const lastField = universalFields[universalFields.length - 1];
     universalBottomY = (lastField as any).midpointY + FIELD_HEIGHT;
+  } else {
+    // Empty universal section - use bio field as reference
+    const bioElement = document.querySelector('[data-field-type="bio"]');
+    if (bioElement) {
+      const bioRect = bioElement.getBoundingClientRect();
+      universalBottomY = bioRect.top + bioRect.height + window.scrollY + 20; // 20px gap after bio
+    } else {
+      // Fallback
+      universalBottomY = 300; // Default position
+    }
   }
   
   dropZones.push({
@@ -189,6 +199,22 @@ export const calculateViewDropZoneMap = (
       ? (lastField as any).midpointY - FIELD_HEIGHT  // Adjust for universal field being removed
       : (lastField as any).midpointY;
     sectionBottomY = lastFieldY + FIELD_HEIGHT;
+  } else {
+    // Empty section - use section header as reference
+    // Try to find the section header element in the DOM
+    const sectionHeaderSelector = `[data-section-header="${currentSectionName}"]`;
+    const headerElement = document.querySelector(sectionHeaderSelector);
+    
+    if (headerElement) {
+      const headerRect = headerElement.getBoundingClientRect();
+      sectionBottomY = headerRect.top + headerRect.height + window.scrollY + 20; // 20px gap after header
+    } else {
+      // Fallback: estimate position based on universal section
+      const universalBottomEstimate = universalFields.length > 0 
+        ? (universalFields[universalFields.length - 1] as any).midpointY + FIELD_HEIGHT + 100 // 100px gap between sections
+        : 500; // Default fallback
+      sectionBottomY = universalBottomEstimate;
+    }
   }
   
   dropZones.push({
@@ -251,11 +277,11 @@ export const calculateTargetY = (
 export const findClosestDropZone = (
   ghostY: number,
   fieldOrderRef: ContactEntry[],
-  activeDropZone: { order: number; section: string; belowFieldType: string | 'bottom'; midpointY: number },
-  dropZoneMap: Array<{ order: number; section: string; belowFieldType: string | 'bottom'; midpointY?: number }>,
+  activeDropZone: { order: number; section: FieldSection; belowFieldType: string | 'bottom'; midpointY: number },
+  dropZoneMap: Array<{ order: number; section: FieldSection; belowFieldType: string | 'bottom'; midpointY?: number }>,
   draggedFieldId: string
 ): {
-  newDropZone: { order: number; section: string; belowFieldType: string | 'bottom'; midpointY: number } | null;
+  newDropZone: { order: number; section: FieldSection; belowFieldType: string | 'bottom'; midpointY: number } | null;
   swapInfo?: { draggedField: ContactEntry; targetField: ContactEntry };
 } => {
   // Find adjacent DropZones (order ± 1)
@@ -327,10 +353,13 @@ export const findClosestDropZone = (
         console.log(`🎯 [SECTION CHANGE] Moving from bottom of ${activeDropZone.section} to ${nextDropZone.section} section`);
         
         // Create a pseudo-target that represents section change
-        const targetField = { ...draggedField, section: nextDropZone.section };
+        const targetField = { ...draggedField, section: nextDropZone.section as FieldSection };
         
         return {
-          newDropZone: belowDropZone,
+          newDropZone: {
+            ...belowDropZone,
+            midpointY: belowDropZone.midpointY ?? 0
+          },
           swapInfo: { draggedField, targetField }
         };
       }

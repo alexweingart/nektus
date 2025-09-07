@@ -119,7 +119,7 @@ export const useDragAndDrop = ({
   // Visual feedback for drag operations with new simplified structure
   const [activeDropZone, setActiveDropZone] = useState<{
     order: number;
-    section: string;
+    section: FieldSection;
     belowFieldType: string | 'bottom';
     midpointY: number;
   } | null>(null);
@@ -128,7 +128,7 @@ export const useDragAndDrop = ({
   // Store DropZone map for current view
   const dropZoneMapRef = useRef<Array<{
     order: number;
-    section: string;
+    section: FieldSection;
     belowFieldType: string | 'bottom';
     midpointY?: number;
   }>>([]);
@@ -549,7 +549,7 @@ export const useDragAndDrop = ({
         );
         
         if (fieldIndex !== -1) {
-          fieldOrderRef.current[fieldIndex].section = newSection;
+          fieldOrderRef.current[fieldIndex].section = newSection as FieldSection;
           console.log(`🔄 [SECTION CHANGE APPLIED] ${fieldType} moved from ${originalSection} to ${newSection}`);
         }
       }

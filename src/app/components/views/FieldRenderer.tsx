@@ -184,6 +184,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     });
     
     // Add the final 'bottom' drop zone for this section
+    // IMPORTANT: Always add this even if visibleFields is empty so empty sections can receive drops
     const bottomDropZone = sectionDropZones.find(dz => dz.belowFieldType === 'bottom');
     if (bottomDropZone) {
       renderItems.push({

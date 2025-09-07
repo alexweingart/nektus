@@ -24,7 +24,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
     <div className={`w-full ${className}`}>
       {/* Section Header */}
       {title && (
-        <div className="field-section-title text-center mb-5">
+        <div className="field-section-title text-center mb-5" data-section-header={title.toLowerCase()}>
           <Heading as="h2" className="text-white">
             {title}
           </Heading>
