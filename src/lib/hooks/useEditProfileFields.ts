@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Session } from 'next-auth';
 import type { ContactEntry, FieldSection, UserProfile } from '@/types/profile';
 

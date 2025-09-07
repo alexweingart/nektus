@@ -57,7 +57,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   onConfirm,
   showDragHandles = true,
   currentViewMode,
-  isBeingDragged = false,
+  isBeingDragged: _isBeingDragged = false,
   onPhoneChange
 }) => {
   const fieldType = profile.fieldType;

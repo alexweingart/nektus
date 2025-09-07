@@ -9,7 +9,6 @@ import FieldRenderer, { type FieldRendererHandle } from './FieldRenderer';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
 import type { DragDropInfo } from '@/lib/hooks/useDragAndDrop';
-import type { ContactEntry } from '@/types/profile';
 
 
 interface EditProfileViewProps {

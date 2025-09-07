@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
 import type { FieldSection } from '@/types/profile';
 
 // Global drag state singleton to prevent multiple hook instances from conflicting
@@ -113,8 +112,7 @@ export const useDragAndDrop = ({
   const [draggedField, setDraggedField] = useState<ContactEntry | null>(null);
   const [dragElement, setDragElement] = useState<HTMLElement | null>(null);
   
-  // Derived state for frequently used values
-  const draggedFieldId = draggedField ? `${draggedField.fieldType}-${draggedField.section}` : null;
+  // Derived state for frequently used values - removed unused draggedFieldId
   
   // Visual feedback for drag operations with new simplified structure
   const [activeDropZone, setActiveDropZone] = useState<{

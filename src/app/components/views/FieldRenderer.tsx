@@ -259,7 +259,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           >
             {hiddenFields.map((profile, index) => {
               const fieldType = profile.fieldType;
-              const fieldId = `${fieldType}-${profile.section}`;
               const uniqueKey = `hidden-${fieldType}-${index}`;
                 
               return (

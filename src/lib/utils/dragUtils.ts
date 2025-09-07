@@ -104,7 +104,7 @@ export const calculateViewDropZoneMap = (
   };
   
   // Add DropZones for universal section
-  universalFields.forEach((field, index) => {
+  universalFields.forEach((field, _index) => {
     // Skip DropZone below dragged field
     if (draggedField && draggedField.fieldType === field.fieldType && draggedField.section === field.section) {
       return;
@@ -159,7 +159,7 @@ export const calculateViewDropZoneMap = (
   });
   
   // Add DropZones for current section
-  sectionFields.forEach((field, index) => {
+  sectionFields.forEach((field, _index) => {
     // Skip DropZone below dragged field
     if (draggedField && draggedField.fieldType === field.fieldType && draggedField.section === field.section) {
       return;
