@@ -179,9 +179,9 @@ export const useDragAndDrop = ({
     fieldOrderRef.current = newFieldOrder;
     
     // Also swap their midpoints
-    const temp = (draggedField as any).midpointY;
-    (draggedField as any).midpointY = (targetField as any).midpointY;
-    (targetField as any).midpointY = temp;
+    const temp = (draggedField as ContactEntry & { midpointY?: number }).midpointY;
+    (draggedField as ContactEntry & { midpointY?: number }).midpointY = (targetField as ContactEntry & { midpointY?: number }).midpointY;
+    (targetField as ContactEntry & { midpointY?: number }).midpointY = temp;
     
     console.log(`🔄 [SWAP] ${draggedField.fieldType}-${draggedField.section} ↔ ${targetField.fieldType}-${targetField.section}`);
   }, []);

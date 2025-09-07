@@ -533,6 +533,20 @@ export const useEditProfileFields = ({
     if (finalDraggedField && originalDraggedField && finalDraggedField.section !== originalDraggedField.section) {
       console.log(`🔄 [updateFromDragDrop] Cross-section detected: ${originalDraggedField.section} → ${finalDraggedField.section}`);
       
+      // Special handling for universal → personal/work: use splitUniversalField
+      if (originalDraggedField.section === 'universal' && (finalDraggedField.section === 'personal' || finalDraggedField.section === 'work')) {
+        console.log(`🌟 [updateFromDragDrop] Splitting universal field ${finalDraggedField.fieldType} to both sections`);
+        const targetIndex = newFields.findIndex(f => f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section);
+        splitUniversalField(
+          finalDraggedField.fieldType, 
+          finalDraggedField.value, 
+          finalDraggedField.section as 'personal' | 'work', 
+          targetIndex >= 0 ? targetIndex : 0
+        );
+        return; // splitUniversalField handles the full update
+      }
+      
+      // Other cross-section moves (personal ↔ work, personal/work → universal)
       // Remove all existing entries for this field type to avoid duplicates
       const fieldsWithoutFieldType = newFields.filter(f => f.fieldType !== finalDraggedField.fieldType);
       
@@ -557,7 +571,7 @@ export const useEditProfileFields = ({
     }
     
     console.log('✅ [updateFromDragDrop] Applied final field order');
-  }, [updateFields]);
+  }, [updateFields, splitUniversalField]);
   
   // Get field data
   const getFieldData = useCallback((fieldType: string, section?: FieldSection) => {
