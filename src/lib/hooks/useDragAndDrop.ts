@@ -140,6 +140,7 @@ export const useDragAndDrop = ({
   // Create stable refs for values used in callbacks but shouldn't trigger callback recreation
   const currentSectionRef = useRef(currentSection);
   const onFieldArrayDropRef = useRef(onFieldArrayDrop);
+  const originalDraggedFieldRef = useRef<ContactEntry | null>(null);
   
   // Update refs on every render (doesn't trigger re-renders)
   currentSectionRef.current = currentSection;
@@ -269,6 +270,9 @@ export const useDragAndDrop = ({
       console.warn('❌ [startLongPress] Field not found in fieldOrderRef:', fieldId);
       return;
     }
+    
+    // Store the original dragged field before any modifications
+    originalDraggedFieldRef.current = { ...draggedField };
 
     const touch = event.touches[0];
     setTouchStartPos({ x: touch.clientX, y: touch.clientY });
@@ -559,7 +563,7 @@ export const useDragAndDrop = ({
       onFieldArrayDropRef.current({
         fields: fieldOrderRef.current,
         draggedField: draggedField!, // Non-null when executeDropCallback is true
-        originalField: draggedField! // Same as dragged field
+        originalField: originalDraggedFieldRef.current || draggedField! // Use preserved original field
       });
     }
     
@@ -568,6 +572,7 @@ export const useDragAndDrop = ({
     setDraggedField(null);
     removeFloatingDragElement(dragElement);
     setDragElement(null);
+    originalDraggedFieldRef.current = null; // Clear original field reference
     
     // Conditional edge scroll cleanup
     if (options.includeEdgeScrollCleanup) {

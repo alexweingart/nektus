@@ -454,18 +454,21 @@ export const useEditProfileFields = ({
   
   // Split a universal field into separate Personal and Work entries
   const splitUniversalField = useCallback((fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => {
+    console.log(`🌟 [splitUniversalField] Starting split for ${fieldType} with value "${currentValue}" to ${targetSection} at index ${targetIndex}`);
     
     // Remove ALL entries for this fieldType (universal, personal, work) to avoid duplicates
     const fieldsWithoutFieldType = fields.filter(field => 
       field.fieldType !== fieldType
     );
     
+    console.log(`🌟 [splitUniversalField] Removed ${fields.length - fieldsWithoutFieldType.length} existing entries for ${fieldType}`);
+    
     // Create new Personal and Work entries with the current value
     const personalEntry: ContactEntry = {
       fieldType: fieldType,
       value: currentValue,
       section: 'personal',
-      isVisible: Boolean(currentValue), // Visible if has content
+      isVisible: true, // Always visible when split from universal
       order: 0, // Will be reassigned based on position
       confirmed: true
     };
@@ -474,7 +477,7 @@ export const useEditProfileFields = ({
       fieldType: fieldType,
       value: currentValue,
       section: 'work',
-      isVisible: Boolean(currentValue), // Visible if has content
+      isVisible: true, // Always visible when split from universal
       order: 0, // Will be reassigned based on position
       confirmed: true
     };
@@ -498,6 +501,10 @@ export const useEditProfileFields = ({
     }
 
     const updatedFields = [...universalFields, ...newPersonalFields, ...newWorkFields];
+    
+    console.log(`🌟 [splitUniversalField] Created ${updatedFields.length} total fields:`);
+    console.log(`  - Personal: ${newPersonalFields.map(f => `${f.fieldType}(visible:${f.isVisible})`).join(', ')}`);
+    console.log(`  - Work: ${newWorkFields.map(f => `${f.fieldType}(visible:${f.isVisible})`).join(', ')}`);
     
     updateFields(updatedFields);
   }, [fields, updateFields]);
@@ -528,6 +535,8 @@ export const useEditProfileFields = ({
   const updateFromDragDrop = useCallback((newFields: ContactEntry[], finalDraggedField?: ContactEntry, originalDraggedField?: ContactEntry) => {
     console.log('📥 [updateFromDragDrop] Applying final field order from drag');
     console.log('  - Final field order received:', newFields.map(f => `${f.fieldType}-${f.section}`));
+    console.log('  - originalDraggedField:', originalDraggedField ? `${originalDraggedField.fieldType}-${originalDraggedField.section}` : 'undefined');
+    console.log('  - finalDraggedField:', finalDraggedField ? `${finalDraggedField.fieldType}-${finalDraggedField.section}` : 'undefined');
     
     // Handle cross-section business logic if needed
     if (finalDraggedField && originalDraggedField && finalDraggedField.section !== originalDraggedField.section) {

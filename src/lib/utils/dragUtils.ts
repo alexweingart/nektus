@@ -12,7 +12,7 @@ export const captureFieldMidpoints = (fieldOrderRef: ContactEntry[]): void => {
         const rect = fieldElement.getBoundingClientRect();
         const midpointY = rect.top + rect.height / 2 + window.scrollY;
         // Mutate the field object to add midpoint
-        (field as any).midpointY = midpointY;
+        (field as ContactEntry & { midpointY?: number }).midpointY = midpointY;
       }
     }
   });
@@ -61,7 +61,7 @@ export const calculateViewDropZoneMap = (
   
   // Simple logic: get Y position for drop zones after dragged field is removed
   const getDropZoneY = (field: ContactEntry): number => {
-    if (!draggedField) return (field as any).midpointY;
+    if (!draggedField) return (field as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     
     // For cross-section moves, we need to adjust positions based on the visual layout
     // Universal fields come first, then current section fields
@@ -71,12 +71,12 @@ export const calculateViewDropZoneMap = (
     // If dragged field is universal and this field is in the current section,
     // all current section fields shift up by one field height
     if (draggedIsUniversal && fieldIsInCurrentSection) {
-      return (field as any).midpointY - FIELD_HEIGHT;
+      return ((field as ContactEntry & { midpointY?: number }).midpointY ?? 0) - FIELD_HEIGHT;
     }
     
     // Same-section adjustment logic (existing)
     if (field.section !== draggedField.section) {
-      return (field as any).midpointY;
+      return (field as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     }
     
     // Find positions within the same section
@@ -92,15 +92,15 @@ export const calculateViewDropZoneMap = (
     if (draggedIndex !== -1 && fieldIndex > draggedIndex) {
       // First field after dragged field gets dragged field's position
       if (fieldIndex === draggedIndex + 1) {
-        return (draggedField as any).midpointY;
+        return (draggedField as ContactEntry & { midpointY?: number }).midpointY ?? 0;
       }
       // Subsequent fields get the previous field's ORIGINAL position
       const previousField = sectionFields[fieldIndex - 1];
-      return (previousField as any).midpointY;
+      return (previousField as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     }
     
     // Fields before dragged field or in different sections keep their original Y
-    return (field as any).midpointY;
+    return (field as ContactEntry & { midpointY?: number }).midpointY ?? 0;
   };
   
   // Add DropZones for universal section
@@ -130,7 +130,7 @@ export const calculateViewDropZoneMap = (
     
     if (isDraggingLastField) {
       // If dragging the last field, bottom drop zone should be at the dragged field's original position
-      universalBottomY = (draggedField as any).midpointY;
+      universalBottomY = (draggedField as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     } else {
       // Otherwise, use the adjusted position of the last field
       universalBottomY = getDropZoneY(lastField) + FIELD_HEIGHT;
@@ -138,7 +138,7 @@ export const calculateViewDropZoneMap = (
   } else if (universalFields.length > 0) {
     // No field being dragged
     const lastField = universalFields[universalFields.length - 1];
-    universalBottomY = (lastField as any).midpointY + FIELD_HEIGHT;
+    universalBottomY = ((lastField as ContactEntry & { midpointY?: number }).midpointY ?? 0) + FIELD_HEIGHT;
   } else {
     // Empty universal section - use bio field as reference
     const bioElement = document.querySelector('[data-field-type="bio"]');
@@ -186,7 +186,7 @@ export const calculateViewDropZoneMap = (
     
     if (isDraggingLastField) {
       // If dragging the last field, bottom drop zone should be at the dragged field's original position
-      sectionBottomY = (draggedField as any).midpointY;
+      sectionBottomY = (draggedField as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     } else {
       // Use the adjusted position of the last field
       const lastFieldAdjustedY = getDropZoneY(lastField);
@@ -196,8 +196,8 @@ export const calculateViewDropZoneMap = (
     // No field being dragged - use original position
     const lastField = sectionFields[sectionFields.length - 1];
     const lastFieldY = draggedField && draggedField.section === 'universal' && lastField.section === currentSectionName
-      ? (lastField as any).midpointY - FIELD_HEIGHT  // Adjust for universal field being removed
-      : (lastField as any).midpointY;
+      ? ((lastField as ContactEntry & { midpointY?: number }).midpointY ?? 0) - FIELD_HEIGHT  // Adjust for universal field being removed
+      : (lastField as ContactEntry & { midpointY?: number }).midpointY ?? 0;
     sectionBottomY = lastFieldY + FIELD_HEIGHT;
   } else {
     // Empty section - use section header as reference
@@ -211,7 +211,7 @@ export const calculateViewDropZoneMap = (
     } else {
       // Fallback: estimate position based on universal section
       const universalBottomEstimate = universalFields.length > 0 
-        ? (universalFields[universalFields.length - 1] as any).midpointY + FIELD_HEIGHT + 100 // 100px gap between sections
+        ? ((universalFields[universalFields.length - 1] as ContactEntry & { midpointY?: number }).midpointY ?? 0) + FIELD_HEIGHT + 100 // 100px gap between sections
         : 500; // Default fallback
       sectionBottomY = universalBottomEstimate;
     }
@@ -224,14 +224,8 @@ export const calculateViewDropZoneMap = (
     midpointY: sectionBottomY
   });
   
-  // Log final drop zones for debugging
-  console.log('📍 [DROP ZONES] Final drop zone map:');
-  if (draggedField) {
-    console.log(`  (Dragging: ${draggedField.fieldType}-${draggedField.section})`);
-  }
-  dropZones.forEach(dz => {
-    console.log(`  - Order: ${dz.order} | Section: ${dz.section} | Below: ${dz.belowFieldType} | Y: ${dz.midpointY ? Math.round(dz.midpointY) : 'N/A'}`);
-  });
+  // Log final drop zones for debugging (only when needed)
+  // console.log('📍 [DROP ZONES] Final drop zone map:', dropZones.map(dz => `${dz.order}-${dz.section}`));
   
   return dropZones;
 };
@@ -293,7 +287,7 @@ export const findClosestDropZone = (
   const aboveDistance = aboveDropZone?.midpointY ? Math.abs(ghostY - aboveDropZone.midpointY) : Infinity;
   const belowDistance = belowDropZone?.midpointY ? Math.abs(ghostY - belowDropZone.midpointY) : Infinity;
   
-  console.log(`🎯 [findClosestDropZone] Ghost Y: ${Math.round(ghostY)} | Current: ${Math.round(currentDistance)} (order ${activeDropZone.order}) | Above: ${Math.round(aboveDistance)} (order ${aboveDropZone?.order !== undefined ? aboveDropZone.order : 'N/A'}) | Below: ${Math.round(belowDistance)} (order ${belowDropZone?.order !== undefined ? belowDropZone.order : 'N/A'})`);
+  // console.log(`🎯 [findClosestDropZone] Ghost Y: ${Math.round(ghostY)} distances - Current: ${Math.round(currentDistance)} Above: ${Math.round(aboveDistance)} Below: ${Math.round(belowDistance)}`);
   
   // Find dragged field in fieldOrderRef
   const draggedField = fieldOrderRef.find(f => `${f.fieldType}-${f.section}` === draggedFieldId);
