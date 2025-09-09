@@ -4,13 +4,6 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Session } from 'next-auth';
 import type { ContactEntry, FieldSection, UserProfile } from '@/types/profile';
 
-// All supported field types in the application
-const ALL_SUPPORTED_FIELD_TYPES = [
-  // Core fields (always in universal)
-  'name', 'bio', 'phone', 'email',
-  // Social platforms
-  'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 'whatsapp', 'telegram', 'wechat'
-] as const;
 
 /**
  * Unified field management hook - stores ALL field data (text + images) in one place
@@ -194,94 +187,101 @@ export const useEditProfileFields = ({
     return result;
   }, [profile?.contactEntries, session?.user?.name, session?.user?.email]);
   
-  // Helper function to ensure all fieldTypes exist in both Personal and Work sections
-  const ensureAllFieldsExist = useCallback((baseFields: ContactEntry[]): ContactEntry[] => {
-    
-    const existingEntries = new Map<string, Set<string>>(); // fieldType -> Set of sections
+  // Helper function to ensure proper field structure (recreate hidden placeholders)
+  // Ensures each fieldType has EITHER 1 instance in universal OR instances in both personal and work
+  const ensureProperFieldStructure = useCallback((baseFields: ContactEntry[]): ContactEntry[] => {
+    const existingByType = new Map<string, Map<string, ContactEntry>>(); // fieldType -> section -> entry
     
     // Track what already exists
     baseFields.forEach(field => {
-      if (!existingEntries.has(field.fieldType)) {
-        existingEntries.set(field.fieldType, new Set());
+      if (!existingByType.has(field.fieldType)) {
+        existingByType.set(field.fieldType, new Map());
       }
-      existingEntries.get(field.fieldType)!.add(field.section);
+      existingByType.get(field.fieldType)!.set(field.section, field);
     });
     
-    
     const missingFields: ContactEntry[] = [];
+    const allSocialFieldTypes = [
+      'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 
+      'whatsapp', 'telegram', 'wechat'
+    ];
     
-    // For each social platform, ensure it exists in BOTH personal and work sections
-    ALL_SUPPORTED_FIELD_TYPES.forEach(fieldType => {
-      if (!['name', 'bio', 'phone', 'email'].includes(fieldType)) {
-        const existingSections = existingEntries.get(fieldType) || new Set();
-        
-        // Ensure Personal section entry exists
-        if (!existingSections.has('personal')) {
-          const newOrder = 1000 + missingFields.length;
+    // For each social platform, ensure proper structure
+    allSocialFieldTypes.forEach(fieldType => {
+      const existingSections = existingByType.get(fieldType) || new Map();
+      
+      // Rule: fieldType should have EITHER 1 in universal OR both personal and work
+      const hasUniversal = existingSections.has('universal');
+      const hasPersonal = existingSections.has('personal');
+      const hasWork = existingSections.has('work');
+      
+      // If it exists in universal, don't create personal/work placeholders
+      if (hasUniversal) {
+        return; // This field is properly structured
+      }
+      
+      // If it exists in personal OR work, ensure it exists in BOTH
+      if (hasPersonal || hasWork) {
+        if (!hasPersonal) {
           missingFields.push({
             fieldType,
             value: '',
             section: 'personal' as FieldSection,
-            order: newOrder,
+            order: 1000 + missingFields.length,
             isVisible: false,
-            confirmed: true  // Blank fields should be confirmed by default
+            confirmed: true // User-initiated structure
           });
         }
-        
-        // Ensure Work section entry exists
-        if (!existingSections.has('work')) {
-          const newOrder = 1000 + missingFields.length;
+        if (!hasWork) {
           missingFields.push({
             fieldType,
             value: '',
             section: 'work' as FieldSection,
-            order: newOrder,
+            order: 1000 + missingFields.length,
             isVisible: false,
-            confirmed: true  // Blank fields should be confirmed by default
+            confirmed: true // User-initiated structure
           });
         }
+      } else {
+        // Doesn't exist anywhere - create placeholders in both personal and work
+        missingFields.push({
+          fieldType,
+          value: '',
+          section: 'personal' as FieldSection,
+          order: 1000 + missingFields.length,
+          isVisible: false,
+          confirmed: true // User-initiated structure
+        });
+        missingFields.push({
+          fieldType,
+          value: '',
+          section: 'work' as FieldSection,
+          order: 1000 + missingFields.length + 1,
+          isVisible: false,
+          confirmed: true // User-initiated structure
+        });
       }
     });
     
-    const combined = [...baseFields, ...missingFields];
-    
-    return combined;
+    return [...baseFields, ...missingFields];
   }, []);
   
   // Unified state: ALL field data in one place (including hidden placeholders)
-  const [fields, setFields] = useState<ContactEntry[]>(() => ensureAllFieldsExist(calculateInitialFields()));
+  const [fields, setFields] = useState<ContactEntry[]>(() => ensureProperFieldStructure(calculateInitialFields()));
   
   // Update fields when profile changes (e.g., after save)
   useEffect(() => {
     // Only process when profile actually changes (not on every render)
     if (!profile?.contactEntries) return;
     
-    
     const newInitialFields = calculateInitialFields();
     if (newInitialFields && newInitialFields.length > 0) {
-      const newFields = ensureAllFieldsExist(newInitialFields);
-      
-      // Preserve existing confirmations when profile updates
-      const preservedFields = newFields.map(newField => {
-        const existingField = fields.find(f => 
-          f.fieldType === newField.fieldType && f.section === newField.section
-        );
-        
-        // If we have an existing field with local confirmations, preserve them
-        if (existingField) {
-          const isLocallyConfirmed = confirmedChannelsRef.current.has(newField.fieldType);
-          return {
-            ...newField,
-            confirmed: isLocallyConfirmed || newField.confirmed
-          };
-        }
-        
-        return newField;
-      });
-      
-      setFields(preservedFields);
+      // Apply smart field structure logic to recreate hidden placeholders
+      // but respect the drag-and-drop changes from Firebase
+      const newFields = ensureProperFieldStructure(newInitialFields);
+      setFields(newFields);
     }
-  }, [profile?.contactEntries]); // Only depend on the actual data, not the callbacks
+  }, [profile?.contactEntries, calculateInitialFields, ensureProperFieldStructure]);
   
   // Image state (separate from text fields)
   const [images, setImages] = useState<{ profileImage: string; backgroundImage: string }>(initialImages);
@@ -454,14 +454,12 @@ export const useEditProfileFields = ({
   
   // Split a universal field into separate Personal and Work entries
   const splitUniversalField = useCallback((fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => {
-    console.log(`🌟 [splitUniversalField] Starting split for ${fieldType} with value "${currentValue}" to ${targetSection} at index ${targetIndex}`);
     
     // Remove ALL entries for this fieldType (universal, personal, work) to avoid duplicates
     const fieldsWithoutFieldType = fields.filter(field => 
       field.fieldType !== fieldType
     );
     
-    console.log(`🌟 [splitUniversalField] Removed ${fields.length - fieldsWithoutFieldType.length} existing entries for ${fieldType}`);
     
     // Create new Personal and Work entries with the current value
     const personalEntry: ContactEntry = {
@@ -502,11 +500,14 @@ export const useEditProfileFields = ({
 
     const updatedFields = [...universalFields, ...newPersonalFields, ...newWorkFields];
     
-    console.log(`🌟 [splitUniversalField] Created ${updatedFields.length} total fields:`);
-    console.log(`  - Personal: ${newPersonalFields.map(f => `${f.fieldType}(visible:${f.isVisible})`).join(', ')}`);
-    console.log(`  - Work: ${newWorkFields.map(f => `${f.fieldType}(visible:${f.isVisible})`).join(', ')}`);
+    // IMPORTANT: Assign proper order values based on final array positions
+    const orderedFields = updatedFields.map((field, index) => ({
+      ...field,
+      order: index
+    }));
     
-    updateFields(updatedFields);
+    
+    updateFields(orderedFields);
   }, [fields, updateFields]);
   
   // Consolidate personal/work entries into a single universal entry
@@ -533,34 +534,53 @@ export const useEditProfileFields = ({
   
   // Drag and drop support - apply final field order and handle cross-section business logic
   const updateFromDragDrop = useCallback((newFields: ContactEntry[], finalDraggedField?: ContactEntry, originalDraggedField?: ContactEntry) => {
-    console.log('📥 [updateFromDragDrop] Applying final field order from drag');
-    console.log('  - Final field order received:', newFields.map(f => `${f.fieldType}-${f.section}`));
-    console.log('  - originalDraggedField:', originalDraggedField ? `${originalDraggedField.fieldType}-${originalDraggedField.section}` : 'undefined');
-    console.log('  - finalDraggedField:', finalDraggedField ? `${finalDraggedField.fieldType}-${finalDraggedField.section}` : 'undefined');
     
     // Handle cross-section business logic if needed
     if (finalDraggedField && originalDraggedField && finalDraggedField.section !== originalDraggedField.section) {
-      console.log(`🔄 [updateFromDragDrop] Cross-section detected: ${originalDraggedField.section} → ${finalDraggedField.section}`);
       
       // Special handling for universal → personal/work: use splitUniversalField
       if (originalDraggedField.section === 'universal' && (finalDraggedField.section === 'personal' || finalDraggedField.section === 'work')) {
-        console.log(`🌟 [updateFromDragDrop] Splitting universal field ${finalDraggedField.fieldType} to both sections`);
-        const targetIndex = newFields.findIndex(f => f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section);
+        
+        // Find where the field was dropped in the global array
+        const globalIndex = newFields.findIndex(f => f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section);
+        
+        // Calculate section-specific index by counting how many fields of the target section come before this position
+        const targetSectionFieldsBefore = globalIndex >= 0 
+          ? newFields.slice(0, globalIndex).filter(f => f.section === finalDraggedField.section).length
+          : 0;
+        
+        
         splitUniversalField(
           finalDraggedField.fieldType, 
           finalDraggedField.value, 
           finalDraggedField.section as 'personal' | 'work', 
-          targetIndex >= 0 ? targetIndex : 0
+          targetSectionFieldsBefore
         );
         return; // splitUniversalField handles the full update
       }
       
       // Other cross-section moves (personal ↔ work, personal/work → universal)
+      // Find the position where the field was dropped in the newFields array
+      const dropPosition = newFields.findIndex(f => 
+        f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section
+      );
+      
       // Remove all existing entries for this field type to avoid duplicates
       const fieldsWithoutFieldType = newFields.filter(f => f.fieldType !== finalDraggedField.fieldType);
       
-      // Add the final dragged field with its new section
-      const finalFieldsWithCorrectSection = [...fieldsWithoutFieldType, finalDraggedField];
+      // Insert the dragged field at the correct position
+      let finalFieldsWithCorrectSection: ContactEntry[];
+      if (dropPosition >= 0 && dropPosition <= fieldsWithoutFieldType.length) {
+        // Insert at the specific position
+        finalFieldsWithCorrectSection = [
+          ...fieldsWithoutFieldType.slice(0, dropPosition),
+          finalDraggedField,
+          ...fieldsWithoutFieldType.slice(dropPosition)
+        ];
+      } else {
+        // Fallback: append to end if position is invalid
+        finalFieldsWithCorrectSection = [...fieldsWithoutFieldType, finalDraggedField];
+      }
       
       // Apply final field order with correct order properties
       const orderedFields = finalFieldsWithCorrectSection.map((field, index) => ({
@@ -579,7 +599,6 @@ export const useEditProfileFields = ({
       updateFields(orderedFields);
     }
     
-    console.log('✅ [updateFromDragDrop] Applied final field order');
   }, [updateFields, splitUniversalField]);
   
   // Get field data

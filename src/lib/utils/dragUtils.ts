@@ -2,15 +2,16 @@ import type { ContactEntry, FieldSection } from '@/types/profile';
 
 /**
  * Capture field midpoints and store them in fieldOrderRef
+ * Uses the provided scrollOffset to ensure consistent coordinate system with drag calculations
  */
-export const captureFieldMidpoints = (fieldOrderRef: ContactEntry[]): void => {
+export const captureFieldMidpoints = (fieldOrderRef: ContactEntry[], scrollOffset: number): void => {
   fieldOrderRef.forEach(field => {
     if (field.isVisible) {
       const fieldId = `${field.fieldType}-${field.section}`;
       const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
       if (fieldElement) {
         const rect = fieldElement.getBoundingClientRect();
-        const midpointY = rect.top + rect.height / 2 + window.scrollY;
+        const midpointY = rect.top + rect.height / 2 + scrollOffset;
         // Mutate the field object to add midpoint
         (field as ContactEntry & { midpointY?: number }).midpointY = midpointY;
       }
@@ -24,7 +25,8 @@ export const captureFieldMidpoints = (fieldOrderRef: ContactEntry[]): void => {
 export const calculateViewDropZoneMap = (
   fields: ContactEntry[],
   currentViewMode: 'Personal' | 'Work',
-  draggedField: ContactEntry | null
+  draggedField: ContactEntry | null,
+  scrollOffset: number
 ): Array<{
   order: number;
   section: FieldSection;
@@ -144,7 +146,7 @@ export const calculateViewDropZoneMap = (
     const bioElement = document.querySelector('[data-field-type="bio"]');
     if (bioElement) {
       const bioRect = bioElement.getBoundingClientRect();
-      universalBottomY = bioRect.top + bioRect.height + window.scrollY + 20; // 20px gap after bio
+      universalBottomY = bioRect.top + bioRect.height + scrollOffset + 20; // 20px gap after bio
     } else {
       // Fallback
       universalBottomY = 300; // Default position
@@ -207,7 +209,7 @@ export const calculateViewDropZoneMap = (
     
     if (headerElement) {
       const headerRect = headerElement.getBoundingClientRect();
-      sectionBottomY = headerRect.top + headerRect.height + window.scrollY + 20; // 20px gap after header
+      sectionBottomY = headerRect.top + headerRect.height + scrollOffset + 20; // 20px gap after header
     } else {
       // Fallback: estimate position based on universal section
       const universalBottomEstimate = universalFields.length > 0 
@@ -301,7 +303,6 @@ export const findClosestDropZone = (
     // Moving up
     if (aboveDropZone.belowFieldType === 'bottom') {
       // Moving to a bottom drop zone - just change section, no swap needed
-      console.log(`🎯 [SECTION CHANGE] Moving to bottom of ${aboveDropZone.section} section`);
       
       // Create a pseudo-target that represents section change
       const targetField = { ...draggedField, section: aboveDropZone.section };
@@ -322,10 +323,9 @@ export const findClosestDropZone = (
       );
       
       if (targetField) {
-        const targetIndex = fieldOrderRef.findIndex(f => 
+        const _targetIndex = fieldOrderRef.findIndex(f => 
           f.fieldType === targetField.fieldType && f.section === targetField.section
         );
-        console.log(`🎯 [TARGET] DropZone: order=${aboveDropZone.order}, section=${aboveDropZone.section}, belowFieldType=${aboveDropZone.belowFieldType} → Target: array[${targetIndex}], order=${targetField.order}, section=${targetField.section}, fieldType=${targetField.fieldType}`);
         
         return {
           newDropZone: {
@@ -344,7 +344,6 @@ export const findClosestDropZone = (
       // Current position is at bottom of section - check if there's a next drop zone
       const nextDropZone = dropZoneMap.find(dz => dz.order === activeDropZone.order + 1);
       if (nextDropZone) {
-        console.log(`🎯 [SECTION CHANGE] Moving from bottom of ${activeDropZone.section} to ${nextDropZone.section} section`);
         
         // Create a pseudo-target that represents section change
         const targetField = { ...draggedField, section: nextDropZone.section as FieldSection };
@@ -364,10 +363,9 @@ export const findClosestDropZone = (
       );
       
       if (targetField) {
-        const targetIndex = fieldOrderRef.findIndex(f => 
+        const _targetIndex = fieldOrderRef.findIndex(f => 
           f.fieldType === targetField.fieldType && f.section === targetField.section
         );
-        console.log(`🎯 [TARGET] DropZone: order=${belowDropZone.order}, section=${belowDropZone.section}, belowFieldType=${activeDropZone.belowFieldType} → Target: array[${targetIndex}], order=${targetField.order}, section=${targetField.section}, fieldType=${targetField.fieldType}`);
         
         return {
           newDropZone: {

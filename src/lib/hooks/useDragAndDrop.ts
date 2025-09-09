@@ -156,7 +156,6 @@ export const useDragAndDrop = ({
         originalSection: draggedField.section,
         newSection: targetField.section
       };
-      console.log(`🔄 [SECTION CHANGE TRACKED] ${draggedField.fieldType} from ${draggedField.section} to ${targetField.section} (will apply on drop)`);
       return;
     }
     
@@ -184,7 +183,6 @@ export const useDragAndDrop = ({
     (draggedField as ContactEntry & { midpointY?: number }).midpointY = (targetField as ContactEntry & { midpointY?: number }).midpointY;
     (targetField as ContactEntry & { midpointY?: number }).midpointY = temp;
     
-    console.log(`🔄 [SWAP] ${draggedField.fieldType}-${draggedField.section} ↔ ${targetField.fieldType}-${targetField.section}`);
   }, []);
 
   // Field order tracking - using ref to avoid re-renders
@@ -290,7 +288,9 @@ export const useDragAndDrop = ({
       }
       
       // Capture midpoints WHILE field is still visible (before drag state)
-      captureFieldMidpoints(fieldOrderRef.current);
+      // Use same scroll calculation as during drag for consistent coordinates
+      const initialScrollOffset = getScrollOffset();
+      captureFieldMidpoints(fieldOrderRef.current, initialScrollOffset);
       
       // NOW set drag state (field hides and drop zones show in single render)
       setDragState('dragging');
@@ -305,7 +305,8 @@ export const useDragAndDrop = ({
       const dropZoneMap = calculateViewDropZoneMap(
         fieldOrderRef.current,
         currentSectionRef.current,
-        draggedField
+        draggedField,
+        initialScrollOffset
       );
       dropZoneMapRef.current = dropZoneMap;
       
@@ -357,8 +358,6 @@ export const useDragAndDrop = ({
           midpointY: initialDropZone.midpointY || 0
         });
         
-        console.log(`🏁 [startLongPress] Dragging ${draggedField.fieldType}-${draggedField.section}`);
-        console.log(`  - Initial DropZone: ${initialDropZone.order}-${initialDropZone.section}`);
       }
       
       // Add haptic feedback
@@ -464,16 +463,13 @@ export const useDragAndDrop = ({
             const now = Date.now();
             const timeSinceLastSwap = now - lastSwapTimeRef.current;
             
-            // Only allow swaps if enough time has passed (100ms threshold)
-            if (timeSinceLastSwap > 100) {
+            // Only allow swaps if enough time has passed (50ms threshold)
+            if (timeSinceLastSwap > 50) {
               swapFieldsInOrder(result.swapInfo.draggedField, result.swapInfo.targetField);
               lastSwapTimeRef.current = now;
-            } else {
-              console.log(`⏸️ [handleTouchMove] Swap throttled (${timeSinceLastSwap}ms since last swap)`);
             }
           }
           
-          console.log(`🎯 [handleTouchMove] Moved to DropZone ${result.newDropZone.order}-${result.newDropZone.section}`);
         }
       }
       
@@ -552,13 +548,8 @@ export const useDragAndDrop = ({
         
         if (fieldIndex !== -1) {
           fieldOrderRef.current[fieldIndex].section = newSection as FieldSection;
-          console.log(`🔄 [SECTION CHANGE APPLIED] ${fieldType} moved from ${originalSection} to ${newSection}`);
         }
       }
-      
-      console.log(`📤 [DROP] Executing drop callback with ${fieldOrderRef.current.length} fields`);
-      console.log(`  - Dragged: ${draggedField?.fieldType}-${draggedField?.section}`);
-      console.log(`  - Current fieldOrderRef:`, fieldOrderRef.current.map(f => `${f.fieldType}-${f.section}`));
       
       onFieldArrayDropRef.current({
         fields: fieldOrderRef.current,
