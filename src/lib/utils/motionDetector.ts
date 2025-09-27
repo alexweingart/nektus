@@ -311,17 +311,23 @@ export class MotionDetector {
     // Reset cancellation for new detection
     this.isCancelled = false;
 
-    // IMPORTANT: Reset sequential state for EACH detectMotion call
-    // This prevents false positives from hand movements when tapping the button
-    this.sequentialState.magnitudePrimed = false;
-    this.sequentialState.strongMagnitudePrimed = false;
-    this.sequentialState.jerkPrimed = false;
-    this.sequentialState.strongJerkPrimed = false;
-
     // Use strong bump profile as default thresholds (standardized across all devices)
     const browserInfo = this.getBrowserInfo();
-    
-    console.log(`📱 Motion detection active (${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'})`);
+
+    // DEBUG: Log when detectMotion is called and current state
+    const debugMsg = `detectMotion() called - Current state: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
+    console.log(`📱 ${debugMsg}`);
+
+    // Send to remote debug logs
+    fetch('/api/debug/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'motion_start',
+        message: debugMsg,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(() => {});
 
     return new Promise((resolve) => {
       let resolved = false;
@@ -365,22 +371,46 @@ export class MotionDetector {
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !magnitudePrimed) {
           magnitudePrimed = true;
           this.sequentialState.magnitudePrimed = true;
-          console.log(`📈 Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}`);
+          const msg = `Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}`;
+          console.log(`📈 ${msg}`);
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
+          }).catch(() => {});
         }
         if (magnitude >= SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude && !strongMagnitudePrimed) {
           strongMagnitudePrimed = true;
           this.sequentialState.strongMagnitudePrimed = true;
-          console.log(`📈 Strong magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude}`);
+          const msg = `Strong magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude}`;
+          console.log(`📈 ${msg}`);
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
+          }).catch(() => {});
         }
         if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk && !jerkPrimed) {
           jerkPrimed = true;
           this.sequentialState.jerkPrimed = true;
-          console.log(`📊 Jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}`);
+          const msg = `Jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}`;
+          console.log(`📊 ${msg}`);
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
+          }).catch(() => {});
         }
         if (jerk >= SEQUENTIAL_DETECTION.strongJerkPrime.jerk && !strongJerkPrimed) {
           strongJerkPrimed = true;
           this.sequentialState.strongJerkPrimed = true;
-          console.log(`📊 Strong jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.jerk}`);
+          const msg = `Strong jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.jerk}`;
+          console.log(`📊 ${msg}`);
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
+          }).catch(() => {});
         }
         
         // Check for sequential detection: primed conditions from previous events
@@ -397,6 +427,21 @@ export class MotionDetector {
         
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
+          // DEBUG: Log which specific detection triggered
+          const debugMsg = `DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)} | Primed: mag=${magnitudePrimed}, strongMag=${strongMagnitudePrimed}, jerk=${jerkPrimed}, strongJerk=${strongJerkPrimed} | Types: bump=${strongBumpDetection}, tap=${strongTapDetection}, magPrimed=${magnitudePrimedDetection}, strongMagPrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`;
+
+          console.log(`🔍 ${debugMsg}`);
+
+          // Send to remote debug logs
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'motion_detection',
+              message: debugMsg,
+              timestamp: new Date().toISOString()
+            })
+          }).catch(() => {});
 
           this.logDetectionResult(
             strongBumpDetection, strongTapDetection, magnitudePrimedDetection,

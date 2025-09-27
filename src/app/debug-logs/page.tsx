@@ -42,9 +42,6 @@ export default function DebugLogsPage() {
     }
   };
 
-  const motionLogs = logs.filter(log => log.event === 'motion_debug');
-  const otherLogs = logs.filter(log => log.event !== 'motion_debug');
-
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-4xl mx-auto">
@@ -70,41 +67,22 @@ export default function DebugLogsPage() {
             </div>
           </div>
 
-          {/* Motion Debug Logs */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-blue-600">Motion Debug Logs</h2>
-            <div className="bg-blue-50 border border-blue-200 rounded p-4 max-h-96 overflow-y-auto">
-              {motionLogs.length === 0 ? (
-                <p className="text-gray-500">No motion debug logs yet...</p>
-              ) : (
-                motionLogs.slice(-20).map((log, index) => (
-                  <div key={index} className="mb-2 p-2 bg-white rounded text-xs">
-                    <div className="font-mono text-gray-500">{log.timestamp}</div>
-                    <div className="font-bold text-blue-700">{log.event}</div>
-                    <div className="mt-1 text-gray-800">{log.message}</div>
-                    {log.sessionId && (
-                      <div className="text-gray-400 text-xs">Session: {log.sessionId}</div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Other Logs */}
+          {/* All Logs */}
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-600">Other Logs</h2>
-            <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-96 overflow-y-auto">
-              {otherLogs.length === 0 ? (
-                <p className="text-gray-500">No other logs yet...</p>
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">Logs</h2>
+            <div className="bg-gray-50 border border-gray-300 rounded p-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              {logs.length === 0 ? (
+                <p className="text-gray-500">No logs yet...</p>
               ) : (
-                otherLogs.slice(-20).map((log, index) => (
-                  <div key={index} className="mb-2 p-2 bg-white rounded text-xs">
-                    <div className="font-mono text-gray-500">{log.timestamp}</div>
-                    <div className="font-bold text-gray-700">{log.event}</div>
-                    <div className="mt-1 text-gray-800">{log.message}</div>
+                logs.slice(-50).reverse().map((log, index) => (
+                  <div key={index} className="mb-3 p-3 bg-white rounded border border-gray-200 text-xs">
+                    <div className="flex justify-between items-start">
+                      <div className="font-mono text-gray-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</div>
+                      <div className="font-semibold text-blue-600">{log.event}</div>
+                    </div>
+                    <div className="mt-1 text-gray-900 break-all">{log.message}</div>
                     {log.sessionId && (
-                      <div className="text-gray-400 text-xs">Session: {log.sessionId}</div>
+                      <div className="text-gray-400 text-xs mt-1">Session: {log.sessionId}</div>
                     )}
                   </div>
                 ))
