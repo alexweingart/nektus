@@ -419,7 +419,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             </div>
             
             {/* Social Media Icons */}
-            <div className="w-full mb-4">
+            <div className="w-full mb-4 text-center">
               {profile.contactEntries && (
                 <SocialIconsList
                   contactEntries={profile.contactEntries}
