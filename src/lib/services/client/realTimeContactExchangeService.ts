@@ -260,15 +260,58 @@ export class RealTimeContactExchangeService {
     let hitCount = 0;
     let lastHitTime = 0;
     const HIT_COOLDOWN_MS = 500; // 500ms cooldown between hits
-    
+
     const { MotionDetector } = await import('@/lib/utils/motionDetector');
-    
+
+    // DEBUG: Log motion detector state before starting
+    try {
+      await fetch('/api/system/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'motion_debug',
+          message: `Motion detector state before detectMotion: ${JSON.stringify(MotionDetector.getSequentialState?.() || 'no state method')}`,
+          sessionId: this.sessionId
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
     while (!this.motionDetectionCancelled) { // Keep waiting for motion until exchange is cancelled
       try {
         const isFirstHit = hitCount === 0;
-        
+
+        // DEBUG: Log before calling detectMotion
+        if (isFirstHit) {
+          try {
+            await fetch('/api/system/ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'motion_debug',
+                message: `About to call MotionDetector.detectMotion() for first time`,
+                sessionId: this.sessionId
+              })
+            }).catch(() => {});
+          } catch (e) {}
+        }
+
         // Detect motion/bump - this will wait until actual motion is detected or cancelled
         const motionResult = await MotionDetector.detectMotion();
+
+        // DEBUG: Log the motion result
+        if (isFirstHit) {
+          try {
+            await fetch('/api/system/ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'motion_debug',
+                message: `MotionDetector.detectMotion() returned: hasMotion=${motionResult.hasMotion}, magnitude=${motionResult.magnitude}, timestamp=${motionResult.timestamp}`,
+                sessionId: this.sessionId
+              })
+            }).catch(() => {});
+          } catch (e) {}
+        }
         
         if (!motionResult.hasMotion) {
           return; // Cancelled or timed out
@@ -308,6 +351,20 @@ export class RealTimeContactExchangeService {
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
           console.log(`🚨 iOS: Setting status to processing (first hit detected)`);
+
+          // DEBUG: Log when we're changing to processing state
+          try {
+            await fetch('/api/system/ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'motion_debug',
+                message: `CHANGING TO PROCESSING STATE - Motion was detected: mag=${motionResult.magnitude}, hasMotion=${motionResult.hasMotion}`,
+                sessionId: this.sessionId
+              })
+            }).catch(() => {});
+          } catch (e) {}
+
           this.updateState({ status: 'processing' });
         }
         

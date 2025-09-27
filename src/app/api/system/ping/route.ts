@@ -15,12 +15,25 @@ export async function HEAD() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    
+
     // Log the received data
-    console.log(`[SYSTEM/PING] ${data.event || 'event'}:`, 
+    console.log(`[SYSTEM/PING] ${data.event || 'event'}:`,
       data.message || '',
       data.sessionId ? `(session: ${data.sessionId})` : ''
     );
+
+    // Also send to debug logs if it's a motion_debug event
+    if (data.event === 'motion_debug') {
+      try {
+        await fetch(`${request.nextUrl.origin}/api/debug/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } catch (debugError) {
+        console.warn('Failed to send to debug logs:', debugError);
+      }
+    }
     
     // If this is an exchange start event, clean up user exchanges and pre-cache IP geolocation
     if (data.event === 'exchange_start' && data.sessionId) {
