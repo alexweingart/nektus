@@ -377,8 +377,11 @@ export class MotionDetector {
         }
         
         // Check for sequential detection: primed conditions from previous events
-        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk;
-        const strongMagnitudePrimedDetection = strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk;
+        // IMPORTANT: Add minimum magnitude threshold to prevent false positives from tiny movements
+        const MIN_MAGNITUDE_FOR_DETECTION = 2.0; // Minimum magnitude required for ANY detection
+
+        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk && magnitude >= MIN_MAGNITUDE_FOR_DETECTION;
+        const strongMagnitudePrimedDetection = strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk && magnitude >= MIN_MAGNITUDE_FOR_DETECTION;
         const jerkPrimedDetection = jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude;
         const strongJerkPrimedDetection = strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude;
         const sequentialDetection = magnitudePrimedDetection || strongMagnitudePrimedDetection || jerkPrimedDetection || strongJerkPrimedDetection;
@@ -390,21 +393,6 @@ export class MotionDetector {
         
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
-          // DEBUG: Log which specific detection triggered
-          const debugMsg = `DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)} | Primed: mag=${magnitudePrimed}, strongMag=${strongMagnitudePrimed}, jerk=${jerkPrimed}, strongJerk=${strongJerkPrimed} | Types: bump=${strongBumpDetection}, tap=${strongTapDetection}, magPrimed=${magnitudePrimedDetection}, strongMagPrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`;
-
-          console.log(`🔍 ${debugMsg}`);
-
-          // Send to remote debug logs
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'motion_detection',
-              message: debugMsg,
-              timestamp: new Date().toISOString()
-            })
-          }).catch(() => {});
 
           this.logDetectionResult(
             strongBumpDetection, strongTapDetection, magnitudePrimedDetection,

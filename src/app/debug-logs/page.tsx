@@ -81,7 +81,7 @@ export default function DebugLogsPage() {
                   <div key={index} className="mb-2 p-2 bg-white rounded text-xs">
                     <div className="font-mono text-gray-500">{log.timestamp}</div>
                     <div className="font-bold text-blue-700">{log.event}</div>
-                    <div className="mt-1">{log.message}</div>
+                    <div className="mt-1 text-gray-800">{log.message}</div>
                     {log.sessionId && (
                       <div className="text-gray-400 text-xs">Session: {log.sessionId}</div>
                     )}
@@ -101,8 +101,8 @@ export default function DebugLogsPage() {
                 otherLogs.slice(-20).map((log, index) => (
                   <div key={index} className="mb-2 p-2 bg-white rounded text-xs">
                     <div className="font-mono text-gray-500">{log.timestamp}</div>
-                    <div className="font-bold">{log.event}</div>
-                    <div className="mt-1">{log.message}</div>
+                    <div className="font-bold text-gray-700">{log.event}</div>
+                    <div className="mt-1 text-gray-800">{log.message}</div>
                     {log.sessionId && (
                       <div className="text-gray-400 text-xs">Session: {log.sessionId}</div>
                     )}
