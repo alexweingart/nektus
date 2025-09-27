@@ -46,7 +46,6 @@ export async function middleware(request: NextRequest) {
 
     // Only redirect to setup if user needs setup and isn't already there
     if (redirectTo === '/setup' && pathname !== '/setup') {
-      console.log('[Middleware] Redirecting user to setup from:', pathname);
       return NextResponse.redirect(new URL('/setup', request.url));
     }
   }

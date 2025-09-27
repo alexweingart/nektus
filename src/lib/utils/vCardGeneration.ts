@@ -14,6 +14,31 @@ export interface VCardOptions {
 }
 
 /**
+ * Fetch with timeout and abort controller
+ */
+async function fetchWithTimeout(url: string, timeout: number, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, { 
+      ...options,
+      signal: controller.signal,
+      cache: 'no-cache',
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+function logVCardError(message: string, error: unknown): void {
+  console.warn(`[vCard] ${message}:`, error instanceof Error ? error.message : error);
+}
+
+/**
  * Convert Firebase Storage URL to Next.js optimized image URL for vCard compatibility
  */
 function getOptimizedImageUrl(imageUrl: string): string {
@@ -40,37 +65,16 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
     // Use optimized image URL for better vCard compatibility
     const optimizedUrl = getOptimizedImageUrl(imageUrl);
-    console.log(`[vCard] Original URL: ${imageUrl}`);
-    console.log(`[vCard] Optimized URL: ${optimizedUrl}`);
     
-    // Try to fetch image with proper error handling
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
-    
-    // Simplified fetch without potentially problematic headers
-    let res = await fetch(optimizedUrl, { 
-      signal: controller.signal,
-      
-      // Bypass service worker cache for image processing to ensure fresh response
-      cache: 'no-cache',
-    });
-    clearTimeout(timeoutId);
-    
-    // If Next.js optimization fails, try the original URL as fallback
-    if (!res.ok && optimizedUrl !== imageUrl) {
-      console.log(`[vCard] Optimization failed (${res.status}), trying original URL...`);
-      const fallbackController = new AbortController();
-      const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 8000);
-      
-      try {
-        res = await fetch(imageUrl, { 
-          signal: fallbackController.signal,
-          cache: 'no-cache',
-        });
-        clearTimeout(fallbackTimeoutId);
-      } catch {
-        clearTimeout(fallbackTimeoutId);
-        throw new Error(`Both optimized and original URLs failed: ${res.status} ${res.statusText}`);
+    // Try optimized URL first, then fallback to original
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(optimizedUrl, 15000);
+    } catch (_error) {
+      if (optimizedUrl !== imageUrl) {
+        res = await fetchWithTimeout(imageUrl, 8000);
+      } else {
+        throw _error;
       }
     }
     
@@ -95,34 +99,16 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
     const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
     const b64 = btoa(binaryString);
     
-    console.log(`[vCard] Image details:`, {
-      originalUrl: imageUrl,
-      optimizedUrl: optimizedUrl,
-      size: arrayBuffer.byteLength,
-      type: imageType,
-      base64Length: b64.length,
-      base64Preview: b64.substring(0, 50) + '...'
-    });
-    
     const photoLine = formatPhotoLine(b64, imageType);
-    console.log(`[vCard] Generated photo line preview:`, photoLine.substring(0, 100) + '...');
     
     return photoLine;
     
   } catch (error) {
-    console.warn('Failed to encode photo as base64, skipping photo:', error);
-    console.warn('Error details:', error instanceof Error ? error.message : error);
-    console.warn('Image URL that failed:', imageUrl);
-    
-    // Note: Removed Google image skipping - let it fall back to URI method
-    
-    return "";  // Mobile contact apps don't support URI photos
+    logVCardError('Failed to encode photo as base64, skipping photo', error);
+    return "";
   }
 }
 
-/**
- * Detect image type from response headers or image data
- */
 function detectImageType(response: Response, arrayBuffer: ArrayBuffer): string {
   // First try Content-Type header
   const contentType = response.headers.get('content-type');
@@ -162,9 +148,6 @@ function detectImageType(response: Response, arrayBuffer: ArrayBuffer): string {
   return 'JPEG';
 }
 
-/**
- * Format base64 data into proper vCard photo line with line folding
- */
 function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string {
   // Try data URI format first (RFC 6350 compliant)
   const mimeType = imageType.toLowerCase() === 'jpeg' ? 'image/jpeg' : `image/${imageType.toLowerCase()}`;
@@ -191,17 +174,8 @@ function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string
   return photoLine;
 }
 
-/**
- * Generate a vCard 3.0 string from a profile
- */
-export const generateVCard = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
-  return generateVCard30(profile, options);
-};
 
-/**
- * Generate a vCard 3.0 string from a profile
- */
-export const generateVCard30 = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
+export const generateVCard = async (profile: UserProfile, options: VCardOptions = {}): Promise<string> => {
   const {
     includePhoto = true,
     includeSocialMedia = true,
@@ -245,8 +219,8 @@ export const generateVCard30 = async (profile: UserProfile, options: VCardOption
       if (photoLine.trim() !== '') {
         lines.push(photoLine);
       }
-    } catch (error) {
-      console.warn('Failed to encode photo for vCard 3.0:', error);
+    } catch (_error) {
+      logVCardError('Failed to encode photo for vCard 3.0', _error);
     }
   }
   
@@ -311,50 +285,43 @@ const escapeVCardValue = (value: string): string => {
 };
 
 /**
+ * Platform configuration for social media
+ */
+const PLATFORMS = {
+  twitter: { url: 'https://twitter.com/', iosName: 'Twitter' },
+  x: { url: 'https://x.com/', iosName: 'Twitter' },
+  instagram: { url: 'https://instagram.com/', iosName: 'Instagram' },
+  linkedin: { url: 'https://linkedin.com/in/', iosName: 'LinkedIn' },
+  facebook: { url: 'https://facebook.com/', iosName: 'Facebook' },
+  snapchat: { url: 'https://snapchat.com/add/', iosName: 'Snapchat' },
+  telegram: { url: 'https://t.me/', iosName: 'Telegram' },
+  whatsapp: { url: 'https://wa.me/', iosName: 'WhatsApp' },
+  wechat: { url: 'https://weixin.qq.com/r/', iosName: 'WeChat' },
+} as const;
+
+/**
  * Get social media URL from platform and username
  */
 const getSocialMediaUrl = (platform: string, username: string): string | null => {
-  const platformUrls: Record<string, string> = {
-    twitter: 'https://twitter.com/',
-    x: 'https://x.com/',
-    instagram: 'https://instagram.com/',
-    linkedin: 'https://linkedin.com/in/',
-    facebook: 'https://facebook.com/',
-    snapchat: 'https://snapchat.com/add/',
-    telegram: 'https://t.me/',
-    whatsapp: 'https://wa.me/',
-    wechat: 'https://weixin.qq.com/r/',
-  };
-  
-  const baseUrl = platformUrls[platform.toLowerCase()];
-  return baseUrl ? `${baseUrl}${username}` : null;
+  const platformConfig = PLATFORMS[platform.toLowerCase() as keyof typeof PLATFORMS];
+  return platformConfig ? `${platformConfig.url}${username}` : null;
 };
 
 /**
  * Get platform type formatted for iOS vCard X-SOCIALPROFILE
  */
 const getPlatformTypeForIOS = (platform: string): string => {
-  const platformMap: Record<string, string> = {
-    twitter: 'Twitter',
-    x: 'Twitter',
-    instagram: 'Instagram',
-    linkedin: 'LinkedIn',
-    facebook: 'Facebook',
-    snapchat: 'Snapchat',
-    telegram: 'Telegram',
-    whatsapp: 'WhatsApp',
-    wechat: 'WeChat',
-  };
-  
-  return platformMap[platform.toLowerCase()] || platform;
+  const platformConfig = PLATFORMS[platform.toLowerCase() as keyof typeof PLATFORMS];
+  return platformConfig?.iosName || platform;
 };
 
-/**
- * Create a downloadable vCard file
- */
-export const createVCardFile = async (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
+const createVCardBlob = async (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
   const vCardContent = await generateVCard(profile, options);
   return new Blob([vCardContent], { type: 'text/vcard;charset=utf-8' });
+};
+
+export const createVCardFile = (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
+  return createVCardBlob(profile, options);
 };
 
 /**
@@ -366,11 +333,8 @@ export const generateVCardFilename = (profile: UserProfile): string => {
   return `${safeName}_contact.vcf`;
 };
 
-/**
- * Download a vCard file
- */
 export const downloadVCard = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
-  const vCardBlob = await createVCardFile(profile, options);
+  const vCardBlob = await createVCardBlob(profile, options);
   const filename = generateVCardFilename(profile);
   
   const url = URL.createObjectURL(vCardBlob);
@@ -418,49 +382,33 @@ export const saveVCard = async (
  * Display vCard inline for iOS
  */
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
-  console.log('📱 displayVCardInlineForIOS called for:', getFieldValue(profile.contactEntries, 'name'));
-  
   const isEmbedded = isEmbeddedBrowser();
-  console.log('🔍 Embedded browser detected:', isEmbedded);
   
   if (isEmbedded) {
-    console.log('📱 Embedded browser detected, skipping vCard (will use Google Contacts flow)');
     return;
   }
   
-  console.log('📱 Safari detected, attempting vCard download');
+  const vCardOptions: VCardOptions = {
+    includePhoto: true,
+    includeSocialMedia: false,
+    includeNotes: true,
+    contactUrl: options?.contactUrl
+  };
   
-  const vCardContent = await generateSimpleVCard(profile, options?.contactUrl);
-  const filename = generateVCardFilename(profile);
-  
-  console.log('📱 Generated simplified vCard content length:', vCardContent.length);
-  console.log('📱 Generated filename:', filename);
-  
-  const vCardBlob = new Blob([vCardContent], { 
-    type: 'text/vcard;charset=utf-8' 
-  });
-  
+  const vCardBlob = await createVCardBlob(profile, vCardOptions);
   const url = URL.createObjectURL(vCardBlob);
-  
-  console.log('📲 Opening vCard for iOS Safari:', filename);
-  console.log('📲 Blob URL:', url);
   
   return new Promise<void>((resolve) => {
     try {
-      console.log('📱 Using direct navigation for Safari');
       window.location.href = url;
       
-      // Wait for user to dismiss the vCard popup before resolving
-      // We detect this by listening for focus/visibility events
       const handleFocusReturn = () => {
-        console.log('📱 Focus returned to page, vCard likely dismissed');
         cleanup();
         resolve();
       };
       
       const handleVisibilityChange = () => {
         if (!document.hidden) {
-          console.log('📱 Page became visible again, vCard likely dismissed');
           cleanup();
           resolve();
         }
@@ -472,72 +420,46 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
         URL.revokeObjectURL(url);
       };
       
-      // Listen for when user returns to the page (vCard dismissed)
       window.addEventListener('focus', handleFocusReturn);
       document.addEventListener('visibilitychange', handleVisibilityChange);
       
-      // Fallback timeout in case events don't fire
       setTimeout(() => {
-        console.log('📱 Timeout reached, assuming vCard was dismissed');
         cleanup();
         resolve();
-      }, 10000); // 10 second timeout
+      }, 10000);
       
-    } catch (error) {
-      console.warn('📱 Safari vCard approach failed, showing instructions:', error);
-      showVCardInstructions(profile, vCardContent);
-      URL.revokeObjectURL(url);
-      resolve(); // Resolve immediately if error occurs
+    } catch (_error) {
+      generateVCard(profile, vCardOptions).then(vCardContent => {
+        showVCardInstructions(profile, vCardContent);
+        URL.revokeObjectURL(url);
+        resolve();
+      });
     }
   });
 };
 
-/**
- * Show instructions to user when automatic vCard handling fails
- */
 const showVCardInstructions = (profile: UserProfile, vCardContent: string): void => {
   const contactName = getFieldValue(profile.contactEntries, 'name') || 'Contact';
   
   const modal = document.createElement('div');
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    padding: 20px;
-  `;
+  modal.className = 'vcard-modal-backdrop';
   
   const content = document.createElement('div');
-  content.style.cssText = `
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    max-width: 400px;
-    text-align: center;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  `;
+  content.className = 'vcard-modal-content vcard-modal';
   
   content.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #333;">Save ${contactName}'s Contact</h3>
-    <p style="margin: 0 0 20px 0; color: #666; line-height: 1.5;">
-      To save this contact to your phone:
-    </p>
-    <ol style="text-align: left; color: #666; margin: 0 0 20px 0; padding-left: 20px;">
+    <h3>Save ${contactName}'s Contact</h3>
+    <p>To save this contact to your phone:</p>
+    <ol>
       <li>Copy the contact info below</li>
       <li>Open your Contacts app</li>
       <li>Create a new contact</li>
       <li>Paste the information</li>
     </ol>
-    <textarea readonly style="width: 100%; height: 120px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace; font-size: 12px; background: #f9f9f9;">${vCardContent}</textarea>
-    <div style="margin-top: 20px;">
-      <button id="copy-vcard" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-right: 10px; cursor: pointer;">Copy</button>
-      <button id="close-modal" style="background: #666; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">Close</button>
+    <textarea readonly>${vCardContent}</textarea>
+    <div class="vcard-modal-buttons">
+      <button id="copy-vcard" class="vcard-modal-btn copy">Copy</button>
+      <button id="close-modal" class="vcard-modal-btn close">Close</button>
     </div>
   `;
   
@@ -574,16 +496,3 @@ const showVCardInstructions = (profile: UserProfile, vCardContent: string): void
   });
 };
 
-/**
- * Generate a simplified vCard 3.0 without social media
- */
-export const generateSimpleVCard = async (profile: UserProfile, contactUrl?: string): Promise<string> => {
-  const options: VCardOptions = {
-    includePhoto: true,
-    includeSocialMedia: false,
-    includeNotes: true,
-    contactUrl
-  };
-  
-  return generateVCard30(profile, options);
-};

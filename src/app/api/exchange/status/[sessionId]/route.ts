@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { findExchangeMatchBySession } from '@/lib/redis/client';
+import { getExchangeMatch, redis } from '@/lib/redis/client';
 
 export async function GET(
   request: NextRequest,
@@ -33,29 +33,66 @@ export async function GET(
 
     console.log(`🔍 Polling for match status: session=${sessionId}, user=${session.user.email}`);
 
-    // Check if this session has a match
-    const matchResult = await findExchangeMatchBySession(sessionId);
-    
-    if (matchResult) {
-      console.log(`✅ Found match for session ${sessionId}: token=${matchResult.token}, youAre=${matchResult.youAre}`);
-      
-      return NextResponse.json({
-        success: true,
-        hasMatch: true,
-        match: {
-          token: matchResult.token,
-          youAre: matchResult.youAre,
-          matchData: matchResult.matchData
-        }
-      });
+    // Check if this session has a match by looking up the token
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, message: 'Redis not available' },
+        { status: 503 }
+      );
     }
 
-    console.log(`❌ No match found for session ${sessionId}`);
+    const sessionMatch = await redis.get(`exchange_session:${sessionId}`);
+    
+    if (!sessionMatch) {
+      console.log(`❌ No match found for session ${sessionId}`);
+      return NextResponse.json({
+        success: true,
+        hasMatch: false,
+        match: null
+      });
+    }
+    
+    // Parse session data to get token
+    let sessionData;
+    if (typeof sessionMatch === 'string') {
+      sessionData = JSON.parse(sessionMatch);
+    } else {
+      sessionData = sessionMatch;
+    }
+    
+    const { token, youAre } = sessionData;
+    
+    if (!token) {
+      console.log(`❌ No token found for session ${sessionId}`);
+      return NextResponse.json({
+        success: true,
+        hasMatch: false,
+        match: null
+      });
+    }
+    
+    // Get the match data using the unified function
+    const matchData = await getExchangeMatch(token);
+    
+    if (!matchData) {
+      console.log(`❌ No match data found for token ${token}`);
+      return NextResponse.json({
+        success: true,
+        hasMatch: false,
+        match: null
+      });
+    }
+    
+    console.log(`✅ Found match for session ${sessionId}: token=${token}, youAre=${youAre}`);
     
     return NextResponse.json({
       success: true,
-      hasMatch: false,
-      match: null
+      hasMatch: true,
+      match: {
+        token,
+        youAre,
+        matchData
+      }
     });
 
   } catch (error) {

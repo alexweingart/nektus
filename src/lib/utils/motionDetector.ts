@@ -39,7 +39,6 @@ const SEQUENTIAL_DETECTION = {
   }
 };
 
-const SPIKE_DURATION_MS = 500;
 
 export class MotionDetector {
   // Persistent sequential detection state - now properly managed per session
@@ -59,7 +58,7 @@ export class MotionDetector {
    * Start a new motion detection session - clears priming state and prepares for detection
    */
   static startNewSession(): void {
-    const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isIOS = this.isIOSDevice();
     
     // Log current state before reset for debugging
     if (isIOS) {
@@ -85,6 +84,11 @@ export class MotionDetector {
     
     // Additional iOS-specific state cleanup with multiple strategies
     if (isIOS) {
+      const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
+                               this.sequentialState.strongMagnitudePrimed || 
+                               this.sequentialState.jerkPrimed || 
+                               this.sequentialState.strongJerkPrimed;
+
       // Strategy 1: Force garbage collection of any lingering state references
       this.sequentialState = Object.assign({}, this.sequentialState);
       
@@ -104,6 +108,13 @@ export class MotionDetector {
         lastResetTime: Date.now()
       };
       this.sequentialState = cleanState;
+      
+      // Strategy 4: Nuclear option for persistent state - delete and recreate
+      if (hasAnyPrimedState) {
+        delete (this as unknown as { sequentialState?: typeof MotionDetector.sequentialState }).sequentialState;
+        this.sequentialState = cleanState;
+        console.log('🍎 iOS: Nuclear state reset applied due to persistent state');
+      }
       
       console.log('🍎 iOS-specific aggressive state cleanup applied');
     }
@@ -145,23 +156,60 @@ export class MotionDetector {
     return { ...this.sequentialState };
   }
 
-  // Pattern analysis removed - was disabled and added complexity
-
-  // Simplified - just use the strong bump profile as default thresholds
-  private static calculateAdaptiveThresholds(_browserInfo: unknown, _recentMagnitudes: Array<{magnitude: number, timestamp: number}>): {magnitude: number, jerk: number} {
-    // Use strong bump profile as the base threshold (standardized across all devices)
-    return {
-      magnitude: DETECTION_PROFILES.strongBump.magnitude,
-      jerk: DETECTION_PROFILES.strongBump.jerk
-    };
+  /**
+   * Check if current device is iOS
+   */
+  private static isIOSDevice(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   }
+
+  /**
+   * Clean up motion listener and clear references
+   */
+  private static cleanupMotionListener(handler: (event: DeviceMotionEvent) => void): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('devicemotion', handler);
+    }
+    this.activeMotionListener = null;
+  }
+
+  /**
+   * Log the specific type of motion detection that occurred
+   */
+  private static logDetectionResult(
+    strongBumpDetection: boolean,
+    strongTapDetection: boolean, 
+    magnitudePrimedDetection: boolean,
+    strongMagnitudePrimedDetection: boolean,
+    jerkPrimedDetection: boolean,
+    strongJerkPrimedDetection: boolean,
+    magnitude: number,
+    jerk: number
+  ): void {
+    if (strongBumpDetection) {
+      console.log(`🎯 Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
+    } else if (strongTapDetection) {
+      console.log(`🎯 Strong tap detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
+    } else if (magnitudePrimedDetection) {
+      console.log(`🎯 Magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
+    } else if (strongMagnitudePrimedDetection) {
+      console.log(`🎯 Strong magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk}`);
+    } else if (jerkPrimedDetection) {
+      console.log(`🎯 Jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
+    } else if (strongJerkPrimedDetection) {
+      console.log(`🎯 Strong jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.magnitude}`);
+    }
+  }
+
+
 
   private static getBrowserInfo() {
     const userAgent = navigator.userAgent;
     
-    // Detect iOS (including Chrome on iOS)
-    const isIOS = /iPad|iPhone|iPod/.test(userAgent) || 
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    // Detect iOS (including Chrome on iOS)  
+    const isIOS = this.isIOSDevice();
     
     // Detect Chrome on iOS (Chrome on iOS uses Safari's WebKit but identifies as Chrome)
     const isChromeOnIOS = isIOS && /CriOS/.test(userAgent);
@@ -181,14 +229,12 @@ export class MotionDetector {
     const isChromeOnAndroid = isAndroid && /Chrome/.test(userAgent);
     
     return {
-      userAgent,
       isIOS,
       isChromeOnIOS,
       isSafariOnIOS,
       isDesktopSafari,
       isAndroid,
       isChromeOnAndroid,
-      hasDeviceMotionEvent: typeof DeviceMotionEvent !== 'undefined',
       hasRequestPermission: typeof DeviceMotionEvent !== 'undefined' && 
                            typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'
     };
@@ -197,9 +243,6 @@ export class MotionDetector {
   static async requestPermission(): Promise<{ success: boolean; message?: string }> {
     const browserInfo = this.getBrowserInfo();
     
-    // Simplified browser detection - just console logging
-
-    // Handle different browser cases
     if (browserInfo.isChromeOnIOS) {
       console.log('🚫 Chrome on iOS detected - DeviceMotionEvent.requestPermission not supported');
       return { 
@@ -231,8 +274,6 @@ export class MotionDetector {
       } catch (error) {
         console.warn('❌ iOS Safari permission request failed:', error);
         
-        // Simplified error logging
-        
         return { 
           success: false, 
           message: 'Failed to request motion permission. Try refreshing and allowing motion access.' 
@@ -256,11 +297,6 @@ export class MotionDetector {
     return { success: true };
   }
 
-  private static async requestMotionPermission(): Promise<boolean> {
-    // This method is kept for backwards compatibility but now just calls the public method
-    const result = await this.requestPermission();
-    return result.success;
-  }
 
   static async detectMotion(): Promise<MotionDetectionResult> {
     // Check if DeviceMotionEvent is supported
@@ -275,77 +311,21 @@ export class MotionDetector {
     // Reset cancellation for new detection
     this.isCancelled = false;
 
-    // Determine the appropriate threshold based on device (initial)
+    // Use strong bump profile as default thresholds (standardized across all devices)
     const browserInfo = this.getBrowserInfo();
-    let currentThresholds = this.calculateAdaptiveThresholds(browserInfo, []);
+    const _currentThresholds = {
+      magnitude: DETECTION_PROFILES.strongBump.magnitude,
+      jerk: DETECTION_PROFILES.strongBump.jerk
+    };
     
     console.log(`📱 Motion detection active (${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'})`);
 
     return new Promise((resolve) => {
       let resolved = false;
       let motionEventCount = 0;
-      let recentMagnitudes: Array<{magnitude: number, timestamp: number}> = [];
       let previousMagnitude = 0;
       let previousTimestamp = 0;
-      const allMotionEvents: Array<{
-        timestamp: number;
-        magnitude: number;
-        jerk: number;
-        acceleration: { x: number; y: number; z: number };
-      }> = []; // Store all motion events for analytics
-      
-      // Track peak events for debugging
-      type PeakEvent = {
-        eventNumber: number;
-        magnitude: number;
-        jerk: number;
-        acceleration: { x: number; y: number; z: number };
-        timestamp: number;
-        thresholds: { magnitude: number; jerk: number };
-        metMagnitudeThreshold: boolean;
-        metJerkThreshold: boolean;
-        metBothThresholds: boolean;
-        metStrongBump: boolean;
-        metStrongTap: boolean;
-        metEitherProfile: boolean;
-        metMagnitudePrimed: boolean;
-        metStrongMagnitudePrimed: boolean;
-        metJerkPrimed: boolean;
-        metStrongJerkPrimed: boolean;
-        metSequential: boolean;
-        sequentialState: { magnitudePrimed: boolean; strongMagnitudePrimed: boolean; jerkPrimed: boolean; strongJerkPrimed: boolean };
-      };
-      let peakMagnitudeEvent: PeakEvent | null = null;
-      let peakJerkEvent: PeakEvent | null = null;
-      
       // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
-      // iOS Safari bug: Static state persists despite cleanup attempts
-      if (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
-                                 this.sequentialState.strongMagnitudePrimed || 
-                                 this.sequentialState.jerkPrimed || 
-                                 this.sequentialState.strongJerkPrimed;
-        if (hasAnyPrimedState) {
-          console.warn('🚨 iOS: Found persistent primed state at session start, forcing complete reset:', this.sequentialState);
-          
-          // Nuclear option: Completely recreate the static object on iOS
-          const cleanState = {
-            magnitudePrimed: false,
-            strongMagnitudePrimed: false,
-            jerkPrimed: false,
-            strongJerkPrimed: false,
-            sessionStartTime: Date.now(),
-            lastResetTime: Date.now()
-          };
-          
-          // Delete all properties and reassign
-          delete (this as unknown as { sequentialState?: typeof MotionDetector.sequentialState }).sequentialState;
-          this.sequentialState = cleanState;
-          
-          console.log('🍎 iOS: Nuclear state reset completed:', this.sequentialState);
-        }
-      }
-      
       let magnitudePrimed = this.sequentialState.magnitudePrimed;
       let strongMagnitudePrimed = this.sequentialState.strongMagnitudePrimed;
       let jerkPrimed = this.sequentialState.jerkPrimed;
@@ -376,82 +356,7 @@ export class MotionDetector {
           const deltaMagnitude = magnitude - previousMagnitude;
           jerk = Math.abs(deltaMagnitude / deltaTime); // m/s³
         }
-        
-        // Keep track of recent magnitudes for spike detection
-        recentMagnitudes.push({ magnitude, timestamp: eventTime });
-        recentMagnitudes = recentMagnitudes.filter(m => eventTime - m.timestamp <= SPIKE_DURATION_MS);
-        
-        // Recalculate adaptive thresholds periodically based on recent motion
-        if (motionEventCount % 10 === 0) { // Every 10 events, recalculate
-          currentThresholds = this.calculateAdaptiveThresholds(browserInfo, recentMagnitudes);
-        }
-        
-        // Track peak events for debugging
-        if (!peakMagnitudeEvent || magnitude > peakMagnitudeEvent.magnitude) {
-          peakMagnitudeEvent = {
-            eventNumber: motionEventCount,
-            magnitude: magnitude,
-            jerk: jerk,
-            acceleration: { x: accel.x, y: accel.y, z: accel.z },
-            timestamp: eventTime,
-            thresholds: { ...currentThresholds },
-            metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
-            metJerkThreshold: jerk >= currentThresholds.jerk,
-            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
-            // Dual threshold analysis
-            metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
-            metStrongTap: magnitude >= DETECTION_PROFILES.strongTap.magnitude && jerk >= DETECTION_PROFILES.strongTap.jerk,
-            metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                             (magnitude >= DETECTION_PROFILES.strongTap.magnitude && jerk >= DETECTION_PROFILES.strongTap.jerk),
-            // Sequential detection analysis
-            metMagnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
-            metStrongMagnitudePrimed: strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk,
-            metJerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
-            metStrongJerkPrimed: strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude,
-            metSequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
-                          (strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk) ||
-                          (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude) ||
-                          (strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude),
-            sequentialState: { magnitudePrimed, strongMagnitudePrimed, jerkPrimed, strongJerkPrimed }
-          };
-        }
-        
-        if (!peakJerkEvent || jerk > peakJerkEvent.jerk) {
-          peakJerkEvent = {
-            eventNumber: motionEventCount,
-            magnitude: magnitude,
-            jerk: jerk,
-            acceleration: { x: accel.x, y: accel.y, z: accel.z },
-            timestamp: eventTime,
-            thresholds: { ...currentThresholds },
-            metMagnitudeThreshold: magnitude >= currentThresholds.magnitude,
-            metJerkThreshold: jerk >= currentThresholds.jerk,
-            metBothThresholds: magnitude >= currentThresholds.magnitude && jerk >= currentThresholds.jerk,
-            // Dual threshold analysis
-            metStrongBump: magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk,
-            metStrongTap: magnitude >= DETECTION_PROFILES.strongTap.magnitude && jerk >= DETECTION_PROFILES.strongTap.jerk,
-            metEitherProfile: (magnitude >= DETECTION_PROFILES.strongBump.magnitude && jerk >= DETECTION_PROFILES.strongBump.jerk) || 
-                             (magnitude >= DETECTION_PROFILES.strongTap.magnitude && jerk >= DETECTION_PROFILES.strongTap.jerk),
-            // Sequential detection analysis
-            metMagnitudePrimed: magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk,
-            metStrongMagnitudePrimed: strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk,
-            metJerkPrimed: jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude,
-            metStrongJerkPrimed: strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude,
-            metSequential: (magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk) || 
-                          (strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk) ||
-                          (jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude) ||
-                          (strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude),
-            sequentialState: { magnitudePrimed, strongMagnitudePrimed, jerkPrimed, strongJerkPrimed }
-          };
-        }
-        
-        // Store all motion events for analytics
-        allMotionEvents.push({
-          timestamp: eventTime,
-          magnitude: magnitude,
-          jerk: jerk,
-          acceleration: { x: accel.x, y: accel.y, z: accel.z }
-        });
+        // Note: Using fixed thresholds (no adaptive recalculation needed)
         
         // Update sequential detection state (both local and persistent)
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !magnitudePrimed) {
@@ -489,25 +394,15 @@ export class MotionDetector {
         
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
-          
-          if (strongBumpDetection) {
-            console.log(`🎯 Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
-          } else if (strongTapDetection) {
-            console.log(`🎯 Strong tap detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
-          } else if (magnitudePrimedDetection) {
-            console.log(`🎯 Magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
-          } else if (strongMagnitudePrimedDetection) {
-            console.log(`🎯 Strong magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk}`);
-          } else if (jerkPrimedDetection) {
-            console.log(`🎯 Jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
-          } else if (strongJerkPrimedDetection) {
-            console.log(`🎯 Strong jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.magnitude}`);
-          }
+          this.logDetectionResult(
+            strongBumpDetection, strongTapDetection, magnitudePrimedDetection, 
+            strongMagnitudePrimedDetection, jerkPrimedDetection, strongJerkPrimedDetection,
+            magnitude, jerk
+          );
           
           resolved = true;
           clearInterval(cancellationInterval);
-          window.removeEventListener('devicemotion', handleMotion);
-          this.activeMotionListener = null; // Clear listener reference
+          this.cleanupMotionListener(handleMotion);
           
           // Capture fresh timestamp AFTER all motion detection processing completes
           const detectionCompleteTime = getServerNow();
@@ -532,26 +427,11 @@ export class MotionDetector {
       // Check for cancellation periodically
       const checkCancellation = () => {
         if (this.isCancelled && !resolved) {
-          // Log timeout debugging info
           console.log(`⏰ Motion detection timeout after ${motionEventCount} events`);
-          
-          // Show peak events to help debug why detection didn't trigger
-          if (peakMagnitudeEvent) {
-            console.log(`🔥 Peak magnitude: ${peakMagnitudeEvent.magnitude.toFixed(2)} (jerk: ${peakMagnitudeEvent.jerk.toFixed(1)})`);
-          }
-          
-          if (peakJerkEvent && peakJerkEvent.eventNumber !== peakMagnitudeEvent?.eventNumber) {
-            console.log(`⚡ Peak jerk: ${peakJerkEvent.jerk.toFixed(1)} (magnitude: ${peakJerkEvent.magnitude.toFixed(2)})`);
-          }
-          
-          if (!peakMagnitudeEvent && !peakJerkEvent) {
-            console.log(`📊 No significant motion detected`);
-          }
           
           resolved = true;
           clearInterval(cancellationInterval);
-          window.removeEventListener('devicemotion', handleMotion);
-          this.activeMotionListener = null; // Clear listener reference
+          this.cleanupMotionListener(handleMotion);
           resolve({
             hasMotion: false,
             magnitude: 0,

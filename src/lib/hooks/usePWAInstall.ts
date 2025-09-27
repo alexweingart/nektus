@@ -47,20 +47,17 @@ export const usePWAInstall = () => {
       
       // If already installed, don't show the button
       if (isInstalled) {
-        console.log('PWA: Already installed, hiding button');
         setIsInstallable(false);
         return;
       }
 
       // Show button for all platforms when not installed
-      console.log('PWA: Not installed, showing button');
       setIsInstallable(true);
     };
 
     checkInstallation();
 
     const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('PWA: beforeinstallprompt event fired');
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later

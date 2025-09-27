@@ -51,74 +51,77 @@ interface MatchData {
   sharingCategoryB?: string;
 }
 
-/**
- * Rate limiting with Upstash Redis
- */
-export async function checkRateLimit(
-  key: string, 
-  limit: number, 
-  windowMs: number
-): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for rate limiting');
-  }
 
-  const now = Date.now();
-  const window = Math.floor(now / windowMs);
-  const rateLimitKey = `rate_limit:${key}:${window}`;
-  
-  // Get current count
-  const current = await redis!.get<string>(rateLimitKey);
-  const count = current ? parseInt(current, 10) : 0;
-  
-  if (count >= limit) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime: (window + 1) * windowMs
-    };
-  }
-  
-  // Increment counter
-  const newCount = await redis!.incr(rateLimitKey);
-  
-  // Set expiration if this is the first request in the window
-  if (newCount === 1) {
-    await redis!.expire(rateLimitKey, Math.ceil(windowMs / 1000));
-  }
-  
-  return {
-    allowed: true,
-    remaining: limit - newCount,
-    resetTime: (window + 1) * windowMs
-  };
-}
 
 /**
- * Store pending exchange with Upstash Redis
+ * Check if a candidate matches geographically and temporally
  */
-export async function storePendingExchange(
+async function checkCandidateMatch(
+  candidateSessionId: string,
+  candidateData: ExchangeData,
+  currentLocation: ProcessedLocation,
+  currentTimestamp: number,
   sessionId: string,
-  exchangeData: ExchangeData,
-  ttlSeconds: number = 30
-): Promise<void> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for storing pending exchanges');
+  isAdditional: boolean = false
+): Promise<{ isMatch: boolean; timeDiff: number; confidence: string } | null> {
+  const prefix = isAdditional ? 'Additional c' : 'C';
+  
+  console.log(`🔍 Geographic comparison${isAdditional ? ' (additional)' : ''}: ${sessionId} vs ${candidateSessionId}`);
+  
+  if (!candidateData.timestamp) {
+    console.log(`❌ ${prefix}andidate ${candidateSessionId} has no timestamp, skipping`);
+    console.log(`❌ ${prefix}andidate data:`, JSON.stringify(candidateData, null, 2));
+    return null;
   }
-
-  const key = `pending_exchange:${sessionId}`;
   
-  // Use single global bucket for all exchanges
-  const globalBucketKey = 'geo_bucket:global';
-  
-  // Store the exchange data with TTL
-  await redis!.setex(key, ttlSeconds, JSON.stringify(exchangeData));
-  
-  // Add session to global bucket for matching
-  await redis!.sadd(globalBucketKey, sessionId);
-  await redis!.expire(globalBucketKey, ttlSeconds);
-  
-  console.log(`💾 Stored pending exchange ${sessionId} in global bucket (VPN: ${exchangeData.location?.isVPN}, confidence: ${exchangeData.location?.confidence})`);
+  try {
+    const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+    
+    if (!isAdditional) {
+      console.log(`🔍 Starting geographic comparison for ${candidateSessionId}`);
+      console.log(`🔍 Current location:`, currentLocation);
+      console.log(`🔍 Candidate location:`, candidateData.location);
+    }
+    
+    if (!currentLocation || !candidateData.location) {
+      console.log(`❌ Missing location data - current: ${!!currentLocation}, candidate: ${!!candidateData.location}`);
+      return null;
+    }
+    
+    const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
+    const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
+    
+    if (!isAdditional) {
+      console.log(`🔍 Match info result:`, matchInfo);
+    }
+    
+    console.log(`📍 ${isAdditional ? 'Additional g' : 'G'}eographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
+    console.log(`⏰ ${isAdditional ? 'Additional t' : 'T'}ime diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
+    
+    if (!isAdditional) {
+      console.log(`🕐 Locations: ${JSON.stringify({
+        current: { city: currentLocation.city, state: currentLocation.state, isVPN: currentLocation.isVPN },
+        candidate: { city: candidateData.location.city, state: candidateData.location.state, isVPN: candidateData.location.isVPN }
+      })}`);
+      console.log(`📊 Timestamps: current=${currentTimestamp}, candidate=${candidateData.timestamp}, diff=${timeDiff}ms`);
+    }
+    
+    if (matchInfo.confidence === 'no_match') {
+      console.log(`❌ No geographic overlap between ${sessionId} and ${candidateSessionId}`);
+      return null;
+    }
+    
+    if (timeDiff <= matchInfo.timeWindow) {
+      console.log(`✅ TIMING MATCH${isAdditional ? ' (additional)' : ''}: ${timeDiff}ms ≤ ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
+      return { isMatch: true, timeDiff, confidence: matchInfo.confidence };
+    } else {
+      console.log(`❌ TIMING FAILED${isAdditional ? ' (additional)' : ''}: ${timeDiff}ms > ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
+      return { isMatch: false, timeDiff, confidence: matchInfo.confidence };
+    }
+  } catch (error) {
+    console.log(`❌ Error in${isAdditional ? ' additional' : ''} geographic matching for ${candidateSessionId}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -198,69 +201,36 @@ export async function atomicExchangeAndMatch(
     
     // Geographic confidence-based matching
     if (currentTimestamp && currentLocation && candidateData.location) {
-      console.log(`🔍 Geographic comparison: ${sessionId} vs ${candidateSessionId}`);
+      const matchResult = await checkCandidateMatch(
+        candidateSessionId,
+        candidateData,
+        currentLocation,
+        currentTimestamp,
+        sessionId,
+        false
+      );
       
-      if (!candidateData.timestamp) {
-        console.log(`❌ Candidate ${candidateSessionId} has no timestamp, skipping`);
-        console.log(`❌ Candidate data:`, JSON.stringify(candidateData, null, 2));
+      if (!matchResult) {
         continue;
       }
       
-      try {
-        const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+      if (matchResult.isMatch) {
+        // Within time window - check if this is the best match so far
+        // Priority: 1. Same city > 2. Same state > 3. Same octet > 4. VPN
+        // Within same confidence level, prefer shorter time gap
+        const confidenceRank: Record<string, number> = { city: 4, state: 3, octet: 2, vpn: 1 };
+        const currentRank = confidenceRank[matchResult.confidence];
+        const bestRank = bestMatch ? confidenceRank[bestMatch.confidence] : 0;
         
-        console.log(`🔍 Starting geographic comparison for ${candidateSessionId}`);
-        console.log(`🔍 Current location:`, currentLocation);
-        console.log(`🔍 Candidate location:`, candidateData.location);
-        
-        if (!currentLocation || !candidateData.location) {
-          console.log(`❌ Missing location data - current: ${!!currentLocation}, candidate: ${!!candidateData.location}`);
-          continue;
+        if (!bestMatch || currentRank > bestRank || 
+            (currentRank === bestRank && matchResult.timeDiff < bestMatch.timeDiff)) {
+          bestMatch = {
+            sessionId: candidateSessionId,
+            matchData: candidateData,
+            timeDiff: matchResult.timeDiff,
+            confidence: matchResult.confidence
+          };
         }
-        
-        // Import and use the geographic matching logic
-        const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
-        
-        const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
-        console.log(`🔍 Match info result:`, matchInfo);
-        
-        console.log(`📍 Geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
-        console.log(`⏰ Time diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
-        console.log(`🕐 Locations: ${JSON.stringify({
-          current: { city: currentLocation.city, state: currentLocation.state, isVPN: currentLocation.isVPN },
-          candidate: { city: candidateData.location.city, state: candidateData.location.state, isVPN: candidateData.location.isVPN }
-        })}`);
-        console.log(`📊 Timestamps: current=${currentTimestamp}, candidate=${candidateData.timestamp}, diff=${timeDiff}ms`);
-        
-        if (matchInfo.confidence === 'no_match') {
-          console.log(`❌ No geographic overlap between ${sessionId} and ${candidateSessionId}`);
-          continue;
-        }
-        
-        if (timeDiff <= matchInfo.timeWindow) {
-          console.log(`✅ TIMING MATCH: ${timeDiff}ms ≤ ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
-          // Within time window - check if this is the best match so far
-          // Priority: 1. Same city > 2. Same state > 3. Same octet > 4. VPN
-          // Within same confidence level, prefer shorter time gap
-          const confidenceRank: Record<string, number> = { city: 4, state: 3, octet: 2, vpn: 1 };
-          const currentRank = confidenceRank[matchInfo.confidence];
-          const bestRank = bestMatch ? confidenceRank[bestMatch.confidence] : 0;
-          
-          if (!bestMatch || currentRank > bestRank || 
-              (currentRank === bestRank && timeDiff < bestMatch.timeDiff)) {
-            bestMatch = {
-              sessionId: candidateSessionId,
-              matchData: candidateData,
-              timeDiff,
-              confidence: matchInfo.confidence
-            };
-          }
-        } else {
-          console.log(`❌ TIMING FAILED: ${timeDiff}ms > ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
-        }
-      } catch (error) {
-        console.log(`❌ Error in geographic matching for ${candidateSessionId}:`, error);
-        continue;
       }
     } else {
       // Fallback to immediate match (original behavior)
@@ -327,46 +297,30 @@ export async function atomicExchangeAndMatch(
       
       // Geographic confidence-based matching (same logic as above)
       if (currentTimestamp && currentLocation && candidateData.location) {
-        console.log(`🔍 Geographic comparison (additional): ${sessionId} vs ${candidateSessionId}`);
+        const matchResult = await checkCandidateMatch(
+          candidateSessionId,
+          candidateData,
+          currentLocation,
+          currentTimestamp,
+          sessionId,
+          true
+        );
         
-        if (!candidateData.timestamp) {
-          console.log(`❌ Additional candidate ${candidateSessionId} has no timestamp, skipping`);
-          console.log(`❌ Additional candidate data:`, JSON.stringify(candidateData, null, 2));
-          continue;
-        }
-        
-        try {
-          const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+        if (matchResult?.isMatch) {
+          // Clean up both the matched candidate and our exchange atomically
+          const cleanupPipeline = redis!.multi();
+          cleanupPipeline.del(`pending_exchange:${candidateSessionId}`);
+          cleanupPipeline.srem(globalBucketKey, candidateSessionId);
+          cleanupPipeline.del(exchangeKey);
+          cleanupPipeline.srem(globalBucketKey, sessionId);
+          await cleanupPipeline.exec();
           
-          const { getMatchConfidence } = await import('@/lib/services/server/ipGeolocationService');
-          const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
+          console.log(`🎯 Additional match found: ${candidateSessionId} with time diff ${matchResult.timeDiff}ms (confidence: ${matchResult.confidence})`);
           
-          console.log(`📍 Additional geographic match: ${matchInfo.confidence} (${matchInfo.timeWindow}ms window)`);
-          console.log(`⏰ Additional time diff: ${timeDiff}ms (${timeDiff <= matchInfo.timeWindow ? 'WITHIN' : 'OUTSIDE'} window)`);
-          
-          if (matchInfo.confidence !== 'no_match' && timeDiff <= matchInfo.timeWindow) {
-            console.log(`✅ TIMING MATCH (additional): ${timeDiff}ms ≤ ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
-            
-            // Clean up both the matched candidate and our exchange atomically
-            const cleanupPipeline = redis!.multi();
-            cleanupPipeline.del(`pending_exchange:${candidateSessionId}`);
-            cleanupPipeline.srem(globalBucketKey, candidateSessionId);
-            cleanupPipeline.del(exchangeKey);
-            cleanupPipeline.srem(globalBucketKey, sessionId);
-            await cleanupPipeline.exec();
-            
-            console.log(`🎯 Additional match found: ${candidateSessionId} with time diff ${timeDiff}ms (confidence: ${matchInfo.confidence})`);
-            
-            return {
-              sessionId: candidateSessionId,
-              matchData: candidateData
-            };
-          } else {
-            console.log(`❌ TIMING FAILED (additional): ${timeDiff}ms > ${matchInfo.timeWindow}ms window for ${matchInfo.confidence} match`);
-          }
-        } catch (error) {
-          console.log(`❌ Error in additional geographic matching for ${candidateSessionId}:`, error);
-          continue;
+          return {
+            sessionId: candidateSessionId,
+            matchData: candidateData
+          };
         }
       }
     }
@@ -383,35 +337,6 @@ export async function atomicExchangeAndMatch(
   return null;
 }
 
-/**
- * Legacy function - now just calls atomicExchangeAndMatch for backwards compatibility
- */
-export async function findMatchingExchange(
-  _sessionId: string,
-  _currentLocation: ProcessedLocation,
-  _currentTimestamp?: number,
-  _currentRTT?: number
-): Promise<{ sessionId: string; matchData: ExchangeData } | null> {
-  // This is now just a wrapper - the real logic is in the hit endpoint
-  return null;
-}
-
-// Helper function for distance calculation (unused but kept for future use)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function calculateDistance(pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }): number {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = pos1.lat * Math.PI/180;
-  const φ2 = pos2.lat * Math.PI/180;
-  const Δφ = (pos2.lat-pos1.lat) * Math.PI/180;
-  const Δλ = (pos2.lng-pos1.lng) * Math.PI/180;
-
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-          Math.cos(φ1) * Math.cos(φ2) *
-          Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-  return R * c;
-}
 
 /**
  * Store exchange match
@@ -481,87 +406,8 @@ export async function getExchangeMatch(token: string): Promise<MatchData | null>
   return matchData as MatchData;
 }
 
-/**
- * Store SSE connection
- */
-export async function storeSseConnection(sessionId: string, data: Record<string, unknown>): Promise<void> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for storing SSE connections');
-  }
 
-  await redis!.setex(`sse_connection:${sessionId}`, 30, JSON.stringify(data));
-}
 
-/**
- * Remove pending exchange
- */
-export async function removePendingExchange(sessionId: string, clientIP: string): Promise<void> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for removing pending exchanges');
-  }
-
-  // Get IP prefix for geo bucket
-  const ipPrefix = clientIP.split('.').slice(0, 2).join('.');
-  const geoBucketKey = `geo_bucket:${ipPrefix}`;
-  
-  // Remove from bucket
-  await redis!.srem(geoBucketKey, sessionId);
-  
-  // Remove exchange data
-  await redis!.del(`pending_exchange:${sessionId}`);
-  
-  console.log(`🗑️ Removed pending exchange ${sessionId}`);
-}
-
-/**
- * Find exchange match by session ID
- */
-export async function findExchangeMatchBySession(sessionId: string): Promise<{ token: string; matchData: MatchData; youAre: 'A' | 'B' } | null> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis is not available for finding exchange matches');
-  }
-
-  const sessionMatch = await redis!.get(`exchange_session:${sessionId}`);
-  
-  if (!sessionMatch) {
-    return null;
-  }
-  
-  let sessionData;
-  if (typeof sessionMatch === 'string') {
-    sessionData = JSON.parse(sessionMatch);
-  } else {
-    sessionData = sessionMatch;
-  }
-  
-  const { token, youAre } = sessionData;
-  
-  if (!token) {
-    return null;
-  }
-  
-  const matchData = await getExchangeMatch(token);
-  
-  if (!matchData) {
-    return null;
-  }
-  
-  return {
-    token,
-    matchData,
-    youAre
-  };
-}
-
-/**
- * Get Redis client (for internal use)
- */
-export async function getRedisClient(): Promise<Redis> {
-  if (!isRedisAvailable()) {
-    throw new Error('Redis client is not available');
-  }
-  return redis!;
-}
 
 /**
  * Clean up all pending exchanges for a specific user
@@ -623,9 +469,3 @@ export async function cleanupUserExchanges(userId: string): Promise<void> {
   }
 }
 
-/**
- * Close Redis connection
- */
-export async function closeRedisConnection(): Promise<void> {
-  // Upstash Redis REST client doesn't require explicit close
-}

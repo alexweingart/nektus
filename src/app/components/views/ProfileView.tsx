@@ -25,10 +25,12 @@ const ProfileView: React.FC = () => {
   const { 
     profile, 
     isLoading: isProfileLoading, 
+    isNavigatingFromSetup,
     streamingBio,
     streamingProfileImage,
     streamingSocialContacts
   } = useProfile();
+
 
 
   // Get the latest profile
@@ -137,8 +139,9 @@ const ProfileView: React.FC = () => {
   }, [contactChannels]);
 
 
-  // Show loading state while checking auth status or loading profile
-  if (isProfileLoading || sessionStatus === 'loading') {
+  // Show loading state while checking auth status or loading profile, but not when navigating from setup
+  if ((isProfileLoading || sessionStatus === 'loading') && !isNavigatingFromSetup) {
+    console.log('[ProfileView] Showing main loading state (auth/profile loading)');
     const loadingStyle: React.CSSProperties = {
       position: 'fixed',
       top: 0,
@@ -161,7 +164,7 @@ const ProfileView: React.FC = () => {
   }
 
   // Show loading state during account deletion to prevent "Unable to load profile" flash
-  if (isProfileLoading) {
+  if (isProfileLoading && !isNavigatingFromSetup) {
     console.log('[ProfileView] Showing deletion loading state');
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
@@ -173,7 +176,8 @@ const ProfileView: React.FC = () => {
     );
   }
 
-  if (!profile) {
+  if (!profile && !isNavigatingFromSetup) {
+    console.log('[ProfileView] No profile and not navigating from setup - showing error');
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
@@ -185,6 +189,20 @@ const ProfileView: React.FC = () => {
       </div>
     );
   }
+
+  // If navigating from setup and no profile yet, show a minimal loading state
+  if (isNavigatingFromSetup && !profile) {
+    console.log('[ProfileView] Navigating from setup with no profile - showing save state');
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-2">
+        <div className="flex flex-col items-center">
+          <LoadingSpinner size="sm" className="mb-4" />
+          <p className="text-white">Saving your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-dvh flex flex-col items-center px-4 py-2">

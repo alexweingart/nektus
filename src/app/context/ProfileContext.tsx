@@ -100,25 +100,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
         
         try {
-          console.log('[ProfileContext] === FIREBASE AUTH DEBUG START ===');
-          console.log('[ProfileContext] Session firebaseToken exists:', !!session?.firebaseToken);
-          console.log('[ProfileContext] Firebase already authenticated:', firebaseAuth.isAuthenticated());
-          console.log('[ProfileContext] Current Firebase user:', firebaseAuth.getCurrentUser()?.uid || 'none');
 
           // Sign in to Firebase Auth using the custom token from NextAuth
           if (session?.firebaseToken && !firebaseAuth.isAuthenticated()) {
-            console.log('[ProfileContext] Attempting Firebase Auth sign-in...');
             try {
               // Clear any stale auth state first
               if (firebaseAuth.getCurrentUser()) {
-                console.log('[ProfileContext] Signing out existing Firebase user first...');
                 await firebaseAuth.signOut();
               }
 
-              console.log('[ProfileContext] Using Firebase token:', session.firebaseToken.substring(0, 50) + '...');
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
-              console.log('[ProfileContext] ✅ Firebase Auth signed in successfully');
-              console.log('[ProfileContext] New Firebase user:', firebaseAuth.getCurrentUser()?.uid);
             } catch (authError) {
               console.error('[ProfileContext] ❌ Firebase Auth failed, continuing without auth:', authError);
               console.error('[ProfileContext] Auth error details:', {
@@ -130,9 +121,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           } else if (!session?.firebaseToken) {
             console.warn('[ProfileContext] No Firebase token in session');
           } else if (firebaseAuth.isAuthenticated()) {
-            console.log('[ProfileContext] Firebase Auth already authenticated, skipping sign-in');
           }
-          console.log('[ProfileContext] === FIREBASE AUTH DEBUG END ===');
 
           // Check for existing profile
           const existingProfile = await ProfileService.getProfile(session.user.id);
@@ -759,7 +748,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               setTimeout(() => reject(new Error('Session update timeout')), 10000)
             );
             await Promise.race([sessionUpdatePromise, timeoutPromise]);
-            console.log('[ProfileContext] Session updated successfully');
           } catch (error) {
             console.error('[ProfileContext] Error updating session:', error);
             // Non-fatal
@@ -823,7 +811,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
-    console.log('[ProfileContext] setNavigatingFromSetup called:', navigating);
     setIsNavigatingFromSetup(navigating);
   }, []);
 

@@ -20,6 +20,7 @@ export const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+
 // Check if we're in a browser environment
 const isClient = typeof window !== 'undefined';
 
@@ -44,6 +45,7 @@ if (isClient) {
       
       // Initialize Auth (needed for custom token authentication)
       auth = getAuth(app);
+
       
       // Initialize Firestore with persistence
       try {
@@ -86,7 +88,6 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
 
   try {
     if (!app) {
-      console.log('Initializing Firebase...');
       app = initializeApp(firebaseConfig);
       
       // Initialize Firestore with persistence
@@ -101,7 +102,6 @@ export const initializeFirebaseApp = async (): Promise<FirebaseServices | undefi
       // Initialize Storage
       storage = getStorage(app);
       
-      console.log('Firebase initialized successfully');
     }
 
     if (!app || !db || !auth || !storage) {

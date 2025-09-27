@@ -49,10 +49,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   
-  // Add logging when modal states change
-  useEffect(() => {
-    console.log('🔄 Modal state changed - Success:', showSuccessModal, 'Upsell:', showUpsellModal);
-  }, [showSuccessModal, showUpsellModal]);
   
   const dismissSuccessModal = () => setShowSuccessModal(false);
   const dismissUpsellModal = () => setShowUpsellModal(false);
@@ -68,22 +64,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
     
     const checkExchangeState = async () => {
       try {
-        console.log('🔍 Checking exchange state on component mount...');
-        
         const exchangeState = getExchangeState(token);
-        console.log('🔍 Exchange state:', exchangeState);
         
         if (!exchangeState) {
-          console.log('ℹ️ No exchange state found - waiting for user action');
           return;
         }
         
         // Check if this matches the current profile
         if (exchangeState.profileId !== profile.userId) {
-          console.log('🔍 Exchange state profile mismatch:', {
-            stored: exchangeState.profileId,
-            current: profile.userId
-          });
           return;
         }
         
@@ -92,8 +80,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
         const authResult = urlParams.get('incremental_auth');
         
         if (authResult === 'success') {
-          console.log('✅ Auth successful detected in URL - showing success modal immediately');
-          
           // Show success modal immediately - we know auth succeeded!
           setShowSuccessModal(true);
           
@@ -113,8 +99,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           });
           
           // Make Google API call in background (don't wait for it)
-          saveContactFlow(profile, token).catch(error => {
-            console.warn('Background Google save failed:', error);
+          saveContactFlow(profile, token).catch(() => {
             // Could optionally show a toast notification if the background save fails
           });
           
@@ -122,18 +107,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
         }
         
         if (authResult === 'denied') {
-          console.log('🚫 Auth denied detected in URL, calling saveContactFlow to handle denial');
-          
           // For denied, we still need to call saveContactFlow to handle the denial logic
           const result = await saveContactFlow(profile, token);
-          console.log('📊 SaveContactFlow result from mount (auth denied):', JSON.stringify(result, null, 2));
           
           if (result.showUpsellModal) {
-            console.log('🆙 Setting showUpsellModal to true from mount check');
             setShowUpsellModal(true);
           }
           if (result.showSuccessModal) {
-            console.log('✅ Setting showSuccessModal to true from mount check');
             setShowSuccessModal(true);
           }
           
@@ -142,24 +122,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
         
         // Handle different states (only if no auth params)
         if (exchangeState.state === 'completed_success') {
-          console.log('✅ Found completed success state, showing success modal');
           setShowSuccessModal(true);
           return;
         }
         
         if (exchangeState.state === 'auth_in_progress') {
-          console.log('🔄 Found auth in progress, calling saveContactFlow to handle potential auth return');
-          
           // Call saveContactFlow to handle potential auth return
           const result = await saveContactFlow(profile, token);
-          console.log('📊 SaveContactFlow result from mount:', JSON.stringify(result, null, 2));
           
           if (result.showUpsellModal) {
-            console.log('🆙 Setting showUpsellModal to true from mount check');
             setShowUpsellModal(true);
           }
           if (result.showSuccessModal) {
-            console.log('✅ Setting showSuccessModal to true from mount check');
             setShowSuccessModal(true);
           }
           
@@ -170,42 +144,21 @@ export const ContactView: React.FC<ContactViewProps> = ({
           // Check if we should show upsell based on platform rules
           const iosNonEmbedded = exchangeState.platform === 'ios' && !isEmbeddedBrowser();
           if (shouldShowUpsell(token, exchangeState.platform, iosNonEmbedded)) {
-            console.log('🆙 Should show upsell modal for completed Firebase-only state');
             setShowUpsellModal(true);
           } else {
-            console.log('✅ Should show success modal for completed Firebase-only state');
             setShowSuccessModal(true);
           }
           return;
         }
         
-        console.log('ℹ️ Exchange state in pending state - waiting for user action');
-      } catch (error) {
-        console.error('Error checking exchange state:', error);
+      } catch (_error) {
+        // Error checking exchange state
       }
     };
 
     checkExchangeState();
   }, [profile, profile.userId, token, isHistoricalMode]);
 
-  // Handle incremental auth results and back navigation
-  useEffect(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const authResult = urlParams.get('incremental_auth');
-      console.log('🔍 Auth result from URL params:', authResult);
-      
-      if (authResult === 'denied') {
-        console.log('🚫 User denied Google Contacts permission');
-        // Clean up URL - the ContactSaveService will handle showing upsell modal
-        const url = new URL(window.location.href);
-        url.searchParams.delete('incremental_auth');
-        window.history.replaceState({}, document.title, url.toString());
-      }
-    } catch (error) {
-      console.error('❌ Error handling incremental auth URL params:', error);
-    }
-  }, []);
 
 
   // Apply the contact's background image or default pattern to the screen
@@ -261,12 +214,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           document.body.classList.remove('default-nekt-background');
           document.body.style.background = '';
-        } catch (cleanupError) {
-          console.warn('❌ Error cleaning up background:', cleanupError);
+        } catch (_cleanupError) {
+          // Error cleaning up background
         }
       };
-    } catch (error) {
-      console.error('❌ Error applying contact background:', error);
+    } catch (_error) {
+      // Error applying contact background
     }
   }, [profile?.backgroundImage]);
 
@@ -283,33 +236,23 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
 
       setIsSaving(true);
-      console.log('💾 Saving contact:', getFieldValue(profile.contactEntries, 'name'));
       
       // Call the actual contact save service
       const result = await saveContactFlow(profile, token);
-      console.log('💾 Save contact flow result:', JSON.stringify(result, null, 2));
       
       if (result.success) {
-        console.log('✅ Contact saved successfully');
         if (result.showSuccessModal) {
-          console.log('✅ Showing success modal');
           setShowSuccessModal(true);
         }
         if (result.showUpsellModal) {
-          console.log('🆙 Showing upsell modal');
           setShowUpsellModal(true);
         }
       } else {
-        console.error('❌ Failed to save contact:', {
-          firebase: result.firebase,
-          google: result.google
-        });
         // Could show an error state here
       }
       
-    } catch (error) {
-      console.error('❌ Failed to save contact (exception):', error);
-      console.error('❌ Save contact error stack:', error instanceof Error ? error.stack : 'No stack');
+    } catch (_error) {
+      // Failed to save contact
     } finally {
       setIsSaving(false);
     }
@@ -323,13 +266,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   const handleUpsellAccept = async () => {
     try {
-      console.log('🔄 Starting Google auth for contacts permission...');
-      
       // Use the proper startIncrementalAuth function with current user's ID
       await startIncrementalAuth(token, session?.user?.id || '');
       
-    } catch (error) {
-      console.error('Failed to start Google auth:', error);
+    } catch (_error) {
       // Keep the upsell modal open on error
     }
   };
@@ -350,23 +290,22 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   };
 
+  // Helper function to extract phone number from contact entries
+  const extractPhoneNumber = (contactEntries: typeof profile.contactEntries): string => {
+    if (!contactEntries) return '';
+    const phoneEntry = contactEntries.find(e => e.fieldType === 'phone');
+    return phoneEntry?.value || '';
+  };
+
   const handleSayHi = () => {
     if (!session?.user?.name) {
-      console.warn('Cannot send message: no user session');
       return;
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName,undefined,profile.userId);
-    
-    // Try to use phone number if available from contactEntries
-    let phoneNumber = '';
-    
-    if (profile.contactEntries) {
-      const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
-      phoneNumber = phoneEntry?.value || '';
-    }
+    const phoneNumber = extractPhoneNumber(profile.contactEntries);
     
     openMessagingAppDirectly(messageText, phoneNumber);
     
@@ -377,21 +316,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Handle messaging for historical contacts
   const handleHistoricalMessage = () => {
     if (!session?.user?.name) {
-      console.warn('Cannot send message: no user session');
       return;
     }
 
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
-    
-    // Try to use phone number if available from contactEntries
-    let phoneNumber = '';
-    
-    if (profile.contactEntries) {
-      const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
-      phoneNumber = phoneEntry?.value || '';
-    }
+    const phoneNumber = extractPhoneNumber(profile.contactEntries);
     
     openMessagingAppDirectly(messageText, phoneNumber);
   };
@@ -413,32 +344,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
     return null; // No visual loading state
   }
 
-  // Render contact's background if available
-  const renderContactBackground = () => {
-    if (!profile.backgroundImage) return null;
-
-    // Clean the URL and add cache busting for Firebase Storage URLs
-    let cleanedUrl = profile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-    if (cleanedUrl.includes('firebase') || cleanedUrl.includes('googleusercontent.com')) {
-      const separator = cleanedUrl.includes('?') ? '&' : '?';
-      cleanedUrl = `${cleanedUrl}${separator}v=${Date.now()}`;
-    }
-
-    return (
-      <div
-        id="contact-background"
-        className="custom-background-overlay"
-        style={{
-          backgroundImage: `url("${cleanedUrl}")`,
-        }}
-      />
-    );
-  };
 
   return (
     <div className="fixed inset-0 z-[1000]">
-      {/* Contact's background overlay */}
-      {renderContactBackground()}
       
       <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         

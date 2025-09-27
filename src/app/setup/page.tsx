@@ -13,29 +13,22 @@ export const dynamic = 'force-dynamic';
 
 function SetupPageContent() {
   const { data: session, status } = useSession();
-  const { profile } = useProfile();
+  const { profile: _profile, isNavigatingFromSetup } = useProfile();
   const router = useRouter();
 
   const handleRefresh = async () => {
     // Reload the page to refresh all data
     window.location.reload();
   };
-
-  const phoneEntry = session?.profile?.contactChannels?.entries?.find((e: { platform?: string; internationalPhone?: string }) => e.platform === 'phone');
-  const hasPhone = phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '';
                   
-  const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
+  const isLoading = status === 'loading';
 
   // Handle redirects in useEffect to avoid setState during render
   useEffect(() => {
-    if (!isLoading && session) {
-      if (hasPhone) {
-        router.replace('/');
-      }
-    } else if (!isLoading && !session) {
+    if (!isLoading && !session) {
       router.replace('/');
     }
-  }, [isLoading, session, hasPhone, router]);
+  }, [isLoading, session, router]);
 
   if (isLoading) {
     return (
@@ -47,7 +40,18 @@ function SetupPageContent() {
     );
   }
 
-  if (session && !hasPhone) {
+  if (session) {
+    // Don't render ProfileSetupView if we're navigating away - prevents unnecessary renders
+    if (isNavigatingFromSetup) {
+      return (
+        <PullToRefresh onRefresh={handleRefresh}>
+          <div className="flex items-center justify-center h-full min-h-dvh">
+            <LoadingSpinner size="sm" />
+          </div>
+        </PullToRefresh>
+      );
+    }
+    
     return (
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="flex flex-col items-center px-4 py-2 min-h-dvh">

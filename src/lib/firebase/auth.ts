@@ -60,10 +60,16 @@ export class FirebaseAuthService {
       console.error('[FirebaseAuth] Auth not initialized');
       return null;
     }
-    
+
+
     try {
       const userCredential = await signInWithCustomToken(this.auth, token);
+
       this.currentUser = userCredential.user;
+      if (userCredential.user) {
+      } else {
+        console.error('[FirebaseAuth] ❌ signInWithCustomToken returned null user!');
+      }
       return this.currentUser;
     } catch (error) {
       // Check if it's an invalid/expired token error

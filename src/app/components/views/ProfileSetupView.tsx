@@ -94,7 +94,6 @@ function ProfileSetupView() {
       ]
     };
 
-    console.log('[ProfileSetup] Optimistic navigation - updating session immediately');
     setNavigatingFromSetup(true);
 
     // Update session FIRST to prevent middleware redirect
@@ -103,7 +102,6 @@ function ProfileSetupView() {
         isNewUser: false,
         redirectTo: '/' // Clear setup redirect immediately
       });
-      console.log('[ProfileSetup] Session updated optimistically');
     }
 
     // Navigate immediately after session update
@@ -111,9 +109,7 @@ function ProfileSetupView() {
 
     // Save in background
     try {
-      console.log('[ProfileSetup] Background save starting...');
       await saveProfile(phoneUpdateData);
-      console.log('[ProfileSetup] Profile saved successfully');
     } catch (err) {
       console.error('[ProfileSetup] Background save failed:', err);
       // Could redirect back to setup or show error notification
@@ -131,15 +127,11 @@ function ProfileSetupView() {
   }
 
   // For new users, profile might not exist yet - that's OK for setup
-  console.log('[ProfileSetup] Rendering setup view, profile exists:', !!profile, 'isNewUser:', session?.isNewUser);
 
   // ProfileContext now handles all initialization automatically
   // No manual initialization needed - it will create profile and generate assets normally
 
   // Don't wait for profile - show form immediately for new users
-  if (sessionStatus === 'authenticated') {
-    console.log('[ProfileSetup] Session authenticated, rendering form');
-  }
 
   // Render form content without outer wrapper
   return (

@@ -9,7 +9,6 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import type { ContactExchangeRequest, ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { 
-  checkRateLimit,
   atomicExchangeAndMatch,
   storeExchangeMatch
 } from '@/lib/redis/client';
@@ -46,6 +45,9 @@ function generateExchangeToken(): string {
 export async function POST(request: NextRequest) {
   console.log(`🎯 === HIT ENDPOINT CALLED ===`);
   try {
+    // Get client IP for location matching
+    const clientIP = getClientIP(request);
+    
     // Get session for user authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -55,24 +57,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limiting
-    const clientIP = getClientIP(request);
-    const rateLimit = await checkRateLimit(
-      `exchange:${clientIP}:${session.user.email}`,
-      10, // 10 requests
-      60000 // per minute
-    );
-    
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Rate limit exceeded',
-          resetTime: rateLimit.resetTime
-        },
-        { status: 429 }
-      );
-    }
 
     // Parse request
     const exchangeRequest: ContactExchangeRequest = await request.json();

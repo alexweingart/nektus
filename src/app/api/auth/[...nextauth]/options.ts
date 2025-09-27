@@ -334,11 +334,9 @@ export const authOptions: NextAuthOptions = {
     },
     
     async redirect({ url, baseUrl }) {
-      console.log('[Redirect Callback] url:', url, 'baseUrl:', baseUrl);
       
       // Handle cancellation and errors by redirecting to homepage
       if (url.includes('error=Callback') || url.includes('error=')) {
-        console.log('[Redirect Callback] Error detected, redirecting to homepage');
         return baseUrl;
       }
       
@@ -354,7 +352,6 @@ export const authOptions: NextAuthOptions = {
       
       // For OAuth callback, always redirect to homepage
       // Client-side will check session.isNewUser flag to handle routing
-      console.log('[Redirect Callback] OAuth flow complete, redirecting to homepage');
       return baseUrl;
     },
   },
