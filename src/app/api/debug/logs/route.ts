@@ -19,10 +19,23 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
+    // Try to get user info from session
+    let userInfo = '';
+    try {
+      const { getServerSession } = await import('next-auth');
+      const { authOptions } = await import('@/app/api/auth/[...nextauth]/options');
+      const session = await getServerSession(authOptions);
+      if (session?.user?.email) {
+        userInfo = session.user.email.split('@')[0]; // e.g., 'alwei1335' from 'alwei1335@gmail.com'
+      }
+    } catch (e) {
+      // Ignore session errors
+    }
+
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       event: data.event || 'unknown',
-      message: data.message || '',
+      message: userInfo ? `[${userInfo}] ${data.message || ''}` : (data.message || ''),
       sessionId: data.sessionId
     };
 
