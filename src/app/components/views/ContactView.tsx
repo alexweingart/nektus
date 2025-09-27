@@ -364,8 +364,27 @@ export const ContactView: React.FC<ContactViewProps> = ({
   return (
     <div
       className="fixed inset-0 z-[9999]"
-      style={{ backgroundColor: 'rgba(255, 0, 0, 0.1)' }} // Temporary debug background
+      style={{
+        backgroundColor: 'red', // Solid red background for debugging
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
     >
+      {/* Debug text */}
+      <div style={{
+        position: 'absolute',
+        top: '50px',
+        left: '50px',
+        color: 'white',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        zIndex: 10000,
+        backgroundColor: 'black',
+        padding: '10px'
+      }}>
+        DEBUG: ContactView is rendering! Profile: {profile.userId}
+      </div>
       
       <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         
