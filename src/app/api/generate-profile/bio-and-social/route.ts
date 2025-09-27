@@ -83,13 +83,15 @@ export async function POST(request: NextRequest) {
       socialProfilesVerified: result.socialProfilesVerified
     });
     
-    // CRITICAL: Get fresh profile data before saving to prevent overwrites
-    // This ensures we have the latest phone-based socials if they were generated in parallel
+    // CRITICAL: Get fresh profile data just before saving to prevent overwrites
+    // This ensures we have the latest phone and WhatsApp data from concurrent saves
     const freshProfile = await AdminProfileService.getProfile(userId);
     if (!freshProfile) {
       console.error(`[API/BIO-AND-SOCIAL] Fresh profile not found for user ${userId}`);
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
+
+    console.log(`[API/BIO-AND-SOCIAL] Fresh profile before merge has ${freshProfile.contactEntries?.length || 0} entries`);
 
     // CRITICAL: Merge generated social profiles with existing contact channels to preserve phone data
     const existingEntries = freshProfile.contactEntries || [];
@@ -97,18 +99,25 @@ export async function POST(request: NextRequest) {
     
     // Start with existing entries (preserves phone, WhatsApp, etc.)
     const mergedEntries = [...existingEntries];
-    
+
+    console.log(`[API/BIO-AND-SOCIAL] Existing entries before merge:`, existingEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
+    console.log(`[API/BIO-AND-SOCIAL] Generated entries to merge:`, generatedEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
+
     // Add or update entries from generated social profiles
     generatedEntries.forEach((generatedEntry) => {
       const existingIndex = mergedEntries.findIndex(e => e.fieldType === generatedEntry.fieldType);
       if (existingIndex >= 0) {
+        console.log(`[API/BIO-AND-SOCIAL] OVERWRITING ${generatedEntry.fieldType}:`, mergedEntries[existingIndex], ' → ', generatedEntry);
         // Update existing entry (like email with new data)
         mergedEntries[existingIndex] = { ...mergedEntries[existingIndex], ...generatedEntry };
       } else {
+        console.log(`[API/BIO-AND-SOCIAL] ADDING ${generatedEntry.fieldType}`);
         // Add new entry (social profiles) - cast to ContactEntry
         mergedEntries.push(generatedEntry as ContactEntry);
       }
     });
+
+    console.log(`[API/BIO-AND-SOCIAL] Final merged entries:`, mergedEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
     
     // TODO: Update logging to work with new array format
     

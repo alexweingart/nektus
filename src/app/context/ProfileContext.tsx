@@ -85,10 +85,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   
   const profileRef = useRef<UserProfile | null>(null);
 
+
   // Profile creation/loading effect
   useEffect(() => {
     const loadProfile = async () => {
       if (authStatus === 'authenticated' && session?.user?.id && !profile && !loadingRef.current) {
+        // Allow ProfileContext to run normally for all users
+        // This ensures proper asset generation (bio, profile image, etc.) happens
+
         loadingRef.current = true;
         setIsLoading(true);
         
@@ -96,22 +100,41 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
         
         try {
+          console.log('[ProfileContext] === FIREBASE AUTH DEBUG START ===');
+          console.log('[ProfileContext] Session firebaseToken exists:', !!session?.firebaseToken);
+          console.log('[ProfileContext] Firebase already authenticated:', firebaseAuth.isAuthenticated());
+          console.log('[ProfileContext] Current Firebase user:', firebaseAuth.getCurrentUser()?.uid || 'none');
+
           // Sign in to Firebase Auth using the custom token from NextAuth
           if (session?.firebaseToken && !firebaseAuth.isAuthenticated()) {
+            console.log('[ProfileContext] Attempting Firebase Auth sign-in...');
             try {
               // Clear any stale auth state first
               if (firebaseAuth.getCurrentUser()) {
+                console.log('[ProfileContext] Signing out existing Firebase user first...');
                 await firebaseAuth.signOut();
               }
-              
+
+              console.log('[ProfileContext] Using Firebase token:', session.firebaseToken.substring(0, 50) + '...');
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
+              console.log('[ProfileContext] ✅ Firebase Auth signed in successfully');
+              console.log('[ProfileContext] New Firebase user:', firebaseAuth.getCurrentUser()?.uid);
             } catch (authError) {
-              console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
-              // Continue without Firebase Auth - the app should still work
+              console.error('[ProfileContext] ❌ Firebase Auth failed, continuing without auth:', authError);
+              console.error('[ProfileContext] Auth error details:', {
+                code: (authError as any)?.code,
+                message: (authError as any)?.message
+              });
               // Continue without Firebase Auth - the app should still work
             }
+          } else if (!session?.firebaseToken) {
+            console.warn('[ProfileContext] No Firebase token in session');
+          } else if (firebaseAuth.isAuthenticated()) {
+            console.log('[ProfileContext] Firebase Auth already authenticated, skipping sign-in');
           }
-          
+          console.log('[ProfileContext] === FIREBASE AUTH DEBUG END ===');
+
+          // Check for existing profile
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
             console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
@@ -225,19 +248,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               console.log('[ProfileContext] All assets exist, skipping generation');
             }
           } else {
+            // Profile should exist due to server-side creation, but create fallback if needed
             const newProfile = createDefaultProfile(session);
             setProfile(newProfile);
-            
-            // First save the profile to Firebase with phone data, then generate assets
-            const savedProfile = await saveProfile(newProfile); // This adds phone data and returns merged profile
-            
-            // Now trigger asset generation with the updated profile that includes phone data
-            if (savedProfile) {
-              console.log('[ProfileContext] Profile saved with phone data, triggering asset generation');
-              generateProfileAssets().catch(error => {
-                console.error('[ProfileContext] Asset generation error:', error);
-              });
-            }
+            console.log('[ProfileContext] Created fallback profile - server-side creation may have failed');
+
+            // Trigger asset generation for fallback profile
+            generateProfileAssets().catch(error => {
+              console.error('[ProfileContext] Asset generation error:', error);
+            });
           }
         } catch (error) {
           console.error('[ProfileContext] Failed to load or create profile:', error);
@@ -274,13 +293,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     let bioAndSocialGenerationPromise: Promise<{ bio: string; contactChannels: unknown }> | null = null;
     
     // Generate bio and social links together if not already triggered
+    // Skip generation during setup to prevent race conditions with phone save
     const profileBio = getFieldValue(profile?.contactEntries, 'bio');
     const hasFacebook = profile?.contactEntries?.some(e => e.fieldType === 'facebook' && e.value);
     if (!bioAndSocialGenerationTriggeredRef.current && (!profileBio || !hasFacebook)) {
       bioAndSocialGenerationTriggeredRef.current = true;
       console.log('[ProfileContext] Making unified bio and social API call');
 
-      bioAndSocialGenerationPromise = fetch('/api/generate-profile/bio-and-social', { method: 'POST' })
+      // Small delay to ensure any concurrent phone saves complete first
+      bioAndSocialGenerationPromise = new Promise(resolve => setTimeout(resolve, 200))
+        .then(() => fetch('/api/generate-profile/bio-and-social', { method: 'POST' }))
         .then(res => {
           if (!res.ok) {
             throw new Error(`Bio and social generation API request failed with status: ${res.status}`);
@@ -801,6 +823,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setNavigatingFromSetup = useCallback((navigating: boolean) => {
+    console.log('[ProfileContext] setNavigatingFromSetup called:', navigating);
     setIsNavigatingFromSetup(navigating);
   }, []);
 
@@ -816,24 +839,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const vCardService = await import('@/lib/utils/vCardGeneration');
         const windowWithVCard = window as unknown as {
           generateVCard: typeof vCardService.generateVCard;
-          generateVCard30: typeof vCardService.generateVCard30;
-          generateSimpleVCard: typeof vCardService.generateSimpleVCard;
           createVCardFile: typeof vCardService.createVCardFile;
           downloadVCard: typeof vCardService.downloadVCard;
           saveVCard: typeof vCardService.saveVCard;
           displayVCardInlineForIOS: typeof vCardService.displayVCardInlineForIOS;
         };
         windowWithVCard.generateVCard = vCardService.generateVCard;
-        windowWithVCard.generateVCard30 = vCardService.generateVCard30;
-        windowWithVCard.generateSimpleVCard = vCardService.generateSimpleVCard;
         windowWithVCard.createVCardFile = vCardService.createVCardFile;
         windowWithVCard.downloadVCard = vCardService.downloadVCard;
         windowWithVCard.saveVCard = vCardService.saveVCard;
         windowWithVCard.displayVCardInlineForIOS = vCardService.displayVCardInlineForIOS;
         console.log('✅ vCard testing functions loaded! Available functions:');
         console.log('- generateVCard(profile)');
-        console.log('- generateVCard30(profile)');
-        console.log('- generateSimpleVCard(profile)');
+        console.log('- generateVCard(profile)');
         console.log('- createVCardFile(profile)');
         console.log('- downloadVCard(profile)');
         console.log('- saveVCard(profile)');
@@ -845,6 +863,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }
+
+  // All user initialization now happens in the normal ProfileContext flow
 
   return (
     <ProfileContext.Provider

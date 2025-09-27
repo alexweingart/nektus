@@ -1,9 +1,8 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useProfile } from './context/ProfileContext';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { PullToRefresh } from './components/ui/PullToRefresh';
@@ -25,16 +24,12 @@ const ProfileView = dynamicImport(() => import('./components/views/ProfileView')
 export default function Home() {
   const { data: session, status } = useSession();
   const { profile } = useProfile();
-  const router = useRouter();
+
+  // Middleware now handles all redirects reliably - no client-side redirect needed
+
+  // Server-side redirects now handle routing - simplified client logic
   const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
 
-  // Check if user needs setup based on server-side session data
-  useEffect(() => {
-    if (session?.isNewUser === true) {
-      console.log('[HomePage] User is new, redirecting to setup...');
-      router.push('/setup');
-    }
-  }, [session?.isNewUser, router]);
 
   const handleRefresh = async () => {
     // Reload the page to refresh all data
@@ -44,13 +39,14 @@ export default function Home() {
   // The background is now handled automatically by the root layout and context.
 
   // Show loading state while checking auth status
-  if (isLoading) {
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center h-full min-h-dvh">
         <LoadingSpinner size="sm" />
       </div>
     );
   }
+
 
   // Show profile view if authenticated, otherwise show welcome screen
   if (session) {

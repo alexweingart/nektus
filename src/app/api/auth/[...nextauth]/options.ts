@@ -36,6 +36,7 @@ declare module "next-auth" {
       backgroundImage?: string | null;
     };
     isNewUser?: boolean;
+    redirectTo?: string;
   }
 
   interface User {
@@ -65,6 +66,7 @@ declare module "next-auth/jwt" {
     backgroundImage?: string | null;
     firebaseToken?: string;
     firebaseTokenCreatedAt?: number;
+    redirectTo?: string;
   }
 }
 
@@ -121,7 +123,7 @@ export const authOptions: NextAuthOptions = {
   
   // Callbacks
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account: _account }) {
       console.log('[SignIn Callback] Always allowing sign-in for user:', user?.id);
       // Always allow sign-in - redirect callback will handle routing
       return true;
@@ -166,45 +168,51 @@ export const authOptions: NextAuthOptions = {
         }
       }
         
-      // Server-side Firebase check to determine if user is truly new or existing
+      // Server-side profile management - create/check profile and determine redirects
       // This happens once during authentication - result cached in JWT
       if (account?.id_token) {
         const userId = user?.id || token.sub;
         if (userId) {
           try {
-            const { db } = await getFirebaseAdmin();
-            const profileDoc = await db.collection('profiles').doc(userId).get();
-            if (profileDoc.exists) {
-              const profileData = profileDoc.data();
-              // Store phone info in token if it exists in Firebase (new structure)
-              const phoneEntry = profileData?.contactEntries?.find((e: { fieldType: string }) => e.fieldType === 'phone');
-              if (phoneEntry?.value) {
-                token.profile = {
-                  contactChannels: {
-                    entries: [
-                      {
-                        platform: 'phone',
-                        section: 'universal',
-                        userConfirmed: true,
-                        internationalPhone: phoneEntry.value,
-                        nationalPhone: phoneEntry.value
-                      }
-                    ]
-                  }
-                };
-              }
-              token.isNewUser = !phoneEntry?.value;
-              token.profileImage = profileData?.profileImage || null;
-              token.backgroundImage = profileData?.backgroundImage || null;
-            } else {
-              token.isNewUser = true;
+            const { ServerProfileService } = await import('@/lib/services/server/serverProfileService');
+            const { profile, needsSetup } = await ServerProfileService.getOrCreateProfile(userId, {
+              name: user?.name,
+              email: user?.email,
+              image: user?.image
+            });
+
+            // Set redirect destination based on setup needs
+            token.redirectTo = needsSetup ? '/setup' : '/';
+
+            // Keep existing profile data structure for compatibility
+            const phoneEntry = profile.contactEntries?.find(e => e.fieldType === 'phone');
+            if (phoneEntry?.value) {
+              token.profile = {
+                contactChannels: {
+                  entries: [
+                    {
+                      platform: 'phone',
+                      section: 'universal',
+                      userConfirmed: true,
+                      internationalPhone: phoneEntry.value,
+                      nationalPhone: phoneEntry.value
+                    }
+                  ]
+                }
+              };
             }
+
+            token.isNewUser = needsSetup; // Keep for compatibility
+            token.profileImage = profile.profileImage || null;
+            token.backgroundImage = profile.backgroundImage || null;
           } catch (error) {
-            console.error('JWT: Error checking Firebase profile during authentication:', error);
-            // Default to new user if we can't check (safe fallback)
+            console.error('JWT: Error managing profile during authentication:', error);
+            // Default to setup redirect if we can't check (safe fallback)
+            token.redirectTo = '/setup';
             token.isNewUser = true;
           }
         } else {
+          token.redirectTo = '/setup';
           token.isNewUser = true;
         }
         // --- Persist Google access_token for revocation ---
@@ -279,6 +287,13 @@ export const authOptions: NextAuthOptions = {
         if (session?.profileImage) {
           token.profileImage = session.profileImage as string;
         }
+        // Update redirect status when session is updated
+        if (session?.redirectTo !== undefined) {
+          token.redirectTo = session.redirectTo;
+        }
+        if (session?.isNewUser !== undefined) {
+          token.isNewUser = session.isNewUser;
+        }
       }
       return token;
     },
@@ -307,9 +322,12 @@ export const authOptions: NextAuthOptions = {
             }
           };
         }
-        // Add isNewUser flag to session
+        // Add isNewUser flag and redirect destination to session
         if (token.isNewUser !== undefined) {
           session.isNewUser = token.isNewUser;
+        }
+        if (token.redirectTo) {
+          session.redirectTo = token.redirectTo;
         }
       }
       return session;

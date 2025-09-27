@@ -40,23 +40,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // For authenticated users
+  // For authenticated users - handle server-side redirects based on phone number presence
   if (token) {
-    // Removed automatic redirect from '/' to '/setup' when phone is missing.
-    // The client-side application will now handle prompting the user to add their phone number if needed.
+    const redirectTo = token.redirectTo as string;
 
-    // If on setup page but already has profile, redirect to home
-    if (pathname === '/setup') {
-      try {
-        const phoneEntry = token.profile?.contactChannels?.entries?.find((e: { platform?: string; internationalPhone?: string }) => e.platform === 'phone');
-        const hasPhone = phoneEntry?.internationalPhone && phoneEntry.internationalPhone.trim() !== '';
-        
-        if (hasPhone) {
-          return NextResponse.redirect(new URL('/', request.url));
-        } 
-      } catch {
-        // Continue to setup page on error
-      }
+    // Only redirect to setup if user needs setup and isn't already there
+    if (redirectTo === '/setup' && pathname !== '/setup') {
+      console.log('[Middleware] Redirecting user to setup from:', pathname);
+      return NextResponse.redirect(new URL('/setup', request.url));
     }
   }
 
@@ -67,6 +58,7 @@ export const config = {
   matcher: [
     '/',
     '/setup',
+    '/edit',
     '/history',
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],

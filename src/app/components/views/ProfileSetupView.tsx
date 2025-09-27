@@ -20,11 +20,11 @@ import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
 
 function ProfileSetupView() {
   // Session and authentication
-  const { data: session, status: sessionStatus } = useSession({
+  const { data: session, status: sessionStatus, update } = useSession({
     required: true,
   });
   
-  const { saveProfile, profile, isSaving: isProfileSaving, streamingProfileImage } = useProfile();
+  const { saveProfile, profile, isSaving: isProfileSaving, streamingProfileImage, setNavigatingFromSetup } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -94,21 +94,51 @@ function ProfileSetupView() {
       ]
     };
 
-    router.replace('/');
-    setTimeout(() => {
-      console.log('[ProfileSetup] Now saving profile after navigation');
-      saveProfile(phoneUpdateData).catch(err => {
-        console.error('[ProfileSetup] Failed to save profile:', err);
-      });
-    }, 0);
-  }, [digits, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router]);
+    console.log('[ProfileSetup] Optimistic navigation - updating session immediately');
+    setNavigatingFromSetup(true);
 
-  if (sessionStatus === 'loading' || !profile) {
+    // Update session FIRST to prevent middleware redirect
+    if (update) {
+      await update({
+        isNewUser: false,
+        redirectTo: '/' // Clear setup redirect immediately
+      });
+      console.log('[ProfileSetup] Session updated optimistically');
+    }
+
+    // Navigate immediately after session update
+    router.replace('/');
+
+    // Save in background
+    try {
+      console.log('[ProfileSetup] Background save starting...');
+      await saveProfile(phoneUpdateData);
+      console.log('[ProfileSetup] Profile saved successfully');
+    } catch (err) {
+      console.error('[ProfileSetup] Background save failed:', err);
+      // Could redirect back to setup or show error notification
+    } finally {
+      setNavigatingFromSetup(false);
+    }
+  }, [digits, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+
+  if (sessionStatus === 'loading') {
     return (
       <div className="flex items-center justify-center py-8">
         <LoadingSpinner size="sm" />
       </div>
     );
+  }
+
+  // For new users, profile might not exist yet - that's OK for setup
+  console.log('[ProfileSetup] Rendering setup view, profile exists:', !!profile, 'isNewUser:', session?.isNewUser);
+
+  // ProfileContext now handles all initialization automatically
+  // No manual initialization needed - it will create profile and generate assets normally
+
+  // Don't wait for profile - show form immediately for new users
+  if (sessionStatus === 'authenticated') {
+    console.log('[ProfileSetup] Session authenticated, rendering form');
   }
 
   // Render form content without outer wrapper

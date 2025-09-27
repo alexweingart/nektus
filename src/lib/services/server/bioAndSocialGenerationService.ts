@@ -63,16 +63,15 @@ export class BioAndSocialGenerationService {
       const socialProfilesDiscovered = Object.values(aiResult.socialProfiles).filter(p => p !== null && p !== undefined).length;
       const socialProfilesVerified = Object.values(verifiedProfiles).filter(p => p?.automatedVerification === true).length;
       
-      // Build contact entries with verified social profiles
-      const existingEntries = profile.contactEntries || [];
-      const newEntries = [...existingEntries];
+      // Build contact entries with verified social profiles ONLY
+      // Don't copy existing entries to avoid overwriting concurrent saves
+      const newEntries: ContactEntry[] = [];
       
       // Add or update verified AI-discoverable social profiles
       const socialPlatforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
       socialPlatforms.forEach(platform => {
         const verifiedProfile = verifiedProfiles[platform];
         if (verifiedProfile && verifiedProfile.username) {
-          const existingIndex = newEntries.findIndex(e => e.fieldType === platform);
           const entry: ContactEntry = {
             fieldType: platform,
             value: verifiedProfile.username,
@@ -83,12 +82,8 @@ export class BioAndSocialGenerationService {
             automatedVerification: verifiedProfile.automatedVerification,
             discoveryMethod: verifiedProfile.discoveryMethod
           };
-          
-          if (existingIndex >= 0) {
-            newEntries[existingIndex] = entry;
-          } else {
-            newEntries.push(entry);
-          }
+
+          newEntries.push(entry);
         }
       });
       
@@ -384,18 +379,7 @@ Return your findings as JSON with this exact structure:
   ): SocialProfile | null {
     if (!username) return null;
     
-    const urlPatterns: Record<string, string> = {
-      facebook: `https://facebook.com/${username}`,
-      instagram: `https://instagram.com/${username}`,
-      linkedin: `https://linkedin.com/in/${username}`,
-      x: `https://x.com/${username}`,
-      snapchat: `https://snapchat.com/add/${username}`,
-      whatsapp: `https://wa.me/${username}`,
-      telegram: `https://t.me/${username}`,
-      wechat: `weixin://dl/chat?${username}`
-    };
-    
-    const url = urlPatterns[platform] || '';
+    const url = this.generateUrl(platform, username);
     
     // Determine default section
     const defaultSection = platform === 'linkedin' ? 'work' : 'personal';
@@ -460,7 +444,31 @@ Return your findings as JSON with this exact structure:
     profile: SocialProfile
   ): Promise<SocialProfile | null> {
     try {
-      const isValid = await this.performVerification(platform, profile.username);
+      let isValid = false;
+      
+      // Platform-specific verification logic
+      switch (platform) {
+        case 'instagram':
+          isValid = true; // Skip verification - trust AI discovery
+          break;
+        case 'linkedin':
+          isValid = await this.httpVerifyWithErrorCheck(platform, profile.username);
+          break;
+        case 'facebook':
+        case 'x':
+        case 'snapchat':
+          isValid = await this.httpVerifyWithStatusCheck(platform, profile.username);
+          break;
+        case 'whatsapp':
+        case 'telegram':
+        case 'wechat':
+          // Phone-based platforms are now handled by PhoneBasedSocialService
+          console.warn(`[BioAndSocialGeneration] Unexpected verification request for phone-based platform: ${platform}`);
+          isValid = false;
+          break;
+        default:
+          isValid = false;
+      }
       
       if (isValid) {
         return {
@@ -478,95 +486,21 @@ Return your findings as JSON with this exact structure:
   }
   
   /**
-   * Perform platform-specific verification for a username using targeted endpoints
+   * HTTP verification for platforms that need HTML error checking (LinkedIn)
    */
-  private static async performVerification(platform: string, username: string): Promise<boolean> {
-    const timeoutMs = 5000; // 5 second timeout
+  private static async httpVerifyWithErrorCheck(platform: string, username: string): Promise<boolean> {
+    const timeoutMs = 5000;
     
     try {
-      switch (platform) {
-        case 'instagram':
-          return true; // Skip verification - trust AI discovery
-        case 'linkedin':
-          return await this.verifyLinkedInProfile(username, timeoutMs);
-        case 'facebook':
-          return await this.verifyFacebookProfile(username, timeoutMs);
-        case 'x':
-          return await this.verifyXProfile(username, timeoutMs);
-        case 'snapchat':
-          return await this.verifySnapchatProfile(username, timeoutMs);
-        case 'whatsapp':
-        case 'telegram':
-        case 'wechat':
-          // Phone-based platforms are now handled by PhoneBasedSocialService
-          console.warn(`[BioAndSocialGeneration] Unexpected verification request for phone-based platform: ${platform}`);
+      // Check username format for LinkedIn
+      if (platform === 'linkedin') {
+        const linkedinUsernameRegex = /^[a-zA-Z0-9\-]{3,50}$/;
+        if (!linkedinUsernameRegex.test(username)) {
           return false;
-        default:
-          return false;
-      }
-    } catch (error) {
-      console.error(`[BioAndSocialGeneration] Verification failed for ${platform}/${username}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Verify Instagram profile using the web profile info API
-   */
-  private static async verifyInstagramProfile(username: string, timeoutMs: number): Promise<boolean> {
-    try {
-      // First check username format
-      const instagramUsernameRegex = /^[a-zA-Z0-9_\.]{1,30}$/;
-      if (!instagramUsernameRegex.test(username)) {
-        return false;
+        }
       }
 
-      const url = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${username}`;
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), timeoutMs);
-      });
-      
-      const requestPromise = fetch(url, {
-        method: 'GET',
-        headers: {
-          'x-ig-app-id': '936619743392459',
-          'User-Agent': 'Mozilla/5.0 (compatible; ProfileBot/1.0)',
-        },
-      });
-      
-      const response = await Promise.race([requestPromise, timeoutPromise]);
-      
-      // 404 = user doesn't exist, 200 = user exists
-      if (response.status === 404) {
-        return false;
-      }
-      
-      if (response.status === 200) {
-        const data = await response.json();
-        // Check if we got valid user data
-        return data?.data?.user != null;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error(`[BioAndSocialGeneration] Instagram verification failed for ${username}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Verify LinkedIn profile by checking for "profile not found" error messages
-   */
-  private static async verifyLinkedInProfile(username: string, timeoutMs: number): Promise<boolean> {
-    try {
-      // Check username format
-      const linkedinUsernameRegex = /^[a-zA-Z0-9\-]{3,50}$/;
-      if (!linkedinUsernameRegex.test(username)) {
-        return false;
-      }
-
-      const url = `https://linkedin.com/in/${username}`;
+      const url = this.generateUrl(platform, username);
       
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Timeout')), timeoutMs);
@@ -584,7 +518,7 @@ Return your findings as JSON with this exact structure:
       if (response.status === 200) {
         const html = await response.text();
         
-        // Check for LinkedIn's error messages
+        // Check for error messages (LinkedIn specific)
         const errorMessages = [
           'profile not found',
           'This profile is not available',
@@ -601,17 +535,19 @@ Return your findings as JSON with this exact structure:
       
       return false;
     } catch (error) {
-      console.error(`[BioAndSocialGeneration] LinkedIn verification failed for ${username}:`, error);
+      console.error(`[BioAndSocialGeneration] Error check verification failed for ${platform}/${username}:`, error);
       return false;
     }
   }
 
   /**
-   * Verify Facebook profile using standard HTTP check
+   * HTTP verification for platforms that only need status code checking
    */
-  private static async verifyFacebookProfile(username: string, timeoutMs: number): Promise<boolean> {
+  private static async httpVerifyWithStatusCheck(platform: string, username: string): Promise<boolean> {
+    const timeoutMs = 5000;
+    
     try {
-      const url = `https://facebook.com/${username}`;
+      const url = this.generateUrl(platform, username);
       
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Timeout')), timeoutMs);
@@ -629,66 +565,11 @@ Return your findings as JSON with this exact structure:
       // Accept 2xx and 3xx status codes
       return response.status >= 200 && response.status < 400;
     } catch (error) {
-      console.error(`[BioAndSocialGeneration] Facebook verification failed for ${username}:`, error);
+      console.error(`[BioAndSocialGeneration] Status check verification failed for ${platform}/${username}:`, error);
       return false;
     }
   }
 
-  /**
-   * Verify X (Twitter) profile using standard HTTP check
-   */
-  private static async verifyXProfile(username: string, timeoutMs: number): Promise<boolean> {
-    try {
-      const url = `https://x.com/${username}`;
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), timeoutMs);
-      });
-      
-      const requestPromise = fetch(url, {
-        method: 'HEAD',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ProfileBot/1.0)',
-        },
-      });
-      
-      const response = await Promise.race([requestPromise, timeoutPromise]);
-      
-      // Accept 2xx and 3xx status codes
-      return response.status >= 200 && response.status < 400;
-    } catch (error) {
-      console.error(`[BioAndSocialGeneration] X verification failed for ${username}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Verify Snapchat profile using standard HTTP check
-   */
-  private static async verifySnapchatProfile(username: string, timeoutMs: number): Promise<boolean> {
-    try {
-      const url = `https://snapchat.com/add/${username}`;
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), timeoutMs);
-      });
-      
-      const requestPromise = fetch(url, {
-        method: 'HEAD',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ProfileBot/1.0)',
-        },
-      });
-      
-      const response = await Promise.race([requestPromise, timeoutPromise]);
-      
-      // Accept 2xx and 3xx status codes
-      return response.status >= 200 && response.status < 400;
-    } catch (error) {
-      console.error(`[BioAndSocialGeneration] Snapchat verification failed for ${username}:`, error);
-      return false;
-    }
-  }
   
   /**
    * Generate heuristic profiles based on email username
@@ -784,20 +665,4 @@ Return your findings as JSON with this exact structure:
     return orderMap[platform] || 99;
   }
   
-  /**
-   * Create an empty profile for platforms with no data (failed verification or null values)
-   */
-  private static createEmptyProfile(platform: string): SocialProfile {
-    return {
-      username: '',
-      url: '',
-      userConfirmed: false,
-      automatedVerification: false,
-      discoveryMethod: 'manual' as const,
-      fieldSection: {
-        section: 'hidden' as const,  // Null/empty profiles are automatically hidden
-        order: this.getDefaultOrder(platform)
-      }
-    };
-  }
 } 
