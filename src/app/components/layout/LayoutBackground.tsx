@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { useProfile } from '../../context/ProfileContext';
 
@@ -12,6 +13,7 @@ import { useProfile } from '../../context/ProfileContext';
  */
 export function LayoutBackground() {
   const { profile, isLoading, streamingBackgroundImage } = useProfile();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -131,6 +133,11 @@ export function LayoutBackground() {
       // Cleanup: no DOM manipulation needed for direct div approach
     };
   }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError, isLoading]);
+
+  // Don't render on connect page (ContactView handles its own background)
+  if (pathname === '/connect') {
+    return null;
+  }
 
   // Don't render on server, during profile loading, if no background image, or on error
   const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
