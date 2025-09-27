@@ -75,7 +75,8 @@ function ConnectPageContent() {
           const result = await response.json();
           
           if (result.success && result.profile) {
-            console.log('✅ Loaded matched profile:', result.profile.name);
+            console.log('✅ Loaded matched profile data:', result.profile);
+            console.log('📋 Contact entries:', result.profile.contactEntries);
             setContactProfile(result.profile);
           } else {
             throw new Error('Invalid profile response');
