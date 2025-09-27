@@ -391,9 +391,20 @@ export class MotionDetector {
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
           // DEBUG: Log which specific detection triggered
-          console.log(`🔍 DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)}`);
-          console.log(`🔍 Primed states: magnitudePrimed=${magnitudePrimed}, strongMagnitudePrimed=${strongMagnitudePrimed}, jerkPrimed=${jerkPrimed}, strongJerkPrimed=${strongJerkPrimed}`);
-          console.log(`🔍 Detection types: strongBump=${strongBumpDetection}, strongTap=${strongTapDetection}, magnitudePrimed=${magnitudePrimedDetection}, strongMagnitudePrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`);
+          const debugMsg = `DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)} | Primed: mag=${magnitudePrimed}, strongMag=${strongMagnitudePrimed}, jerk=${jerkPrimed}, strongJerk=${strongJerkPrimed} | Types: bump=${strongBumpDetection}, tap=${strongTapDetection}, magPrimed=${magnitudePrimedDetection}, strongMagPrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`;
+
+          console.log(`🔍 ${debugMsg}`);
+
+          // Send to remote debug logs
+          fetch('/api/debug/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'motion_detection',
+              message: debugMsg,
+              timestamp: new Date().toISOString()
+            })
+          }).catch(() => {});
 
           this.logDetectionResult(
             strongBumpDetection, strongTapDetection, magnitudePrimedDetection,
