@@ -161,11 +161,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
 
 
-  // TEMPORARILY DISABLED: Apply the contact's background image or default pattern to the screen
+  // Apply the contact's background image or default pattern to the screen
   useEffect(() => {
-    console.log('🎨 DEBUG: Background effect disabled for debugging');
-    // Background application is temporarily disabled to debug ContactView visibility
-    /*
     try {
       // Clean up any existing backgrounds (both contact and app backgrounds)
       const existingContactBg = document.getElementById('contact-background');
@@ -198,7 +195,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
-          z-index: 999;
+          z-index: 1;
           pointer-events: none;
         `;
         document.body.appendChild(backgroundDiv);
@@ -224,7 +221,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     } catch {
       // Error applying contact background
     }
-    */
   }, [profile?.backgroundImage]);
 
   const handleSaveContact = async () => {
@@ -373,30 +369,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   console.log('✅ ContactView: Rendering with profile:', profile.userId);
 
   return (
-    <div
-      className="fixed inset-0"
-      style={{
-        backgroundColor: 'red', // Solid red background for debugging
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 99999 // Much higher than contact background (999)
-      }}
-    >
-      {/* Debug text */}
-      <div style={{
-        position: 'absolute',
-        top: '50px',
-        left: '50px',
-        color: 'white',
-        fontSize: '20px',
-        fontWeight: 'bold',
-        zIndex: 100000,
-        backgroundColor: 'black',
-        padding: '10px'
-      }}>
-        DEBUG: ContactView is rendering! Profile: {profile.userId}
-      </div>
+    <div className="fixed inset-0 z-[1000]">
       
       <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         
