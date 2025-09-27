@@ -540,21 +540,25 @@ export const useDragAndDrop = ({
     // Execute drop callback if requested (before state cleanup)
     if (options.executeDropCallback && onFieldArrayDropRef.current && fieldOrderRef.current.length > 0) {
       // Apply pending section change before executing drop callback
+      let finalDraggedField = draggedField!;
       if (pendingSectionChangeRef.current) {
         const { fieldType, originalSection, newSection } = pendingSectionChangeRef.current;
-        const fieldIndex = fieldOrderRef.current.findIndex(f => 
+
+        const fieldIndex = fieldOrderRef.current.findIndex(f =>
           f.fieldType === fieldType && f.section === originalSection
         );
-        
+
         if (fieldIndex !== -1) {
           fieldOrderRef.current[fieldIndex].section = newSection as FieldSection;
+          // Update the draggedField to reflect the new section
+          finalDraggedField = { ...draggedField!, section: newSection as FieldSection };
         }
       }
-      
+
       onFieldArrayDropRef.current({
         fields: fieldOrderRef.current,
-        draggedField: draggedField!, // Non-null when executeDropCallback is true
-        originalField: originalDraggedFieldRef.current || draggedField! // Use preserved original field
+        draggedField: finalDraggedField, // Now has correct section
+        originalField: originalDraggedFieldRef.current || draggedField!
       });
     }
     

@@ -48,8 +48,6 @@ export class ProfileSaveService {
           contactEntries: contactEntriesWithUniqueOrder
         };
         
-        console.log('💾 [ProfileSaveService] Applying unique orders before save:', 
-          contactEntriesWithUniqueOrder.map(f => `${f.fieldType}-${f.section}:${f.order}`));
       }
       
       // Determine merge strategy
@@ -71,9 +69,9 @@ export class ProfileSaveService {
       return { success: true, profile: merged };
     } catch (error) {
       console.error('[ProfileSaveService] Save failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Save failed' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Save failed'
       };
     }
   }
@@ -90,9 +88,6 @@ export class ProfileSaveService {
     
     // Ensure unique order numbers before saving to Firebase
     const contactEntriesWithUniqueOrder = this.assignUniqueOrders(contactEntries);
-    
-    console.log('💾 [ProfileSaveService] Saving to Firebase with unique orders:', 
-      contactEntriesWithUniqueOrder.map(f => `${f.fieldType}-${f.section}:${f.order}`));
     
     const updates: Partial<UserProfile> = {
       contactEntries: contactEntriesWithUniqueOrder,
@@ -162,19 +157,24 @@ export class ProfileSaveService {
   private static assignUniqueOrders(entries: ContactEntry[]): ContactEntry[] {
     const result: ContactEntry[] = [];
     let currentOrder = 0;
-    
-    // First pass: handle priority fields with fixed orders
+
+    // First pass: handle priority fields with fixed orders (ONLY for universal section)
     entries.forEach(entry => {
-      if (entry.fieldType === 'name') {
-        result.push({ ...entry, order: -2 });
-      } else if (entry.fieldType === 'bio') {
-        result.push({ ...entry, order: -1 });
-      } else if (entry.fieldType === 'phone') {
-        result.push({ ...entry, order: 0 });
-      } else if (entry.fieldType === 'email') {
-        result.push({ ...entry, order: 1 });
+      if (entry.section === 'universal') {
+        if (entry.fieldType === 'name') {
+          result.push({ ...entry, order: -2 });
+        } else if (entry.fieldType === 'bio') {
+          result.push({ ...entry, order: -1 });
+        } else if (entry.fieldType === 'phone') {
+          result.push({ ...entry, order: 0 });
+        } else if (entry.fieldType === 'email') {
+          result.push({ ...entry, order: 1 });
+        } else {
+          // Universal non-priority fields will be handled in second pass
+          result.push({ ...entry });
+        }
       } else {
-        // Will be handled in second pass
+        // Personal/work fields will be handled in second pass to get unique sequential orders
         result.push({ ...entry });
       }
     });
@@ -182,12 +182,16 @@ export class ProfileSaveService {
     // Second pass: assign sequential orders to remaining fields (starting from 2)
     currentOrder = 2;
     result.forEach((entry, index) => {
-      if (!['name', 'bio', 'phone', 'email'].includes(entry.fieldType)) {
+      // For universal fields: skip priority fields that already have orders
+      // For personal/work fields: assign sequential orders to ALL fields
+      const isUniversalPriorityField = entry.section === 'universal' && ['name', 'bio', 'phone', 'email'].includes(entry.fieldType);
+
+      if (!isUniversalPriorityField && entry.order === undefined) {
         result[index] = { ...entry, order: currentOrder };
         currentOrder++;
       }
     });
-    
+
     return result;
   }
 

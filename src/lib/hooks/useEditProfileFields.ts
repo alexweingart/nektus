@@ -534,40 +534,43 @@ export const useEditProfileFields = ({
   
   // Drag and drop support - apply final field order and handle cross-section business logic
   const updateFromDragDrop = useCallback((newFields: ContactEntry[], finalDraggedField?: ContactEntry, originalDraggedField?: ContactEntry) => {
-    
+
     // Handle cross-section business logic if needed
     if (finalDraggedField && originalDraggedField && finalDraggedField.section !== originalDraggedField.section) {
-      
+
       // Special handling for universal → personal/work: use splitUniversalField
       if (originalDraggedField.section === 'universal' && (finalDraggedField.section === 'personal' || finalDraggedField.section === 'work')) {
-        
+
         // Find where the field was dropped in the global array
         const globalIndex = newFields.findIndex(f => f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section);
-        
+
         // Calculate section-specific index by counting how many fields of the target section come before this position
-        const targetSectionFieldsBefore = globalIndex >= 0 
+        const targetSectionFieldsBefore = globalIndex >= 0
           ? newFields.slice(0, globalIndex).filter(f => f.section === finalDraggedField.section).length
           : 0;
-        
-        
+
+
         splitUniversalField(
-          finalDraggedField.fieldType, 
-          finalDraggedField.value, 
-          finalDraggedField.section as 'personal' | 'work', 
+          finalDraggedField.fieldType,
+          finalDraggedField.value,
+          finalDraggedField.section as 'personal' | 'work',
           targetSectionFieldsBefore
         );
         return; // splitUniversalField handles the full update
       }
       
       // Other cross-section moves (personal ↔ work, personal/work → universal)
+
       // Find the position where the field was dropped in the newFields array
-      const dropPosition = newFields.findIndex(f => 
+      const dropPosition = newFields.findIndex(f =>
         f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section
       );
-      
+
+
       // Remove all existing entries for this field type to avoid duplicates
       const fieldsWithoutFieldType = newFields.filter(f => f.fieldType !== finalDraggedField.fieldType);
-      
+
+
       // Insert the dragged field at the correct position
       let finalFieldsWithCorrectSection: ContactEntry[];
       if (dropPosition >= 0 && dropPosition <= fieldsWithoutFieldType.length) {
@@ -591,14 +594,15 @@ export const useEditProfileFields = ({
       updateFields(orderedFields);
     } else {
       // Same-section drag - just apply the final field order with correct order properties
+
       const orderedFields = newFields.map((field, index) => ({
         ...field,
         order: index
       }));
-      
+
       updateFields(orderedFields);
     }
-    
+
   }, [updateFields, splitUniversalField]);
   
   // Get field data

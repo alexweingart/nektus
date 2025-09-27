@@ -50,18 +50,18 @@ export const ClientProfileService = {
         console.warn('Cannot save profile: Firebase not initialized');
         return;
       }
-      
+
       const profileData = {
         ...profile,
         lastUpdated: Date.now()
       };
-      
+
       // Add timeout to Firestore operation to prevent hanging
       const savePromise = setDoc(doc(firestore, 'profiles', profile.userId), profileData, { merge: true });
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Firestore save timeout')), 15000)
       );
-      
+
       await Promise.race([savePromise, timeoutPromise]);
     } catch (error) {
       const firestoreError = error as FirestoreError;
