@@ -12,6 +12,7 @@ interface ImageGenerationParams {
   size?: CustomImageSize;
   quality?: 'low' | 'medium' | 'high' | 'auto';
   model?: string;
+  response_format?: 'url' | 'b64_json';
 }
 
 interface ImageGenerationResponse {

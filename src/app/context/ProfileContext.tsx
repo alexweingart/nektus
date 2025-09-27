@@ -101,26 +101,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         
         try {
 
-          // Sign in to Firebase Auth using the custom token from NextAuth
-          if (session?.firebaseToken && !firebaseAuth.isAuthenticated()) {
-            try {
-              // Clear any stale auth state first
-              if (firebaseAuth.getCurrentUser()) {
-                await firebaseAuth.signOut();
-              }
-
-              await firebaseAuth.signInWithCustomToken(session.firebaseToken);
-            } catch (authError) {
-              console.error('[ProfileContext] ❌ Firebase Auth failed, continuing without auth:', authError);
-              console.error('[ProfileContext] Auth error details:', {
-                code: (authError as any)?.code,
-                message: (authError as any)?.message
-              });
+          // Sign in to Firebase if we have a token and aren't signed in
+          if (session?.firebaseToken && !firebaseAuth.getCurrentUser()) {
+            // Don't await - continue loading profile immediately while auth happens in background
+            firebaseAuth.signInWithCustomToken(session.firebaseToken).catch(authError => {
+              console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
               // Continue without Firebase Auth - the app should still work
-            }
-          } else if (!session?.firebaseToken) {
-            console.warn('[ProfileContext] No Firebase token in session');
-          } else if (firebaseAuth.isAuthenticated()) {
+            });
           }
 
           // Check for existing profile
@@ -256,7 +243,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (authStatus === 'unauthenticated') {
         // Sign out of Firebase Auth when NextAuth session ends
-        if (firebaseAuth.isAuthenticated()) {
+        if (firebaseAuth.getCurrentUser()) {
           console.log('[ProfileContext] Signing out of Firebase Auth...');
           try {
             await firebaseAuth.signOut();
@@ -291,7 +278,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       // Small delay to ensure any concurrent phone saves complete first
       bioAndSocialGenerationPromise = new Promise(resolve => setTimeout(resolve, 200))
-        .then(() => fetch('/api/generate-profile/bio-and-social', { method: 'POST' }))
+        .then(() => fetch('/api/generate-profile/bio-and-social', { method: 'POST', credentials: 'include' }))
         .then(res => {
           if (!res.ok) {
             throw new Error(`Bio and social generation API request failed with status: ${res.status}`);
@@ -374,11 +361,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               // Bio and social generation failed, proceeding with profile image without bio
             }
           }
-          
-          return fetch('/api/generate-profile/profile-image', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ streamingBio: bioToUse }) 
+
+          console.log('[ProfileContext] Making profile image API call');
+
+          return fetch('/api/generate-profile/profile-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ streamingBio: bioToUse })
           })
           .then(res => {
             if (!res.ok) {
@@ -388,12 +377,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           })
           .then(data => {
             if (data.imageUrl) {
+              console.log('[ProfileContext] Profile image saved to Firebase storage:', data.imageUrl);
               // Add cache busting to ensure fresh image display
               const cacheBustingUrl = `${data.imageUrl}?v=${Date.now()}`;
-              
+
               // Update streaming state for immediate UI feedback
               setStreamingProfileImage(cacheBustingUrl);
-              
+
               // API already saved to Firebase, no local state update needed
             }
           })
@@ -465,10 +455,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         
         console.log('[ProfileContext] Making background image API call');
         
-        return fetch('/api/generate-profile/background-image', { 
+        return fetch('/api/generate-profile/background-image', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ streamingBio })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ streamingBio }),
+          credentials: 'include'
         })
           .then(res => {
             if (!res.ok) {
@@ -618,7 +609,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({
               phoneNumber: phoneNumber,
               platforms: ['whatsapp']
-            })
+            }),
+            credentials: 'include'
           }).then(async response => {
             if (response.ok) {
               const data = await response.json();

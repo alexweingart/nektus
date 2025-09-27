@@ -32,7 +32,7 @@ const ProfileImageIcon: React.FC<ProfileImageIconProps> = ({
             alt="Profile"
             width={32}
             height={32}
-            className="object-cover w-full h-full"
+            className="object-cover object-center w-full h-full"
             unoptimized={imageUrl.includes('firebasestorage.app')}
             onError={(e) => {
               const target = e.target as HTMLImageElement;

@@ -21,7 +21,7 @@ export const getHighResGoogleImage = (
   if (!googleImageUrl) return '';
   
   // Check if this is a Google image URL
-  if (!googleImageUrl.includes('googleusercontent.com') && !googleImageUrl.includes('googleapis.com')) {
+  if (!googleImageUrl.includes('googleusercontent.com')) {
     return googleImageUrl;
   }
   
@@ -45,7 +45,7 @@ export const getOptimalProfileImageUrl = (
   if (!imageUrl) return '';
   
   // If it's a Google image, upgrade to high-res
-  if (imageUrl.includes('googleusercontent.com') || imageUrl.includes('googleapis.com')) {
+  if (imageUrl.includes('googleusercontent.com')) {
     return getHighResGoogleImage(imageUrl, size, true);
   }
   

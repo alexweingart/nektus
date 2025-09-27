@@ -12,7 +12,7 @@ export class FirebaseAuthService {
 
   constructor() {
     this.auth = auth;
-    this.setupAuthListener();
+    // Don't auto-initialize listener - let components control when they need it
   }
 
   private setupAuthListener() {
@@ -42,14 +42,16 @@ export class FirebaseAuthService {
    * Get the current user
    */
   getCurrentUser(): User | null {
-    return this.currentUser;
+    // Return the Firebase auth current user directly instead of cached value
+    return this.auth?.currentUser || null;
   }
 
   /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return this.currentUser !== null;
+    // Check Firebase auth directly instead of cached value
+    return this.auth?.currentUser !== null;
   }
 
   /**
