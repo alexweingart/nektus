@@ -311,6 +311,13 @@ export class MotionDetector {
     // Reset cancellation for new detection
     this.isCancelled = false;
 
+    // IMPORTANT: Reset sequential state for EACH detectMotion call
+    // This prevents false positives from hand movements when tapping the button
+    this.sequentialState.magnitudePrimed = false;
+    this.sequentialState.strongMagnitudePrimed = false;
+    this.sequentialState.jerkPrimed = false;
+    this.sequentialState.strongJerkPrimed = false;
+
     // Use strong bump profile as default thresholds (standardized across all devices)
     const browserInfo = this.getBrowserInfo();
     
@@ -377,11 +384,8 @@ export class MotionDetector {
         }
         
         // Check for sequential detection: primed conditions from previous events
-        // IMPORTANT: Add minimum magnitude threshold to prevent false positives from tiny movements
-        const MIN_MAGNITUDE_FOR_DETECTION = 2.0; // Minimum magnitude required for ANY detection
-
-        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk && magnitude >= MIN_MAGNITUDE_FOR_DETECTION;
-        const strongMagnitudePrimedDetection = strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk && magnitude >= MIN_MAGNITUDE_FOR_DETECTION;
+        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk;
+        const strongMagnitudePrimedDetection = strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk;
         const jerkPrimedDetection = jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude;
         const strongJerkPrimedDetection = strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude;
         const sequentialDetection = magnitudePrimedDetection || strongMagnitudePrimedDetection || jerkPrimedDetection || strongJerkPrimedDetection;
