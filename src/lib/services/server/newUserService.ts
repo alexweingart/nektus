@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { UserProfile, ContactEntry, FieldSection } from '@/types/profile';
+import { UserProfile, ContactEntry } from '@/types/profile';
 
 /**
  * New User Service

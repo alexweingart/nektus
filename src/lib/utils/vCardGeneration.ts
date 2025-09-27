@@ -427,8 +427,8 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
         cleanup();
         resolve();
       }, 10000);
-      
-    } catch (_error) {
+
+    } catch {
       generateVCard(profile, vCardOptions).then(vCardContent => {
         showVCardInstructions(profile, vCardContent);
         URL.revokeObjectURL(url);

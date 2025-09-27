@@ -3,7 +3,6 @@
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
-import { useProfile } from './context/ProfileContext';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { PullToRefresh } from './components/ui/PullToRefresh';
 
@@ -23,12 +22,10 @@ const ProfileView = dynamicImport(() => import('./components/views/ProfileView')
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const { profile } = useProfile();
 
   // Middleware now handles all redirects reliably - no client-side redirect needed
 
   // Server-side redirects now handle routing - simplified client logic
-  const isLoading = status === 'loading' || (status === 'authenticated' && !profile);
 
 
   const handleRefresh = async () => {

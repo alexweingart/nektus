@@ -48,6 +48,10 @@ function ProfileSetupView() {
     const focusInput = () => {
       if (phoneInputRef.current) {
         phoneInputRef.current.focus();
+        // For Android, also trigger a click to ensure keyboard shows
+        if (detectPlatform().isAndroid) {
+          phoneInputRef.current.click();
+        }
       }
     };
 
@@ -59,9 +63,15 @@ function ProfileSetupView() {
         requestAnimationFrame(focusInput);
       });
     } else if (isAndroid) {
-      // Android: Use longer delay for OAuth callback scenarios
-      const timer = setTimeout(focusInput, 300);
-      return () => clearTimeout(timer);
+      // Android: Use multiple attempts with different delays
+      const timer1 = setTimeout(focusInput, 100);
+      const timer2 = setTimeout(focusInput, 500);
+      const timer3 = setTimeout(focusInput, 1000);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+      };
     } else {
       // Web/Desktop: Focus immediately
       focusInput();
@@ -118,6 +128,7 @@ function ProfileSetupView() {
     }
   }, [digits, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
 
+
   if (sessionStatus === 'loading') {
     return (
       <div className="flex items-center justify-center py-8">
@@ -164,7 +175,7 @@ function ProfileSetupView() {
             
             {/* Phone Input Section */}
             <div className="w-full max-w-[var(--max-content-width)] mx-auto setup-form">
-              <div className="w-full space-y-4">
+              <form onSubmit={handleSave} className="w-full space-y-4">
                 <CustomPhoneInput
                   ref={phoneInputRef}
                   value={digits}
@@ -176,18 +187,23 @@ function ProfileSetupView() {
                     className: "w-full p-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white/90",
                     required: true,
                     'aria-label': 'Phone number',
-                    disabled: isProfileSaving
+                    disabled: isProfileSaving,
+                    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === 'Enter' && !isProfileSaving && digits.replace(/\D/g, '').length >= 10) {
+                        e.preventDefault();
+                        handleSave();
+                      }
+                    }
                   }}
                 />
-                
+
                 <Button
-                  type="button"
+                  type="submit"
                   variant="theme"
                   size="xl"
                   className="w-full font-medium"
                   disabled={isProfileSaving || (digits.replace(/\D/g, '').length < 10)}
                   aria-busy={isProfileSaving}
-                  onClick={handleSave}
                 >
                   {isProfileSaving ? (
                     <span className="flex items-center justify-center">
@@ -199,7 +215,7 @@ function ProfileSetupView() {
                     </span>
                   ) : 'Save'}
                 </Button>
-              </div>
+              </form>
             </div>
           </div>
         </div>

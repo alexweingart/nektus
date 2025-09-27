@@ -383,10 +383,10 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         }}
         type="tel"
         inputMode="tel"
-        autoComplete="tel"
-        style={{ 
-          border: 'none', 
-          outline: 'none', 
+        name="phone"
+        style={{
+          border: 'none',
+          outline: 'none',
           boxShadow: 'none',
           borderTopRightRadius: '9999px',
           borderBottomRightRadius: '9999px',
@@ -400,6 +400,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         maxLength={14}
         disabled={isDisabled}
         {...inputProps}
+        autoComplete={inputProps?.autoComplete || "tel"}
       />
     </div>
     </div>

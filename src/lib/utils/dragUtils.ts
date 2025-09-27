@@ -323,9 +323,6 @@ export const findClosestDropZone = (
       );
       
       if (targetField) {
-        const _targetIndex = fieldOrderRef.findIndex(f => 
-          f.fieldType === targetField.fieldType && f.section === targetField.section
-        );
         
         return {
           newDropZone: {
@@ -363,9 +360,6 @@ export const findClosestDropZone = (
       );
       
       if (targetField) {
-        const _targetIndex = fieldOrderRef.findIndex(f => 
-          f.fieldType === targetField.fieldType && f.section === targetField.section
-        );
         
         return {
           newDropZone: {

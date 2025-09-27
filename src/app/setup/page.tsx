@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 function SetupPageContent() {
   const { data: session, status } = useSession();
-  const { profile: _profile, isNavigatingFromSetup } = useProfile();
+  const { isNavigatingFromSetup } = useProfile();
   const router = useRouter();
 
   const handleRefresh = async () => {

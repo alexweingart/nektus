@@ -313,10 +313,6 @@ export class MotionDetector {
 
     // Use strong bump profile as default thresholds (standardized across all devices)
     const browserInfo = this.getBrowserInfo();
-    const _currentThresholds = {
-      magnitude: DETECTION_PROFILES.strongBump.magnitude,
-      jerk: DETECTION_PROFILES.strongBump.jerk
-    };
     
     console.log(`📱 Motion detection active (${browserInfo.isIOS ? 'iOS' : browserInfo.isAndroid ? 'Android' : 'Other'})`);
 

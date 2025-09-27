@@ -151,7 +151,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           return;
         }
         
-      } catch (_error) {
+      } catch {
         // Error checking exchange state
       }
     };
@@ -214,11 +214,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           document.body.classList.remove('default-nekt-background');
           document.body.style.background = '';
-        } catch (_cleanupError) {
+        } catch {
           // Error cleaning up background
         }
       };
-    } catch (_error) {
+    } catch {
       // Error applying contact background
     }
   }, [profile?.backgroundImage]);
@@ -251,7 +251,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         // Could show an error state here
       }
       
-    } catch (_error) {
+    } catch {
       // Failed to save contact
     } finally {
       setIsSaving(false);
@@ -269,7 +269,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // Use the proper startIncrementalAuth function with current user's ID
       await startIncrementalAuth(token, session?.user?.id || '');
       
-    } catch (_error) {
+    } catch {
       // Keep the upsell modal open on error
     }
   };

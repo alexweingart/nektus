@@ -1,6 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User } from "next-auth";
-import { getFirebaseAdmin, createCustomTokenWithCorrectSub } from "@/lib/firebase/adminConfig";
+import { createCustomTokenWithCorrectSub } from "@/lib/firebase/adminConfig";
 
 
 // Set NEXTAUTH_URL if not set
