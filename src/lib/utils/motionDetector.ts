@@ -344,7 +344,7 @@ export class MotionDetector {
 
         const magnitude = Math.hypot(accel.x, accel.y, accel.z);
         const eventTime = getServerNow(); // For jerk calculations and filtering
-        
+
         // Calculate jerk (rate of change of acceleration)
         let jerk = 0;
         if (previousTimestamp > 0) {
@@ -390,8 +390,13 @@ export class MotionDetector {
         
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
+          // DEBUG: Log which specific detection triggered
+          console.log(`🔍 DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)}`);
+          console.log(`🔍 Primed states: magnitudePrimed=${magnitudePrimed}, strongMagnitudePrimed=${strongMagnitudePrimed}, jerkPrimed=${jerkPrimed}, strongJerkPrimed=${strongJerkPrimed}`);
+          console.log(`🔍 Detection types: strongBump=${strongBumpDetection}, strongTap=${strongTapDetection}, magnitudePrimed=${magnitudePrimedDetection}, strongMagnitudePrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`);
+
           this.logDetectionResult(
-            strongBumpDetection, strongTapDetection, magnitudePrimedDetection, 
+            strongBumpDetection, strongTapDetection, magnitudePrimedDetection,
             strongMagnitudePrimedDetection, jerkPrimedDetection, strongJerkPrimedDetection,
             magnitude, jerk
           );

@@ -103,11 +103,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
           // Sign in to Firebase if we have a token and aren't signed in
           if (session?.firebaseToken && !firebaseAuth.getCurrentUser()) {
-            // Don't await - continue loading profile immediately while auth happens in background
-            firebaseAuth.signInWithCustomToken(session.firebaseToken).catch(authError => {
+            // Await Firebase Auth to ensure we're authenticated before fetching profile
+            // This prevents profile regeneration in new browsers
+            try {
+              await firebaseAuth.signInWithCustomToken(session.firebaseToken);
+              console.log('[ProfileContext] Firebase Auth completed successfully');
+            } catch (authError) {
               console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
-              // Continue without Firebase Auth - the app should still work
-            });
+              // Continue without Firebase Auth - the app should still work with limited functionality
+            }
           }
 
           // Check for existing profile
