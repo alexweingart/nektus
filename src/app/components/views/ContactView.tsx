@@ -340,13 +340,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     ),
   }), []);
 
-  if (!profile) {
-    console.log('❌ ContactView: No profile provided, returning null');
-    return null; // No visual loading state
-  }
-
-  console.log('✅ ContactView: Rendering with profile:', profile.userId);
-
   // Add lifecycle logging
   useEffect(() => {
     console.log('🟢 ContactView: Component mounted');
@@ -356,8 +349,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
   }, []);
 
   useEffect(() => {
-    console.log('🔄 ContactView: Profile changed to:', profile.userId);
+    if (profile?.userId) {
+      console.log('🔄 ContactView: Profile changed to:', profile.userId);
+    }
   }, [profile]);
+
+  if (!profile) {
+    console.log('❌ ContactView: No profile provided, returning null');
+    return null; // No visual loading state
+  }
+
+  console.log('✅ ContactView: Rendering with profile:', profile.userId);
 
   return (
     <div
