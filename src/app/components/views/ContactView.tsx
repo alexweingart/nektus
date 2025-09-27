@@ -349,7 +349,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
 
   return (
-    <div className="fixed inset-0 z-[1000]">
+    <div
+      className="fixed inset-0 z-[9999]"
+      style={{ backgroundColor: 'rgba(255, 0, 0, 0.1)' }} // Temporary debug background
+    >
       
       <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
         
