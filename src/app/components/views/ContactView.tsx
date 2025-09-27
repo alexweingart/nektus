@@ -161,15 +161,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
 
 
-  // Apply the contact's background image or default pattern to the screen
+  // TEMPORARILY DISABLED: Apply the contact's background image or default pattern to the screen
   useEffect(() => {
+    console.log('🎨 DEBUG: Background effect disabled for debugging');
+    // Background application is temporarily disabled to debug ContactView visibility
+    /*
     try {
       // Clean up any existing backgrounds (both contact and app backgrounds)
       const existingContactBg = document.getElementById('contact-background');
       if (existingContactBg) {
         existingContactBg.remove();
       }
-      
+
       // Clean up any app background that might be showing user's background
       const existingAppBg = document.getElementById('app-background');
       if (existingAppBg) {
@@ -221,6 +224,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     } catch {
       // Error applying contact background
     }
+    */
   }, [profile?.backgroundImage]);
 
   const handleSaveContact = async () => {
@@ -343,8 +347,15 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Add lifecycle logging
   useEffect(() => {
     console.log('🟢 ContactView: Component mounted');
+
+    // Add a delay to see if component stays mounted
+    const timer = setTimeout(() => {
+      console.log('🟢 ContactView: Still mounted after 2 seconds');
+    }, 2000);
+
     return () => {
       console.log('🔴 ContactView: Component unmounting');
+      clearTimeout(timer);
     };
   }, []);
 
