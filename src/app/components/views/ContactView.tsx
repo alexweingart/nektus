@@ -347,6 +347,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   console.log('✅ ContactView: Rendering with profile:', profile.userId);
 
+  // Add lifecycle logging
+  useEffect(() => {
+    console.log('🟢 ContactView: Component mounted');
+    return () => {
+      console.log('🔴 ContactView: Component unmounting');
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('🔄 ContactView: Profile changed to:', profile.userId);
+  }, [profile]);
 
   return (
     <div

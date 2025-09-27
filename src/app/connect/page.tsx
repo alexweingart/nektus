@@ -127,7 +127,7 @@ function ConnectPageContent() {
 
   if (session && contactProfile && token) {
     console.log('🎯 Rendering ContactView with profile:', contactProfile.userId);
-    return (
+    const contactView = (
       <ContactView
         profile={contactProfile}
         onReject={() => router.push('/')}
@@ -135,9 +135,12 @@ function ConnectPageContent() {
         token={token}
       />
     );
+    console.log('📱 ContactView JSX created:', !!contactView);
+    return contactView;
   }
 
   // Wait for profile to load - no visual fallback
+  console.log('⏳ ConnectPage: Waiting for data - returning null');
   return null;
 }
 
