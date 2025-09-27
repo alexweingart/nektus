@@ -195,6 +195,8 @@ PLATFORM EXTRACTION RULES:
 Bio Creation:
 - Generate a hyper-personalized bio (max 14 words, exclude their first/last name)
 - Use information from your limited searches efficiently
+- Maximum one semicolon (;) in the bio
+- PRIORITIZE ACTIVE PROFILES: If user has made a post recently, that profile bio is much more important
 - PRIORITIZE SPEED: Don't over-research, use the first good results you find
 
 Return your findings as JSON with this exact structure:

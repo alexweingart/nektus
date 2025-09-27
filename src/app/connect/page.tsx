@@ -118,7 +118,15 @@ function ConnectPageContent() {
   }
 
   // Show contact view if authenticated and profile is loaded
+  console.log('🔍 Render check:', {
+    hasSession: !!session,
+    hasContactProfile: !!contactProfile,
+    hasToken: !!token,
+    shouldRender: !!(session && contactProfile && token)
+  });
+
   if (session && contactProfile && token) {
+    console.log('🎯 Rendering ContactView with profile:', contactProfile.userId);
     return (
       <ContactView
         profile={contactProfile}

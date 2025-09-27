@@ -341,8 +341,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
   }), []);
 
   if (!profile) {
+    console.log('❌ ContactView: No profile provided, returning null');
     return null; // No visual loading state
   }
+
+  console.log('✅ ContactView: Rendering with profile:', profile.userId);
 
 
   return (
