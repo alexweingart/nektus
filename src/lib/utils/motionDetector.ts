@@ -59,18 +59,29 @@ export class MotionDetector {
    */
   static startNewSession(): void {
     const isIOS = this.isIOSDevice();
-    
-    // Log current state before reset for debugging
-    if (isIOS) {
-      const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
-                               this.sequentialState.strongMagnitudePrimed || 
-                               this.sequentialState.jerkPrimed || 
-                               this.sequentialState.strongJerkPrimed;
-      if (hasAnyPrimedState) {
-        console.warn('🚨 iOS: Found persistent primed state before session start:', this.sequentialState);
-      }
-    }
-    
+
+    // Log current state before reset
+    const beforeState = {
+      magnitudePrimed: this.sequentialState.magnitudePrimed,
+      strongMagnitudePrimed: this.sequentialState.strongMagnitudePrimed,
+      jerkPrimed: this.sequentialState.jerkPrimed,
+      strongJerkPrimed: this.sequentialState.strongJerkPrimed
+    };
+
+    const msg = `startNewSession() called - Before: mag=${beforeState.magnitudePrimed}, strongMag=${beforeState.strongMagnitudePrimed}, jerk=${beforeState.jerkPrimed}, strongJerk=${beforeState.strongJerkPrimed}`;
+    console.log(`🔄 ${msg}`);
+
+    // Send to remote logs
+    fetch('/api/debug/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'session_start',
+        message: msg,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(() => {});
+
     // Force complete state reset - iOS Safari can persist static state across browser contexts
     this.sequentialState = {
       magnitudePrimed: false,
@@ -118,8 +129,21 @@ export class MotionDetector {
       
       console.log('🍎 iOS-specific aggressive state cleanup applied');
     }
-    
-    console.log('🔄 Motion session started', this.sequentialState);
+
+    // Log state after reset
+    const afterMsg = `After reset: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
+    console.log(`✅ ${afterMsg}`);
+
+    // Send to remote logs
+    fetch('/api/debug/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'session_reset',
+        message: afterMsg,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(() => {});
   }
 
   // Track active motion listener for proper cleanup
