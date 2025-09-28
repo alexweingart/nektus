@@ -151,7 +151,10 @@ export default function DebugLogsPage() {
               {displayLogs.length === 0 ? (
                 <p className="text-gray-500">No logs yet...</p>
               ) : (
-                displayLogs.slice().reverse().map((log, index) => (
+                displayLogs
+                  .slice()
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .map((log, index) => (
                   <div key={index} className="mb-3 p-3 bg-white rounded border border-gray-200 text-xs">
                     <div className="flex justify-between items-start">
                       <div className="font-mono text-gray-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</div>

@@ -12,7 +12,12 @@ let logs: LogEntry[] = [];
 const MAX_LOGS = 100; // Keep last 100 logs
 
 export async function GET() {
-  return NextResponse.json({ logs: logs.slice(-50) }); // Return last 50 logs
+  // Sort logs by timestamp before returning
+  const sortedLogs = logs
+    .slice(-100) // Get last 100 logs
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return NextResponse.json({ logs: sortedLogs });
 }
 
 export async function POST(request: NextRequest) {
