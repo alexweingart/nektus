@@ -338,8 +338,11 @@ export class MotionDetector {
     // Use strong bump profile as default thresholds (standardized across all devices)
     const browserInfo = this.getBrowserInfo();
 
+    // Generate unique call ID to track overlapping calls
+    const callId = Math.random().toString(36).substring(2, 8);
+
     // DEBUG: Log when detectMotion is called and current state
-    const debugMsg = `detectMotion() called - Current state: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
+    const debugMsg = `detectMotion() called [${callId}] - Current state: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
     console.log(`📱 ${debugMsg}`);
 
     // Send to remote debug logs
@@ -361,7 +364,7 @@ export class MotionDetector {
     this.sequentialState.strongJerkPrimed = false;
 
     // Log the reset
-    const resetMsg = `detectMotion() reset primed states to false`;
+    const resetMsg = `detectMotion() reset primed states to false [${callId}]`;
     console.log(`🔄 ${resetMsg}`);
     fetch('/api/debug/logs', {
       method: 'POST',
@@ -415,7 +418,7 @@ export class MotionDetector {
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !magnitudePrimed) {
           magnitudePrimed = true;
           this.sequentialState.magnitudePrimed = true;
-          const msg = `Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude}`;
+          const msg = `Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} (eventCount=${motionEventCount})`;
           console.log(`📈 ${msg}`);
           fetch('/api/debug/logs', {
             method: 'POST',
