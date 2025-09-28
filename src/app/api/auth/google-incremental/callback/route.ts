@@ -38,11 +38,31 @@ export async function GET(request: NextRequest) {
     // Handle user cancellation or denial
     if (error === 'access_denied') {
       console.log(`❌ User denied Google Contacts permission: ${session.user.id}`);
-      // Use same port detection logic as initial auth
-      const requestUrl = new URL(request.url);
-      const currentPort = requestUrl.port || '3000';
-      const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
-      return NextResponse.redirect(`${nextAuthUrl}/?incremental_auth=denied`);
+
+      // Get the auth state to retrieve the original returnUrl
+      const state = url.searchParams.get('state');
+      let returnUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
+      if (state) {
+        try {
+          const stateData = await getIncrementalAuthState(state);
+          if (stateData && stateData.returnUrl) {
+            returnUrl = stateData.returnUrl;
+            console.log(`📍 Using stored return URL for denial: ${returnUrl}`);
+            // Clean up auth state after denial
+            await deleteIncrementalAuthState(state);
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to retrieve auth state for denial, using fallback URL:', error);
+        }
+      }
+
+      // Build return URL with denial parameter
+      const denialUrl = new URL(returnUrl);
+      denialUrl.searchParams.set('incremental_auth', 'denied');
+
+      console.log(`🔙 Redirecting to original page after denial: ${denialUrl.toString()}`);
+      return NextResponse.redirect(denialUrl.toString());
     }
 
     // Handle silent auth failures - retry with consent
