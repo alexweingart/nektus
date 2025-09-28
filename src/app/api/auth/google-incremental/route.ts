@@ -86,16 +86,47 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append('access_type', 'offline');
     googleAuthUrl.searchParams.append('include_granted_scopes', 'true'); // Key for incremental auth
     
+    // Platform-optimized prompt handling
+    const userAgent = request.headers.get('user-agent') || '';
+    const isIOS = /iPad|iPhone|iPod/i.test(userAgent);
+    const isAndroid = /android/i.test(userAgent);
+    const isSafari = /safari/i.test(userAgent) && !/chrome|crios/i.test(userAgent);
+    const isInAppBrowser = /FBAN|FBAV|Instagram|LINE|Twitter/i.test(userAgent);
+
     if (attempt === 'silent') {
-      // First attempt: try silent authentication to skip account picker
+      // Silent attempt: try to skip all prompts
       googleAuthUrl.searchParams.append('prompt', 'none');
       console.log(`🤐 Attempting silent auth for user ${session.user.id} (prompt=none)`);
+    } else if (attempt === 'explicit') {
+      // Mobile-optimized explicit flow
+      if (isAndroid) {
+        // Android: No prompt param for cleanest flow
+        console.log(`🤖 Android: Using default prompt behavior for user ${session.user.id} (no prompt param)`);
+      } else if (isIOS) {
+        if (isInAppBrowser) {
+          // iOS in-app browsers: Force consent to avoid session issues
+          googleAuthUrl.searchParams.append('prompt', 'consent');
+          console.log(`📱 iOS in-app browser: Forcing consent for user ${session.user.id} (prompt=consent)`);
+        } else if (isSafari) {
+          // iOS Safari: No prompt param works best with Safari's session handling
+          console.log(`🍎 iOS Safari: Using default prompt for user ${session.user.id} (no prompt param)`);
+        } else {
+          // iOS Chrome/Firefox: Use consent for consistency
+          googleAuthUrl.searchParams.append('prompt', 'consent');
+          console.log(`📱 iOS non-Safari: Using consent for user ${session.user.id} (prompt=consent)`);
+        }
+      } else {
+        // Desktop browsers: Use consent for explicit flow
+        googleAuthUrl.searchParams.append('prompt', 'consent');
+        console.log(`💻 Desktop: Using consent for user ${session.user.id} (prompt=consent)`);
+      }
     } else {
-      // Second attempt: show consent screen (this will show account picker if needed)
+      // Fallback: Desktop default
       googleAuthUrl.searchParams.append('prompt', 'consent');
-      console.log(`🔊 Showing consent screen for user ${session.user.id} (prompt=consent)`);
+      console.log(`🔊 Default: Showing consent screen for user ${session.user.id} (prompt=consent)`);
     }
-    console.log(`🔍 Final prompt value: ${googleAuthUrl.searchParams.get('prompt')}`);
+    console.log(`🔍 Final prompt value: ${googleAuthUrl.searchParams.get('prompt') || '(none)'}`);
+    console.log(`🔍 User-Agent: ${userAgent.substring(0, 100)}...`);
     
     // Add login hint if available to suggest the correct account
     if (session.user.email) {

@@ -5,6 +5,7 @@
 import { UserProfile } from '@/types/profile';
 import { getFieldValue } from './profileTransforms';
 import { isEmbeddedBrowser } from './platformDetection';
+import { getHighResGoogleImage } from './imageUtils';
 
 export interface VCardOptions {
   includePhoto?: boolean;
@@ -39,21 +40,27 @@ function logVCardError(message: string, error: unknown): void {
 }
 
 /**
- * Convert Firebase Storage URL to Next.js optimized image URL for vCard compatibility
+ * Convert image URL to optimal version for vCard compatibility
+ * Uses high-res Google images when available, otherwise optimizes through Next.js
  */
 function getOptimizedImageUrl(imageUrl: string): string {
   // If already a Next.js optimized URL, return as-is
   if (imageUrl.includes('/_next/image?')) {
     return imageUrl;
   }
-  
+
+  // For Google profile images, use high-res version directly (better quality than Next.js optimization)
+  if (imageUrl.includes('googleusercontent.com')) {
+    return getHighResGoogleImage(imageUrl, 300, true); // 300px for better quality in vCard
+  }
+
   // If it's a Firebase Storage URL, optimize it through Next.js
   if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('firebasestorage.app')) {
     const encodedUrl = encodeURIComponent(imageUrl);
-    // Use very small size for vCard compatibility (150px max, low quality for smaller file size)
-    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=150&q=40`;
+    // Use moderate size for vCard compatibility (250px, better quality than before)
+    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=250&q=75`;
   }
-  
+
   // For other URLs, return as-is
   return imageUrl;
 }

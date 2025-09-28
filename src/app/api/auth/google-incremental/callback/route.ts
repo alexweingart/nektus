@@ -73,13 +73,13 @@ export async function GET(request: NextRequest) {
       const requestUrl = new URL(request.url);
       const currentPort = requestUrl.port || '3000';
       const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
-      
-      // Build retry URL with attempt=consent
+
+      // Build retry URL with attempt=explicit (Android-friendly)
       const retryUrl = new URL(`${nextAuthUrl}/api/auth/google-incremental`);
       retryUrl.searchParams.set('returnUrl', retryParams.returnUrl);
       retryUrl.searchParams.set('contactSaveToken', retryParams.contactSaveToken);
       retryUrl.searchParams.set('profileId', retryParams.profileId);
-      retryUrl.searchParams.set('attempt', 'consent');
+      retryUrl.searchParams.set('attempt', 'explicit');
       
       return NextResponse.redirect(retryUrl.toString());
     }

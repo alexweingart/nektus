@@ -1,6 +1,13 @@
 /**
  * Client-side incremental authorization service for Google OAuth
  * Simplified to redirect-only flow to avoid COOP issues
+ *
+ * Platform-specific behaviors:
+ * - Android: Skip silent auth (often fails), go straight to explicit flow
+ * - iOS Safari: Try silent auth first (better session handling)
+ * - iOS in-app browsers: Skip to explicit (OAuth issues in WKWebView)
+ * - iOS Chrome/Firefox: Skip to explicit (different session handling than Safari)
+ * - Desktop: Try silent auth first, then explicit if needed
  */
 
 // Constants for permission error detection
@@ -247,12 +254,45 @@ export function handleIncrementalAuthReturn(existingState?: { token?: string; pr
  */
 export async function startIncrementalAuth(contactSaveToken: string, profileId: string): Promise<{ success: boolean; showUpsellModal?: boolean }> {
   console.log('🔄 Starting Google auth for contacts permission...');
-  
-  // Build auth URL using existing endpoint  
-  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=silent`;
-  
+
+  // Platform-specific optimization
+  const userAgent = navigator.userAgent;
+  const isAndroid = /android/i.test(userAgent);
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isSafari = /safari/i.test(userAgent) && !/chrome/i.test(userAgent);
+  const isInAppBrowser = /FBAN|FBAV|Instagram|LINE|Twitter/i.test(userAgent);
+
+  let attempt = 'silent'; // Default desktop behavior
+
+  if (isAndroid) {
+    // Android: Skip silent attempt as it often fails
+    attempt = 'explicit';
+    console.log(`🤖 Android detected, using explicit flow`);
+  } else if (isIOS) {
+    // iOS: Different strategy based on browser context
+    if (isInAppBrowser) {
+      // In-app browsers on iOS have OAuth issues, go straight to explicit
+      attempt = 'explicit';
+      console.log(`📱 iOS in-app browser detected, using explicit flow`);
+    } else if (isSafari) {
+      // Safari on iOS: Try silent first (works better with Safari's session handling)
+      attempt = 'silent';
+      console.log(`🍎 iOS Safari detected, trying silent flow first`);
+    } else {
+      // Other iOS browsers (Chrome, Firefox): Go straight to explicit
+      attempt = 'explicit';
+      console.log(`📱 iOS non-Safari browser, using explicit flow`);
+    }
+  } else {
+    // Desktop: Keep silent attempt
+    console.log(`💻 Desktop detected, using silent flow`);
+  }
+
+  // Build auth URL using existing endpoint
+  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=${attempt}`;
+
   window.location.href = authUrl;
-  
+
   // For redirects, we can't wait for completion, so return immediately
   return { success: false, showUpsellModal: false };
 }
