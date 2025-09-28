@@ -128,12 +128,12 @@ const config = process.env.NODE_ENV === 'production'
       runtimeCaching: [
         {
           urlPattern: /\/favicon\.(ico|svg|png)$/,
-          handler: 'NetworkFirst',
+          handler: 'NetworkOnly',
           options: {
-            cacheName: 'favicon-cache',
+            cacheName: 'favicon-cache-v2',
             expiration: {
               maxEntries: 1,
-              maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              maxAgeSeconds: 1 * 60 * 60, // 1 hour only
             },
           },
         },

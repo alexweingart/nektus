@@ -22,16 +22,7 @@ export const metadata: Metadata = {
   description: "Exchange contact info and social profiles by bumping phones",
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
-      { url: '/pwa/nektus-logo-pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/pwa/nektus-logo-pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    shortcut: '/favicon.ico',
     apple: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
       { url: '/pwa/nektus-logo-pwa-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/pwa/nektus-logo-pwa-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
@@ -71,10 +62,104 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Favicon debugging
+            (function() {
+              console.log('🔍 Favicon Debug: Initial load');
+
+              // Monitor favicon changes
+              const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                  if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(function(node) {
+                      if (node.nodeType === 1 && node.tagName === 'LINK' &&
+                          (node.rel === 'icon' || node.rel === 'shortcut icon')) {
+                        console.log('🔍 Favicon Debug: New favicon added:', node.href);
+                      }
+                    });
+                    mutation.removedNodes.forEach(function(node) {
+                      if (node.nodeType === 1 && node.tagName === 'LINK' &&
+                          (node.rel === 'icon' || node.rel === 'shortcut icon')) {
+                        console.log('🔍 Favicon Debug: Favicon removed:', node.href);
+                      }
+                    });
+                  }
+                  if (mutation.type === 'attributes' && mutation.target.tagName === 'LINK' &&
+                      (mutation.target.rel === 'icon' || mutation.target.rel === 'shortcut icon')) {
+                    console.log('🔍 Favicon Debug: Favicon modified:', mutation.target.href);
+                  }
+                });
+              });
+
+              observer.observe(document.head, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['href']
+              });
+
+              // Log current favicons
+              document.addEventListener('DOMContentLoaded', function() {
+                const favicons = document.querySelectorAll('link[rel*="icon"]');
+                console.log('🔍 Favicon Debug: Current favicons:', Array.from(favicons).map(f => f.href));
+              });
+
+              // Force favicon refresh function
+              function forceFaviconRefresh() {
+                console.log('🔄 Forcing favicon refresh...');
+
+                // Remove all existing favicon links (except apple-touch-icon)
+                const existingFavicons = document.querySelectorAll('link[rel*="icon"]:not([rel*="apple"])');
+                existingFavicons.forEach(link => link.remove());
+
+                const timestamp = Date.now();
+
+                // Add multiple favicon formats with cache-busting
+                const favicons = [
+                  { rel: 'icon', type: 'image/png', href: '/favicon.png?t=' + timestamp },
+                  { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg?t=' + timestamp },
+                  { rel: 'shortcut icon', type: 'image/x-icon', href: '/favicon.ico?t=' + timestamp }
+                ];
+
+                favicons.forEach(favicon => {
+                  const link = document.createElement('link');
+                  link.rel = favicon.rel;
+                  link.type = favicon.type;
+                  link.href = favicon.href;
+                  document.head.appendChild(link);
+                });
+
+                console.log('🔄 Favicon refreshed with PNG:', '/favicon.png?t=' + timestamp);
+              }
+
+              // Monitor page visibility changes (OAuth redirects)
+              document.addEventListener('visibilitychange', function() {
+                console.log('🔍 Favicon Debug: Page visibility changed:', document.visibilityState);
+
+                if (document.visibilityState === 'visible') {
+                  // Force refresh when page becomes visible again (after OAuth redirect)
+                  setTimeout(forceFaviconRefresh, 500);
+                }
+
+                const favicons = document.querySelectorAll('link[rel*="icon"]');
+                console.log('🔍 Favicon Debug: Favicons after visibility change:', Array.from(favicons).map(f => f.href));
+              });
+
+              // Immediate favicon refresh on load
+              forceFaviconRefresh();
+
+              // Also refresh favicon after page load
+              document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(forceFaviconRefresh, 100);
+                setTimeout(forceFaviconRefresh, 1000);
+              });
+            })();
+          `
+        }} />
       </head>
       <body className={`${inter.variable} antialiased`}>
         <SessionProvider session={session}>
