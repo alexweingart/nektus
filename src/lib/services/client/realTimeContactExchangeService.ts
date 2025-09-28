@@ -42,12 +42,24 @@ export class RealTimeContactExchangeService {
    * Start the contact exchange process with single timeout control
    */
   async startExchange(
-    _permissionAlreadyGranted: boolean = false, 
+    _permissionAlreadyGranted: boolean = false,
     sharingCategory: 'All' | 'Personal' | 'Work' = 'All'
   ): Promise<void> {
     try {
-      console.log(`🎯 Starting exchange (${sharingCategory})`);
-      
+      const msg = `Starting exchange (${sharingCategory}) with session ${this.sessionId}`;
+      console.log(`🎯 ${msg}`);
+
+      // Send to debug logs
+      fetch('/api/debug/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'exchange_start_method',
+          message: msg,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(() => {});
+
       // Send exchange_start event to trigger server-side cleanup
       try {
         await fetch('/api/system/ping', {
@@ -67,10 +79,32 @@ export class RealTimeContactExchangeService {
       
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
-      
-      // Start fresh motion detection session 
+
+      // Send debug log before calling startNewSession
+      fetch('/api/debug/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'before_session_start',
+          message: `About to call MotionDetector.startNewSession()`,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(() => {});
+
+      // Start fresh motion detection session
       const { MotionDetector } = await import('@/lib/utils/motionDetector');
       MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
+
+      // Send debug log after calling startNewSession
+      fetch('/api/debug/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'after_session_start',
+          message: `MotionDetector.startNewSession() completed`,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(() => {});
       
       
       // Permission is always handled by ExchangeButton - no need to check again
