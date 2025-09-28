@@ -260,30 +260,39 @@ export async function POST(
       // User accepted - get the other user's profile and return it
       const otherUserProfile = isUserA ? matchData.userB : matchData.userA;
       const otherUserId = otherUserProfile.userId;
-      
+      const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+
       try {
-        
+
         if (otherUserProfile) {
-          console.log(`User ${session.user.email} accepted exchange with ${otherUserId}`);
-          
+          console.log(`User ${session.user.email} accepted exchange with ${otherUserId} (sharing: ${otherUserSharingCategory})`);
+
+          // Filter the profile based on the sharing category the other user selected
+          const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+          const filteredProfile = filterProfileByCategory(otherUserProfile, category);
+
           return NextResponse.json({
             success: true,
-            profile: otherUserProfile as unknown,
+            profile: filteredProfile,
             message: 'Exchange accepted'
           } as ContactExchangeResponse);
         } else {
           throw new Error('Profile not found');
         }
-        
+
       } catch (error) {
         console.error('Error fetching accepted profile:', error);
-        
+
         // Return mock profile if Firebase fails
         const mockProfile = createMockProfile();
-        
+
+        // Filter the mock profile based on the sharing category they selected
+        const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+        const filteredMockProfile = filterProfileByCategory(mockProfile, category);
+
         return NextResponse.json({
           success: true,
-          profile: mockProfile,
+          profile: filteredMockProfile,
           message: 'Exchange accepted (using mock profile)'
         } as ContactExchangeResponse);
       }
