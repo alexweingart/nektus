@@ -1,5 +1,4 @@
 import { MotionDetectionResult } from '@/types/contactExchange';
-import { getServerNow } from '../services/client/clockSyncService';
 
 // Dual threshold system - either condition can trigger detection
 const DETECTION_PROFILES = {
@@ -403,7 +402,7 @@ export class MotionDetector {
         }
 
         const magnitude = Math.hypot(accel.x, accel.y, accel.z);
-        const eventTime = getServerNow(); // For jerk calculations and filtering
+        const eventTime = Date.now(); // For jerk calculations and filtering
 
         // Calculate jerk (rate of change of acceleration)
         let jerk = 0;
@@ -501,7 +500,7 @@ export class MotionDetector {
           this.cleanupMotionListener(handleMotion);
           
           // Capture fresh timestamp AFTER all motion detection processing completes
-          const detectionCompleteTime = getServerNow();
+          const detectionCompleteTime = Date.now();
           
           resolve({
             hasMotion: true,
@@ -531,7 +530,7 @@ export class MotionDetector {
           resolve({
             hasMotion: false,
             magnitude: 0,
-            timestamp: getServerNow()
+            timestamp: Date.now()
           });
         }
       };

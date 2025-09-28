@@ -3,7 +3,6 @@
  * Replaces the simulated exchange with real server communication
  */
 
-import { getServerNow, getClockSyncInfo } from '@/lib/services/client/clockSyncService';
 import type { 
   ContactExchangeRequest, 
   ContactExchangeResponse,
@@ -317,12 +316,12 @@ export class RealTimeContactExchangeService {
         hitCount++;
         lastHitTime = now;
         
-        console.log(`🚀 Hit #${hitCount} detected (mag=${motionResult.magnitude.toFixed(2)}, ts=${motionResult.timestamp || getServerNow()})`);
+        console.log(`🚀 Hit #${hitCount} detected (mag=${motionResult.magnitude.toFixed(2)}, ts=${motionResult.timestamp || Date.now()})`);
         
         // Prepare exchange request - use the timestamp from when motion was actually detected
         const tSent = performance.now();
         const request: ContactExchangeRequest = {
-          ts: motionResult.timestamp || getServerNow(), // Use motion detection timestamp (already synchronized)
+          ts: motionResult.timestamp || Date.now(), // Use motion detection timestamp or fallback to Date.now()
           mag: motionResult.magnitude,
           session: this.sessionId,
           sharingCategory: sharingCategory, // Include selected sharing category
@@ -336,8 +335,6 @@ export class RealTimeContactExchangeService {
           request.vector = await MotionDetector.hashAcceleration(motionResult.acceleration);
         }
 
-        // Add RTT estimate
-        request.rtt = await this.estimateRTT();
 
         // Send hit to server (only now, after motion is detected)
         if (isFirstHit) {
@@ -395,25 +392,6 @@ export class RealTimeContactExchangeService {
     return result;
   }
 
-
-
-  private async estimateRTT(): Promise<number> {
-    // Use clock sync RTT if available, otherwise measure fresh
-    const clockSyncInfo = getClockSyncInfo();
-    if (clockSyncInfo?.roundTripTime) {
-      return clockSyncInfo.roundTripTime;
-    }
-    
-    // Fallback to fresh measurement
-    const start = performance.now();
-    try {
-      await fetch('/api/system/ping', { method: 'HEAD' });
-      const rtt = performance.now() - start;
-      return rtt;
-    } catch {
-      return 100; // Default fallback
-    }
-  }
 
 
 

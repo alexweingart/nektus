@@ -63,38 +63,17 @@ export async function POST(request: NextRequest) {
     const tReceived = await getRedisTime(); // Redis consistent time
     
     // Validate required fields
-    if (!exchangeRequest.session || !exchangeRequest.ts) {
+    if (!exchangeRequest.session) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Calculate timing deltas for diagnostics
-    const now = await getRedisTime();
-    const clientTimestamp = exchangeRequest.ts;
-    const timeDiff = Math.abs(now - clientTimestamp);
-    const clockSkew = now - clientTimestamp; // positive = client clock is behind server
-    
-    // Calculate network delay estimate (if RTT is provided from client)
-    const networkDelay = exchangeRequest.rtt ? exchangeRequest.rtt / 2 : undefined;
-    
+    // Log timing information for diagnostics
     console.log(`📊 TIMING BREAKDOWN:
       - Server receive time: ${tReceived}
-      - Client timestamp (sync'd): ${clientTimestamp}
-      - Clock skew: ${clockSkew}ms (positive = client behind)
-      - Time diff: ${timeDiff}ms
-      - Network delay estimate: ${networkDelay ? `${networkDelay.toFixed(1)}ms` : 'N/A'}
-      - Client RTT: ${exchangeRequest.rtt || 'N/A'}ms`);
-    
-    // Validate timestamp (not too old, not in future)
-    if (timeDiff > 10000) { // 10 seconds tolerance
-      console.warn(`❌ Timestamp rejected: ${timeDiff}ms difference`);
-      return NextResponse.json(
-        { success: false, message: 'Request timestamp is invalid' },
-        { status: 400 }
-      );
-    }
+      - Client timestamp (for reference): ${exchangeRequest.ts || 'N/A'}`)
 
     // Get IP location data (should be cached from ping endpoint)
     const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
@@ -116,13 +95,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare exchange data
+    // Prepare exchange data with server timestamp
     const exchangeData = {
       userId: session.user.id,
       profile: userProfile as unknown as UserProfile,
-      timestamp: exchangeRequest.ts,
+      timestamp: exchangeRequest.ts || tReceived, // Use client timestamp if provided, otherwise server timestamp
+      serverTimestamp: tReceived, // Add server receive timestamp for matching
       location: locationData,
-      rtt: exchangeRequest.rtt,
       mag: exchangeRequest.mag,
       vector: exchangeRequest.vector,
       sessionId: exchangeRequest.session,
@@ -130,7 +109,8 @@ export async function POST(request: NextRequest) {
     };
 
     console.log(`📨 Hit from ${session.user.email} (session: ${exchangeRequest.session}):`, {
-      timestamp: exchangeRequest.ts,
+      serverTimestamp: tReceived,
+      clientTimestamp: exchangeRequest.ts || 'N/A',
       magnitude: exchangeRequest.mag,
       location: `${locationData.city || 'unknown'}, ${locationData.state || 'unknown'}`,
       isVPN: locationData.isVPN,
@@ -146,7 +126,7 @@ export async function POST(request: NextRequest) {
       exchangeRequest.session,
       exchangeData,
       locationData, // Pass location data for geographic matching
-      exchangeRequest.ts, // pass timestamp for time-based matching
+      tReceived, // Pass server timestamp for time-based matching
       30 // TTL seconds
     );
     console.log(`🔍 Atomic operation result:`, matchResult);

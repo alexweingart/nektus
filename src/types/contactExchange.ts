@@ -1,11 +1,10 @@
 import { UserProfile } from './profile';
 
 export interface ContactExchangeRequest {
-  ts: number;        // client timestamp in ms (synchronized with server)
-  rtt?: number;      // round trip time from NTP sync
-  mag: number;       // acceleration magnitude 
+  ts?: number;       // client timestamp in ms (optional, for logging only)
+  mag: number;       // acceleration magnitude
   vector?: string;   // SHA-256 hash of acceleration vector
-  session: string;   // WebSocket session ID
+  session: string;   // Session ID
   tSent?: number;    // Performance timing when request was sent (for diagnostics)
   sharingCategory?: 'All' | 'Personal' | 'Work'; // Selected sharing category
   hitNumber?: number; // Sequential hit number during matching window

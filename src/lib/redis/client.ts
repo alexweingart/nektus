@@ -30,9 +30,9 @@ export { redis };
 interface ExchangeData {
   userId: string;
   profile: UserProfile;
-  timestamp: number;
+  timestamp: number; // Client timestamp (kept for backwards compatibility)
+  serverTimestamp?: number; // Server receive timestamp (used for matching)
   location?: ProcessedLocation;
-  rtt?: number;
   mag: number;
   vector?: string;
   sessionId: string;
@@ -60,22 +60,25 @@ async function checkCandidateMatch(
   candidateSessionId: string,
   candidateData: ExchangeData,
   currentLocation: ProcessedLocation,
-  currentTimestamp: number,
+  currentServerTimestamp: number,
   sessionId: string,
   isAdditional: boolean = false
 ): Promise<{ isMatch: boolean; timeDiff: number; confidence: string } | null> {
   const prefix = isAdditional ? 'Additional c' : 'C';
   
   console.log(`🔍 Geographic comparison${isAdditional ? ' (additional)' : ''}: ${sessionId} vs ${candidateSessionId}`);
-  
-  if (!candidateData.timestamp) {
+
+  // Use server timestamp for matching, fallback to client timestamp for backwards compatibility
+  const candidateServerTimestamp = candidateData.serverTimestamp || candidateData.timestamp;
+
+  if (!candidateServerTimestamp) {
     console.log(`❌ ${prefix}andidate ${candidateSessionId} has no timestamp, skipping`);
     console.log(`❌ ${prefix}andidate data:`, JSON.stringify(candidateData, null, 2));
     return null;
   }
-  
+
   try {
-    const timeDiff = Math.abs(currentTimestamp - candidateData.timestamp);
+    const timeDiff = Math.abs(currentServerTimestamp - candidateServerTimestamp);
     
     if (!isAdditional) {
       console.log(`🔍 Starting geographic comparison for ${candidateSessionId}`);
@@ -103,7 +106,7 @@ async function checkCandidateMatch(
         current: { city: currentLocation.city, state: currentLocation.state, isVPN: currentLocation.isVPN },
         candidate: { city: candidateData.location.city, state: candidateData.location.state, isVPN: candidateData.location.isVPN }
       })}`);
-      console.log(`📊 Timestamps: current=${currentTimestamp}, candidate=${candidateData.timestamp}, diff=${timeDiff}ms`);
+      console.log(`📊 Server timestamps: current=${currentServerTimestamp}, candidate=${candidateServerTimestamp}, diff=${timeDiff}ms`);
     }
     
     if (matchInfo.confidence === 'no_match') {
@@ -132,7 +135,7 @@ export async function atomicExchangeAndMatch(
   sessionId: string,
   exchangeData: ExchangeData,
   currentLocation: ProcessedLocation,
-  currentTimestamp?: number,
+  currentServerTimestamp?: number,
   ttlSeconds: number = 30
 ): Promise<{ sessionId: string; matchData: ExchangeData } | null> {
   if (!isRedisAvailable()) {
@@ -200,12 +203,12 @@ export async function atomicExchangeAndMatch(
     }
     
     // Geographic confidence-based matching
-    if (currentTimestamp && currentLocation && candidateData.location) {
+    if (currentServerTimestamp && currentLocation && candidateData.location) {
       const matchResult = await checkCandidateMatch(
         candidateSessionId,
         candidateData,
         currentLocation,
-        currentTimestamp,
+        currentServerTimestamp,
         sessionId,
         false
       );
@@ -296,12 +299,12 @@ export async function atomicExchangeAndMatch(
       }
       
       // Geographic confidence-based matching (same logic as above)
-      if (currentTimestamp && currentLocation && candidateData.location) {
+      if (currentServerTimestamp && currentLocation && candidateData.location) {
         const matchResult = await checkCandidateMatch(
           candidateSessionId,
           candidateData,
           currentLocation,
-          currentTimestamp,
+          currentServerTimestamp,
           sessionId,
           true
         );
