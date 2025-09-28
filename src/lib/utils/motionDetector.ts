@@ -353,6 +353,26 @@ export class MotionDetector {
       })
     }).catch(() => {});
 
+    // CRITICAL FIX: Reset primed states for each detectMotion call
+    // This prevents false positives from previous detectMotion calls in the same session
+    this.sequentialState.magnitudePrimed = false;
+    this.sequentialState.strongMagnitudePrimed = false;
+    this.sequentialState.jerkPrimed = false;
+    this.sequentialState.strongJerkPrimed = false;
+
+    // Log the reset
+    const resetMsg = `detectMotion() reset primed states to false`;
+    console.log(`🔄 ${resetMsg}`);
+    fetch('/api/debug/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'motion_reset',
+        message: resetMsg,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(() => {});
+
     return new Promise((resolve) => {
       let resolved = false;
       let motionEventCount = 0;
