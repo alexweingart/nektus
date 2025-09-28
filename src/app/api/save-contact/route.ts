@@ -10,6 +10,7 @@ import { getProfile, getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import { saveToGoogleContacts } from '@/lib/services/server/googleContactsService';
 import { getExchangeMatch } from '@/lib/redis/client';
 import { getContactsAccessToken } from '@/lib/services/server/serverIncrementalAuthService';
+import { filterProfileByCategory } from '@/lib/utils/profileFiltering';
 import type { ContactSaveResult } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 
@@ -84,8 +85,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         
         if (isUserA || isUserB) {
           const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
+          const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
           const rawProfile = await getProfile(otherUserId);
-          contactProfile = rawProfile as unknown as UserProfile;
+
+          // Filter the profile based on the sharing category the other user selected
+          const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+          contactProfile = filterProfileByCategory(rawProfile as unknown as UserProfile, category);
         }
       }
       
@@ -118,8 +123,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Get the other user's profile
       const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
+      const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
       const rawProfile = await getProfile(otherUserId);
-      contactProfile = rawProfile as unknown as UserProfile;
+
+      // Filter the profile based on the sharing category the other user selected
+      const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
+      contactProfile = filterProfileByCategory(rawProfile as unknown as UserProfile, category);
       
       if (!contactProfile) {
         return NextResponse.json(
