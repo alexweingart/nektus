@@ -122,7 +122,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
             // Android-specific: Ensure session is synced with loaded profile
             // Run async (don't await) to avoid blocking the loading screen
-            if (isAndroid && existingProfile.contactEntries) {
+            // Skip during setup navigation to prevent redirect loops
+            if (isAndroid && existingProfile.contactEntries && !isNavigatingFromSetup) {
               const phoneEntry = existingProfile.contactEntries.find(e => e.fieldType === 'phone');
               const sessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionProfileEntry) => e.platform === 'phone');
 
