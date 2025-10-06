@@ -92,8 +92,8 @@ if (hasGoogleCredentials) {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          prompt: "consent",
-          access_type: "offline", 
+          prompt: "select_account",
+          access_type: "offline",
           response_type: "code",
           scope: "openid email profile https://www.googleapis.com/auth/userinfo.profile",
           // Force account selection to ensure user can pick different account
