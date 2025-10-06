@@ -119,108 +119,48 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           if (existingProfile) {
             console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
             setProfile(existingProfile);
-            
+
             // Android-specific: Ensure session is synced with loaded profile
+            // Run async (don't await) to avoid blocking the loading screen
             if (isAndroid && existingProfile.contactEntries) {
               const phoneEntry = existingProfile.contactEntries.find(e => e.fieldType === 'phone');
               const sessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionProfileEntry) => e.platform === 'phone');
-              
+
               if (phoneEntry?.value && sessionPhoneEntry?.internationalPhone !== phoneEntry.value) {
-                // Force session update to sync with Firebase data
-                try {
-                  if (update) {
-                    await update({
-                      profile: {
-                        contactChannels: {
-                          entries: [
-                            {
-                              platform: 'phone',
-                              section: phoneEntry.section,
-                              userConfirmed: phoneEntry.confirmed,
-                              internationalPhone: phoneEntry.value,
-                              nationalPhone: phoneEntry.value || ''
-                            }
-                          ]
-                        }
+                // Force session update to sync with Firebase data (async, don't block)
+                if (update) {
+                  update({
+                    profile: {
+                      contactChannels: {
+                        entries: [
+                          {
+                            platform: 'phone',
+                            section: phoneEntry.section,
+                            userConfirmed: phoneEntry.confirmed,
+                            internationalPhone: phoneEntry.value,
+                            nationalPhone: phoneEntry.value || ''
+                          }
+                        ]
                       }
-                    });
-                  }
-                } catch (error) {
-                  console.error('[ProfileContext] Failed to update session:', error);
+                    }
+                  }).catch(error => {
+                    console.error('[ProfileContext] Failed to update session:', error);
+                  });
                 }
               }
             }
             
-            // Check each asset individually and trigger only what's needed
-            // Only generate what's actually missing
-            let needsGeneration = false;
-            
+            // Check if we need to generate assets
+            // generateProfileAssets() will handle detailed checks asynchronously (including People API)
             const existingBio = getFieldValue(existingProfile.contactEntries, 'bio');
-            if (!existingBio) {
-              console.log('[ProfileContext] Bio missing, will generate');
-              needsGeneration = true;
-            }
-            
-            // Note: Background generation logic moved to generateProfileAssets() 
-            // to properly wait for profile image generation decisions
-            
-            // Check if we need to generate a profile image
-            let shouldGenerateProfileImage = false;
-            
-            // If we already have a profile image stored in Firebase, skip all checks
-            if (existingProfile.profileImage) {
-              // Skip generation check
-            } else {
-              // Only check if we need to generate when no profile image exists in Firebase
-              const currentProfileImage = session?.user?.image;
-              
-              console.log('[ProfileContext] Profile image check in initial load:', {
-                existingProfileImage: existingProfile.profileImage,
-                sessionImage: session?.user?.image,
-                currentProfileImage,
-                hasGoogleImage: currentProfileImage?.includes('googleusercontent.com')
-              });
-              
-              if (!currentProfileImage) {
-                console.log('[ProfileContext] No profile image, will generate');
-                shouldGenerateProfileImage = true;
-              } else if (currentProfileImage?.includes('googleusercontent.com')) {
-                // For Google users, use the proper API to check if it's auto-generated initials
-                try {
-                  const accessToken = session?.accessToken;
-                  if (accessToken) {
-                    console.log('[ProfileContext] Checking Google profile image via People API...');
-                    const shouldGenerate = await isGoogleInitialsImage(accessToken);
-                    if (shouldGenerate) {
-                      console.log('[ProfileContext] Google profile image is auto-generated initials, will generate custom one');
-                      shouldGenerateProfileImage = true;
-                    } else {
-                      console.log('[ProfileContext] Google profile image is user-uploaded, keeping existing');
-                    }
-                  } else {
-                    console.log('[ProfileContext] No Google access token available, falling back to URL check');
-                    // Fallback to simple string check if no access token
-                    if (currentProfileImage?.includes('=s96-c')) {
-                      console.log('[ProfileContext] Google profile image appears to be initials (URL check), will generate');
-                      shouldGenerateProfileImage = true;
-                    }
-                  }
-                } catch (error) {
-                  console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
-                  // Fallback to simple string check on error
-                  if (currentProfileImage?.includes('=s96-c')) {
-                    console.log('[ProfileContext] Google profile image appears to be initials (URL fallback), will generate');
-                    shouldGenerateProfileImage = true;
-                  }
-                }
-              }
-            }
-            
-            if (shouldGenerateProfileImage) {
-              needsGeneration = true;
-            }
-            
+            const needsGeneration = !existingBio || !existingProfile.profileImage || !existingProfile.backgroundImage;
+
             if (needsGeneration) {
+              console.log('[ProfileContext] Assets missing, triggering generation:', {
+                hasBio: !!existingBio,
+                hasProfileImage: !!existingProfile.profileImage,
+                hasBackgroundImage: !!existingProfile.backgroundImage
+              });
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
               });
@@ -424,27 +364,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         } else {
           // Check current profile image state
           const currentProfileImage = profile?.profileImage || session?.user?.image;
-          
-          // Only generate background if we have a custom profile image (not Google initials)
+
+          // Only generate background if we have a custom profile image
+          // Don't generate for:
+          // 1. No profile image at all
+          // 2. AI-generated avatars (those get solid color backgrounds)
           if (!currentProfileImage) return false;
-          if (currentProfileImage.includes('googleusercontent.com')) {
-            // Check if it's initials
-            try {
-              const accessToken = session?.accessToken;
-              if (accessToken) {
-                const isInitials = await isGoogleInitialsImage(accessToken);
-                return !isInitials; // Generate background only if it's NOT initials
-              } else {
-                // Fallback: if URL contains =s96-c, it's likely initials
-                return !currentProfileImage.includes('=s96-c');
-              }
-            } catch (error) {
-              console.error('[ProfileContext] Error checking if Google image is initials:', error);
-              return !currentProfileImage.includes('=s96-c');
-            }
-          }
-          
+
           // For Firebase-stored images, only generate background if it's user-uploaded (not AI-generated)
+          // For Google images, we'll generate a profile image first, so this won't be reached
           return !profile?.aiGeneration?.avatarGenerated;
         }
       };

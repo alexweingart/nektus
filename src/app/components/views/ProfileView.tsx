@@ -142,25 +142,8 @@ const ProfileView: React.FC = () => {
   // Show loading state while checking auth status or loading profile, but not when navigating from setup
   if ((isProfileLoading || sessionStatus === 'loading') && !isNavigatingFromSetup) {
     console.log('[ProfileView] Showing main loading state (auth/profile loading)');
-    const loadingStyle: React.CSSProperties = {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100dvh',
-      backgroundColor: 'black',
-      zIndex: 1000
-    };
-    return (
-      <div style={loadingStyle}>
-        <div className="flex items-center justify-center w-full h-full">
-          <div className="flex flex-col items-center">
-            <LoadingSpinner size="sm" className="mb-4" />
-            <p className="text-white">Loading profile...</p>
-          </div>
-        </div>
-      </div>
-    );
+    // Return empty div - green background pattern from body will show through for smooth transition
+    return <div className="min-h-dvh w-full" />;
   }
 
   // Show loading state during account deletion to prevent "Unable to load profile" flash
