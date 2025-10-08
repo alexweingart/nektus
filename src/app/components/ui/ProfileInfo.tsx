@@ -158,7 +158,26 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             <div className="mb-3 text-center">
               <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
-            
+
+            {/* Location Display */}
+            {(() => {
+              const personalLocation = profile?.locations?.find(loc => loc.section === 'personal');
+              if (personalLocation) {
+                return (
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <Text variant="small" className="text-white/90">
+                      {personalLocation.city}, {personalLocation.region}
+                    </Text>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Bio with markdown support */}
             <div className="mb-4 text-center">
               <style>{`
@@ -202,7 +221,26 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             <div className="mb-3 text-center">
               <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
-            
+
+            {/* Location Display */}
+            {(() => {
+              const workLocation = profile?.locations?.find(loc => loc.section === 'work');
+              if (workLocation) {
+                return (
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <Text variant="small" className="text-white/90">
+                      {workLocation.city}, {workLocation.region}
+                    </Text>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Bio with markdown support */}
             <div className="mb-4 text-center">
               <div className="bio-content text-white">

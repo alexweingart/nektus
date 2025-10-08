@@ -155,6 +155,7 @@ export interface Event {
 // Location interface
 export interface UserLocation {
   id: string;
+  userId: string;
   city: string;
   region: string;
   address?: string;
