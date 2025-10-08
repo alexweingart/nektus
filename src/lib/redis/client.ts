@@ -148,12 +148,17 @@ export async function atomicExchangeAndMatch(
   // Check if this session already exists (multiple hits from same session)
   const existingExchangeData = await redis!.get(exchangeKey);
   const sessionAlreadyExists = !!existingExchangeData;
-  
+
+  console.log(`🔍 [MATCH DEBUG] Session ${sessionId} - sessionAlreadyExists: ${sessionAlreadyExists}`);
+  if (sessionAlreadyExists) {
+    console.log(`🔍 [MATCH DEBUG] Existing session data:`, existingExchangeData);
+  }
+
   // First, get current candidates before our transaction
   const currentCandidates = await redis!.smembers(globalBucketKey) as string[];
   console.log(`🔍 Pre-transaction: Global bucket contains ${currentCandidates.length} candidates:`, currentCandidates);
   console.log(`🔍 Current session ${sessionId} checking against bucket ${globalBucketKey}`);
-  
+
   if (sessionAlreadyExists) {
     console.log(`🔄 Session ${sessionId} already exists - using existing data for comparison, not overwriting yet`);
   } else {
@@ -272,10 +277,13 @@ export async function atomicExchangeAndMatch(
   
   // No match found in pre-existing candidates, but let's also check if any new candidates arrived after we stored
   if (!sessionAlreadyExists) {
+    console.log(`🔍 [MATCH DEBUG] Checking for additional candidates (sessionAlreadyExists=${sessionAlreadyExists})`);
     console.log(`🔍 Checking for any new candidates that may have arrived after our storage...`);
     const newCandidates = await redis!.smembers(globalBucketKey) as string[];
     const additionalCandidates = newCandidates.filter(c => c !== sessionId && !currentCandidates.includes(c));
     console.log(`🔍 Found ${additionalCandidates.length} additional candidates:`, additionalCandidates);
+    console.log(`🔍 [MATCH DEBUG] Pre-existing candidates:`, currentCandidates);
+    console.log(`🔍 [MATCH DEBUG] All candidates now:`, newCandidates);
     
     // Check these additional candidates too
     for (const candidateSessionId of additionalCandidates) {
@@ -334,9 +342,12 @@ export async function atomicExchangeAndMatch(
     console.log(`🔄 No match found, now updating existing session ${sessionId} with newer data`);
     await redis!.setex(exchangeKey, ttlSeconds, JSON.stringify(exchangeData));
     console.log(`💾 Updated exchange ${sessionId} with newer timestamp`);
+  } else {
+    console.log(`🔍 [MATCH DEBUG] SKIPPED additional candidates check because sessionAlreadyExists=${sessionAlreadyExists}`);
   }
-  
+
   console.log(`⏳ No match found, exchange ${sessionId} remains in bucket for future matching`);
+  console.log(`🔍 [MATCH DEBUG] Final state - Session: ${sessionId}, sessionAlreadyExists: ${sessionAlreadyExists}, returning null`);
   return null;
 }
 

@@ -166,6 +166,7 @@ body::before {
   z-index: 1; /* Positive z-index, behind content but above body background */
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
 }
 
 /* Custom background pseudo-element - layered over green pattern */
@@ -393,4 +394,59 @@ select {
 .vcard-modal-btn.close {
   background: #666;
   color: white;
+}
+
+/* ============================================================================ */
+/* CalConnect Gradient Utilities (adapted to Nekt's teal/green theme)          */
+/* ============================================================================ */
+
+:root {
+  /* Update to use Nekt's gradient colors (teal/green theme) */
+  --icon-gradient: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); /* light green gradient */
+}
+
+/* Utility classes for gradient elements */
+.gradient-icon {
+  background: var(--icon-gradient);
+}
+
+/* Gradient text utilities */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border utilities for focus states */
+.gradient-border-focus-within {
+  position: relative;
+}
+
+.gradient-border-focus-within > * {
+  position: relative;
+  z-index: 2;
+}
+
+.gradient-border-focus-within:focus-within {
+  border-color: transparent;
+  outline: none;
+}
+
+.gradient-border-focus-within:focus-within::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: calc(0.5rem - 2px);
+  background: white;
+  z-index: 1;
+}
+
+.gradient-border-focus-within:focus-within::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
+  border-radius: 0.5rem;
+  z-index: 0;
 }
