@@ -213,13 +213,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const generations: Promise<unknown>[] = [];
     let bioAndSocialGenerationPromise: Promise<{ bio: string; contactChannels: unknown }> | null = null;
     
-    // Generate bio and social links together if not already triggered
-    // Skip generation during setup to prevent race conditions with phone save
-    const profileBio = getFieldValue(profile?.contactEntries, 'bio');
-    const hasFacebook = profile?.contactEntries?.some(e => e.fieldType === 'facebook' && e.value);
-    if (!bioAndSocialGenerationTriggeredRef.current && (!profileBio || !hasFacebook)) {
+    // PHASE 2: Skip bio and social generation on sign-in
+    // This is disabled for the CalConnect merge - users will manually add their bio
+    // Bio generation and social links are no longer automatically triggered
+    if (false && !bioAndSocialGenerationTriggeredRef.current) {
       bioAndSocialGenerationTriggeredRef.current = true;
-      console.log('[ProfileContext] Making unified bio and social API call');
+      console.log('[ProfileContext] Making unified bio and social API call (DISABLED)');
 
       // Small delay to ensure any concurrent phone saves complete first
       bioAndSocialGenerationPromise = new Promise(resolve => setTimeout(resolve, 200))

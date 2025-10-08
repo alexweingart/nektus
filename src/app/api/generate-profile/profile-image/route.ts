@@ -3,10 +3,9 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { AdminProfileService } from '@/lib/firebase/adminProfileService';
 import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
-import { UserProfile, ContactEntry } from '@/types/profile';
-import { getOpenAIClient } from '@/lib/openai/client';
-import { getDefaultBackgroundColor } from '@/lib/services/server/colorService';
+import { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { generateInitialsAvatar, dataUrlToBuffer } from '@/lib/utils/initialsAvatar';
 
 /**
  * Converts a base64 string to a buffer
@@ -18,53 +17,21 @@ function base64ToBuffer(base64: string): Buffer {
 }
 
 /**
- * Generates a profile image for a user using OpenAI's gpt-image-1 model.
- * This is a server-side function.
- * @param profile The user profile object.
- * @returns A buffer containing the image data
+ * Generates an initials-based profile image for a user.
+ * PHASE 2: Changed from AI generation to initials for CalConnect merge
+ * @param profile The user profile object
+ * @returns A buffer containing the SVG image data
  */
-async function generateProfileImageForProfile(profile: UserProfile): Promise<Buffer> {
-  const profileName = getFieldValue(profile.contactEntries, 'name');
-  console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profileName}`);
-  try {
-    const client = getOpenAIClient();
-    const backgroundColor = getDefaultBackgroundColor();
-    const profileBio = getFieldValue(profile.contactEntries, 'bio');
-    const prompt = `Create a profile picture for a person with this bio: ${profileBio || 'no bio available'}. ` +
-      `The image should be a simple, casual, abstract, and modern. ` +
-      `Use a clean, minimalist style with a solid ${backgroundColor} color background. ` +
-      `There should be no text on the image`;
-      
-    console.log(`[API/PROFILE-IMAGE] Using prompt for ${profileName} with background ${backgroundColor}:`, prompt);
+function generateProfileImageForProfile(profile: UserProfile): Buffer {
+  const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
+  console.log(`[API/PROFILE-IMAGE] Generating initials avatar for: ${profileName}`);
 
-    const response = await client.images.generate({
-      model: 'gpt-image-1',
-      prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'low',
-    });
+  // Generate initials-based avatar (1024x1024 to match previous size)
+  const avatarDataUrl = generateInitialsAvatar(profileName, 1024);
+  const imageBuffer = dataUrlToBuffer(avatarDataUrl);
 
-    console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');
-    
-    if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
-      throw new Error('Invalid response from OpenAI');
-    }
-    
-    // Check what we got in response
-    const imageData = response.data[0];
-    
-    // We should always get base64 data with our request format
-    if (imageData?.b64_json) {
-      console.log('[API/PROFILE-IMAGE] Converting base64 image data to buffer');
-      return base64ToBuffer(imageData.b64_json);
-    }
-
-    throw new Error('No base64 image data found in the response');
-  } catch (error) {
-    console.error('[API/PROFILE-IMAGE] Profile image generation failed:', error);
-    throw error;
-  }
+  console.log('[API/PROFILE-IMAGE] Initials avatar generated successfully');
+  return imageBuffer;
 }
 
 export async function POST(req: NextRequest) {
@@ -86,38 +53,24 @@ export async function POST(req: NextRequest) {
       const imageBuffer = Buffer.from(imageData.replace(/^data:image\/[a-z]+;base64,/, ''), 'base64');
       newImageUrl = await uploadImageBuffer(imageBuffer, userId, 'profile');
     } else {
-      // Case 2: No image data, generate one
-      console.log(`[API/PROFILE-IMAGE] Generating profile image for user ${userId}`);
-      // Log profile image generation start with request (AI gen)
-      console.log('[API/PROFILE-IMAGE] Profile image generation starts', { userId, hasImageData: false, hasStreamingBio: !!streamingBio });
-      
-      // Always get the most recent profile to ensure we have any newly generated bio
+      // Case 2: No image data, generate initials avatar
+      console.log(`[API/PROFILE-IMAGE] Generating initials avatar for user ${userId}`);
+      console.log('[API/PROFILE-IMAGE] Profile image generation starts', { userId, hasImageData: false });
+
+      // Get the profile to extract the user's name
       const profile = await AdminProfileService.getProfile(userId);
       if (!profile) {
         return NextResponse.json({ error: 'Profile not found, cannot generate image' }, { status: 404 });
       }
-      
-      // Use streaming bio if available, otherwise fall back to profile bio
-      const profileBio = getFieldValue(profile.contactEntries, 'bio');
-      const bioForGeneration = streamingBio || profileBio;
-      
+
       const profileName = getFieldValue(profile.contactEntries, 'name');
-      console.log('[API/PROFILE-IMAGE] Using profile for generation:', {
-        name: profileName,
-        usingStreamingBio: !!streamingBio,
-        bioSource: streamingBio ? 'streaming' : 'profile',
-        bioLength: bioForGeneration?.length || 0
-      });
-      
-      // Create a modified profile object with the streaming bio for generation
-      const bioEntry: ContactEntry = { fieldType: 'bio', value: bioForGeneration, section: 'universal', order: -1, isVisible: true, confirmed: true };
-      const profileForGeneration: UserProfile = { ...profile, contactEntries: [...(profile.contactEntries || []).filter(e => e.fieldType !== 'bio'), bioEntry] };
-      
-      // Generate image using OpenAI
-      const imageBuffer = await generateProfileImageForProfile(profileForGeneration);
-      
+      console.log('[API/PROFILE-IMAGE] Generating initials for:', { name: profileName });
+
+      // Generate initials-based avatar
+      const imageBuffer = generateProfileImageForProfile(profile);
+
       // Upload to our storage
-      console.log('[API/PROFILE-IMAGE] Uploading AI-generated image to Firebase Storage');
+      console.log('[API/PROFILE-IMAGE] Uploading initials avatar to Firebase Storage');
       newImageUrl = await uploadImageBuffer(imageBuffer, userId, 'profile');
     }
 
