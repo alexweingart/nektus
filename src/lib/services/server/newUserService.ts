@@ -47,7 +47,7 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
     },
     {
       fieldType: 'bio',
-      value: 'Add your bio',
+      value: 'My bio is going to be awesome once I create it.',
       section: 'universal',
       order: -1,
       isVisible: true,
