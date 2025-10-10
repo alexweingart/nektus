@@ -95,7 +95,15 @@ function ProfileSetupView() {
       contactEntries: [
         {
           fieldType: 'phone',
-          section: 'universal',
+          section: 'personal',
+          value: internationalPhone,
+          order: 0,
+          isVisible: true,
+          confirmed: true
+        },
+        {
+          fieldType: 'phone',
+          section: 'work',
           value: internationalPhone,
           order: 0,
           isVisible: true,

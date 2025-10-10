@@ -1,18 +1,25 @@
 'use client';
 
-import React, { forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useCallback, useState } from 'react';
 import type { Session } from 'next-auth';
 import type { ContactEntry, FieldSection } from '@/types/profile';
 import type { UseEditProfileFieldsReturn } from '@/lib/hooks/useEditProfileFields';
 import { signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import CustomInput from '../ui/inputs/CustomInput';
 import CustomExpandingInput from '../ui/inputs/CustomExpandingInput';
+import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection as FieldSectionComponent } from '../ui/FieldSection';
 import { ProfileField } from '../ui/ProfileField';
 import { ProfileViewSelector } from '../ui/ProfileViewSelector';
 import { DropZone } from '../ui/DropZone';
 import ProfileImageIcon from '../ui/ProfileImageIcon';
+import { ItemChip } from '../ui/ItemChip';
+import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
+import { AddLocationModal } from '../ui/modals/AddLocationModal';
+import { AddLinkModal } from '../ui/modals/AddLinkModal';
+import { InlineAddLink } from '../ui/InlineAddLink';
 import { useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
 import { useDragAndDrop, type DragDropInfo } from '@/lib/hooks/useDragAndDrop';
@@ -27,13 +34,14 @@ interface FieldRendererProps {
   onSaveRequest?: () => Promise<void>;
   onDragStateChange?: (isDragging: boolean) => void;
   onDragComplete: (dropInfo: DragDropInfo) => void;
+  profile?: any; // UserProfile from context
 }
 
 export interface FieldRendererHandle {
   saveProfile: () => Promise<void>;
 }
 
-const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({ 
+const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   session,
   fieldSectionManager,
   initialFields,
@@ -41,12 +49,26 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   onModeChange,
   onSaveRequest,
   onDragStateChange,
-  onDragComplete
+  onDragComplete,
+  profile
 }, ref) => {
+  const router = useRouter();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
-  
+
+  // Modal state
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [modalSection, setModalSection] = useState<'personal' | 'work'>('personal');
+
+  // Inline add link state
+  const [showInlineAddLink, setShowInlineAddLink] = useState<{ personal: boolean; work: boolean }>({
+    personal: false,
+    work: false
+  });
+
   // Custom hooks
   const { createUploadHandler } = useImageUpload();
   const { loadFromStorage, handleModeChange: handleCarouselModeChange } = useProfileViewMode(carouselRef);
@@ -122,11 +144,128 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     fieldSectionManager.markChannelAsConfirmed(fieldType);
     fieldSectionManager.updateFieldValue(fieldType, value, section);
   };
+
+  // Helper functions to get calendar/location for a section
+  const getCalendarForSection = (section: 'personal' | 'work') => {
+    return profile?.calendars?.find((cal: any) => cal.section === section);
+  };
+
+  const getLocationForSection = (section: 'personal' | 'work') => {
+    return profile?.locations?.find((loc: any) => loc.section === section);
+  };
+
+  // Modal handlers
+  const handleOpenCalendarModal = (section: 'personal' | 'work') => {
+    setModalSection(section);
+    setIsCalendarModalOpen(true);
+  };
+
+  const handleOpenLocationModal = (section: 'personal' | 'work') => {
+    setModalSection(section);
+    setIsLocationModalOpen(true);
+  };
+
+  const handleOpenLinkModal = (section: 'personal' | 'work') => {
+    setModalSection(section);
+    setIsLinkModalOpen(true);
+  };
+
+  const handleToggleInlineAddLink = (section: 'personal' | 'work') => {
+    setShowInlineAddLink(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const handleCalendarAdded = () => {
+    // Calendar added via API in modal, just close
+    setIsCalendarModalOpen(false);
+    // Optionally trigger a refresh of profile data
+    if (onSaveRequest) {
+      onSaveRequest();
+    }
+  };
+
+  const handleLocationAdded = async (locations: any[]) => {
+    console.log('[FieldRenderer] handleLocationAdded called with locations:', locations);
+
+    // Update profile locations directly (locations are special, not regular fields)
+    if (profile) {
+      profile.locations = profile.locations || [];
+      locations.forEach(loc => {
+        // Remove existing location for this section if any
+        profile.locations = profile.locations.filter((l: any) => l.section !== loc.section);
+        // Add the new location
+        profile.locations.push(loc);
+      });
+    }
+
+    setIsLocationModalOpen(false);
+
+    // Trigger profile save
+    if (onSaveRequest) {
+      await onSaveRequest();
+    }
+  };
+
+  const handleLinkAdded = (entries: ContactEntry[]) => {
+    console.log('[FieldRenderer] handleLinkAdded called with entries:', entries);
+    // Add links to field manager
+    fieldSectionManager.addFields(entries);
+    entries.forEach(entry => {
+      fieldSectionManager.markChannelAsConfirmed(entry.fieldType);
+    });
+    setIsLinkModalOpen(false);
+    // Close inline add link for all sections
+    setShowInlineAddLink({ personal: false, work: false });
+    console.log('[FieldRenderer] handleLinkAdded completed');
+  };
+
+  const handleDeleteCalendar = async (section: 'personal' | 'work') => {
+    const calendar = getCalendarForSection(section);
+    if (!calendar) return;
+
+    try {
+      const response = await fetch(`/api/calendar-connections/${calendar.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete calendar');
+
+      // Trigger profile refresh
+      if (onSaveRequest) {
+        await onSaveRequest();
+      }
+    } catch (error) {
+      console.error('[FieldRenderer] Failed to delete calendar:', error);
+    }
+  };
+
+  const handleDeleteLocation = async (section: 'personal' | 'work') => {
+    const location = getLocationForSection(section);
+    if (!location) return;
+
+    try {
+      const response = await fetch(`/api/location/${location.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete location');
+
+      // Trigger profile refresh
+      if (onSaveRequest) {
+        await onSaveRequest();
+      }
+    } catch (error) {
+      console.error('[FieldRenderer] Failed to delete location:', error);
+    }
+  };
   
   // Get field value using unified state
   const getFieldValue = (fieldType: string, section?: FieldSection): string => {
     if (section) {
       const field = fieldSectionManager.getFieldData(fieldType, section);
+      console.log('[FieldRenderer.getFieldValue]', { fieldType, section, field, value: field?.value });
       return field?.value || '';
     }
     return fieldSectionManager.getFieldValue(fieldType);
@@ -160,36 +299,40 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
       | { type: 'dropzone'; data: DropZoneData; key: string }
       | { type: 'field'; data: FieldData; key: string }
     > = [];
-    
+
     // Get all DropZones for this section
     const sectionDropZones = dropZoneMap.filter(dz => dz.section === sectionName);
-    
-    // Simple logic: Add drop zone before each field, then add field
+
+    // Drop zone with belowFieldType='email' should appear BEFORE the email field
+    // This represents where a dragged field would be dropped to appear before email
     fields.forEach((profile, fieldIndex) => {
       const isThisDraggedField = draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section;
-      
-      // Find the drop zone that should appear above this field
-      const dropZoneAbove = sectionDropZones.find(dz => 
+
+      // Find drop zone that should appear before THIS field
+      // belowFieldType='email' means "the zone before email field"
+      const dropZoneBeforeThisField = sectionDropZones.find(dz =>
         dz.belowFieldType === profile.fieldType
       );
-      
-      // Add drop zone above this field (if it exists and field isn't being dragged)
-      if (dropZoneAbove && !isThisDraggedField) {
+
+      // Add drop zone before this field (if it exists)
+      if (dropZoneBeforeThisField) {
         renderItems.push({
           type: 'dropzone',
-          data: dropZoneAbove,
-          key: `dz-${dropZoneAbove.order}-${dropZoneAbove.section}`
+          data: dropZoneBeforeThisField,
+          key: `dz-${dropZoneBeforeThisField.order}-${dropZoneBeforeThisField.section}`
         });
       }
-      
-      // Add the field
-      renderItems.push({
-        type: 'field',
-        data: { ...profile, isBeingDragged: isThisDraggedField, fieldIndex },
-        key: sectionName === 'universal' ? `universal-${profile.fieldType}-${fieldIndex}` : `field-${profile.section}-${profile.fieldType}-${fieldIndex}`
-      });
+
+      // Add the field (unless it's being dragged)
+      if (!isThisDraggedField) {
+        renderItems.push({
+          type: 'field',
+          data: { ...profile, isBeingDragged: false, fieldIndex },
+          key: sectionName === 'universal' ? `universal-${profile.fieldType}-${fieldIndex}` : `field-${profile.section}-${profile.fieldType}-${fieldIndex}`
+        });
+      }
     });
-    
+
     // Add the final 'bottom' drop zone for this section
     const bottomDropZone = sectionDropZones.find(dz => dz.belowFieldType === 'bottom');
     if (bottomDropZone) {
@@ -199,7 +342,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
         key: `dz-${bottomDropZone.order}-${bottomDropZone.section}`
       });
     }
-    
+
     return renderItems;
   };
 
@@ -243,16 +386,29 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     );
   };
   
+  // Calculate next order for modals (use current selectedMode's fields)
+  const getNextOrderForSection = (sectionName: 'personal' | 'work') => {
+    const { visibleFields } = getFieldsForView(sectionName === 'personal' ? 'Personal' : 'Work');
+    const maxOrder = Math.max(0, ...visibleFields.map(f => f.order || 0));
+    return maxOrder + 1;
+  };
+
   const renderViewContent = (viewMode: 'Personal' | 'Work') => {
     const { visibleFields, hiddenFields } = getFieldsForView(viewMode);
-    
+
+    console.log('[FieldRenderer] renderViewContent', { viewMode, visibleFieldsCount: visibleFields.length, visibleFields });
+
     // Calculate DropZone map for this view
     const dropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, viewMode, draggedField, 0) : [];
-    
+
     // Use shared utility to build render items array
-    const sectionName = viewMode.toLowerCase();
+    const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
     const renderItems = buildRenderItemsArray(visibleFields, dropZoneMap, sectionName);
-    
+
+    // Get calendar and location for this section
+    const calendar = getCalendarForSection(sectionName);
+    const location = getLocationForSection(sectionName);
+
     return (
       <>
         {/* Current Section */}
@@ -260,7 +416,95 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           title={viewMode}
           isEmpty={visibleFields.length === 0}
           emptyText={`You have no ${viewMode} networks right now. Drag & drop an input field to change that.`}
+          bottomButton={
+            <>
+              {/* Inline Add Link Component */}
+              {showInlineAddLink[sectionName] && (
+                <div className="mb-4">
+                  <InlineAddLink
+                    section={sectionName}
+                    onLinkAdded={handleLinkAdded}
+                    nextOrder={getNextOrderForSection(sectionName)}
+                    onCancel={() => handleToggleInlineAddLink(sectionName)}
+                  />
+                </div>
+              )}
+
+              {/* Add Link Button */}
+              <div className="text-center">
+                <SecondaryButton
+                  className="cursor-pointer"
+                  onClick={() => handleToggleInlineAddLink(sectionName)}
+                >
+                  {showInlineAddLink[sectionName] ? 'Cancel' : 'Add Link'}
+                </SecondaryButton>
+              </div>
+            </>
+          }
         >
+          {/* Calendar UI - At top of section (fixed, non-draggable) */}
+          {calendar ? (
+            <div className="w-full mb-4">
+              <ItemChip
+                icon={
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                }
+                title={`${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
+                subtitle={calendar.email}
+                onClick={() => router.push(`/edit/calendar?id=${calendar.id}`)}
+                onActionClick={() => handleDeleteCalendar(sectionName)}
+                actionIcon="trash"
+              />
+            </div>
+          ) : (
+            <div className="w-full mb-4">
+              <Button
+                variant="white"
+                size="lg"
+                className="w-full"
+                onClick={() => handleOpenCalendarModal(sectionName)}
+              >
+                Add Calendar
+              </Button>
+            </div>
+          )}
+
+          {/* Location UI - At top of section (fixed, non-draggable) */}
+          {location ? (
+            <div className="w-full mb-4">
+              <ItemChip
+                icon={
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                }
+                title={`${location.city}${location.region ? ', ' + location.region : ''}`}
+                subtitle={location.address}
+                onClick={() => router.push(`/edit/location?id=${location.id}`)}
+                onActionClick={() => handleDeleteLocation(sectionName)}
+                actionIcon="trash"
+              />
+            </div>
+          ) : (
+            <div className="w-full mb-4">
+              <Button
+                variant="white"
+                size="lg"
+                className="w-full"
+                onClick={() => handleOpenLocationModal(sectionName)}
+              >
+                Add Location
+              </Button>
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="w-full border-t border-white/10 my-4" />
+
+          {/* Draggable Fields */}
           {renderItems.map(item => {
             if (item.type === 'dropzone') {
               const dropZone = item.data;
@@ -299,53 +543,52 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           })}
         </FieldSectionComponent>
 
-        {/* Hidden Fields */}
-        {hiddenFields.length > 0 && (
-          <FieldSectionComponent
-            title="Hidden"
-            isEmpty={false}
-            emptyText=""
-            bottomButton={
-              <div className="text-center">
-                <SecondaryButton 
-                  className="cursor-pointer text-white bg-red-500/50 hover:bg-red-600/50"
-                  onClick={() => signOut()}
-                >
-                  Sign Out
-                </SecondaryButton>
-              </div>
-            }
-          >
-            {hiddenFields.map((profile, index) => {
-              const fieldType = profile.fieldType;
-              const uniqueKey = `hidden-${fieldType}-${index}`;
-                
-              return (
-                <ProfileField
-                    key={uniqueKey}
-                    profile={profile}
-                    fieldSectionManager={fieldSectionManager}
-                    getValue={getFieldValue}
-                    onChange={handleFieldChange}
-                    isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                    onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                    currentViewMode={viewMode}
-                    showDragHandles={true}
-                    isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
-                    dragAndDrop={{
-                      isDragMode,
-                      draggedField,
-                      onTouchStart,
-                      onTouchMove,
-                      onTouchEnd
-                    }}
-                  />
-              );
-            })}
-            
-            {/* NO final DropZone after hidden fields - they can't be drop targets */}
-          </FieldSectionComponent>
-        )}
+        {/* Hidden Fields - Always show with Sign Out button */}
+        <FieldSectionComponent
+          title="Hidden"
+          isEmpty={hiddenFields.length === 0}
+          emptyText="Tap the hide button on any field if you're about to Nekt and don't want to share that link."
+          bottomButton={
+            <div className="text-center">
+              <SecondaryButton
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={() => signOut()}
+              >
+                Sign Out
+              </SecondaryButton>
+            </div>
+          }
+        >
+          {hiddenFields.map((profile, index) => {
+            const fieldType = profile.fieldType;
+            const uniqueKey = `hidden-${fieldType}-${index}`;
+
+            return (
+              <ProfileField
+                  key={uniqueKey}
+                  profile={profile}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getFieldValue}
+                  onChange={handleFieldChange}
+                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                  currentViewMode={viewMode}
+                  showDragHandles={true}
+                  isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
+                  dragAndDrop={{
+                    isDragMode,
+                    draggedField,
+                    onTouchStart,
+                    onTouchMove,
+                    onTouchEnd
+                  }}
+                />
+            );
+          })}
+
+          {/* NO final DropZone after hidden fields - they can't be drop targets */}
+        </FieldSectionComponent>
       </>
     );
   };
@@ -355,8 +598,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
 
   // Render universal fields with dropzones
   const renderUniversalFields = () => {
-    // Get draggable universal fields (exclude name/bio)
-    const draggableUniversalFields = universalFields.filter(field => !['name', 'bio'].includes(field.fieldType));
+    // Get draggable universal fields (exclude name/bio/phone/email - only name and bio should be in universal per spec)
+    const draggableUniversalFields = universalFields.filter(field => !['name', 'bio', 'phone', 'email'].includes(field.fieldType));
     
     // Calculate DropZone map for universal fields if in drag mode
     const universalDropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, selectedMode, draggedField, 0) : [];
@@ -483,6 +726,31 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
           />
         </div>
       </div>
+
+      {/* Modals */}
+      <AddCalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        section={modalSection}
+        userEmail={session?.user?.email || ''}
+        onCalendarAdded={handleCalendarAdded}
+      />
+
+      <AddLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        section={modalSection}
+        userId={session?.user?.id || ''}
+        onLocationAdded={handleLocationAdded}
+      />
+
+      <AddLinkModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        section={modalSection}
+        onLinkAdded={handleLinkAdded}
+        nextOrder={getNextOrderForSection(modalSection)}
+      />
     </div>
   );
 });

@@ -37,6 +37,32 @@ const ERROR_CODES = {
   PERMISSION_DENIED: 'permission-denied',
 } as const;
 
+/**
+ * Recursively removes undefined values from an object
+ * Firestore doesn't allow undefined values, only null
+ */
+function removeUndefinedValues(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefinedValues(item));
+  }
+
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = removeUndefinedValues(value);
+      }
+    }
+    return cleaned;
+  }
+
+  return obj;
+}
+
 export const ClientProfileService = {
   /**
    * Saves a user profile to Firestore
@@ -51,10 +77,10 @@ export const ClientProfileService = {
         return;
       }
 
-      const profileData = {
+      const profileData = removeUndefinedValues({
         ...profile,
         lastUpdated: Date.now()
-      };
+      });
 
       // Add timeout to Firestore operation to prevent hanging
       const savePromise = setDoc(doc(firestore, 'profiles', profile.userId), profileData, { merge: true });

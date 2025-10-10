@@ -111,10 +111,15 @@ export const CustomTimeInput: React.FC<CustomTimeInputProps> = ({
       placeholder={showPlaceholder ? '00' : ''}
       maxLength={2}
       className={`
-        w-8 text-center text-base bg-transparent outline-none cursor-pointer text-white
+        w-7 text-center text-sm bg-transparent outline-none cursor-pointer text-white p-0 leading-none
+        focus:outline-none focus:ring-0 focus:border-0
         ${showPlaceholder ? 'placeholder-white/40' : ''}
         ${className}
       `}
+      style={{
+        border: 'none',
+        boxShadow: 'none'
+      }}
     />
   );
 };

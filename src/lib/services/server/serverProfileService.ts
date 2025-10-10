@@ -99,7 +99,7 @@ export class ServerProfileService {
       {
         fieldType: 'phone',
         value: '',
-        section: 'universal',
+        section: 'personal',
         order: 0,
         isVisible: true,
         confirmed: false
@@ -107,7 +107,23 @@ export class ServerProfileService {
       {
         fieldType: 'email',
         value: userInfo.email || '',
-        section: 'universal',
+        section: 'personal',
+        order: 1,
+        isVisible: true,
+        confirmed: !!userInfo.email
+      },
+      {
+        fieldType: 'phone',
+        value: '',
+        section: 'work',
+        order: 0,
+        isVisible: true,
+        confirmed: false
+      },
+      {
+        fieldType: 'email',
+        value: userInfo.email || '',
+        section: 'work',
         order: 1,
         isVisible: true,
         confirmed: !!userInfo.email

@@ -6,7 +6,7 @@ import { searchPlaces } from '@/lib/ai/helpers/search-places';
 import { searchLocalEvents } from '@/lib/ai/helpers/search-events';
 import { createCompleteCalendarEvent, applyDefaultTravelBuffer, createTravelBufferDescription, calculateCalendarBlockTimes } from '@/lib/events/event-utils';
 import { getCandidateSlotsWithFallback } from '@/lib/events/scheduling-utils';
-import { processingStateManager } from '@/lib/processing-state';
+import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { isPlaceOpenAt } from '@/lib/places/place-utils';
 import { enqueueProgress, enqueueEvent } from './streaming-utils';
 import type { AISchedulingRequest, DetermineIntentResult, Message, OpenAIToolCall, GenerateEventResult } from '@/types/ai-scheduling';

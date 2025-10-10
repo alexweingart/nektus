@@ -109,7 +109,7 @@ const ProfileView: React.FC = () => {
   const bioContent = useMemo(() => {
     // Prioritize streaming bio during generation, then profile bio, then default
     const profileBio = getFieldValue(currentProfile?.contactEntries, 'bio');
-    return streamingBio || profileBio || 'Generating bio...';
+    return streamingBio || profileBio || 'My bio is going to be awesome once I create it.';
   }, [streamingBio, currentProfile?.contactEntries]);
 
   // Profile image with streaming support
@@ -257,6 +257,7 @@ const ProfileView: React.FC = () => {
         onPrimaryButtonClick={handleMessageContact}
         secondaryButtonText="Maybe later"
         variant="success"
+        showCloseButton={false}
       />
 
       {/* PWA Install Modal - shows for iOS users */}
@@ -272,6 +273,7 @@ const ProfileView: React.FC = () => {
         }}
         variant="info"
         showSecondaryButton={false}
+        showCloseButton={false}
       />
     </div>
   );

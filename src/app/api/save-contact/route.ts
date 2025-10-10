@@ -151,10 +151,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       try {
         const { db } = await getFirebaseAdmin();
         
+        // Determine contactType from the sharing category
+        const contactType = (otherUserSharingCategory === 'Work' ? 'work' : 'personal') as 'personal' | 'work';
+
         const savedContact = {
           ...contactProfile,
           addedAt: Date.now(),
-          matchToken: token
+          matchToken: token,
+          contactType
         };
         
         // Use the contact's userId as the document ID to prevent duplicates

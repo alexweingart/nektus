@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils/cn';
 
 interface SecondaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  variant?: 'dark' | 'subtle';
+  variant?: 'dark' | 'subtle' | 'destructive';
 }
 
 export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
@@ -16,8 +16,9 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    dark: "bg-black/40 backdrop-blur-sm hover:bg-black/50",
-    subtle: "bg-white/20 hover:bg-white/30"
+    dark: "bg-black/40 backdrop-blur-sm hover:bg-black/100",
+    subtle: "bg-white/20 hover:bg-white/30",
+    destructive: "bg-red-500/50 hover:bg-red-600/50 text-white"
   };
 
   return (

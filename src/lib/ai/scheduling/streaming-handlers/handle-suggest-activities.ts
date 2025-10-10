@@ -1,5 +1,5 @@
 import { createCompletion, AI_MODELS } from '@/lib/ai/openai-client';
-import { processingStateManager } from '@/lib/processing-state';
+import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueProgress, enqueueContent, enqueueClearLoading, enqueueEnhancementPending } from './streaming-utils';
 import type { AISchedulingRequest, Message } from '@/types/ai-scheduling';
 

@@ -49,9 +49,33 @@ export async function POST(request: NextRequest) {
             confirmed: false
           },
           {
+            fieldType: 'phone',
+            value: '',
+            section: 'personal',
+            order: 0,
+            isVisible: true,
+            confirmed: false
+          },
+          {
             fieldType: 'email',
             value: session.user.email || '',
-            section: 'universal',
+            section: 'personal',
+            order: 1,
+            isVisible: true,
+            confirmed: !!session.user.email
+          },
+          {
+            fieldType: 'phone',
+            value: '',
+            section: 'work',
+            order: 0,
+            isVisible: true,
+            confirmed: false
+          },
+          {
+            fieldType: 'email',
+            value: session.user.email || '',
+            section: 'work',
             order: 1,
             isVisible: true,
             confirmed: !!session.user.email

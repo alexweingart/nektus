@@ -7,7 +7,7 @@ import { handleConditionalEdit } from '@/lib/ai/helpers/conditional-edit';
 import { createCompleteCalendarEvent, applyDefaultTravelBuffer, createTravelBufferDescription, calculateCalendarBlockTimes } from '@/lib/events/event-utils';
 import { getCandidateSlotsWithFallback } from '@/lib/events/scheduling-utils';
 import { timeToMinutes, minutesToTime, formatEventTimeComponents } from '@/lib/events/time-utils';
-import { processingStateManager } from '@/lib/processing-state';
+import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueProgress, enqueueContent, enqueueEvent, enqueueShowCalendarButton } from './streaming-utils';
 import type { AISchedulingRequest, Message, OpenAIToolCall, GenerateEventResult } from '@/types/ai-scheduling';
 import type { TimeSlot, Event, CalendarUrls } from '@/types';

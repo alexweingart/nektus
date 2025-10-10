@@ -19,16 +19,18 @@ interface SocialIconProps {
   onClick?: () => void;
   className?: string;
   disabled?: boolean;
+  customIcon?: string;
 }
 
-const SocialIcon: React.FC<SocialIconProps> = ({ 
-  platform, 
+const SocialIcon: React.FC<SocialIconProps> = ({
+  platform,
   username,
   size = 'md',
   variant = 'default',
   onClick,
   className = '',
-  disabled = false
+  disabled = false,
+  customIcon
 }) => {
   const [isActive, setIsActive] = useState(false);
   
@@ -42,9 +44,9 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       }
     })();
     
-    const variantStyles = variant === 'white' 
-      ? 'text-white hover:bg-white/20' 
-      : 'text-black hover:bg-gray-100';
+    const variantStyles = variant === 'white'
+      ? 'text-white hover:bg-white/20'
+      : 'text-white hover:bg-white/10';
     
     return `${baseSize} transition-colors duration-200 rounded-full ${
       disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:opacity-100 active:opacity-90 ${variantStyles}`
@@ -86,26 +88,32 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (disabled) return;
-    
+
     setIsActive(true);
-    
+
     // Blur the element to remove focus state on mobile
     (e.currentTarget as HTMLElement).blur();
-    
+
     // If there's a custom click handler, use that
     if (onClick) {
       onClick();
       return;
     }
-    
+
+    // Handle custom icon (favicon) - username contains the full URL
+    if (customIcon && username) {
+      window.open(username, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     // Handle phone platform with messaging service
     if (platform === 'phone' && username) {
       openMessagingApp('', username);
       return;
     }
-    
+
     // Handle email platform with direct navigation (no new tab)
     if (platform === 'email' && username) {
       const url = getPlatformUrl(platform, username);
@@ -114,7 +122,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       }
       return;
     }
-    
+
     // Otherwise, handle default platform behavior with new tab
     if (username) {
       const url = getPlatformUrl(platform, username);
@@ -122,9 +130,26 @@ const SocialIcon: React.FC<SocialIconProps> = ({
         window.open(url, '_blank', 'noopener,noreferrer');
       }
     }
-  }, [disabled, onClick, platform, username, getPlatformUrl]);
+  }, [disabled, onClick, platform, username, getPlatformUrl, customIcon]);
 
   const iconElement = (() => {
+    // If there's a custom icon URL (favicon), display it
+    if (customIcon) {
+      const sizeClass = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-12 h-12' : 'w-8 h-8';
+      return (
+        <div className={`${sizeClass} rounded-md flex items-center justify-center`}>
+          <img
+            src={customIcon}
+            alt={platform}
+            className="w-full h-full object-contain rounded-md"
+            style={{
+              border: '1px solid black'
+            }}
+          />
+        </div>
+      );
+    }
+
     switch (platform) {
       case 'phone':
         return <FaPhone className={getIconClass()} style={{ position: 'relative', top: '1px' }} />;

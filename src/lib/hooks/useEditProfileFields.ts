@@ -39,6 +39,7 @@ export interface UseEditProfileFieldsReturn {
   // Field actions
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
+  addFields: (newFields: ContactEntry[]) => void;
   splitUniversalField: (fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => void;
   consolidateToUniversal: (fieldType: string, currentValue: string, targetIndex: number) => void;
   
@@ -174,38 +175,83 @@ export const useEditProfileFields = ({
   // Calculate initial fields from Firebase profile data
   const calculateInitialFields = useCallback((): ContactEntry[] => {
     const firebaseData = profile?.contactEntries;
+    // Updated per spec: Only name and bio in universal, phone and email in personal + work
     const defaultData: ContactEntry[] = [
       { fieldType: 'name', value: session?.user?.name || '', section: 'universal' as FieldSection, order: 0, isVisible: true, confirmed: false },
       { fieldType: 'bio', value: '', section: 'universal' as FieldSection, order: 1, isVisible: true, confirmed: false },
-      { fieldType: 'phone', value: '', section: 'universal' as FieldSection, order: 2, isVisible: true, confirmed: false },
-      { fieldType: 'email', value: session?.user?.email || '', section: 'universal' as FieldSection, order: 3, isVisible: true, confirmed: false }
+      { fieldType: 'phone', value: '', section: 'personal' as FieldSection, order: 0, isVisible: true, confirmed: false },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'personal' as FieldSection, order: 1, isVisible: true, confirmed: false },
+      { fieldType: 'phone', value: '', section: 'work' as FieldSection, order: 0, isVisible: true, confirmed: false },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'work' as FieldSection, order: 1, isVisible: true, confirmed: false }
     ];
-    
+
     const result = firebaseData || defaultData;
-    
-    
+
+
     return result;
   }, [profile?.contactEntries, session?.user?.name, session?.user?.email]);
   
   // Helper function to ensure proper field structure (recreate hidden placeholders)
   // Ensures each fieldType has EITHER 1 instance in universal OR instances in both personal and work
   const ensureProperFieldStructure = useCallback((baseFields: ContactEntry[]): ContactEntry[] => {
+    // Extract phone/email values from universal section before filtering (for migration)
+    const universalPhoneValue = baseFields.find(f => f.fieldType === 'phone' && f.section === 'universal')?.value || '';
+    const universalEmailValue = baseFields.find(f => f.fieldType === 'email' && f.section === 'universal')?.value || '';
+
+    // Remove phone/email from universal section (per spec - only name and bio in universal)
+    const filteredFields = baseFields.filter(field =>
+      !(field.section === 'universal' && (field.fieldType === 'phone' || field.fieldType === 'email'))
+    );
+
     const existingByType = new Map<string, Map<string, ContactEntry>>(); // fieldType -> section -> entry
-    
-    // Track what already exists
-    baseFields.forEach(field => {
+
+    // Track what already exists (after filtering)
+    filteredFields.forEach(field => {
       if (!existingByType.has(field.fieldType)) {
         existingByType.set(field.fieldType, new Map());
       }
       existingByType.get(field.fieldType)!.set(field.section, field);
     });
-    
+
     const missingFields: ContactEntry[] = [];
+
+    // Phone and email MUST exist in both personal and work (per spec)
+    const requiredContactFields = ['phone', 'email'];
+    requiredContactFields.forEach(fieldType => {
+      const existingSections = existingByType.get(fieldType) || new Map();
+      const hasPersonal = existingSections.has('personal');
+      const hasWork = existingSections.has('work');
+
+      // Use migrated value from universal if it exists
+      const migratedValue = fieldType === 'phone' ? universalPhoneValue : universalEmailValue;
+
+      if (!hasPersonal) {
+        missingFields.push({
+          fieldType,
+          value: migratedValue,
+          section: 'personal' as FieldSection,
+          order: fieldType === 'phone' ? 0 : 1,
+          isVisible: true,
+          confirmed: !!migratedValue // Mark as confirmed if we migrated a value
+        });
+      }
+      if (!hasWork) {
+        missingFields.push({
+          fieldType,
+          value: migratedValue,
+          section: 'work' as FieldSection,
+          order: fieldType === 'phone' ? 0 : 1,
+          isVisible: true,
+          confirmed: !!migratedValue // Mark as confirmed if we migrated a value
+        });
+      }
+    });
+
     const allSocialFieldTypes = [
-      'facebook', 'instagram', 'x', 'linkedin', 'snapchat', 
+      'facebook', 'instagram', 'x', 'linkedin', 'snapchat',
       'whatsapp', 'telegram', 'wechat'
     ];
-    
+
     // For each social platform, ensure proper structure
     allSocialFieldTypes.forEach(fieldType => {
       const existingSections = existingByType.get(fieldType) || new Map();
@@ -262,8 +308,8 @@ export const useEditProfileFields = ({
         });
       }
     });
-    
-    return [...baseFields, ...missingFields];
+
+    return [...filteredFields, ...missingFields];
   }, []);
   
   // Unified state: ALL field data in one place (including hidden placeholders)
@@ -328,8 +374,17 @@ export const useEditProfileFields = ({
   
   // Update field value and visibility (section-specific)
   const updateFieldValue = useCallback((fieldType: string, value: string, section: FieldSection) => {
+    console.log('[updateFieldValue]', { fieldType, section, newValue: value, isEmpty: !value || value.trim() === '' });
     const updatedFields = fields.map(field => {
       if (field.fieldType === fieldType && field.section === section) {
+        console.log('[updateFieldValue] Updating field', {
+          fieldType,
+          section,
+          oldValue: field.value,
+          newValue: value,
+          wasVisible: field.isVisible,
+          staysVisible: field.isVisible
+        });
         return {
           ...field,
           value: value,
@@ -338,6 +393,42 @@ export const useEditProfileFields = ({
       }
       return field;
     });
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+
+  // Add new fields (or update existing ones if they already exist)
+  const addFields = useCallback((newFields: ContactEntry[]) => {
+    console.log('[useEditProfileFields] Adding fields:', newFields);
+
+    // Instead of just appending, check if field already exists and update it
+    let updatedFields = [...fields];
+
+    newFields.forEach(newField => {
+      const existingIndex = updatedFields.findIndex(f =>
+        f.fieldType === newField.fieldType &&
+        f.section === newField.section
+      );
+
+      if (existingIndex !== -1) {
+        console.log('[useEditProfileFields] Field already exists, updating:', {
+          fieldType: newField.fieldType,
+          section: newField.section,
+          oldValue: updatedFields[existingIndex].value,
+          newValue: newField.value
+        });
+        // Replace existing field with new one
+        updatedFields[existingIndex] = newField;
+      } else {
+        console.log('[useEditProfileFields] Adding new field:', {
+          fieldType: newField.fieldType,
+          section: newField.section,
+          value: newField.value
+        });
+        // Add new field
+        updatedFields.push(newField);
+      }
+    });
+
     updateFields(updatedFields);
   }, [fields, updateFields]);
   
@@ -397,7 +488,29 @@ export const useEditProfileFields = ({
   }, [fields]);
   
   const getVisibleFields = useCallback((section: FieldSection): ContactEntry[] => {
-    return getFieldsBySection(section).filter(f => f.isVisible);
+    const sectionFields = getFieldsBySection(section);
+    const visible = sectionFields.filter(f => f.isVisible);
+
+    // Check for duplicates
+    const fieldTypeCounts: Record<string, ContactEntry[]> = {};
+    sectionFields.forEach(f => {
+      const key = f.fieldType;
+      if (!fieldTypeCounts[key]) fieldTypeCounts[key] = [];
+      fieldTypeCounts[key].push(f);
+    });
+
+    Object.entries(fieldTypeCounts).forEach(([fieldType, entries]) => {
+      if (entries.length > 1) {
+        console.error(`[getVisibleFields] DUPLICATE DETECTED: ${entries.length}x ${fieldType} in ${section}`, entries.map(e => ({
+          value: e.value || 'EMPTY',
+          isVisible: e.isVisible,
+          order: e.order
+        })));
+      }
+    });
+
+    console.log(`[getVisibleFields] section=${section}, total=${sectionFields.length}, visible=${visible.length}`, visible.map(f => `${f.fieldType}:${f.value ? 'hasValue' : 'empty'}`));
+    return visible;
   }, [getFieldsBySection]);
   
   // Check if sections are empty
@@ -407,14 +520,18 @@ export const useEditProfileFields = ({
   // Toggle field visibility (hide/show) - handles universal field splitting when hiding
   const toggleFieldVisibility = useCallback((fieldType: string, viewMode: 'Personal' | 'Work') => {
     const targetSection = viewMode.toLowerCase() as 'personal' | 'work';
-    
+
+    console.log('[toggleFieldVisibility] CALLED', { fieldType, viewMode, targetSection });
+    console.log('[toggleFieldVisibility] Current fields:', fields.map(f => `${f.fieldType}-${f.section}:visible=${f.isVisible},value=${f.value || 'empty'}`));
+
     // Check if this is a universal field being hidden
     const universalField = fields.find(f => f.fieldType === fieldType && f.section === 'universal');
-    
+
     if (universalField) {
+      console.log('[toggleFieldVisibility] Found universal field, splitting into hidden personal/work');
       // Universal field being hidden: split into both sections as hidden
       const fieldsWithoutFieldType = fields.filter(f => f.fieldType !== fieldType);
-      
+
       // Create Personal and Work entries as HIDDEN
       const personalEntry: ContactEntry = {
         fieldType: fieldType,
@@ -424,7 +541,7 @@ export const useEditProfileFields = ({
         isVisible: false, // Hidden by default
         order: universalField.order // Preserve order
       };
-      
+
       const workEntry: ContactEntry = {
         fieldType: fieldType,
         value: universalField.value,
@@ -433,11 +550,21 @@ export const useEditProfileFields = ({
         isVisible: false, // Hidden by default
         order: universalField.order // Preserve order
       };
-      
+
       updateFields([...fieldsWithoutFieldType, personalEntry, workEntry]);
       return;
     }
-    
+
+    // Find the field being toggled
+    const targetField = fields.find(f => f.fieldType === fieldType && f.section === targetSection);
+    console.log('[toggleFieldVisibility] Toggling field', {
+      fieldType,
+      section: targetSection,
+      currentlyVisible: targetField?.isVisible,
+      hasValue: !!targetField?.value,
+      actualValue: targetField?.value
+    });
+
     // Regular personal/work field visibility toggle (all fields now exist in array)
     const updatedFields = fields.map(field => {
       if (field.fieldType === fieldType && field.section === targetSection) {
@@ -449,6 +576,7 @@ export const useEditProfileFields = ({
       return field;
     });
 
+    console.log('[toggleFieldVisibility] Updated fields:', updatedFields.map(f => `${f.fieldType}-${f.section}:visible=${f.isVisible},value=${f.value || 'empty'}`));
     updateFields(updatedFields);
   }, [fields, updateFields]);
   
@@ -640,18 +768,22 @@ export const useEditProfileFields = ({
     return sortByOrder([...universalFields, ...currentSectionFields]);
   }, [getFieldsBySection, getVisibleFields, sortByOrder]);
   
-  // Get hidden fields for view (current section hidden, excluding fields that exist in universal)  
+  // Get hidden fields for view (current section hidden, excluding fields that exist in universal)
+  // Phase 5: Also filter out blank fields
   const getHiddenFieldsForView = useCallback((viewMode: 'Personal' | 'Work'): ContactEntry[] => {
     const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
-    
+
     const hiddenFields = getFieldsBySection(currentSectionName).filter(field => {
       if (field.isVisible) return false;
-      
+
+      // Phase 5: Filter out blank fields (no value or only whitespace)
+      if (!field.value || field.value.trim() === '') return false;
+
       // Don't show as hidden if this platform already exists in universal
       const existsInUniversal = getFieldsBySection('universal').some(f => f.fieldType === field.fieldType);
       return !existsInUniversal;
     });
-    
+
     return sortByOrder(hiddenFields);
   }, [getFieldsBySection, sortByOrder]);
   
@@ -679,6 +811,7 @@ export const useEditProfileFields = ({
     // Field actions
     toggleFieldVisibility,
     updateFieldValue,
+    addFields,
     splitUniversalField,
     consolidateToUniversal,
     

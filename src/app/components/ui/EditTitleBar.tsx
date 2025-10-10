@@ -8,8 +8,9 @@ import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner';
 
 interface EditTitleBarProps {
   onBack: () => void;
-  onSave: () => void;
+  onSave?: () => void;
   isSaving?: boolean;
+  title?: string;
 }
 
 /**
@@ -19,7 +20,7 @@ interface EditTitleBarProps {
  *  – Centered "Edit Profile" title (h1, white)
  *  – Save circle button that can show a spinner while saving
  */
-const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = false }) => {
+const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = false, title = "Edit Profile" }) => {
   return (
     <div className="relative flex items-center justify-between w-full py-4">
       {/* Back button */}
@@ -38,20 +39,22 @@ const EditTitleBar: React.FC<EditTitleBarProps> = ({ onBack, onSave, isSaving = 
         as="h1"
         className="absolute left-1/2 -translate-x-1/2 text-white text-2xl font-bold"
       >
-        Edit Profile
+        {title}
       </Heading>
 
-      {/* Save button */}
-      <Button
-        variant="circle"
-        size="icon"
-        aria-label="Save profile"
-        onClick={onSave}
-        disabled={isSaving}
-        className="z-10 w-14 h-14"
-      >
-        {isSaving ? <LoadingSpinner size="sm" /> : <FaSave className="h-5 w-5" />}
-      </Button>
+      {/* Save button - only show if onSave is provided */}
+      {onSave && (
+        <Button
+          variant="circle"
+          size="icon"
+          aria-label="Save profile"
+          onClick={onSave}
+          disabled={isSaving}
+          className="z-10 w-14 h-14"
+        >
+          {isSaving ? <LoadingSpinner size="sm" /> : <FaSave className="h-5 w-5" />}
+        </Button>
+      )}
     </div>
   );
 };

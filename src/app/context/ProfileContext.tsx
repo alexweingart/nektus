@@ -55,7 +55,7 @@ const createDefaultProfile = (session?: Session): UserProfile => {
   if (!session) {
     throw new Error('Session required to create default profile');
   }
-  
+
   const result = createDefaultProfileService({ session });
   return result.profile;
 };
@@ -120,6 +120,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
             setProfile(existingProfile);
 
+            // Trigger asset generation for new users (those without generated assets)
+            // Simple rule: If background is generated, we're done (profile image was already handled)
+            const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
+
+            if (!backgroundAlreadyGenerated) {
+              console.log('[ProfileContext] New user detected - triggering asset generation');
+              generateProfileAssets().catch(error => {
+                console.error('[ProfileContext] Asset generation error:', error);
+              });
+            }
+
             // Android-specific: Ensure session is synced with loaded profile
             // Run async (don't await) to avoid blocking the loading screen
             // Skip during setup navigation to prevent redirect loops
@@ -151,23 +162,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               }
             }
             
-            // Check if we need to generate assets
-            // generateProfileAssets() will handle detailed checks asynchronously (including People API)
-            const existingBio = getFieldValue(existingProfile.contactEntries, 'bio');
-            const needsGeneration = !existingBio || !existingProfile.profileImage || !existingProfile.backgroundImage;
-
-            if (needsGeneration) {
-              console.log('[ProfileContext] Assets missing, triggering generation:', {
-                hasBio: !!existingBio,
-                hasProfileImage: !!existingProfile.profileImage,
-                hasBackgroundImage: !!existingProfile.backgroundImage
-              });
-              generateProfileAssets().catch(error => {
-                console.error('[ProfileContext] Asset generation error:', error);
-              });
-            } else {
-              console.log('[ProfileContext] All assets exist, skipping generation');
-            }
+            // Note: Per CALCONNECT_MERGE_SPEC, we no longer auto-trigger asset generation on profile refresh
+            // Assets are only generated when explicitly requested by the user
           } else {
             // Profile should exist due to server-side creation, but create fallback if needed
             const newProfile = createDefaultProfile(session);
@@ -270,23 +266,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       // Determine if we should generate an avatar
       let shouldGenerate = false;
-      
+
       if (!currentProfileImage) {
         shouldGenerate = true;
       } else if (currentProfileImage?.includes('googleusercontent.com')) {
-        // For Google users, use the proper API to check if it's auto-generated initials
+        // For Google users, check if it's auto-generated initials
         try {
           const accessToken = session?.accessToken;
           if (accessToken) {
             shouldGenerate = await isGoogleInitialsImage(accessToken);
+            console.log('[ProfileContext] Google profile check result:', shouldGenerate ? 'initials' : 'real photo');
           } else {
-            // Fallback to simple string check if no access token
-            shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+            // No access token - assume it's a real photo to avoid unnecessary generation
+            shouldGenerate = false;
+            console.log('[ProfileContext] No access token available, assuming real photo');
           }
         } catch (error) {
-          console.error('[ProfileContext] Error checking Google profile image, falling back to URL check:', error);
-          // Fallback to simple string check on error
-          shouldGenerate = currentProfileImage?.includes('=s96-c') || false;
+          console.error('[ProfileContext] Error checking Google profile image:', error);
+          // On error, assume it's a real photo to avoid unnecessary generation
+          shouldGenerate = false;
         }
       }
 
@@ -343,8 +341,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Generate background image only if user has a non-initials profile image
     // Wait for profile image generation decision before triggering background generation
-    if (!backgroundGenerationTriggeredRef.current && !profile?.backgroundImage) {
-      
+    // Skip if already generated (check aiGeneration flag)
+    if (!backgroundGenerationTriggeredRef.current &&
+        !profile?.backgroundImage &&
+        !profile?.aiGeneration?.backgroundImageGenerated) {
+
       // Only generate background if we have a custom (non-initials) profile image
       const shouldGenerateBackground = async () => {
         // If profile image generation is happening, wait for it to complete
@@ -354,7 +355,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // After profile image generation, check if we now have a custom profile image
             const updatedProfile = await ProfileService.getProfile(userId);
             // Only generate background for user-uploaded images, not AI-generated ones
-            return updatedProfile?.profileImage && 
+            return updatedProfile?.profileImage &&
                    !updatedProfile.profileImage.includes('googleusercontent.com') &&
                    !updatedProfile.aiGeneration?.avatarGenerated;
           } catch (error) {
@@ -376,21 +377,26 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           return !profile?.aiGeneration?.avatarGenerated;
         }
       };
-      
+
       backgroundGenerationTriggeredRef.current = true;
-      
+
       const backgroundGeneration = shouldGenerateBackground().then(async (shouldGenerate) => {
+        console.log('[ProfileContext] Background generation check - shouldGenerate:', shouldGenerate);
         if (!shouldGenerate) {
           console.log('[ProfileContext] Skipping background generation - user has initials or no custom profile image');
           return;
         }
-        
+
         console.log('[ProfileContext] Making background image API call');
-        
+
+        // Get the current bio from profile for background generation
+        const bioEntry = profile?.contactEntries?.find(e => e.fieldType === 'bio');
+        const bioForBackground = bioEntry?.value || '';
+
         return fetch('/api/generate-profile/background-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ streamingBio }),
+          body: JSON.stringify({ streamingBio: bioForBackground }),
           credentials: 'include'
         })
           .then(res => {
@@ -411,7 +417,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           console.error('[ProfileContext] Background generation failed:', error);
           backgroundGenerationTriggeredRef.current = false;
         });
-      
+
       generations.push(backgroundGeneration);
     }
 

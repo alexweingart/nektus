@@ -123,19 +123,31 @@ export async function POST(request: NextRequest) {
     // Get the best match (first result)
     const bestMatch = radarData.addresses[0];
 
-    // Determine confidence level based on Radar's confidence score
-    const getConfidenceLevel = (confidence: number): 'exact' | 'high' | 'medium' | 'low' => {
-      if (confidence >= 0.9) return 'exact';
-      if (confidence >= 0.7) return 'high';
-      if (confidence >= 0.5) return 'medium';
+    // Radar returns confidence as a string, not a number
+    const radarConfidence = bestMatch.confidence as 'exact' | 'high' | 'medium' | 'low' | string;
+
+    // Map Radar's string confidence to our levels
+    const mapConfidence = (conf: string): 'exact' | 'high' | 'medium' | 'low' => {
+      const normalized = conf?.toLowerCase();
+      if (normalized === 'exact') return 'exact';
+      if (normalized === 'high') return 'high';
+      if (normalized === 'medium') return 'medium';
       return 'low';
     };
+
+    const confidenceLevel = mapConfidence(radarConfidence);
+    console.log('[Location Validate] Radar confidence:', radarConfidence, '-> Mapped to:', confidenceLevel);
+
+    // Extract just the street address (number + street)
+    const streetAddress = bestMatch.number && bestMatch.street
+      ? `${bestMatch.number} ${bestMatch.street}`
+      : body.address || '';
 
     const responseData: RadarAddressValidationResponse = {
       success: true,
       valid: true,
       formatted: {
-        address: bestMatch.formattedAddress || bestMatch.addressLabel || body.address || '',
+        address: streetAddress,
         city: bestMatch.city || body.city,
         region: bestMatch.state || body.region,
         zip: bestMatch.postalCode || body.zip || '',
@@ -146,7 +158,7 @@ export async function POST(request: NextRequest) {
         lng: bestMatch.longitude
       },
       radarPlaceId: bestMatch.placeId,
-      confidence: getConfidenceLevel(bestMatch.confidence || 0.5),
+      confidence: confidenceLevel,
       suggestions: radarData.addresses.slice(1, 4).map((addr: {
         formattedAddress?: string;
         addressLabel?: string;

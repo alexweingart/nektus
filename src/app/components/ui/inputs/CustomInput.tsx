@@ -22,22 +22,21 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
             {label}
           </label>
         )}
-        <div 
-          className="flex w-full bg-white/80 border-2 border-white/80 rounded-full transition-all duration-200 text-black text-base h-12 focus-within:bg-white focus-within:border-white focus-within:shadow-2xl"
+        <div
+          className="flex w-full bg-black/40 border border-white/20 rounded-full transition-all text-white text-base h-12 focus-within:bg-black/50 focus-within:border-white/40 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.15)]"
           style={{
             height: '3.5rem',
             minHeight: '3.5rem',
             display: 'flex',
-            alignItems: 'center',
-            backdropFilter: 'blur(4px)'
+            alignItems: 'center'
           }}
         >
-          <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 ${iconClassName}`}>
+          <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 text-white ${iconClassName}`}>
             {icon}
           </div>
           <input
             ref={ref}
-            className={`flex-1 px-2 h-full bg-transparent focus:outline-none text-gray-800 font-medium text-base w-full ${
+            className={`flex-1 px-2 h-full bg-transparent focus:outline-none text-white font-medium text-base w-full placeholder-white/40 ${
               variant === 'hideable' ? 'pr-8' : 'pr-6'
             } ${
               variant === 'hideable' ? 'rounded-none' : 'rounded-r-full'
@@ -54,8 +53,11 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
           {variant === 'hideable' && onToggleHide && (
             <button
               type="button"
-              onClick={onToggleHide}
-              className="flex items-center justify-center pr-4 h-full w-12 text-gray-600 hover:text-gray-800 transition-colors"
+              onClick={() => {
+                console.log('[CustomInput] Hide button clicked');
+                onToggleHide();
+              }}
+              className="flex items-center justify-center pr-4 h-full w-12 text-white/60 hover:text-white transition-colors"
               aria-label={isHidden ? 'Show field' : 'Hide field'}
             >
               {isHidden ? (

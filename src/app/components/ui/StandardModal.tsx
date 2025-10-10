@@ -10,13 +10,18 @@ interface StandardModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  subtitle: string;
-  primaryButtonText: string;
-  onPrimaryButtonClick: () => void;
+  subtitle?: string;
+  primaryButtonText?: string;
+  onPrimaryButtonClick?: () => void;
+  primaryButtonDisabled?: boolean;
   secondaryButtonText?: string;
   onSecondaryButtonClick?: () => void;
   variant?: 'success' | 'upsell' | 'info';
-  showSecondaryButton?: boolean;}
+  showSecondaryButton?: boolean;
+  showPrimaryButton?: boolean;
+  showCloseButton?: boolean;
+  children?: React.ReactNode;
+}
 
 export const StandardModal: React.FC<StandardModalProps> = ({
   isOpen,
@@ -25,9 +30,14 @@ export const StandardModal: React.FC<StandardModalProps> = ({
   subtitle,
   primaryButtonText,
   onPrimaryButtonClick,
+  primaryButtonDisabled = false,
   secondaryButtonText = "Maybe later",
-  showSecondaryButton = true,  onSecondaryButtonClick,
-  variant: _variant = 'info'
+  showSecondaryButton = true,
+  showPrimaryButton = true,
+  showCloseButton = true,
+  onSecondaryButtonClick,
+  variant: _variant = 'info',
+  children
 }) => {
   const handlePrimaryClick = () => {
     console.log(`🎯 Standard modal primary button clicked: ${primaryButtonText}`);
@@ -57,27 +67,35 @@ export const StandardModal: React.FC<StandardModalProps> = ({
                 {title}
               </Heading>
             </Dialog.Title>
-            
+
             {/* Subtitle */}
-            <Dialog.Description asChild>
-              <Text variant="small" className="leading-relaxed break-words">
-                {subtitle}
-              </Text>
-            </Dialog.Description>
+            {subtitle && (
+              <Dialog.Description asChild>
+                <Text variant="small" className="leading-relaxed break-words">
+                  {subtitle}
+                </Text>
+              </Dialog.Description>
+            )}
           </div>
-          
+
+          {/* Custom Content */}
+          {children}
+
           {/* Action Button */}
-          <div className="w-full">
-            <Button
-              onClick={handlePrimaryClick}
-              variant="white"
-              size="xl"
-              className="w-full font-semibold"
-            >
-              {primaryButtonText}
-            </Button>
-          </div>
-          
+          {showPrimaryButton && primaryButtonText && onPrimaryButtonClick && (
+            <div className="w-full">
+              <Button
+                onClick={handlePrimaryClick}
+                variant="white"
+                size="xl"
+                className="w-full font-semibold"
+                disabled={primaryButtonDisabled}
+              >
+                {primaryButtonText}
+              </Button>
+            </div>
+          )}
+
           {/* Secondary Button */}
           {showSecondaryButton && (
             <div className="flex justify-center">
@@ -85,16 +103,21 @@ export const StandardModal: React.FC<StandardModalProps> = ({
                 {secondaryButtonText}
               </SecondaryButton>
             </div>
-          )}          
-          {/* Close button (optional, invisible but accessible) */}
-          <Dialog.Close asChild>
-            <button 
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-              aria-label="Close"
-            >
-              <span className="sr-only">Close</span>
-            </button>
-          </Dialog.Close>
+          )}
+          {/* Close button */}
+          {showCloseButton && (
+            <Dialog.Close asChild>
+              <button
+                className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none text-white hover:text-white/80"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="sr-only">Close</span>
+              </button>
+            </Dialog.Close>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

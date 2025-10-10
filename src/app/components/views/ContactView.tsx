@@ -6,15 +6,17 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/Avatar';
 import SocialIconsList from '../ui/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
+import type { SavedContact } from '@/types/contactExchange';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { StandardModal } from '../ui/StandardModal';
+import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Text } from "../ui/Typography";
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
@@ -48,10 +50,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Modal state with logging
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  
-  
+  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
+
   const dismissSuccessModal = () => setShowSuccessModal(false);
   const dismissUpsellModal = () => setShowUpsellModal(false);
+  const dismissAddCalendarModal = () => setShowAddCalendarModal(false);
   
   // Check if contact is already saved by checking exchange state
   const exchangeState = getExchangeState(token);
@@ -323,10 +326,86 @@ export const ContactView: React.FC<ContactViewProps> = ({
     const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
     const phoneNumber = extractPhoneNumber(profile.contactEntries);
-    
+
     openMessagingAppDirectly(messageText, phoneNumber);
   };
 
+  // Phase 5: Handle calendar click for historical contacts
+  const handleHistoricalCalendarClick = async () => {
+    if (!session?.user?.id) {
+      console.warn('Cannot schedule: no user session');
+      return;
+    }
+
+    // For historical contacts, profile is actually a SavedContact with contactType
+    const savedContact = profile as SavedContact;
+    const contactType = savedContact.contactType;
+
+    try {
+      // Fetch user's profile to check for calendar
+      const response = await fetch(`/api/profile/${session.user.id}`);
+      if (!response.ok) {
+        console.error('Failed to fetch user profile');
+        return;
+      }
+      const userProfile = await response.json();
+
+      // Check if user has calendar for this contact's type
+      const userHasCalendar = userProfile.calendars?.some(
+        (cal: any) => cal.section === contactType
+      );
+
+      if (userHasCalendar) {
+        // Navigate to smart-schedule page
+        router.push(`/contact/${profile.userId}/smart-schedule`);
+      } else {
+        // Open Add Calendar modal
+        setShowAddCalendarModal(true);
+      }
+    } catch (error) {
+      console.error('Error checking calendar:', error);
+    }
+  };
+
+  // Phase 6: Handle Smart Schedule CTA
+  const router = useRouter();
+  const handleScheduleMeetUp = async () => {
+    if (!session?.user?.id) return;
+
+    // Get current profile type from localStorage
+    const currentSection = (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
+
+    // Check if user has a calendar for current profile type
+    try {
+      const response = await fetch(`/api/profile/${session.user.id}`);
+      if (!response.ok) {
+        console.error('Failed to fetch user profile');
+        return;
+      }
+      const userProfile = await response.json();
+
+      const userHasCalendar = userProfile.calendars?.some(
+        (cal: any) => cal.section === currentSection
+      );
+
+      if (userHasCalendar) {
+        // Navigate to smart-schedule page
+        router.push(`/contact/${profile.userId}/smart-schedule`);
+      } else {
+        // Open Add Calendar modal
+        setShowAddCalendarModal(true);
+      }
+    } catch (error) {
+      console.error('Error checking calendar:', error);
+    }
+  };
+
+  // Handle calendar added callback
+  const handleCalendarAdded = () => {
+    dismissAddCalendarModal();
+    // After calendar is added, navigate to smart-schedule
+    router.push(`/contact/${profile.userId}/smart-schedule`);
+  };
 
   const { data: session } = useSession();
   const bioContent = useMemo(() => {
@@ -433,25 +512,32 @@ export const ContactView: React.FC<ContactViewProps> = ({
           {/* Action Buttons */}
           <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
             {isHistoricalMode ? (
-              // Historical mode buttons
+              // Historical mode buttons (Phase 5)
               <>
-                {/* Message Button (Primary) */}
-                <Button 
+                {/* Meet Up Button (Primary) */}
+                <Button
                   variant="theme"
                   size="xl"
                   className="w-full font-bold"
-                  onClick={handleHistoricalMessage}
+                  onClick={handleHistoricalCalendarClick}
                 >
-                  Say hi 👋
+                  Meet Up 🤝
                 </Button>
-                
-                {/* No secondary button for historical contacts when using new route */}
+
+                {/* Say Hi Button (Secondary) */}
+                <div className="flex justify-center">
+                  <SecondaryButton
+                    onClick={handleHistoricalMessage}
+                  >
+                    Say Hi
+                  </SecondaryButton>
+                </div>
               </>
             ) : (
               // Normal contact exchange mode buttons
               <>
                 {/* Save Contact Button (Primary) */}
-                <Button 
+                <Button
                   variant="theme"
                   size="xl"
                   className="w-full font-bold"
@@ -460,18 +546,31 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 >
                   {getButtonText()}
                 </Button>
-                
+
                 {/* Success/Error Messages - handled by modals now */}
-                
-                {/* Reject Button (Secondary) */}
-                <div className="flex justify-center">
+
+                {/* Phase 6: Smart Schedule CTA - shown when contact is saved (Done state) */}
+                {isSuccess && (
                   <SecondaryButton
-                    onClick={onReject}
-                    disabled={isSaving || isLoading}
+                    variant="dark"
+                    className="w-full"
+                    onClick={handleScheduleMeetUp}
                   >
-                    Nah, who this
+                    Schedule next meet up now!
                   </SecondaryButton>
-                </div>
+                )}
+
+                {/* Reject Button (Secondary) - only show when not saved yet */}
+                {!isSuccess && (
+                  <div className="flex justify-center">
+                    <SecondaryButton
+                      onClick={onReject}
+                      disabled={isSaving || isLoading}
+                    >
+                      Nah, who this
+                    </SecondaryButton>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -487,6 +586,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"
           variant="success"
+          showCloseButton={false}
         />
 
         {/* Contact Write Upsell Modal */}
@@ -500,6 +600,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
           secondaryButtonText="Nah, just Nekt is fine"
           onSecondaryButtonClick={handleUpsellDecline}
           variant="upsell"
+          showCloseButton={false}
+        />
+
+        {/* Add Calendar Modal */}
+        <AddCalendarModal
+          isOpen={showAddCalendarModal}
+          onClose={dismissAddCalendarModal}
+          section={
+            isHistoricalMode
+              ? (profile as SavedContact).contactType
+              : (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work'
+          }
+          userEmail={session?.user?.email || ''}
+          onCalendarAdded={handleCalendarAdded}
         />
       </div>
     </div>

@@ -1,34 +1,25 @@
-/**
- * Edit Calendar Page - Edit schedulable hours for a specific calendar
- * Part of Phase 3: Calendar Management
- */
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useProfile } from '@/app/context/ProfileContext';
-import { PageContainer } from '@/app/components/ui/PageContainer';
-import { TopBar } from '@/app/components/ui/TopBar';
-import { Heading, Text } from '@/app/components/ui/Typography';
-import { Button } from '@/app/components/ui/buttons/Button';
+import EditTitleBar from '@/app/components/ui/EditTitleBar';
+import { Text } from '@/app/components/ui/Typography';
 import { SecondaryButton } from '@/app/components/ui/buttons/SecondaryButton';
 import { SchedulableHoursEditor } from '@/app/components/ui/calendar/SchedulableHoursEditor';
 import type { Calendar, SchedulableHours } from '@/types/profile';
 
-export default function EditCalendarPage() {
+interface CalendarViewProps {
+  calendarId: string;
+}
+
+export default function CalendarView({ calendarId }: CalendarViewProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { profile, saveProfile, isLoading } = useProfile();
   const [isSaving, setIsSaving] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Get calendar ID from URL params
-  const calendarId = searchParams.get('id');
 
   // Find the calendar
   const calendar = profile?.calendars?.find(cal => cal.id === calendarId);
-
   const [editedHours, setEditedHours] = useState<SchedulableHours | null>(null);
 
   // Initialize edited hours when calendar is loaded
@@ -46,12 +37,12 @@ export default function EditCalendarPage() {
       // Update calendar in profile
       const updatedCalendars = profile.calendars?.map(cal =>
         cal.id === calendarId
-          ? { ...cal, schedulableHours: editedHours, updatedAt: Date.now() }
+          ? { ...cal, schedulableHours: editedHours, updatedAt: new Date() }
           : cal
       );
 
       await saveProfile({ calendars: updatedCalendars });
-      router.push('/edit-profile');
+      router.push('/edit');
     } catch (error) {
       console.error('Error saving calendar:', error);
       alert('Failed to save calendar. Please try again.');
@@ -73,7 +64,7 @@ export default function EditCalendarPage() {
       // TODO: Also revoke OAuth tokens if needed
       // For now, just remove from profile
 
-      router.push('/edit-profile');
+      router.push('/edit');
     } catch (error) {
       console.error('Error deleting calendar:', error);
       alert('Failed to delete calendar. Please try again.');
@@ -141,49 +132,67 @@ export default function EditCalendarPage() {
     }
   };
 
-  if (isLoading) {
+  const getCalendarUrl = (provider: string, email: string) => {
+    switch (provider) {
+      case 'google':
+        return 'https://calendar.google.com';
+      case 'microsoft':
+        return 'https://outlook.live.com/calendar';
+      case 'apple':
+        return 'https://www.icloud.com/calendar';
+      default:
+        return null;
+    }
+  };
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  if (!calendar && !isLoading) {
     return (
-      <PageContainer>
-        <TopBar title="Edit Calendar" backButton />
-        <div className="p-6">
-          <Text className="text-white/60">Loading...</Text>
+      <div className="min-h-screen">
+        <div className="max-w-2xl mx-auto px-6">
+          <EditTitleBar title="Edit Calendar" onBack={handleBack} />
+          <div className="py-6">
+            <Text className="text-white/60">Calendar not found</Text>
+          </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   if (!calendar) {
-    return (
-      <PageContainer>
-        <TopBar title="Edit Calendar" backButton />
-        <div className="p-6">
-          <Text className="text-white/60">Calendar not found</Text>
-        </div>
-      </PageContainer>
-    );
+    return null;
   }
 
   return (
-    <PageContainer>
-      <TopBar title="Edit Calendar" backButton />
+    <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-screen">
+      <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
+        <EditTitleBar
+          title="Edit Calendar"
+          onBack={handleBack}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
 
-      <div className="p-6 space-y-6">
-        {/* Calendar Info */}
-        <div className="flex items-center gap-3">
-          {getProviderIcon(calendar.provider)}
-          <div>
-            <Text className="font-medium text-white">{getProviderName(calendar.provider)}</Text>
-            <Text variant="small" className="text-white/60">
-              {calendar.email}
-            </Text>
-          </div>
+        <div className="space-y-6">
+        {/* Calendar Info - Clickable to open calendar */}
+        <div
+          className="flex flex-col items-center justify-center text-center cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => {
+            const calendarUrl = getCalendarUrl(calendar.provider, calendar.email);
+            if (calendarUrl) window.open(calendarUrl, '_blank');
+          }}
+        >
+          <Text className="font-medium text-white">{getProviderName(calendar.provider)}</Text>
+          <Text variant="small" className="text-white/60">
+            {calendar.email}
+          </Text>
         </div>
 
         {/* Schedulable Hours Section */}
         <div>
-          <Heading as="h3" className="mb-4">
-            Available Hours
-          </Heading>
           {editedHours && (
             <SchedulableHoursEditor
               schedulableHours={editedHours}
@@ -193,50 +202,17 @@ export default function EditCalendarPage() {
         </div>
 
         {/* Actions */}
-        <div className="space-y-3 pt-4">
-          <Button
-            variant="white"
-            className="w-full"
-            onClick={handleSave}
+        <div className="mt-5 text-center">
+          <SecondaryButton
+            variant="destructive"
+            onClick={handleDelete}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-
-          {!showDeleteConfirm ? (
-            <SecondaryButton
-              variant="dark"
-              className="w-full text-red-500"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              Delete Calendar
-            </SecondaryButton>
-          ) : (
-            <div className="space-y-2">
-              <Text variant="small" className="text-center text-red-400">
-                Are you sure? This will permanently remove this calendar.
-              </Text>
-              <div className="flex gap-2">
-                <SecondaryButton
-                  variant="dark"
-                  className="flex-1"
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  Cancel
-                </SecondaryButton>
-                <Button
-                  variant="white"
-                  className="flex-1 !bg-red-500 !text-white hover:!bg-red-600"
-                  onClick={handleDelete}
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Deleting...' : 'Confirm Delete'}
-                </Button>
-              </div>
-            </div>
-          )}
+            {isSaving ? 'Deleting...' : 'Delete'}
+          </SecondaryButton>
+        </div>
         </div>
       </div>
-    </PageContainer>
+    </div>
   );
 }

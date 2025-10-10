@@ -3,6 +3,7 @@
 import React from 'react';
 import CustomInput from './inputs/CustomInput';
 import CustomPhoneInput from './inputs/CustomPhoneInput';
+import { CustomExpandingLinkInput } from './inputs/CustomExpandingLinkInput';
 import SocialIcon from './SocialIcon';
 import type { ContactEntry, FieldSection } from '@/types/profile';
 
@@ -62,8 +63,9 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
 }) => {
   const fieldType = profile.fieldType;
   const placeholder = getPlaceholder(fieldType);
-  const value = getValue(fieldType, profile.section);
-  
+  // Use value directly from profile instead of looking it up
+  const value = profile.value || '';
+
   // Use the isVisible flag from the profile
   const shouldShowAsHidden = !profile.isVisible;
 
@@ -99,32 +101,54 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         }}
       >
       {fieldType === 'phone' ? (
-        <div className="relative w-full">
-          <CustomPhoneInput
-            onChange={(value) => {
-              onPhoneChange?.(value);
-              onConfirm(fieldType);
-            }}
-            value={value}
-            placeholder={placeholder}
-            className="w-full"
-            autoFocus={false}
-            inputProps={{
-              id: fieldId,
-              autoComplete: "tel",
-              className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-            }}
-          />
-          {/* Drag overlay for phone country selector area */}
-          <div 
-            className="absolute left-0 top-0 bottom-0 w-16 z-20 flex items-center justify-center"
-            onTouchStart={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchStart(fieldId) : undefined}
-            onTouchMove={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchMove : undefined}
-            onTouchEnd={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchEnd : undefined}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{ pointerEvents: showDragHandles && dragAndDrop && !shouldShowAsHidden ? 'auto' : 'none' }}
-          />
-        </div>
+        <CustomPhoneInput
+          onChange={(value) => {
+            onPhoneChange?.(value);
+            onConfirm(fieldType);
+          }}
+          value={value}
+          placeholder={placeholder}
+          className="w-full"
+          autoFocus={false}
+          inputProps={{
+            id: fieldId,
+            autoComplete: "tel",
+            className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          }}
+          onTouchStart={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchStart(fieldId) : undefined}
+          onTouchMove={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchMove : undefined}
+          onTouchEnd={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchEnd : undefined}
+        />
+      ) : profile.linkType === 'custom' ? (
+        <CustomExpandingLinkInput
+          value={value}
+          onChange={(value) => {
+            onChange(fieldType, value, profile.section);
+          }}
+          placeholder={placeholder}
+          className="w-full"
+          variant="hideable"
+          isHidden={shouldShowAsHidden}
+          onToggleHide={() => {
+            fieldSectionManager.toggleFieldVisibility(fieldType, currentViewMode);
+          }}
+          icon={
+            <div
+              className="w-5 h-5 flex items-center justify-center relative"
+              onTouchStart={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchStart(fieldId) : undefined}
+              onTouchMove={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchMove : undefined}
+              onTouchEnd={showDragHandles && dragAndDrop && !shouldShowAsHidden ? dragAndDrop.onTouchEnd : undefined}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <SocialIcon
+                platform={fieldType}
+                username={value}
+                size="sm"
+                customIcon={profile.icon}
+              />
+            </div>
+          }
+        />
       ) : (
         <CustomInput
           type={fieldType === 'email' ? 'email' : 'text'}
@@ -160,7 +184,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
               )}
             </div>
           }
-          iconClassName="text-gray-600"
+          iconClassName="text-white"
           autoComplete={fieldType === 'email' ? 'email' : undefined}
         />
       )}

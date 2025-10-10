@@ -68,7 +68,13 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
   };
 
   return (
-    <div className={`inline-flex items-center justify-center px-3 py-2 border border-white/20 rounded-lg bg-white/10 gradient-border-focus-within ${className}`}>
+    <div
+      className={`inline-flex items-center justify-center gap-0 px-2 py-0 border border-white/20 rounded-full bg-black/40 focus-within:bg-black/50 focus-within:border-white/40 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all ${className}`}
+      style={{
+        height: '3.5rem',
+        minHeight: '3.5rem'
+      }}
+    >
       <CustomTimeInput
         value={hours}
         onChange={(value) => setHours(value)}
@@ -76,7 +82,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
         placeholder="12"
       />
 
-      <Text variant="base" as="span" className="select-none -mx-1 text-white">:</Text>
+      <Text variant="base" as="span" className="select-none text-white text-sm leading-none">:</Text>
 
       <CustomTimeInput
         value={minutes}
@@ -88,7 +94,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
       <button
         type="button"
         onClick={togglePeriod}
-        className="-ml-1 px-2 py-1 text-base font-medium text-white hover:bg-white/20 rounded transition-colors select-none focus:outline-none focus:ring-0 focus:border-transparent"
+        className="px-2 py-2 text-sm font-medium text-white hover:bg-white/20 rounded transition-colors select-none focus:outline-none focus:ring-0 focus:border-transparent leading-none"
       >
         {period}
       </button>

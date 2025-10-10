@@ -1,7 +1,7 @@
 // Calendar Token Management
 
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase/clientConfig';
 import { CalendarTokens } from '@/types';
 
 const TOKENS_COLLECTION = 'calendarTokens';
@@ -102,6 +102,46 @@ export async function removeCalendarTokens(
     console.error('Error removing calendar tokens:', error);
     throw error;
   }
+}
+
+// Simple encryption/decryption for calendar tokens (stored in Firebase)
+// Note: For production, consider using a more robust encryption library
+const ENCRYPTION_KEY = process.env.CALENDAR_TOKEN_ENCRYPTION_KEY || 'default-key-change-in-prod';
+
+export async function encryptCalendarTokens(tokens: {
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiry: number;
+}): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiry: number;
+}> {
+  // For now, return tokens as-is since they're stored in Firebase with security rules
+  // In production, implement proper encryption here
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    tokenExpiry: tokens.tokenExpiry
+  };
+}
+
+export async function decryptCalendarTokens(tokens: {
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiry: number;
+}): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiry: number;
+}> {
+  // For now, return tokens as-is
+  // In production, implement proper decryption here
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    tokenExpiry: tokens.tokenExpiry
+  };
 }
 
 

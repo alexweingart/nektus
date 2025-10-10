@@ -27,40 +27,59 @@ export function PullToRefresh({
   const handleTouchStart = useCallback((e: TouchEvent) => {
     // Skip all touch handling if disabled
     if (disabled) return;
-    
+
     const container = containerRef.current;
     if (!container || container.scrollTop > 0) return;
-    
+
     setStartY(e.touches[0].clientY);
-    setIsPulling(true);
+    // Don't set isPulling yet - wait for touchmove to determine direction
   }, [disabled]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     // Skip all touch handling if disabled
-    if (disabled || !isPulling || isRefreshing) return;
-    
+    if (disabled || isRefreshing) return;
+
     const container = containerRef.current;
-    if (!container || container.scrollTop > 0) return;
+    if (!container) return;
+
+    // If not at top, allow normal scrolling
+    if (container.scrollTop > 0) {
+      setIsPulling(false);
+      setPullDistance(0);
+      return;
+    }
+
+    // If no startY recorded, ignore
+    if (startY === 0) return;
 
     const currentY = e.touches[0].clientY;
     const distance = currentY - startY;
-    
-    if (distance > 0) {
-      // Pulling down - apply pull distance
+
+    if (distance > 5) {
+      // Pulling down at the top - activate pull to refresh
+      if (!isPulling) {
+        setIsPulling(true);
+      }
       e.preventDefault(); // Prevent native scroll behavior
       setPullDistance(Math.min(distance * 0.5, pullThreshold * 1.5)); // Add resistance
-    } else {
-      // Pulling up or no movement - reset pull distance immediately
+    } else if (distance < -5) {
+      // Scrolling down - allow normal scroll
+      setIsPulling(false);
       setPullDistance(0);
     }
   }, [disabled, isPulling, isRefreshing, startY, pullThreshold]);
 
   const handleTouchEnd = useCallback(async () => {
     // Skip all touch handling if disabled
-    if (disabled || !isPulling) return;
-    
+    if (disabled) return;
+
+    // Reset startY
+    setStartY(0);
+
+    if (!isPulling) return;
+
     setIsPulling(false);
-    
+
     if (pullDistance >= pullThreshold && !isRefreshing) {
       setIsRefreshing(true);
       try {
@@ -71,7 +90,7 @@ export function PullToRefresh({
         setIsRefreshing(false);
       }
     }
-    
+
     setPullDistance(0);
   }, [disabled, isPulling, pullDistance, pullThreshold, isRefreshing, onRefresh]);
 

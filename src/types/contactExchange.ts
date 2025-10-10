@@ -39,6 +39,7 @@ export interface ContactExchangeResponse {
 export interface SavedContact extends UserProfile {
   addedAt: number;
   matchToken: string;
+  contactType: 'personal' | 'work';  // Type of contact relationship (personal or work)
 }
 
 // WebSocket message types

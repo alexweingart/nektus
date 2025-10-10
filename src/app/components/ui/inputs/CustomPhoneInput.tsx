@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { DropdownSelector, DropdownOption } from './DropdownSelector';
 
 // Country type for phone input components
 export interface Country {
@@ -74,6 +74,14 @@ countries.forEach(country => {
   dialCodeMap[country.dialCode].push(country);
 });
 
+// Convert countries to DropdownOptions for DropdownSelector
+const countryOptions: DropdownOption[] = countries.map(country => ({
+  label: country.name,
+  value: country.code,
+  icon: country.flag,
+  metadata: { dialCode: country.dialCode }
+}));
+
 interface CustomPhoneInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -82,6 +90,9 @@ interface CustomPhoneInputProps {
   isDisabled?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
   autoFocus?: boolean;
+  onTouchStart?: (event: React.TouchEvent) => void;
+  onTouchMove?: (event: React.TouchEvent) => void;
+  onTouchEnd?: () => void;
 }
 
 const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProps>((
@@ -93,17 +104,21 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
     isDisabled = false,
     inputProps = {},
     autoFocus = true,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd
   },
   ref
 ) => {
   const [phoneInput, setPhoneInput] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]);
+  const [selectedCountryCode, setSelectedCountryCode] = useState('US');
   const [isFocused, setIsFocused] = useState(false);
 
   // Create refs
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get selected country
+  const selectedCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
 
   // Initialize component with value if provided
   useEffect(() => {
@@ -117,10 +132,7 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       
       // If the value is a US number, ensure US is selected
       if (cleanedValue.length === 10 || (cleanedValue.length === 11 && cleanedValue.startsWith('1'))) {
-        const usCountry = countries.find(c => c.code === 'US');
-        if (usCountry) {
-          setSelectedCountry(usCountry);
-        }
+        setSelectedCountryCode('US');
       }
     }
   }, [value, phoneInput]); // Include phoneInput in dependencies
@@ -221,9 +233,8 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
       
       if (countryCode && nationalNumber) {
         // Update the selected country if we detected a country code
-        const newCountry = countries.find(c => c.code === countryCode);
-        if (newCountry && newCountry.code !== selectedCountry.code) {
-          setSelectedCountry(newCountry);
+        if (countryCode !== selectedCountryCode) {
+          setSelectedCountryCode(countryCode);
         }
         
         // Use the national number for formatting
@@ -276,29 +287,14 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
   };
 
   // Handle country selection
-  const handleCountrySelect = (country: Country) => {
-    setSelectedCountry(country);
-    setIsDropdownOpen(false);
-    
+  const handleCountrySelect = (countryCode: string) => {
+    setSelectedCountryCode(countryCode);
+
     // Focus on the input after country selection
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Auto-focus on the input when component mounts (if enabled)
   useEffect(() => {
@@ -318,13 +314,13 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         minHeight: '3.5rem',
       }}
     >
-      <div 
-        className={`absolute inset-0 rounded-full border-2 transition-all duration-200 ${
-          isFocused ? 'bg-white border-white shadow-2xl' : 'bg-white/80 border-white/80'
+      <div
+        className={`absolute inset-0 rounded-full border transition-all ${
+          isFocused ? 'bg-black/50 border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'bg-black/40 border-white/20'
         }`}
         style={{
-          backdropFilter: 'blur(4px)',
-          transition: 'all 0.2s ease-in-out'
+          transition: 'all 0.2s ease-in-out',
+          pointerEvents: 'none'
         }}
       />
       <div 
@@ -332,43 +328,17 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
       >
-      {/* Country selector */}
-      <div className="relative z-10" ref={dropdownRef}>
-        <button
-          type="button"
-          className="flex items-center justify-between pr-0 pl-4 text-black h-full focus:outline-none border-0 rounded-l-full text-base"
-          style={{ 
-            borderTopRightRadius: 0, 
-            borderBottomRightRadius: 0,
-            backgroundColor: 'transparent'
-          }}
-          onClick={() => {
-            setIsDropdownOpen(!isDropdownOpen);
-          }}
-          aria-label="Select country"
-        >
-          <span className="mr-1">{selectedCountry.flag}</span>
-          <div className="flex flex-col text-primary">
-            <FaChevronUp className="h-3 w-3" />
-            <FaChevronDown className="h-3 w-3" />
-          </div>
-        </button>
-        
-        {/* Country dropdown */}
-        {isDropdownOpen && (
-          <div className="absolute z-50 top-full left-0 mt-3 w-60 shadow-lg rounded-md max-h-60 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200/70 [&::-webkit-scrollbar-thumb]:rounded-full backdrop-blur-sm" style={{ top: 'calc(100% + 0.5rem)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
-            {countries.map((country) => (
-              <div
-                key={country.code}
-                className="px-4 py-2 hover:bg-gray-100/80 cursor-pointer flex items-center text-black"
-                onClick={() => handleCountrySelect(country)}
-              >
-                <span className="mr-2">{country.flag}</span>
-                <span>{country.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Country selector using DropdownSelector */}
+      <div className="relative" style={{ zIndex: 50 }}>
+        <DropdownSelector
+          options={countryOptions}
+          value={selectedCountryCode}
+          onChange={handleCountrySelect}
+          disabled={isDisabled}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        />
       </div>
       
       {/* Phone number input */}
@@ -391,9 +361,9 @@ const CustomPhoneInput = React.forwardRef<HTMLInputElement, CustomPhoneInputProp
           borderTopRightRadius: '9999px',
           borderBottomRightRadius: '9999px',
           backgroundColor: 'transparent',
-          color: 'black'
+          color: 'white'
         }}
-        className="flex-1 pr-3 pl-0 h-full focus:outline-none text-black font-medium text-base rounded-r-full"
+        className="flex-1 pr-3 pl-0 h-full focus:outline-none text-white font-medium text-base rounded-r-full placeholder-white/40"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}

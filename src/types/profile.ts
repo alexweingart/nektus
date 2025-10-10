@@ -5,13 +5,22 @@ export type FieldSection = 'universal' | 'personal' | 'work';
 // Unified contact entry interface - handles ALL profile fields
 export interface ContactEntry {
   fieldType: string;           // 'name', 'bio', 'email', 'phone', 'instagram', etc.
+                               // For custom links: extracted domain (e.g., "medium", "substack", "github")
   value: string;               // The actual field value
+                               // For custom links: full URL, for social: username
   section: FieldSection;
   order: number;               // Consistent ordering across all fields
   isVisible: boolean;          // Whether field is shown or hidden
   confirmed: boolean;          // User has confirmed this field
   automatedVerification?: boolean;
   discoveryMethod?: 'ai' | 'manual' | 'email-guess' | 'phone-guess';
+
+  // Link-specific fields (Phase 5)
+  linkType?: 'default' | 'custom';  // "default" = native social (facebook, instagram, etc.)
+                                     // "custom" = user-added custom link (medium, substack, etc.)
+  icon?: string;                     // Icon URL/path - for ALL links (both default and custom)
+                                     // Default: static asset path (e.g., "/icons/default/facebook.svg")
+                                     // Custom: favicon URL from Google
 }
 
 export interface UserProfile {

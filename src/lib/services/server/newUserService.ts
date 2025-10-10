@@ -62,26 +62,26 @@ export function createDefaultProfile({ session }: CreateDefaultProfileParams): D
       confirmed: false
     },
     {
+      fieldType: 'email',
+      value: session.user.email || '',
+      section: 'personal',
+      order: 1,
+      isVisible: true,
+      confirmed: !!session.user.email
+    },
+    {
       fieldType: 'phone',
       value: '',
       section: 'work',
-      order: 1,
+      order: 0,
       isVisible: true,
       confirmed: false
     },
     {
       fieldType: 'email',
       value: session.user.email || '',
-      section: 'personal',
-      order: 2,
-      isVisible: true,
-      confirmed: !!session.user.email
-    },
-    {
-      fieldType: 'email',
-      value: session.user.email || '',
       section: 'work',
-      order: 3,
+      order: 1,
       isVisible: true,
       confirmed: !!session.user.email
     }

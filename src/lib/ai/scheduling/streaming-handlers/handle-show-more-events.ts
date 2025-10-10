@@ -1,4 +1,4 @@
-import { processingStateManager } from '@/lib/processing-state';
+import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueContent, enqueueClearLoading, enqueueProgress } from './streaming-utils';
 
 interface CachedEvents {

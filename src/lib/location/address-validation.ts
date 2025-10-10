@@ -139,7 +139,7 @@ export const validateAddress = (address: string): ValidationResult => {
   if (!/\d/.test(trimmed)) {
     return {
       isValid: false,
-      message: 'Street address should typically include a number',
+      message: 'Street address must have a number',
       wasValidated: true
     };
   }

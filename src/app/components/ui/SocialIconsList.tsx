@@ -39,6 +39,8 @@ interface SocialItem {
   url: string;
   section: FieldSection;
   order: number;
+  customIcon?: string;  // For custom links with favicons
+  linkType?: 'default' | 'custom';
 }
 
 const SocialIconsList: React.FC<SocialIconsListProps> = ({
@@ -96,19 +98,23 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
       // Only show entries that have content AND are visible
       if (hasContent && isVisible) {
         const username = entry.value;
-        
-        const url = entry.fieldType === 'phone' ? `sms:${entry.value}` :
+
+        // For custom links, the value IS the URL
+        const url = entry.linkType === 'custom' ? entry.value :
+                    entry.fieldType === 'phone' ? `sms:${entry.value}` :
                     entry.fieldType === 'email' ? `mailto:${entry.value}` :
                     getUrlForPlatform(entry.fieldType as PlatformType, entry.value);
-        
+
         const config = PLATFORM_CONFIG[entry.fieldType as keyof typeof PLATFORM_CONFIG];
-        
+
         socialItems.push({
           platform: entry.fieldType as PlatformType,
           username,
           url,
           section: entry.section,
-          order: entry.order ?? config?.defaultOrder ?? index // Use saved order first, then defaultOrder, then index
+          order: entry.order ?? config?.defaultOrder ?? index, // Use saved order first, then defaultOrder, then index
+          customIcon: entry.icon,  // Pass the favicon for custom links
+          linkType: entry.linkType
         });
       }
     });
@@ -163,7 +169,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
       {socialItems.map((item, index) => (
         <a
           key={`${item.platform}-${item.section}-${index}`}
-          href={getUrlForPlatform(item.platform, item.username)}
+          href={item.url}
           target={item.platform === 'phone' || item.platform === 'email' ? undefined : '_blank'}
           rel={item.platform === 'phone' || item.platform === 'email' ? undefined : 'noopener noreferrer'}
           className={`inline-block text-white transition-colors mr-4 last:mr-0 ${getHoverColorClass(item.platform)}`}
@@ -173,6 +179,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
             username={item.username}
             size={size}
             variant={variant}
+            customIcon={item.customIcon}
           />
         </a>
       ))}

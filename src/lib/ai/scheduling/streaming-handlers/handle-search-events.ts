@@ -1,5 +1,5 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/openai-client';
-import { processingStateManager } from '@/lib/processing-state';
+import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { Event, TimeSlot } from '@/types';
 import type { EventSearchResult } from '@/lib/ai/helpers/search-events';

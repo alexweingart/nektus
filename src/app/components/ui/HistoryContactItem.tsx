@@ -4,13 +4,14 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from './Avatar';
-import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
 import type { SavedContact } from '@/types/contactExchange';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { AddCalendarModal } from './modals/AddCalendarModal';
+import { ItemChip } from './ItemChip';
 
 interface HistoryContactItemProps {
   contact: SavedContact;
@@ -19,6 +20,7 @@ interface HistoryContactItemProps {
 export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact }) => {
   const router = useRouter();
   const { data: session } = useSession();
+  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
 
   // Format the match date
   const formatMatchDate = (timestamp: number) => {
@@ -65,71 +67,74 @@ export const HistoryContactItem: React.FC<HistoryContactItemProps> = ({ contact 
     router.push(`/contact/${contact.userId}`);
   };
 
-  const handleMessageTap = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent contact tap when clicking message button
-    
-    if (!session?.user?.name) {
-      console.warn('Cannot send message: no user session');
+  // Phase 4: Calendar button handler
+  const handleCalendarClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent contact tap when clicking calendar button
+
+    if (!session?.user?.id) {
+      console.warn('Cannot schedule: no user session');
       return;
     }
 
-    const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = getFieldValue(contact.contactEntries, 'name').split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName);
-    
-    // Try to use phone number if available from contactEntries
-    let phoneNumber = '';
-    
-    if (contact.contactEntries) {
-      const phoneEntry = contact.contactEntries.find(e => e.fieldType === 'phone');
-      phoneNumber = phoneEntry?.value || '';
+    try {
+      // Fetch user's profile to check for calendar
+      const response = await fetch(`/api/profile/${session.user.id}`);
+      if (!response.ok) {
+        console.error('Failed to fetch user profile');
+        return;
+      }
+      const userProfile = await response.json();
+
+      // Check if user has calendar for this contact's type
+      const userHasCalendar = userProfile.calendars?.some(
+        (cal: any) => cal.section === contact.contactType
+      );
+
+      if (userHasCalendar) {
+        // Navigate to smart-schedule page
+        router.push(`/contact/${contact.userId}/smart-schedule`);
+      } else {
+        // Open Add Calendar modal
+        setShowAddCalendarModal(true);
+      }
+    } catch (error) {
+      console.error('Error checking calendar:', error);
     }
-    
-    openMessagingAppDirectly(messageText, phoneNumber);
+  };
+
+  const handleCalendarAdded = () => {
+    setShowAddCalendarModal(false);
+    // After calendar is added, navigate to smart-schedule
+    router.push(`/contact/${contact.userId}/smart-schedule`);
   };
 
   return (
-    <div 
-      className="flex items-center p-4 bg-black/40 rounded-2xl backdrop-blur-sm cursor-pointer transition-all duration-200 hover:bg-black/50 active:scale-98"
-      onClick={handleContactTap}
-    >
-      {/* Avatar */}
-      <Avatar
-        src={contact.profileImage}
-        alt={getFieldValue(contact.contactEntries, 'name')}
-        size="sm"
-        className="flex-shrink-0 !w-10 !h-10"
-      />
-      
-      {/* Contact Info */}
-      <div className="flex-1 ml-4 min-w-0">
-        <h3 className="text-white font-medium text-lg truncate">
-          {getFieldValue(contact.contactEntries, 'name')}
-        </h3>
-        <p className="text-gray-300 text-sm truncate">
-          {formatMatchDate(contact.addedAt)}
-        </p>
-      </div>
-      
-      {/* Message Button */}
-      <button
-        onClick={handleMessageTap}
-        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 border border-white/40 flex items-center justify-center transition-all duration-200 hover:bg-white/30 active:scale-95"
-        aria-label={`Message ${getFieldValue(contact.contactEntries, 'name')}`}
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="h-5 w-5 text-white" 
-          viewBox="0 0 20 20" 
-          fill="currentColor"
-        >
-          <path 
-            fillRule="evenodd" 
-            d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" 
-            clipRule="evenodd" 
+    <>
+      <ItemChip
+        icon={
+          <Avatar
+            src={contact.profileImage}
+            alt={getFieldValue(contact.contactEntries, 'name')}
+            size="sm"
+            className="flex-shrink-0 !w-10 !h-10"
           />
-        </svg>
-      </button>
-    </div>
+        }
+        title={getFieldValue(contact.contactEntries, 'name')}
+        subtitle={formatMatchDate(contact.addedAt)}
+        truncateTitle
+        onClick={handleContactTap}
+        onActionClick={handleCalendarClick}
+        actionIcon="calendar"
+      />
+
+      {/* Add Calendar Modal */}
+      <AddCalendarModal
+        isOpen={showAddCalendarModal}
+        onClose={() => setShowAddCalendarModal(false)}
+        section={contact.contactType}
+        userEmail={session?.user?.email || ''}
+        onCalendarAdded={handleCalendarAdded}
+      />
+    </>
   );
 }; 

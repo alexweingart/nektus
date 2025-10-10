@@ -76,7 +76,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   const handleSave = useCallback(async (): Promise<void> => {
     try {
       await fieldRendererRef.current?.saveProfile();
-      router.back();
+      router.push('/');
     } catch (error) {
       console.error('Save failed:', error);
     }
@@ -85,12 +85,37 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   // Save request handler for FieldRenderer
   const handleSaveRequest = useCallback(async () => {
     // Get current fields from field manager, not from ref
-    const currentFields = [
-      ...fieldSectionManager.getFieldsBySection('universal'),
-      ...fieldSectionManager.getFieldsBySection('personal').filter(f => f.isVisible || (f.value && f.value.trim() !== '')),
-      ...fieldSectionManager.getFieldsBySection('work').filter(f => f.isVisible || (f.value && f.value.trim() !== ''))
-    ];
-    
+    const universalFields = fieldSectionManager.getFieldsBySection('universal');
+    const personalFields = fieldSectionManager.getFieldsBySection('personal').filter(f => f.isVisible || (f.value && f.value.trim() !== ''));
+    const workFields = fieldSectionManager.getFieldsBySection('work').filter(f => f.isVisible || (f.value && f.value.trim() !== ''));
+
+    // Combine all fields, deduplicating by fieldType+section
+    const fieldsMap = new Map<string, ContactEntry>();
+
+    // Add universal fields first
+    universalFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      fieldsMap.set(key, field);
+    });
+
+    // Add personal fields (skip if already in universal with same fieldType)
+    personalFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      if (!fieldsMap.has(key)) {
+        fieldsMap.set(key, field);
+      }
+    });
+
+    // Add work fields (skip if already in universal with same fieldType)
+    workFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      if (!fieldsMap.has(key)) {
+        fieldsMap.set(key, field);
+      }
+    });
+
+    const currentFields = Array.from(fieldsMap.values());
+
     // Mark all fields with content as confirmed for Firebase save
     const confirmedFields = currentFields.map(field => {
       if (field.value && field.value.trim() !== '') {
@@ -98,23 +123,23 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
       }
       return field;
     });
-    
+
     // Construct profile data for save with confirmed fields
     const profileData = {
       contactEntries: confirmedFields,
-      profileImage: fieldSectionManager.getImageValue('profileImage') || '',
-      backgroundImage: fieldSectionManager.getImageValue('backgroundImage') || ''
+      profileImage: fieldSectionManager.getImageValue('profileImage') || profile?.profileImage || '',
+      backgroundImage: fieldSectionManager.getImageValue('backgroundImage') || profile?.backgroundImage || ''
     };
-    
+
     // Call the save function
     await saveProfile(profileData);
-  }, [saveProfile, fieldSectionManager]);
+  }, [saveProfile, fieldSectionManager, profile]);
 
   return (
     <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-        <EditTitleBar 
-          onBack={() => router.back()}
+        <EditTitleBar
+          onBack={() => router.push('/')}
           onSave={handleSave}
           isSaving={isProfileSaving}
         />
@@ -130,6 +155,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           onSaveRequest={handleSaveRequest}
           onDragStateChange={onDragStateChange}
           onDragComplete={handleDragComplete}
+          profile={profile}
         />
       </div>
     </div>

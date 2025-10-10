@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Google OAuth] Error:', error);
-      return NextResponse.redirect(new URL('/edit-profile?error=google_oauth_failed', request.url));
+      return NextResponse.redirect(new URL('/edit?error=google_oauth_failed', request.url));
     }
 
     if (!code || !state) {
       console.error('[Google OAuth] Missing code or state');
-      return NextResponse.redirect(new URL('/edit-profile?error=missing_parameters', request.url));
+      return NextResponse.redirect(new URL('/edit?error=missing_parameters', request.url));
     }
 
     // Parse state to get section (personal/work)
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error('[Google OAuth] Token exchange failed:', tokenResponse.statusText);
-      return NextResponse.redirect(new URL('/edit-profile?error=token_exchange_failed', request.url));
+      return NextResponse.redirect(new URL('/edit?error=token_exchange_failed', request.url));
     }
 
     const tokenData = await tokenResponse.json();
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoResponse.ok) {
       console.error('[Google OAuth] Failed to get user info');
-      return NextResponse.redirect(new URL('/edit-profile?error=user_info_failed', request.url));
+      return NextResponse.redirect(new URL('/edit?error=user_info_failed', request.url));
     }
 
     const userInfo = await userInfoResponse.json();
@@ -78,19 +78,19 @@ export async function GET(request: NextRequest) {
     // Get current profile
     const profile = await AdminProfileService.getProfile(session.user.id);
     if (!profile) {
-      return NextResponse.redirect(new URL('/edit-profile?error=profile_not_found', request.url));
+      return NextResponse.redirect(new URL('/edit?error=profile_not_found', request.url));
     }
 
     // Check if calendar already exists for this section
     const existingCalendar = profile.calendars?.find(cal => cal.section === section);
     if (existingCalendar) {
-      return NextResponse.redirect(new URL('/edit-profile?error=calendar_already_exists', request.url));
+      return NextResponse.redirect(new URL('/edit?error=calendar_already_exists', request.url));
     }
 
     // Encrypt tokens
     const encryptedTokens = await encryptCalendarTokens({
       accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
+      refreshToken: tokenData.refresh_token || '',
       tokenExpiry: Date.now() + tokenData.expires_in * 1000
     });
 
@@ -103,11 +103,12 @@ export async function GET(request: NextRequest) {
       section: section,
       schedulableHours: section === 'work' ? WORK_SCHEDULABLE_HOURS : PERSONAL_SCHEDULABLE_HOURS,
       accessToken: encryptedTokens.accessToken,
-      refreshToken: encryptedTokens.refreshToken,
+      ...(encryptedTokens.refreshToken && { refreshToken: encryptedTokens.refreshToken }),
       tokenExpiry: encryptedTokens.tokenExpiry,
       connectionStatus: 'connected',
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      accessMethod: 'oauth',
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     // Add calendar to profile
@@ -119,10 +120,10 @@ export async function GET(request: NextRequest) {
     console.log(`[Google OAuth] Calendar added for ${session.user.id} (${section})`);
 
     // Redirect back to edit profile
-    return NextResponse.redirect(new URL('/edit-profile?calendar=added', request.url));
+    return NextResponse.redirect(new URL('/edit?calendar=added', request.url));
 
   } catch (error) {
     console.error('[Google OAuth] Callback error:', error);
-    return NextResponse.redirect(new URL('/edit-profile?error=callback_error', request.url));
+    return NextResponse.redirect(new URL('/edit?error=callback_error', request.url));
   }
 }

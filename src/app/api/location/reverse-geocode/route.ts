@@ -91,13 +91,18 @@ export async function POST(request: NextRequest) {
     // Get the best match (first result)
     const bestMatch = radarData.addresses[0];
 
+    // Extract just the street address (number + street)
+    const streetAddress = bestMatch.number && bestMatch.street
+      ? `${bestMatch.number} ${bestMatch.street}`
+      : '';
+
     const responseData: ReverseGeocodeResponse = {
       success: true,
-      address: bestMatch.formattedAddress || bestMatch.addressLabel || '',
+      address: streetAddress,
       city: bestMatch.city || '',
       region: bestMatch.state || '',
       zip: bestMatch.postalCode || '',
-      country: bestMatch.country || '',
+      country: bestMatch.country || bestMatch.countryCode || '',
       coordinates: {
         lat: bestMatch.latitude,
         lng: bestMatch.longitude
@@ -105,7 +110,11 @@ export async function POST(request: NextRequest) {
       radarPlaceId: bestMatch.placeId
     };
 
-    console.log('[Reverse Geocode] Successfully geocoded to:', responseData.city, responseData.region);
+    console.log('[Reverse Geocode] Successfully geocoded:', {
+      city: responseData.city,
+      region: responseData.region,
+      country: responseData.country
+    });
 
     return NextResponse.json(responseData);
 

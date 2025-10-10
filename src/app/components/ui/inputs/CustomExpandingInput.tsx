@@ -35,9 +35,9 @@ const CustomExpandingInput = forwardRef<HTMLTextAreaElement, CustomExpandingInpu
             ref={ref}
             data-resize="true"
             className={`
-              flex-1 bg-white/80 border-2 border-white/80 rounded-[1.75rem]
-              text-gray-800 font-medium text-base px-6 py-3 resize-none
-              focus:outline-none focus:bg-white focus:border-white focus:rounded-[1.75rem] focus:shadow-2xl transition-all duration-200
+              flex-1 bg-black/40 border border-white/20 rounded-[1.75rem]
+              text-white font-medium text-base px-6 py-3 resize-none placeholder-white/40
+              focus:outline-none focus:bg-black/50 focus:border-white/40 focus:rounded-[1.75rem] focus:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all
               ${inputClassName}
             `}
             style={{
