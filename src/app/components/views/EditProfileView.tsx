@@ -156,6 +156,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           onDragStateChange={onDragStateChange}
           onDragComplete={handleDragComplete}
           profile={profile}
+          saveProfile={saveProfile}
         />
       </div>
     </div>

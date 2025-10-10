@@ -91,6 +91,10 @@ export interface Calendar {
   icsUrl?: string;  // ICS feed URL if using ICS access
   lastError?: string;  // Track ICS fetch errors
   selectedCalendarIds?: string[];  // For Google: which specific calendars to include
+  // OAuth tokens (encrypted, stored directly in calendar for nektus)
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: number;
   createdAt: Date;
   updatedAt: Date;
 }

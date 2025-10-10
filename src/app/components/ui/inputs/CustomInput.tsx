@@ -5,7 +5,7 @@ interface CustomInputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   className?: string;
   inputClassName?: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   iconClassName?: string;
   variant?: 'default' | 'hideable';
   isHidden?: boolean;
@@ -31,21 +31,25 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
             alignItems: 'center'
           }}
         >
-          <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 text-white ${iconClassName}`}>
-            {icon}
-          </div>
+          {icon && (
+            <div className={`flex items-center justify-center pl-4 pr-2 h-full w-14 text-white ${iconClassName}`}>
+              {icon}
+            </div>
+          )}
           <input
             ref={ref}
-            className={`flex-1 px-2 h-full bg-transparent focus:outline-none text-white font-medium text-base w-full placeholder-white/40 ${
-              variant === 'hideable' ? 'pr-8' : 'pr-6'
+            className={`flex-1 h-full bg-transparent focus:outline-none text-white font-medium text-base w-full placeholder-white/40 ${
+              icon ? 'px-2' : 'px-6'
             } ${
-              variant === 'hideable' ? 'rounded-none' : 'rounded-r-full'
+              variant === 'hideable' ? 'pr-8' : icon ? 'pr-6' : 'pr-6'
+            } ${
+              variant === 'hideable' ? 'rounded-none' : icon ? 'rounded-r-full' : 'rounded-full'
             } ${inputClassName}`}
             style={{
               border: 'none',
               outline: 'none',
               boxShadow: 'none',
-              borderRadius: variant === 'hideable' ? '0' : '0 9999px 9999px 0'
+              borderRadius: variant === 'hideable' ? '0' : icon ? '0 9999px 9999px 0' : '9999px'
             }}
             {...props}
           />

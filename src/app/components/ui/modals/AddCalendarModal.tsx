@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { StandardModal } from '../StandardModal';
 import { Button } from '../buttons/Button';
+import AppleCalendarSetupModal from './AppleCalendarSetupModal';
 import type { FieldSection } from '@/types/profile';
 
 interface AddCalendarModalProps {
@@ -26,6 +27,43 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
   onCalendarAdded
 }) => {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
+  const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
+
+  const handleAppleCalendarConnect = async (appleId: string, appPassword: string) => {
+    try {
+      setIsConnecting('apple');
+
+      // Call the API to test Apple calendar connection
+      const response = await fetch('/api/calendar-connections/apple/callback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userEmail,
+          appleId,
+          appSpecificPassword: appPassword,
+          section
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to connect Apple Calendar');
+      }
+
+      // Calendar was saved server-side, just notify and close
+      await onCalendarAdded();
+      setIsAppleModalOpen(false);
+      onClose();
+    } catch (error) {
+      console.error('Failed to connect Apple Calendar:', error);
+      throw error; // Re-throw so modal can show error
+    } finally {
+      setIsConnecting(null);
+    }
+  };
 
   const handleAddCalendar = async (provider: 'google' | 'microsoft' | 'apple') => {
     if (isConnecting) return;
@@ -64,8 +102,8 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
         window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
       } else if (provider === 'apple') {
         // For Apple, we'll need a separate modal for CalDAV credentials
-        // TODO: Implement Apple calendar modal in next step
-        alert('Apple Calendar setup coming soon');
+        onClose(); // Close the AddCalendarModal first
+        setIsAppleModalOpen(true);
         setIsConnecting(null);
       }
     } catch (error) {
@@ -76,6 +114,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
   };
 
   return (
+    <>
     <StandardModal
       isOpen={isOpen}
       onClose={onClose}
@@ -160,5 +199,13 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
             </Button>
           </div>
     </StandardModal>
+
+    {/* Apple Calendar Setup Modal */}
+    <AppleCalendarSetupModal
+      isOpen={isAppleModalOpen}
+      onClose={() => setIsAppleModalOpen(false)}
+      onConnect={handleAppleCalendarConnect}
+    />
+    </>
   );
 };

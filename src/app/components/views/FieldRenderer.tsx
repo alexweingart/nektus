@@ -35,6 +35,7 @@ interface FieldRendererProps {
   onDragStateChange?: (isDragging: boolean) => void;
   onDragComplete: (dropInfo: DragDropInfo) => void;
   profile?: any; // UserProfile from context
+  saveProfile?: (data: Partial<any>) => Promise<any>;
 }
 
 export interface FieldRendererHandle {
@@ -50,6 +51,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   onSaveRequest,
   onDragStateChange,
   onDragComplete,
+  saveProfile,
   profile
 }, ref) => {
   const router = useRouter();
@@ -177,12 +179,16 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     }));
   };
 
-  const handleCalendarAdded = () => {
-    // Calendar added via API in modal, just close
+  const handleCalendarAdded = async () => {
+    // Calendar added via API in modal, close modal first
     setIsCalendarModalOpen(false);
-    // Optionally trigger a refresh of profile data
+
+    // Trigger a profile refresh if available
     if (onSaveRequest) {
-      onSaveRequest();
+      await onSaveRequest();
+    } else {
+      // Fallback to reload if no refresh mechanism available
+      window.location.reload();
     }
   };
 
@@ -232,9 +238,10 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
 
       if (!response.ok) throw new Error('Failed to delete calendar');
 
-      // Trigger profile refresh
-      if (onSaveRequest) {
-        await onSaveRequest();
+      // Update profile state to remove the deleted calendar
+      if (saveProfile && profile) {
+        const updatedCalendars = profile.calendars?.filter((cal: any) => cal.id !== calendar.id) || [];
+        await saveProfile({ calendars: updatedCalendars });
       }
     } catch (error) {
       console.error('[FieldRenderer] Failed to delete calendar:', error);

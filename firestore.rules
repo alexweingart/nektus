@@ -11,5 +11,20 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
+
+    // Users can only read and write calendar tokens for their own email
+    match /calendarTokens/{tokenId} {
+      // Allow read if the existing document belongs to the user
+      allow read: if request.auth != null &&
+                     resource.data.userEmail == request.auth.token.email;
+      
+      // Allow create/update if the document being written belongs to the user
+      allow create, update: if request.auth != null &&
+                               request.resource.data.userEmail == request.auth.token.email;
+      
+      // Allow delete if the existing document belongs to the user
+      allow delete: if request.auth != null &&
+                       resource.data.userEmail == request.auth.token.email;
+    }
   }
 }
