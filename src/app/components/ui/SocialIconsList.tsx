@@ -180,6 +180,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
             size={size}
             variant={variant}
             customIcon={item.customIcon}
+            linkType={item.linkType}
           />
         </a>
       ))}

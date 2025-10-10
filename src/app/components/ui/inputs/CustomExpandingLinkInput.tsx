@@ -49,7 +49,7 @@ export const CustomExpandingLinkInput = forwardRef<HTMLTextAreaElement, CustomEx
         >
           {/* Icon on the left */}
           {icon && (
-            <div className="flex items-center justify-center pl-4 pr-2 py-3 self-center">
+            <div className="flex items-center justify-center pl-4 pr-2 py-3 self-center w-14">
               {icon}
             </div>
           )}

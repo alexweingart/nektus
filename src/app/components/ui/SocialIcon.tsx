@@ -20,6 +20,7 @@ interface SocialIconProps {
   className?: string;
   disabled?: boolean;
   customIcon?: string;
+  linkType?: 'default' | 'custom';
 }
 
 const SocialIcon: React.FC<SocialIconProps> = ({
@@ -30,7 +31,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   onClick,
   className = '',
   disabled = false,
-  customIcon
+  customIcon,
+  linkType
 }) => {
   const [isActive, setIsActive] = useState(false);
   
@@ -133,18 +135,18 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   }, [disabled, onClick, platform, username, getPlatformUrl, customIcon]);
 
   const iconElement = (() => {
-    // If there's a custom icon URL (favicon), display it
-    if (customIcon) {
-      const sizeClass = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-12 h-12' : 'w-8 h-8';
+    // Only show custom icon (favicon) for custom link types
+    if (linkType === 'custom' && customIcon) {
+      const containerSize = size === 'sm' ? 'w-6 h-6' : size === 'lg' ? 'w-16 h-16 p-3' : 'w-10 h-10 p-2';
+      const variantStyles = variant === 'white' ? 'hover:bg-white/20' : 'hover:bg-white/10';
       return (
-        <div className={`${sizeClass} rounded-md flex items-center justify-center`}>
+        <div className={`${containerSize} rounded-full transition-colors duration-200 ${
+          disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:opacity-100 active:opacity-90 ${variantStyles}`
+        }`}>
           <img
             src={customIcon}
             alt={platform}
             className="w-full h-full object-contain rounded-md"
-            style={{
-              border: '1px solid black'
-            }}
           />
         </div>
       );

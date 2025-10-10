@@ -145,6 +145,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
                 username={value}
                 size="sm"
                 customIcon={profile.icon}
+                linkType={profile.linkType}
               />
             </div>
           }
