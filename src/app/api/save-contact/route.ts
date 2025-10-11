@@ -74,7 +74,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // For Google-only requests, we still need to get the profile but skip exchange verification
     // (since the exchange was already processed during the Firebase save)
     let contactProfile;
-    
+    let otherUserSharingCategory: string | undefined;
+
     if (googleOnly) {
       // For Google-only saves, we expect the profile to be stored in session state or passed directly
       // For now, we'll still verify the exchange but won't require it to be active
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         
         if (isUserA || isUserB) {
           const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
-          const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+          otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
           const rawProfile = await getProfile(otherUserId);
 
           // Filter the profile based on the sharing category the other user selected
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Get the other user's profile
       const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
-      const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+      otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
       const rawProfile = await getProfile(otherUserId);
 
       // Filter the profile based on the sharing category the other user selected
