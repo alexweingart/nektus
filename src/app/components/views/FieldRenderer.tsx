@@ -248,15 +248,10 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     if (!location) return;
 
     try {
-      const response = await fetch(`/api/location/${location.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Failed to delete location');
-
-      // Trigger profile refresh
-      if (onSaveRequest) {
-        await onSaveRequest();
+      // Update profile state to remove the deleted location
+      if (saveProfile && profile) {
+        const updatedLocations = profile.locations?.filter((loc: any) => loc.id !== location.id) || [];
+        await saveProfile({ locations: updatedLocations });
       }
     } catch (error) {
       console.error('[FieldRenderer] Failed to delete location:', error);
