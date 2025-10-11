@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { adminDb } from '@/lib/firebase/firebase-admin';
+import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import type { SavedContact } from '@/types/contactExchange';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const userId = params.userId;
+    const { userId } = await params;
 
     // Get the current user's ID from the session
     // For now, we'll get it from the Authorization header
@@ -18,8 +17,9 @@ export async function GET(
     }
 
     // Verify the session token
+    const { auth, db } = await getFirebaseAdmin();
     const idToken = authHeader.replace('Bearer ', '');
-    const decodedToken = await getAuth().verifyIdToken(idToken);
+    const decodedToken = await auth.verifyIdToken(idToken);
     const currentUserId = decodedToken.uid;
 
     if (!currentUserId) {
@@ -27,7 +27,7 @@ export async function GET(
     }
 
     // Fetch the saved contact from Firebase
-    const contactDoc = await adminDb
+    const contactDoc = await db
       .collection('profiles')
       .doc(currentUserId)
       .collection('contacts')

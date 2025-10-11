@@ -87,7 +87,7 @@ export interface Calendar {
   section: FieldSection;  // Changed from 'state' to match Nekt naming (no 'universal' for calendars)
   schedulableHours: SchedulableHours;
   connectionStatus?: 'connecting' | 'connected' | 'failed';
-  accessMethod?: 'oauth' | 'ics';  // How we access this calendar
+  accessMethod?: 'oauth' | 'ics' | 'caldav';  // How we access this calendar (caldav for Apple)
   icsUrl?: string;  // ICS feed URL if using ICS access
   lastError?: string;  // Track ICS fetch errors
   selectedCalendarIds?: string[];  // For Google: which specific calendars to include

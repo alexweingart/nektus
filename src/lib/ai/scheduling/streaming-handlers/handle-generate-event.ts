@@ -1,4 +1,4 @@
-import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/openai-client';
+import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
 import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { processGenerateEventTemplateResult } from '@/lib/ai/functions/generate-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';

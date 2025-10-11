@@ -28,8 +28,16 @@ export const PERSONAL_SCHEDULABLE_HOURS: SchedulableHours = {
   sunday: [{ start: '08:00', end: '22:00' }],
 };
 
-// Note: UNIVERSAL removed - Nekt doesn't have universal calendar concept
-// Personal and work calendars have separate schedulable hours
+// Universal schedulable hours (for CalConnect merge - combines personal + work)
+export const UNIVERSAL_SCHEDULABLE_HOURS: SchedulableHours = {
+  monday: [{ start: '08:00', end: '22:00' }],
+  tuesday: [{ start: '08:00', end: '22:00' }],
+  wednesday: [{ start: '08:00', end: '22:00' }],
+  thursday: [{ start: '08:00', end: '22:00' }],
+  friday: [{ start: '08:00', end: '22:00' }],
+  saturday: [{ start: '08:00', end: '22:00' }],
+  sunday: [{ start: '08:00', end: '22:00' }],
+};
 
 // Standard 10-minute notification for all events (Google Calendar standard)
 export function getNotificationMinutes(): number {

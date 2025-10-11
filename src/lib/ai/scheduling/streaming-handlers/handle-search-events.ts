@@ -1,4 +1,4 @@
-import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/openai-client';
+import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { Event, TimeSlot } from '@/types';
@@ -21,7 +21,7 @@ export async function handleSearchEvents(
 ): Promise<void> {
   try {
     // Use the streaming web search with progress updates
-    const { createWebSearchResponse } = await import('@/lib/ai/openai-client');
+    const { createWebSearchResponse } = await import('@/lib/ai/scheduling/openai-client');
 
     // Calculate specific dates
     const now = new Date();

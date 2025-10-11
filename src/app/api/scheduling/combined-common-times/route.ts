@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyIdToken, extractTokenFromHeader } from '@/lib/firebase/firebase-admin';
+import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
 import { adminUpdateMicrosoftTokens, adminGetMultipleUserData, adminGetUserTimezoneById } from '@/lib/firebase/firebase-admin-db';
 import { getGoogleBusyTimes, refreshGoogleToken } from '@/lib/calendar-providers/google';
 import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/lib/calendar-providers/microsoft';
@@ -20,9 +20,18 @@ if (redisUrl && redisToken) {
   console.log('✅ Redis initialized for common times caching');
 }
 
+// Helper to extract token from Authorization header
+function extractTokenFromHeader(authHeader: string | null): string | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.replace('Bearer ', '');
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
+    const { auth } = await getFirebaseAdmin();
     const authHeader = request.headers.get('Authorization');
     const token = extractTokenFromHeader(authHeader);
 
@@ -34,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the token
-    const decodedToken = await verifyIdToken(token);
+    const decodedToken = await auth.verifyIdToken(token);
     console.log(`🔐 Authenticated request from user: ${decodedToken.email}`);
 
     const {
@@ -182,9 +191,9 @@ async function getUserFreeSlotsWithData(
 
     if (userCalendarProviders.length > 0) {
       // Check if there's a universal calendar
-      const universalCalendar = userCalendarProviders.find(c => c.state === 'universal');
-      const personalCalendar = userCalendarProviders.find(c => c.state === 'personal');
-      const workCalendar = userCalendarProviders.find(c => c.state === 'work');
+      const universalCalendar = userCalendarProviders.find(c => c.section === 'universal');
+      const personalCalendar = userCalendarProviders.find(c => c.section === 'personal');
+      const workCalendar = userCalendarProviders.find(c => c.section === 'work');
 
       // If universal calendar exists, use its hours for the selected type
       if (universalCalendar) {

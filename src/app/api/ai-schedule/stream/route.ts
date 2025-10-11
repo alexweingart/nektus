@@ -10,7 +10,7 @@ import type { OpenAIToolCall } from '@/types/ai-scheduling';
 import { handleSearchEvents, handleSearchEventsEnhancement } from '@/lib/ai/scheduling/streaming-handlers/handle-search-events';
 import { handleShowMoreEvents } from '@/lib/ai/scheduling/streaming-handlers/handle-show-more-events';
 import type { AISchedulingRequest, Message, TimeSlot } from '@/types/ai-scheduling';
-import type { Event } from '@/types/profile';
+import type { Event, CalendarUrls } from '@/types/profile';
 import type { Place } from '@/types/places';
 
 export async function POST(request: NextRequest) {
@@ -180,49 +180,52 @@ function getTargetName(user2Name: string | undefined): string {
 
 /**
  * Build final event object - wrapper around utility function
+ * Updated for CalConnect merge - now accepts CalendarUrls
  */
 function buildFinalEvent(
   body: AISchedulingRequest,
   eventResult: { title: string; startTime: string; endTime: string; place?: Place },
-  updatedEventTemplate: Partial<Event>,
-  finalDescription: string,
-  locationString: string,
-  videoCallLink?: string
+  template: Partial<Event>,
+  description: string,
+  location: string,
+  urls: CalendarUrls
 ): Event {
   return buildFinalEventUtil(
     body.user1Id,
     body.user2Id,
-    body.user2Email || '',
-    eventResult.title,
-    finalDescription,
-    eventResult.startTime,
-    eventResult.endTime,
-    updatedEventTemplate.duration || 60,
-    updatedEventTemplate.eventType || 'video',
-    updatedEventTemplate.intent || 'custom',
-    eventResult.place,
-    videoCallLink,
-    body.timezone
+    eventResult,
+    template,
+    description,
+    location,
+    urls
   );
 }
 
 /**
  * Build time selection prompt to help AI choose best time
+ * Updated for CalConnect merge - now accepts places and additional context
  */
 function buildTimeSelectionPrompt(
-  availableTimeSlots: TimeSlot[],
-  eventTemplate: Partial<Event>,
-  userLocations: string[]
+  slots: TimeSlot[],
+  places: Place[],
+  template: Partial<Event>,
+  calendarType: string,
+  timezone: string,
+  noCommonTime: boolean
 ): string {
-  const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  let prompt = `\n\n## Available Time Slots\n\n`;
+  let prompt = `\n\n## Available Time Slots (${calendarType} calendar, timezone: ${timezone})\n\n`;
+
+  if (noCommonTime || slots.length === 0) {
+    prompt += '\n⚠️ No available time slots found. Both users may need to add calendars or expand their schedulable hours.\n';
+    return prompt;
+  }
 
   // Group slots by day for better readability
   const slotsByDay: Record<string, TimeSlot[]> = {};
 
-  availableTimeSlots.forEach(slot => {
+  slots.forEach(slot => {
     const slotDate = new Date(slot.start);
     const dayKey = slotDate.toISOString().split('T')[0]; // YYYY-MM-DD
     if (!slotsByDay[dayKey]) {
@@ -238,21 +241,25 @@ function buildTimeSelectionPrompt(
     const slotsForDay = slotsByDay[dayKey];
     const firstSlot = new Date(slotsForDay[0].start);
     const dayName = dayNames[firstSlot.getDay()];
-    const dateStr = firstSlot.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dateStr = firstSlot.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: timezone });
 
     prompt += `\n**${dayName}, ${dateStr}:**\n`;
 
     slotsForDay.slice(0, 8).forEach(slot => {
       const start = new Date(slot.start);
       const end = new Date(slot.end);
-      const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-      const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
+      const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
       prompt += `- ${startTime} - ${endTime}\n`;
     });
   });
 
-  if (availableTimeSlots.length === 0) {
-    prompt += '\n⚠️ No available time slots found. Both users may need to add calendars or expand their schedulable hours.\n';
+  // Add places information if available
+  if (places && places.length > 0) {
+    prompt += `\n\n## Suggested Places\n\n`;
+    places.slice(0, 5).forEach((place, idx) => {
+      prompt += `${idx + 1}. ${place.name}${place.address ? ` - ${place.address}` : ''}\n`;
+    });
   }
 
   return prompt;

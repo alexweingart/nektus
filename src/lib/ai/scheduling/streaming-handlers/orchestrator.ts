@@ -1,4 +1,4 @@
-import { createCompletion, AI_MODELS } from '@/lib/ai/openai-client';
+import { createCompletion, AI_MODELS } from '@/lib/ai/scheduling/openai-client';
 import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { generateEventTemplateFunction } from '@/lib/ai/functions/generate-event-template';
 import { navigateToBookingLinkFunction } from '@/lib/ai/functions/navigate-to-booking';
