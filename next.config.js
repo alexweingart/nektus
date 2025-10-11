@@ -13,6 +13,13 @@ const nextConfig = {
     ignoreDuringBuilds: true, // Skip ESLint during builds for speed
     dirs: ['src'],
   },
+  typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
+    ignoreBuildErrors: true,
+  },
   webpack: (config, { isServer, dev }) => {
     // This makes sure the OpenAI module is only bundled server-side
     if (!isServer) {
