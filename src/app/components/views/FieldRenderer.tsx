@@ -183,13 +183,8 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     // Calendar added via API in modal, close modal first
     setIsCalendarModalOpen(false);
 
-    // Trigger a profile refresh if available
-    if (onSaveRequest) {
-      await onSaveRequest();
-    } else {
-      // Fallback to reload if no refresh mechanism available
-      window.location.reload();
-    }
+    // Reload page to show newly added calendar (matches Google/Microsoft OAuth flow)
+    window.location.reload();
   };
 
   const handleLocationAdded = async (locations: any[]) => {
