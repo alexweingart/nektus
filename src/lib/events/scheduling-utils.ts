@@ -307,6 +307,14 @@ export function getAllValidSlots(
   const beforeBuffer = eventTemplate.travelBuffer?.beforeMinutes || 0;
   const afterBuffer = eventTemplate.travelBuffer?.afterMinutes || 0;
 
+  console.log(`[getAllValidSlots] Processing ${sortedSlots.length} slots for event:`, {
+    duration: eventDurationOnly,
+    beforeBuffer,
+    afterBuffer,
+    totalNeeded: eventDurationOnly + beforeBuffer + afterBuffer,
+    preferredHours: eventTemplate.preferredSchedulableHours
+  });
+
   let filteredSlots = sortedSlots;
   if (eventTemplate.preferredSchedulableDates) {
     const { startDate, endDate } = getDateRange(eventTemplate.preferredSchedulableDates);
@@ -318,6 +326,8 @@ export function getAllValidSlots(
   }
 
   const validSlots: TimeSlot[] = [];
+  let slotsPassedHoursCheck = 0;
+  let slotsFailedConsecutiveCheck = 0;
 
   for (let i = 0; i < filteredSlots.length; i++) {
     const startSlot = filteredSlots[i];
@@ -336,6 +346,8 @@ export function getAllValidSlots(
         continue;
       }
     }
+
+    slotsPassedHoursCheck++;
 
     // When there's a before buffer, we need to check if there's enough consecutive free time
     // STARTING from beforeBuffer minutes before the event, through the event, and afterBuffer minutes after
@@ -389,6 +401,7 @@ export function getAllValidSlots(
     const coversRequiredEnd = consecutiveEndTime.getTime() >= requiredEndTime.getTime();
 
     if (!coversRequiredStart || !coversRequiredEnd) {
+      slotsFailedConsecutiveCheck++;
       continue;
     }
 
@@ -397,6 +410,14 @@ export function getAllValidSlots(
       end: consecutiveEndTime.toISOString()
     });
   }
+
+  console.log(`[getAllValidSlots] Results:`, {
+    totalSlots: sortedSlots.length,
+    passedHoursCheck: slotsPassedHoursCheck,
+    failedConsecutiveCheck: slotsFailedConsecutiveCheck,
+    validSlots: validSlots.length,
+    firstValid: validSlots[0] ? new Date(validSlots[0].start).toLocaleString() : 'none'
+  });
 
   return validSlots;
 }

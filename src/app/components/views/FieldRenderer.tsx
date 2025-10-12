@@ -505,33 +505,15 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   // Get universal fields for the top section
   const universalFields = fieldSectionManager.getFieldsBySection('universal');
 
-  // Render universal fields with dropzones
+  // Render universal fields (simplified - no drag & drop for universal)
   const renderUniversalFields = () => {
     // Get draggable universal fields (exclude name/bio/phone/email - only name and bio should be in universal per spec)
     const draggableUniversalFields = universalFields.filter(field => !['name', 'bio', 'phone', 'email'].includes(field.fieldType));
-    
-    // Calculate DropZone map for universal fields if in drag mode
-    const universalDropZoneMap = isDragMode ? calculateViewDropZoneMap(initialFields, selectedMode, draggedField, 0) : [];
-    
-    // Use shared utility to build render items array
-    const renderItems = buildRenderItemsArray(draggableUniversalFields, universalDropZoneMap, 'universal');
-    
-    // Render the interleaved items
-    return renderItems.map(item => {
-      if (item.type === 'dropzone') {
-        const dropZone = item.data;
-        return (
-          <DropZone
-            key={item.key}
-            order={dropZone.order}
-            section={dropZone.section}
-            isActive={activeDropZone?.order === dropZone.order && activeDropZone?.section === dropZone.section}
-          />
-        );
-      } else {
-        const profile = item.data;
-        return renderUniversalField(profile, item.key, profile.isBeingDragged || false);
-      }
+
+    // Render fields directly (no drag & drop for universal fields)
+    return draggableUniversalFields.map((field, index) => {
+      const key = `universal-${field.fieldType}-${index}`;
+      return renderUniversalField(field, key);
     });
   };
   
