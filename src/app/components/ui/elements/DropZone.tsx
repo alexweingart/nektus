@@ -3,21 +3,18 @@
 import React from 'react';
 
 interface DropZoneProps {
-  order: number;
-  section: string;
   isActive: boolean;
 }
 
-export const DropZone: React.FC<DropZoneProps> = ({ order, section, isActive }) => {
-  
+export const DropZone: React.FC<DropZoneProps> = ({ isActive }) => {
+
   if (!isActive) {
     return null; // Don't render anything when inactive
   }
 
   return (
     <div
-      data-order={order}
-      data-section={section}
+      data-field-type="__PLACEHOLDER__"
       className="w-full max-w-[var(--max-content-width,448px)]"
       style={{
         height: '3.5rem', // Match StaticInput exact height (56px)

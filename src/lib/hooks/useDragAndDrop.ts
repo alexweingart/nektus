@@ -1,31 +1,31 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { FieldSection } from '@/types/profile';
+import type { ContactEntry, FieldSection } from '@/types/profile';
 
 // Global drag state singleton to prevent multiple hook instances from conflicting
 class GlobalDragManager {
   private static instance: GlobalDragManager;
   private isActive = false;
-  private listeners: { 
+  private listeners: {
     touchMove?: (e: TouchEvent) => void;
     preventScrolling?: (e: TouchEvent) => void;
   } = {};
-  
+
   static getInstance() {
     if (!GlobalDragManager.instance) {
       GlobalDragManager.instance = new GlobalDragManager();
     }
     return GlobalDragManager.instance;
   }
-  
+
   activateDrag(handlers: { touchMove: (e: TouchEvent) => void }) {
     if (this.isActive) {
       return;
     }
-    
+
     this.isActive = true;
-    
+
     // Prevent scrolling
     const preventScrolling = (e: TouchEvent) => {
       if (e.cancelable) {
@@ -33,45 +33,134 @@ class GlobalDragManager {
         e.stopPropagation();
       }
     };
-    
+
     this.listeners.touchMove = handlers.touchMove;
     this.listeners.preventScrolling = preventScrolling;
-    
+
     document.addEventListener('touchmove', handlers.touchMove, { passive: false });
     document.addEventListener('touchmove', preventScrolling, { passive: false });
     document.body.style.touchAction = 'none';
   }
-  
+
   deactivateDrag() {
     if (!this.isActive) {
       return;
     }
-    
+
     this.isActive = false;
-    
+
     if (this.listeners.touchMove) {
       document.removeEventListener('touchmove', this.listeners.touchMove);
     }
     if (this.listeners.preventScrolling) {
       document.removeEventListener('touchmove', this.listeners.preventScrolling);
     }
-    
+
     document.body.style.touchAction = '';
     this.listeners = {};
   }
 }
-import type { ContactEntry } from '@/types/profile';
-import {
-  createFloatingDragElement,
-  updateFloatingDragElementPosition,
-  removeFloatingDragElement,
-  captureFieldMidpoints,
-  calculateViewDropZoneMap,
-  findClosestDropZone,
-  calculateTargetY,
-  findDraggableParent
-} from '@/lib/utils/dragUtils';
-// No need for hardcoded platform order anymore
+
+// Helper: Create floating ghost element
+function createFloatingGhost(sourceElement: HTMLElement): HTMLElement {
+  const clone = sourceElement.cloneNode(true) as HTMLElement;
+
+  const fieldWidth = sourceElement.offsetWidth;
+  const fieldHeight = sourceElement.offsetHeight;
+
+  // Remove draggable attributes
+  clone.removeAttribute('data-draggable');
+  clone.removeAttribute('data-field-id');
+  clone.querySelectorAll('[data-draggable]').forEach(child => {
+    child.removeAttribute('data-draggable');
+    child.removeAttribute('data-field-id');
+  });
+
+  clone.style.position = 'fixed';
+  clone.style.zIndex = '9999';
+  clone.style.pointerEvents = 'none';
+  clone.style.left = '50%';
+  clone.style.marginLeft = '-' + (fieldWidth / 2) + 'px';
+  clone.style.transform = 'scale(1.05)';
+  clone.style.transformOrigin = 'center center';
+  clone.style.opacity = '0.9';
+  clone.style.visibility = 'visible';
+  clone.style.display = 'block';
+
+  clone.style.width = fieldWidth + 'px';
+  clone.style.height = fieldHeight + 'px';
+  clone.style.minWidth = fieldWidth + 'px';
+  clone.style.minHeight = fieldHeight + 'px';
+  clone.style.maxWidth = fieldWidth + 'px';
+  clone.style.maxHeight = fieldHeight + 'px';
+  clone.style.transition = 'none';
+  clone.style.overflow = 'hidden';
+
+  clone.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
+  clone.style.borderRadius = '9999px';
+
+  document.body.appendChild(clone);
+
+  return clone;
+}
+
+// Helper: Update ghost Y position
+function updateGhostPosition(element: HTMLElement, _x: number, y: number): void {
+  if (!element) return;
+
+  const ghostRect = element.getBoundingClientRect();
+  const centerY = y - ghostRect.height / 2;
+
+  element.style.top = centerY + 'px';
+}
+
+// Helper: Remove ghost element
+function removeGhost(element: HTMLElement | null): void {
+  if (element && element.parentNode) {
+    document.body.removeChild(element);
+  }
+}
+
+// Helper: Capture field midpoints
+function captureFieldMidpoints(fields: ContactEntry[], scrollOffset: number): ContactEntry[] {
+  return fields.map(field => {
+    const fieldId = `${field.fieldType}-${field.section}`;
+    const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+
+    if (fieldElement) {
+      const rect = fieldElement.getBoundingClientRect();
+      const midpointY = rect.top + rect.height / 2 + scrollOffset;
+      return { ...field, frozenMidpointY: midpointY };
+    }
+
+    return { ...field, frozenMidpointY: 0 };
+  });
+}
+
+// Helper: Find closest field to ghost
+function findClosestField(
+  ghostY: number,
+  fields: (ContactEntry & { frozenMidpointY?: number })[]
+): { field: ContactEntry & { frozenMidpointY?: number }, insertAfter: boolean } | null {
+  let closest: (ContactEntry & { frozenMidpointY?: number }) | null = null;
+  let minDistance = Infinity;
+
+  fields.forEach(field => {
+    if (field.isPlaceholder) return;
+    const distance = Math.abs(ghostY - (field.frozenMidpointY || 0));
+    if (distance < minDistance) {
+      minDistance = distance;
+      closest = field;
+    }
+  });
+
+  if (!closest) return null;
+
+  return {
+    field: closest,
+    insertAfter: ghostY > (closest.frozenMidpointY || 0)
+  };
+}
 
 export interface DragDropInfo {
   fields: ContactEntry[];
@@ -80,158 +169,52 @@ export interface DragDropInfo {
 }
 
 interface UseDragAndDropProps {
-  initialFields?: ContactEntry[];  // Pass in initial fields for field array approach
-  currentSection?: 'Personal' | 'Work'; // Current tab section
+  initialFields?: ContactEntry[];
+  currentSection?: 'Personal' | 'Work';
   onDragStateChange?: (isDragging: boolean) => void;
-  onFieldArrayDrop?: (dropInfo: DragDropInfo) => void; // Enhanced with drag context
+  onFieldArrayDrop?: (dropInfo: DragDropInfo) => void;
 }
 
 interface UseDragAndDropReturn {
-  // State
-  isDragMode: boolean; // Derived from dragState
+  isDragMode: boolean;
   draggedField: ContactEntry | null;
-  activeDropZone: {order: number, section: string} | null;
-  
-  // Handlers for draggable elements
+  dragFields: ContactEntry[];
+
   onTouchStart: (fieldId: string) => (event: React.TouchEvent) => void;
   onTouchMove: (event: React.TouchEvent) => void;
   onTouchEnd: () => void;
-  
 }
 
-export const useDragAndDrop = ({ 
-  initialFields = [], 
+export const useDragAndDrop = ({
+  initialFields = [],
   currentSection = 'Personal',
-  onDragStateChange, 
+  onDragStateChange,
   onFieldArrayDrop
 }: UseDragAndDropProps = {}): UseDragAndDropReturn => {
-  
-  // Simplified drag state
-  type DragState = 'idle' | 'dragging';
-  const [dragState, setDragState] = useState<DragState>('idle');
+
+  // State
+  const [dragState, setDragState] = useState<'idle' | 'dragging'>('idle');
   const [draggedField, setDraggedField] = useState<ContactEntry | null>(null);
-  const [dragElement, setDragElement] = useState<HTMLElement | null>(null);
-  
-  // Derived state for frequently used values - removed unused draggedFieldId
-  
-  // Visual feedback for drag operations with new simplified structure
-  const [activeDropZone, setActiveDropZone] = useState<{
-    order: number;
-    section: FieldSection;
-    belowFieldType: string | 'bottom';
-    midpointY: number;
-  } | null>(null);
-  
-  
-  // Store DropZone map for current view
-  const dropZoneMapRef = useRef<Array<{
-    order: number;
-    section: FieldSection;
-    belowFieldType: string | 'bottom';
-    midpointY?: number;
-  }>>([]);
-  
-  
+  const [dragFields, setDragFields] = useState<ContactEntry[]>([]);
+  const [ghostElement, setGhostElement] = useState<HTMLElement | null>(null);
+
   // Touch interaction state
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
-  
-  
-  // Create stable refs for values used in callbacks but shouldn't trigger callback recreation
+
+  // Refs
   const currentSectionRef = useRef(currentSection);
   const onFieldArrayDropRef = useRef(onFieldArrayDrop);
-  const originalDraggedFieldRef = useRef<ContactEntry | null>(null);
-  
-  // Update refs on every render (doesn't trigger re-renders)
-  currentSectionRef.current = currentSection;
-  onFieldArrayDropRef.current = onFieldArrayDrop;  
-  
-  // Simplified field swap function
-  const swapFieldsInOrder = useCallback((draggedField: ContactEntry, targetField: ContactEntry) => {
-    // Check if this is a section change (same field, different section)
-    if (draggedField.fieldType === targetField.fieldType && draggedField.section !== targetField.section) {
-      // Just track the intended section change - don't modify anything during drag
-      pendingSectionChangeRef.current = {
-        fieldType: draggedField.fieldType,
-        originalSection: draggedField.section,
-        newSection: targetField.section
-      };
-      return;
-    }
-    
-    const draggedIndex = fieldOrderRef.current.findIndex(f => 
-      f.fieldType === draggedField.fieldType && f.section === draggedField.section
-    );
-    const targetIndex = fieldOrderRef.current.findIndex(f => 
-      f.fieldType === targetField.fieldType && f.section === targetField.section
-    );
-    
-    if (draggedIndex === -1 || targetIndex === -1) {
-      console.warn('❌ [swapFieldsInOrder] Could not find fields to swap');
-      return;
-    }
-    
-    // Swap the two fields in the array
-    const newFieldOrder = [...fieldOrderRef.current];
-    [newFieldOrder[draggedIndex], newFieldOrder[targetIndex]] = 
-    [newFieldOrder[targetIndex], newFieldOrder[draggedIndex]];
-    
-    fieldOrderRef.current = newFieldOrder;
-    
-    // Also swap their midpoints
-    const temp = (draggedField as ContactEntry & { midpointY?: number }).midpointY;
-    (draggedField as ContactEntry & { midpointY?: number }).midpointY = (targetField as ContactEntry & { midpointY?: number }).midpointY;
-    (targetField as ContactEntry & { midpointY?: number }).midpointY = temp;
-    
-  }, []);
-
-  // Field order tracking - using ref to avoid re-renders
-  const fieldOrderRef = useRef<ContactEntry[]>([]);
-  
-  // Initialize and update fieldOrder ref when initialFields change
-  useEffect(() => {
-    if (!initialFields || initialFields.length === 0) {
-      fieldOrderRef.current = [];
-      return;
-    }
-    
-    fieldOrderRef.current = [...initialFields];
-  }, [initialFields]);
-  
-  // Continuous edge scroll refs
-  const scrollAnimationFrame = useRef<number | null>(null);
-  const edgeScrollDirection = useRef<'up' | 'down' | null>(null);
-
-  // Continuous edge scroll helpers
-  const scrollSpeed = 12; // px per frame
-
-  // Reference to the scrollable container (PullToRefresh root)
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-
-  // Helper to get current scroll offset
-  const getScrollOffset = useCallback(() => {
-    return scrollContainerRef.current ? scrollContainerRef.current.scrollTop : window.scrollY;
-  }, []);
-
-  // Store last touch Y for edge scroll updates
-  const lastClientYRef = useRef<number>(0);
-  
-  // Track last swap time to prevent rapid consecutive swaps
+  const initialFieldsRef = useRef(initialFields);
   const lastSwapTimeRef = useRef<number>(0);
-  
-  // Track pending section change during drag
-  const pendingSectionChangeRef = useRef<{
-    fieldType: string;
-    originalSection: string;
-    newSection: string;
-  } | null>(null);
-  
-  // Create refs to avoid circular dependencies and enable persistent event handlers
-  const handleEdgeScrollRef = useRef<((clientY: number) => void) | null>(null);
-  const exitDragModeRef = useRef<(() => void) | null>(null);
   const handleTouchMoveRef = useRef<((event: React.TouchEvent) => void) | null>(null);
 
-  // Derive backward-compatible value
+  // Update refs
+  currentSectionRef.current = currentSection;
+  onFieldArrayDropRef.current = onFieldArrayDrop;
+  initialFieldsRef.current = initialFields;
+
+  // Derived state
   const isDragMode = dragState === 'dragging';
 
   // Notify parent of drag state changes
@@ -239,179 +222,139 @@ export const useDragAndDrop = ({
     onDragStateChange?.(isDragMode);
   }, [isDragMode, onDragStateChange]);
 
-
-  // Cleanup when exiting drag mode
-  useEffect(() => {
-    if (dragState === 'idle') {
-      setActiveDropZone(null); // Clear active drop zone
-    }
-  }, [dragState]);
+  // Get scroll offset
+  const getScrollOffset = useCallback(() => {
+    return window.scrollY;
+  }, []);
 
   // Start long press for drag initiation
   const startLongPress = useCallback((fieldId: string, event: React.TouchEvent) => {
-    
-    // If already in drag mode, exit current drag and start new one
-    if (dragState === 'dragging') {
-      // Clean up current drag
-      exitDragModeRef.current?.();
-      
-      // Small delay to ensure cleanup completes, then start new drag
-      setTimeout(() => {
-        startLongPress(fieldId, event);
-      }, 50);
-      return;
-    }
-
-    // Find the ContactEntry object for this fieldId
-    const draggedField = fieldOrderRef.current.find(f => `${f.fieldType}-${f.section}` === fieldId);
-    if (!draggedField) {
-      console.warn('❌ [startLongPress] Field not found in fieldOrderRef:', fieldId);
-      return;
-    }
-    
-    // Store the original dragged field before any modifications
-    originalDraggedFieldRef.current = { ...draggedField };
-
     const touch = event.touches[0];
     setTouchStartPos({ x: touch.clientX, y: touch.clientY });
 
     const timer = setTimeout(() => {
-      // Create ghost BEFORE setting drag mode (while element is still visible)
+      // Get current section fields
+      const currentSectionName = currentSectionRef.current.toLowerCase() as 'personal' | 'work';
+      const sectionFields = initialFieldsRef.current.filter(f =>
+        f.section === currentSectionName &&
+        f.isVisible &&
+        f.fieldType !== 'calendar' &&
+        f.fieldType !== 'location'
+      ).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      // Find dragged field
+      const draggedField = sectionFields.find(f => `${f.fieldType}-${f.section}` === fieldId);
+      if (!draggedField) {
+        console.warn('[startLongPress] Field not found:', fieldId);
+        return;
+      }
+
+      // Create ghost element
       const sourceElement = document.querySelector(`[data-field-id="${fieldId}"]`) as HTMLElement;
-      let dragEl: HTMLElement | null = null;
-      
+      let ghost: HTMLElement | null = null;
+
       if (sourceElement) {
-        // Create the ghost while the element is still visible
-        dragEl = createFloatingDragElement(sourceElement);
+        ghost = createFloatingGhost(sourceElement);
         const rect = sourceElement.getBoundingClientRect();
-        updateFloatingDragElementPosition(dragEl, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        updateGhostPosition(ghost, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        setGhostElement(ghost);
       }
-      
-      // Capture midpoints WHILE field is still visible (before drag state)
-      // Use same scroll calculation as during drag for consistent coordinates
-      const initialScrollOffset = getScrollOffset();
-      captureFieldMidpoints(fieldOrderRef.current, initialScrollOffset);
-      
-      // NOW set drag state (field hides and drop zones show in single render)
+
+      // Capture midpoints and create dragFields
+      const scrollOffset = getScrollOffset();
+      const fieldsWithMidpoints = captureFieldMidpoints(sectionFields, scrollOffset);
+
+      // Remove dragged field and insert placeholder
+      const draggedIndex = fieldsWithMidpoints.findIndex(f =>
+        f.fieldType === draggedField.fieldType && f.section === draggedField.section
+      );
+
+      const fieldsWithoutDragged = fieldsWithMidpoints.filter((_, i) => i !== draggedIndex);
+
+      // Insert placeholder at dragged position
+      const placeholder: ContactEntry & { isPlaceholder?: boolean; frozenMidpointY?: number } = {
+        fieldType: '__PLACEHOLDER__',
+        section: currentSectionName,
+        value: '',
+        confirmed: false,
+        isVisible: true,
+        order: draggedField.order,
+        isPlaceholder: true,
+        frozenMidpointY: fieldsWithMidpoints[draggedIndex]?.frozenMidpointY || 0
+      };
+
+      fieldsWithoutDragged.splice(draggedIndex, 0, placeholder);
+
+      // Set state
       setDragState('dragging');
-      setDraggedField(draggedField); // Use ContactEntry object
-      
-      // Store the drag element
-      if (dragEl) {
-        setDragElement(dragEl);
-      }
-      
-      // Calculate DropZone map for current view (will adjust positions internally)
-      const dropZoneMap = calculateViewDropZoneMap(
-        fieldOrderRef.current,
-        currentSectionRef.current,
-        draggedField,
-        initialScrollOffset
-      );
-      dropZoneMapRef.current = dropZoneMap;
-      
-      // Find initial DropZone
-      const currentSectionName = currentSectionRef.current.toLowerCase();
-      const universalFields = fieldOrderRef.current.filter(f => 
-        f.section === 'universal' && !['name', 'bio'].includes(f.fieldType) && f.isVisible
-      );
-      const currentSectionFields = fieldOrderRef.current.filter(f => 
-        f.section === currentSectionName && f.isVisible
-      );
-    
-      let expectedDropZoneOrder = 0;
-      if (draggedField.section === 'universal') {
-        const draggedIndex = universalFields.findIndex(f => 
-          f.fieldType === draggedField.fieldType && f.section === draggedField.section
-        );
-        if (draggedIndex !== -1) {
-          for (let i = 0; i < draggedIndex; i++) {
-            const field = universalFields[i];
-            if (field.fieldType !== draggedField.fieldType || field.section !== draggedField.section) {
-              expectedDropZoneOrder++;
-            }
-          }
-        }
-      } else if (draggedField.section === currentSectionName) {
-        expectedDropZoneOrder = universalFields.filter(f => 
-          !(f.fieldType === draggedField.fieldType && f.section === draggedField.section)
-        ).length + 1;
-        const draggedIndex = currentSectionFields.findIndex(f => 
-          f.fieldType === draggedField.fieldType && f.section === draggedField.section
-        );
-        if (draggedIndex !== -1) {
-          for (let i = 0; i < draggedIndex; i++) {
-            const field = currentSectionFields[i];
-            if (field.fieldType !== draggedField.fieldType || field.section !== draggedField.section) {
-              expectedDropZoneOrder++;
-            }
-          }
-        }
-      }
-      
-      const initialDropZone = dropZoneMap.find(dz => dz.order === expectedDropZoneOrder);
-      if (initialDropZone) {
-        setActiveDropZone({
-          order: initialDropZone.order,
-          section: initialDropZone.section,
-          belowFieldType: initialDropZone.belowFieldType,
-          midpointY: initialDropZone.midpointY || 0
-        });
-        
-      }
-      
-      // Add haptic feedback
+      setDraggedField(draggedField);
+      setDragFields(fieldsWithoutDragged);
+
+      // Haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
     }, 1000); // 1 second long press
 
     setLongPressTimer(timer);
-  }, [dragState]);
+  }, [getScrollOffset]);
 
-  // Handle touch end - either cancel long press or execute drop
-  const handleTouchEnd = useCallback(() => {
-    
-    // Check if this is a valid drop scenario - if we're dragging
-    const isValidDrop = dragState === 'dragging' && draggedField && dragElement;
-    
-    if (isValidDrop) {
-      if (onFieldArrayDropRef.current && fieldOrderRef.current.length > 0) {
-        cleanupDragState({ executeDropCallback: true });
-      } else {
-        cleanupDragState();
-      }
-    } else if (dragState === 'dragging' && draggedField && dragElement) {
-      cleanupDragState();
-    } else {
-      // Regular cancel long press behavior - just cleanup touch state
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        setLongPressTimer(null);
-      }
-      setTouchStartPos(null);
-    }
-  }, [dragState, draggedField, dragElement, longPressTimer]); // Removed onFieldArrayDrop and fieldOrder - using refs, cleanupDragState defined later
-
-  // Cancel long press (for cases where we need to cancel without drop logic)
+  // Cancel long press
   const cancelLongPress = useCallback(() => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
-    
     setTouchStartPos(null);
   }, [longPressTimer]);
 
-  // With DropZone approach, no complex swap detection needed during drag
-  // DropZone shows original position, field order changes only happen on drop
+  // Move placeholder
+  const movePlaceholder = useCallback((ghostY: number) => {
+    const closest = findClosestField(ghostY, dragFields);
+    if (!closest) return;
 
-  // Handle touch move during drag
+    const placeholderIndex = dragFields.findIndex(f => f.isPlaceholder);
+    const targetIndex = dragFields.findIndex(f =>
+      f.fieldType === closest.field.fieldType && f.section === closest.field.section
+    );
+
+    if (placeholderIndex === -1 || targetIndex === -1) return;
+
+    const newPlaceholderOrder = closest.insertAfter
+      ? (dragFields[targetIndex].order ?? 0) + 1
+      : dragFields[targetIndex].order ?? 0;
+
+    const currentPlaceholder = dragFields[placeholderIndex];
+    if (currentPlaceholder.order === newPlaceholderOrder) return; // No change
+
+    // Throttle swaps
+    const now = Date.now();
+    if (now - lastSwapTimeRef.current < 100) return;
+    lastSwapTimeRef.current = now;
+
+    // Swap orders
+    const newDragFields = dragFields.map(field => {
+      if (field.isPlaceholder) {
+        return { ...field, order: newPlaceholderOrder };
+      }
+      if (field.order === newPlaceholderOrder) {
+        return { ...field, order: currentPlaceholder.order };
+      }
+      return field;
+    });
+
+    // Sort by order
+    newDragFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    setDragFields(newDragFields);
+  }, [dragFields]);
+
+  // Handle touch move
   const handleTouchMove = useCallback((event: React.TouchEvent) => {
     const touch = event.touches[0];
-    
+
     if (!touchStartPos) return;
-    
+
     const deltaX = Math.abs(touch.clientX - touchStartPos.x);
     const deltaY = Math.abs(touch.clientY - touchStartPos.y);
 
@@ -426,186 +369,96 @@ export const useDragAndDrop = ({
       return;
     }
 
-    // Already in dragging state, process drag logic
-    if (dragState === 'dragging') {
-      // Update floating drag element position
-      if (dragElement) {
-        // Check if drag element is still valid after DOM changes
-        if (!document.body.contains(dragElement)) {
-          setDragElement(null);
-          exitDragModeRef.current?.();
-          return;
-        }
-        updateFloatingDragElementPosition(dragElement, touch.clientX, touch.clientY);
+    // Update ghost position
+    if (ghostElement) {
+      if (!document.body.contains(ghostElement)) {
+        setGhostElement(null);
+        return;
       }
-
-      // Record last client Y for edge scrolling
-      lastClientYRef.current = touch.clientY;
-      
-      if (draggedField && activeDropZone && dropZoneMapRef.current.length > 0) {
-        const scrollOffset = getScrollOffset();
-        const ghostY = calculateTargetY(touch, dragElement, scrollOffset);
-        
-        const result = findClosestDropZone(
-          ghostY,
-          fieldOrderRef.current,
-          activeDropZone,
-          dropZoneMapRef.current,
-          `${draggedField.fieldType}-${draggedField.section}`
-        );
-        
-        if (result.newDropZone) {
-          // Update activeDropZone to new position
-          setActiveDropZone(result.newDropZone);
-          
-          // Perform field swap if needed (with throttling to prevent rapid consecutive swaps)
-          if (result.swapInfo) {
-            const now = Date.now();
-            const timeSinceLastSwap = now - lastSwapTimeRef.current;
-            
-            // Only allow swaps if enough time has passed (50ms threshold)
-            if (timeSinceLastSwap > 50) {
-              swapFieldsInOrder(result.swapInfo.draggedField, result.swapInfo.targetField);
-              lastSwapTimeRef.current = now;
-            }
-          }
-          
-        }
-      }
-      
-      // Handle edge scrolling
-      handleEdgeScrollRef.current?.(touch.clientY);
-    }
-  }, [touchStartPos, draggedField, dragElement, cancelLongPress, dragState, activeDropZone, swapFieldsInOrder, getScrollOffset]);
-
-  // Stop edge scroll
-  const stopEdgeScroll = useCallback(() => {
-    if (scrollAnimationFrame.current !== null) {
-      cancelAnimationFrame(scrollAnimationFrame.current);
-      scrollAnimationFrame.current = null;
-    }
-    edgeScrollDirection.current = null;
-  }, []);
-
-  // Start edge scroll
-  const startEdgeScroll = useCallback((direction: 'up' | 'down') => {
-    if (edgeScrollDirection.current === direction) return; // already scrolling this way
-    stopEdgeScroll();
-    edgeScrollDirection.current = direction;
-
-    const step = () => {
-      if (edgeScrollDirection.current === null) return; // stopped
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollBy(0, direction === 'up' ? -scrollSpeed : scrollSpeed);
-      } else {
-        window.scrollBy(0, direction === 'up' ? -scrollSpeed : scrollSpeed);
-      }
-      
-      // With DropZone approach: no swap detection during edge scroll needed
-      
-      scrollAnimationFrame.current = requestAnimationFrame(step);
-    };
-
-    step();
-  }, [stopEdgeScroll, draggedField, dragElement]);
-
-  // Handle edge scrolling when dragging near viewport edges
-  const handleEdgeScroll = useCallback((clientY: number) => {
-    if (dragState === 'idle') {
-      stopEdgeScroll();
-      return;
+      updateGhostPosition(ghostElement, touch.clientX, touch.clientY);
     }
 
-    const viewportHeight = window.innerHeight;
-    const scrollZone = 100; // pixels from edge to trigger scroll
+    // Calculate ghost Y with scroll offset
+    const scrollOffset = getScrollOffset();
+    const ghostY = touch.clientY + scrollOffset;
 
-    if (clientY < scrollZone) {
-      startEdgeScroll('up');
-    } else if (clientY > viewportHeight - scrollZone) {
-      startEdgeScroll('down');
-    } else {
-      // Not in edge zones -> stop scrolling
-      stopEdgeScroll();
-    }
-  }, [dragState, startEdgeScroll, stopEdgeScroll]);
+    // Move placeholder if needed
+    movePlaceholder(ghostY);
+  }, [touchStartPos, draggedField, ghostElement, cancelLongPress, dragState, movePlaceholder, getScrollOffset]);
 
-  // Assign the function to ref to avoid circular dependencies
-  handleEdgeScrollRef.current = handleEdgeScroll;
+  // Handle touch end (drop)
+  const handleTouchEnd = useCallback(() => {
+    // Check if this is a valid drop scenario
+    const isValidDrop = dragState === 'dragging' && draggedField && ghostElement;
 
-  // Centralized drag state cleanup
-  const cleanupDragState = useCallback((options: {
-    executeDropCallback?: boolean;
-    includeEdgeScrollCleanup?: boolean;
-  } = {}) => {
-    // Execute drop callback if requested (before state cleanup)
-    if (options.executeDropCallback && onFieldArrayDropRef.current && fieldOrderRef.current.length > 0) {
-      // Apply pending section change before executing drop callback
-      let finalDraggedField = draggedField!;
-      if (pendingSectionChangeRef.current) {
-        const { fieldType, originalSection, newSection } = pendingSectionChangeRef.current;
-
-        const fieldIndex = fieldOrderRef.current.findIndex(f =>
-          f.fieldType === fieldType && f.section === originalSection
-        );
-
-        if (fieldIndex !== -1) {
-          fieldOrderRef.current[fieldIndex].section = newSection as FieldSection;
-          // Update the draggedField to reflect the new section
-          finalDraggedField = { ...draggedField!, section: newSection as FieldSection };
-        }
+    if (isValidDrop) {
+      // Get placeholder's final order
+      const placeholder = dragFields.find(f => f.isPlaceholder);
+      if (!placeholder) {
+        console.warn('[handleTouchEnd] No placeholder found');
+        return;
       }
 
-      onFieldArrayDropRef.current({
-        fields: fieldOrderRef.current,
-        draggedField: finalDraggedField, // Now has correct section
-        originalField: originalDraggedFieldRef.current || draggedField!
+      const finalOrder = placeholder.order;
+
+      // Remove placeholder and add dragged field
+      const sectionFieldsReordered = dragFields
+        .filter(f => !f.isPlaceholder)
+        .concat({
+          ...draggedField,
+          order: finalOrder
+        })
+        .map(f => {
+          const { frozenMidpointY, isPlaceholder, ...cleanField } = f as ContactEntry & { frozenMidpointY?: number; isPlaceholder?: boolean };
+          return cleanField;
+        });
+
+      // Sort by order
+      sectionFieldsReordered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      // Recalculate orders to be sequential
+      sectionFieldsReordered.forEach((f, i) => {
+        f.order = i;
       });
+
+      // Merge with all fields
+      const currentSectionName = currentSectionRef.current.toLowerCase() as 'personal' | 'work';
+      const allFieldsUpdated = initialFieldsRef.current
+        .filter(f => f.section !== currentSectionName)
+        .concat(sectionFieldsReordered);
+
+      // Send to parent
+      if (onFieldArrayDropRef.current) {
+        onFieldArrayDropRef.current({
+          fields: allFieldsUpdated,
+          draggedField: { ...draggedField, order: finalOrder },
+          originalField: draggedField
+        });
+      }
     }
-    
-    // Common state cleanup
-    setDragState('idle');
-    setDraggedField(null);
-    removeFloatingDragElement(dragElement);
-    setDragElement(null);
-    originalDraggedFieldRef.current = null; // Clear original field reference
-    
-    // Conditional edge scroll cleanup
-    if (options.includeEdgeScrollCleanup) {
-      stopEdgeScroll();
-    }
-    
-    // Touch state cleanup (always needed)
+
+    // Cleanup
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
     setTouchStartPos(null);
-    
-    // Clear active drop zone
-    setActiveDropZone(null);
-    
-    // Clear pending section change
-    pendingSectionChangeRef.current = null;
-  }, [draggedField, dragElement, stopEdgeScroll, longPressTimer]);
+    setDragState('idle');
+    setDraggedField(null);
+    setDragFields([]);
+    removeGhost(ghostElement);
+    setGhostElement(null);
+  }, [dragState, draggedField, ghostElement, dragFields, longPressTimer]);
 
-  // Exit drag mode and clean up
-  const exitDragMode = useCallback(() => {
-    cleanupDragState({ includeEdgeScrollCleanup: true });
-  }, [cleanupDragState]);
-  
-  // Assign functions to refs for persistent access
-  exitDragModeRef.current = exitDragMode;
+  // Assign function to ref
   handleTouchMoveRef.current = handleTouchMove;
-  
-  // Handle drag mode interactions using GlobalDragManager singleton
+
+  // Handle global drag interactions
   useEffect(() => {
     const globalManager = GlobalDragManager.getInstance();
-    
+
     if (dragState === 'dragging') {
-      
-      // Global touch move handler to capture movements during drag - STABLE REFERENCE
       const globalTouchMove = (e: TouchEvent) => {
-        
         if (e.touches.length > 0) {
           const syntheticEvent = {
             touches: Array.from(e.touches).map(touch => ({
@@ -615,8 +468,7 @@ export const useDragAndDrop = ({
               pageY: touch.pageY
             }))
           } as unknown as React.TouchEvent<Element>;
-          
-          // Call the current handler via ref to get latest logic
+
           const currentHandler = handleTouchMoveRef.current;
           if (currentHandler) {
             currentHandler(syntheticEvent);
@@ -624,66 +476,31 @@ export const useDragAndDrop = ({
         }
       };
 
-      const handleClickOutside = (e: TouchEvent) => {
-        const target = e.target as Element;
-        const draggableFieldElement = findDraggableParent(target);
-        
-        // Only exit drag mode if the touch is NOT on any draggable field
-        // If it is on a draggable field, let the startLongPress function handle it
-        if (!draggableFieldElement) {
-          exitDragModeRef.current?.();
-        }
-      };
-
       const preventContextMenu = (e: Event) => {
         e.preventDefault();
       };
 
-      // Activate drag via singleton
       globalManager.activateDrag({ touchMove: globalTouchMove });
-      
-      // Add additional non-touchmove listeners directly
       document.addEventListener('contextmenu', preventContextMenu);
-      document.addEventListener('touchstart', handleClickOutside, { passive: true });
 
       return () => {
         globalManager.deactivateDrag();
-        
-        // Remove additional listeners
         document.removeEventListener('contextmenu', preventContextMenu);
-        document.removeEventListener('touchstart', handleClickOutside);
-
-        // Ensure edge scrolling loop is cancelled
-        stopEdgeScroll();
-        
       };
     } else {
-      
-      // Ensure manager is deactivated when not dragging
       globalManager.deactivateDrag();
     }
-  }, [dragState, stopEdgeScroll]); // handleTouchMove and exitDragMode accessed via refs for stability
+  }, [dragState]);
 
-  // Create touch start handler for a specific field
+  // Create touch start handler
   const onTouchStart = useCallback((fieldId: string) => (event: React.TouchEvent) => {
     startLongPress(fieldId, event);
   }, [startLongPress]);
 
-  // Determine scroll container on first mount
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const el = document.querySelector('[data-scrollable="true"]') as HTMLElement | null;
-      scrollContainerRef.current = el;
-    }
-  }, []);
-
   return {
-    // State
     isDragMode,
     draggedField,
-    activeDropZone,
-    
-    // Handlers
+    dragFields,
     onTouchStart,
     onTouchMove: handleTouchMove,
     onTouchEnd: handleTouchEnd
