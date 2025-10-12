@@ -89,7 +89,7 @@ function likelyHasGoogleContactsPermission(platform: string, token: string): boo
  * Helper function to call save-contact API with different options
  */
 async function callSaveContactAPI(token: string, options: { skipGoogleContacts?: boolean; skipFirebase?: boolean; googleOnly?: boolean } = {}): Promise<ContactSaveResult> {
-  const response = await fetch('/api/save-contact', {
+  const response = await fetch('/api/contacts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, ...options })

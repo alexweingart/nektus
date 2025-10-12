@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Text } from '../Typography';
-import { CustomTimeInput } from './CustomTimeInput';
+import { NumberInput } from './NumberInput';
 
 interface TimePickerProps {
   value: string; // "HH:mm" in 24-hour format
@@ -75,7 +75,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
         minHeight: '3.5rem'
       }}
     >
-      <CustomTimeInput
+      <NumberInput
         value={hours}
         onChange={(value) => setHours(value)}
         variant="hours"
@@ -84,7 +84,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
 
       <Text variant="base" as="span" className="select-none text-white text-sm leading-none">:</Text>
 
-      <CustomTimeInput
+      <NumberInput
         value={minutes}
         onChange={(value) => setMinutes(value)}
         variant="minutes"

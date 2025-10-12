@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { StandardModal } from '../StandardModal';
+import { StandardModal } from './StandardModal';
 import { Button } from '../buttons/Button';
 import AppleCalendarSetupModal from './AppleCalendarSetupModal';
 import type { FieldSection } from '@/types/profile';

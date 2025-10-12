@@ -175,7 +175,19 @@ Format as 24-hour time strings.`,
       suggestedPlaceTypes: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Google Places API types for this activity (e.g., ["cafe", "restaurant"] for coffee, ["park", "tourist_attraction"] for hiking)',
+        description: `Foursquare category IDs for this activity. Choose 1-3 most relevant category IDs:
+
+Food/Drink: restaurant=4bf58dd8d48988d1c4941735, cafe=4bf58dd8d48988d16d941735, coffee=4bf58dd8d48988d1e0931735, bar=4bf58dd8d48988d116941735
+Outdoor: park=4bf58dd8d48988d163941735, trail=4bf58dd8d48988d159941735, beach=4bf58dd8d48988d1e2941735
+Sports/Fitness: gym=4bf58dd8d48988d175941735, tennis_court=4e39a956bd410d7aed40cbc3, athletics_sports=4f4528bc4b90abdf24c9de85, yoga=4bf58dd8d48988d102941735
+Culture: museum=4bf58dd8d48988d181941735, tourist_attraction=4bf58dd8d48988d162941735
+Other: shopping_mall=4bf58dd8d48988d1fd941735, stadium=4bf58dd8d48988d184941735
+
+Examples:
+Coffee → ["4bf58dd8d48988d1e0931735", "4bf58dd8d48988d16d941735"]
+Hiking → ["4bf58dd8d48988d159941735", "4bf58dd8d48988d163941735"]
+Tennis → ["4e39a956bd410d7aed40cbc3"]
+Generic → ["4bf58dd8d48988d162941735"]`,
       },
       travelBuffer: {
         type: 'object',

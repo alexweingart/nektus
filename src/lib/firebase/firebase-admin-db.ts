@@ -198,15 +198,23 @@ export const adminUpdateGoogleTokens = async (
 export const adminGetUserEmailById = async (userId: string): Promise<string | null> => {
   try {
     const { db } = await getFirebaseAdmin();
-    const userDoc = await db.collection('users').doc(userId).get();
+    const profileDoc = await db.collection('profiles').doc(userId).get();
 
-    if (!userDoc.exists) {
-      console.error(`User with ID ${userId} not found`);
+    if (!profileDoc.exists) {
+      console.error(`Profile with ID ${userId} not found`);
       return null;
     }
 
-    const userData = userDoc.data();
-    return userData?.email || null;
+    const profileData = profileDoc.data();
+    // Extract email from contactEntries array
+    const emailEntry = profileData?.contactEntries?.find((entry: { fieldType: string }) => entry.fieldType === 'email');
+    const email = emailEntry?.value || null;
+
+    if (!email) {
+      console.error(`No email found in profile for user ${userId}`);
+    }
+
+    return email;
   } catch (error) {
     console.error('Error fetching user email by ID (admin):', error);
     return null;
@@ -216,17 +224,22 @@ export const adminGetUserEmailById = async (userId: string): Promise<string | nu
 export const adminGetUserTimezoneById = async (userId: string): Promise<string | null> => {
   try {
     const { db } = await getFirebaseAdmin();
-    const userDoc = await db.collection('users').doc(userId).get();
+    console.log(`[adminGetUserTimezoneById] Fetching timezone for user: ${userId}`);
+    const profileDoc = await db.collection('profiles').doc(userId).get();
 
-    if (!userDoc.exists) {
-      console.error(`User with ID ${userId} not found`);
+    if (!profileDoc.exists) {
+      console.error(`[adminGetUserTimezoneById] Profile with ID ${userId} not found`);
       return null;
     }
 
-    const userData = userDoc.data();
-    return userData?.timezone || null;
+    const profileData = profileDoc.data();
+    console.log(`[adminGetUserTimezoneById] Profile data keys:`, Object.keys(profileData || {}));
+    console.log(`[adminGetUserTimezoneById] Timezone value:`, profileData?.timezone);
+    const timezone = profileData?.timezone || null;
+    console.log(`[adminGetUserTimezoneById] Returning timezone:`, timezone);
+    return timezone;
   } catch (error) {
-    console.error('Error fetching user timezone by ID (admin):', error);
+    console.error('[adminGetUserTimezoneById] Error fetching user timezone by ID:', error);
     return null;
   }
 };
@@ -236,49 +249,61 @@ export const adminGetMultipleUserData = async (userIds: string[]) => {
   try {
     console.log(`📊 Batching data for ${userIds.length} users: ${userIds.join(', ')}`);
 
-    // Step 1: Get all user emails in parallel
-    const userEmailPromises = userIds.map(id => adminGetUserEmailById(id));
-    const userEmails = await Promise.all(userEmailPromises);
+    const { db } = await getFirebaseAdmin();
 
-    // Step 2: Filter out null emails and create user data map
-    const validUsers: Array<{ userId: string; email: string }> = [];
-    userIds.forEach((userId, index) => {
-      const email = userEmails[index];
-      if (email) {
-        validUsers.push({ userId, email });
-      }
-    });
+    // Get all profile documents in parallel
+    const profilePromises = userIds.map(id => db.collection('profiles').doc(id).get());
+    const profileDocs = await Promise.all(profilePromises);
 
-    if (validUsers.length === 0) {
-      console.warn('No valid users found');
-      return {};
-    }
-
-    // Step 3: Get tokens and providers for all valid users in parallel
-    const dataPromises = validUsers.flatMap(({ email }) => [
-      adminGetCalendarTokens(email),
-      adminGetUserCalendarProviders(email).catch(() => []) // Fallback to empty array
-    ]);
-
-    const allResults = await Promise.all(dataPromises);
-
-    // Step 4: Structure the results back into user-keyed format
     const userData: Record<string, {
       email: string;
       tokens: CalendarTokens[];
       providers: Calendar[];
     }> = {};
 
-    validUsers.forEach(({ userId, email }, index) => {
-      const tokensIndex = index * 2;
-      const providersIndex = index * 2 + 1;
+    for (let i = 0; i < userIds.length; i++) {
+      const userId = userIds[i];
+      const profileDoc = profileDocs[i];
+
+      if (!profileDoc.exists) {
+        console.warn(`Profile not found for user ${userId}`);
+        continue;
+      }
+
+      const profileData = profileDoc.data();
+
+      // Extract email from contactEntries
+      const emailEntry = profileData?.contactEntries?.find((entry: { fieldType: string }) => entry.fieldType === 'email');
+      const email = emailEntry?.value;
+
+      if (!email) {
+        console.warn(`No email found for user ${userId}`);
+        continue;
+      }
+
+      // Get calendars from profile.calendars array
+      const calendars = profileData?.calendars || [];
+
+      // Convert profile calendars to CalendarTokens format
+      const tokens: CalendarTokens[] = calendars
+        .filter((cal: any) => cal.accessToken) // Only include calendars with tokens
+        .map((cal: any) => {
+          console.log(`[adminGetMultipleUserData] User ${userId} calendar ${cal.provider} - has refreshToken: ${!!cal.refreshToken}, refreshToken length: ${cal.refreshToken?.length || 0}`);
+          return {
+            email: cal.email || email,
+            provider: cal.provider,
+            accessToken: cal.accessToken,
+            refreshToken: cal.refreshToken,
+            expiresAt: cal.tokenExpiry ? new Date(cal.tokenExpiry) : undefined,
+          };
+        });
 
       userData[userId] = {
         email,
-        tokens: allResults[tokensIndex] as CalendarTokens[],
-        providers: allResults[providersIndex] as Calendar[]
+        tokens,
+        providers: calendars // Use the calendars from profile as providers
       };
-    });
+    }
 
     console.log(`✅ Batched data retrieval complete for ${Object.keys(userData).length} users`);
     return userData;
@@ -286,6 +311,56 @@ export const adminGetMultipleUserData = async (userIds: string[]) => {
   } catch (error) {
     console.error('Error in batch user data retrieval:', error);
     return {};
+  }
+};
+
+/**
+ * Update calendar tokens in a user's profile after token refresh
+ * This is the Nektus-specific version that updates profile.calendars array
+ */
+export const adminUpdateCalendarTokens = async (
+  userId: string,
+  provider: string,
+  accessToken: string,
+  expiresAt: Date,
+  refreshToken?: string
+): Promise<boolean> => {
+  try {
+    const { db } = await getFirebaseAdmin();
+    const profileRef = db.collection('profiles').doc(userId);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      console.error(`Profile not found for user ${userId}`);
+      return false;
+    }
+
+    const profileData = profileDoc.data();
+    const calendars = profileData?.calendars || [];
+
+    // Find the calendar with matching provider
+    const calendarIndex = calendars.findIndex((cal: any) => cal.provider === provider);
+
+    if (calendarIndex === -1) {
+      console.error(`Calendar with provider ${provider} not found for user ${userId}`);
+      return false;
+    }
+
+    // Update the calendar tokens
+    calendars[calendarIndex].accessToken = accessToken;
+    calendars[calendarIndex].tokenExpiry = expiresAt.toISOString();
+    if (refreshToken) {
+      calendars[calendarIndex].refreshToken = refreshToken;
+    }
+
+    // Save back to Firestore
+    await profileRef.update({ calendars });
+
+    console.log(`✅ Updated ${provider} tokens for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating calendar tokens:', error);
+    return false;
   }
 };
 

@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/app/context/ProfileContext';
-import EditTitleBar from '@/app/components/ui/EditTitleBar';
+import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { Text } from '@/app/components/ui/Typography';
 import { SecondaryButton } from '@/app/components/ui/buttons/SecondaryButton';
-import ValidatedTextInput from '@/app/components/ui/inputs/ValidatedTextInput';
+import { ValidatedInput } from '@/app/components/ui/inputs/ValidatedInput';
 import { validateCompleteAddress } from '@/lib/location/address-validation';
 import type { UserLocation, AddressValidation } from '@/types/profile';
 import type { RadarAddressValidationResponse } from '@/app/api/location/validate/route';
@@ -137,7 +137,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
     return (
       <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
         <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-          <EditTitleBar onBack={() => router.back()} title="Location" />
+          <PageHeader onBack={() => router.back()} title="Location" />
           <Text className="text-white/60">Loading...</Text>
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
     return (
       <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
         <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-          <EditTitleBar onBack={() => router.back()} title="Location" />
+          <PageHeader onBack={() => router.back()} title="Location" />
           <Text className="text-white/60">Location not found</Text>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
   return (
     <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-        <EditTitleBar
+        <PageHeader
           onBack={() => router.back()}
           title="Location"
           onSave={handleSave}
@@ -167,7 +167,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
 
         {/* Address Fields */}
         <div className="space-y-4">
-          <ValidatedTextInput
+          <ValidatedInput
             type="text"
             value={editedLocation.address || ''}
             onChange={(e) => setEditedLocation({ ...editedLocation, address: e.target.value })}
@@ -178,7 +178,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
             saveAttempted={isSaving}
           />
 
-          <ValidatedTextInput
+          <ValidatedInput
             type="text"
             value={editedLocation.city}
             onChange={(e) => setEditedLocation({ ...editedLocation, city: e.target.value })}
@@ -189,7 +189,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
             saveAttempted={isSaving}
           />
 
-          <ValidatedTextInput
+          <ValidatedInput
             type="text"
             value={editedLocation.region}
             onChange={(e) => setEditedLocation({ ...editedLocation, region: e.target.value })}
@@ -200,7 +200,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
             saveAttempted={isSaving}
           />
 
-          <ValidatedTextInput
+          <ValidatedInput
             type="text"
             value={editedLocation.zip || ''}
             onChange={(e) => setEditedLocation({ ...editedLocation, zip: e.target.value })}

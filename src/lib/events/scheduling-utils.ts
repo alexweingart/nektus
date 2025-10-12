@@ -248,7 +248,7 @@ export async function getSuggestedTimes(
     if (!firebaseUser) throw new Error('No authenticated user');
     const idToken = await firebaseUser.getIdToken();
 
-    const response = await fetch('/api/scheduling/combined-common-times', {
+    const response = await fetch('/api/scheduling/common-times', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

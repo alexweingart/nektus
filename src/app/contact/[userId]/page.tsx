@@ -80,9 +80,9 @@ function ContactPageContent() {
       <div className="flex items-center justify-center min-h-dvh bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center max-w-sm px-4">
           <p className="text-red-400 mb-4">{error}</p>
-          <Button 
+          <Button
             onClick={handleGoBack}
-            variant="theme"
+            variant="white"
             size="xl"
             className="w-full"
           >

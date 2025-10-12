@@ -118,6 +118,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
             console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
+
+            // Auto-detect and update timezone if it's different from current browser timezone
+            const browserTimezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+            console.log(`[ProfileContext] Timezone check: current=${existingProfile.timezone}, browser=${browserTimezone}, needsUpdate=${existingProfile.timezone !== browserTimezone}`);
+            if (browserTimezone && existingProfile.timezone !== browserTimezone) {
+              console.log(`[ProfileContext] Updating timezone from ${existingProfile.timezone || 'undefined'} to ${browserTimezone}`);
+              // Update timezone in Firebase (silent update - no UI state change needed yet)
+              await ProfileService.saveProfile({
+                ...existingProfile,
+                timezone: browserTimezone
+              });
+              // Update the profile object with new timezone before setting state
+              existingProfile.timezone = browserTimezone;
+              console.log(`[ProfileContext] Timezone updated successfully`);
+            }
+
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
@@ -218,7 +234,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       // Small delay to ensure any concurrent phone saves complete first
       bioAndSocialGenerationPromise = new Promise(resolve => setTimeout(resolve, 200))
-        .then(() => fetch('/api/generate-profile/bio-and-social', { method: 'POST', credentials: 'include' }))
+        .then(() => fetch('/api/profile/generate/bio-and-social', { method: 'POST', credentials: 'include' }))
         .then(res => {
           if (!res.ok) {
             throw new Error(`Bio and social generation API request failed with status: ${res.status}`);
@@ -306,7 +322,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
           console.log('[ProfileContext] Making profile image API call');
 
-          return fetch('/api/generate-profile/profile-image', {
+          return fetch('/api/profile/generate/profile-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ streamingBio: bioToUse })
@@ -393,7 +409,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const bioEntry = profile?.contactEntries?.find(e => e.fieldType === 'bio');
         const bioForBackground = bioEntry?.value || '';
 
-        return fetch('/api/generate-profile/background-image', {
+        return fetch('/api/profile/generate/background-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ streamingBio: bioForBackground }),
@@ -539,9 +555,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (wasFormSubmission && mergedPhoneEntry?.value && !existingWhatsApp) {
           const phoneNumber = mergedPhoneEntry.value;
           console.log('[ProfileContext] Phone saved and WhatsApp empty, triggering WhatsApp generation');
-          
+
           // Generate and verify WhatsApp profile asynchronously (don't block)
-          fetch('/api/generate-profile/verify-phone-socials', {
+          fetch('/api/profile/generate/verify-phone-socials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

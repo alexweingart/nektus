@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './Button';
-import { LoadingSpinner } from '../LoadingSpinner';
+import { LoadingSpinner } from '../elements/LoadingSpinner';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
 
 interface ExchangeButtonProps {
@@ -143,23 +143,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
 
     // Now we can do async operations after getting permission
-    const platform = typeof DeviceMotionEventWithPermission.requestPermission === 'function' ? 'iOS' : 'Android/Other';
-    
-    // Debounce ping requests to prevent duplicates (React Strict Mode can cause double execution)
-    const now = Date.now();
-    if (now - lastPingTimeRef.current > 1000) { // Only send ping if last one was more than 1 second ago
-      lastPingTimeRef.current = now;
-      fetch('/api/system/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'exchange_button_called',
-          message: `[${platform}] ExchangeButton called with category: ${selectedCategory}, iOS permission granted: ${permissionGranted}`,
-          timestamp: Date.now()
-        })
-      }).catch(() => {});
-    }
-    
+    // Note: Telemetry removed - was just console.log on server
+
     try {
       // Always create a fresh service and session for each exchange attempt
       // This prevents hit counter reuse and session confusion

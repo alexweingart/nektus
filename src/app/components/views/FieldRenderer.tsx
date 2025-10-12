@@ -6,20 +6,19 @@ import type { ContactEntry, FieldSection } from '@/types/profile';
 import type { UseEditProfileFieldsReturn } from '@/lib/hooks/useEditProfileFields';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import CustomInput from '../ui/inputs/CustomInput';
-import CustomExpandingInput from '../ui/inputs/CustomExpandingInput';
+import { StaticInput } from '../ui/inputs/StaticInput';
+import { ExpandingInput } from '../ui/inputs/ExpandingInput';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
-import { FieldSection as FieldSectionComponent } from '../ui/FieldSection';
-import { ProfileField } from '../ui/ProfileField';
-import { ProfileViewSelector } from '../ui/ProfileViewSelector';
-import { DropZone } from '../ui/DropZone';
-import ProfileImageIcon from '../ui/ProfileImageIcon';
-import { ItemChip } from '../ui/ItemChip';
+import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
+import { ProfileField } from '../ui/elements/ProfileField';
+import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
+import { DropZone } from '../ui/elements/DropZone';
+import ProfileImageIcon from '../ui/elements/ProfileImageIcon';
+import { ItemChip } from '../ui/modules/ItemChip';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { AddLocationModal } from '../ui/modals/AddLocationModal';
-import { AddLinkModal } from '../ui/modals/AddLinkModal';
-import { InlineAddLink } from '../ui/InlineAddLink';
+import { InlineAddLink } from '../ui/modules/InlineAddLink';
 import { useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
 import { useDragAndDrop, type DragDropInfo } from '@/lib/hooks/useDragAndDrop';
@@ -62,7 +61,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   // Modal state
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [modalSection, setModalSection] = useState<'personal' | 'work'>('personal');
 
   // Inline add link state
@@ -167,11 +165,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     setIsLocationModalOpen(true);
   };
 
-  const handleOpenLinkModal = (section: 'personal' | 'work') => {
-    setModalSection(section);
-    setIsLinkModalOpen(true);
-  };
-
   const handleToggleInlineAddLink = (section: 'personal' | 'work') => {
     setShowInlineAddLink(prev => ({
       ...prev,
@@ -216,7 +209,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     entries.forEach(entry => {
       fieldSectionManager.markChannelAsConfirmed(entry.fieldType);
     });
-    setIsLinkModalOpen(false);
     // Close inline add link for all sections
     setShowInlineAddLink({ personal: false, work: false });
     console.log('[FieldRenderer] handleLinkAdded completed');
@@ -364,21 +356,15 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
       }
     };
 
-    const phoneProps = profile.fieldType === 'phone' ? {
-      onPhoneChange: (value: string) => {
-        handleFieldChange('phone', value, 'universal');
-      }
-    } : {};
-
     return (
-      <div 
+      <div
         key={key}
         className="w-full max-w-md mx-auto"
         style={{
           display: isThisDraggedField ? 'none' : 'block'
         }}
       >
-        <ProfileField {...commonProps} {...phoneProps} />
+        <ProfileField {...commonProps} />
       </div>
     );
   };
@@ -652,12 +638,12 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
       >
         {/* Name Input with Profile Image */}
         <div className="w-full max-w-md mx-auto">
-          <CustomInput
+          <StaticInput
             ref={nameInputRef}
             type="text"
             id="name"
             value={fieldSectionManager.getFieldValue('name')}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               fieldSectionManager.setFieldValue('name', e.target.value)
             }
             placeholder="Full Name"
@@ -673,10 +659,10 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
 
         {/* Bio Input */}
         <div className="w-full max-w-md mx-auto">
-          <CustomExpandingInput
+          <ExpandingInput
             id="bio"
             value={fieldSectionManager.getFieldValue('bio')}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
               fieldSectionManager.setFieldValue('bio', e.target.value)
             }
             placeholder="Add a short bio..."
@@ -739,14 +725,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
         section={modalSection}
         userId={session?.user?.id || ''}
         onLocationAdded={handleLocationAdded}
-      />
-
-      <AddLinkModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        section={modalSection}
-        onLinkAdded={handleLinkAdded}
-        nextOrder={getNextOrderForSection(modalSection)}
       />
     </div>
   );

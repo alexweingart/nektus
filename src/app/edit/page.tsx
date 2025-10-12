@@ -2,8 +2,8 @@
 
 import React, { Suspense, useState } from 'react';
 import dynamicImport from 'next/dynamic';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { PullToRefresh } from '../components/ui/PullToRefresh';
+import { LoadingSpinner } from '../components/ui/elements/LoadingSpinner';
+import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';

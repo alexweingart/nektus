@@ -4,7 +4,7 @@ import React, { useRef, useCallback, useMemo, useState } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import EditTitleBar from '../ui/EditTitleBar';
+import PageHeader from '../ui/layout/PageHeader';
 import FieldRenderer, { type FieldRendererHandle } from './FieldRenderer';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
@@ -138,7 +138,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   return (
     <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-        <EditTitleBar
+        <PageHeader
           onBack={() => router.push('/')}
           onSave={handleSave}
           isSaving={isProfileSaving}

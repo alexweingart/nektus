@@ -1,6 +1,6 @@
 import React from 'react';
 import { signIn } from 'next-auth/react';
-import { useAdminModeActivator } from '../ui/AdminBanner';
+import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';

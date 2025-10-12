@@ -87,12 +87,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/edit?error=calendar_already_exists', request.url));
     }
 
+    // Check if we received a refresh token
+    if (!tokenData.refresh_token) {
+      console.error('[Google OAuth] No refresh token received - this may indicate a re-authorization without consent');
+      return NextResponse.redirect(new URL('/edit?error=no_refresh_token', request.url));
+    }
+
     // Encrypt tokens
     const encryptedTokens = await encryptCalendarTokens({
       accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || '',
+      refreshToken: tokenData.refresh_token,
       tokenExpiry: Date.now() + tokenData.expires_in * 1000
     });
+
+    console.log(`[Google OAuth] Encrypted tokens - has refreshToken: ${!!encryptedTokens.refreshToken}, refreshToken length: ${encryptedTokens.refreshToken?.length || 0}`);
 
     // Create calendar object
     const newCalendar: Calendar = {
@@ -103,7 +111,7 @@ export async function GET(request: NextRequest) {
       section: section,
       schedulableHours: section === 'work' ? WORK_SCHEDULABLE_HOURS : PERSONAL_SCHEDULABLE_HOURS,
       accessToken: encryptedTokens.accessToken,
-      ...(encryptedTokens.refreshToken && { refreshToken: encryptedTokens.refreshToken }),
+      refreshToken: encryptedTokens.refreshToken,
       tokenExpiry: encryptedTokens.tokenExpiry,
       connectionStatus: 'connected',
       accessMethod: 'oauth',

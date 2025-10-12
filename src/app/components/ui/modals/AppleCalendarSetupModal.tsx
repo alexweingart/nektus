@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { StandardModal } from '../StandardModal';
-import CustomInput from '../inputs/CustomInput';
+import { StandardModal } from './StandardModal';
+import { StaticInput } from '../inputs/StaticInput';
 
 interface AppleCalendarSetupModalProps {
   isOpen: boolean;
@@ -58,7 +58,6 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
       isOpen={isOpen}
       onClose={handleClose}
       title="Connect Apple Calendar"
-      subtitle="Enter your Apple ID and app-specific password to connect"
       primaryButtonText={isConnecting ? 'Connecting...' : 'Connect Calendar'}
       onPrimaryButtonClick={handleConnect}
       primaryButtonDisabled={!appleId || !appPassword || isConnecting}
@@ -81,13 +80,13 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
       </div>
 
       <div className="space-y-4">
-        <CustomInput
+        <StaticInput
           type="email"
           value={appleId}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppleId(e.target.value)}
           placeholder="Apple ID (iCloud Email)"
         />
-        <CustomInput
+        <StaticInput
           type="text"
           value={appPassword}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppPassword(e.target.value.replace(/[\s-]/g, ''))}

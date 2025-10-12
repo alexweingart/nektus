@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/app/context/ProfileContext';
-import EditTitleBar from '@/app/components/ui/EditTitleBar';
+import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { Text } from '@/app/components/ui/Typography';
 import { SecondaryButton } from '@/app/components/ui/buttons/SecondaryButton';
 import { SchedulableHoursEditor } from '@/app/components/ui/calendar/SchedulableHoursEditor';
@@ -153,7 +153,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
     return (
       <div className="min-h-screen">
         <div className="max-w-2xl mx-auto px-6">
-          <EditTitleBar title="Edit Calendar" onBack={handleBack} />
+          <PageHeader title="Edit Calendar" onBack={handleBack} />
           <div className="py-6">
             <Text className="text-white/60">Calendar not found</Text>
           </div>
@@ -169,7 +169,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
   return (
     <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-screen">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
-        <EditTitleBar
+        <PageHeader
           title="Edit Calendar"
           onBack={handleBack}
           onSave={handleSave}

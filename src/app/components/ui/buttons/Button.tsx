@@ -11,30 +11,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-full",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-full",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-full",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-full",
-        ghost: "hover:bg-accent hover:text-accent-foreground rounded-full",
-        link: "text-primary underline-offset-4 hover:underline",
-        theme: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full shadow-md",
-        white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full",
+        white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full shadow-md",
         circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 shadow-md",
       },
       size: {
-        default: "h-12 px-6 text-base",
-        sm: "h-10 px-4 text-sm",
+        md: "h-12 px-6 text-base",
         lg: "h-14 px-8 text-lg",
         xl: "h-16 px-10 text-xl",
         icon: "h-12 w-12 p-0 text-sm",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "white",
+      size: "md",
     },
   }
 )
@@ -45,8 +34,8 @@ export interface ButtonProps
   asChild?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "theme" | "white" | "circle";
-  size?: "default" | "sm" | "lg" | "xl" | "icon";
+  variant?: "white" | "circle";
+  size?: "md" | "lg" | "xl" | "icon";
 }
  
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

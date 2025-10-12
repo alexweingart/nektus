@@ -51,11 +51,11 @@ export class ProfileSaveService {
       }
       
       // Determine merge strategy
-      const merged = options.directUpdate 
-        ? { 
-            ...currentProfile, 
-            ...processedUpdates, 
-            userId, 
+      const merged = options.directUpdate
+        ? {
+            ...currentProfile,
+            ...processedUpdates,
+            userId,
             lastUpdated: Date.now(),
             profileImage: processedUpdates.profileImage || currentProfile?.profileImage || '',
             backgroundImage: processedUpdates.backgroundImage || currentProfile?.backgroundImage || '',
@@ -101,12 +101,12 @@ export class ProfileSaveService {
    * Merge objects intelligently, preserving existing data
    */
   private static mergeNonEmpty(
-    target: UserProfile | null, 
+    target: UserProfile | null,
     source: Partial<UserProfile>,
     userId: string
   ): UserProfile {
     const result = target ? { ...target } : this.createDefaultProfile(userId);
-    
+
     for (const key in source) {
       const sourceValue = source[key as keyof UserProfile];
       if (sourceValue !== undefined && sourceValue !== null) {
@@ -114,16 +114,16 @@ export class ProfileSaveService {
         if (key === 'contactEntries' && Array.isArray(sourceValue)) {
           const targetEntries = (result[key as keyof UserProfile] as ContactEntry[]) || [];
           const sourceEntries = sourceValue as ContactEntry[];
-          
+
           // Create a copy of target entries to avoid mutation
           const mergedEntries = [...targetEntries];
-          
+
           // Merge entries by fieldType - preserve existing entries and add/update new ones
           for (const sourceEntry of sourceEntries) {
             const existingIndex = mergedEntries.findIndex(
               (entry: ContactEntry) => entry.fieldType === sourceEntry.fieldType && entry.section === sourceEntry.section
             );
-            
+
             if (existingIndex >= 0) {
               // Merge the existing entry with new data, preserving existing fields
               mergedEntries[existingIndex] = {
@@ -135,7 +135,7 @@ export class ProfileSaveService {
               mergedEntries.push(sourceEntry);
             }
           }
-          
+
           (result as unknown as Record<string, unknown>)[key] = mergedEntries;
         } else if (typeof sourceValue === 'object' && !Array.isArray(sourceValue)) {
           (result as unknown as Record<string, unknown>)[key] = {
@@ -147,7 +147,7 @@ export class ProfileSaveService {
         }
       }
     }
-    
+
     return { ...result, userId, lastUpdated: Date.now() };
   }
 

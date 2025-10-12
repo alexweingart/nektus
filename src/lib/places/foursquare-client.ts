@@ -5,22 +5,39 @@ import {
 } from '@/types/places';
 import { isWithinRadius, generateGoogleMapsUrl, calculateDistance } from '../location/location-utils';
 
-// Foursquare category mappings (Google Places API types → Foursquare category IDs)
-const CATEGORY_MAP: Record<string, string> = {
-  'restaurant': '4bf58dd8d48988d1c4941735',
-  'cafe': '4bf58dd8d48988d16d941735',
-  'coffee': '4bf58dd8d48988d1e0931735',
-  'bar': '4bf58dd8d48988d116941735',
-  'park': '4bf58dd8d48988d163941735',
-  'gym': '4bf58dd8d48988d175941735',
-  'museum': '4bf58dd8d48988d181941735',
-  'tourist_attraction': '4bf58dd8d48988d162941735',
-  'night_club': '4bf58dd8d48988d11f941735',
-  'food': '4d4b7105d754a06374d81259', // Food category
-  'shopping_mall': '4bf58dd8d48988d1fd941735',
-  'store': '4bf58dd8d48988d1fd941735',
-  'stadium': '4bf58dd8d48988d184941735',
+// Common Foursquare category IDs - export for use in AI prompts
+export const FOURSQUARE_CATEGORIES = {
+  // Food & Drink
+  restaurant: '4bf58dd8d48988d1c4941735',
+  cafe: '4bf58dd8d48988d16d941735',
+  coffee_shop: '4bf58dd8d48988d1e0931735',
+  bar: '4bf58dd8d48988d116941735',
+  nightclub: '4bf58dd8d48988d11f941735',
+  food: '4d4b7105d754a06374d81259',
+
+  // Outdoor & Recreation
+  park: '4bf58dd8d48988d163941735',
+  trail: '4bf58dd8d48988d159941735',
+  beach: '4bf58dd8d48988d1e2941735',
+
+  // Sports & Fitness
+  gym: '4bf58dd8d48988d175941735',
+  tennis_court: '4e39a956bd410d7aed40cbc3',
+  athletics_sports: '4f4528bc4b90abdf24c9de85',
+  yoga_studio: '4bf58dd8d48988d102941735',
+
+  // Culture & Entertainment
+  museum: '4bf58dd8d48988d181941735',
+  tourist_attraction: '4bf58dd8d48988d162941735',
+  stadium: '4bf58dd8d48988d184941735',
+
+  // Shopping
+  shopping_mall: '4bf58dd8d48988d1fd941735',
+  store: '4bf58dd8d48988d1fd941735',
 };
+
+// Legacy fallback mapping (kept for backwards compatibility)
+const CATEGORY_MAP: Record<string, string> = FOURSQUARE_CATEGORIES;
 
 // Foursquare API response interfaces (NEW API format)
 interface FoursquareLocation {
@@ -352,8 +369,11 @@ export function getFoursquareCategoriesForActivity(activityQuery: string): strin
   if (query.includes('restaurant') || query.includes('food') || query.includes('dining') || query.includes('lunch') || query.includes('dinner')) {
     return [CATEGORY_MAP.restaurant];
   }
-  if (query.includes('park') || query.includes('outdoor') || query.includes('hiking')) {
-    return [CATEGORY_MAP.park];
+  if (query.includes('hik') || query.includes('trail')) {
+    return [CATEGORY_MAP.trail, CATEGORY_MAP.park, CATEGORY_MAP.tourist_attraction];
+  }
+  if (query.includes('park') || query.includes('outdoor')) {
+    return [CATEGORY_MAP.park, CATEGORY_MAP.tourist_attraction];
   }
   if (query.includes('museum') || query.includes('art') || query.includes('gallery')) {
     return [CATEGORY_MAP.museum];

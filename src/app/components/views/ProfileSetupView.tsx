@@ -3,15 +3,15 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
-import CustomPhoneInput from '../ui/inputs/CustomPhoneInput';
-import { useAdminModeActivator } from '../ui/AdminBanner';
+import { DropdownPhoneInput } from '../ui/inputs/DropdownPhoneInput';
+import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { Heading } from '../ui/Typography';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
-import Avatar from '../ui/Avatar';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
+import Avatar from '../ui/elements/Avatar';
+import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
-import type { Country } from '../ui/inputs/CustomPhoneInput';
+import type { Country } from '../ui/inputs/DropdownPhoneInput';
 import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
@@ -184,7 +184,7 @@ function ProfileSetupView() {
             {/* Phone Input Section */}
             <div className="w-full max-w-[var(--max-content-width)] mx-auto setup-form">
               <form onSubmit={handleSave} className="w-full space-y-4">
-                <CustomPhoneInput
+                <DropdownPhoneInput
                   ref={phoneInputRef}
                   value={digits}
                   onChange={setDigits}
@@ -207,7 +207,7 @@ function ProfileSetupView() {
 
                 <Button
                   type="submit"
-                  variant="theme"
+                  variant="white"
                   size="xl"
                   className="w-full font-medium"
                   disabled={isProfileSaving || (digits.replace(/\D/g, '').length < 10)}

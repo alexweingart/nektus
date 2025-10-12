@@ -6,8 +6,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
-import AdminBanner from './components/ui/AdminBanner';
-import { LayoutBackground } from './components/layout/LayoutBackground';
+import AdminBanner from './components/ui/banners/AdminBanner';
+import { LayoutBackground } from './components/ui/layout/LayoutBackground';
 
 const inter = Inter({
   subsets: ["latin"],

@@ -141,7 +141,7 @@ export async function fetchPlacesForEvents(
     })();
 
     try {
-      const response = await fetch('/api/places-suggestions', {
+      const response = await fetch('/api/scheduling/places', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

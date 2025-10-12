@@ -72,7 +72,7 @@ export const useImageUpload = () => {
       // Call the appropriate API endpoint
       const endpoint = uploadType === 'profile' ? 'profile-image' : 'background-image';
       try {
-        await fetch(`/api/generate-profile/${endpoint}`, {
+        await fetch(`/api/profile/generate/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageData }),

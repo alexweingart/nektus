@@ -104,7 +104,7 @@ async function searchPlacesByActivity(
   intentResult: DetermineIntentResult
 ): Promise<Place[]> {
   console.log(`🎾 Tier 2: Searching for activity: ${activitySearchQuery}`);
-  console.log(`🔍 Intent result received:`, intentResult);
+  console.log(`🔍 Intent result received:`, JSON.stringify(intentResult, null, 2));
 
   try {
     // Calculate midpoint between users for search center
@@ -112,7 +112,7 @@ async function searchPlacesByActivity(
 
     // Use Foursquare categories from intent detection, with fallback
     const categories = intentResult.suggestedPlaceTypes || getFoursquareCategoriesForActivity(activitySearchQuery);
-    console.log(`🎯 Using Foursquare categories for "${activitySearchQuery}": ${categories.length} categories`);
+    console.log(`🎯 ${intentResult.suggestedPlaceTypes ? 'AI provided' : 'Fallback'} Foursquare categories for "${activitySearchQuery}":`, categories);
 
     const allPlaces: Place[] = [];
 

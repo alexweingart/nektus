@@ -34,10 +34,19 @@ export function generateCalendarUrls(event: CalendarEvent): CalendarUrls {
 export function generateGoogleCalendarUrl(event: CalendarEvent): string {
   const baseUrl = 'https://calendar.google.com/calendar/render';
 
+  const startFormatted = formatDateTimeForGoogle(event.startTime);
+  const endFormatted = formatDateTimeForGoogle(event.endTime);
+
+  console.log('Google Calendar URL generation:');
+  console.log('  Start time (Date):', event.startTime);
+  console.log('  Start formatted:', startFormatted);
+  console.log('  End time (Date):', event.endTime);
+  console.log('  End formatted:', endFormatted);
+
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.title,
-    dates: `${formatDateTimeForGoogle(event.startTime)}/${formatDateTimeForGoogle(event.endTime)}`,
+    dates: `${startFormatted}/${endFormatted}`,
     location: event.location,
     details: event.description || '',
   });
@@ -46,7 +55,10 @@ export function generateGoogleCalendarUrl(event: CalendarEvent): string {
     params.append('add', event.attendees.join(','));
   }
 
-  return `${baseUrl}?${params.toString()}`;
+  const url = `${baseUrl}?${params.toString()}`;
+  console.log('  Final URL:', url);
+
+  return url;
 }
 
 /**
@@ -146,7 +158,15 @@ export function downloadICSFile(icsContent: string, filename: string): void {
  * Format datetime for Google Calendar and ICS files (YYYYMMDDTHHMMSSZ format)
  */
 function formatDateTimeForGoogle(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // Use local timezone instead of UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 }
 
 // Alias for ICS format (same as Google format)
@@ -201,7 +221,13 @@ export function createCompleteCalendarEvent(
   if (event.eventType === 'in-person' && event.travelBuffer) {
     // Calculate actual meeting start (after travel buffer)
     const actualMeetingStart = new Date(event.startTime.getTime() + event.travelBuffer.beforeMinutes * 60 * 1000);
-    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone || 'UTC' };
+    // Use local timezone if no timezone specified
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...(timezone && { timeZone: timezone })
+    };
     const startTimeString = actualMeetingStart.toLocaleTimeString('en-US', timeOptions);
     formattedTitle += ` • Starts at ${startTimeString}`;
   }

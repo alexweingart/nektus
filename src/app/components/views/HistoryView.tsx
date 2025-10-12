@@ -8,19 +8,26 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { HistoryContactItem } from '../ui/HistoryContactItem';
+import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
+import { ItemChip } from '../ui/modules/ItemChip';
+import Avatar from '../ui/elements/Avatar';
+import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Heading, Text } from '../ui/Typography';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { useProfile } from '@/app/context/ProfileContext';
+import { getFieldValue } from '@/lib/utils/profileTransforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
   const { data: session } = useSession();
+  const { profile: userProfile } = useProfile();
   const [contacts, setContacts] = useState<SavedContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<SavedContact | null>(null);
 
   // Fetch contacts on component mount
   useEffect(() => {
@@ -66,6 +73,82 @@ export const HistoryView: React.FC = () => {
 
   const handleGoBack = () => {
     router.push('/');
+  };
+
+  // Format the match date
+  const formatMatchDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      // Today - show time
+      const timeString = date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return `Today • ${timeString}`;
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      // Within the last week - show day of week
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      // Greater than 6 days old - show date with ordinal
+      const day = date.getDate();
+      const ordinal = (day: number) => {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      };
+
+      const month = date.toLocaleDateString('en-US', { month: 'long' });
+      const year = date.getFullYear();
+
+      return `${month} ${day}${ordinal(day)}, ${year}`;
+    }
+  };
+
+  const handleContactTap = (contact: SavedContact) => {
+    // Navigate to the new contact page using userId
+    router.push(`/contact/${contact.userId}`);
+  };
+
+  const handleCalendarClick = (e: React.MouseEvent, contact: SavedContact) => {
+    e.stopPropagation(); // Prevent contact tap when clicking calendar button
+
+    if (!session?.user?.id) {
+      console.warn('Cannot schedule: no user session');
+      return;
+    }
+
+    // Check if user has calendar for this contact's type using ProfileContext
+    const userHasCalendar = userProfile?.calendars?.some(
+      (cal) => cal.section === contact.contactType
+    );
+
+    if (userHasCalendar) {
+      // Navigate to smart-schedule page with 'from' parameter
+      router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
+    } else {
+      // Open Add Calendar modal
+      setSelectedContact(contact);
+      setShowAddCalendarModal(true);
+    }
+  };
+
+  const handleCalendarAdded = () => {
+    setShowAddCalendarModal(false);
+    if (selectedContact) {
+      // After calendar is added, navigate to smart-schedule with 'from' parameter
+      router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
+    }
   };
 
   // Loading state
@@ -123,9 +206,9 @@ export const HistoryView: React.FC = () => {
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="text-center max-w-sm">
             <p className="text-red-400 mb-4">{error}</p>
-            <Button 
+            <Button
               onClick={handleRetry}
-              variant="theme"
+              variant="white"
               size="xl"
               className="w-full"
             >
@@ -181,9 +264,9 @@ export const HistoryView: React.FC = () => {
               <Text variant="small" className="text-gray-300 mb-6">
                 When you nekt with someone, they&apos;ll appear here so you can easily reconnect later.
               </Text>
-              <Button 
+              <Button
                 onClick={handleGoBack}
-                variant="theme"
+                variant="white"
                 size="xl"
                 className="w-full"
               >
@@ -195,14 +278,38 @@ export const HistoryView: React.FC = () => {
           // Contact list
           <div className="space-y-3">
             {contacts.map((contact) => (
-              <HistoryContactItem
+              <ItemChip
                 key={contact.userId}
-                contact={contact}
+                icon={
+                  <Avatar
+                    src={contact.profileImage}
+                    alt={getFieldValue(contact.contactEntries, 'name')}
+                    size="sm"
+                    className="flex-shrink-0 !w-10 !h-10"
+                  />
+                }
+                title={getFieldValue(contact.contactEntries, 'name')}
+                subtitle={formatMatchDate(contact.addedAt)}
+                truncateTitle
+                onClick={() => handleContactTap(contact)}
+                onActionClick={(e) => handleCalendarClick(e, contact)}
+                actionIcon="calendar"
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Add Calendar Modal */}
+      {selectedContact && (
+        <AddCalendarModal
+          isOpen={showAddCalendarModal}
+          onClose={() => setShowAddCalendarModal(false)}
+          section={selectedContact.contactType}
+          userEmail={session?.user?.email || ''}
+          onCalendarAdded={handleCalendarAdded}
+        />
+      )}
     </div>
   );
 }; 

@@ -8,9 +8,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import type { ContactExchangeRequest, ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
-import { 
+import {
   atomicExchangeAndMatch,
-  storeExchangeMatch
+  storeExchangeMatch,
+  cleanupUserExchanges
 } from '@/lib/redis/client';
 import { getRedisTime } from '@/lib/services/server/redisTimeService';
 import { getProfile } from '@/lib/firebase/adminConfig';
@@ -57,6 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Clean up old exchanges for this user to prevent stale session matches
+    // This happens once per hit, ensuring fresh exchange state
+    if (session.user.id) {
+      try {
+        await cleanupUserExchanges(session.user.id);
+        console.log(`🧹 Cleaned up old exchanges for user ${session.user.id}`);
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to cleanup old exchanges:', cleanupError);
+        // Continue anyway - cleanup failure shouldn't block exchange
+      }
+    }
 
     // Parse request
     const exchangeRequest: ContactExchangeRequest = await request.json();

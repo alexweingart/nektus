@@ -1,6 +1,6 @@
 /**
  * DropdownSelector - General reusable dropdown component
- * Based on CustomPhoneInput's country selector pattern
+ * Based on DropdownInput's country selector pattern
  * Part of Phase 5: Links
  */
 

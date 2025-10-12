@@ -8,14 +8,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
-import Avatar from '../ui/Avatar';
-import SocialIconsList from '../ui/SocialIconsList';
+import Avatar from '../ui/elements/Avatar';
+import SocialIconsList from '../ui/elements/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
-import { StandardModal } from '../ui/StandardModal';
+import { StandardModal } from '../ui/modals/StandardModal';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Text } from "../ui/Typography";
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
@@ -25,6 +25,8 @@ import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
 import { getExchangeState, setExchangeState, shouldShowUpsell, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
 import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
+import { useProfile } from '@/app/context/ProfileContext';
+import PageHeader from '@/app/components/ui/layout/PageHeader';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -43,6 +45,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
+  const { profile: userProfile } = useProfile();
   
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
@@ -164,68 +167,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
 
 
-  // Apply the contact's background image or default pattern to the screen
-  useEffect(() => {
-    try {
-      // Clean up any existing backgrounds (both contact and app backgrounds)
-      const existingContactBg = document.getElementById('contact-background');
-      if (existingContactBg) {
-        existingContactBg.remove();
-      }
-
-      // Clean up any app background that might be showing user's background
-      const existingAppBg = document.getElementById('app-background');
-      if (existingAppBg) {
-        existingAppBg.remove();
-      }
-
-      // Remove default background class from body and reset body background
-      document.body.classList.remove('default-nekt-background');
-      document.body.style.background = '';
-
-      if (profile?.backgroundImage) {
-        // Create background div with contact's background image
-        const cleanedUrl = profile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-        const backgroundDiv = document.createElement('div');
-        backgroundDiv.id = 'contact-background';
-        backgroundDiv.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-image: url(${cleanedUrl});
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
-          z-index: 1;
-          pointer-events: none;
-        `;
-        document.body.appendChild(backgroundDiv);
-      } else {
-        // No contact background image, always use default green pattern
-        // NEVER show the user's own background image in contact view
-        document.body.classList.add('default-nekt-background');
-      }
-
-      // Cleanup function
-      return () => {
-        try {
-          const bgDiv = document.getElementById('contact-background');
-          if (bgDiv) {
-            bgDiv.remove();
-          }
-          document.body.classList.remove('default-nekt-background');
-          document.body.style.background = '';
-        } catch {
-          // Error cleaning up background
-        }
-      };
-    } catch {
-      // Error applying contact background
-    }
-  }, [profile?.backgroundImage]);
-
   const handleSaveContact = async () => {
     try {
       // Check if contact is already saved (button shows "I'm Done")
@@ -341,29 +282,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
     const savedContact = profile as SavedContact;
     const contactType = savedContact.contactType;
 
-    try {
-      // Fetch user's profile to check for calendar
-      const response = await fetch(`/api/profile/${session.user.id}`);
-      if (!response.ok) {
-        console.error('Failed to fetch user profile');
-        return;
-      }
-      const userProfile = await response.json();
+    // Check if user has calendar for this contact's type using ProfileContext
+    const userHasCalendar = userProfile?.calendars?.some(
+      (cal) => cal.section === contactType
+    );
 
-      // Check if user has calendar for this contact's type
-      const userHasCalendar = userProfile.calendars?.some(
-        (cal: any) => cal.section === contactType
-      );
-
-      if (userHasCalendar) {
-        // Navigate to smart-schedule page
-        router.push(`/contact/${profile.userId}/smart-schedule`);
-      } else {
-        // Open Add Calendar modal
-        setShowAddCalendarModal(true);
-      }
-    } catch (error) {
-      console.error('Error checking calendar:', error);
+    if (userHasCalendar) {
+      // Navigate to smart-schedule page
+      router.push(`/contact/${profile.userId}/smart-schedule`);
+    } else {
+      // Open Add Calendar modal
+      setShowAddCalendarModal(true);
     }
   };
 
@@ -375,28 +304,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
     // Get current profile type from localStorage
     const currentSection = (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
 
-    // Check if user has a calendar for current profile type
-    try {
-      const response = await fetch(`/api/profile/${session.user.id}`);
-      if (!response.ok) {
-        console.error('Failed to fetch user profile');
-        return;
-      }
-      const userProfile = await response.json();
+    // Check if user has a calendar for current profile type using ProfileContext
+    const userHasCalendar = userProfile?.calendars?.some(
+      (cal) => cal.section === currentSection
+    );
 
-      const userHasCalendar = userProfile.calendars?.some(
-        (cal: any) => cal.section === currentSection
-      );
-
-      if (userHasCalendar) {
-        // Navigate to smart-schedule page
-        router.push(`/contact/${profile.userId}/smart-schedule`);
-      } else {
-        // Open Add Calendar modal
-        setShowAddCalendarModal(true);
-      }
-    } catch (error) {
-      console.error('Error checking calendar:', error);
+    if (userHasCalendar) {
+      // Navigate to smart-schedule page
+      router.push(`/contact/${profile.userId}/smart-schedule`);
+    } else {
+      // Open Add Calendar modal
+      setShowAddCalendarModal(true);
     }
   };
 
@@ -449,25 +367,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1000]">
-      
-      <div className="h-[100dvh] flex flex-col items-center justify-center px-4 py-2 relative z-[1001]">
-        
+
+      <div className="min-h-dvh flex flex-col items-center px-4 py-2 relative z-[1001]">
+
         {/* Header with back button for historical contacts */}
         {isHistoricalContact && (
           <div className="w-full max-w-[var(--max-content-width,448px)] flex-shrink-0">
-            <div className="flex justify-start items-center">
-              <Button 
-                variant="circle"
-                size="icon"
-                className="w-14 h-14"
-                onClick={onReject}
-              >
-                <FaArrowLeft className="h-5 w-5" />
-              </Button>
-            </div>
+            <PageHeader
+              onBack={onReject}
+            />
           </div>
         )}
-        
+
         {/* Fixed Content Area - No scroll */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center justify-center flex-1 overflow-hidden">
           {/* Profile Image */}
@@ -516,7 +427,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
               <>
                 {/* Meet Up Button (Primary) */}
                 <Button
-                  variant="theme"
+                  variant="white"
                   size="xl"
                   className="w-full font-bold"
                   onClick={handleHistoricalCalendarClick}
@@ -538,7 +449,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
               <>
                 {/* Save Contact Button (Primary) */}
                 <Button
-                  variant="theme"
+                  variant="white"
                   size="xl"
                   className="w-full font-bold"
                   onClick={handleSaveContact}
@@ -551,13 +462,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
                 {/* Phase 6: Smart Schedule CTA - shown when contact is saved (Done state) */}
                 {isSuccess && (
-                  <SecondaryButton
-                    variant="dark"
-                    className="w-full"
-                    onClick={handleScheduleMeetUp}
-                  >
-                    Schedule next meet up now!
-                  </SecondaryButton>
+                  <div className="flex justify-center">
+                    <SecondaryButton
+                      variant="dark"
+                      onClick={handleScheduleMeetUp}
+                    >
+                      Schedule next meet up now!
+                    </SecondaryButton>
+                  </div>
                 )}
 
                 {/* Reject Button (Secondary) - only show when not saved yet */}
@@ -585,7 +497,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
           primaryButtonText="Say hi 👋"
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"
-          variant="success"
           showCloseButton={false}
         />
 
@@ -599,7 +510,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
           onPrimaryButtonClick={handleUpsellAccept}
           secondaryButtonText="Nah, just Nekt is fine"
           onSecondaryButtonClick={handleUpsellDecline}
-          variant="upsell"
           showCloseButton={false}
         />
 

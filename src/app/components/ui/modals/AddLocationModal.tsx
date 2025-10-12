@@ -6,10 +6,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { StandardModal } from '../StandardModal';
+import { StandardModal } from './StandardModal';
 import { Text } from '../Typography';
-import { ToggleSetting } from '../ToggleSetting';
-import ValidatedTextInput from '../inputs/ValidatedTextInput';
+import { ToggleSetting } from '../controls/ToggleSetting';
+import { ValidatedInput } from '../inputs/ValidatedInput';
 import { validateCompleteAddress } from '@/lib/location/address-validation';
 import type { FieldSection, UserLocation, AddressValidation } from '@/types/profile';
 import type { RadarAddressValidationResponse } from '@/app/api/location/validate/route';
@@ -272,7 +272,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
       showCloseButton={false}
     >
       <div className="space-y-4">
-            <ValidatedTextInput
+            <ValidatedInput
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
@@ -284,7 +284,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
               saveAttempted={isSaving}
             />
 
-            <ValidatedTextInput
+            <ValidatedInput
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -296,7 +296,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
               saveAttempted={isSaving}
             />
 
-            <ValidatedTextInput
+            <ValidatedInput
               type="text"
               value={region}
               onChange={(e) => setRegion(e.target.value)}
@@ -308,7 +308,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
               saveAttempted={isSaving}
             />
 
-            <ValidatedTextInput
+            <ValidatedInput
               type="text"
               value={zip}
               onChange={(e) => setZip(e.target.value)}

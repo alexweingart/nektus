@@ -3,14 +3,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
-import { useAdminModeActivator } from '../ui/AdminBanner';
+import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
-import { StandardModal } from '../ui/StandardModal';
-import { ProfileInfo } from '../ui/ProfileInfo';
+import { StandardModal } from '../ui/modals/StandardModal';
+import { ProfileInfo } from '../ui/modules/ProfileInfo';
 
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/lib/services/client/messagingService';
@@ -256,7 +256,6 @@ const ProfileView: React.FC = () => {
         primaryButtonText="Say hey 👋"
         onPrimaryButtonClick={handleMessageContact}
         secondaryButtonText="Maybe later"
-        variant="success"
         showCloseButton={false}
       />
 
@@ -271,7 +270,6 @@ const ProfileView: React.FC = () => {
           console.log('📱 PWA install modal button clicked');
           closeIOSModal();
         }}
-        variant="info"
         showSecondaryButton={false}
         showCloseButton={false}
       />

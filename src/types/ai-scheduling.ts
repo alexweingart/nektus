@@ -1,10 +1,5 @@
 import { Place } from './places';
-
-// TimeSlot and Event will be imported from profile.ts after we add them there
-export interface TimeSlot {
-  start: string;
-  end: string;
-}
+import { TimeSlot, Event } from './profile';
 
 export interface AISchedulingRequest {
   userMessage: string;
@@ -28,7 +23,7 @@ export interface Message {
 
 export interface AISchedulingResponse {
   intent: 'create_event' | 'navigate_to_booking_link' | 'modify_event' | 'decline' | 'confirm_scheduling';
-  event?: any; // Will use Event type from profile.ts
+  event?: Event;
   message: string;
   showCreateButton?: boolean;
   askForConfirmation?: boolean;
@@ -45,7 +40,7 @@ export interface AISchedulingAcknowledgment {
 export interface AISchedulingFinalResponse {
   type: 'final';
   intent: 'create_event' | 'navigate_to_booking_link' | 'modify_event' | 'decline' | 'confirm_scheduling' | 'special_events';
-  event?: any; // Will use Event type from profile.ts
+  event?: Event;
   message: string;
   showCreateButton?: boolean;
   askForConfirmation?: boolean;
@@ -89,12 +84,12 @@ export interface GenerateEventTemplateParams {
   specificPlace?: string;
   specificTime?: string;
   userLocations: string[];
-  existingEvent?: any; // Will use Event type from profile.ts
+  existingEvent?: Event;
   modifications?: Record<string, any>;
 }
 
 export interface GenerateEventParams {
-  eventTemplate: any; // Will use Event type from profile.ts
+  eventTemplate: Event;
   availableTimeSlots: TimeSlot[];
   userLocations: string[];
 }
@@ -112,7 +107,7 @@ export interface GenerateEventResult {
 
 export interface NavigateToBookingParams {
   calendarType: 'personal' | 'work';
-  event?: any; // Will use Event type from profile.ts
+  event?: Event;
 }
 
 export interface NavigateToBookingResult {

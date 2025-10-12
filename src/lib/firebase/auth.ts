@@ -74,37 +74,9 @@ export class FirebaseAuthService {
       }
       return this.currentUser;
     } catch (error) {
-      // Check if it's an invalid/expired token error
-      const errorCode = (error as { code?: string })?.code;
-      const errorMessage = (error as { message?: string })?.message;
-      
-      if (errorCode === 'auth/invalid-custom-token' || 
-          errorCode === 'auth/custom-token-mismatch' ||
-          errorMessage?.includes('invalid') ||
-          errorMessage?.includes('expired')) {
-        
-        try {
-          // Try to refresh the token
-          const refreshResponse = await fetch('/api/auth/refresh-firebase-token', {
-            method: 'POST',
-            credentials: 'include',
-          });
-          
-          if (refreshResponse.ok) {
-            const refreshData = await refreshResponse.json();
-            if (refreshData.success && refreshData.firebaseToken) {
-              // Retry with the new token
-              const retryCredential = await signInWithCustomToken(this.auth, refreshData.firebaseToken);
-              this.currentUser = retryCredential.user;
-              return this.currentUser;
-            }
-          }
-        } catch (refreshError) {
-          console.error('[FirebaseAuth] Token refresh failed:', refreshError);
-        }
-      }
-      
       console.error('[FirebaseAuth] Failed to sign in with custom token:', error);
+      // Note: Token refresh is handled automatically in the NextAuth JWT callback
+      // which refreshes Firebase tokens every 50 minutes
       return null;
     }
   }

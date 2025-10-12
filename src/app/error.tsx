@@ -33,7 +33,7 @@ export default function Error({
               reset();
               router.push('/');
             }}
-            variant="theme"
+            variant="white"
             size="xl"
             className="w-full"
           >
