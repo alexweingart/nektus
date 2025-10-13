@@ -200,7 +200,7 @@ const EditProfileView: React.FC = () => {
         <FieldSectionComponent
           title={viewMode}
           isEmpty={visibleFields.length === 0}
-          emptyText={`You have no ${viewMode} networks right now. Drag & drop an input field to change that.`}
+          emptyText={`You have no ${viewMode} networks right now. Add a link to get started.`}
           topContent={
             <>
               {/* Calendar UI */}
@@ -292,7 +292,6 @@ const EditProfileView: React.FC = () => {
             </>
           }
         >
-          {/* Draggable Fields */}
           <FieldList>
             {visibleFields.map((field, index) => (
               <ProfileField
@@ -348,27 +347,21 @@ const EditProfileView: React.FC = () => {
   // Get universal fields for the top section
   const universalFields = fieldSectionManager.getFieldsBySection('universal');
 
-  // Render universal fields (simplified - no drag & drop for universal)
+  // Render universal contact fields (exclude name/bio which have dedicated inputs above)
   const renderUniversalFields = () => {
-    // Get draggable universal fields (exclude name/bio/phone/email - only name and bio should be in universal per spec)
-    const draggableUniversalFields = universalFields.filter(field => !['name', 'bio', 'phone', 'email'].includes(field.fieldType));
+    const universalContactFields = universalFields.filter(field => !['name', 'bio'].includes(field.fieldType));
 
-    // Render fields directly (no drag & drop for universal fields)
-    return draggableUniversalFields.map((field, index) => (
-      <div
+    return universalContactFields.map((field, index) => (
+      <ProfileField
         key={`universal-${field.fieldType}-${index}`}
-        className="w-full max-w-md mx-auto"
-      >
-        <ProfileField
-          profile={field}
-          fieldSectionManager={fieldSectionManager}
-          getValue={getFieldValue}
-          onChange={handleFieldChange}
-          isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-          onConfirm={fieldSectionManager.markChannelAsConfirmed}
-          currentViewMode={selectedMode}
-        />
-      </div>
+        profile={field}
+        fieldSectionManager={fieldSectionManager}
+        getValue={getFieldValue}
+        onChange={handleFieldChange}
+        isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+        onConfirm={fieldSectionManager.markChannelAsConfirmed}
+        currentViewMode={selectedMode}
+      />
     ));
   };
 
@@ -382,7 +375,7 @@ const EditProfileView: React.FC = () => {
           isSaving={isProfileSaving}
         />
 
-        <div className="flex flex-col items-center relative space-y-5" data-drag-container>
+        <div className="flex flex-col items-center relative space-y-5">
           {/* Universal Section */}
           <FieldSectionComponent
             isEmpty={false}
