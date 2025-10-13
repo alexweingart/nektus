@@ -8,14 +8,7 @@ import PageHeader from '../ui/layout/PageHeader';
 import FieldRenderer, { type FieldRendererHandle } from './FieldRenderer';
 import { useEditProfileFields } from '@/lib/hooks/useEditProfileFields';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
-import type { DragDropInfo } from '@/lib/hooks/useDragAndDrop';
-
-
-interface EditProfileViewProps {
-  onDragStateChange?: (isDragging: boolean) => void;
-}
-
-const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) => {
+const EditProfileView: React.FC = () => {
   
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
@@ -37,36 +30,13 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
   };
   
   // Unified field management hook - this is our single source of truth
-  
   const fieldSectionManager = useEditProfileFields({
     profile,
     session,
     initialImages
   });
-  
-  
-  // Create frozen field snapshot ONCE for drag operations - truly stable during drag
-  const initialFields = useMemo(() => {
-    // Get complete field list for all sections (universal + personal + work)
-    const universalFields = fieldSectionManager.getFieldsBySection('universal');
-    const personalFields = fieldSectionManager.getFieldsBySection('personal');
-    const workFields = fieldSectionManager.getFieldsBySection('work');
-    
-    // Combine all fields in order - this is our frozen snapshot for drag operations
-    const combined = [...universalFields, ...personalFields, ...workFields];
-    
-    
-    return combined;
-  }, [fieldSectionManager]);
-  
-  
-  // Drag completion handler - receives final result without managing drag state
-  const handleDragComplete = useCallback((dropInfo: DragDropInfo) => {
-    // Simple: just update FieldManager with the final field order
-    // Pass both original and final field info for cross-section detection
-    fieldSectionManager.updateFromDragDrop(dropInfo.fields, dropInfo.draggedField, dropInfo.originalField);
-  }, [fieldSectionManager]);
-  
+
+
   // Mode change handler
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     setSelectedMode(mode);
@@ -90,7 +60,7 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
     const workFields = fieldSectionManager.getFieldsBySection('work').filter(f => f.isVisible || (f.value && f.value.trim() !== ''));
 
     // Combine all fields, deduplicating by fieldType+section
-    const fieldsMap = new Map<string, ContactEntry>();
+    const fieldsMap = new Map();
 
     // Add universal fields first
     universalFields.forEach(field => {
@@ -149,12 +119,9 @@ const EditProfileView: React.FC<EditProfileViewProps> = ({ onDragStateChange }) 
           ref={fieldRendererRef}
           session={session}
           fieldSectionManager={fieldSectionManager}
-          initialFields={initialFields}
           selectedMode={selectedMode}
           onModeChange={handleModeChange}
           onSaveRequest={handleSaveRequest}
-          onDragStateChange={onDragStateChange}
-          onDragComplete={handleDragComplete}
           profile={profile}
           saveProfile={saveProfile}
         />

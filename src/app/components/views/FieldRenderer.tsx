@@ -13,7 +13,6 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
 import { ProfileField } from '../ui/elements/ProfileField';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
-import { DropZone } from '../ui/elements/DropZone';
 import ProfileImageIcon from '../ui/elements/ProfileImageIcon';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
@@ -21,17 +20,14 @@ import { AddLocationModal } from '../ui/modals/AddLocationModal';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
 import { useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
-import { useDragAndDrop, type DragDropInfo } from '@/lib/hooks/useDragAndDrop';
+// Drag and drop removed - to be reimplemented
 
 interface FieldRendererProps {
   session?: Session | null;
   fieldSectionManager: UseEditProfileFieldsReturn;
-  initialFields: ContactEntry[]; // Stable field data from parent
   selectedMode: 'Personal' | 'Work';
   onModeChange: (mode: 'Personal' | 'Work') => void;
   onSaveRequest?: () => Promise<void>;
-  onDragStateChange?: (isDragging: boolean) => void;
-  onDragComplete: (dropInfo: DragDropInfo) => void;
   profile?: any; // UserProfile from context
   saveProfile?: (data: Partial<any>) => Promise<any>;
 }
@@ -43,12 +39,9 @@ export interface FieldRendererHandle {
 const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   session,
   fieldSectionManager,
-  initialFields,
   selectedMode,
   onModeChange,
   onSaveRequest,
-  onDragStateChange,
-  onDragComplete,
   saveProfile,
   profile
 }, ref) => {
@@ -72,21 +65,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   const { createUploadHandler } = useImageUpload();
   const { loadFromStorage, handleModeChange: handleCarouselModeChange } = useProfileViewMode(carouselRef);
   
-  
-  // Drag and drop functionality - manages state internally
-  const {
-    isDragMode,
-    draggedField,
-    dragFields,
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd
-  } = useDragAndDrop({
-    initialFields, // Stable from parent - never changes during drag
-    currentSection: selectedMode,
-    onDragStateChange,
-    onFieldArrayDrop: onDragComplete // Event-based communication
-  });
+  // Drag and drop removed - to be reimplemented with modern approach
   
   
   
@@ -180,8 +159,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   };
 
   const handleLocationAdded = async (locations: any[]) => {
-    console.log('[FieldRenderer] handleLocationAdded called with locations:', locations);
-
     // Update profile locations directly (locations are special, not regular fields)
     if (profile) {
       profile.locations = profile.locations || [];
@@ -202,7 +179,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   };
 
   const handleLinkAdded = (entries: ContactEntry[]) => {
-    console.log('[FieldRenderer] handleLinkAdded called with entries:', entries);
     // Add links to field manager
     fieldSectionManager.addFields(entries);
     entries.forEach(entry => {
@@ -210,7 +186,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     });
     // Close inline add link for all sections
     setShowInlineAddLink({ personal: false, work: false });
-    console.log('[FieldRenderer] handleLinkAdded completed');
   };
 
   const handleDeleteCalendar = async (section: 'personal' | 'work') => {
@@ -253,7 +228,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   const getFieldValue = (fieldType: string, section?: FieldSection): string => {
     if (section) {
       const field = fieldSectionManager.getFieldData(fieldType, section);
-      console.log('[FieldRenderer.getFieldValue]', { fieldType, section, field, value: field?.value });
       return field?.value || '';
     }
     return fieldSectionManager.getFieldValue(fieldType);
@@ -271,31 +245,20 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
   
   // Render function for universal fields with consolidated logic
   const renderUniversalField = (profile: ContactEntry, key: string) => {
-    const commonProps = {
-      profile,
-      fieldSectionManager,
-      getValue: getFieldValue,
-      onChange: handleFieldChange,
-      isUnconfirmed: fieldSectionManager.isChannelUnconfirmed,
-      onConfirm: fieldSectionManager.markChannelAsConfirmed,
-      currentViewMode: selectedMode,
-      showDragHandles: true,
-      isBeingDragged: false,
-      dragAndDrop: {
-        isDragMode,
-        draggedField,
-        onTouchStart,
-        onTouchMove,
-        onTouchEnd
-      }
-    };
-
     return (
       <div
         key={key}
         className="w-full max-w-md mx-auto"
       >
-        <ProfileField {...commonProps} />
+        <ProfileField
+          profile={profile}
+          fieldSectionManager={fieldSectionManager}
+          getValue={getFieldValue}
+          onChange={handleFieldChange}
+          isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+          onConfirm={fieldSectionManager.markChannelAsConfirmed}
+          currentViewMode={selectedMode}
+        />
       </div>
     );
   };
@@ -311,10 +274,7 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
     const { visibleFields, hiddenFields } = getFieldsForView(viewMode);
     const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
 
-    console.log('[FieldRenderer] renderViewContent', { viewMode, visibleFieldsCount: visibleFields.length, visibleFields });
-
-    // Use dragFields if dragging in this view, otherwise normal fields
-    const fieldsToRender = (isDragMode && selectedMode === viewMode) ? dragFields : visibleFields;
+    const fieldsToRender = visibleFields;
 
     // Get calendar and location for this section
     const calendar = getCalendarForSection(sectionName);
@@ -417,17 +377,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
 
           {/* Draggable Fields */}
           {fieldsToRender.map((field, index) => {
-            // Render placeholder as DropZone
-            if (field.isPlaceholder) {
-              return (
-                <DropZone
-                  key="placeholder"
-                  isActive={true}
-                />
-              );
-            }
-
-            // Render normal field
             return (
               <ProfileField
                 key={`${field.fieldType}-${field.section}-${index}`}
@@ -438,15 +387,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                 isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                 onConfirm={fieldSectionManager.markChannelAsConfirmed}
                 currentViewMode={viewMode}
-                showDragHandles={true}
-                isBeingDragged={false}
-                dragAndDrop={{
-                  isDragMode,
-                  draggedField,
-                  onTouchStart,
-                  onTouchMove,
-                  onTouchEnd
-                }}
               />
             );
           })}
@@ -483,15 +423,6 @@ const FieldRenderer = forwardRef<FieldRendererHandle, FieldRendererProps>(({
                   isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={viewMode}
-                  showDragHandles={true}
-                  isBeingDragged={draggedField?.fieldType === profile.fieldType && draggedField?.section === profile.section}
-                  dragAndDrop={{
-                    isDragMode,
-                    draggedField,
-                    onTouchStart,
-                    onTouchMove,
-                    onTouchEnd
-                  }}
                 />
             );
           })}
