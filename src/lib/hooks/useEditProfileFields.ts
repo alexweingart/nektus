@@ -41,8 +41,6 @@ export interface UseEditProfileFieldsReturn {
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
   addFields: (newFields: ContactEntry[]) => void;
-  splitUniversalField: (fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => void;
-  consolidateToUniversal: (fieldType: string, currentValue: string, targetIndex: number) => void;
 
   // Get field data
   getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
@@ -51,9 +49,6 @@ export interface UseEditProfileFieldsReturn {
   // Confirmation handling
   markChannelAsConfirmed: (fieldType: string) => void;
   isChannelUnconfirmed: (fieldType: string) => boolean;
-
-  // Drag and drop support
-  updateFromDragDrop: (newFields: ContactEntry[], finalDraggedField?: ContactEntry, originalDraggedField?: ContactEntry) => void;
 }
 
 /**
@@ -105,7 +100,6 @@ export const useImageUpload = () => {
  */
 export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) => {
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Animate carousel to match selected mode
   const animateCarousel = useCallback((mode: 'Personal' | 'Work') => {
@@ -130,10 +124,8 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) =>
         // Animate carousel after loading from storage
         setTimeout(() => animateCarousel(savedCategory), 0);
       }
-      setHasLoadedFromStorage(true);
     } catch (error) {
       console.warn('Failed to load sharing category from localStorage:', error);
-      setHasLoadedFromStorage(true);
     }
   }, [animateCarousel]);
 
@@ -156,7 +148,6 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) =>
 
   return {
     selectedMode,
-    hasLoadedFromStorage,
     loadFromStorage,
     handleModeChange
   };
@@ -375,17 +366,8 @@ export const useEditProfileFields = ({
   
   // Update field value and visibility (section-specific)
   const updateFieldValue = useCallback((fieldType: string, value: string, section: FieldSection) => {
-    console.log('[updateFieldValue]', { fieldType, section, newValue: value, isEmpty: !value || value.trim() === '' });
     const updatedFields = fields.map(field => {
       if (field.fieldType === fieldType && field.section === section) {
-        console.log('[updateFieldValue] Updating field', {
-          fieldType,
-          section,
-          oldValue: field.value,
-          newValue: value,
-          wasVisible: field.isVisible,
-          staysVisible: field.isVisible
-        });
         return {
           ...field,
           value: value,
@@ -399,8 +381,6 @@ export const useEditProfileFields = ({
 
   // Add new fields (or update existing ones if they already exist)
   const addFields = useCallback((newFields: ContactEntry[]) => {
-    console.log('[useEditProfileFields] Adding fields:', newFields);
-
     // Instead of just appending, check if field already exists and update it
     let updatedFields = [...fields];
 
@@ -411,20 +391,9 @@ export const useEditProfileFields = ({
       );
 
       if (existingIndex !== -1) {
-        console.log('[useEditProfileFields] Field already exists, updating:', {
-          fieldType: newField.fieldType,
-          section: newField.section,
-          oldValue: updatedFields[existingIndex].value,
-          newValue: newField.value
-        });
         // Replace existing field with new one
         updatedFields[existingIndex] = newField;
       } else {
-        console.log('[useEditProfileFields] Adding new field:', {
-          fieldType: newField.fieldType,
-          section: newField.section,
-          value: newField.value
-        });
         // Add new field
         updatedFields.push(newField);
       }
@@ -490,28 +459,7 @@ export const useEditProfileFields = ({
   
   const getVisibleFields = useCallback((section: FieldSection): ContactEntry[] => {
     const sectionFields = getFieldsBySection(section);
-    const visible = sectionFields.filter(f => f.isVisible);
-
-    // Check for duplicates
-    const fieldTypeCounts: Record<string, ContactEntry[]> = {};
-    sectionFields.forEach(f => {
-      const key = f.fieldType;
-      if (!fieldTypeCounts[key]) fieldTypeCounts[key] = [];
-      fieldTypeCounts[key].push(f);
-    });
-
-    Object.entries(fieldTypeCounts).forEach(([fieldType, entries]) => {
-      if (entries.length > 1) {
-        console.error(`[getVisibleFields] DUPLICATE DETECTED: ${entries.length}x ${fieldType} in ${section}`, entries.map(e => ({
-          value: e.value || 'EMPTY',
-          isVisible: e.isVisible,
-          order: e.order
-        })));
-      }
-    });
-
-    console.log(`[getVisibleFields] section=${section}, total=${sectionFields.length}, visible=${visible.length}`, visible.map(f => `${f.fieldType}:${f.value ? 'hasValue' : 'empty'}`));
-    return visible;
+    return sectionFields.filter(f => f.isVisible);
   }, [getFieldsBySection]);
   
   // Check if sections are empty
@@ -522,14 +470,10 @@ export const useEditProfileFields = ({
   const toggleFieldVisibility = useCallback((fieldType: string, viewMode: 'Personal' | 'Work') => {
     const targetSection = viewMode.toLowerCase() as 'personal' | 'work';
 
-    console.log('[toggleFieldVisibility] CALLED', { fieldType, viewMode, targetSection });
-    console.log('[toggleFieldVisibility] Current fields:', fields.map(f => `${f.fieldType}-${f.section}:visible=${f.isVisible},value=${f.value || 'empty'}`));
-
     // Check if this is a universal field being hidden
     const universalField = fields.find(f => f.fieldType === fieldType && f.section === 'universal');
 
     if (universalField) {
-      console.log('[toggleFieldVisibility] Found universal field, splitting into hidden personal/work');
       // Universal field being hidden: split into both sections as hidden
       const fieldsWithoutFieldType = fields.filter(f => f.fieldType !== fieldType);
 
@@ -556,16 +500,6 @@ export const useEditProfileFields = ({
       return;
     }
 
-    // Find the field being toggled
-    const targetField = fields.find(f => f.fieldType === fieldType && f.section === targetSection);
-    console.log('[toggleFieldVisibility] Toggling field', {
-      fieldType,
-      section: targetSection,
-      currentlyVisible: targetField?.isVisible,
-      hasValue: !!targetField?.value,
-      actualValue: targetField?.value
-    });
-
     // Regular personal/work field visibility toggle (all fields now exist in array)
     const updatedFields = fields.map(field => {
       if (field.fieldType === fieldType && field.section === targetSection) {
@@ -577,163 +511,9 @@ export const useEditProfileFields = ({
       return field;
     });
 
-    console.log('[toggleFieldVisibility] Updated fields:', updatedFields.map(f => `${f.fieldType}-${f.section}:visible=${f.isVisible},value=${f.value || 'empty'}`));
     updateFields(updatedFields);
   }, [fields, updateFields]);
-  
-  // Split a universal field into separate Personal and Work entries
-  const splitUniversalField = useCallback((fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => {
-    
-    // Remove ALL entries for this fieldType (universal, personal, work) to avoid duplicates
-    const fieldsWithoutFieldType = fields.filter(field => 
-      field.fieldType !== fieldType
-    );
-    
-    
-    // Create new Personal and Work entries with the current value
-    const personalEntry: ContactEntry = {
-      fieldType: fieldType,
-      value: currentValue,
-      section: 'personal',
-      isVisible: true, // Always visible when split from universal
-      order: 0, // Will be reassigned based on position
-      confirmed: true
-    };
-    
-    const workEntry: ContactEntry = {
-      fieldType: fieldType,
-      value: currentValue,
-      section: 'work',
-      isVisible: true, // Always visible when split from universal
-      order: 0, // Will be reassigned based on position
-      confirmed: true
-    };
 
-    // Position-aware split: place target entry at specific position, other entry at top of its section
-    const personalFields = fieldsWithoutFieldType.filter(f => f.section === 'personal');
-    const workFields = fieldsWithoutFieldType.filter(f => f.section === 'work');
-    const universalFields = fieldsWithoutFieldType.filter(f => f.section === 'universal');
-
-    const newPersonalFields = [...personalFields];
-    const newWorkFields = [...workFields];
-
-    if (targetSection === 'personal') {
-      // Insert personal entry at target position, work entry at top
-      newPersonalFields.splice(targetIndex, 0, personalEntry);
-      newWorkFields.unshift(workEntry);
-    } else {
-      // Insert work entry at target position, personal entry at top
-      newWorkFields.splice(targetIndex, 0, workEntry);
-      newPersonalFields.unshift(personalEntry);
-    }
-
-    const updatedFields = [...universalFields, ...newPersonalFields, ...newWorkFields];
-    
-    // IMPORTANT: Assign proper order values based on final array positions
-    const orderedFields = updatedFields.map((field, index) => ({
-      ...field,
-      order: index
-    }));
-    
-    
-    updateFields(orderedFields);
-  }, [fields, updateFields]);
-  
-  // Consolidate personal/work entries into a single universal entry
-  const consolidateToUniversal = useCallback((fieldType: string, currentValue: string, targetIndex: number) => {
-    
-    // Remove ALL entries for this fieldType (both personal, work, and any existing universal)
-    // This includes empty placeholder entries that might exist
-    const fieldsWithoutFieldType = fields.filter(f => f.fieldType !== fieldType);
-    
-    // Create single universal entry with the provided value
-    const universalEntry: ContactEntry = {
-      fieldType: fieldType,
-      value: currentValue,
-      confirmed: true,
-      section: 'universal',
-      isVisible: true, // Universal fields are always visible
-      order: targetIndex
-    };
-    
-    const updatedFields = [...fieldsWithoutFieldType, universalEntry];
-    
-    updateFields(updatedFields);
-  }, [fields, updateFields]);
-  
-  // Drag and drop support - apply final field order and handle cross-section business logic
-  const updateFromDragDrop = useCallback((newFields: ContactEntry[], finalDraggedField?: ContactEntry, originalDraggedField?: ContactEntry) => {
-
-    // Handle cross-section business logic if needed
-    if (finalDraggedField && originalDraggedField && finalDraggedField.section !== originalDraggedField.section) {
-
-      // Special handling for universal → personal/work: use splitUniversalField
-      if (originalDraggedField.section === 'universal' && (finalDraggedField.section === 'personal' || finalDraggedField.section === 'work')) {
-
-        // Find where the field was dropped in the global array
-        const globalIndex = newFields.findIndex(f => f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section);
-
-        // Calculate section-specific index by counting how many fields of the target section come before this position
-        const targetSectionFieldsBefore = globalIndex >= 0
-          ? newFields.slice(0, globalIndex).filter(f => f.section === finalDraggedField.section).length
-          : 0;
-
-
-        splitUniversalField(
-          finalDraggedField.fieldType,
-          finalDraggedField.value,
-          finalDraggedField.section as 'personal' | 'work',
-          targetSectionFieldsBefore
-        );
-        return; // splitUniversalField handles the full update
-      }
-      
-      // Other cross-section moves (personal ↔ work, personal/work → universal)
-
-      // Find the position where the field was dropped in the newFields array
-      const dropPosition = newFields.findIndex(f =>
-        f.fieldType === finalDraggedField.fieldType && f.section === finalDraggedField.section
-      );
-
-
-      // Remove all existing entries for this field type to avoid duplicates
-      const fieldsWithoutFieldType = newFields.filter(f => f.fieldType !== finalDraggedField.fieldType);
-
-
-      // Insert the dragged field at the correct position
-      let finalFieldsWithCorrectSection: ContactEntry[];
-      if (dropPosition >= 0 && dropPosition <= fieldsWithoutFieldType.length) {
-        // Insert at the specific position
-        finalFieldsWithCorrectSection = [
-          ...fieldsWithoutFieldType.slice(0, dropPosition),
-          finalDraggedField,
-          ...fieldsWithoutFieldType.slice(dropPosition)
-        ];
-      } else {
-        // Fallback: append to end if position is invalid
-        finalFieldsWithCorrectSection = [...fieldsWithoutFieldType, finalDraggedField];
-      }
-      
-      // Apply final field order with correct order properties
-      const orderedFields = finalFieldsWithCorrectSection.map((field, index) => ({
-        ...field,
-        order: index
-      }));
-      
-      updateFields(orderedFields);
-    } else {
-      // Same-section drag - just apply the final field order with correct order properties
-
-      const orderedFields = newFields.map((field, index) => ({
-        ...field,
-        order: index
-      }));
-
-      updateFields(orderedFields);
-    }
-
-  }, [updateFields, splitUniversalField]);
-  
   // Get field data
   const getFieldData = useCallback((fieldType: string, section?: FieldSection) => {
     if (section) {
@@ -748,26 +528,20 @@ export const useEditProfileFields = ({
     const field = getFieldData(fieldType, targetSection);
     return !field?.isVisible;
   }, [getFieldData]);
-  
-  // Helper function to sort fields by their order property (from Firebase data)
-  const sortByOrder = useCallback((fieldList: ContactEntry[]) => {
-    return fieldList.sort((a, b) => {
-      // Use the order field from the data
+
+  // Get visible fields for view (universal + current section visible) - used for drag operations
+  const getVisibleFieldsForView = useCallback((viewMode: 'Personal' | 'Work'): ContactEntry[] => {
+    const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
+
+    const universalFields = getFieldsBySection('universal');
+    const currentSectionFields = getVisibleFields(currentSectionName);
+
+    return [...universalFields, ...currentSectionFields].sort((a, b) => {
       const orderA = a.order ?? 999;
       const orderB = b.order ?? 999;
       return orderA - orderB;
     });
-  }, []);
-  
-  // Get visible fields for view (universal + current section visible) - used for drag operations
-  const getVisibleFieldsForView = useCallback((viewMode: 'Personal' | 'Work'): ContactEntry[] => {
-    const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
-    
-    const universalFields = getFieldsBySection('universal');
-    const currentSectionFields = getVisibleFields(currentSectionName);
-    
-    return sortByOrder([...universalFields, ...currentSectionFields]);
-  }, [getFieldsBySection, getVisibleFields, sortByOrder]);
+  }, [getFieldsBySection, getVisibleFields]);
   
   // Get hidden fields for view (current section hidden, excluding fields that exist in universal)
   // Phase 5: Also filter out blank fields
@@ -785,8 +559,12 @@ export const useEditProfileFields = ({
       return !existsInUniversal;
     });
 
-    return sortByOrder(hiddenFields);
-  }, [getFieldsBySection, sortByOrder]);
+    return hiddenFields.sort((a, b) => {
+      const orderA = a.order ?? 999;
+      const orderB = b.order ?? 999;
+      return orderA - orderB;
+    });
+  }, [getFieldsBySection]);
 
   // Get all fields without any filtering - for save operations
   const getAllFields = useCallback((): ContactEntry[] => {
@@ -819,8 +597,6 @@ export const useEditProfileFields = ({
     toggleFieldVisibility,
     updateFieldValue,
     addFields,
-    splitUniversalField,
-    consolidateToUniversal,
 
     // Get field data
     getFieldData,
@@ -829,8 +605,5 @@ export const useEditProfileFields = ({
     // Confirmation handling
     markChannelAsConfirmed,
     isChannelUnconfirmed,
-
-    // Drag and drop support
-    updateFromDragDrop,
   };
 };
