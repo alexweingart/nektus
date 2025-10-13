@@ -5,6 +5,7 @@ import { Heading } from '../Typography';
 
 interface FieldSectionProps {
   title?: string;
+  topContent?: React.ReactNode;  // Optional content to show before the main children (e.g., calendar/location chips)
   isEmpty: boolean;
   emptyText: string;
   children: React.ReactNode;
@@ -14,6 +15,7 @@ interface FieldSectionProps {
 
 export const FieldSection: React.FC<FieldSectionProps> = ({
   title,
+  topContent,
   isEmpty,
   emptyText,
   children,
@@ -30,7 +32,14 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
           </Heading>
         </div>
       )}
-      
+
+      {/* Optional Top Content (e.g., calendar/location chips before main content) */}
+      {topContent && !isEmpty && (
+        <div className="mb-5">
+          {topContent}
+        </div>
+      )}
+
       {/* Content or Empty State */}
       {isEmpty ? (
         <div className="w-full max-w-md mx-auto relative z-0">
@@ -45,7 +54,7 @@ export const FieldSection: React.FC<FieldSectionProps> = ({
           {children}
         </div>
       )}
-      
+
       {/* Optional Bottom Button */}
       {bottomButton && (
         <div className="mt-5">

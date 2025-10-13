@@ -25,6 +25,57 @@ export interface SaveProfileResult {
  */
 export class ProfileSaveService {
   /**
+   * Filter contactEntries to only include saveable fields
+   * - Universal: all fields
+   * - Personal/Work: only visible fields OR fields with values
+   * - Deduplicate by fieldType+section
+   * - Mark non-empty fields as confirmed
+   */
+  private static filterSaveableFields(entries: ContactEntry[]): ContactEntry[] {
+    // Separate by section
+    const universalFields = entries.filter(f => f.section === 'universal');
+    const personalFields = entries.filter(
+      f => f.section === 'personal' && (f.isVisible || (f.value && f.value.trim() !== ''))
+    );
+    const workFields = entries.filter(
+      f => f.section === 'work' && (f.isVisible || (f.value && f.value.trim() !== ''))
+    );
+
+    // Deduplicate by fieldType+section
+    const fieldsMap = new Map<string, ContactEntry>();
+
+    // Add universal fields first
+    universalFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      fieldsMap.set(key, field);
+    });
+
+    // Add personal fields (skip if already in universal with same fieldType)
+    personalFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      if (!fieldsMap.has(key)) {
+        fieldsMap.set(key, field);
+      }
+    });
+
+    // Add work fields (skip if already in universal with same fieldType)
+    workFields.forEach(field => {
+      const key = `${field.fieldType}-${field.section}`;
+      if (!fieldsMap.has(key)) {
+        fieldsMap.set(key, field);
+      }
+    });
+
+    // Mark non-empty fields as confirmed
+    return Array.from(fieldsMap.values()).map(field => {
+      if (field.value && field.value.trim() !== '') {
+        return { ...field, confirmed: true };
+      }
+      return field;
+    });
+  }
+
+  /**
    * Save profile data to Firebase
    */
   static async saveProfile(
@@ -38,16 +89,17 @@ export class ProfileSaveService {
     }
 
     try {
-      // Ensure contactEntries have unique orders if they're being updated
+      // Filter and deduplicate contactEntries if they're being updated
       let processedUpdates = updates;
       if (updates.contactEntries) {
-        const contactEntriesWithUniqueOrder = this.assignUniqueOrders(updates.contactEntries);
-        
+        const filteredEntries = this.filterSaveableFields(updates.contactEntries);
+        const contactEntriesWithUniqueOrder = this.assignUniqueOrders(filteredEntries);
+
         processedUpdates = {
           ...updates,
           contactEntries: contactEntriesWithUniqueOrder
         };
-        
+
       }
       
       // Determine merge strategy

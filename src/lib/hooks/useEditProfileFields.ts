@@ -19,34 +19,35 @@ export interface UseEditProfileFieldsReturn {
   // Unified field access
   getFieldValue: (fieldType: string) => string;
   setFieldValue: (fieldType: string, value: string) => void;
-  
+
   // Image access
   getImageValue: (type: 'profileImage' | 'backgroundImage') => string;
   setImageValue: (type: 'profileImage' | 'backgroundImage', value: string) => void;
-  
+
   // Field filtering functions
   getFieldsBySection: (section: FieldSection) => ContactEntry[];
   getVisibleFields: (section: FieldSection) => ContactEntry[];
-  
+  getAllFields: () => ContactEntry[]; // Get all fields without filtering
+
   // Simplified field view functions
   getVisibleFieldsForView: (viewMode: 'Personal' | 'Work') => ContactEntry[];
   getHiddenFieldsForView: (viewMode: 'Personal' | 'Work') => ContactEntry[];
-  
+
   // Section state
   isPersonalEmpty: boolean;
   isWorkEmpty: boolean;
-  
+
   // Field actions
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
   addFields: (newFields: ContactEntry[]) => void;
   splitUniversalField: (fieldType: string, currentValue: string, targetSection: 'personal' | 'work', targetIndex: number) => void;
   consolidateToUniversal: (fieldType: string, currentValue: string, targetIndex: number) => void;
-  
+
   // Get field data
   getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
   isFieldHidden: (fieldType: string, viewMode: 'Personal' | 'Work') => boolean;
-  
+
   // Confirmation handling
   markChannelAsConfirmed: (fieldType: string) => void;
   isChannelUnconfirmed: (fieldType: string) => boolean;
@@ -786,35 +787,41 @@ export const useEditProfileFields = ({
 
     return sortByOrder(hiddenFields);
   }, [getFieldsBySection, sortByOrder]);
-  
+
+  // Get all fields without any filtering - for save operations
+  const getAllFields = useCallback((): ContactEntry[] => {
+    return [...fields];
+  }, [fields]);
+
   return {
     // Unified field access
     getFieldValue,
     setFieldValue,
-    
+
     // Image access
     getImageValue,
     setImageValue,
-    
+
     // Field filtering functions
     getFieldsBySection,
     getVisibleFields,
-    
+    getAllFields,
+
     // Simplified field view functions
     getVisibleFieldsForView,
     getHiddenFieldsForView,
-    
+
     // Section state
     isPersonalEmpty,
     isWorkEmpty,
-    
+
     // Field actions
     toggleFieldVisibility,
     updateFieldValue,
     addFields,
     splitUniversalField,
     consolidateToUniversal,
-    
+
     // Get field data
     getFieldData,
     isFieldHidden,
