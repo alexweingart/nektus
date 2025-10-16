@@ -199,7 +199,7 @@ export function calculateOptimalSearchZones(
  * Find the best location for a user based on calendar type preference
  * Falls back to universal location, then first available location
  */
-export function findBestLocationForCalendarType<T extends { state: 'personal' | 'work' | 'universal' }>(
+export function findBestLocationForCalendarType<T extends { section: 'personal' | 'work' | 'universal' }>(
   locations: T[] | undefined,
   calendarType: 'personal' | 'work'
 ): T | null {
@@ -208,13 +208,13 @@ export function findBestLocationForCalendarType<T extends { state: 'personal' | 
   }
 
   // First try to find a location that matches the preferred calendar type
-  const matchingLocation = locations.find((loc) => loc.state === calendarType);
+  const matchingLocation = locations.find((loc) => loc.section === calendarType);
   if (matchingLocation) {
     return matchingLocation;
   }
 
   // Fall back to universal
-  const universalLocation = locations.find((loc) => loc.state === 'universal');
+  const universalLocation = locations.find((loc) => loc.section === 'universal');
   if (universalLocation) {
     return universalLocation;
   }

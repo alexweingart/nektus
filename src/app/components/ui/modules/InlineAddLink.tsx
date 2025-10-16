@@ -187,7 +187,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
       ) : (
         <ExpandingInput
           value={customLinkUrl}
-          onChange={(e) => setCustomLinkUrl(e.target.value)}
+          onChange={(value: string) => setCustomLinkUrl(value)}
           placeholder="https://example.com"
         />
       )}

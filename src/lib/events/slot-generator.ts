@@ -138,6 +138,23 @@ export function generateFreeSlots(
 
   console.log(`✓ Generated ${slots.length} free slots from ${busyTimes.length} busy periods`);
 
+  // Debug: Show free slots for Saturday Oct 19, 2025
+  const oct19Slots = slots.filter(slot => {
+    const slotDate = new Date(slot.start);
+    return slotDate.getMonth() === 9 && slotDate.getDate() === 19 && slotDate.getFullYear() === 2025;
+  });
+  if (oct19Slots.length > 0) {
+    console.log(`📅 Free slots for Saturday Oct 19, 2025 (${oct19Slots.length} slots):`);
+    oct19Slots.slice(0, 10).forEach((slot, idx) => {
+      const start = new Date(slot.start);
+      const end = new Date(slot.end);
+      console.log(`  ${idx + 1}. ${start.toLocaleString('en-US', { timeZone: userTimezone || 'America/Los_Angeles', timeStyle: 'short' })} - ${end.toLocaleString('en-US', { timeZone: userTimezone || 'America/Los_Angeles', timeStyle: 'short' })}`);
+    });
+    if (oct19Slots.length > 10) {
+      console.log(`  ... and ${oct19Slots.length - 10} more`);
+    }
+  }
+
   return slots;
 }
 

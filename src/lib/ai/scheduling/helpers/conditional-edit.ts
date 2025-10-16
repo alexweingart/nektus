@@ -1,7 +1,7 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
 import { getAllValidSlots } from '@/lib/events/scheduling-utils';
 import { DAYS_TO_MS, formatEventTimeComponents } from '@/lib/events/time-utils';
-import { enqueueContent } from '@/lib/ai/streaming-handlers/streaming-utils';
+import { enqueueContent } from '@/lib/ai/scheduling/streaming-handlers/streaming-utils';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { TimeSlot, Event } from '@/types';
 

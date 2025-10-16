@@ -61,7 +61,7 @@ export function expandRecurringEvent(baseEvent: IcsEvent, rrule: string, rangeSt
       console.log(`   Event status: "${baseEvent.status}"`);
       console.log(`   Event transparency: "${baseEvent.transparency}"`);
       console.log(`   rrule.js occurrences: ${occurrences.length}`);
-      console.log(`   First 5 occurrences:`, occurrences.slice(0, 5).map(d => d.toISOString()));
+      console.log(`   First 5 occurrences:`, occurrences.slice(0, 5).map((d: Date) => d.toISOString()));
       console.log(`   Final events array length: ${events.length}`);
       console.log(`   Final events:`, events.map(e => ({ start: e.start.toISOString(), transparency: e.transparency, status: e.status })));
     }

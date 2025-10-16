@@ -9,7 +9,7 @@ const TOKENS_COLLECTION = 'calendarTokens';
 export async function getCalendarTokens(userEmail: string): Promise<CalendarTokens[]> {
   try {
     const tokensQuery = query(
-      collection(db, TOKENS_COLLECTION),
+      collection(db!, TOKENS_COLLECTION),
       where('userEmail', '==', userEmail)
     );
 
@@ -78,7 +78,7 @@ export async function saveCalendarTokens(
       tokenData.appSpecificPassword = tokens.appSpecificPassword;
     }
 
-    await setDoc(doc(db, TOKENS_COLLECTION, docId), tokenData);
+    await setDoc(doc(db!, TOKENS_COLLECTION, docId), tokenData);
 
     console.log(`✅ Saved calendar tokens for ${tokens.provider}: ${tokens.email}`);
   } catch (error) {
@@ -95,7 +95,7 @@ export async function removeCalendarTokens(
 ): Promise<void> {
   try {
     const docId = `${userEmail}_${provider}_${email}`;
-    await deleteDoc(doc(db, TOKENS_COLLECTION, docId));
+    await deleteDoc(doc(db!, TOKENS_COLLECTION, docId));
 
     console.log(`🗑️ Removed calendar tokens for ${provider}: ${email}`);
   } catch (error) {

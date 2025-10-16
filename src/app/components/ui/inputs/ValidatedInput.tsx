@@ -16,7 +16,7 @@ export function ValidatedInput({
   isRequired = false,
   saveAttempted = false,
   ...props
-}: ValidatedTextInputProps) {
+}: ValidatedInputProps) {
   const value = props.value ? String(props.value).trim() : '';
   const isEmpty = value.length === 0;
   const isRequiredEmpty = isRequired && isEmpty && saveAttempted; // Only show required error after save attempt

@@ -71,8 +71,8 @@ export async function createCompletion(options: CreateCompletionOptions) {
 
     // GPT-5 specific parameters
     if (model.startsWith('gpt-5')) {
-      completionParams.reasoning_effort = reasoning_effort;
-      completionParams.verbosity = verbosity;
+      (completionParams as any).reasoning_effort = reasoning_effort;
+      (completionParams as any).verbosity = verbosity;
     }
 
     const completion = await openai.chat.completions.create(completionParams);

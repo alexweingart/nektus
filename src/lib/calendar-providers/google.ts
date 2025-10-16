@@ -45,6 +45,17 @@ export async function getGoogleBusyTimes(
     }
 
     console.log(`Google Calendar: Found ${busyTimes.length} busy periods`);
+
+    // Log first 5 busy times for debugging (with timezone info)
+    if (busyTimes.length > 0) {
+      console.log('📅 Sample busy times (first 5):');
+      busyTimes.slice(0, 5).forEach((slot, idx) => {
+        const start = new Date(slot.start);
+        const end = new Date(slot.end);
+        console.log(`  ${idx + 1}. ${start.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'short', timeStyle: 'short' })} - ${end.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', timeStyle: 'short' })}`);
+      });
+    }
+
     return busyTimes;
   } catch (error) {
     console.error('Error fetching Google busy times:', error);

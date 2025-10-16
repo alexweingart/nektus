@@ -24,7 +24,7 @@ export function isValidStateTransition(
   // Personal to work or work to personal
   if ((fromState === 'personal' && toState === 'work') || (fromState === 'work' && toState === 'personal')) {
     // Check if other calendar exists with the target state
-    if (otherCalendar && otherCalendar.state === toState) {
+    if (otherCalendar && otherCalendar.section === toState) {
       return false; // Can't have two calendars with same state
     }
     return true;
@@ -45,13 +45,13 @@ export function getAvailableStatesForNewCalendar(existingCalendars: Calendar[]):
   if (existingCalendars.length === 1) {
     const existing = existingCalendars[0];
 
-    if (existing.state === 'universal') {
+    if (existing.section === 'universal') {
       // If first is universal, second can be personal or work
       return ['personal', 'work'];
-    } else if (existing.state === 'personal') {
+    } else if (existing.section === 'personal') {
       // If first is personal, second must be work
       return ['work'];
-    } else if (existing.state === 'work') {
+    } else if (existing.section === 'work') {
       // If first is work, second must be personal
       return ['personal'];
     }
@@ -103,9 +103,9 @@ export function shouldSwapStates(
 
   // If both calendars are personal/work and trying to change to the other's state
   if (
-    (calendar1.state === 'personal' || calendar1.state === 'work') &&
-    (calendar2.state === 'personal' || calendar2.state === 'work') &&
-    newStateForCalendar1 === calendar2.state
+    (calendar1.section === 'personal' || calendar1.section === 'work') &&
+    (calendar2.section === 'personal' || calendar2.section === 'work') &&
+    newStateForCalendar1 === calendar2.section
   ) {
     return true;
   }

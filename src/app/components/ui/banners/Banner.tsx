@@ -6,8 +6,8 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { Text } from './Typography';
-import { SecondaryButton } from './buttons/SecondaryButton';
+import { Text } from '../Typography';
+import { SecondaryButton } from '../buttons/SecondaryButton';
 
 interface BannerProps {
   icon: ReactNode;

@@ -266,7 +266,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         });
       
       if (bioAndSocialGenerationPromise) {
-        generations.push(bioAndSocialGenerationPromise);
+        generations.push(bioAndSocialGenerationPromise as Promise<unknown>);
       }
     }
 
@@ -313,7 +313,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           
           if (bioAndSocialGenerationPromise && !bioToUse) {
             try {
-              const result = await bioAndSocialGenerationPromise;
+              const result = await bioAndSocialGenerationPromise as { bio: string; contactChannels: unknown };
               bioToUse = result?.bio;
             } catch {
               // Bio and social generation failed, proceeding with profile image without bio

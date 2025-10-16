@@ -8,21 +8,6 @@ interface UseCalendarLocationManagementProps {
   onSaveProfile?: () => Promise<void>;
 }
 
-interface Calendar {
-  id: string;
-  section: 'personal' | 'work';
-  provider: string;
-  email: string;
-}
-
-interface Location {
-  id: string;
-  section: 'personal' | 'work';
-  city: string;
-  region?: string;
-  address: string;
-}
-
 export function useCalendarLocationManagement({
   profile,
   saveProfile,
@@ -36,12 +21,12 @@ export function useCalendarLocationManagement({
   const [modalSection, setModalSection] = useState<'personal' | 'work'>('personal');
 
   // Helper functions to get calendar/location for a section
-  const getCalendarForSection = useCallback((section: 'personal' | 'work'): Calendar | undefined => {
-    return profile?.calendars?.find((cal: any) => cal.section === section);
+  const getCalendarForSection = useCallback((section: 'personal' | 'work') => {
+    return profile?.calendars?.find((cal) => cal.section === section && (cal.section === 'personal' || cal.section === 'work'));
   }, [profile]);
 
-  const getLocationForSection = useCallback((section: 'personal' | 'work'): Location | undefined => {
-    return profile?.locations?.find((loc: any) => loc.section === section);
+  const getLocationForSection = useCallback((section: 'personal' | 'work') => {
+    return profile?.locations?.find((loc) => loc.section === section && (loc.section === 'personal' || loc.section === 'work'));
   }, [profile]);
 
   // Modal handlers
@@ -69,9 +54,9 @@ export function useCalendarLocationManagement({
       profile.locations = profile.locations || [];
       locations.forEach(loc => {
         // Remove existing location for this section if any
-        profile.locations = profile.locations.filter((l: any) => l.section !== loc.section);
+        profile.locations = profile.locations!.filter((l: any) => l.section !== loc.section);
         // Add the new location
-        profile.locations.push(loc);
+        profile.locations!.push(loc);
       });
     }
 

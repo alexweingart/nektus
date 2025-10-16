@@ -270,10 +270,11 @@ export default function SmartScheduleView() {
 
     // Create calendar URLs using contact's email
     const contactForCalendar = { email: contactEmail };
+    const displayName = getFieldValue(currentUserProfile.contactEntries, 'name') || undefined;
     const { formattedTitle, calendar_urls } = createCompleteCalendarEvent(
       event,
       contactForCalendar,  // Contact's email (calendar or profile)
-      currentUserProfile
+      { displayName }
     );
 
     // Determine preferred provider from user's calendars

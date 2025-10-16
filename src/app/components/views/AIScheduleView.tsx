@@ -203,7 +203,7 @@ export default function AIScheduleView() {
       const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
 
       // Get ID token for authentication
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await auth?.currentUser?.getIdToken();
 
       const response = await fetch('/api/scheduling/ai', {
         method: 'POST',

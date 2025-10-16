@@ -1,4 +1,4 @@
-import type { User, Event } from '@/types';
+import type { UserProfile, Event } from '@/types';
 import type { Place } from '@/types/places';
 import { findBestLocationForCalendarType, buildFullAddress } from '@/lib/location/location-utils';
 import { getEventTemplate } from '@/lib/events/event-templates';
@@ -44,8 +44,8 @@ export function isPlaceOpenAt(place: Place, dateTime: Date): boolean {
 }
 
 export interface FetchPlacesForEventsParams {
-  currentUser: User;
-  targetUser: User;
+  currentUser: UserProfile;
+  targetUser: UserProfile;
   calendarType: 'personal' | 'work';
   events: Event[] | Event;
   datetime?: Date;
@@ -71,8 +71,8 @@ export async function fetchPlacesForEvents(
   const eventsArray = Array.isArray(events) ? events : [events];
 
   // Find best locations for both users based on calendar type
-  const currentUserLocation = findBestLocationForCalendarType(currentUser.locations, calendarType);
-  const targetUserLocation = findBestLocationForCalendarType(targetUser.locations, calendarType);
+  const currentUserLocation = findBestLocationForCalendarType(currentUser.locations || [], calendarType);
+  const targetUserLocation = findBestLocationForCalendarType(targetUser.locations || [], calendarType);
 
   // Build full addresses
   let userAAddress = buildFullAddress(currentUserLocation);
@@ -192,8 +192,8 @@ export async function fetchPlacesForEvents(
  * Wrapper around fetchPlacesForEvents that works with chip structure
  */
 export async function fetchPlacesForChips(
-  currentUser: User,
-  targetUser: User,
+  currentUser: UserProfile,
+  targetUser: UserProfile,
   calendarType: 'personal' | 'work',
   chipIds: string[],
   chipEventIds: string[],

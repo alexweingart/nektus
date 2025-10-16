@@ -49,7 +49,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
     if (!editedLocation || !profile) return;
 
     // Client-side validation
-    if (!editedLocation.city.trim() || !editedLocation.region.trim() || !editedLocation.country.trim()) {
+    if (!editedLocation.city.trim() || !editedLocation.region.trim() || !editedLocation.country?.trim()) {
       setValidationError('City, region, and country are required');
       return;
     }
@@ -67,7 +67,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
           city: editedLocation.city.trim(),
           region: editedLocation.region.trim(),
           zip: editedLocation.zip?.trim(),
-          country: editedLocation.country.trim()
+          country: editedLocation.country?.trim()
         })
       });
 
@@ -170,7 +170,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
           <ValidatedInput
             type="text"
             value={editedLocation.address || ''}
-            onChange={(e) => setEditedLocation({ ...editedLocation, address: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedLocation({ ...editedLocation, address: e.target.value })}
             onBlur={handleInputBlur}
             placeholder="Address"
             validation={validation?.address}
@@ -181,7 +181,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
           <ValidatedInput
             type="text"
             value={editedLocation.city}
-            onChange={(e) => setEditedLocation({ ...editedLocation, city: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedLocation({ ...editedLocation, city: e.target.value })}
             onBlur={handleInputBlur}
             placeholder="City"
             validation={validation?.city}
@@ -192,7 +192,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
           <ValidatedInput
             type="text"
             value={editedLocation.region}
-            onChange={(e) => setEditedLocation({ ...editedLocation, region: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedLocation({ ...editedLocation, region: e.target.value })}
             onBlur={handleInputBlur}
             placeholder="State/Region"
             validation={validation?.region}
@@ -203,7 +203,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
           <ValidatedInput
             type="text"
             value={editedLocation.zip || ''}
-            onChange={(e) => setEditedLocation({ ...editedLocation, zip: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedLocation({ ...editedLocation, zip: e.target.value })}
             onBlur={handleInputBlur}
             placeholder="Postal"
             validation={validation?.zip}

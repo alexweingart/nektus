@@ -39,7 +39,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
 }) => {
   const handlePrimaryClick = () => {
     console.log(`🎯 Standard modal primary button clicked: ${primaryButtonText}`);
-    onPrimaryButtonClick();
+    onPrimaryButtonClick?.();
   };
 
   const handleSecondaryClick = () => {

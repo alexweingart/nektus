@@ -275,7 +275,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
             <ValidatedInput
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddress(e.target.value)}
               onBlur={handleInputBlur}
               placeholder="Address"
               disabled={isLoadingLocation}
@@ -287,7 +287,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
             <ValidatedInput
               type="text"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCity(e.target.value)}
               onBlur={handleInputBlur}
               placeholder="City"
               disabled={isLoadingLocation}
@@ -299,7 +299,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
             <ValidatedInput
               type="text"
               value={region}
-              onChange={(e) => setRegion(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegion(e.target.value)}
               onBlur={handleInputBlur}
               placeholder="State/Region"
               disabled={isLoadingLocation}
@@ -311,7 +311,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
             <ValidatedInput
               type="text"
               value={zip}
-              onChange={(e) => setZip(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setZip(e.target.value)}
               onBlur={handleInputBlur}
               placeholder="Postal"
               disabled={isLoadingLocation}
