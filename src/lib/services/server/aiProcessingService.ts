@@ -4,7 +4,7 @@ import { Redis } from '@upstash/redis';
 // Redis-based storage for processing states with in-memory fallback
 class ProcessingStateManager {
   private redis: Redis | null = null;
-  private memoryStates = new Map<string, ProcessingState>(); // Fallback for development
+  private memoryStates = new Map<string, ProcessingState | unknown>(); // Fallback for development
 
   constructor() {
     // Initialize Redis only if environment variables are present
@@ -80,7 +80,7 @@ class ProcessingStateManager {
           if (typeof stateData === 'string') {
             state = JSON.parse(stateData) as ProcessingState;
           } else {
-            state = stateData as ProcessingState;
+            state = stateData as unknown as ProcessingState;
           }
           // Convert date strings back to Date objects
           state.createdAt = new Date(state.createdAt);
@@ -92,7 +92,7 @@ class ProcessingStateManager {
         const state = this.memoryStates.get(id);
         if (state) {
           console.log(`🔍 Retrieved processing state from memory: ${id}`);
-          return state;
+          return state as ProcessingState;
         }
       }
 
@@ -104,7 +104,7 @@ class ProcessingStateManager {
       const state = this.memoryStates.get(id);
       if (state) {
         console.log(`🔍 Retrieved processing state from memory (Redis fallback): ${id}`);
-        return state;
+        return state as ProcessingState;
       }
       return null;
     }
@@ -164,7 +164,7 @@ class ProcessingStateManager {
   }
 
   // Generic set method for caching arbitrary data
-  async set(key: string, value: any, ttlSeconds: number = 300): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number = 300): Promise<void> {
     try {
       if (this.redis) {
         await this.redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
@@ -188,7 +188,7 @@ class ProcessingStateManager {
   }
 
   // Generic get method for retrieving cached data
-  async getCached<T = any>(key: string): Promise<T | null> {
+  async getCached<T = unknown>(key: string): Promise<T | null> {
     try {
       if (this.redis) {
         const data = await this.redis.get(key);
@@ -197,7 +197,7 @@ class ProcessingStateManager {
           if (typeof data === 'string') {
             return JSON.parse(data) as T;
           }
-          return data as T;
+          return data as unknown as T;
         }
       } else {
         // Check in-memory storage

@@ -85,7 +85,7 @@ export async function handleShowMoreEvents(
 
     // Format the additional events
     const formattedMessage = `Here are more events happening ${timeframe}!\n\n` +
-      remainingEvents.map((event: any) =>
+      remainingEvents.map((event: { title: string; url: string; time: string; date: string; address: string; description: string }) =>
         `- **[${event.title}](${event.url})**\n` +
         `  - 📅 ${event.time} on ${event.date}\n` +
         `  - 📍 ${event.address}\n` +

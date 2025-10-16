@@ -104,10 +104,6 @@ export async function removeCalendarTokens(
   }
 }
 
-// Simple encryption/decryption for calendar tokens (stored in Firebase)
-// Note: For production, consider using a more robust encryption library
-const ENCRYPTION_KEY = process.env.CALENDAR_TOKEN_ENCRYPTION_KEY || 'default-key-change-in-prod';
-
 export async function encryptCalendarTokens(tokens: {
   accessToken: string;
   refreshToken: string;

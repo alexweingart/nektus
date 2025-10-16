@@ -86,10 +86,10 @@ class GlobalDragManager {
 
     if (this.listeners.touchMove) {
       // Remove with capture: true to match how we added them
-      document.removeEventListener('touchmove', this.listeners.touchMove, { capture: true } as any);
+      document.removeEventListener('touchmove', this.listeners.touchMove, { capture: true } as AddEventListenerOptions);
     }
     if (this.listeners.preventScrolling) {
-      document.removeEventListener('touchmove', this.listeners.preventScrolling, { capture: true } as any);
+      document.removeEventListener('touchmove', this.listeners.preventScrolling, { capture: true } as AddEventListenerOptions);
     }
 
     document.body.style.touchAction = '';
@@ -98,7 +98,7 @@ class GlobalDragManager {
 }
 
 export const useDragAndDrop = ({
-  section,
+  section: _section,
   getVisibleFields,
   onReorder
 }: UseDragAndDropProps): UseDragAndDropReturn => {
@@ -263,7 +263,7 @@ export const useDragAndDrop = ({
     });
 
     return () => {
-      document.removeEventListener('touchmove', persistentTouchMoveHandler, { capture: true } as any);
+      document.removeEventListener('touchmove', persistentTouchMoveHandler, { capture: true } as AddEventListenerOptions);
       globalManager.deactivateDrag();
       stopEdgeScroll();
     };
@@ -290,7 +290,7 @@ export const useDragAndDrop = ({
       stopEdgeScroll();
       globalManager.deactivateDrag();
     }
-  }, [isDragMode, section, globalManager, stopEdgeScroll]);
+  }, [isDragMode, globalManager, stopEdgeScroll]);
 
   // Enter drag mode
   const enterDragMode = useCallback((field: ContactEntry, touchY: number) => {
@@ -352,7 +352,7 @@ export const useDragAndDrop = ({
     setDraggedFieldIndex(draggedIndex);
     setGhostY(touchY);
     setDropTargetIndex(draggedIndex); // Start with current position
-  }, [getVisibleFields, section, onReorder, stopEdgeScroll]);
+  }, [getVisibleFields, onReorder, stopEdgeScroll]);
 
   // Start long press timer - called from event delegation
   const startLongPress = useCallback((field: ContactEntry, touchY: number) => {
@@ -365,7 +365,7 @@ export const useDragAndDrop = ({
     longPressTimerRef.current = setTimeout(() => {
       enterDragMode(field, touchY);
     }, 1000);
-  }, [section, enterDragMode]);
+  }, [enterDragMode]);
 
   // Cancel long press timer - called when user moves finger (scrolling)
   const cancelLongPress = useCallback(() => {
@@ -373,7 +373,7 @@ export const useDragAndDrop = ({
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-  }, [section]);
+  }, []);
 
   return {
     isDragMode,

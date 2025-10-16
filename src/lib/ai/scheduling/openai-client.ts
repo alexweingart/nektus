@@ -71,8 +71,8 @@ export async function createCompletion(options: CreateCompletionOptions) {
 
     // GPT-5 specific parameters
     if (model.startsWith('gpt-5')) {
-      (completionParams as any).reasoning_effort = reasoning_effort;
-      (completionParams as any).verbosity = verbosity;
+      (completionParams as unknown as Record<string, unknown>).reasoning_effort = reasoning_effort;
+      (completionParams as unknown as Record<string, unknown>).verbosity = verbosity;
     }
 
     const completion = await openai.chat.completions.create(completionParams);
@@ -298,8 +298,8 @@ ACTION REQUIRED: Perform web search NOW and return results.`;
                   console.log(`📝 Final response received, length: ${output_text.length}`);
                 }
               }
-            } catch (_e) {
-              console.log('⚠️ Failed to parse chunk:', line.substring(0, 200));
+            } catch (error: unknown) {
+              console.log('⚠️ Failed to parse chunk:', line.substring(0, 200), error);
               continue;
             }
           }

@@ -38,7 +38,14 @@ export async function handleEditEvent(
 
   // Try to get cached places and event template
   const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
-  const cached = await processingStateManager.getCached(cacheKey);
+  const cached = await processingStateManager.getCached<{
+    places?: Place[];
+    eventTemplate?: Partial<Event>;
+    eventResult?: {
+      startTime: string;
+      endTime: string;
+    };
+  }>(cacheKey);
 
   let places: Place[] = [];
   let eventTemplate: Partial<Event> | null = null;

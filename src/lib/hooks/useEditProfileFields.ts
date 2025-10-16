@@ -259,7 +259,7 @@ export const useEditProfileFields = ({
   // Add new fields (or update existing ones if they already exist)
   const addFields = useCallback((newFields: ContactEntry[]) => {
     // Instead of just appending, check if field already exists and update it
-    let updatedFields = [...fields];
+    const updatedFields = [...fields];
 
     newFields.forEach(newField => {
       const existingIndex = updatedFields.findIndex(f =>

@@ -92,7 +92,6 @@ interface DropdownInputProps {
   autoFocus?: boolean;
   onTouchStart?: (event: React.TouchEvent) => void;
   onTouchMove?: (event: React.TouchEvent) => void;
-  onTouchEnd?: () => void;
 }
 
 export const DropdownInput = React.forwardRef<HTMLInputElement, DropdownInputProps>((
@@ -105,8 +104,7 @@ export const DropdownInput = React.forwardRef<HTMLInputElement, DropdownInputPro
     inputProps = {},
     autoFocus = true,
     onTouchStart,
-    onTouchMove,
-    onTouchEnd
+    onTouchMove
   },
   ref
 ) => {
@@ -116,9 +114,6 @@ export const DropdownInput = React.forwardRef<HTMLInputElement, DropdownInputPro
 
   // Create refs
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  // Get selected country
-  const selectedCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
 
   // Initialize component with value if provided
   useEffect(() => {

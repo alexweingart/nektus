@@ -121,9 +121,6 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
   // Create refs
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Get selected country
-  const selectedCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
-
   // Initialize component with value if provided
   // Remove phoneInput from dependencies to prevent the loop
   useEffect(() => {

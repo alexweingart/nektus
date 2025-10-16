@@ -6,11 +6,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { cn } from '@/lib/utils/cn';
 import { Text } from '../Typography';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { DualStateSelector } from '../controls/DualStateSelector';
-import { Button } from '../buttons/Button';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import type { ContactEntry, FieldSection } from '@/types/profile';
@@ -65,7 +63,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
 
       // For regular domains, use first part
       return parts[0];
-    } catch (error) {
+    } catch {
       return 'link'; // Fallback for invalid URLs
     }
   };
@@ -131,7 +129,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
       console.log('[InlineAddLink] Calling onLinkAdded with entries:', entries);
       onLinkAdded(entries);
       console.log('[InlineAddLink] onLinkAdded completed');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[InlineAddLink] Save error:', error);
       setError('Failed to save link. Please check the URL and try again.');
     }

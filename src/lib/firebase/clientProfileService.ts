@@ -41,7 +41,7 @@ const ERROR_CODES = {
  * Recursively removes undefined values from an object
  * Firestore doesn't allow undefined values, only null
  */
-function removeUndefinedValues(obj: any): any {
+function removeUndefinedValues(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return null;
   }
@@ -51,7 +51,7 @@ function removeUndefinedValues(obj: any): any {
   }
 
   if (typeof obj === 'object' && !(obj instanceof Date)) {
-    const cleaned: any = {};
+    const cleaned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value !== undefined) {
         cleaned[key] = removeUndefinedValues(value);
@@ -80,7 +80,7 @@ export const ClientProfileService = {
       const profileData = removeUndefinedValues({
         ...profile,
         lastUpdated: Date.now()
-      });
+      }) as Partial<UserProfile>;
 
       // Add timeout to Firestore operation to prevent hanging
       const savePromise = setDoc(doc(firestore, 'profiles', profile.userId), profileData, { merge: true });

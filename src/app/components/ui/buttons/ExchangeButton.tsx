@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './Button';
 import { LoadingSpinner } from '../elements/LoadingSpinner';
@@ -23,7 +23,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const [status, setStatus] = useState<ExchangeStatus>('idle');
   const [exchangeService, setExchangeService] = useState<{ disconnect: () => Promise<void>; startExchange: (permissionGranted?: boolean, sharingCategory?: "All" | "Personal" | "Work") => Promise<void> } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('Personal');
-  const lastPingTimeRef = useRef<number>(0); // Add ref to track last ping time
 
   // Load selected category from localStorage on mount and listen for changes
   useEffect(() => {

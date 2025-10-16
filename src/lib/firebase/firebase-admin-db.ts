@@ -286,8 +286,8 @@ export const adminGetMultipleUserData = async (userIds: string[]) => {
 
       // Convert profile calendars to CalendarTokens format
       const tokens: CalendarTokens[] = calendars
-        .filter((cal: any) => cal.accessToken) // Only include calendars with tokens
-        .map((cal: any) => {
+        .filter((cal: { accessToken?: string }) => cal.accessToken) // Only include calendars with tokens
+        .map((cal: { email?: string; provider: string; accessToken: string; refreshToken?: string; tokenExpiry?: string }) => {
           console.log(`[adminGetMultipleUserData] User ${userId} calendar ${cal.provider} - has refreshToken: ${!!cal.refreshToken}, refreshToken length: ${cal.refreshToken?.length || 0}`);
           return {
             email: cal.email || email,
@@ -339,7 +339,7 @@ export const adminUpdateCalendarTokens = async (
     const calendars = profileData?.calendars || [];
 
     // Find the calendar with matching provider
-    const calendarIndex = calendars.findIndex((cal: any) => cal.provider === provider);
+    const calendarIndex = calendars.findIndex((cal: { provider: string }) => cal.provider === provider);
 
     if (calendarIndex === -1) {
       console.error(`Calendar with provider ${provider} not found for user ${userId}`);

@@ -63,7 +63,7 @@ export function enqueueError(
 export function enqueueEvent(
   controller: StreamController,
   encoder: StreamEncoder,
-  event: any
+  event: unknown
 ): void {
   controller.enqueue(encoder.encode(
     `data: ${JSON.stringify({ type: 'event', event })}\n\n`

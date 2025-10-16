@@ -35,7 +35,7 @@ export interface Place {
 
 // API Response - renamed from LocationSuggestionsResponse
 export interface PlacesResponse {
-  [meetingType: string]: Place[] | any; // Dynamic keys for different meeting types
+  [meetingType: string]: Place[] | unknown; // Dynamic keys for different meeting types
   metadata: {
     search_center: Coordinates;
     search_radius_km: number;

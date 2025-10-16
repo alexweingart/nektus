@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile, UserLocation, Calendar } from '@/types/profile';
 
 interface UseCalendarLocationManagementProps {
   profile: UserProfile | null;
@@ -48,13 +48,13 @@ export function useCalendarLocationManagement({
     window.location.reload();
   }, []);
 
-  const handleLocationAdded = useCallback(async (locations: any[]) => {
+  const handleLocationAdded = useCallback(async (locations: UserLocation[]) => {
     // Update profile locations directly (locations are special, not regular fields)
     if (profile) {
       profile.locations = profile.locations || [];
       locations.forEach(loc => {
         // Remove existing location for this section if any
-        profile.locations = profile.locations!.filter((l: any) => l.section !== loc.section);
+        profile.locations = profile.locations!.filter((l: UserLocation) => l.section !== loc.section);
         // Add the new location
         profile.locations!.push(loc);
       });
@@ -81,7 +81,7 @@ export function useCalendarLocationManagement({
 
       // Update profile state to remove the deleted calendar
       if (saveProfile && profile) {
-        const updatedCalendars = profile.calendars?.filter((cal: any) => cal.id !== calendar.id) || [];
+        const updatedCalendars = profile.calendars?.filter((cal: Calendar) => cal.id !== calendar.id) || [];
         await saveProfile({ calendars: updatedCalendars });
       }
     } catch (error) {
@@ -96,7 +96,7 @@ export function useCalendarLocationManagement({
     try {
       // Update profile state to remove the deleted location
       if (saveProfile && profile) {
-        const updatedLocations = profile.locations?.filter((loc: any) => loc.id !== location.id) || [];
+        const updatedLocations = profile.locations?.filter((loc: UserLocation) => loc.id !== location.id) || [];
         await saveProfile({ locations: updatedLocations });
       }
     } catch (error) {

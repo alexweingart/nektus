@@ -10,7 +10,7 @@ interface ConditionalEditParams {
   candidateSlots: TimeSlot[];
   availableTimeSlots: TimeSlot[];
   updatedEventTemplate: Partial<Event>;
-  cached: { places?: unknown[]; eventTemplate?: Partial<Event>; eventResult?: { startTime: string; endTime: string } };
+  cached: { places?: unknown[]; eventTemplate?: Partial<Event>; eventResult?: { startTime: string; endTime: string } } | null;
   timePreference: string | undefined;
   body: AISchedulingRequest;
   controller: ReadableStreamDefaultController;

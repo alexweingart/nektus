@@ -43,7 +43,7 @@ const getPlaceholder = (fieldType: string): string => {
 export const ProfileField: React.FC<ProfileFieldProps> = ({
   profile,
   fieldSectionManager,
-  getValue,
+  getValue: _getValue,
   onChange,
   isUnconfirmed,
   onConfirm,

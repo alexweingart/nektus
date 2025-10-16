@@ -347,11 +347,13 @@ Examples:
 
 Always reference their specific question first, then redirect naturally to scheduling.`;
 
+import type { TimeSlot } from '@/types/profile';
+
 export function buildContextMessage(params: {
   user1Location?: string;
   user2Location?: string;
   calendarType: 'personal' | 'work';
-  availableTimeSlots: any[];
+  availableTimeSlots: TimeSlot[];
 }): string {
   return `Available Context:
 - Calendar Type: ${params.calendarType}

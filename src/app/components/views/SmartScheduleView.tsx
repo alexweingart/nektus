@@ -229,7 +229,6 @@ export default function SmartScheduleView() {
     const endDate = new Date(actualMeetingEnd.getTime() + afterBuffer * 60 * 1000);
 
     // Create event details
-    const contactName = getFieldValue(contactProfile.contactEntries, 'name');
     const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
 
     // Get current user's calendar for this section

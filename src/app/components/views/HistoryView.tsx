@@ -106,7 +106,7 @@ export const HistoryView: React.FC = () => {
             const slots = data.slots || [];
             console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
           }
-        } catch (error) {
+        } catch {
           console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
         }
       }

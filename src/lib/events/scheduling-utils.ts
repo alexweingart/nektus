@@ -483,7 +483,7 @@ export function getCandidateSlotsWithFallback(
   });
 
   let hasNoCommonTime = false;
-  let hasExplicitTimeConflict = false;
+  const hasExplicitTimeConflict = false;
 
   // Fallback if no common slots found
   if (slots.length === 0) {

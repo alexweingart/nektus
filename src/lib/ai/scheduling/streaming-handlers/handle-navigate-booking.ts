@@ -3,7 +3,7 @@ import { enqueueContent, enqueueShowCalendarButton } from './streaming-utils';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 
 export async function handleNavigateBooking(
-  toolCall: any,
+  toolCall: { function: { arguments: string } },
   body: AISchedulingRequest,
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder

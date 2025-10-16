@@ -9,7 +9,6 @@ import { UserProfile } from '@/types/profile';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
 import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 // Types
 interface SessionProfileEntry {

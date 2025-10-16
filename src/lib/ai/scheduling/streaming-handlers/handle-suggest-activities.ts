@@ -64,7 +64,7 @@ Example format:
 
 Any of these sound good to you?"` },
       { role: 'system', content: contextMessage },
-      ...conversationHistory.map(msg => ({ role: msg.role as any, content: msg.content })),
+      ...conversationHistory.map(msg => ({ role: msg.role as 'system' | 'user' | 'assistant', content: msg.content })),
       { role: 'user', content: body.userMessage },
     ],
   });

@@ -68,7 +68,7 @@ export function parseIcs(icsData: string, rangeStart?: Date, rangeEnd?: Date): P
           // Attach original ICS text to each parsed event
           const originalText = eventLines.join('\n');
           for (const event of parsedEvents) {
-            (event as any).originalText = originalText;
+            (event as unknown as Record<string, unknown>).originalText = originalText;
           }
 
           // Add all events (base event + recurring instances) to the main events array

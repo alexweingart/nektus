@@ -14,7 +14,7 @@ export interface DropdownOption {
   label: string;              // Display name (e.g., "United States", "Instagram")
   value: string;              // Value/code (e.g., "US", "instagram")
   icon?: string | ReactNode;  // Optional icon - emoji string (e.g., "🇺🇸") OR React component
-  metadata?: any;             // Optional additional data (e.g., dialCode for countries)
+  metadata?: unknown;         // Optional additional data (e.g., dialCode for countries)
 }
 
 interface DropdownSelectorProps {

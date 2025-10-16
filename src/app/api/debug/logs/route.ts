@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       if (session?.user?.email) {
         userInfo = session.user.email.split('@')[0]; // e.g., 'alwei1335' from 'alwei1335@gmail.com'
       }
-    } catch (e) {
+    } catch {
       // Ignore session errors
     }
 

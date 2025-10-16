@@ -65,7 +65,7 @@ interface FoursquarePlace {
   categories?: FoursquareCategory[];
   rating?: number; // 0-10 scale (if available)
   price?: number; // 1-4 scale (if available)
-  hours?: any; // hours structure (if available)
+  hours?: unknown; // hours structure (if available)
   distance?: number; // meters from search center
 }
 
@@ -171,12 +171,14 @@ export async function searchFoursquarePlaces(
           google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
-            open_now: place.hours.open_now,
-            periods: place.hours.regular?.map((period: any) => ({
-              open: { day: period.day, hour: 0, minute: 0 },
-              close: { day: period.day, hour: 0, minute: 0 }
-            })),
-            weekday_text: place.hours.display
+            open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
+            periods: (place.hours as Record<string, unknown>).regular && Array.isArray((place.hours as Record<string, unknown>).regular)
+              ? ((place.hours as Record<string, unknown>).regular as unknown[]).map((period: unknown) => ({
+                  open: { day: (period as Record<string, unknown>).day as number, hour: 0, minute: 0 },
+                  close: { day: (period as Record<string, unknown>).day as number, hour: 0, minute: 0 }
+                }))
+              : undefined,
+            weekday_text: (place.hours as Record<string, unknown>).display as string[] | undefined
           } : undefined
         };
       });
@@ -294,12 +296,14 @@ export async function searchFoursquareNearby(
           google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
-            open_now: place.hours.open_now,
-            periods: place.hours.regular?.map((period: any) => ({
-              open: { day: period.day, hour: 0, minute: 0 },
-              close: { day: period.day, hour: 0, minute: 0 }
-            })),
-            weekday_text: place.hours.display
+            open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
+            periods: (place.hours as Record<string, unknown>).regular && Array.isArray((place.hours as Record<string, unknown>).regular)
+              ? ((place.hours as Record<string, unknown>).regular as unknown[]).map((period: unknown) => ({
+                  open: { day: (period as Record<string, unknown>).day as number, hour: 0, minute: 0 },
+                  close: { day: (period as Record<string, unknown>).day as number, hour: 0, minute: 0 }
+                }))
+              : undefined,
+            weekday_text: (place.hours as Record<string, unknown>).display as string[] | undefined
           } : undefined
         };
       });
@@ -343,7 +347,7 @@ export async function searchPlacesByType(
   radius: number,
   type: 'restaurant' | 'cafe' | 'food',
   keyword?: string,
-  meetingDateTime?: Date
+  _meetingDateTime?: Date
 ): Promise<Place[]> {
   // Map Google Places type to Foursquare category
   const category = CATEGORY_MAP[type] || CATEGORY_MAP.restaurant;

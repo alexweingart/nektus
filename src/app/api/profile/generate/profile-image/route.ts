@@ -8,15 +8,6 @@ import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { generateInitialsAvatar, dataUrlToBuffer } from '@/lib/utils/initialsAvatar';
 
 /**
- * Converts a base64 string to a buffer
- * @param base64 Base64 encoded string (without the data:image prefix)
- * @returns Buffer containing the image data
- */
-function base64ToBuffer(base64: string): Buffer {
-  return Buffer.from(base64, 'base64');
-}
-
-/**
  * Generates an initials-based profile image for a user.
  * PHASE 2: Changed from AI generation to initials for CalConnect merge
  * @param profile The user profile object
@@ -42,7 +33,7 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
 
   try {
-    const { imageData, streamingBio } = await req.json();
+    const { imageData } = await req.json();
     let newImageUrl: string;
 
     if (imageData) {

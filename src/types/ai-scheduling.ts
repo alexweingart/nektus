@@ -74,7 +74,7 @@ export interface DetermineIntentResult {
   suggestedPlaceTypes?: string[];
   specificPlace?: string;
   specificTime?: string;
-  modifications?: Record<string, any>;
+  modifications?: Record<string, unknown>;
   reason?: string;
 }
 
@@ -85,7 +85,7 @@ export interface GenerateEventTemplateParams {
   specificTime?: string;
   userLocations: string[];
   existingEvent?: Event;
-  modifications?: Record<string, any>;
+  modifications?: Record<string, unknown>;
 }
 
 export interface GenerateEventParams {
@@ -126,7 +126,7 @@ export interface OpenAIFunction {
   description: string;
   parameters: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required?: string[];
   };
 }

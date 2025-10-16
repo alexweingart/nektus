@@ -127,12 +127,12 @@ Only return valid JSON. If no events found, return {"events": []}.`
       const events = parsed.events || [];
 
       // Validate the extracted events
-      const validEvents = events.filter((event: any) =>
+      const validEvents = events.filter((event: Partial<EventSearchResult>) =>
         event.title &&
         event.description &&
         event.activityType &&
         event.date
-      );
+      ) as EventSearchResult[];
 
       console.log(`✅ Found ${validEvents.length} structured events for ${location}`);
       return validEvents;

@@ -335,8 +335,6 @@ export class MotionDetector {
     this.isCancelled = false;
 
     // Use strong bump profile as default thresholds (standardized across all devices)
-    const browserInfo = this.getBrowserInfo();
-
     // Generate unique call ID to track overlapping calls
     const callId = Math.random().toString(36).substring(2, 8);
 

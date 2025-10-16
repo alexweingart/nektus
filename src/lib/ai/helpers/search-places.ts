@@ -129,8 +129,8 @@ async function searchPlacesByActivity(
         allPlaces.push(...places);
         console.log(`   Found ${places.length} places for category: ${category}`);
 
-      } catch {
-        console.log(`   Category ${category} failed for activity search, continuing...`);
+      } catch (error: unknown) {
+        console.log(`   Category ${category} failed for activity search, continuing...`, error);
         continue;
       }
     }

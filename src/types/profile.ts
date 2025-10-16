@@ -1,3 +1,4 @@
+import type { Place } from './places';
 
 // Field sections for profile organization
 export type FieldSection = 'universal' | 'personal' | 'work';
@@ -156,7 +157,7 @@ export interface Event {
   };
 
   // New properties for AI scheduling
-  preferredPlaces?: any[]; // Array of possible places for in-person events
+  preferredPlaces?: Place[]; // Array of possible places for in-person events
   explicitUserTimes?: boolean; // User specified exact times
   explicitUserPlace?: boolean; // User specified exact place
 

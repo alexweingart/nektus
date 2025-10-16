@@ -20,7 +20,6 @@ import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Text } from "../ui/Typography";
 import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/client/messagingService';
 import { useSession } from 'next-auth/react';
-import { FaArrowLeft } from 'react-icons/fa';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
 import { getExchangeState, setExchangeState, shouldShowUpsell, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
