@@ -90,9 +90,11 @@ interface DropdownPhoneInputProps {
   isDisabled?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
   autoFocus?: boolean;
-  onTouchStart?: (event: React.TouchEvent) => void;
-  onTouchMove?: (event: React.TouchEvent) => void;
-  onTouchEnd?: () => void;
+  dropdownDragHandleProps?: { ref: (element: HTMLElement | null) => void };
+  onDropdownTouchMove?: (event: React.TouchEvent) => void;
+  isDraggable?: boolean;
+  fieldType?: string;
+  section?: string;
 }
 
 export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPhoneInputProps>((
@@ -104,9 +106,11 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
     isDisabled = false,
     inputProps = {},
     autoFocus = true,
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd
+    dropdownDragHandleProps,
+    onDropdownTouchMove,
+    isDraggable = false,
+    fieldType,
+    section
   },
   ref
 ) => {
@@ -297,15 +301,17 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
         onBlur={() => setIsFocused(false)}
       >
       {/* Country selector using DropdownSelector */}
-      <div className="relative" style={{ zIndex: 50 }}>
+      <div className="relative" style={{ zIndex: 9999 }}>
         <DropdownSelector
           options={countryOptions}
           value={selectedCountryCode}
           onChange={handleCountrySelect}
           disabled={isDisabled}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
+          {...(dropdownDragHandleProps || {})}
+          onTouchMove={onDropdownTouchMove}
+          isDraggable={isDraggable}
+          fieldType={fieldType}
+          section={section}
         />
       </div>
 

@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
@@ -18,6 +18,7 @@ import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
+import { auth } from '@/lib/firebase/clientConfig';
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
@@ -28,6 +29,7 @@ export const HistoryView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<SavedContact | null>(null);
+  const hasFetchedSlotsRef = useRef(false);
 
   // Fetch contacts on component mount
   useEffect(() => {
@@ -41,16 +43,16 @@ export const HistoryView: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         console.log('🔍 Fetching contacts for user:', session.user.id);
         const userContacts = await ClientProfileService.getContacts(session.user.id);
-        
+
         // Sort contacts by addedAt timestamp (newest first)
         const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
-        
+
         console.log('✅ Loaded contacts:', sortedContacts.length);
         setContacts(sortedContacts);
-        
+
       } catch (error) {
         console.error('Failed to load contacts:', error);
         setError('Failed to load contact history');
@@ -61,6 +63,57 @@ export const HistoryView: React.FC = () => {
 
     fetchContacts();
   }, [session, router]);
+
+  // Pre-fetch common time slots for recent contacts (proactive caching for scheduling)
+  useEffect(() => {
+    const preFetchCommonTimeSlotsForContacts = async () => {
+      if (!session?.user?.id || !auth?.currentUser || contacts.length === 0) return;
+      if (hasFetchedSlotsRef.current) return; // Already fetched
+
+      hasFetchedSlotsRef.current = true;
+
+      // Pre-fetch for up to 3 most recent contacts to avoid too many requests
+      const recentContacts = contacts.slice(0, 3);
+
+      for (const contact of recentContacts) {
+        // Only pre-fetch if user has calendar for this contact type
+        const userHasCalendar = userProfile?.calendars?.some(
+          (cal) => cal.section === contact.contactType
+        );
+
+        if (!userHasCalendar) continue;
+
+        try {
+          console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
+          const idToken = await auth.currentUser.getIdToken();
+
+          const response = await fetch('/api/scheduling/common-times', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              user1Id: session.user.id,
+              user2Id: contact.userId,
+              duration: 30,
+              calendarType: contact.contactType,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const slots = data.slots || [];
+            console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
+          }
+        } catch (error) {
+          console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
+        }
+      }
+    };
+
+    preFetchCommonTimeSlotsForContacts();
+  }, [contacts, session?.user?.id, userProfile?.calendars]);
 
   const handleRetry = () => {
     setError(null);

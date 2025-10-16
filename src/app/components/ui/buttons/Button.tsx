@@ -13,6 +13,8 @@ const buttonVariants = cva(
       variant: {
         white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full shadow-md",
         circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 transition-all duration-200 active:scale-95 shadow-md",
+        theme: "bg-white text-[#004D40] hover:bg-gray-50 border border-gray-200 transition-all duration-200 active:scale-95 rounded-full shadow-md",
+        destructive: "bg-red-500 text-white hover:bg-red-600 border border-red-600 transition-all duration-200 active:scale-95 rounded-full shadow-md",
       },
       size: {
         md: "h-12 px-6 text-base",
@@ -34,7 +36,7 @@ export interface ButtonProps
   asChild?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
-  variant?: "white" | "circle";
+  variant?: "white" | "circle" | "theme" | "destructive";
   size?: "md" | "lg" | "xl" | "icon";
 }
  

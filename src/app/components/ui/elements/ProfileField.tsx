@@ -18,6 +18,9 @@ interface ProfileFieldProps {
   isUnconfirmed: (fieldType: string) => boolean;
   onConfirm: (fieldType: string) => void;
   currentViewMode: 'Personal' | 'Work';
+
+  // Drag & Drop props
+  isDraggable?: boolean;
 }
 
 const getPlaceholder = (fieldType: string): string => {
@@ -45,6 +48,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   isUnconfirmed,
   onConfirm,
   currentViewMode,
+  isDraggable = false,
 }) => {
   const fieldType = profile.fieldType;
   const placeholder = getPlaceholder(fieldType);
@@ -52,6 +56,14 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   const shouldShowAsHidden = !profile.isVisible;
   const fieldId = `${fieldType}-${profile.section}`;
 
+  // Handle placeholder for drag & drop
+  if (fieldType === 'placeholder') {
+    return (
+      <div className="w-full max-w-[var(--max-content-width,448px)]">
+        <div style={{ height: '3.5rem' }} className="w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[var(--max-content-width,448px)]">
@@ -71,12 +83,19 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
             autoComplete: "tel",
             className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           }}
+          onDropdownTouchMove={isDraggable ? (e) => {
+            // Propagate touch move events for drag detection
+            e.preventDefault();
+          } : undefined}
+          isDraggable={isDraggable}
+          fieldType={fieldType}
+          section={profile.section}
         />
       ) : profile.linkType === 'custom' ? (
         <ExpandingInput
           value={value}
-          onChange={(value) => {
-            onChange(fieldType, value, profile.section);
+          onChange={(newValue: string) => {
+            onChange(fieldType, newValue, profile.section);
           }}
           placeholder={placeholder}
           className="w-full"
@@ -87,7 +106,12 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           }}
           icon={
             <div
+              data-drag-handle={isDraggable ? "true" : undefined}
+              data-field-type={isDraggable ? fieldType : undefined}
+              data-section={isDraggable ? profile.section : undefined}
               className="w-5 h-5 flex items-center justify-center relative"
+              style={{ touchAction: isDraggable ? 'none' : undefined }}
+              onContextMenu={isDraggable ? (e) => e.preventDefault() : undefined}
             >
               <SocialIcon
                 platform={fieldType}
@@ -118,12 +142,17 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           }}
           icon={
             <div
+              data-drag-handle={isDraggable ? "true" : undefined}
+              data-field-type={isDraggable ? fieldType : undefined}
+              data-section={isDraggable ? profile.section : undefined}
               className="w-5 h-5 flex items-center justify-center relative"
+              style={{ touchAction: isDraggable ? 'none' : undefined }}
+              onContextMenu={isDraggable ? (e) => e.preventDefault() : undefined}
             >
-              <SocialIcon 
-                platform={fieldType} 
+              <SocialIcon
+                platform={fieldType}
                 username={value}
-                size="sm" 
+                size="sm"
               />
               {isUnconfirmed(fieldType) && (
                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>

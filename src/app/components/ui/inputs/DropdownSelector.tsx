@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 export interface DropdownOption {
@@ -26,7 +27,9 @@ interface DropdownSelectorProps {
   onAfterChange?: () => void;
   onTouchStart?: (event: React.TouchEvent) => void;
   onTouchMove?: (event: React.TouchEvent) => void;
-  onTouchEnd?: () => void;
+  isDraggable?: boolean;
+  fieldType?: string;
+  section?: string;
 }
 
 export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
@@ -39,12 +42,27 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
   onAfterChange,
   onTouchStart,
   onTouchMove,
-  onTouchEnd
+  isDraggable = false,
+  fieldType,
+  section
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const selectedOption = options.find(opt => opt.value === value);
+
+  // Update menu position when opened
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 24,
+        left: rect.left
+      });
+    }
+  }, [isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -69,6 +87,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
     <div className={`relative ${className}`} ref={dropdownRef} style={{ zIndex: 50 }}>
       {/* Selector Button - only shows icon, no label */}
       <button
+        ref={buttonRef}
         type="button"
         className={`flex items-center justify-center h-full focus:outline-none border-0 text-base ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -81,15 +100,18 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
           paddingRight: '0.25rem',
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
-          userSelect: 'none'
+          userSelect: 'none',
+          touchAction: isDraggable ? 'none' : (onTouchMove ? 'none' : undefined)
         }}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         aria-label={selectedOption?.label || placeholder}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
         onContextMenu={(e) => e.preventDefault()}
+        data-drag-handle={isDraggable ? "true" : undefined}
+        data-field-type={isDraggable ? fieldType : undefined}
+        data-section={isDraggable ? section : undefined}
       >
         {selectedOption?.icon ? (
           <span className="mr-1">{renderIcon(selectedOption.icon)}</span>
@@ -102,31 +124,34 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
         </div>
       </button>
 
-      {/* Dropdown Menu */}
-      {isOpen && !disabled && (
+      {/* Dropdown Menu - rendered via portal to escape stacking context */}
+      {isOpen && !disabled && typeof window !== 'undefined' && createPortal(
         <div
-          className="absolute z-50 top-full left-0 w-60 shadow-lg rounded-md max-h-60 overflow-y-auto backdrop-blur-sm border border-white/20 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/30 [&::-webkit-scrollbar-thumb]:rounded-full"
+          className="fixed z-[9999] w-60 shadow-lg rounded-2xl max-h-60 overflow-hidden backdrop-blur-sm border border-white/20"
           style={{
-            top: 'calc(100% + 0.5rem)',
-            marginTop: '0.5rem',
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
             backgroundColor: 'rgba(0, 0, 0, 0.6)'
           }}
         >
-          {options.map((option) => (
-            <div
-              key={option.value}
-              className={`px-4 py-2 hover:bg-white/10 cursor-pointer flex items-center text-white`}
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-                onAfterChange?.();
-              }}
-            >
-              <span className="mr-2">{renderIcon(option.icon)}</span>
-              <span>{option.label}</span>
-            </div>
-          ))}
-        </div>
+          <div className="overflow-y-auto max-h-60 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/30 [&::-webkit-scrollbar-thumb]:rounded-full">
+            {options.map((option) => (
+              <div
+                key={option.value}
+                className={`px-4 py-2 hover:bg-white/10 cursor-pointer flex items-center text-white`}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                  onAfterChange?.();
+                }}
+              >
+                <span className="mr-2">{renderIcon(option.icon)}</span>
+                <span>{option.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

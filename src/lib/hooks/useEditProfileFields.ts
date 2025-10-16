@@ -41,6 +41,7 @@ export interface UseEditProfileFieldsReturn {
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
   addFields: (newFields: ContactEntry[]) => void;
+  updateFieldOrder: (section: FieldSection, newFieldOrder: ContactEntry[]) => void;
 
   // Get field data
   getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
@@ -374,6 +375,35 @@ export const useEditProfileFields = ({
     return !field?.isVisible;
   }, [getFieldData]);
 
+  // Update field order for a specific section (for drag & drop)
+  const updateFieldOrder = useCallback((section: FieldSection, newFieldOrder: ContactEntry[]) => {
+    // Get all fields from OTHER sections (keep them unchanged)
+    const otherSectionFields = fields.filter(f => f.section !== section);
+
+    // Get hidden fields from this section (not in newFieldOrder)
+    const hiddenFieldsInSection = fields.filter(f =>
+      f.section === section &&
+      !newFieldOrder.some(nf => nf.fieldType === f.fieldType && nf.section === f.section)
+    );
+
+    // Update order values for the reordered section (visible fields)
+    const reorderedFields = newFieldOrder.map((field, index) => ({
+      ...field,
+      order: index
+    }));
+
+    // Add hidden fields at the end with higher order values
+    const hiddenFieldsWithOrder = hiddenFieldsInSection.map((field, index) => ({
+      ...field,
+      order: newFieldOrder.length + index
+    }));
+
+    // Combine: other sections + newly ordered visible fields + hidden fields
+    const updatedFields = [...otherSectionFields, ...reorderedFields, ...hiddenFieldsWithOrder];
+
+    updateFields(updatedFields);
+  }, [fields, updateFields]);
+
   // Get visible fields for view (universal + current section visible) - used for drag operations
   const getVisibleFieldsForView = useCallback((viewMode: 'Personal' | 'Work'): ContactEntry[] => {
     const currentSectionName = viewMode.toLowerCase() as 'personal' | 'work';
@@ -442,6 +472,7 @@ export const useEditProfileFields = ({
     toggleFieldVisibility,
     updateFieldValue,
     addFields,
+    updateFieldOrder,
 
     // Get field data
     getFieldData,

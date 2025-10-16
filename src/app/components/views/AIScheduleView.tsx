@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStreamingAI, type ChatMessage } from '@/lib/hooks/useStreamingAI';
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile, TimeSlot } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import type { Message as AIMessage } from '@/types/ai-scheduling';
 import type { Event } from '@/types/profile';
@@ -13,6 +13,7 @@ import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
+import { auth } from '@/lib/firebase/clientConfig';
 
 // Helper: Generate unique message IDs
 function generateMessageId(offset = 0): string {
@@ -37,6 +38,10 @@ export default function AIScheduleView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Pre-fetched common time slots
+  const [commonTimeSlots, setCommonTimeSlots] = useState<TimeSlot[]>([]);
+  const hasFetchedSlotsRef = useRef(false);
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -73,6 +78,50 @@ export default function AIScheduleView() {
   useEffect(() => {
     loadProfiles();
   }, [loadProfiles]);
+
+  // Pre-fetch common time slots when profiles are loaded (only once)
+  useEffect(() => {
+    const fetchCommonTimeSlots = async () => {
+      if (!session?.user?.id || !contactUserId || !auth?.currentUser) return;
+      if (hasFetchedSlotsRef.current) return; // Already fetched
+
+      hasFetchedSlotsRef.current = true;
+
+      try {
+        console.log('🔄 Pre-fetching common time slots for AI scheduling...');
+        const idToken = await auth.currentUser.getIdToken();
+
+        const response = await fetch('/api/scheduling/common-times', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            user1Id: session.user.id,
+            user2Id: contactUserId,
+            duration: 30, // Use minimum duration for maximum flexibility
+            calendarType: contactType,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const slots = data.slots || [];
+          setCommonTimeSlots(slots);
+          console.log(`✅ Pre-fetched ${slots.length} common time slots`);
+        } else {
+          console.error(`❌ Failed to pre-fetch common times: ${response.status} ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('❌ Error pre-fetching common times:', error);
+      }
+    };
+
+    if (contactProfile && currentUserProfile) {
+      fetchCommonTimeSlots();
+    }
+  }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType]);
 
   useEffect(() => {
     // Initialize chat with AI greeting when component mounts
@@ -153,10 +202,14 @@ export default function AIScheduleView() {
       const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
       const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
 
+      // Get ID token for authentication
+      const idToken = await auth.currentUser?.getIdToken();
+
       const response = await fetch('/api/scheduling/ai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           userMessage: input,
@@ -169,6 +222,7 @@ export default function AIScheduleView() {
           user2Location: contactLocation,
           contactType: contactType,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          availableTimeSlots: commonTimeSlots, // Pass pre-fetched slots
         }),
       });
 

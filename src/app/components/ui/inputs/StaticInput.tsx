@@ -62,10 +62,7 @@ export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
           {variant === 'hideable' && onToggleHide && (
             <button
               type="button"
-              onClick={() => {
-                console.log('[StaticInput] Hide button clicked');
-                onToggleHide();
-              }}
+              onClick={onToggleHide}
               className="flex items-center justify-center pr-4 h-full w-12 text-white/60 hover:text-white transition-colors"
               aria-label={isHidden ? 'Show field' : 'Hide field'}
             >

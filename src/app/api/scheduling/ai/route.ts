@@ -45,11 +45,18 @@ export async function POST(request: NextRequest) {
         const host = request.headers.get('host');
         const baseUrl = `${protocol}://${host}`;
 
+        // Forward Authorization header from the incoming request to common-times API
+        const authHeader = request.headers.get('Authorization');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+
         const response = await fetch(`${baseUrl}/api/scheduling/common-times`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             user1Id: body.user1Id,
             user2Id: body.user2Id,

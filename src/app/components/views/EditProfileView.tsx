@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -9,6 +10,7 @@ import PageHeader from '../ui/layout/PageHeader';
 import { useEditProfileFields, useImageUpload, useProfileViewMode } from '@/lib/hooks/useEditProfileFields';
 import { useCalendarLocationManagement } from '@/lib/hooks/useCalendarLocationManagement';
 import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import { useDragAndDrop } from '@/lib/hooks/useDragAndDrop';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
 import { StaticInput } from '../ui/inputs/StaticInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
@@ -23,6 +25,13 @@ import { ItemChip } from '../ui/modules/ItemChip';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { AddLocationModal } from '../ui/modals/AddLocationModal';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
+
+// Portal helper component
+const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return typeof window !== 'undefined'
+    ? createPortal(children, document.body)
+    : null;
+};
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
@@ -194,6 +203,109 @@ const EditProfileView: React.FC = () => {
     const calendar = getCalendarForSection(sectionName);
     const location = getLocationForSection(sectionName);
 
+    // Drag & Drop hook
+    const dragAndDrop = useDragAndDrop({
+      section: sectionName,
+      getVisibleFields: () => fieldSectionManager.getVisibleFields(sectionName),
+      onReorder: (newOrder: ContactEntry[]) => {
+        fieldSectionManager.updateFieldOrder(sectionName, newOrder);
+      }
+    });
+
+    // Event delegation for drag handles
+    const containerRef = useRef<HTMLDivElement>(null);
+    const touchStartYRef = useRef<number>(0);
+
+    React.useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const handleTouchStart = (e: TouchEvent) => {
+        const target = e.target as Element;
+        const dragHandle = target.closest('[data-drag-handle="true"]');
+        if (!dragHandle) return;
+
+        const fieldType = dragHandle.getAttribute('data-field-type');
+        const section = dragHandle.getAttribute('data-section');
+        if (!fieldType || !section) return;
+
+        // Find the field
+        const field = visibleFields.find(f => f.fieldType === fieldType && f.section === section);
+        if (!field) return;
+
+        const touchY = e.touches[0].clientY;
+        touchStartYRef.current = touchY;
+
+        dragAndDrop.startLongPress(field, touchY);
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        if (!dragAndDrop.isDragMode) {
+          // During long press detection - cancel if user moves too much (scrolling)
+          const touchY = e.touches[0].clientY;
+          const moveDistance = Math.abs(touchY - touchStartYRef.current);
+          if (moveDistance > 10) {
+            dragAndDrop.cancelLongPress();
+          }
+        }
+      };
+
+      const handleTouchEnd = (e: TouchEvent) => {
+        if (!dragAndDrop.isDragMode) {
+          // User released before 1 second - cancel the long press timer
+          dragAndDrop.cancelLongPress();
+        }
+      };
+
+      container.addEventListener('touchstart', handleTouchStart, { passive: true });
+      container.addEventListener('touchmove', handleTouchMove, { passive: true });
+      container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+      return () => {
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('touchmove', handleTouchMove);
+        container.removeEventListener('touchend', handleTouchEnd);
+      };
+    }, [visibleFields, dragAndDrop, sectionName]);
+
+    // Keep fields in ORIGINAL order - DON'T reorder DOM during drag
+    // This prevents React from moving DOM nodes and breaking the touch sequence
+    const fieldsToRender = visibleFields;
+
+    // Compute preview order for CSS transforms
+    const computePreviewOrder = useCallback((): ContactEntry[] => {
+      if (!dragAndDrop.isDragMode || dragAndDrop.draggedFieldIndex === null || dragAndDrop.dropTargetIndex === null) {
+        return visibleFields;
+      }
+
+      const previewOrder = [...visibleFields];
+      const [draggedItem] = previewOrder.splice(dragAndDrop.draggedFieldIndex, 1);
+      previewOrder.splice(dragAndDrop.dropTargetIndex, 0, draggedItem);
+
+      return previewOrder;
+    }, [visibleFields, dragAndDrop.isDragMode, dragAndDrop.draggedFieldIndex, dragAndDrop.dropTargetIndex]);
+
+    // Calculate CSS transform offset for each field
+    const getFieldOffset = useCallback((field: ContactEntry, originalIndex: number): number => {
+      if (!dragAndDrop.isDragMode) return 0;
+
+      const previewOrder = computePreviewOrder();
+      const targetIndex = previewOrder.findIndex(
+        f => f.fieldType === field.fieldType && f.section === field.section
+      );
+
+      if (targetIndex === -1) {
+        console.warn('[getFieldOffset] Field not found in preview order:', field.fieldType);
+        return 0;
+      }
+
+      // Field height + space-y-5 gap (3.5rem field + 1.25rem gap = 56px + 20px = 76px)
+      const FIELD_HEIGHT = 76;
+      const offset = (targetIndex - originalIndex) * FIELD_HEIGHT;
+
+      return offset;
+    }, [dragAndDrop.isDragMode, computePreviewOrder]);
+
     return (
       <>
         {/* Current Section */}
@@ -234,7 +346,7 @@ const EditProfileView: React.FC = () => {
 
               {/* Location UI */}
               {location ? (
-                <div className="w-full mt-4">
+                <div className="w-full mt-5">
                   <ItemChip
                     icon={
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,7 +362,7 @@ const EditProfileView: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="w-full mt-4">
+                <div className="w-full mt-5">
                   <Button
                     variant="white"
                     size="lg"
@@ -263,7 +375,7 @@ const EditProfileView: React.FC = () => {
               )}
 
               {/* Divider */}
-              <div className="w-full border-t border-white/10 mt-4" />
+              <div className="w-full border-t border-white/10 mt-5" />
             </>
           }
           bottomButton={
@@ -292,21 +404,93 @@ const EditProfileView: React.FC = () => {
             </>
           }
         >
-          <FieldList>
-            {visibleFields.map((field, index) => (
-              <ProfileField
-                key={`${field.fieldType}-${field.section}-${index}`}
-                profile={field}
-                fieldSectionManager={fieldSectionManager}
-                getValue={getFieldValue}
-                onChange={handleFieldChange}
-                isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                onConfirm={fieldSectionManager.markChannelAsConfirmed}
-                currentViewMode={viewMode}
-              />
-            ))}
-          </FieldList>
+          <div ref={containerRef}>
+            <FieldList>
+              {fieldsToRender.map((field, index) => {
+                const isBeingDragged =
+                  dragAndDrop.isDragMode &&
+                  dragAndDrop.draggedField?.fieldType === field.fieldType &&
+                  dragAndDrop.draggedField?.section === field.section;
+
+                // Apply offset to all fields including dragged (so reserved space moves correctly)
+                const offset = getFieldOffset(field, index);
+
+                return (
+                  <div
+                    key={`${field.fieldType}-${field.section}`}
+                    data-field-id={`${field.fieldType}-${field.section}`}
+                    style={{
+                      transform: `translateY(${offset}px)`,
+                      transition: dragAndDrop.isDragMode ? 'transform 0.2s ease-out' : 'none',
+                      visibility: isBeingDragged ? 'hidden' : 'visible'
+                    }}
+                  >
+                    <ProfileField
+                      profile={field}
+                      fieldSectionManager={fieldSectionManager}
+                      getValue={getFieldValue}
+                      onChange={handleFieldChange}
+                      isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                      onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                      currentViewMode={viewMode}
+                      isDraggable={true}
+                    />
+                  </div>
+                );
+              })}
+            </FieldList>
+          </div>
         </FieldSectionComponent>
+
+        {/* Drag Ghost */}
+        {dragAndDrop.isDragMode && dragAndDrop.ghostField && (
+          <Portal>
+            <div
+              style={{
+                position: 'fixed',
+                top: dragAndDrop.ghostY,
+                left: '50%',
+                transform: 'translate(-50%, -50%) scale(1.05)',
+                zIndex: 9999,
+                width: 'min(448px, calc(100vw - 32px))',
+                pointerEvents: 'none',
+                opacity: 0.95
+              }}
+            >
+              {/* Focused field styling wrapper */}
+              <div
+                className="relative"
+                style={{
+                  width: '100%',
+                  height: '3.5rem',
+                  minHeight: '3.5rem',
+                }}
+              >
+                {/* Background with focused styles */}
+                <div
+                  className="absolute inset-0 rounded-full border bg-black/50 border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+                  style={{
+                    transition: 'all 0.2s ease-in-out',
+                    pointerEvents: 'none'
+                  }}
+                />
+                {/* Field content */}
+                <div className="relative z-10">
+                  <ProfileField
+                    profile={dragAndDrop.ghostField}
+                    fieldSectionManager={fieldSectionManager}
+                    getValue={getFieldValue}
+                    onChange={() => {}}
+                    isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                    onConfirm={() => {}}
+                    currentViewMode={viewMode}
+                    isDraggable={false}
+                  />
+                </div>
+              </div>
+            </div>
+          </Portal>
+        )}
 
         {/* Hidden Fields - Always show with Sign Out button */}
         <FieldSectionComponent

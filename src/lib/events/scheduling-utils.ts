@@ -152,11 +152,13 @@ function isSlotWithinSchedulableHours(
         return true;
       }
     } else {
-      // Normal time window - event must fit entirely within the window (including buffers)
-      const eventStartMinutes = timeInMinutes + beforeBuffer;
-      const eventEndMinutes = eventStartMinutes + eventDurationOnly + afterBuffer;
+      // Normal time window - entire block (before buffer + event + after buffer) must fit within window
+      // slotTime represents when free time starts, so the entire block runs from
+      // slotTime to slotTime + beforeBuffer + duration + afterBuffer
+      const blockStartMinutes = timeInMinutes;
+      const blockEndMinutes = timeInMinutes + beforeBuffer + eventDurationOnly + afterBuffer;
 
-      if (eventStartMinutes >= startWindow && eventEndMinutes <= endWindow) {
+      if (blockStartMinutes >= startWindow && blockEndMinutes <= endWindow) {
         return true;
       }
     }
@@ -349,18 +351,27 @@ export function getAllValidSlots(
 
     slotsPassedHoursCheck++;
 
-    // When there's a before buffer, we need to check if there's enough consecutive free time
-    // STARTING from beforeBuffer minutes before the event, through the event, and afterBuffer minutes after
+    // Debug: Log slots that pass hours check for lunch
+    if (eventTemplate.duration === 60 && beforeBuffer === 30 && afterBuffer === 30) {
+      const eventStartWouldBe = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
+      console.log(`[getAllValidSlots] Slot ${slotsPassedHoursCheck} passed hours check:`, {
+        freeTimeStarts: slotTime.toLocaleString(),
+        eventWouldStartAt: eventStartWouldBe.toLocaleString(),
+        slotIndex: i
+      });
+    }
 
-    // The slot at index i represents when the EVENT starts (not when the buffer starts)
-    // We need to verify there's continuous free time from (event_start - beforeBuffer) to (event_end + afterBuffer)
+    // When there's a before buffer, we need to check if there's enough consecutive free time
+    // The slot at index i represents when FREE TIME starts
+    // We need to verify there's continuous free time to fit: beforeBuffer + event + afterBuffer
+    // The event itself will start at (slotTime + beforeBuffer)
 
     let consecutiveStartTime: Date | null = null;
     let consecutiveEndTime: Date | null = null;
 
-    // Calculate when we need the free time to start (accounting for before buffer)
-    const requiredStartTime = new Date(slotTime.getTime() - beforeBuffer * 60 * 1000);
-    const requiredEndTime = new Date(slotTime.getTime() + (eventDurationOnly + afterBuffer) * 60 * 1000);
+    // The free time must start at the slot time (or earlier) and extend through all buffers + event
+    const requiredStartTime = new Date(slotTime.getTime());
+    const requiredEndTime = new Date(slotTime.getTime() + (beforeBuffer + eventDurationOnly + afterBuffer) * 60 * 1000);
 
     // Find all consecutive slots that cover the required time range
     // Start looking backwards from current slot to find where consecutive time begins
@@ -402,12 +413,33 @@ export function getAllValidSlots(
 
     if (!coversRequiredStart || !coversRequiredEnd) {
       slotsFailedConsecutiveCheck++;
+
+      // Debug: Log why lunch slots fail consecutive check
+      if (eventTemplate.duration === 60 && beforeBuffer === 30 && afterBuffer === 30) {
+        const eventStartWouldBe = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
+        console.log(`[getAllValidSlots] Slot ${slotsPassedHoursCheck} FAILED consecutive check:`, {
+          freeTimeStarts: slotTime.toLocaleString(),
+          eventWouldStartAt: eventStartWouldBe.toLocaleString(),
+          needsFreeTimeFrom: requiredStartTime.toLocaleString(),
+          needsFreeTimeUntil: requiredEndTime.toLocaleString(),
+          actualFreeTimeStart: consecutiveStartTime.toLocaleString(),
+          actualFreeTimeEnd: consecutiveEndTime.toLocaleString(),
+          coversRequiredStart,
+          coversRequiredEnd,
+          missingMinutes: !coversRequiredEnd ? (requiredEndTime.getTime() - consecutiveEndTime.getTime()) / (60 * 1000) : (requiredStartTime.getTime() - consecutiveStartTime.getTime()) / (60 * 1000)
+        });
+      }
+
       continue;
     }
 
+    // Calculate the actual event start time (after the before buffer)
+    const eventStartTime = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
+    const eventEndTime = new Date(eventStartTime.getTime() + eventDurationOnly * 60 * 1000);
+
     validSlots.push({
-      start: startSlot.start,
-      end: consecutiveEndTime.toISOString()
+      start: eventStartTime.toISOString(),
+      end: eventEndTime.toISOString()
     });
   }
 
@@ -455,9 +487,12 @@ export function getCandidateSlotsWithFallback(
 
   // Fallback if no common slots found
   if (slots.length === 0) {
-    // Always set conflict flag when using fallback slots
-    // This means the requested time range has no free slots, so any slot we create will overlap
-    hasExplicitTimeConflict = true;
+    // NOTE: Using fallback slots doesn't mean there's a conflict.
+    // It just means we're generating slots based on preferred hours
+    // instead of using pre-computed common availability.
+    // The fallback slots might be completely free.
+    // We only set hasExplicitTimeConflict if the user explicitly requested
+    // a specific time that conflicts (handled by hasExplicitTimeRequest flag).
 
     slots = createFallbackFromTemplate(
       {

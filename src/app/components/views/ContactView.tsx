@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/elements/Avatar';
@@ -27,6 +27,7 @@ import { getExchangeState, setExchangeState, shouldShowUpsell, markUpsellShown, 
 import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
+import { auth } from '@/lib/firebase/clientConfig';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -326,6 +327,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   };
 
   const { data: session } = useSession();
+  const hasFetchedSlotsRef = useRef(false);
+
   const bioContent = useMemo(() => {
     return getFieldValue(profile?.contactEntries, 'bio') || 'Welcome to my profile!';
   }, [profile?.contactEntries]);
@@ -336,6 +339,55 @@ export const ContactView: React.FC<ContactViewProps> = ({
       <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
     ),
   }), []);
+
+  // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
+  useEffect(() => {
+    const preFetchCommonTimeSlots = async () => {
+      if (!isHistoricalMode || !session?.user?.id || !profile?.userId || !auth?.currentUser) return;
+      if (hasFetchedSlotsRef.current) return; // Already fetched
+
+      const savedContact = profile as SavedContact;
+      const contactType = savedContact.contactType;
+
+      // Only pre-fetch if user has calendar for this contact type
+      const userHasCalendar = userProfile?.calendars?.some(
+        (cal) => cal.section === contactType
+      );
+
+      if (!userHasCalendar) return;
+
+      hasFetchedSlotsRef.current = true;
+
+      try {
+        console.log('🔄 Proactively pre-fetching common time slots for contact page...');
+        const idToken = await auth.currentUser.getIdToken();
+
+        const response = await fetch('/api/scheduling/common-times', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            user1Id: session.user.id,
+            user2Id: profile.userId,
+            duration: 30,
+            calendarType: contactType,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const slots = data.slots || [];
+          console.log(`✅ Proactively pre-fetched ${slots.length} common time slots (cached for scheduling)`);
+        }
+      } catch (error) {
+        console.log('Pre-fetch failed (non-critical):', error);
+      }
+    };
+
+    preFetchCommonTimeSlots();
+  }, [isHistoricalMode, session?.user?.id, profile?.userId, userProfile?.calendars]);
 
   // Add lifecycle logging
   useEffect(() => {

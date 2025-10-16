@@ -337,7 +337,6 @@ export const DropdownInput = React.forwardRef<HTMLInputElement, DropdownInputPro
           disabled={isDisabled}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
         />
       </div>
       
