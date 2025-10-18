@@ -165,14 +165,14 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   }
   
   return (
-    <div className={`inline-block ${className}`}>
+    <div className={`inline-flex flex-wrap gap-4 justify-center ${className}`}>
       {socialItems.map((item, index) => (
         <a
           key={`${item.platform}-${item.section}-${index}`}
           href={item.url}
           target={item.platform === 'phone' || item.platform === 'email' ? undefined : '_blank'}
           rel={item.platform === 'phone' || item.platform === 'email' ? undefined : 'noopener noreferrer'}
-          className={`inline-block text-white transition-colors mr-4 last:mr-0 ${getHoverColorClass(item.platform)}`}
+          className={`inline-block text-white transition-colors ${getHoverColorClass(item.platform)}`}
         >
           <SocialIcon
             platform={item.platform}
