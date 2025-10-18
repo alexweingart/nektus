@@ -61,26 +61,31 @@ export const ItemChip: React.FC<ItemChipProps> = ({
 
   return (
     <div
-      className={`flex items-center p-4 bg-black/40 border border-white/10 rounded-2xl backdrop-blur-sm transition-all duration-200 ${
-        onClick ? 'cursor-pointer hover:bg-black/50 active:scale-98' : ''
+      className={`flex items-center p-4 bg-black/40 border border-white/10 rounded-2xl backdrop-blur-sm ${
+        onClick ? 'cursor-pointer hover:bg-black/50' : ''
       } ${className}`}
-      onClick={onClick}
     >
-      {/* Icon */}
-      <div className="flex-shrink-0">
-        {icon}
-      </div>
+      {/* Clickable area - excludes action button */}
+      <div
+        className={`flex items-center flex-1 min-w-0 ${onClick ? 'button-release' : ''}`}
+        onClick={onClick}
+      >
+        {/* Icon */}
+        <div className="flex-shrink-0">
+          {icon}
+        </div>
 
-      {/* Content */}
-      <div className={`flex-1 ml-4 min-w-0 ${hasAction ? 'mr-3' : ''}`}>
-        <h3 className={`text-white font-medium text-base ${truncateTitle ? 'truncate' : ''}`}>
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-gray-300 text-sm truncate mt-0.5">
-            {subtitle}
-          </p>
-        )}
+        {/* Content */}
+        <div className={`flex-1 ml-4 min-w-0 ${hasAction ? 'mr-3' : ''}`}>
+          <h3 className={`text-white font-medium text-base ${truncateTitle ? 'truncate' : ''}`}>
+            {title}
+          </h3>
+          {subtitle && (
+            <p className="text-gray-300 text-sm truncate mt-0.5">
+              {subtitle}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Action Button */}
@@ -94,7 +99,7 @@ export const ItemChip: React.FC<ItemChipProps> = ({
             e.stopPropagation();
             onActionClick(e);
           }}
-          className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-gray-400 hover:text-white hover:bg-white/20 transition-colors"
+          className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-gray-400 hover:text-white hover:bg-white/20 transition-transform active:scale-90"
           aria-label="Action"
         >
           {renderActionIcon()}

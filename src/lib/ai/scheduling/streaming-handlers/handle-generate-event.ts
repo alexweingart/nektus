@@ -28,7 +28,11 @@ export async function handleGenerateEvent(
   handleSearchEventsEnhancement: (processingId: string, webSearchPromise: Promise<EventSearchResult[]>, template: Partial<Event>, slots: TimeSlot[], request: AISchedulingRequest, targetName: string) => Promise<void>,
   _slotsProvided: boolean
 ): Promise<void> {
+  console.log('\n🔍 [DEBUG] RAW AI function arguments:');
+  console.log(toolCall.function.arguments);
   const eventTemplate = processGenerateEventTemplateResult(toolCall.function.arguments);
+  console.log('\n🔍 [DEBUG] Parsed event template intent:', eventTemplate.intent);
+  console.log('🔍 [DEBUG] Parsed preferredSchedulableHours:', JSON.stringify(eventTemplate.preferredSchedulableHours, null, 2));
 
   // Apply title case to multi-word titles
   if (eventTemplate.title) {

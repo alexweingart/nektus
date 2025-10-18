@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { useSession } from 'next-auth/react';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
@@ -18,6 +18,8 @@ import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
+
+type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
 
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
@@ -43,6 +45,13 @@ const ProfileView: React.FC = () => {
   const { isInstallable, installPWA, showIOSModal, closeIOSModal } = usePWAInstall();
   
   const router = useRouter();
+
+  // Animation state
+  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
+  const profileInfoRef = useRef<HTMLDivElement>(null);
+  const topButtonsRef = useRef<HTMLDivElement>(null);
+  const nektButtonRef = useRef<HTMLDivElement>(null);
+  const pwaButtonRef = useRef<HTMLDivElement>(null);
 
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -79,6 +88,175 @@ const ProfileView: React.FC = () => {
       checkForSavedContact();
     }
   }, [currentProfile]);
+
+  // Floating animation is now triggered by ExchangeButton's waiting-for-bump state
+  // No auto-floating on mount
+  const [shouldStopFloating, setShouldStopFloating] = useState(false);
+
+  // Listen for bump animation events
+  useEffect(() => {
+    const handleStartFloating = () => {
+      console.log('🎯 ProfileView: Starting floating animation');
+      setShouldStopFloating(false);
+      setAnimationPhase('floating');
+    };
+
+    const handleStopFloating = () => {
+      console.log('🎯 ProfileView: Stop floating requested, will finish current cycle');
+      setShouldStopFloating(true);
+      // Don't change animation phase yet - let animation iteration event handle it
+    };
+
+    const handleBumpDetected = () => {
+      console.log('🎯 ProfileView: Bump detected, starting wind-up animation');
+      setAnimationPhase('wind-up');
+    };
+
+    const handleMatchFound = (event: CustomEvent) => {
+      console.log('🎯 ProfileView: Match found, starting exit animation');
+      const { contactBackgroundImage } = event.detail || {};
+
+      // Prepare contact background for crossfade
+      if (contactBackgroundImage) {
+        // Create body::after for contact background
+        const afterStyle = document.createElement('style');
+        afterStyle.id = 'contact-background-transition';
+        afterStyle.textContent = `
+          body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('${contactBackgroundImage}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 1000ms ease-in-out;
+            pointer-events: none;
+          }
+          body.crossfade-active::after {
+            opacity: 1;
+          }
+          body.crossfade-active::before {
+            opacity: 0;
+            transition: opacity 1000ms ease-in-out;
+          }
+        `;
+        document.head.appendChild(afterStyle);
+
+        // Trigger crossfade
+        requestAnimationFrame(() => {
+          document.body.classList.add('crossfade-active');
+        });
+      }
+
+      setAnimationPhase('exiting');
+    };
+
+    window.addEventListener('start-floating', handleStartFloating);
+    window.addEventListener('stop-floating', handleStopFloating);
+    window.addEventListener('bump-detected', handleBumpDetected as EventListener);
+    window.addEventListener('match-found', handleMatchFound as EventListener);
+
+    return () => {
+      window.removeEventListener('start-floating', handleStartFloating);
+      window.removeEventListener('stop-floating', handleStopFloating);
+      window.removeEventListener('bump-detected', handleBumpDetected as EventListener);
+      window.removeEventListener('match-found', handleMatchFound as EventListener);
+    };
+  }, []);
+
+  // Handle animation iteration to smoothly stop floating
+  useEffect(() => {
+    const profileCard = profileInfoRef.current;
+    if (!profileCard) return;
+
+    const handleAnimationIteration = () => {
+      if (shouldStopFloating && animationPhase === 'floating') {
+        console.log('🎯 ProfileView: Float cycle complete, stopping now');
+        setAnimationPhase('idle');
+        setShouldStopFloating(false);
+      }
+    };
+
+    profileCard.addEventListener('animationiteration', handleAnimationIteration);
+    return () => {
+      profileCard.removeEventListener('animationiteration', handleAnimationIteration);
+    };
+  }, [shouldStopFloating, animationPhase]);
+
+  // Handle return from ContactView
+  useEffect(() => {
+    const isReturning = sessionStorage.getItem('returning-to-profile');
+    const contactBackground = sessionStorage.getItem('contact-background-url');
+
+    if (isReturning === 'true') {
+      console.log('🎯 ProfileView: Detected return from ContactView, starting fade-in');
+
+      // Clear the flags
+      sessionStorage.removeItem('returning-to-profile');
+
+      // If we have a contact background, set up crossfade
+      if (contactBackground && profile?.backgroundImage) {
+        console.log('🎯 ProfileView: Setting up background crossfade');
+
+        // Create style for contact background that will fade out
+        const contactBgStyle = document.createElement('style');
+        contactBgStyle.id = 'contact-background-fadeout';
+        contactBgStyle.textContent = `
+          body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('${contactBackground}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+            opacity: 1;
+            transition: opacity 300ms ease-out;
+            pointer-events: none;
+          }
+          body.fade-out-contact-bg::after {
+            opacity: 0;
+          }
+        `;
+        document.head.appendChild(contactBgStyle);
+
+        // Trigger fade out
+        requestAnimationFrame(() => {
+          document.body.classList.add('fade-out-contact-bg');
+        });
+
+        // Clean up after animation
+        setTimeout(() => {
+          document.body.classList.remove('fade-out-contact-bg');
+          const style = document.getElementById('contact-background-fadeout');
+          if (style) {
+            style.remove();
+          }
+          sessionStorage.removeItem('contact-background-url');
+        }, 300);
+      } else {
+        sessionStorage.removeItem('contact-background-url');
+      }
+
+      // Trigger entrance animation
+      setAnimationPhase('entering');
+
+      // Return to idle state after animation
+      setTimeout(() => {
+        setAnimationPhase('idle');
+      }, 300);
+    }
+  }, [profile?.backgroundImage]);
 
   const handleMessageContact = () => {
     const contactName = getFieldValue(savedContactProfile?.contactEntries, 'name');
@@ -190,8 +368,17 @@ const ProfileView: React.FC = () => {
   return (
     <div className="min-h-dvh flex flex-col items-center px-4 py-2">
       {/* Top Navigation Buttons - Fixed */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
-        <Button 
+      <div
+        ref={topButtonsRef}
+        className={`w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0 transition-opacity duration-300 z-10 ${
+          animationPhase === 'wind-up' ? 'animate-[subtlePulse_300ms]' : ''
+        } ${
+          animationPhase === 'exiting' ? 'animate-fade-blur-out' : ''
+        } ${
+          animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+        }`}
+      >
+        <Button
           variant="circle"
           size="icon"
           className="w-14 h-14"
@@ -201,9 +388,9 @@ const ProfileView: React.FC = () => {
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
           </svg>
         </Button>
-        
+
         <Link href="/edit">
-          <Button 
+          <Button
             variant="circle"
             size="icon"
             className="w-14 h-14 relative"
@@ -219,9 +406,21 @@ const ProfileView: React.FC = () => {
       </div>
       
       {/* Fixed Content Area - No scroll */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-hidden">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-visible">
         {/* Profile Info with Carousel */}
-        <div className="w-full flex flex-col items-center" {...adminModeProps}>
+        <div
+          ref={profileInfoRef}
+          className={`w-full flex flex-col items-center transition-transform duration-300 ${
+            animationPhase === 'floating' ? 'animate-float z-20' : ''
+          } ${
+            animationPhase === 'wind-up' ? 'animate-wind-up z-20' : ''
+          } ${
+            animationPhase === 'exiting' ? 'animate-profile-exit z-[100]' : ''
+          } ${
+            animationPhase === 'entering' ? 'animate-crossfade-enter' : ''
+          }`}
+          {...adminModeProps}
+        >
           {currentProfile && (
             <ProfileInfo
               profile={currentProfile}
@@ -234,11 +433,27 @@ const ProfileView: React.FC = () => {
         
         {/* Action Buttons */}
         <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
-          <ExchangeButton />
-          
+          <div
+            ref={nektButtonRef}
+            className={`${
+              animationPhase === 'exiting' ? 'animate-button-fade-out' : ''
+            } ${
+              animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+            }`}
+          >
+            <ExchangeButton />
+          </div>
+
           {/* PWA Install Button */}
           {isInstallable && (
-            <div className="flex justify-center">
+            <div
+              ref={pwaButtonRef}
+              className={`flex justify-center ${
+                animationPhase === 'exiting' ? 'animate-[fadeOut_300ms_ease-in_forwards]' : ''
+              } ${
+                animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+              }`}
+            >
               <SecondaryButton onClick={installPWA}>
                 Add to home screen
               </SecondaryButton>

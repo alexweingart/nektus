@@ -64,27 +64,71 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       const service = new RealTimeContactExchangeService(sessionId, async (state: ContactExchangeState) => {
         console.log('🎯 ExchangeButton received state change:', state.status, state);
         setStatus(state.status);
-        
+
+        // Emit start-floating event when waiting for bump
+        if (state.status === 'waiting-for-bump') {
+          console.log('🎯 ExchangeButton: Emitting start-floating event');
+          window.dispatchEvent(new CustomEvent('start-floating'));
+        }
+
+        // Emit bump-detected event when processing starts
+        if (state.status === 'processing') {
+          console.log('🎯 ExchangeButton: Emitting bump-detected event');
+          window.dispatchEvent(new CustomEvent('bump-detected'));
+        }
+
         // Navigate to connect page only when we have a match
         if (state.status === 'matched' && state.match) {
-          router.push(`/connect?token=${state.match.token}`);
-          // Clear service reference immediately - service has already disconnected itself
-          setExchangeService(null);
-          // Reset status to idle after successful match
-          setStatus('idle');
+          console.log('🎯 ExchangeButton: Match found, fetching contact background');
+
+          // Store token for use in setTimeout callback
+          const matchToken = state.match.token;
+
+          // Fetch contact profile to get background image
+          let contactBackgroundImage = '';
+          try {
+            const response = await fetch(`/api/exchange/pair/${matchToken}`);
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.profile?.backgroundImage) {
+                contactBackgroundImage = result.profile.backgroundImage;
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch contact background:', error);
+          }
+
+          // Emit match-found event with contact background
+          console.log('🎯 ExchangeButton: Emitting match-found event');
+          window.dispatchEvent(new CustomEvent('match-found', {
+            detail: { contactBackgroundImage }
+          }));
+
+          // Navigate after a small delay to allow animation to start
+          setTimeout(() => {
+            router.push(`/connect?token=${matchToken}`);
+            // Clear service reference immediately - service has already disconnected itself
+            setExchangeService(null);
+            // Reset status to idle after successful match
+            setStatus('idle');
+          }, 100);
         }
         
         // Handle timeout - service has already disconnected itself, just manage UI
         if (state.status === 'timeout') {
+          console.log('🎯 ExchangeButton: Emitting stop-floating event (timeout)');
+          window.dispatchEvent(new CustomEvent('stop-floating'));
           // Keep the timeout state visible for user feedback
           setTimeout(() => {
             setStatus('idle');
             setExchangeService(null); // Clear service reference
           }, 1000); // Show timeout for 1 second, then reset UI
         }
-        
-        // Handle error - service has already disconnected itself, just manage UI  
+
+        // Handle error - service has already disconnected itself, just manage UI
         if (state.status === 'error') {
+          console.log('🎯 ExchangeButton: Emitting stop-floating event (error)');
+          window.dispatchEvent(new CustomEvent('stop-floating'));
           setTimeout(() => {
             setStatus('idle');
             setExchangeService(null); // Clear service reference
@@ -257,7 +301,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       size="xl"
       className={`
         w-full font-semibold
-        transition-all duration-200 ease-in-out
         ${isActive ? 'animate-pulse' : ''}
         ${className || ''}
       `}

@@ -75,6 +75,67 @@ export default function SmartScheduleView() {
   const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
 
+  // Handle background crossfade when entering from HistoryView
+  useEffect(() => {
+    const isEnteringFromHistory = sessionStorage.getItem('entering-from-history-to-schedule');
+    const historyBackground = sessionStorage.getItem('history-background-url');
+
+    if (isEnteringFromHistory === 'true') {
+      console.log('🎯 SmartScheduleView: Detected entrance from HistoryView, setting up background crossfade');
+
+      // Clear the flag
+      sessionStorage.removeItem('entering-from-history-to-schedule');
+
+      // If we have a history background and contact background, set up crossfade
+      if (historyBackground && contactProfile?.backgroundImage) {
+        console.log('🎯 SmartScheduleView: Setting up background crossfade');
+
+        // Create style for history background that will fade out
+        const historyBgStyle = document.createElement('style');
+        historyBgStyle.id = 'history-background-fadeout';
+        historyBgStyle.textContent = `
+          body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('${historyBackground}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 300ms ease-out;
+            pointer-events: none;
+          }
+          body.fade-out-history-bg::after {
+            opacity: 0;
+          }
+        `;
+        document.head.appendChild(historyBgStyle);
+
+        // Trigger fade out
+        requestAnimationFrame(() => {
+          document.body.classList.add('fade-out-history-bg');
+        });
+
+        // Clean up after animation
+        setTimeout(() => {
+          document.body.classList.remove('fade-out-history-bg');
+          const style = document.getElementById('history-background-fadeout');
+          if (style) {
+            style.remove();
+          }
+          sessionStorage.removeItem('history-background-url');
+        }, 300);
+      } else {
+        sessionStorage.removeItem('history-background-url');
+      }
+    }
+  }, [contactProfile?.backgroundImage]);
+
   // Load contact profile
   useEffect(() => {
     async function loadContact() {
@@ -363,11 +424,7 @@ export default function SmartScheduleView() {
 
   // Loading state
   if (loading || !contactProfile) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="animate-pulse text-white">Loading...</div>
-      </div>
-    );
+    return null;
   }
 
   const contactName = getFieldValue(contactProfile.contactEntries, 'name');
@@ -381,6 +438,14 @@ export default function SmartScheduleView() {
             onBack={() => {
               // Navigate back to history if user came from there, otherwise go to contact profile
               if (fromParam === 'history') {
+                // Mark that we're returning to history for crossfade animation
+                sessionStorage.setItem('returning-to-history', 'true');
+
+                // Store contact background for crossfade
+                if (contactProfile?.backgroundImage) {
+                  sessionStorage.setItem('contact-background-url', contactProfile.backgroundImage);
+                }
+
                 router.push('/history');
               } else {
                 router.push(`/contact/${params.userId}`);

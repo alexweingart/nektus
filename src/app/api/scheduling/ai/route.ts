@@ -252,7 +252,7 @@ function buildTimeSelectionPrompt(
 
     prompt += `\n**${dayName}, ${dateStr}:**\n`;
 
-    slotsForDay.slice(0, 8).forEach(slot => {
+    slotsForDay.slice(0, 48).forEach(slot => {
       const start = new Date(slot.start);
       const end = new Date(slot.end);
       const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });

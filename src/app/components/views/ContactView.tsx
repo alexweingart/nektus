@@ -46,7 +46,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
   const { profile: userProfile } = useProfile();
-  
+
+  // Animation state
+  const [isEntering, setIsEntering] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
+  const contactCardRef = useRef<HTMLDivElement>(null);
+  const buttonsRef = useRef<HTMLDivElement>(null);
+
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
   
@@ -165,7 +171,96 @@ export const ContactView: React.FC<ContactViewProps> = ({
     checkExchangeState();
   }, [profile, profile.userId, token, isHistoricalMode]);
 
+  // Handle background crossfade when entering from HistoryView
+  useEffect(() => {
+    const isEnteringFromHistory = sessionStorage.getItem('entering-from-history');
+    const historyBackground = sessionStorage.getItem('history-background-url');
 
+    if (isEnteringFromHistory === 'true') {
+      console.log('🎯 ContactView: Detected entrance from HistoryView, setting up background crossfade');
+
+      // Clear the flags
+      sessionStorage.removeItem('entering-from-history');
+
+      // If we have a history background, set up crossfade
+      if (historyBackground && profile.backgroundImage) {
+        console.log('🎯 ContactView: Setting up background crossfade');
+
+        // Create style for history background that will fade out
+        const historyBgStyle = document.createElement('style');
+        historyBgStyle.id = 'history-background-fadeout';
+        historyBgStyle.textContent = `
+          body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('${historyBackground}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 300ms ease-out;
+            pointer-events: none;
+          }
+          body.fade-out-history-bg::after {
+            opacity: 0;
+          }
+        `;
+        document.head.appendChild(historyBgStyle);
+
+        // Trigger fade out
+        requestAnimationFrame(() => {
+          document.body.classList.add('fade-out-history-bg');
+        });
+
+        // Clean up after animation
+        setTimeout(() => {
+          document.body.classList.remove('fade-out-history-bg');
+          const style = document.getElementById('history-background-fadeout');
+          if (style) {
+            style.remove();
+          }
+          sessionStorage.removeItem('history-background-url');
+        }, 300);
+      } else {
+        sessionStorage.removeItem('history-background-url');
+      }
+    }
+  }, [profile.backgroundImage]);
+
+  // Handle back navigation with animation
+  const handleBack = () => {
+    console.log('🎯 ContactView: Back button clicked, starting exit animation');
+    setIsExiting(true);
+
+    // Mark that we're returning (for coordinating entrance animation)
+    if (isHistoricalMode) {
+      console.log('🎯 ContactView: Marking return to history');
+      sessionStorage.setItem('returning-to-history', 'true');
+
+      // Store contact background for crossfade
+      if (profile.backgroundImage) {
+        sessionStorage.setItem('contact-background-url', profile.backgroundImage);
+      }
+    } else {
+      console.log('🎯 ContactView: Marking return to profile');
+      sessionStorage.setItem('returning-to-profile', 'true');
+
+      // Store contact background for crossfade
+      if (profile.backgroundImage) {
+        sessionStorage.setItem('contact-background-url', profile.backgroundImage);
+      }
+    }
+
+    // Wait for exit animation to complete
+    setTimeout(() => {
+      onReject();
+    }, 300);
+  };
 
   const handleSaveContact = async () => {
     try {
@@ -409,6 +504,21 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   }, [profile]);
 
+  // Handle enter animation - delay 500ms to match profile exit
+  useEffect(() => {
+    if (!isHistoricalMode) {
+      // Delay enter animation by 500ms (matching profile exit duration)
+      const enterTimer = setTimeout(() => {
+        setIsEntering(false);
+      }, 1000); // 500ms delay + 500ms animation = 1000ms total
+
+      return () => clearTimeout(enterTimer);
+    } else {
+      // For historical mode, no delay needed
+      setIsEntering(false);
+    }
+  }, [isHistoricalMode]);
+
   if (!profile) {
     console.log('❌ ContactView: No profile provided, returning null');
     return null; // No visual loading state
@@ -425,26 +535,38 @@ export const ContactView: React.FC<ContactViewProps> = ({
         {isHistoricalContact && (
           <div className="w-full max-w-[var(--max-content-width,448px)] flex-shrink-0">
             <PageHeader
-              onBack={onReject}
+              onBack={handleBack}
             />
           </div>
         )}
 
         {/* Fixed Content Area - No scroll */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center justify-center flex-1 overflow-hidden">
-          {/* Profile Image */}
-          <div className="mb-4">
-            <div className="border-4 border-white shadow-lg rounded-full">
-              <Avatar 
-                src={profile.profileImage} 
-                alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
-                size="lg"
-              />
+          {/* Profile Image & Content - animated together */}
+          <div
+            ref={contactCardRef}
+            className={`w-full flex flex-col items-center ${
+              isEntering && !isHistoricalMode ? 'animate-contact-enter' : ''
+            } ${
+              isExiting ? 'animate-crossfade-exit' : ''
+            }`}
+            style={{
+              animationDelay: isEntering && !isHistoricalMode ? '500ms' : '0ms'
+            }}
+          >
+            {/* Profile Image */}
+            <div className="mb-4">
+              <div className="border-4 border-white shadow-lg rounded-full">
+                <Avatar
+                  src={profile.profileImage}
+                  alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
+                  size="lg"
+                />
+              </div>
             </div>
-          </div>
-          
-          {/* Content with blur background */}
-          <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+
+            {/* Content with blur background */}
+            <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
             {/* Name */}
             <div className="text-center mb-4">
               <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'Anonymous'}</h1>
@@ -470,9 +592,22 @@ export const ContactView: React.FC<ContactViewProps> = ({
               )}
             </div>
           </div>
-          
-          {/* Action Buttons */}
-          <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+          </div>
+          {/* End of animated contact card wrapper */}
+
+          {/* Action Buttons - staggered animation starting at 800ms, finishing at 1000ms */}
+          <div
+            ref={buttonsRef}
+            className={`w-full mt-4 mb-4 space-y-3 ${
+              isEntering && !isHistoricalMode ? 'animate-fade-in-up' : ''
+            } ${
+              isExiting ? 'animate-crossfade-exit' : ''
+            }`}
+            style={{
+              maxWidth: 'var(--max-content-width, 448px)',
+              animationDelay: isEntering && !isHistoricalMode ? '800ms' : '0ms'
+            }}
+          >
             {isHistoricalMode ? (
               // Historical mode buttons (Phase 5)
               <>
@@ -527,7 +662,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 {!isSuccess && (
                   <div className="flex justify-center">
                     <SecondaryButton
-                      onClick={onReject}
+                      onClick={handleBack}
                       disabled={isSaving || isLoading}
                     >
                       Nah, who this

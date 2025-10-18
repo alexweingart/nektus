@@ -266,11 +266,7 @@ export default function AIScheduleView() {
   };
 
   if (loading || !contactProfile || !currentUserProfile) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="animate-pulse text-white">Loading...</div>
-      </div>
-    );
+    return null;
   }
 
   return (

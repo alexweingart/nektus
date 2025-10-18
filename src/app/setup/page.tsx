@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
-import { LoadingSpinner } from '../components/ui/elements/LoadingSpinner';
 import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -31,25 +30,13 @@ function SetupPageContent() {
   }, [isLoading, session, router]);
 
   if (isLoading) {
-    return (
-      <PullToRefresh onRefresh={handleRefresh}>
-        <div className="flex items-center justify-center h-full min-h-dvh">
-          <LoadingSpinner size="sm" />
-        </div>
-      </PullToRefresh>
-    );
+    return null;
   }
 
   if (session) {
     // Don't render ProfileSetupView if we're navigating away - prevents unnecessary renders
     if (isNavigatingFromSetup) {
-      return (
-        <PullToRefresh onRefresh={handleRefresh}>
-          <div className="flex items-center justify-center h-full min-h-dvh">
-            <LoadingSpinner size="sm" />
-          </div>
-        </PullToRefresh>
-      );
+      return null;
     }
     
     return (
@@ -62,18 +49,12 @@ function SetupPageContent() {
   }
 
   // Show loading state while redirect is happening
-  return (
-    <PullToRefresh onRefresh={handleRefresh}>
-              <div className="flex items-center justify-center h-full min-h-dvh">
-        <LoadingSpinner size="sm" />
-      </div>
-    </PullToRefresh>
-  );
+  return null;
 }
 
 export default function SetupPage() {
   return (
-            <Suspense fallback={<div className="flex items-center justify-center h-full min-h-dvh"><LoadingSpinner size="sm" /></div>}>
+    <Suspense fallback={<div className="min-h-dvh" />}>
       <SetupPageContent />
     </Suspense>
   );

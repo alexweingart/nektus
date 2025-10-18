@@ -8,7 +8,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
-import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { ItemChip } from '../ui/modules/ItemChip';
 import Avatar from '../ui/elements/Avatar';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
@@ -31,6 +30,67 @@ export const HistoryView: React.FC = () => {
   const [selectedContact, setSelectedContact] = useState<SavedContact | null>(null);
   const hasFetchedSlotsRef = useRef(false);
 
+  // Handle background crossfade when returning from ContactView
+  useEffect(() => {
+    const isReturning = sessionStorage.getItem('returning-to-history');
+    const contactBackground = sessionStorage.getItem('contact-background-url');
+
+    if (isReturning === 'true') {
+      console.log('🎯 HistoryView: Detected return from ContactView, setting up background crossfade');
+
+      // Clear the flags
+      sessionStorage.removeItem('returning-to-history');
+
+      // If we have a contact background, set up crossfade
+      if (contactBackground && userProfile?.backgroundImage) {
+        console.log('🎯 HistoryView: Setting up background crossfade');
+
+        // Create style for contact background that will fade out
+        const contactBgStyle = document.createElement('style');
+        contactBgStyle.id = 'contact-background-fadeout';
+        contactBgStyle.textContent = `
+          body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('${contactBackground}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 300ms ease-out;
+            pointer-events: none;
+          }
+          body.fade-out-contact-bg::after {
+            opacity: 0;
+          }
+        `;
+        document.head.appendChild(contactBgStyle);
+
+        // Trigger fade out
+        requestAnimationFrame(() => {
+          document.body.classList.add('fade-out-contact-bg');
+        });
+
+        // Clean up after animation
+        setTimeout(() => {
+          document.body.classList.remove('fade-out-contact-bg');
+          const style = document.getElementById('contact-background-fadeout');
+          if (style) {
+            style.remove();
+          }
+          sessionStorage.removeItem('contact-background-url');
+        }, 300);
+      } else {
+        sessionStorage.removeItem('contact-background-url');
+      }
+    }
+  }, [userProfile?.backgroundImage]);
+
   // Fetch contacts on component mount
   useEffect(() => {
     const fetchContacts = async () => {
@@ -41,7 +101,6 @@ export const HistoryView: React.FC = () => {
       }
 
       try {
-        setIsLoading(true);
         setError(null);
 
         console.log('🔍 Fetching contacts for user:', session.user.id);
@@ -52,11 +111,11 @@ export const HistoryView: React.FC = () => {
 
         console.log('✅ Loaded contacts:', sortedContacts.length);
         setContacts(sortedContacts);
+        setIsLoading(false);
 
       } catch (error) {
         console.error('Failed to load contacts:', error);
         setError('Failed to load contact history');
-      } finally {
         setIsLoading(false);
       }
     };
@@ -117,11 +176,7 @@ export const HistoryView: React.FC = () => {
 
   const handleRetry = () => {
     setError(null);
-    setIsLoading(true);
-    // Re-trigger the effect by updating a dependency
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    window.location.reload();
   };
 
   const handleGoBack = () => {
@@ -169,6 +224,14 @@ export const HistoryView: React.FC = () => {
   };
 
   const handleContactTap = (contact: SavedContact) => {
+    // Store flags for crossfade animation when entering ContactView
+    sessionStorage.setItem('entering-from-history', 'true');
+
+    // Store history background for crossfade
+    if (userProfile?.backgroundImage) {
+      sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
+    }
+
     // Navigate to the new contact page using userId
     router.push(`/contact/${contact.userId}`);
   };
@@ -187,6 +250,14 @@ export const HistoryView: React.FC = () => {
     );
 
     if (userHasCalendar) {
+      // Store flags for crossfade animation when entering SmartScheduleView
+      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
+
+      // Store history background for crossfade
+      if (userProfile?.backgroundImage) {
+        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
+      }
+
       // Navigate to smart-schedule page with 'from' parameter
       router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
     } else {
@@ -199,18 +270,26 @@ export const HistoryView: React.FC = () => {
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     if (selectedContact) {
+      // Store flags for crossfade animation when entering SmartScheduleView
+      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
+
+      // Store history background for crossfade
+      if (userProfile?.backgroundImage) {
+        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
+      }
+
       // After calendar is added, navigate to smart-schedule with 'from' parameter
       router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
     }
   };
 
-  // Loading state
+  // Loading state - show empty content
   if (isLoading) {
     return (
       <div className="min-h-dvh flex flex-col items-center px-4 py-2">
         {/* Header */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
-          <Button 
+          <Button
             variant="circle"
             size="icon"
             className="w-14 h-14"
@@ -218,19 +297,14 @@ export const HistoryView: React.FC = () => {
           >
             <FaArrowLeft className="h-5 w-5" />
           </Button>
-          
+
           <Heading as="h1">History</Heading>
-          
+
           <div className="w-14 h-14" /> {/* Spacer for centering */}
         </div>
 
-        {/* Loading content */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <LoadingSpinner size="sm" className="mx-auto mb-4" />
-            <Text variant="small" className="text-gray-300">Loading your contact history...</Text>
-          </div>
-        </div>
+        {/* Empty loading content */}
+        <div className="flex-1" />
       </div>
     );
   }
@@ -277,7 +351,7 @@ export const HistoryView: React.FC = () => {
     <div className="min-h-dvh flex flex-col items-center px-4 py-2">
       {/* Header */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
-        <Button 
+        <Button
           variant="circle"
           size="icon"
           className="w-14 h-14"
@@ -285,9 +359,9 @@ export const HistoryView: React.FC = () => {
         >
           <FaArrowLeft className="h-5 w-5" />
         </Button>
-        
+
         <Heading as="h1">History</Heading>
-        
+
         <div className="w-14 h-14" /> {/* Spacer for centering */}
       </div>
 

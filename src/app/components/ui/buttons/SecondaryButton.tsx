@@ -25,7 +25,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   return (
     <button
       className={cn(
-        "px-3 py-1 rounded-full text-white font-bold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50",
+        "px-3 py-1 rounded-full text-white font-bold text-sm disabled:opacity-50 button-release",
         variantStyles[variant],
         className
       )}

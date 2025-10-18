@@ -3,7 +3,6 @@
 import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
-import { LoadingSpinner } from './components/ui/elements/LoadingSpinner';
 import { PullToRefresh } from './components/ui/layout/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -37,11 +36,7 @@ export default function Home() {
 
   // Show loading state while checking auth status
   if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center h-full min-h-dvh">
-        <LoadingSpinner size="sm" />
-      </div>
-    );
+    return null;
   }
 
 
@@ -49,9 +44,7 @@ export default function Home() {
   if (session) {
     return (
       <PullToRefresh onRefresh={handleRefresh}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center">
-          <LoadingSpinner size="sm" />
-        </div>}>
+        <Suspense fallback={<div className="min-h-dvh" />}>
           <ProfileView />
         </Suspense>
       </PullToRefresh>

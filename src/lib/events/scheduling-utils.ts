@@ -136,7 +136,18 @@ function isSlotWithinSchedulableHours(
   const timeInMinutes = hour * 60 + minute;
 
   const daySchedule = preferredSchedulableHours[dayOfWeek];
+
+  // Extra logging for Sunday dinner slots
+  const isSundayDinner = dayOfWeek === 'sunday' && eventDurationOnly === 60 && beforeBuffer === 30 && afterBuffer === 30 && timeInMinutes >= 1020;
+  if (isSundayDinner) {
+    console.log(`\n🍽️ [SUNDAY DINNER DEBUG] Checking slot: ${slotTime.toLocaleString()} (${timeInMinutes} minutes from midnight)`);
+  }
+
+  console.log(`[isSlotWithinSchedulableHours] Checking slot: ${slotTime.toLocaleString()} (${timeInMinutes} minutes from midnight, day: ${dayOfWeek})`);
+  console.log(`[isSlotWithinSchedulableHours] Event duration: ${eventDurationOnly}, beforeBuffer: ${beforeBuffer}, afterBuffer: ${afterBuffer}`);
+
   if (!daySchedule || daySchedule.length === 0) {
+    console.log(`[isSlotWithinSchedulableHours] ❌ No schedule for ${dayOfWeek}`);
     return false;
   }
 
@@ -144,11 +155,14 @@ function isSlotWithinSchedulableHours(
     const startWindow = timeToMinutes(timeWindow.start);
     const endWindow = timeToMinutes(timeWindow.end);
 
+    console.log(`[isSlotWithinSchedulableHours] Checking against window: ${timeWindow.start}-${timeWindow.end} (${startWindow}-${endWindow} minutes)`);
+
     // If start === end, this is an explicit time request (e.g., "Thursday at 10am")
     // Just check if the slot's start time matches (within a small window for 30-min slots)
     if (startWindow === endWindow) {
       // Allow slots that start within 30 minutes of the explicit time
       if (Math.abs(timeInMinutes - startWindow) < 30) {
+        console.log(`[isSlotWithinSchedulableHours] ✅ Explicit time match`);
         return true;
       }
     } else {
@@ -158,12 +172,29 @@ function isSlotWithinSchedulableHours(
       const blockStartMinutes = timeInMinutes;
       const blockEndMinutes = timeInMinutes + beforeBuffer + eventDurationOnly + afterBuffer;
 
+      console.log(`[isSlotWithinSchedulableHours] Block would be: ${blockStartMinutes}-${blockEndMinutes} minutes (${Math.floor(blockStartMinutes/60)}:${(blockStartMinutes%60).toString().padStart(2,'0')}-${Math.floor(blockEndMinutes/60)}:${(blockEndMinutes%60).toString().padStart(2,'0')})`);
+      console.log(`[isSlotWithinSchedulableHours] Window is: ${startWindow}-${endWindow} minutes (${timeWindow.start}-${timeWindow.end})`);
+      console.log(`[isSlotWithinSchedulableHours] Check: ${blockStartMinutes} >= ${startWindow} (${blockStartMinutes >= startWindow}) AND ${blockEndMinutes} <= ${endWindow} (${blockEndMinutes <= endWindow})`);
+
       if (blockStartMinutes >= startWindow && blockEndMinutes <= endWindow) {
+        console.log(`[isSlotWithinSchedulableHours] ✅ Block fits within window`);
+        if (isSundayDinner) {
+          console.log(`🍽️ [SUNDAY DINNER DEBUG] ✅✅✅ PASSED VALIDATION! Slot should be valid.`);
+        }
         return true;
+      } else {
+        console.log(`[isSlotWithinSchedulableHours] ❌ Block does NOT fit within window`);
+        if (isSundayDinner) {
+          console.log(`🍽️ [SUNDAY DINNER DEBUG] ❌ FAILED - Block doesn't fit in window`);
+        }
       }
     }
   }
 
+  console.log(`[isSlotWithinSchedulableHours] ❌ No matching window found`);
+  if (isSundayDinner) {
+    console.log(`🍽️ [SUNDAY DINNER DEBUG] ❌ FAILED - No matching window found`);
+  }
   return false;
 }
 
@@ -317,6 +348,17 @@ export function getAllValidSlots(
     preferredHours: eventTemplate.preferredSchedulableHours
   });
 
+  // Log if this is a dinner event
+  if (eventDurationOnly === 60 && beforeBuffer === 30 && afterBuffer === 30) {
+    const sundaySlots = sortedSlots.filter(s => {
+      const d = new Date(s.start);
+      return d.getDay() === 0 && d.getHours() >= 17;
+    });
+    console.log(`\n🍽️ [DINNER DEBUG] Found ${sundaySlots.length} Sunday evening slots in input:`,
+      sundaySlots.slice(0, 5).map(s => new Date(s.start).toLocaleString())
+    );
+  }
+
   let filteredSlots = sortedSlots;
   if (eventTemplate.preferredSchedulableDates) {
     const { startDate, endDate } = getDateRange(eventTemplate.preferredSchedulableDates);
@@ -331,9 +373,19 @@ export function getAllValidSlots(
   let slotsPassedHoursCheck = 0;
   let slotsFailedConsecutiveCheck = 0;
 
+  console.log(`\n🔍 [getAllValidSlots] STARTING LOOP - Processing ${filteredSlots.length} filtered slots`);
+  console.log(`🔍 [getAllValidSlots] First 5 slots:`, filteredSlots.slice(0, 5).map(s => new Date(s.start).toLocaleString()));
+
   for (let i = 0; i < filteredSlots.length; i++) {
     const startSlot = filteredSlots[i];
     const slotTime = new Date(startSlot.start);
+    const slotEndTime = new Date(startSlot.end);
+
+    // Log first 10 slots always
+    if (i < 10) {
+      console.log(`\n🔍 [getAllValidSlots] Slot ${i}: ${slotTime.toLocaleString()} - ${slotEndTime.toLocaleString()}`);
+      console.log(`🔍 [getAllValidSlots] Slot ${i} duration: ${(slotEndTime.getTime() - slotTime.getTime()) / (60 * 1000)} minutes`);
+    }
 
     // Only check schedulable hours if there are actual constraints
     if (eventTemplate.preferredSchedulableHours && Object.keys(eventTemplate.preferredSchedulableHours).length > 0) {
@@ -345,7 +397,13 @@ export function getAllValidSlots(
         afterBuffer
       );
       if (!isValid) {
+        if (i < 10) {
+          console.log(`[getAllValidSlots] ❌ Slot ${i} FAILED hours check`);
+        }
         continue;
+      }
+      if (i < 10) {
+        console.log(`[getAllValidSlots] ✅ Slot ${i} PASSED hours check`);
       }
     }
 
@@ -414,20 +472,38 @@ export function getAllValidSlots(
     if (!coversRequiredStart || !coversRequiredEnd) {
       slotsFailedConsecutiveCheck++;
 
-      // Debug: Log why lunch slots fail consecutive check
-      if (eventTemplate.duration === 60 && beforeBuffer === 30 && afterBuffer === 30) {
+      // Debug: Log why dinner/lunch slots fail consecutive check
+      const dayOfWeek = getDayOfWeek(slotTime);
+      const hour = slotTime.getHours();
+      const isSundayDinner = dayOfWeek === 'sunday' && eventDurationOnly === 60 && beforeBuffer === 30 && hour >= 17;
+
+      if (isSundayDinner || (eventTemplate.duration === 60 && beforeBuffer === 30 && afterBuffer === 30)) {
         const eventStartWouldBe = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
-        console.log(`[getAllValidSlots] Slot ${slotsPassedHoursCheck} FAILED consecutive check:`, {
-          freeTimeStarts: slotTime.toLocaleString(),
-          eventWouldStartAt: eventStartWouldBe.toLocaleString(),
-          needsFreeTimeFrom: requiredStartTime.toLocaleString(),
-          needsFreeTimeUntil: requiredEndTime.toLocaleString(),
-          actualFreeTimeStart: consecutiveStartTime.toLocaleString(),
-          actualFreeTimeEnd: consecutiveEndTime.toLocaleString(),
-          coversRequiredStart,
-          coversRequiredEnd,
-          missingMinutes: !coversRequiredEnd ? (requiredEndTime.getTime() - consecutiveEndTime.getTime()) / (60 * 1000) : (requiredStartTime.getTime() - consecutiveStartTime.getTime()) / (60 * 1000)
-        });
+        if (isSundayDinner) {
+          console.log(`\n🍽️ [SUNDAY DINNER] FAILED consecutive check:`, {
+            freeTimeStarts: slotTime.toLocaleString(),
+            eventWouldStartAt: eventStartWouldBe.toLocaleString(),
+            needsFreeTimeFrom: requiredStartTime.toLocaleString(),
+            needsFreeTimeUntil: requiredEndTime.toLocaleString(),
+            actualFreeTimeStart: consecutiveStartTime.toLocaleString(),
+            actualFreeTimeEnd: consecutiveEndTime.toLocaleString(),
+            coversRequiredStart,
+            coversRequiredEnd,
+            missingMinutes: !coversRequiredEnd ? (requiredEndTime.getTime() - consecutiveEndTime.getTime()) / (60 * 1000) : (requiredStartTime.getTime() - consecutiveStartTime.getTime()) / (60 * 1000)
+          });
+        } else {
+          console.log(`[getAllValidSlots] Slot ${slotsPassedHoursCheck} FAILED consecutive check:`, {
+            freeTimeStarts: slotTime.toLocaleString(),
+            eventWouldStartAt: eventStartWouldBe.toLocaleString(),
+            needsFreeTimeFrom: requiredStartTime.toLocaleString(),
+            needsFreeTimeUntil: requiredEndTime.toLocaleString(),
+            actualFreeTimeStart: consecutiveStartTime.toLocaleString(),
+            actualFreeTimeEnd: consecutiveEndTime.toLocaleString(),
+            coversRequiredStart,
+            coversRequiredEnd,
+            missingMinutes: !coversRequiredEnd ? (requiredEndTime.getTime() - consecutiveEndTime.getTime()) / (60 * 1000) : (requiredStartTime.getTime() - consecutiveStartTime.getTime()) / (60 * 1000)
+          });
+        }
       }
 
       continue;
@@ -436,6 +512,13 @@ export function getAllValidSlots(
     // Calculate the actual event start time (after the before buffer)
     const eventStartTime = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
     const eventEndTime = new Date(eventStartTime.getTime() + eventDurationOnly * 60 * 1000);
+
+    // Log Sunday dinner slots that pass all checks
+    const dayOfWeek = getDayOfWeek(slotTime);
+    const hour = slotTime.getHours();
+    if (dayOfWeek === 'sunday' && eventDurationOnly === 60 && beforeBuffer === 30 && hour >= 17) {
+      console.log(`\n🍽️🍽️🍽️ [SUNDAY DINNER] VALID SLOT ADDED! Event would be ${eventStartTime.toLocaleString()} - ${eventEndTime.toLocaleString()}`);
+    }
 
     validSlots.push({
       start: eventStartTime.toISOString(),
@@ -487,6 +570,16 @@ export function getCandidateSlotsWithFallback(
 
   // Fallback if no common slots found
   if (slots.length === 0) {
+    console.log('\n⚠️ [getCandidateSlotsWithFallback] getAllValidSlots returned 0 slots - using fallback');
+    console.log('[getCandidateSlotsWithFallback] Available time slots count:', availableTimeSlots.length);
+    console.log('[getCandidateSlotsWithFallback] Template:', {
+      duration: template.duration,
+      beforeBuffer: template.travelBuffer?.beforeMinutes,
+      afterBuffer: template.travelBuffer?.afterMinutes,
+      intent: template.intent,
+      hasPreferredHours: !!template.preferredSchedulableHours
+    });
+
     // NOTE: Using fallback slots doesn't mean there's a conflict.
     // It just means we're generating slots based on preferred hours
     // instead of using pre-computed common availability.
@@ -504,6 +597,8 @@ export function getCandidateSlotsWithFallback(
       },
       calendarType
     );
+    console.log('[getCandidateSlotsWithFallback] Fallback generated', slots.length, 'slots');
+    console.log('[getCandidateSlotsWithFallback] ⚠️ WARNING: Fallback slots do NOT check against busy times from calendar!');
     hasNoCommonTime = true;
   }
 
@@ -581,10 +676,18 @@ export function createFallbackFromTemplate(
       while (slotTime.getTime() + totalDurationNeeded * 60 * 1000 <= windowEndTime.getTime()) {
         const slotEnd = new Date(slotTime.getTime() + totalDurationNeeded * 60 * 1000);
 
-        fallbackSlots.push({
+        const slot = {
           start: slotTime.toISOString(),
           end: slotEnd.toISOString()
-        });
+        };
+
+        // Log Saturday Oct 18-19 slots
+        const slotDateStr = slotTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (slotDateStr.includes('Oct 18') || slotDateStr.includes('Oct 19')) {
+          console.log(`[createFallbackFromTemplate] Generated fallback slot: ${slotTime.toLocaleString()} - ${slotEnd.toLocaleString()} (${totalDurationNeeded} min total)`);
+        }
+
+        fallbackSlots.push(slot);
 
         // Move to next 30-minute increment
         slotTime = new Date(slotTime.getTime() + 30 * 60 * 1000);
