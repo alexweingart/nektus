@@ -53,9 +53,10 @@ export const StandardModal: React.FC<StandardModalProps> = ({
   return (
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 backdrop-blur-sm animate-in fade-in-0 z-[2000]" />
+        <Dialog.Overlay className="fixed inset-0 z-[2000] animate-backdrop-enter" />
         <Dialog.Content
-          className="fixed left-[50%] top-[50%] z-[2000] grid w-[calc(100%-2rem)] max-w-[var(--max-content-width,448px)] translate-x-[-50%] translate-y-[-50%] gap-6 bg-black/80 border border-white/20 p-8 shadow-lg duration-200 animate-in fade-in-0 zoom-in-95 rounded-2xl"
+          className="fixed left-[50%] top-[50%] z-[2000] grid w-[calc(100%-2rem)] max-w-[var(--max-content-width,448px)] -translate-x-1/2 -translate-y-1/2 gap-6 bg-black/80 border border-white/20 p-8 shadow-lg rounded-2xl animate-modal-enter"
+          style={{ translate: '-50% -50%' }}
         >
           <div className="text-center space-y-4">
             {/* Title */}
@@ -105,7 +106,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
           {showCloseButton && (
             <Dialog.Close asChild>
               <button
-                className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none text-white hover:text-white/80"
+                className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none text-white hover:text-white/80"
                 aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

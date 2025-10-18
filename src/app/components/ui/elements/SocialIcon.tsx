@@ -146,7 +146,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
           <img
             src={customIcon}
             alt={platform}
-            className="w-full h-full object-contain rounded-md"
+            className="w-full h-full object-contain rounded-full"
           />
         </div>
       );

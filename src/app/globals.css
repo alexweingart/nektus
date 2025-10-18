@@ -317,7 +317,7 @@ select {
 /* Card component */
 @layer components {
   .card {
-    @apply rounded-lg p-6 transition-all duration-200;
+    @apply rounded-2xl p-6 transition-all duration-200;
     background-color: hsl(var(--card));
     color: hsl(var(--card-foreground));
     border: 1px solid hsl(var(--border));
@@ -332,7 +332,7 @@ select {
   
   /* Form elements */
   input, textarea, select {
-    @apply p-3 w-full outline-none transition-all rounded-md;
+    @apply p-3 w-full outline-none transition-all rounded-full;
     background-color: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     color: var(--foreground);
@@ -486,4 +486,289 @@ select {
   background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
   border-radius: 0.5rem;
   z-index: 0;
+}
+
+/* ============================================================================ */
+/* Bump-to-Match Animations                                                     */
+/* ============================================================================ */
+
+/* Floating animation - gentle breathing motion while waiting for bump */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Wind-up animation - compress and wobble when bump detected */
+@keyframes windUp {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  30% {
+    transform: scale(0.95) rotate(-1deg);
+  }
+  60% {
+    transform: scale(0.95) rotate(1deg);
+  }
+  100% {
+    transform: scale(0.96) rotate(0deg);
+  }
+}
+
+/* Float down - smooth return to position when cancelled/timeout */
+@keyframes floatDown {
+  0% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Profile exit - shoots up while shrinking */
+@keyframes profileExit {
+  0% {
+    transform: translateY(0) scale(0.96) rotate(0deg);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: translateY(-200px) scale(0.6);
+    opacity: 0;
+    filter: blur(16px);
+  }
+}
+
+/* Contact enter - slides down while growing */
+@keyframes contactEnter {
+  0% {
+    transform: translateY(-200px) scale(0.6);
+    opacity: 0;
+    filter: blur(16px);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* Fade blur out - for buttons and top UI elements */
+@keyframes fadeBlurOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: translateY(-40px);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* Button fade out - for Nekt button */
+@keyframes buttonFadeOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* Fade in up - for contact buttons (synchronized finish at 1000ms) */
+@keyframes fadeInUp {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Crossfade exit - smooth fade out for navigation */
+@keyframes crossfadeExit {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Crossfade enter - smooth fade in for navigation */
+@keyframes crossfadeEnter {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Subtle pulse - for top buttons during wind-up */
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Animation utility classes */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-wind-up {
+  animation: windUp 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-float-down {
+  animation: floatDown 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-profile-exit {
+  animation: profileExit 500ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.animate-contact-enter {
+  animation: contactEnter 500ms cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+.animate-fade-blur-out {
+  animation: fadeBlurOut 350ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.animate-button-fade-out {
+  animation: buttonFadeOut 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 200ms cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+.animate-crossfade-exit {
+  animation: crossfadeExit 300ms ease-out forwards;
+}
+
+.animate-crossfade-enter {
+  animation: crossfadeEnter 300ms ease-in forwards;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-wind-up,
+  .animate-float-down,
+  .animate-profile-exit,
+  .animate-contact-enter,
+  .animate-fade-blur-out,
+  .animate-button-fade-out,
+  .animate-fade-in-up,
+  .animate-crossfade-exit,
+  .animate-crossfade-enter {
+    animation: none;
+    transition: opacity 0.2s ease;
+  }
+}
+
+/* ============================================================================ */
+/* Standardized Button & Modal Animations                                      */
+/* ============================================================================ */
+
+/* Modal entrance - bounce in from center */
+@keyframes modalEnter {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Modal exit - scale down and fade */
+@keyframes modalExit {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* Modal backdrop entrance */
+@keyframes backdropEnter {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Standardized button animations */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.button-release {
+  transform: scale(1);
+  filter: brightness(1);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              filter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.button-release:active {
+  transform: scale(0.96);
+  filter: brightness(1.1);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Animation utility classes for modals */
+.animate-modal-enter {
+  animation: modalEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-modal-exit {
+  animation: modalExit 0.2s ease-in forwards;
+}
+
+.animate-backdrop-enter {
+  animation: backdropEnter 0.3s ease forwards;
+}
+
+/* Respect reduced motion for new animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-enter,
+  .animate-modal-exit,
+  .animate-backdrop-enter {
+    animation: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .button-press,
+  .button-release {
+    transform: none;
+    filter: none;
+    transition: none;
+  }
 }

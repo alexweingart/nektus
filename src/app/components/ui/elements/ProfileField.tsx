@@ -81,7 +81,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           inputProps={{
             id: fieldId,
             autoComplete: "tel",
-            className: "w-full p-2 border border-gray-300 rounded-md bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+            className: "w-full p-2 border border-gray-300 rounded-full bg-white bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
           }}
           onDropdownTouchMove={isDraggable ? (e) => {
             // Propagate touch move events for drag detection
