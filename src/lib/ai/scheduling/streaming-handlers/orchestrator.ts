@@ -2,7 +2,7 @@ import { createCompletion, AI_MODELS } from '@/lib/ai/scheduling/openai-client';
 import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { generateEventTemplateFunction } from '@/lib/ai/functions/generate-event-template';
 import { navigateToBookingLinkFunction } from '@/lib/ai/functions/navigate-to-booking';
-import { editEventFunction } from '@/lib/ai/functions/edit-event';
+import { editEventTemplateFunction } from '@/lib/ai/functions/edit-event-template';
 import { enqueueAcknowledgment, enqueueProgress, enqueueError } from './streaming-utils';
 import type { AISchedulingRequest, Message, OpenAIToolCall } from '@/types/ai-scheduling';
 import type { TimeSlot } from '@/types';
@@ -215,7 +215,7 @@ This takes priority over other classifications.` },
           tools: [
             { type: 'function', function: generateEventTemplateFunction },
             { type: 'function', function: navigateToBookingLinkFunction },
-            { type: 'function', function: editEventFunction },
+            { type: 'function', function: editEventTemplateFunction },
           ],
           tool_choice: isNewEvent
             ? { type: 'function', function: { name: 'generateEventTemplate' } }
@@ -246,10 +246,10 @@ This takes priority over other classifications.` },
             }
             break;
 
-          case 'editEvent':
-            // Only allow editEvent if there's conversation history (not a fresh page load)
+          case 'editEventTemplate':
+            // Only allow editEventTemplate if there's conversation history (not a fresh page load)
             if (conversationHistory.length === 0) {
-              console.warn('⚠️ editEvent called with no conversation history - treating as generateEventTemplate');
+              console.warn('⚠️ editEventTemplate called with no conversation history - treating as generateEventTemplate');
               // Treat as a new event request instead
               await handleGenerateEvent(toolCall, body, conversationHistory, contextMessage, availableTimeSlots, controller, encoder, slotsProvided);
             } else {

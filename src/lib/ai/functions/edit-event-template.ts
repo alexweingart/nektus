@@ -46,21 +46,21 @@ export const editEventTemplateFunction: OpenAIFunction = {
         description: 'New time windows if user wants a different time of day. Only provide if editType includes "time". IMPORTANT: For explicit times like "12:00 PM", set BOTH start AND end to the SAME time (e.g., {start: "12:00", end: "12:00"}) to indicate exact time request.',
         properties: {
           monday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
-          tuesday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
-          wednesday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
-          thursday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
-          friday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
-          saturday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
-          sunday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } } },
+          tuesday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
+          wednesday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
+          thursday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
+          friday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
+          saturday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
+          sunday: { type: 'array', items: { type: 'object', properties: { start: { type: 'string', description: 'Start time in HH:MM format. For explicit times, set same as end.' }, end: { type: 'string', description: 'End time in HH:MM format. For explicit times, set same as start.' } } } },
         },
       },
-      newActivitySearchQuery: {
-        type: 'string',
-        description: 'New activity search query if changing place category (e.g., from "coffee shops" to "restaurants"). Only provide if editType includes "place" AND user wants a different type of venue.',
+      newPlaceIndex: {
+        type: 'number',
+        description: 'Index of different place from cached options if user wants to change to one of the suggested alternatives. Only provide if editType includes "place" AND user is selecting from existing suggestions.',
       },
-      newSpecificPlaceName: {
+      newPlaceType: {
         type: 'string',
-        description: 'Specific venue name if user wants to change to an exact place (e.g., "Blue Bottle Coffee"). Only provide if editType includes "place" AND user mentions a specific venue name.',
+        description: 'Type of new venue if user wants a completely different kind of place (e.g., "park", "cafe", "library"). Only provide if editType includes "place" AND user requests a different type of venue than what was originally suggested.',
       },
       newDuration: {
         type: 'number',
@@ -81,8 +81,8 @@ export interface EditEventTemplateResult {
     description: string;
   };
   newPreferredSchedulableHours?: Partial<SchedulableHours>;
-  newActivitySearchQuery?: string;
-  newSpecificPlaceName?: string;
+  newPlaceIndex?: number;
+  newPlaceType?: string;
   newDuration?: number;
 }
 
@@ -113,12 +113,12 @@ export function processEditEventTemplateResult(args: string): EditEventTemplateR
       result.newPreferredSchedulableHours = parsed.newPreferredSchedulableHours;
     }
 
-    if (parsed.newActivitySearchQuery !== undefined) {
-      result.newActivitySearchQuery = parsed.newActivitySearchQuery;
+    if (parsed.newPlaceIndex !== undefined) {
+      result.newPlaceIndex = parsed.newPlaceIndex;
     }
 
-    if (parsed.newSpecificPlaceName !== undefined) {
-      result.newSpecificPlaceName = parsed.newSpecificPlaceName;
+    if (parsed.newPlaceType !== undefined) {
+      result.newPlaceType = parsed.newPlaceType;
     }
 
     if (parsed.newDuration !== undefined) {

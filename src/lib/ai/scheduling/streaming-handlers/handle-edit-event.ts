@@ -1,6 +1,6 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
 import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
-import { processEditEventResult } from '@/lib/ai/functions/edit-event';
+import { processEditEventTemplateResult } from '@/lib/ai/functions/edit-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';
 import { searchPlaces } from '@/lib/ai/helpers/search-places';
 import { handleConditionalEdit } from '@/lib/ai/helpers/conditional-edit';
@@ -29,7 +29,7 @@ export async function handleEditEvent(
 ): Promise<void> {
   console.log('✏️ Handling event edit...');
 
-  const editResult = processEditEventResult(toolCall.function.arguments);
+  const editResult = processEditEventTemplateResult(toolCall.function.arguments);
   console.log('📝 Edit request:', editResult);
 
   // Handle conditional modifications (e.g., "do I have any earlier times?")
