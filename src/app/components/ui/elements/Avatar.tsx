@@ -44,20 +44,7 @@ const Avatar: React.FC<AvatarProps> = ({
   React.useEffect(() => {
     setHasError(false); // Reset error state when src changes
     setImgSrc(src);
-
-    // Preload image for faster loading
-    if (src && size === 'lg') {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = src;
-      document.head.appendChild(link);
-
-      return () => {
-        document.head.removeChild(link);
-      };
-    }
-  }, [src, size]);
+  }, [src]);
 
   const handleError = () => {
     console.log('[Avatar] Image failed to load:', imgSrc);
