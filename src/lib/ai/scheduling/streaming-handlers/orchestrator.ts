@@ -279,6 +279,7 @@ This takes priority over other classifications.` },
           determineAlternativesToShow(templateResult.template, !hasExplicitTimeConflict);
 
         console.log(`📋 Alternatives to show: places=${showAlternativePlaces}, times=${showAlternativeTimes}, conflict=${includeConflictWarning}`);
+        console.log(`📋 Calendar type for message: ${body.calendarType}`);
 
         // Build prompt for LLM time/place selection
         const selectionPrompt = buildTimeSelectionPrompt(
