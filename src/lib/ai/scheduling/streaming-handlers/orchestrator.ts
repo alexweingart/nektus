@@ -89,10 +89,12 @@ CRITICAL: Questions about ALTERNATIVE TIMES/DAYS for an existing event = handle_
 
 Message writing rules:
 - For "show_more_events": Confirm and indicate loading more events (e.g., "Sure — let me show you more options!")
-- For "handle_event": Enthusiastic confirmation, NEVER asks a question (e.g., "Sure — let me find time!" or "Got it — updating that now!")
+- For "handle_event": Enthusiastic confirmation. CRITICAL: NEVER include a question mark or ask for more information. Just confirm you're working on it. (e.g., "Sure — let me find time!" or "Got it — I'll schedule that now!")
 - For "suggest_activities": Acknowledge and indicate you'll provide ideas (e.g., "Great question — let me find some ideas for you!")
 - For "confirm_scheduling": Reference their statement, then redirect to scheduling with a question
 - Keep to 1-2 sentences, warm and natural
+
+CRITICAL FOR handle_event: Your message must NOT contain any question marks (?). Do not ask about preferences, dates, times, or locations. Just confirm you're scheduling it.
 
 CRITICAL CONTEXT CHECK:
 - Look at the LAST assistant message (the one immediately before the user's current message)
