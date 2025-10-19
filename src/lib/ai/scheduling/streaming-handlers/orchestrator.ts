@@ -297,10 +297,10 @@ When generating your message field:
 - If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
 ${showAlternativePlaces || showAlternativeTimes ? `
 - Add section: "I also considered these options:"
-${showAlternativePlaces ? '  - List 2-3 alternative places from rankedPlaceIndices[1-3] with brief context (cuisine/distance/rating)' : ''}
+${showAlternativePlaces ? '  - List 2-3 alternative places from rankedPlaceIndices[1-3] as markdown links: [place name](google_maps_url) with brief context (cuisine/distance/rating)' : ''}
 ${showAlternativeTimes ? '  - List 2-3 alternative times from rankedSlotIndices[1-3] with brief context (day/time context)' : ''}` : ''}
 ${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
-- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your ${body.calendarType} calendar. Let me know if you'd like to make any changes!"
+- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 `;
 
         // Call LLM to select best time and place
