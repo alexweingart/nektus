@@ -312,36 +312,37 @@ This takes priority over other classifications.` },
           return `${idx}. ${place.name}${place.address ? ' - ' + place.address : ''}`;
         }).join('\n');
 
-        // Build EXACT string mappings for message generation
-        const slotStringMap = slots.slice(0, 10).map((slot, idx) => {
-          return `Slot ${idx} → "${formatSlotTime(slot)}"`;
-        }).join('\n');
+        // Build exact pre-formatted strings for the LLM to use
+        const selectedSlotIdx = 0; // Will be determined by LLM
+        const selectedPlaceIdx = 0;
 
-        const placeStringMap = places.slice(0, 10).map((place, idx) => {
-          return `Place ${idx} → ${formatPlaceLink(place)}`;
-        }).join('\n');
+        // Pre-build time strings for all slots
+        const timeStrings = slots.slice(0, 10).map(formatSlotTime);
+        // Pre-build place link strings for all places
+        const placeLinkStrings = places.slice(0, 10).map(formatPlaceLink);
 
-        const messageInstructions = `
-CRITICAL MESSAGE GENERATION RULES:
-You MUST use these EXACT strings in your message field. Copy them character-by-character.
+        // Build the user message with exact strings to use
+        let userMessage = `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}.
 
-TIME STRINGS (use based on your selected Slot index):
-${slotStringMap}
+Then write a warm message using these EXACT details:
 
-${places.length > 0 ? `PLACE STRINGS (use based on your selected Place index):
-${placeStringMap}` : ''}
+TIME (use the time string for your selected slot index):
+${timeStrings.map((t, i) => `Slot ${i}: "${t}"`).join('\n')}
 
+${places.length > 0 ? `PLACE (use the exact markdown link for your selected place index):
+${placeLinkStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+` : ''}
 MESSAGE FORMAT:
-- Start: "I've scheduled **${templateResult.template.title}** for **[EXACT string from your selected Slot]**${places.length > 0 ? ' at [EXACT string from your selected Place]' : ''}."
+- Start with: "I've scheduled **${templateResult.template.title}** for **[your selected time string]**${places.length > 0 ? ' at [your selected place link]' : ''}."
 ${templateResult.template.travelBuffer ? `- Add: "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
-${showAlternativePlaces || showAlternativeTimes ? `- Add: "I also considered these options:"
-${showAlternativePlaces ? `  - List EXACTLY 3 alternatives from your rankedPlaceIndices[1], [2], [3] using their EXACT Place strings` : ''}
-${showAlternativeTimes ? `  - List EXACTLY 3 alternatives from your rankedSlotIndices[1], [2], [3] using their EXACT Slot strings` : ''}` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `
+- Add: "I also considered these options:"` : ''}
+${showAlternativePlaces ? `  - List exactly 3 alternative place links from indices [1], [2], [3] of your ranked places` : ''}
+${showAlternativeTimes ? `  - List exactly 3 alternative time strings from indices [1], [2], [3] of your ranked slots` : ''}
 ${includeConflictWarning ? `- Add: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
-- End: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
+- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 
-CRITICAL: Do NOT paraphrase. Do NOT rewrite. COPY the exact strings from the mappings above.
-`;
+IMPORTANT: Copy the time strings and place links EXACTLY as shown above. Do not rewrite them.`;
 
         // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({
@@ -352,15 +353,7 @@ CRITICAL: Do NOT paraphrase. Do NOT rewrite. COPY the exact strings from the map
             { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'system', content: `
-Available Time Slots:
-${slotOptions}
-
-${places.length > 0 ? `Available Places:
-${placeOptions}` : ''}
-` },
-            { role: 'system', content: messageInstructions },
-            { role: 'user', content: `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices and generate a message using the EXACT strings from the mappings.` }
+            { role: 'user', content: userMessage }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },

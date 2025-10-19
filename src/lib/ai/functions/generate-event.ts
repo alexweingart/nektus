@@ -20,7 +20,7 @@ export const generateEventFunction: OpenAIFunction = {
       },
       message: {
         type: 'string',
-        description: 'Warm conversational message using the EXACT time/place strings from the provided mappings. Copy strings character-by-character - do not paraphrase.',
+        description: 'Natural message using the EXACT time/place/links provided in the user prompt. Copy the markdown links exactly as given.',
       },
       calendarProvider: {
         type: 'string',
