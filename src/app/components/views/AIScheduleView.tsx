@@ -220,7 +220,7 @@ export default function AIScheduleView() {
           user2Email: contactEmail,
           user1Location: currentUserLocation,
           user2Location: contactLocation,
-          contactType: contactType,
+          calendarType: contactType,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           availableTimeSlots: commonTimeSlots, // Pass pre-fetched slots
         }),

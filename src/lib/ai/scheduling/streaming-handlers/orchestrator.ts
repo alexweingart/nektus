@@ -294,12 +294,14 @@ This takes priority over other classifications.` },
         // Build message format instructions
         const messageInstructions = `
 When generating your message field:
-- Start with: "I've scheduled **${templateResult.template.title}** for **[day and time]**${places.length > 0 ? ' at [venue name](google_maps_url)' : ''}."
+- CRITICAL: Use the EXACT day and time from rankedSlotIndices[0] (the first slot you selected). Do NOT make up dates or times.
+- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day and time from your selected slot]**${places.length > 0 ? ' at [venue name](google_maps_url)' : ''}."
+- Format the time naturally (e.g., "Monday, Oct 20 at 5:00 PM" or "Tomorrow at 2:30 PM")
 - If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
 ${showAlternativePlaces || showAlternativeTimes ? `
 - Add section: "I also considered these options:"
 ${showAlternativePlaces ? '  - List 2-3 alternative places from rankedPlaceIndices[1-3] as markdown links: [place name](google_maps_url) with brief context (cuisine/distance/rating)' : ''}
-${showAlternativeTimes ? '  - List 2-3 alternative times from rankedSlotIndices[1-3] with brief context (day/time context)' : ''}` : ''}
+${showAlternativeTimes ? '  - List 2-3 alternative times from rankedSlotIndices[1-3] with brief context (day/time context). Use EXACT times from those slots, do not make them up.' : ''}` : ''}
 ${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
 - End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 `;
