@@ -41,7 +41,6 @@ type ProfileContextType = {
   setNavigatingFromSetup: (navigating: boolean) => void;
   // Streaming states for immediate UI feedback during generation
   streamingBio: string | null;
-  streamingProfileImage: string | null;
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingBackgroundImage: string | null;
 };
@@ -71,7 +70,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   
   // Separate streaming state for immediate updates during generation
   const [streamingBio, setStreamingBio] = useState<string | null>(null);
-  const [streamingProfileImage, setStreamingProfileImage] = useState<string | null>(null);
   const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactEntries'] | null>(null);
   const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
   
@@ -335,13 +333,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           .then(data => {
             if (data.imageUrl) {
               console.log('[ProfileContext] Profile image saved to Firebase storage:', data.imageUrl);
-              // Add cache busting to ensure fresh image display
-              const cacheBustingUrl = `${data.imageUrl}?v=${Date.now()}`;
-
-              // Update streaming state for immediate UI feedback
-              setStreamingProfileImage(cacheBustingUrl);
-
-              // API already saved to Firebase, no local state update needed
+              // Don't set streaming state - wait for profile reload to avoid race conditions
+              // The image will be available when we reload the profile from Firebase after all generations complete
             }
           })
           .catch(error => {
@@ -447,7 +440,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (updatedProfile) {
           // Clear streaming states and set final profile
           setStreamingBio(null);
-          setStreamingProfileImage(null);
           setStreamingSocialContacts(null);
           setStreamingBackgroundImage(null);
           setProfile(updatedProfile);
@@ -810,7 +802,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         getLatestProfile,
         setNavigatingFromSetup,
         streamingBio,
-        streamingProfileImage,
         streamingSocialContacts,
         streamingBackgroundImage
       }}

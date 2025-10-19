@@ -1,37 +1,19 @@
-import { createCompletion, AI_MODELS, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
+import { createCompletion, AI_MODELS } from '@/lib/ai/scheduling/openai-client';
 import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { generateEventTemplateFunction } from '@/lib/ai/functions/generate-event-template';
-import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';
 import { navigateToBookingLinkFunction } from '@/lib/ai/functions/navigate-to-booking';
 import { editEventTemplateFunction } from '@/lib/ai/functions/edit-event-template';
-import { searchPlaces } from '@/lib/ai/helpers/search-places';
-import { getCandidateSlotsWithFallback } from '@/lib/events/scheduling-utils';
-import { processingStateManager } from '@/lib/services/server/aiProcessingService';
-import { enqueueAcknowledgment, enqueueProgress, enqueueError, enqueueContent } from './streaming-utils';
-import { handleGenerateEventTemplate } from './handle-generate-event-template';
-import { handleEditEventTemplate } from './handle-edit-event-template';
-import { handleProvideAlternatives } from './handle-provide-alternatives';
-import { handleFinalizeEvent } from './handle-finalize-event-new';
-import { buildTimeSelectionPrompt } from './handler-utils';
+import { enqueueAcknowledgment, enqueueProgress, enqueueError } from './streaming-utils';
 import type { AISchedulingRequest, Message, OpenAIToolCall } from '@/types/ai-scheduling';
-import type { TimeSlot, Event } from '@/types';
-import type { Place } from '@/types/places';
-import type { TemplateHandlerResult } from './types';
+import type { TimeSlot } from '@/types';
 
-/**
- * NEW 5-Stage Pipeline Orchestrator
- *
- * Stage 1: Intent Classification (NANO)
- * Stage 2: Route by Intent
- * Stage 3: Template Generation (MINI) - via template handlers
- * Stage 4: Business Logic - slots + places coordination (orchestrator)
- * Stage 5: LLM Selection (MINI) - generateEvent or provideAlternatives
- */
 export async function streamSchedulingResponse(
   body: AISchedulingRequest,
   conversationHistory: Message[],
   contextMessage: string,
   availableTimeSlots: TimeSlot[],
+  handleGenerateEvent: (toolCall: OpenAIToolCall, body: AISchedulingRequest, conversationHistory: Message[], contextMessage: string, availableTimeSlots: TimeSlot[], controller: ReadableStreamDefaultController, encoder: TextEncoder, slotsProvided: boolean) => Promise<void>,
+  handleEditEvent: (toolCall: OpenAIToolCall, body: AISchedulingRequest, conversationHistory: Message[], contextMessage: string, availableTimeSlots: TimeSlot[], controller: ReadableStreamDefaultController, encoder: TextEncoder, slotsProvided: boolean) => Promise<void>,
   handleNavigateBooking: (toolCall: OpenAIToolCall, body: AISchedulingRequest, controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>,
   handleSuggestActivities: (body: AISchedulingRequest, conversationHistory: Message[], contextMessage: string, controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>,
   handleShowMoreEvents: (controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>
@@ -41,13 +23,12 @@ export async function streamSchedulingResponse(
       const encoder = new TextEncoder();
 
       try {
-        // ===================================================================
-        // STAGE 1: Intent Classification (NANO)
-        // ===================================================================
-        console.log('⚡ Stage 1: Intent classification...');
+        // IMMEDIATE: Generate natural language acknowledgment + determine action
+        console.log('⚡ Generating natural acknowledgment and determining action...');
 
         const targetName = body.user2Name || 'them';
 
+        // NANO determines intent AND generates response in one call
         const acknowledgmentCompletion = await createCompletion({
           model: AI_MODELS.GPT5_NANO,
           reasoning_effort: 'minimal',
@@ -94,6 +75,70 @@ Message writing rules:
 - For "confirm_scheduling": Reference their statement, then redirect to scheduling with a question
 - Keep to 1-2 sentences, warm and natural
 
+Examples:
+
+Input: "show me more"
+{"intent": "show_more_events", "message": "Sure — let me show you more options!"}
+
+Input: "what else is happening?"
+{"intent": "show_more_events", "message": "Here are more events!"}
+
+Input: "yes can you show the other 7 events?"
+{"intent": "show_more_events", "message": "Sure — let me show you the other 7 options!"}
+
+Input: "show me the rest"
+{"intent": "show_more_events", "message": "Here are the remaining events!"}
+
+Context example - Assistant previously said: "I found 6 more events - would you like to see them?"
+Input: "yea can you send them?"
+{"intent": "show_more_events", "message": "Sure — here are the other events!"}
+
+Context example - Assistant previously said: "I found 6 more events - would you like to see them?"
+Input: "yes"
+{"intent": "show_more_events", "message": "Here you go!"}
+
+Context example - Assistant previously said: "I found 7 more events - would you like to see them?"
+Input: "yes please"
+{"intent": "show_more_events", "message": "Sure — here are the rest!"}
+
+Input: "can you schedule dinner for me"
+{"intent": "handle_event", "message": "Sure — let me find dinner time for you and ${targetName}!"}
+
+Input: "let's play tennis"
+{"intent": "handle_event", "message": "Sure — let me find time for you and ${targetName} to play tennis!"}
+
+Input: "looking to play pickleball! what time is best?"
+{"intent": "handle_event", "message": "I'll find the best time for you and ${targetName} to play pickleball!"}
+
+Input: "actually, can we do on friday?"
+{"intent": "handle_event", "message": "Got it — updating to Friday!"}
+
+Input: "are there any earlier times?"
+{"intent": "handle_event", "message": "Sure — let me check for earlier times!"}
+
+Input: "what about other days?"
+{"intent": "handle_event", "message": "Absolutely — I'll find other day options for you!"}
+
+Input: "what should we do this weekend?"
+{"intent": "suggest_activities", "message": "Great question — let me find some ideas for you and ${targetName} this weekend!"}
+
+Input: "any ideas for activities tomorrow?"
+{"intent": "suggest_activities", "message": "I'll find some great options for you and ${targetName} tomorrow!"}
+
+Input: "what can we do together?"
+{"intent": "suggest_activities", "message": "Let me suggest some activities for you and ${targetName}!"}
+
+Input: "I like pop music"
+{"intent": "confirm_scheduling", "message": "That's cool that you like pop music! Want me to schedule time with ${targetName} to enjoy it together?"}
+
+Input: "what printer is best?"
+{"intent": "confirm_scheduling", "message": "I'm not great with printer recommendations, but I can help you schedule time with ${targetName} if you'd like!"}
+
+Input: "I'm tired"
+{"intent": "confirm_scheduling", "message": "Sounds like you need a break! Want me to schedule some downtime with ${targetName}?"}
+
+IMPORTANT: You will receive conversation history to understand context.
+
 CRITICAL CONTEXT CHECK:
 - Look at the LAST assistant message (the one immediately before the user's current message)
 - If the LAST assistant message contains phrases like:
@@ -110,41 +155,41 @@ This takes priority over other classifications.` },
           response_format: { type: 'json_object' },
         });
 
+        // Parse NANO's response (message + intent)
         const nanoResponse = JSON.parse(acknowledgmentCompletion.choices[0].message.content || '{"message": "Let me help you!", "intent": "confirm_scheduling"}');
         const acknowledgment = nanoResponse.message;
         const nanoIntent = nanoResponse.intent;
 
         console.log('📝 NANO response:', { acknowledgment, intent: nanoIntent });
+
+        // Send acknowledgment
         enqueueAcknowledgment(controller, encoder, acknowledgment);
 
-        // ===================================================================
-        // STAGE 2: Route by Intent
-        // ===================================================================
+        // If NANO determined this is show_more_events, show more cached events
         if (nanoIntent === 'show_more_events') {
-          console.log('✅ Stage 2: Routing to show_more_events');
+          console.log('✅ NANO classified as show_more_events - showing more events');
           await handleShowMoreEvents(controller, encoder);
           controller.close();
           return;
         }
 
+        // If NANO determined this is suggest_activities, generate suggestions with MINI
         if (nanoIntent === 'suggest_activities') {
-          console.log('✅ Stage 2: Routing to suggest_activities');
+          console.log('✅ NANO classified as suggest_activities - generating suggestions');
           await handleSuggestActivities(body, conversationHistory, contextMessage, controller, encoder);
           controller.close();
           return;
         }
 
+        // If NANO determined this is confirm_scheduling (unrelated), just close - NANO already responded
         if (nanoIntent === 'confirm_scheduling') {
-          console.log('✅ Stage 2: Routing to confirm_scheduling (already responded)');
+          console.log('✅ NANO classified as confirm_scheduling - already responded with redirect');
           controller.close();
           return;
         }
 
-        // ===================================================================
-        // STAGE 3: Template Generation (MINI)
-        // ===================================================================
-        console.log('🎯 Stage 3: Template generation for handle_event');
-
+        // For handle_event intent, show loading based on whether slots are available
+        console.log('🎯 NANO classified as handle_event - proceeding with event handling');
         const slotsProvided = availableTimeSlots.length > 0;
         if (!slotsProvided) {
           enqueueProgress(controller, encoder, 'Getting schedules...');
@@ -152,6 +197,9 @@ This takes priority over other classifications.` },
           enqueueProgress(controller, encoder, 'Thinking...');
         }
 
+        // Now call MINI to generate event template
+        // If no conversation history, force generateEventTemplate (new event)
+        // Otherwise, let LLM choose between edit/navigate/new event
         const isNewEvent = conversationHistory.length === 0;
 
         const extraction = await createCompletion({
@@ -171,9 +219,8 @@ This takes priority over other classifications.` },
           ],
           tool_choice: isNewEvent
             ? { type: 'function', function: { name: 'generateEventTemplate' } }
-            : 'auto',
+            : 'auto', // Force generateEventTemplate for new events, let LLM choose for edits
         });
-
         const toolCall = extraction.choices[0].message.tool_calls?.[0];
         if (!toolCall || toolCall.type !== 'function') {
           console.error('❌ No tool call found. Full response:', JSON.stringify(extraction.choices[0].message));
@@ -182,137 +229,37 @@ This takes priority over other classifications.` },
 
         console.log(`✅ LLM called function: ${toolCall.function.name}`);
 
-        // Handle navigate to booking link (bypass template system)
-        if (toolCall.function.name === 'navigateToBookingLink') {
-          if (conversationHistory.length === 0) {
-            console.warn('⚠️ navigateToBookingLink called with no history - falling through to generateEventTemplate');
-          } else {
-            await handleNavigateBooking(toolCall, body, controller, encoder);
-            controller.close();
-            return;
-          }
+        // Route based on which specific function was called
+        switch (toolCall.function.name) {
+          case 'generateEventTemplate':
+            await handleGenerateEvent(toolCall, body, conversationHistory, contextMessage, availableTimeSlots, controller, encoder, slotsProvided);
+            break;
+
+          case 'navigateToBookingLink':
+            // Only allow navigateToBookingLink if there's a previous event in conversation
+            if (conversationHistory.length === 0) {
+              console.warn('⚠️ navigateToBookingLink called with no conversation history - treating as generateEventTemplate');
+              // Treat as a new event request instead
+              await handleGenerateEvent(toolCall, body, conversationHistory, contextMessage, availableTimeSlots, controller, encoder, slotsProvided);
+            } else {
+              await handleNavigateBooking(toolCall, body, controller, encoder);
+            }
+            break;
+
+          case 'editEventTemplate':
+            // Only allow editEventTemplate if there's conversation history (not a fresh page load)
+            if (conversationHistory.length === 0) {
+              console.warn('⚠️ editEventTemplate called with no conversation history - treating as generateEventTemplate');
+              // Treat as a new event request instead
+              await handleGenerateEvent(toolCall, body, conversationHistory, contextMessage, availableTimeSlots, controller, encoder, slotsProvided);
+            } else {
+              await handleEditEvent(toolCall, body, conversationHistory, contextMessage, availableTimeSlots, controller, encoder, slotsProvided);
+            }
+            break;
+
+          default:
+            throw new Error(`Unknown function called: ${toolCall.function.name}`);
         }
-
-        // Get template from appropriate handler
-        let templateResult: TemplateHandlerResult;
-
-        if (toolCall.function.name === 'editEventTemplate' && conversationHistory.length > 0) {
-          templateResult = await handleEditEventTemplate(toolCall, body);
-        } else {
-          // Default to generateEventTemplate (handles both new events and fallback cases)
-          templateResult = await handleGenerateEventTemplate(toolCall);
-        }
-
-        console.log(`✅ Template generated (mode: ${templateResult.mode})`);
-
-        // ===================================================================
-        // STAGE 4: Business Logic - Slots + Places
-        // ===================================================================
-        console.log('🔧 Stage 4: Business logic coordination');
-        enqueueProgress(controller, encoder, 'Finding time and place...');
-
-        // Get candidate slots with fallback
-        const { slots, hasNoCommonTime, hasExplicitTimeConflict } = getCandidateSlotsWithFallback(
-          availableTimeSlots,
-          {
-            duration: templateResult.template.duration || 60,
-            intent: templateResult.template.intent,
-            preferredSchedulableHours: templateResult.template.preferredSchedulableHours,
-            preferredSchedulableDates: templateResult.template.preferredSchedulableDates,
-            travelBuffer: templateResult.template.travelBuffer,
-            hasExplicitTimeRequest: (templateResult.template as any).hasExplicitTimeRequest,
-          },
-          body.calendarType
-        );
-
-        console.log(`✅ Found ${slots.length} candidate slots (hasNoCommonTime: ${hasNoCommonTime}, hasExplicitTimeConflict: ${hasExplicitTimeConflict})`);
-
-        // Search places if needed
-        let places: Place[] = templateResult.cachedPlaces || [];
-        if (templateResult.needsPlaceSearch && !templateResult.cachedPlaces) {
-          enqueueProgress(controller, encoder, 'Researching places...');
-          places = await searchPlaces({
-            intentResult: {
-              intent: 'create_event',
-              ...templateResult.placeSearchParams,
-            } as any,
-            userLocations: [body.user1Location, body.user2Location].filter(Boolean) as string[],
-          });
-          console.log(`✅ Found ${places.length} places`);
-        }
-
-        // ===================================================================
-        // STAGE 5: LLM Selection - Conditional Routing
-        // ===================================================================
-        console.log('🤖 Stage 5: LLM selection');
-
-        // Path A: Conditional edit with no matching times → Provide alternatives
-        if (templateResult.isConditional && hasNoCommonTime) {
-          console.log('📋 Path A: Conditional edit with no matches → provideAlternatives');
-
-          // Get current event time from cached result
-          const currentEventTime = templateResult.previousEvent?.startTime || new Date().toISOString();
-
-          await handleProvideAlternatives({
-            availableTimeSlots,
-            template: templateResult.template,
-            currentEventTime,
-            body,
-            controller,
-            encoder,
-            timezone: body.timezone,
-          });
-
-          controller.close();
-          return;
-        }
-
-        // Path B: Normal event or conditional with matches → Generate event
-        console.log('✅ Path B: Normal flow → generateEvent');
-        enqueueProgress(controller, encoder, 'Selecting time and place...');
-
-        // Build prompt for LLM time/place selection
-        const selectionPrompt = buildTimeSelectionPrompt(
-          slots,
-          places,
-          templateResult.template,
-          body.calendarType,
-          body.timezone,
-          hasNoCommonTime
-        );
-
-        // Call LLM to select best time and place
-        const eventCompletion = await createCompletion({
-          model: getModelForTask('event'),
-          reasoning_effort: getReasoningEffortForTask('event'),
-          verbosity: 'low',
-          messages: [
-            { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
-            { role: 'system', content: contextMessage },
-            { role: 'system', content: selectionPrompt },
-            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}` }
-          ],
-          tools: [{ type: 'function', function: generateEventFunction }],
-          tool_choice: { type: 'function', function: { name: 'generateEvent' } },
-        });
-
-        const eventToolCall = eventCompletion.choices[0].message.tool_calls?.[0];
-        if (!eventToolCall) {
-          throw new Error('No generateEvent tool call returned');
-        }
-
-        // Process the event result
-        const eventResult = processGenerateEventResult(
-          eventToolCall.function.arguments,
-          slots,
-          places,
-          templateResult.template
-        );
-
-        console.log(`✅ Event selected: ${eventResult.startTime} - ${eventResult.endTime}`);
-
-        // Finalize event (create calendar event, stream result, cache)
-        await handleFinalizeEvent(eventResult, templateResult.template, body, controller, encoder, places);
 
         controller.close();
 

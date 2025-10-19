@@ -24,12 +24,11 @@ type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
 const ProfileView: React.FC = () => {
   const { data: session, status: sessionStatus } = useSession();
   
-  const { 
-    profile, 
-    isLoading: isProfileLoading, 
+  const {
+    profile,
+    isLoading: isProfileLoading,
     isNavigatingFromSetup,
     streamingBio,
-    streamingProfileImage,
     streamingSocialContacts
   } = useProfile();
 
@@ -290,11 +289,11 @@ const ProfileView: React.FC = () => {
     return streamingBio || profileBio || 'My bio is going to be awesome once I create it.';
   }, [streamingBio, currentProfile?.contactEntries]);
 
-  // Profile image with streaming support
+  // Profile image - wait for profile reload after generation
   const profileImageSrc = useMemo(() => {
-    const baseImageUrl = streamingProfileImage || currentProfile?.profileImage || session?.user?.image;
+    const baseImageUrl = currentProfile?.profileImage || session?.user?.image;
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [streamingProfileImage, currentProfile?.profileImage, session?.user?.image]);
+  }, [currentProfile?.profileImage, session?.user?.image]);
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {
