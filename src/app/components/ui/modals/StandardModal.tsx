@@ -57,6 +57,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
         <Dialog.Content
           className="fixed left-[50%] top-[50%] z-[2000] grid w-[calc(100%-2rem)] max-w-[var(--max-content-width,448px)] -translate-x-1/2 -translate-y-1/2 gap-6 bg-black/80 border border-white/20 p-8 shadow-lg rounded-2xl animate-modal-enter"
           style={{ translate: '-50% -50%' }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="text-center space-y-4">
             {/* Title */}
