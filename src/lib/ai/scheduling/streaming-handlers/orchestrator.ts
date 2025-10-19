@@ -305,22 +305,34 @@ This takes priority over other classifications.` },
 
         const formatPlaceWithExplanation = (place: Place) => {
           const link = formatPlaceLink(place);
-          const details: string[] = [];
+          const explanations: string[] = [];
 
-          if (place.rating) {
-            details.push(`${place.rating.toFixed(1)}⭐`);
+          // Build natural language explanations based on place attributes
+          if (place.rating && place.rating >= 4.5) {
+            explanations.push('highly rated');
+          } else if (place.rating && place.rating >= 4.0) {
+            explanations.push('well-reviewed');
           }
-          if (place.price_level) {
-            details.push('$'.repeat(place.price_level));
-          }
+
           if (place.distance_from_midpoint_km !== undefined) {
-            details.push(`${place.distance_from_midpoint_km.toFixed(1)}km from midpoint`);
-          }
-          if (place.opening_hours?.open_now !== undefined) {
-            details.push(place.opening_hours.open_now ? 'Open now' : 'Currently closed');
+            if (place.distance_from_midpoint_km < 1.5) {
+              explanations.push('very close to midpoint');
+            } else if (place.distance_from_midpoint_km < 3.0) {
+              explanations.push('convenient location');
+            }
           }
 
-          return details.length > 0 ? `${link} (${details.join(', ')})` : link;
+          if (place.price_level === 1) {
+            explanations.push('budget-friendly');
+          } else if (place.price_level && place.price_level >= 3) {
+            explanations.push('upscale option');
+          }
+
+          if (place.opening_hours?.open_now === false) {
+            explanations.push('currently closed');
+          }
+
+          return explanations.length > 0 ? `${link} - ${explanations.join(', ')}` : link;
         };
 
         // Build selection prompts with options
@@ -358,17 +370,21 @@ ${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 ALTERNATIVE PLACES (copy the exact strings with details for alternatives):
 ${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 ` : ''}
-MESSAGE FORMAT:
-- Start with: "I've scheduled **${templateResult.template.title}** for **[copy Slot X string from above]**${places.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
-${templateResult.template.travelBuffer ? `- Add: "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
-${showAlternativePlaces || showAlternativeTimes ? `
-- Add: "I also considered these options:"` : ''}
-${showAlternativePlaces ? `  - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly with all details)` : ''}
-${showAlternativeTimes ? `  - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
-${includeConflictWarning ? `- Add: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
-- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
+MESSAGE FORMAT (follow this structure EXACTLY, do not add extra lines):
+1. "I've scheduled **${templateResult.template.title}** for **[copy Slot X string from above]**${places.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
+${templateResult.template.travelBuffer ? `2. "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `3. "I also considered these options:"` : ''}
+${showAlternativePlaces ? `   - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly including explanations)` : ''}
+${showAlternativeTimes ? `   - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
+${includeConflictWarning ? `4. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
+${showAlternativePlaces || showAlternativeTimes ? '4' : '3'}. "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 
-CRITICAL: Copy the time strings and place markdown links EXACTLY character-for-character as shown above. For the main event, use PRIMARY place links. For alternatives, use ALTERNATIVE place strings with all the details included.`;
+CRITICAL RULES:
+- Copy time strings and place markdown links EXACTLY character-for-character
+- Use PRIMARY place links for the main event
+- Use ALTERNATIVE place strings (with explanations) for the alternatives list
+- Do NOT add any lines about "Event will start at..." or buffer calculations
+- Do NOT add any extra explanations beyond the format above`;
 
         // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({
