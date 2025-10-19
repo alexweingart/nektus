@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { AdminProfileService } from '@/lib/firebase/adminProfileService';
-import { getColorPalette, pickAccentColors } from '@/lib/services/server/colorService';
+import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/lib/services/server/colorService';
 import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
 import { UserProfile } from '@/types/profile';
 import { getOpenAIClient } from '@/lib/openai/client';
@@ -30,10 +30,14 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
   try {
     /**
      * Build a colour-focussed prompt.
-     * We treat the first palette entry as the dominant "hero" colour and allow up to two accents.
+     * First filter out achromatic colors (black, grey, white) to ensure vibrant backgrounds.
+     * Then treat the first chromatic palette entry as the dominant "hero" colour and allow up to two accents.
      */
-    const dominantColor = palette[0];
-    const accentColors = pickAccentColors(palette.slice(1)); // choose 2 colourful accents
+    const chromaticPalette = filterChromaticColors(palette);
+    console.log(`[API/BACKGROUND] Filtered palette from ${palette.length} to ${chromaticPalette.length} chromatic colors`);
+
+    const dominantColor = chromaticPalette[0];
+    const accentColors = pickAccentColors(chromaticPalette.slice(1)); // choose 2 colourful accents
 
     let colorPrompt: string;
     if (accentColors.length > 0) {
@@ -45,7 +49,7 @@ async function generateBackgroundImageForProfile(profile: UserProfile, palette: 
     }
 
     const bioEntry = profile.contactEntries?.find(e => e.fieldType === 'bio');
-    const prompt = `Generate a calm, minimal, dark, modern abstract background for a profile page.\n` +
+    const prompt = `Generate a playful, fun, minimal, dark, modern abstract background for a profile page.\n` +
       `Optional context: ${bioEntry?.value || 'no bio available'}.\n` +
       `${colorPrompt}\n` +
       `No text, people, objects, or recognisable symbols. Design must be dark enough so that white text is readable. ` +

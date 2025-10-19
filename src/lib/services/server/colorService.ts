@@ -115,6 +115,41 @@ export function pickAccentColors(palette: string[], count = 2): string[] {
 }
 
 /**
+ * Determines if a color is achromatic (black, grey, or white).
+ * Uses HSV color space to check saturation - low saturation indicates achromatic colors.
+ * @param hex HEX color string (e.g. '#FFFFFF')
+ * @returns true if the color is achromatic (black/grey/white)
+ */
+export function isAchromatic(hex: string): boolean {
+  const [r, g, b] = hexToRgb(hex);
+  const { s, v } = rgbToHsv(r, g, b);
+
+  // A color is achromatic if its saturation is very low
+  // Threshold of 0.15 catches greys, blacks, and whites while allowing muted colors
+  return s < 0.15;
+}
+
+/**
+ * Filters a color palette to remove achromatic colors (black, grey, white).
+ * Returns only chromatic (colorful) colors from the palette.
+ * Falls back to a vibrant default green if all colors are filtered out.
+ * @param palette Array of HEX color strings
+ * @returns Array of chromatic HEX color strings (guaranteed at least 1 color)
+ */
+export function filterChromaticColors(palette: string[]): string[] {
+  const chromatic = palette.filter(hex => !isAchromatic(hex));
+
+  // If all colors were filtered out (rare case of completely grey/B&W image),
+  // return a vibrant default color to ensure we always have something colorful
+  if (chromatic.length === 0) {
+    console.log('[COLOR] All palette colors were achromatic, using default vibrant color');
+    return [getDefaultBackgroundColor()];
+  }
+
+  return chromatic;
+}
+
+/**
  * Returns a complementary background color for profile image generation.
  * This should harmonize with our default background's green accent theme.
  * Based on the default background green (#22c55e), returns a warm contrasting color.
