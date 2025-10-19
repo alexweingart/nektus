@@ -1,24 +1,12 @@
 import { processGenerateEventTemplateResult } from '@/lib/ai/functions/generate-event-template';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import type { OpenAIToolCall } from '@/types/ai-scheduling';
-import type { Event } from '@/types';
-import type { Place } from '@/types/places';
 import type { EventSearchResult } from '@/lib/ai/helpers/search-events';
-
-export interface EventTemplateResult {
-  template: Partial<Event>;
-  mode: 'new';
-  needsPlaceSearch: boolean;
-  placeSearchParams?: {
-    suggestedPlaceTypes?: string[];
-    intentSpecificity?: 'specific_place' | 'activity_type' | 'generic';
-    activitySearchQuery?: string;
-  };
-}
+import type { TemplateHandlerResult } from './types';
 
 export async function handleGenerateEventTemplate(
   toolCall: OpenAIToolCall
-): Promise<EventTemplateResult> {
+): Promise<TemplateHandlerResult> {
   console.log('\n🔍 [DEBUG] RAW AI function arguments:');
   console.log(toolCall.function.arguments);
 
