@@ -18,17 +18,13 @@ export const generateEventFunction: OpenAIFunction = {
         items: { type: 'number' },
         description: 'Array of 4 place indices [best, alt1, alt2, alt3] (0-based, for in-person events only). All indices must be distinct. Alternative places should prefer those open at selected time when possible.',
       },
-      message: {
-        type: 'string',
-        description: 'Natural conversational message using the EXACT date/time and location provided in the system prompt. Must mention exactly 3 alternatives (not 2-3) if alternatives are requested.',
-      },
       calendarProvider: {
         type: 'string',
         enum: ['google', 'microsoft', 'apple'],
         description: 'Preferred calendar provider',
       },
     },
-    required: ['rankedSlotIndices', 'message', 'calendarProvider'],
+    required: ['rankedSlotIndices', 'calendarProvider'],
   },
 };
 
@@ -85,7 +81,6 @@ export function processGenerateEventResult(
       place: selectedPlace,
       calendarUrl: '', // Will be generated in the main handler
       calendarProvider: parsed.calendarProvider,
-      message: parsed.message,
       rankedSlotIndices,
       rankedPlaceIndices,
     };

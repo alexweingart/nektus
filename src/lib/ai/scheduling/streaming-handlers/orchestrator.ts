@@ -291,39 +291,36 @@ This takes priority over other classifications.` },
           hasNoCommonTime
         );
 
-        // Build indexed slot/place reference for message generation
-        const slotReference = slots.slice(0, 10).map((slot, idx) => {
+        // Get selected slot/place details to build exact message template
+        // We'll build the template AFTER the LLM selects, but prepare the data
+        const formatSlotTime = (slot: TimeSlot) => {
           const slotDate = new Date(slot.start);
-          const dayName = slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone });
-          const timeStr = slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
-          return `Slot ${idx}: ${dayName} at ${timeStr}`;
+          return slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone }) +
+                 ' at ' +
+                 slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
+        };
+
+        const formatPlaceLink = (place: Place) => {
+          return place.googleMapsUrl ? `[${place.name}](${place.googleMapsUrl})` : place.name;
+        };
+
+        // Build slot/place selection prompts
+        const slotOptions = slots.slice(0, 10).map((slot, idx) => {
+          return `${idx}. ${formatSlotTime(slot)}`;
         }).join('\n');
 
-        const placeReference = places.slice(0, 10).map((place, idx) => {
-          const linkText = place.googleMapsUrl ? `[${place.name}](${place.googleMapsUrl})` : place.name;
-          return `Place ${idx}: ${linkText}`;
+        const placeOptions = places.slice(0, 10).map((place, idx) => {
+          return `${idx}. ${place.name}${place.address ? ' - ' + place.address : ''}`;
         }).join('\n');
 
-        const messageInstructions = `
-CRITICAL - Message Generation Instructions:
-After selecting your ranked indices, you MUST generate a message using the EXACT details from the reference below:
+        const selectionInstructions = `
+Available Time Slots:
+${slotOptions}
 
-SLOT REFERENCE (use these EXACT day/time strings):
-${slotReference}
+${places.length > 0 ? `Available Places:
+${placeOptions}` : ''}
 
-${places.length > 0 ? `PLACE REFERENCE (use these EXACT names/addresses):
-${placeReference}` : ''}
-
-Message Format:
-- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day/time from your selected Slot X]**${places.length > 0 ? ' at [exact Place markdown link from Place X]' : ''}."
-- If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
-${showAlternativePlaces || showAlternativeTimes ? `- Add section: "I also considered these options:"
-${showAlternativePlaces ? '  - List EXACTLY 3 alternative places from rankedPlaceIndices[1], [2], [3] using the EXACT markdown link format [Name](url) from the Place reference, followed by brief context (e.g., "[Place Name](url) — great for evening matches")' : ''}
-${showAlternativeTimes ? '  - List EXACTLY 3 alternative times from your rankedSlotIndices[1], [2], [3] with brief context' : ''}` : ''}
-${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
-- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
-
-CRITICAL: Use the EXACT text from the references above. For places, use the EXACT markdown link format [Name](url). Do NOT make up dates, times, or place names.
+Your task: Select the best time slot and place (if applicable) by ranking your top 4 choices for each.
 `;
 
         // Call LLM to select best time and place
@@ -335,8 +332,8 @@ CRITICAL: Use the EXACT text from the references above. For places, use the EXAC
             { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'system', content: messageInstructions },
-            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices and generate a warm, conversational message using the EXACT details from the references.` }
+            { role: 'system', content: selectionInstructions },
+            { role: 'user', content: `Select the best time and place from the options above for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices for each.` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },
@@ -356,6 +353,53 @@ CRITICAL: Use the EXACT text from the references above. For places, use the EXAC
         );
 
         console.log(`✅ Event selected: ${eventResult.startTime} - ${eventResult.endTime}`);
+
+        // Build deterministic message with exact details
+        const selectedSlot = slots[eventResult.rankedSlotIndices[0]];
+        const selectedPlace = places.length > 0 ? places[eventResult.rankedPlaceIndices[0]] : undefined;
+
+        let message = `I've scheduled **${templateResult.template.title}** for **${formatSlotTime(selectedSlot)}**`;
+        if (selectedPlace) {
+          message += ` at ${formatPlaceLink(selectedPlace)}`;
+        }
+        message += '.\n\n';
+
+        if (templateResult.template.travelBuffer) {
+          message += `*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*\n\n`;
+        }
+
+        if (showAlternativePlaces || showAlternativeTimes) {
+          message += 'I also considered these options:\n\n';
+
+          if (showAlternativePlaces && places.length >= 4) {
+            for (let i = 1; i <= 3; i++) {
+              const altPlace = places[eventResult.rankedPlaceIndices[i]];
+              if (altPlace) {
+                message += `${formatPlaceLink(altPlace)} — ${altPlace.types?.[0] || 'great option'}\n`;
+              }
+            }
+            message += '\n';
+          }
+
+          if (showAlternativeTimes && slots.length >= 4) {
+            for (let i = 1; i <= 3; i++) {
+              const altSlot = slots[eventResult.rankedSlotIndices[i]];
+              if (altSlot) {
+                message += `${formatSlotTime(altSlot)}\n`;
+              }
+            }
+            message += '\n';
+          }
+        }
+
+        if (includeConflictWarning) {
+          message += '⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested.\n\n';
+        }
+
+        message += `When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!`;
+
+        // Add message to eventResult
+        (eventResult as any).message = message;
 
         // Finalize event (create calendar event, stream result, cache)
         await handleFinalizeEvent(eventResult, templateResult.template, body, controller, encoder, places);
