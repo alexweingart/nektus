@@ -15,13 +15,15 @@ interface ProfileInfoProps {
   profileImageSrc?: string;
   bioContent: string;
   className?: string;
+  isLoadingProfile?: boolean;
 }
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   profile,
   profileImageSrc,
   bioContent,
-  className
+  className,
+  isLoadingProfile = false
 }) => {
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
@@ -135,10 +137,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
       {/* Profile Image */}
       <div className="mb-4">
         <div className="border-4 border-white shadow-lg rounded-full">
-          <Avatar 
-            src={profileImageSrc} 
+          <Avatar
+            src={profileImageSrc}
             alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
             size="lg"
+            isLoading={isLoadingProfile}
           />
         </div>
       </div>

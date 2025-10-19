@@ -23,6 +23,11 @@ export default {
       gradientColorStops: {
         'theme-start': '#004D40',
         'theme-end': '#004D40',
+        'nekt-light': '#E7FED2', // From logo - pale cream/green
+        'nekt-dark': '#71E454',  // From logo - bright lime green
+      },
+      backgroundImage: {
+        'nekt-gradient': 'linear-gradient(135deg, #E7FED2, #71E454)',
       },
     },
   },

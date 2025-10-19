@@ -48,7 +48,7 @@ const EditProfileView: React.FC = () => {
 
   // Initial images setup
   const initialImages = {
-    profileImage: getOptimalProfileImageUrl(session?.user?.image || profile?.profileImage || '', 400),
+    profileImage: getOptimalProfileImageUrl(profile?.profileImage || '', 400),
     backgroundImage: profile?.backgroundImage || ''
   };
 

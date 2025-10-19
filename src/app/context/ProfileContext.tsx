@@ -134,10 +134,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
-            // Simple rule: If background is generated, we're done (profile image was already handled)
+            // Check if either avatar OR background is already generated
+            // Note: AI-generated avatars don't get background images, so we need to check both flags
+            const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
             const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
 
-            if (!backgroundAlreadyGenerated) {
+            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated) {
               console.log('[ProfileContext] New user detected - triggering asset generation');
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
@@ -269,14 +271,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Check if we need to generate a profile image
     let shouldGenerateProfileImage = false;
-    
-    // Only generate profile image if not already triggered
-    if (!profileImageGenerationTriggeredRef.current) {
+
+    // Only generate profile image if not already triggered AND not already generated
+    if (!profileImageGenerationTriggeredRef.current && !profile?.aiGeneration?.avatarGenerated) {
       profileImageGenerationTriggeredRef.current = true;
 
       // Check for profile image in existing profile or fall back to session
       const currentProfileImage = profile?.profileImage || session?.user?.image;
-      
+
       // Determine if we should generate an avatar
       let shouldGenerate = false;
 
@@ -757,6 +759,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return profileRef.current;
     };
     
+    // Helper to regenerate profile image
+    (window as unknown as { regenerateProfileImage: () => Promise<void> }).regenerateProfileImage = async () => {
+      try {
+        console.log('🔄 Regenerating profile image...');
+        const response = await fetch('/api/profile/generate/profile-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}), // Empty body to trigger AI generation
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to regenerate profile image: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Profile image regenerated successfully:', data.imageUrl);
+        console.log('🔄 Hard reloading page to clear cache...');
+
+        // Hard reload to clear all caches
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (error) {
+        console.error('❌ Failed to regenerate profile image:', error);
+      }
+    };
+
     // Helper to load vCard testing functions
     (window as unknown as { loadVCardTests: () => Promise<boolean> }).loadVCardTests = async () => {
       try {

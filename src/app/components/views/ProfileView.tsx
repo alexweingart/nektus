@@ -291,9 +291,9 @@ const ProfileView: React.FC = () => {
 
   // Profile image - wait for profile reload after generation
   const profileImageSrc = useMemo(() => {
-    const baseImageUrl = currentProfile?.profileImage || session?.user?.image;
+    const baseImageUrl = currentProfile?.profileImage;
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [currentProfile?.profileImage, session?.user?.image]);
+  }, [currentProfile?.profileImage]);
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {
@@ -426,6 +426,7 @@ const ProfileView: React.FC = () => {
               profileImageSrc={profileImageSrc}
               bioContent={bioContent}
               className="w-full flex flex-col items-center"
+              isLoadingProfile={isProfileLoading}
             />
           )}
         </div>

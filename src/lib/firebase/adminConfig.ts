@@ -345,24 +345,32 @@ export async function uploadImageBuffer(
   return withRetry(
     async () => {
       const { storage } = await getFirebaseAdmin();
-      
+
       // Get the bucket name from environment or construct it
-      const rawBucketName = process.env.FIREBASE_STORAGE_BUCKET || 
-                           process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 
+      const rawBucketName = process.env.FIREBASE_STORAGE_BUCKET ||
+                           process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
                            `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
-      
+
       // Clean the bucket name to ensure no whitespace or newlines
       const bucketName = rawBucketName.replace(/[\n\r\t]/g, '').trim();
-      
+
       const bucket = storage.bucket(bucketName);
-      
-      const rawFileName = `users/${userId}/${imageType}.jpg`;
+
+      // Detect if this is an SVG by checking the buffer content
+      const bufferString = imageBuffer.toString('utf-8', 0, Math.min(100, imageBuffer.length));
+      const isSvg = bufferString.includes('<svg') || bufferString.includes('<?xml');
+
+      // Use appropriate file extension and content type
+      const extension = isSvg ? 'svg' : 'jpg';
+      const contentType = isSvg ? 'image/svg+xml' : 'image/jpeg';
+
+      const rawFileName = `users/${userId}/${imageType}.${extension}`;
       const fileName = rawFileName.replace(/[\n\r\t]/g, '').trim();
       const file = bucket.file(fileName);
-      
+
       await file.save(imageBuffer, {
         metadata: {
-          contentType: 'image/jpeg',
+          contentType: contentType,
         },
       });
       
