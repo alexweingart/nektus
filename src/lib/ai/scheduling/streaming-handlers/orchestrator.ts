@@ -291,19 +291,38 @@ This takes priority over other classifications.` },
           hasNoCommonTime
         );
 
-        // Build message format instructions
+        // Build indexed slot/place reference for message generation
+        const slotReference = slots.slice(0, 10).map((slot, idx) => {
+          const slotDate = new Date(slot.start);
+          const dayName = slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone });
+          const timeStr = slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
+          return `Slot ${idx}: ${dayName} at ${timeStr}`;
+        }).join('\n');
+
+        const placeReference = places.slice(0, 10).map((place, idx) => {
+          return `Place ${idx}: ${place.name}${place.address ? ' - ' + place.address : ''}${place.googleMapsUrl ? ' (' + place.googleMapsUrl + ')' : ''}`;
+        }).join('\n');
+
         const messageInstructions = `
-When generating your message field:
-- CRITICAL: Use the EXACT day and time from rankedSlotIndices[0] (the first slot you selected). Do NOT make up dates or times.
-- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day and time from your selected slot]**${places.length > 0 ? ' at [venue name](google_maps_url)' : ''}."
-- Format the time naturally (e.g., "Monday, Oct 20 at 5:00 PM" or "Tomorrow at 2:30 PM")
+CRITICAL - Message Generation Instructions:
+After selecting your ranked indices, you MUST generate a message using the EXACT details from the reference below:
+
+SLOT REFERENCE (use these EXACT day/time strings):
+${slotReference}
+
+${places.length > 0 ? `PLACE REFERENCE (use these EXACT names/addresses):
+${placeReference}` : ''}
+
+Message Format:
+- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day/time from your selected Slot X]**${places.length > 0 ? ' at [exact Place name with Google Maps link]' : ''}."
 - If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
-${showAlternativePlaces || showAlternativeTimes ? `
-- Add section: "I also considered these options:"
-${showAlternativePlaces ? '  - List 2-3 alternative places from rankedPlaceIndices[1-3] as markdown links: [place name](google_maps_url) with brief context (cuisine/distance/rating)' : ''}
-${showAlternativeTimes ? '  - List 2-3 alternative times from rankedSlotIndices[1-3] with brief context (day/time context). Use EXACT times from those slots, do not make them up.' : ''}` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `- Add section: "I also considered these options:"
+${showAlternativePlaces ? '  - List EXACTLY 3 alternative places from your rankedPlaceIndices[1], [2], [3] with Google Maps links and brief context' : ''}
+${showAlternativeTimes ? '  - List EXACTLY 3 alternative times from your rankedSlotIndices[1], [2], [3] with brief context' : ''}` : ''}
 ${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
 - End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
+
+CRITICAL: Use the EXACT text from the references above. Do NOT make up dates, times, or place names.
 `;
 
         // Call LLM to select best time and place
@@ -316,7 +335,7 @@ ${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This 
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
             { role: 'system', content: messageInstructions },
-            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}. Generate a warm, conversational message explaining your selection.` }
+            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices and generate a warm, conversational message using the EXACT details from the references.` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },

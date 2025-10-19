@@ -20,7 +20,7 @@ export const generateEventFunction: OpenAIFunction = {
       },
       message: {
         type: 'string',
-        description: 'Natural message to user explaining the selected time/place and mentioning alternative options (times or places) based on what should be shown. Should feel warm and conversational.',
+        description: 'Natural conversational message using the EXACT date/time and location provided in the system prompt. Must mention exactly 3 alternatives (not 2-3) if alternatives are requested.',
       },
       calendarProvider: {
         type: 'string',
@@ -37,7 +37,7 @@ export function processGenerateEventResult(
   candidateSlots: TimeSlot[],
   places: Place[],
   eventTemplate: Partial<Event>
-): GenerateEventResult {
+): GenerateEventResult & { rankedSlotIndices: number[], rankedPlaceIndices: number[] } {
   try {
     const parsed = JSON.parse(args);
 
@@ -86,6 +86,8 @@ export function processGenerateEventResult(
       calendarUrl: '', // Will be generated in the main handler
       calendarProvider: parsed.calendarProvider,
       message: parsed.message,
+      rankedSlotIndices,
+      rankedPlaceIndices,
     };
   } catch (_error) {
     console.error('Error parsing generateEvent result:', _error);
