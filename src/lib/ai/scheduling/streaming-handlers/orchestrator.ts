@@ -300,7 +300,27 @@ This takes priority over other classifications.` },
         };
 
         const formatPlaceLink = (place: Place) => {
-          return place.googleMapsUrl ? `[${place.name}](${place.googleMapsUrl})` : place.name;
+          return place.google_maps_url ? `[${place.name}](${place.google_maps_url})` : place.name;
+        };
+
+        const formatPlaceWithExplanation = (place: Place) => {
+          const link = formatPlaceLink(place);
+          const details: string[] = [];
+
+          if (place.rating) {
+            details.push(`${place.rating.toFixed(1)}⭐`);
+          }
+          if (place.price_level) {
+            details.push('$'.repeat(place.price_level));
+          }
+          if (place.distance_from_midpoint_km !== undefined) {
+            details.push(`${place.distance_from_midpoint_km.toFixed(1)}km from midpoint`);
+          }
+          if (place.opening_hours?.open_now !== undefined) {
+            details.push(place.opening_hours.open_now ? 'Open now' : 'Currently closed');
+          }
+
+          return details.length > 0 ? `${link} (${details.join(', ')})` : link;
         };
 
         // Build selection prompts with options
@@ -318,31 +338,37 @@ This takes priority over other classifications.` },
 
         // Pre-build time strings for all slots
         const timeStrings = slots.slice(0, 10).map(formatSlotTime);
-        // Pre-build place link strings for all places
-        const placeLinkStrings = places.slice(0, 10).map(formatPlaceLink);
+        // Pre-build place strings:
+        // - Primary selection (index 0): Clean link only
+        // - Alternatives (index 1-3): Link with helpful details
+        const primaryPlaceStrings = places.slice(0, 10).map(formatPlaceLink);
+        const alternativePlaceStrings = places.slice(0, 10).map(formatPlaceWithExplanation);
 
         // Build the user message with exact strings to use
         let userMessage = `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}.
 
 Then write a warm message using these EXACT details:
 
-TIME (use the time string for your selected slot index):
+TIME (copy the exact time string for your selected slot index):
 ${timeStrings.map((t, i) => `Slot ${i}: "${t}"`).join('\n')}
 
-${places.length > 0 ? `PLACE (use the exact markdown link for your selected place index):
-${placeLinkStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+${places.length > 0 ? `PRIMARY PLACE (copy the exact markdown link for your selected place index):
+${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+
+ALTERNATIVE PLACES (copy the exact strings with details for alternatives):
+${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 ` : ''}
 MESSAGE FORMAT:
-- Start with: "I've scheduled **${templateResult.template.title}** for **[your selected time string]**${places.length > 0 ? ' at [your selected place link]' : ''}."
+- Start with: "I've scheduled **${templateResult.template.title}** for **[copy Slot X string from above]**${places.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
 ${templateResult.template.travelBuffer ? `- Add: "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
 ${showAlternativePlaces || showAlternativeTimes ? `
 - Add: "I also considered these options:"` : ''}
-${showAlternativePlaces ? `  - List exactly 3 alternative place links from indices [1], [2], [3] of your ranked places` : ''}
-${showAlternativeTimes ? `  - List exactly 3 alternative time strings from indices [1], [2], [3] of your ranked slots` : ''}
+${showAlternativePlaces ? `  - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly with all details)` : ''}
+${showAlternativeTimes ? `  - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
 ${includeConflictWarning ? `- Add: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
 - End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 
-IMPORTANT: Copy the time strings and place links EXACTLY as shown above. Do not rewrite them.`;
+CRITICAL: Copy the time strings and place markdown links EXACTLY character-for-character as shown above. For the main event, use PRIMARY place links. For alternatives, use ALTERNATIVE place strings with all the details included.`;
 
         // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({
