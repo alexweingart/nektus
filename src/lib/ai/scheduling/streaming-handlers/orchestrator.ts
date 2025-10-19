@@ -273,6 +273,13 @@ This takes priority over other classifications.` },
         console.log('✅ Path B: Normal flow → generateEvent');
         enqueueProgress(controller, encoder, 'Selecting time and place...');
 
+        // Determine which alternatives to show
+        const { determineAlternativesToShow } = await import('@/lib/events/event-utils');
+        const { showAlternativePlaces, showAlternativeTimes, includeConflictWarning } =
+          determineAlternativesToShow(templateResult.template, !hasExplicitTimeConflict);
+
+        console.log(`📋 Alternatives to show: places=${showAlternativePlaces}, times=${showAlternativeTimes}, conflict=${includeConflictWarning}`);
+
         // Build prompt for LLM time/place selection
         const selectionPrompt = buildTimeSelectionPrompt(
           slots,
@@ -283,6 +290,19 @@ This takes priority over other classifications.` },
           hasNoCommonTime
         );
 
+        // Build message format instructions
+        const messageInstructions = `
+When generating your message field:
+- Start with: "I've scheduled **${templateResult.template.title}** for **[day and time]**${places.length > 0 ? ' at [venue name](google_maps_url)' : ''}."
+- If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
+${showAlternativePlaces || showAlternativeTimes ? `
+- Add section: "I also considered these options:"
+${showAlternativePlaces ? '  - List 2-3 alternative places from rankedPlaceIndices[1-3] with brief context (cuisine/distance/rating)' : ''}
+${showAlternativeTimes ? '  - List 2-3 alternative times from rankedSlotIndices[1-3] with brief context (day/time context)' : ''}` : ''}
+${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
+- End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your ${body.calendarType} calendar. Let me know if you'd like to make any changes!"
+`;
+
         // Call LLM to select best time and place
         const eventCompletion = await createCompletion({
           model: getModelForTask('event'),
@@ -292,7 +312,8 @@ This takes priority over other classifications.` },
             { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}` }
+            { role: 'system', content: messageInstructions },
+            { role: 'user', content: `Select the best time and place from the candidates above for: ${templateResult.template.title || templateResult.template.intent}. Generate a warm, conversational message explaining your selection.` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },

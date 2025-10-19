@@ -103,6 +103,7 @@ export interface GenerateEventResult {
   place?: Place;
   calendarUrl: string;
   calendarProvider: string;
+  message?: string;
 }
 
 export interface NavigateToBookingParams {
