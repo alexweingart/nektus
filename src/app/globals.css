@@ -438,8 +438,13 @@ select {
 /* ============================================================================ */
 
 :root {
-  /* Update to use Nekt's gradient colors (teal/green theme) */
-  --icon-gradient: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); /* light green gradient */
+  /* Nekt logo gradient colors - matching the official brand */
+  --nekt-gradient-light: #E7FED2; /* Pale cream/green from logo */
+  --nekt-gradient-dark: #71E454;  /* Bright lime green from logo */
+  --nekt-gradient: linear-gradient(135deg, #E7FED2 0%, #71E454 100%);
+
+  /* Legacy icon gradient - keeping for backwards compatibility */
+  --icon-gradient: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
 }
 
 /* Utility classes for gradient elements */
