@@ -291,8 +291,7 @@ This takes priority over other classifications.` },
           hasNoCommonTime
         );
 
-        // Get selected slot/place details to build exact message template
-        // We'll build the template AFTER the LLM selects, but prepare the data
+        // Format helpers
         const formatSlotTime = (slot: TimeSlot) => {
           const slotDate = new Date(slot.start);
           return slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone }) +
@@ -304,7 +303,7 @@ This takes priority over other classifications.` },
           return place.googleMapsUrl ? `[${place.name}](${place.googleMapsUrl})` : place.name;
         };
 
-        // Build slot/place selection prompts
+        // Build selection prompts with options
         const slotOptions = slots.slice(0, 10).map((slot, idx) => {
           return `${idx}. ${formatSlotTime(slot)}`;
         }).join('\n');
@@ -313,17 +312,38 @@ This takes priority over other classifications.` },
           return `${idx}. ${place.name}${place.address ? ' - ' + place.address : ''}`;
         }).join('\n');
 
-        const selectionInstructions = `
-Available Time Slots:
-${slotOptions}
+        // Build EXACT string mappings for message generation
+        const slotStringMap = slots.slice(0, 10).map((slot, idx) => {
+          return `Slot ${idx} → "${formatSlotTime(slot)}"`;
+        }).join('\n');
 
-${places.length > 0 ? `Available Places:
-${placeOptions}` : ''}
+        const placeStringMap = places.slice(0, 10).map((place, idx) => {
+          return `Place ${idx} → ${formatPlaceLink(place)}`;
+        }).join('\n');
 
-Your task: Select the best time slot and place (if applicable) by ranking your top 4 choices for each.
+        const messageInstructions = `
+CRITICAL MESSAGE GENERATION RULES:
+You MUST use these EXACT strings in your message field. Copy them character-by-character.
+
+TIME STRINGS (use based on your selected Slot index):
+${slotStringMap}
+
+${places.length > 0 ? `PLACE STRINGS (use based on your selected Place index):
+${placeStringMap}` : ''}
+
+MESSAGE FORMAT:
+- Start: "I've scheduled **${templateResult.template.title}** for **[EXACT string from your selected Slot]**${places.length > 0 ? ' at [EXACT string from your selected Place]' : ''}."
+${templateResult.template.travelBuffer ? `- Add: "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `- Add: "I also considered these options:"
+${showAlternativePlaces ? `  - List EXACTLY 3 alternatives from your rankedPlaceIndices[1], [2], [3] using their EXACT Place strings` : ''}
+${showAlternativeTimes ? `  - List EXACTLY 3 alternatives from your rankedSlotIndices[1], [2], [3] using their EXACT Slot strings` : ''}` : ''}
+${includeConflictWarning ? `- Add: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
+- End: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
+
+CRITICAL: Do NOT paraphrase. Do NOT rewrite. COPY the exact strings from the mappings above.
 `;
 
-        // Call LLM to select best time and place
+        // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({
           model: getModelForTask('event'),
           reasoning_effort: getReasoningEffortForTask('event'),
@@ -332,8 +352,15 @@ Your task: Select the best time slot and place (if applicable) by ranking your t
             { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'system', content: selectionInstructions },
-            { role: 'user', content: `Select the best time and place from the options above for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices for each.` }
+            { role: 'system', content: `
+Available Time Slots:
+${slotOptions}
+
+${places.length > 0 ? `Available Places:
+${placeOptions}` : ''}
+` },
+            { role: 'system', content: messageInstructions },
+            { role: 'user', content: `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}. Rank your top 4 choices and generate a message using the EXACT strings from the mappings.` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },
@@ -353,53 +380,6 @@ Your task: Select the best time slot and place (if applicable) by ranking your t
         );
 
         console.log(`✅ Event selected: ${eventResult.startTime} - ${eventResult.endTime}`);
-
-        // Build deterministic message with exact details
-        const selectedSlot = slots[eventResult.rankedSlotIndices[0]];
-        const selectedPlace = places.length > 0 ? places[eventResult.rankedPlaceIndices[0]] : undefined;
-
-        let message = `I've scheduled **${templateResult.template.title}** for **${formatSlotTime(selectedSlot)}**`;
-        if (selectedPlace) {
-          message += ` at ${formatPlaceLink(selectedPlace)}`;
-        }
-        message += '.\n\n';
-
-        if (templateResult.template.travelBuffer) {
-          message += `*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*\n\n`;
-        }
-
-        if (showAlternativePlaces || showAlternativeTimes) {
-          message += 'I also considered these options:\n\n';
-
-          if (showAlternativePlaces && places.length >= 4) {
-            for (let i = 1; i <= 3; i++) {
-              const altPlace = places[eventResult.rankedPlaceIndices[i]];
-              if (altPlace) {
-                message += `${formatPlaceLink(altPlace)} — ${altPlace.types?.[0] || 'great option'}\n`;
-              }
-            }
-            message += '\n';
-          }
-
-          if (showAlternativeTimes && slots.length >= 4) {
-            for (let i = 1; i <= 3; i++) {
-              const altSlot = slots[eventResult.rankedSlotIndices[i]];
-              if (altSlot) {
-                message += `${formatSlotTime(altSlot)}\n`;
-              }
-            }
-            message += '\n';
-          }
-        }
-
-        if (includeConflictWarning) {
-          message += '⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested.\n\n';
-        }
-
-        message += `When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!`;
-
-        // Add message to eventResult
-        (eventResult as any).message = message;
 
         // Finalize event (create calendar event, stream result, cache)
         await handleFinalizeEvent(eventResult, templateResult.template, body, controller, encoder, places);
