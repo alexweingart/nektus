@@ -300,7 +300,8 @@ This takes priority over other classifications.` },
         }).join('\n');
 
         const placeReference = places.slice(0, 10).map((place, idx) => {
-          return `Place ${idx}: ${place.name}${place.address ? ' - ' + place.address : ''}${place.googleMapsUrl ? ' (' + place.googleMapsUrl + ')' : ''}`;
+          const linkText = place.googleMapsUrl ? `[${place.name}](${place.googleMapsUrl})` : place.name;
+          return `Place ${idx}: ${linkText}`;
         }).join('\n');
 
         const messageInstructions = `
@@ -314,15 +315,15 @@ ${places.length > 0 ? `PLACE REFERENCE (use these EXACT names/addresses):
 ${placeReference}` : ''}
 
 Message Format:
-- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day/time from your selected Slot X]**${places.length > 0 ? ' at [exact Place name with Google Maps link]' : ''}."
+- Start with: "I've scheduled **${templateResult.template.title}** for **[exact day/time from your selected Slot X]**${places.length > 0 ? ' at [exact Place markdown link from Place X]' : ''}."
 - If travel buffers exist, add: "*I've included ${templateResult.template.travelBuffer?.beforeMinutes || 30}-minute travel buffers before and after.*"
 ${showAlternativePlaces || showAlternativeTimes ? `- Add section: "I also considered these options:"
-${showAlternativePlaces ? '  - List EXACTLY 3 alternative places from your rankedPlaceIndices[1], [2], [3] with Google Maps links and brief context' : ''}
+${showAlternativePlaces ? '  - List EXACTLY 3 alternative places from rankedPlaceIndices[1], [2], [3] using the EXACT markdown link format [Name](url) from the Place reference, followed by brief context (e.g., "[Place Name](url) — great for evening matches")' : ''}
 ${showAlternativeTimes ? '  - List EXACTLY 3 alternative times from your rankedSlotIndices[1], [2], [3] with brief context' : ''}` : ''}
 ${includeConflictWarning ? '- Add conflict warning: "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I\'ve scheduled it as requested."' : ''}
 - End with: "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
 
-CRITICAL: Use the EXACT text from the references above. Do NOT make up dates, times, or place names.
+CRITICAL: Use the EXACT text from the references above. For places, use the EXACT markdown link format [Name](url). Do NOT make up dates, times, or place names.
 `;
 
         // Call LLM to select best time and place
