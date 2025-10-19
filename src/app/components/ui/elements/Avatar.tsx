@@ -37,31 +37,27 @@ const Avatar: React.FC<AvatarProps> = ({
   className = '',
   isLoading = false
 }) => {
-  // Check if image is from Google - if so, treat it as if there's no image
-  const isGoogleImage = src?.includes('googleusercontent.com');
-  const effectiveSrc = isGoogleImage ? undefined : src;
-
-  const [imgSrc, setImgSrc] = React.useState(effectiveSrc);
+  const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
   const sizeClass = sizeClasses[size];
 
   React.useEffect(() => {
     setHasError(false); // Reset error state when src changes
-    setImgSrc(effectiveSrc);
+    setImgSrc(src);
 
     // Preload image for faster loading
-    if (effectiveSrc && size === 'lg') {
+    if (src && size === 'lg') {
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
-      link.href = effectiveSrc;
+      link.href = src;
       document.head.appendChild(link);
 
       return () => {
         document.head.removeChild(link);
       };
     }
-  }, [effectiveSrc, size]);
+  }, [src, size]);
 
   const handleError = () => {
     console.log('[Avatar] Image failed to load:', imgSrc);
