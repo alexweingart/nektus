@@ -413,6 +413,7 @@ export const HistoryView: React.FC = () => {
                     alt={getFieldValue(contact.contactEntries, 'name')}
                     size="sm"
                     className="flex-shrink-0 !w-10 !h-10"
+                    avatarGenerated={contact.aiGeneration?.avatarGenerated}
                   />
                 }
                 title={getFieldValue(contact.contactEntries, 'name')}

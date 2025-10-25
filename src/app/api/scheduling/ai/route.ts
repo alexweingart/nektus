@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildContextMessage } from '@/lib/ai/scheduling/system-prompts';
+import { buildContextMessage } from '@/lib/ai/system-prompts';
 import { streamSchedulingResponse } from '@/lib/ai/scheduling/streaming-handlers/orchestrator';
 import { handleNavigateBooking } from '@/lib/ai/scheduling/streaming-handlers/handle-navigate-booking';
 import { handleSuggestActivities } from '@/lib/ai/scheduling/streaming-handlers/handle-suggest-activities';

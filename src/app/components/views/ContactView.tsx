@@ -561,6 +561,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   src={profile.profileImage}
                   alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
                   size="lg"
+                  avatarGenerated={profile.aiGeneration?.avatarGenerated}
                 />
               </div>
             </div>

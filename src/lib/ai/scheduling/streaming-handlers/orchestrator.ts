@@ -1,5 +1,5 @@
 import { createCompletion, AI_MODELS, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
-import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
+import { TEMPLATE_GENERATION_SYSTEM_PROMPT, getIntentClassificationPrompt, EVENT_SELECTION_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { generateEventTemplateFunction } from '@/lib/ai/functions/generate-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';
 import { navigateToBookingLinkFunction } from '@/lib/ai/functions/navigate-to-booking';
@@ -17,6 +17,49 @@ import type { AISchedulingRequest, Message, OpenAIToolCall } from '@/types/ai-sc
 import type { TimeSlot, Event } from '@/types';
 import type { Place } from '@/types/places';
 import type { TemplateHandlerResult } from './types';
+
+/**
+ * Build formatting instructions for Stage 5 LLM
+ * Contains exact pre-formatted strings and message format rules
+ */
+function buildFormattingInstructions(
+  timeStrings: string[],
+  primaryPlaceStrings: string[],
+  alternativePlaceStrings: string[],
+  template: Partial<Event>,
+  showAlternativePlaces: boolean,
+  showAlternativeTimes: boolean,
+  includeConflictWarning: boolean,
+  user2Name: string,
+  calendarType: string
+): string {
+  return `EXACT STRINGS TO USE:
+
+TIME STRINGS (copy exactly for your selected slot index):
+${timeStrings.map((t, i) => `Slot ${i}: "${t}"`).join('\n')}
+
+${primaryPlaceStrings.length > 0 ? `PRIMARY PLACE LINKS (copy exactly for main event):
+${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+
+ALTERNATIVE PLACE STRINGS (copy exactly for alternatives list):
+${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+` : ''}
+REQUIRED MESSAGE FORMAT:
+1. "I've scheduled **${template.title}** for **[copy Slot X string from above]**${primaryPlaceStrings.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
+${template.travelBuffer ? `2. "*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `3. "I also considered these options:"` : ''}
+${showAlternativePlaces ? `   - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly including explanations)` : ''}
+${showAlternativeTimes ? `   - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
+${includeConflictWarning ? `4. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
+${showAlternativePlaces || showAlternativeTimes ? '4' : '3'}. "When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!"
+
+CRITICAL RULES:
+- Copy time strings and place markdown links EXACTLY character-for-character
+- Use PRIMARY place links for the main event
+- Use ALTERNATIVE place strings (with explanations) for the alternatives list
+- Do NOT add any lines about "Event will start at..." or buffer calculations
+- Do NOT add any extra explanations beyond the format above`;
+}
 
 /**
  * NEW 5-Stage Pipeline Orchestrator
@@ -53,59 +96,7 @@ export async function streamSchedulingResponse(
           reasoning_effort: 'minimal',
           verbosity: 'low',
           messages: [
-            { role: 'system', content: `You help people schedule time with ${targetName}. Output JSON with "message" and "intent".
-
-Intent classification rules (DECIDE INTENT FIRST):
-1. "show_more_events" = User wants to see MORE events from a previous search (CHECK THIS FIRST!)
-   - Explicit requests: "show me more", "what else is there?", "show more events", "more options", "show the rest"
-   - Questions: "what else?", "anything else?", "what else is happening?", "more?"
-   - With numbers: "show me the other 7 events", "can you show the other 5", "show remaining events"
-   - CRITICAL: If the previous message said "I found X more events - would you like to see them?", ANY affirmative response = show_more_events
-   - Affirmative responses after being asked about more events: "yes", "yes please", "sure", "yeah", "yea", "ok", "show them", "send them"
-   - Look for keywords: "other", "more", "rest", "remaining" combined with "events"
-
-2. "handle_event" = User explicitly requests scheduling with SPECIFIC activity/time OR confirms/edits previous suggestion
-   - Direct requests: "schedule dinner", "book tennis", "find time for coffee"
-   - Action phrases: "can you schedule [activity]", "let's [activity]", "I want to [activity]"
-   - **Looking/wanting to do specific activity: "looking to play pickleball", "want to play tennis", "hoping to grab coffee"**
-   - Confirmation for event scheduling: "yes", "sure", "sounds good", "perfect", "that works", "ok" (UNLESS asking about more events)
-   - Edit requests: Mentions specific day/time ("friday instead", "saturday", "different time", "another place")
-   - **Alternative time requests: "are there any earlier times?", "do we have later options?", "any other times?"**
-   - **Alternative day requests: "what about other days?", "can we do a different day?", "other day options?"**
-
-3. "suggest_activities" = User wants to schedule but is ASKING FOR IDEAS about WHAT ACTIVITY to do (vague about the activity itself)
-   - Questions: "what should we do?", "any ideas?", "what can we do together?"
-   - Timeframe questions: "what should we do this weekend?", "ideas for tomorrow?" (WITHOUT specific activity)
-   - Activity exploration: "what's fun to do?", "suggestions for activities?"
-   - **NOT for time/day alternatives when event already exists**
-   - **NOT when user already mentions a specific activity like "pickleball", "tennis", "dinner", etc.**
-
-4. "confirm_scheduling" = Unrelated statement or tangential topic
-   - Unrelated topics: "what printer is best?", "how's the weather?"
-   - Vague statements: "I'm tired", "I like tennis" (without asking to schedule)
-   - NOT asking about scheduling or activities
-
-CRITICAL: Questions about ALTERNATIVE TIMES/DAYS for an existing event = handle_event. Questions about WHAT ACTIVITY to do = suggest_activities. "Show me more events" = show_more_events.
-
-Message writing rules:
-- For "show_more_events": Confirm and indicate loading more events (e.g., "Sure — let me show you more options!")
-- For "handle_event": Enthusiastic confirmation. CRITICAL: NEVER include a question mark or ask for more information. Just confirm you're working on it. (e.g., "Sure — let me find time!" or "Got it — I'll schedule that now!")
-- For "suggest_activities": Acknowledge and indicate you'll provide ideas (e.g., "Great question — let me find some ideas for you!")
-- For "confirm_scheduling": Reference their statement, then redirect to scheduling with a question
-- Keep to 1-2 sentences, warm and natural
-
-CRITICAL FOR handle_event: Your message must NOT contain any question marks (?). Do not ask about preferences, dates, times, or locations. Just confirm you're scheduling it.
-
-CRITICAL CONTEXT CHECK:
-- Look at the LAST assistant message (the one immediately before the user's current message)
-- If the LAST assistant message contains phrases like:
-  * "I found X more events - would you like to see them?"
-  * "Would you like to see them?"
-  * "would you like to see more?"
-  AND the user responds with ANY affirmative ("yes", "yes!", "sure", "ok", "yeah", "send them", etc.)
-  THEN classify as show_more_events (NOT handle_event!)
-
-This takes priority over other classifications.` },
+            { role: 'system', content: getIntentClassificationPrompt(targetName) },
             ...conversationHistory,
             { role: 'user', content: body.userMessage },
           ],
@@ -161,7 +152,7 @@ This takes priority over other classifications.` },
           reasoning_effort: 'low',
           verbosity: 'low',
           messages: [
-            { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
+            { role: 'system', content: TEMPLATE_GENERATION_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             ...conversationHistory,
             { role: 'user', content: body.userMessage },
@@ -335,19 +326,6 @@ This takes priority over other classifications.` },
           return explanations.length > 0 ? `${link} - ${explanations.join(', ')}` : link;
         };
 
-        // Build selection prompts with options
-        const slotOptions = slots.slice(0, 10).map((slot, idx) => {
-          return `${idx}. ${formatSlotTime(slot)}`;
-        }).join('\n');
-
-        const placeOptions = places.slice(0, 10).map((place, idx) => {
-          return `${idx}. ${place.name}${place.address ? ' - ' + place.address : ''}`;
-        }).join('\n');
-
-        // Build exact pre-formatted strings for the LLM to use
-        const selectedSlotIdx = 0; // Will be determined by LLM
-        const selectedPlaceIdx = 0;
-
         // Pre-build time strings for all slots
         const timeStrings = slots.slice(0, 10).map(formatSlotTime);
         // Pre-build place strings:
@@ -356,35 +334,18 @@ This takes priority over other classifications.` },
         const primaryPlaceStrings = places.slice(0, 10).map(formatPlaceLink);
         const alternativePlaceStrings = places.slice(0, 10).map(formatPlaceWithExplanation);
 
-        // Build the user message with exact strings to use
-        let userMessage = `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}.
-
-Then write a warm message using these EXACT details:
-
-TIME (copy the exact time string for your selected slot index):
-${timeStrings.map((t, i) => `Slot ${i}: "${t}"`).join('\n')}
-
-${places.length > 0 ? `PRIMARY PLACE (copy the exact markdown link for your selected place index):
-${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
-
-ALTERNATIVE PLACES (copy the exact strings with details for alternatives):
-${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
-` : ''}
-MESSAGE FORMAT (follow this structure EXACTLY, do not add extra lines):
-1. "I've scheduled **${templateResult.template.title}** for **[copy Slot X string from above]**${places.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
-${templateResult.template.travelBuffer ? `2. "*I've included ${templateResult.template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
-${showAlternativePlaces || showAlternativeTimes ? `3. "I also considered these options:"` : ''}
-${showAlternativePlaces ? `   - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly including explanations)` : ''}
-${showAlternativeTimes ? `   - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
-${includeConflictWarning ? `4. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
-${showAlternativePlaces || showAlternativeTimes ? '4' : '3'}. "When you create the event, ${body.user2Name || 'they'}'ll get an invite from your **${body.calendarType}** calendar. Let me know if you'd like to make any changes!"
-
-CRITICAL RULES:
-- Copy time strings and place markdown links EXACTLY character-for-character
-- Use PRIMARY place links for the main event
-- Use ALTERNATIVE place strings (with explanations) for the alternatives list
-- Do NOT add any lines about "Event will start at..." or buffer calculations
-- Do NOT add any extra explanations beyond the format above`;
+        // Build formatting instructions with exact strings and format rules
+        const formattingInstructions = buildFormattingInstructions(
+          timeStrings,
+          primaryPlaceStrings,
+          alternativePlaceStrings,
+          templateResult.template,
+          showAlternativePlaces,
+          showAlternativeTimes,
+          includeConflictWarning,
+          body.user2Name || 'them',
+          body.calendarType
+        );
 
         // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({
@@ -392,10 +353,11 @@ CRITICAL RULES:
           reasoning_effort: getReasoningEffortForTask('event'),
           verbosity: 'low',
           messages: [
-            { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
+            { role: 'system', content: EVENT_SELECTION_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'user', content: userMessage }
+            { role: 'system', content: formattingInstructions },
+            { role: 'user', content: `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },

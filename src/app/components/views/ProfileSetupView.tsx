@@ -167,6 +167,7 @@ function ProfileSetupView() {
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                   isLoading={isProfileLoading}
+                  avatarGenerated={profile?.aiGeneration?.avatarGenerated}
                 />
               </div>
             </div>

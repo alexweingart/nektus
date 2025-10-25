@@ -1,5 +1,5 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
-import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
+import { TEMPLATE_GENERATION_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { processEditEventTemplateResult } from '@/lib/ai/functions/edit-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';
 import { searchPlaces } from '@/lib/ai/helpers/search-places';
@@ -224,7 +224,7 @@ export async function handleEditEvent(
     reasoning_effort: getReasoningEffortForTask('event'),
     verbosity: 'low',
     messages: [
-      { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
+      { role: 'system', content: TEMPLATE_GENERATION_SYSTEM_PROMPT },
       { role: 'system', content: `IMPORTANT: You are helping schedule with **${targetName}**.` },
       { role: 'system', content: contextMessage },
       ...conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),
@@ -273,7 +273,7 @@ export async function handleEditEvent(
     reasoning_effort: 'minimal',
     verbosity: 'low',
     messages: [
-      { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
+      { role: 'system', content: TEMPLATE_GENERATION_SYSTEM_PROMPT },
       { role: 'system', content: `You are helping schedule with **${targetName}**. IMPORTANT: You are NOT attending the event - don't say "works for me" or similar phrases.` },
       { role: 'system', content: contextMessage },
       ...conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),

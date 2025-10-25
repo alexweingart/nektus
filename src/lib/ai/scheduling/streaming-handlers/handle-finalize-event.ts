@@ -1,5 +1,5 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
-import { SCHEDULING_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
+import { TEMPLATE_GENERATION_SYSTEM_PROMPT } from '@/lib/ai/system-prompts';
 import { generateEventFunction, processGenerateEventResult } from '@/lib/ai/functions/generate-event';
 import { createCompleteCalendarEvent, createTravelBufferDescription, calculateCalendarBlockTimes, determineAlternativesToShow } from '@/lib/events/event-utils';
 import { isPlaceOpenAt } from '@/lib/places/place-utils';
@@ -66,7 +66,7 @@ export async function handleFinalizeEvent({
     reasoning_effort: getReasoningEffortForTask('event'),
     verbosity: 'low',
     messages: [
-      { role: 'system', content: SCHEDULING_SYSTEM_PROMPT },
+      { role: 'system', content: TEMPLATE_GENERATION_SYSTEM_PROMPT },
       { role: 'system', content: `IMPORTANT: You are helping schedule with **${targetName}**.` },
       { role: 'system', content: contextMessage },
       { role: 'system', content: timeSelectionPrompt }, // ALL SLOTS + SELECTION GUIDANCE

@@ -7,6 +7,7 @@ interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   isLoading?: boolean;
+  avatarGenerated?: boolean;
 }
 
 const sizeClasses = {
@@ -35,11 +36,14 @@ const Avatar: React.FC<AvatarProps> = ({
   alt = 'Profile',
   size = 'md',
   className = '',
-  isLoading = false
+  isLoading = false,
+  avatarGenerated = false
 }) => {
-  // Check if image is from Google - if so, treat it as if there's no image
+  // If it's a Google image and we haven't generated a replacement avatar yet,
+  // treat it as if there's no image (show custom gradient initials instead)
   const isGoogleImage = src?.includes('googleusercontent.com');
-  const effectiveSrc = isGoogleImage ? undefined : src;
+  const shouldUseFallback = isGoogleImage && !avatarGenerated;
+  const effectiveSrc = shouldUseFallback ? undefined : src;
 
   const [imgSrc, setImgSrc] = React.useState(effectiveSrc);
   const [hasError, setHasError] = React.useState(false);
