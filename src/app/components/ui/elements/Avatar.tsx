@@ -7,7 +7,6 @@ interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   isLoading?: boolean;
-  avatarGenerated?: boolean;
 }
 
 const sizeClasses = {
@@ -36,36 +35,16 @@ const Avatar: React.FC<AvatarProps> = ({
   alt = 'Profile',
   size = 'md',
   className = '',
-  isLoading = false,
-  avatarGenerated = false
+  isLoading = false
 }) => {
-  // If it's a Google image and we haven't generated a replacement avatar yet,
-  // treat it as if there's no image (show custom gradient initials instead)
-  const isGoogleImage = src?.includes('googleusercontent.com');
-  const shouldUseFallback = isGoogleImage && !avatarGenerated;
-  const effectiveSrc = shouldUseFallback ? undefined : src;
-
-  const [imgSrc, setImgSrc] = React.useState(effectiveSrc);
+  const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
   const sizeClass = sizeClasses[size];
 
   React.useEffect(() => {
     setHasError(false); // Reset error state when src changes
-    setImgSrc(effectiveSrc);
-
-    // Preload image for faster loading
-    if (effectiveSrc && size === 'lg') {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = effectiveSrc;
-      document.head.appendChild(link);
-
-      return () => {
-        document.head.removeChild(link);
-      };
-    }
-  }, [effectiveSrc, size]);
+    setImgSrc(src);
+  }, [src]);
 
   const handleError = () => {
     console.log('[Avatar] Image failed to load:', imgSrc);

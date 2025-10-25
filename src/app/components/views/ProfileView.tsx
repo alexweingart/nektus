@@ -29,7 +29,8 @@ const ProfileView: React.FC = () => {
     isLoading: isProfileLoading,
     isNavigatingFromSetup,
     streamingBio,
-    streamingSocialContacts
+    streamingSocialContacts,
+    isGoogleInitials
   } = useProfile();
 
 
@@ -290,10 +291,14 @@ const ProfileView: React.FC = () => {
   }, [streamingBio, currentProfile?.contactEntries]);
 
   // Profile image - wait for profile reload after generation
+  // Filter out Google initials images to show our gradient instead
   const profileImageSrc = useMemo(() => {
+    if (isGoogleInitials) {
+      return undefined; // Show gradient fallback for Google initials
+    }
     const baseImageUrl = currentProfile?.profileImage;
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [currentProfile?.profileImage]);
+  }, [currentProfile?.profileImage, isGoogleInitials]);
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {

@@ -142,7 +142,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
             size="lg"
             isLoading={isLoadingProfile}
-            avatarGenerated={profile?.aiGeneration?.avatarGenerated}
           />
         </div>
       </div>

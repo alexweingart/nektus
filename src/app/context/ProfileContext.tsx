@@ -43,6 +43,8 @@ type ProfileContextType = {
   streamingBio: string | null;
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingBackgroundImage: string | null;
+  // Flag to indicate if current profile image is Google auto-generated initials
+  isGoogleInitials: boolean;
 };
 
 // Create context
@@ -67,11 +69,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingAccount] = useState(false);
   const [isNavigatingFromSetup, setIsNavigatingFromSetup] = useState(false);
-  
+
   // Separate streaming state for immediate updates during generation
   const [streamingBio, setStreamingBio] = useState<string | null>(null);
   const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactEntries'] | null>(null);
   const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
+
+  // Track if current profile image is Google auto-generated initials
+  const [isGoogleInitials, setIsGoogleInitials] = useState(false);
   
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
@@ -290,17 +295,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const accessToken = session?.accessToken;
           if (accessToken) {
             shouldGenerate = await isGoogleInitialsImage(accessToken);
+            setIsGoogleInitials(shouldGenerate);
             console.log('[ProfileContext] Google profile check result:', shouldGenerate ? 'initials' : 'real photo');
           } else {
             // No access token - assume it's a real photo to avoid unnecessary generation
             shouldGenerate = false;
+            setIsGoogleInitials(false);
             console.log('[ProfileContext] No access token available, assuming real photo');
           }
         } catch (error) {
           console.error('[ProfileContext] Error checking Google profile image:', error);
           // On error, assume it's a real photo to avoid unnecessary generation
           shouldGenerate = false;
+          setIsGoogleInitials(false);
         }
+      } else {
+        setIsGoogleInitials(false);
       }
 
       if (shouldGenerate) {
@@ -831,7 +841,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setNavigatingFromSetup,
         streamingBio,
         streamingSocialContacts,
-        streamingBackgroundImage
+        streamingBackgroundImage,
+        isGoogleInitials
       }}
     >
       {children}
