@@ -128,13 +128,17 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
     const currentCleaned = phoneInput.replace(/\D/g, '');
 
     if (cleanedValue !== currentCleaned) {
-      const formattedValue = formatPhoneNumber(cleanedValue);
-      setPhoneInput(formattedValue);
-
-      // If the value is a US number, ensure US is selected
-      if (cleanedValue.length === 10 || (cleanedValue.length === 11 && cleanedValue.startsWith('1'))) {
+      // Check if it's a US number (11 digits starting with 1) and strip the country code
+      let digitsToFormat = cleanedValue;
+      if (cleanedValue.length === 11 && cleanedValue.startsWith('1')) {
+        digitsToFormat = cleanedValue.slice(1); // Strip the leading 1
+        setSelectedCountryCode('US');
+      } else if (cleanedValue.length === 10) {
         setSelectedCountryCode('US');
       }
+
+      const formattedValue = formatPhoneNumber(digitsToFormat);
+      setPhoneInput(formattedValue);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]); // Only depend on value prop, not phoneInput

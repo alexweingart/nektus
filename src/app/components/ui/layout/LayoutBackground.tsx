@@ -134,8 +134,8 @@ export function LayoutBackground() {
     };
   }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError, isLoading]);
 
-  // Don't render on connect page (ContactView handles its own background)
-  if (pathname === '/connect') {
+  // Don't render on connect page or contact pages (those views handle their own backgrounds)
+  if (pathname === '/connect' || pathname.startsWith('/contact/')) {
     return null;
   }
 

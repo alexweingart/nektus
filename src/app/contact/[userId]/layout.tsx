@@ -44,14 +44,10 @@ export default function ContactLayout({
     if (!contactProfile) return;
 
     try {
-      // Remove any existing background divs
+      // Remove any existing contact background div from previous contact
       const existingContactBg = document.getElementById('contact-background');
       if (existingContactBg) {
         existingContactBg.remove();
-      }
-      const existingAppBg = document.getElementById('app-background');
-      if (existingAppBg) {
-        existingAppBg.remove();
       }
 
       // Remove default background class from body
