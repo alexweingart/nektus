@@ -50,6 +50,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find(opt => opt.value === value);
 
@@ -67,7 +68,14 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      // Check if click is outside both the dropdown button AND the menu
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -127,6 +135,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
       {/* Dropdown Menu - rendered via portal to escape stacking context */}
       {isOpen && !disabled && typeof window !== 'undefined' && createPortal(
         <div
+          ref={menuRef}
           className="fixed z-[9999] w-60 shadow-lg rounded-2xl max-h-60 overflow-hidden backdrop-blur-sm border border-white/20"
           style={{
             top: `${menuPosition.top}px`,
@@ -139,6 +148,9 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
               <div
                 key={option.value}
                 className={`px-4 py-2 hover:bg-white/10 cursor-pointer flex items-center text-white`}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent blur from firing on parent components
+                }}
                 onClick={() => {
                   onChange(option.value);
                   setIsOpen(false);
