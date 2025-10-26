@@ -25,6 +25,39 @@ export async function POST(_req: NextRequest) {
     console.log(`[DELETE-ACCOUNT] Starting deletion for user: ${userId}`);
 
     try {
+      // First, revoke all OAuth tokens before deleting the profile
+      // This ensures Google/Microsoft know the app no longer has permission
+      try {
+        const { AdminProfileService } = await import('@/lib/firebase/adminProfileService');
+        const profile = await AdminProfileService.getProfile(userId);
+
+        if (profile?.calendars && profile.calendars.length > 0) {
+          console.log(`[DELETE-ACCOUNT] Revoking ${profile.calendars.length} calendar OAuth tokens`);
+
+          // Revoke all Google calendar tokens
+          const revokePromises = profile.calendars.map(async (calendar) => {
+            if (calendar.accessToken && calendar.provider === 'google') {
+              try {
+                await fetch(`https://oauth2.googleapis.com/revoke?token=${calendar.accessToken}`, {
+                  method: 'POST',
+                });
+                console.log(`[DELETE-ACCOUNT] Revoked Google OAuth token for ${calendar.id}`);
+              } catch (revokeError) {
+                console.warn(`[DELETE-ACCOUNT] Failed to revoke Google token for ${calendar.id}:`, revokeError);
+              }
+            }
+            // Note: Microsoft doesn't provide a simple revoke endpoint
+            // Users need to revoke via account.live.com/consent/Manage
+          });
+
+          await Promise.allSettled(revokePromises);
+          console.log(`[DELETE-ACCOUNT] Completed OAuth token revocation`);
+        }
+      } catch (revokeError) {
+        console.warn('[DELETE-ACCOUNT] Token revocation failed, but continuing with deletion:', revokeError);
+        // Don't fail deletion if token revocation fails
+      }
+
       // Delete the user's profile using the admin SDK
       console.log(`[DELETE-ACCOUNT] Deleting profile for user: ${userId}`);
       await deleteUserProfile(userId);

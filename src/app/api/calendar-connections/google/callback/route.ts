@@ -23,18 +23,27 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
+    // Parse state to get section, returnUrl, and retry flag
+    const stateData = state ? JSON.parse(decodeURIComponent(state)) as {
+      userEmail: string;
+      section: 'personal' | 'work';
+      returnUrl?: string;
+      retry?: boolean;
+    } : null;
+
+    const returnUrl = stateData?.returnUrl || '/edit';
+
     if (error) {
       console.error('[Google OAuth] Error:', error);
-      return NextResponse.redirect(new URL('/edit?error=google_oauth_failed', request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=google_oauth_failed`, request.url));
     }
 
-    if (!code || !state) {
+    if (!code || !state || !stateData) {
       console.error('[Google OAuth] Missing code or state');
-      return NextResponse.redirect(new URL('/edit?error=missing_parameters', request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=missing_parameters`, request.url));
     }
 
-    // Parse state to get section (personal/work)
-    const { section } = JSON.parse(decodeURIComponent(state)) as { userEmail: string; section: 'personal' | 'work' };
+    const { section, userEmail, retry } = stateData;
 
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -53,44 +62,59 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error('[Google OAuth] Token exchange failed:', tokenResponse.statusText);
-      return NextResponse.redirect(new URL('/edit?error=token_exchange_failed', request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=token_exchange_failed`, request.url));
     }
 
     const tokenData = await tokenResponse.json();
 
-    // Get user info from Google to get their email
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    });
-
-    if (!userInfoResponse.ok) {
-      console.error('[Google OAuth] Failed to get user info');
-      return NextResponse.redirect(new URL('/edit?error=user_info_failed', request.url));
-    }
-
-    const userInfo = await userInfoResponse.json();
-    const calendarEmail = userInfo.email;
+    // Use the email from the state (already validated and passed from the client)
+    // No need to fetch from Google since we're using incremental auth with the same client
+    const calendarEmail = userEmail;
 
     console.log(`[Google OAuth] Success for ${calendarEmail}`);
 
     // Get current profile
     const profile = await AdminProfileService.getProfile(session.user.id);
     if (!profile) {
-      return NextResponse.redirect(new URL('/edit?error=profile_not_found', request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=profile_not_found`, request.url));
     }
 
     // Check if calendar already exists for this section
     const existingCalendar = profile.calendars?.find(cal => cal.section === section);
     if (existingCalendar) {
-      return NextResponse.redirect(new URL('/edit?error=calendar_already_exists', request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=calendar_already_exists`, request.url));
     }
 
     // Check if we received a refresh token
     if (!tokenData.refresh_token) {
       console.error('[Google OAuth] No refresh token received - this may indicate a re-authorization without consent');
-      return NextResponse.redirect(new URL('/edit?error=no_refresh_token', request.url));
+
+      // If this is already a retry with consent, give up and show error
+      if (retry) {
+        console.error('[Google OAuth] Still no refresh token after consent retry');
+        return NextResponse.redirect(new URL(`${returnUrl}?error=no_refresh_token_after_consent`, request.url));
+      }
+
+      // First attempt failed - retry with consent to force Google to issue refresh token
+      console.log('[Google OAuth] Retrying with prompt=consent to get refresh token');
+      const retryParams = new URLSearchParams({
+        client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
+        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || request.url.split('/api')[0]}/api/calendar-connections/google/callback`,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/calendar.readonly',
+        access_type: 'offline',
+        prompt: 'consent', // Force consent to get refresh token
+        include_granted_scopes: 'true', // Keep existing permissions
+        login_hint: userEmail, // Suggest the correct account
+        state: encodeURIComponent(JSON.stringify({
+          userEmail,
+          section,
+          returnUrl,
+          retry: true // Mark this as a retry
+        }))
+      });
+
+      return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${retryParams.toString()}`);
     }
 
     // Encrypt tokens
@@ -127,11 +151,13 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Google OAuth] Calendar added for ${session.user.id} (${section})`);
 
-    // Redirect back to edit profile
-    return NextResponse.redirect(new URL('/edit?calendar=added', request.url));
+    // Redirect back to the return URL (or /edit by default)
+    return NextResponse.redirect(new URL(`${returnUrl}?calendar=added`, request.url));
 
   } catch (error) {
     console.error('[Google OAuth] Callback error:', error);
-    return NextResponse.redirect(new URL('/edit?error=callback_error', request.url));
+    // Use /edit as fallback if returnUrl is not available
+    const fallbackUrl = '/edit';
+    return NextResponse.redirect(new URL(`${fallbackUrl}?error=callback_error`, request.url));
   }
 }

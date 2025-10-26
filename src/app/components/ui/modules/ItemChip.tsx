@@ -14,6 +14,7 @@ interface ItemChipProps {
   actionButton?: ReactNode;  // Optional custom action button (for full control)
   onActionClick?: (e: React.MouseEvent) => void;  // Standardized action button handler
   actionIcon?: 'trash' | 'calendar' | ReactNode;  // Predefined icons or custom
+  isActionLoading?: boolean;  // Show loading spinner on action button
   onClick?: () => void;
   className?: string;
   truncateTitle?: boolean;  // Enable text truncation with ellipsis
@@ -26,6 +27,7 @@ export const ItemChip: React.FC<ItemChipProps> = ({
   actionButton,
   onActionClick,
   actionIcon,
+  isActionLoading = false,
   onClick,
   className = '',
   truncateTitle = false
@@ -97,12 +99,24 @@ export const ItemChip: React.FC<ItemChipProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onActionClick(e);
+            if (!isActionLoading) {
+              onActionClick(e);
+            }
           }}
-          className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-gray-400 hover:text-white hover:bg-white/20 transition-transform active:scale-90"
+          disabled={isActionLoading}
+          className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-gray-400 hover:text-white hover:bg-white/20 transition-transform ${
+            isActionLoading ? 'opacity-50 cursor-not-allowed' : 'active:scale-90'
+          }`}
           aria-label="Action"
         >
-          {renderActionIcon()}
+          {isActionLoading ? (
+            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            renderActionIcon()
+          )}
         </button>
       ) : null}
     </div>

@@ -20,6 +20,16 @@ export function useCalendarLocationManagement({
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [modalSection, setModalSection] = useState<'personal' | 'work'>('personal');
 
+  // Loading state for delete operations
+  const [isDeletingCalendar, setIsDeletingCalendar] = useState<{ personal: boolean; work: boolean }>({
+    personal: false,
+    work: false
+  });
+  const [isDeletingLocation, setIsDeletingLocation] = useState<{ personal: boolean; work: boolean }>({
+    personal: false,
+    work: false
+  });
+
   // Helper functions to get calendar/location for a section
   const getCalendarForSection = useCallback((section: 'personal' | 'work') => {
     return profile?.calendars?.find((cal) => cal.section === section && (cal.section === 'personal' || cal.section === 'work'));
@@ -72,6 +82,9 @@ export function useCalendarLocationManagement({
     const calendar = getCalendarForSection(section);
     if (!calendar) return;
 
+    // Set loading state
+    setIsDeletingCalendar(prev => ({ ...prev, [section]: true }));
+
     try {
       const response = await fetch(`/api/calendar-connections/${calendar.id}`, {
         method: 'DELETE'
@@ -86,12 +99,18 @@ export function useCalendarLocationManagement({
       }
     } catch (error) {
       console.error('[useCalendarLocationManagement] Failed to delete calendar:', error);
+    } finally {
+      // Clear loading state
+      setIsDeletingCalendar(prev => ({ ...prev, [section]: false }));
     }
   }, [getCalendarForSection, saveProfile, profile]);
 
   const handleDeleteLocation = useCallback(async (section: 'personal' | 'work') => {
     const location = getLocationForSection(section);
     if (!location) return;
+
+    // Set loading state
+    setIsDeletingLocation(prev => ({ ...prev, [section]: true }));
 
     try {
       // Update profile state to remove the deleted location
@@ -101,6 +120,9 @@ export function useCalendarLocationManagement({
       }
     } catch (error) {
       console.error('[useCalendarLocationManagement] Failed to delete location:', error);
+    } finally {
+      // Clear loading state
+      setIsDeletingLocation(prev => ({ ...prev, [section]: false }));
     }
   }, [getLocationForSection, saveProfile, profile]);
 
@@ -111,6 +133,10 @@ export function useCalendarLocationManagement({
     modalSection,
     setIsCalendarModalOpen,
     setIsLocationModalOpen,
+
+    // Loading state
+    isDeletingCalendar,
+    isDeletingLocation,
 
     // Getters
     getCalendarForSection,
