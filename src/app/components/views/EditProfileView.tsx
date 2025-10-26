@@ -70,6 +70,8 @@ const EditProfileView: React.FC = () => {
     modalSection,
     setIsCalendarModalOpen,
     setIsLocationModalOpen,
+    isDeletingCalendar,
+    isDeletingLocation,
     getCalendarForSection,
     getLocationForSection,
     handleOpenCalendarModal,
@@ -300,6 +302,8 @@ const EditProfileView: React.FC = () => {
                   handleOpenLocationModal={handleOpenLocationModal}
                   handleDeleteCalendar={handleDeleteCalendar}
                   handleDeleteLocation={handleDeleteLocation}
+                  isDeletingCalendar={isDeletingCalendar}
+                  isDeletingLocation={isDeletingLocation}
                   calRouter={calRouter}
                   showInlineAddLink={showInlineAddLink}
                   handleToggleInlineAddLink={handleToggleInlineAddLink}
@@ -322,6 +326,8 @@ const EditProfileView: React.FC = () => {
                   handleOpenLocationModal={handleOpenLocationModal}
                   handleDeleteCalendar={handleDeleteCalendar}
                   handleDeleteLocation={handleDeleteLocation}
+                  isDeletingCalendar={isDeletingCalendar}
+                  isDeletingLocation={isDeletingLocation}
                   calRouter={calRouter}
                   showInlineAddLink={showInlineAddLink}
                   handleToggleInlineAddLink={handleToggleInlineAddLink}

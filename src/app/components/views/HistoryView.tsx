@@ -5,12 +5,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 import Avatar from '../ui/elements/Avatar';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
+import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
 import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
@@ -21,14 +22,40 @@ import { auth } from '@/lib/firebase/clientConfig';
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { profile: userProfile } = useProfile();
   const [contacts, setContacts] = useState<SavedContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
+  const [showCalendarAddedModal, setShowCalendarAddedModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<SavedContact | null>(null);
   const hasFetchedSlotsRef = useRef(false);
+
+  // Handle calendar OAuth callback - show success modal when calendar is added
+  useEffect(() => {
+    const calendarAdded = searchParams.get('calendar');
+    if (calendarAdded === 'added' && contacts.length > 0) {
+      // Clean up URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('calendar');
+      window.history.replaceState({}, document.title, url.toString());
+
+      // Get the contact that was being scheduled from sessionStorage
+      const contactIdForScheduling = sessionStorage.getItem('calendar-contact-id');
+
+      if (contactIdForScheduling) {
+        const contact = contacts.find(c => c.userId === contactIdForScheduling);
+
+        if (contact) {
+          setSelectedContact(contact);
+          // Show success modal
+          setShowCalendarAddedModal(true);
+        }
+      }
+    }
+  }, [searchParams, contacts]);
 
   // Handle background crossfade when returning from ContactView
   useEffect(() => {
@@ -261,6 +288,8 @@ export const HistoryView: React.FC = () => {
       // Navigate to smart-schedule page with 'from' parameter
       router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
     } else {
+      // Store contact ID for after calendar is added
+      sessionStorage.setItem('calendar-contact-id', contact.userId);
       // Open Add Calendar modal
       setSelectedContact(contact);
       setShowAddCalendarModal(true);
@@ -279,6 +308,26 @@ export const HistoryView: React.FC = () => {
       }
 
       // After calendar is added, navigate to smart-schedule with 'from' parameter
+      router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
+    }
+  };
+
+  const handleCalendarAddedContinue = () => {
+    setShowCalendarAddedModal(false);
+
+    if (selectedContact) {
+      // Store flags for crossfade animation when entering SmartScheduleView
+      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
+
+      // Store history background for crossfade
+      if (userProfile?.backgroundImage) {
+        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
+      }
+
+      // Clean up the stored contact ID
+      sessionStorage.removeItem('calendar-contact-id');
+
+      // Navigate to smart-schedule page
       router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
     }
   };
@@ -413,7 +462,6 @@ export const HistoryView: React.FC = () => {
                     alt={getFieldValue(contact.contactEntries, 'name')}
                     size="sm"
                     className="flex-shrink-0 !w-10 !h-10"
-                    avatarGenerated={contact.aiGeneration?.avatarGenerated}
                   />
                 }
                 title={getFieldValue(contact.contactEntries, 'name')}
@@ -438,6 +486,18 @@ export const HistoryView: React.FC = () => {
           onCalendarAdded={handleCalendarAdded}
         />
       )}
+
+      {/* Calendar Added Success Modal */}
+      <StandardModal
+        isOpen={showCalendarAddedModal}
+        onClose={() => setShowCalendarAddedModal(false)}
+        title="Calendar Connected! 🎉"
+        subtitle="Your calendar has been connected successfully. Let's find a time to meet up!"
+        primaryButtonText="Find a time"
+        onPrimaryButtonClick={handleCalendarAddedContinue}
+        showSecondaryButton={false}
+        showCloseButton={false}
+      />
     </div>
   );
 }; 

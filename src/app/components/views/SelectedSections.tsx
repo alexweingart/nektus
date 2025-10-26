@@ -37,6 +37,8 @@ interface SelectedSectionsProps {
   handleOpenLocationModal: (section: 'personal' | 'work') => void;
   handleDeleteCalendar: (section: 'personal' | 'work') => void;
   handleDeleteLocation: (section: 'personal' | 'work') => void;
+  isDeletingCalendar: { personal: boolean; work: boolean };
+  isDeletingLocation: { personal: boolean; work: boolean };
   calRouter: ReturnType<typeof useRouter>;
   showInlineAddLink: { personal: boolean; work: boolean };
   handleToggleInlineAddLink: (section: 'personal' | 'work') => void;
@@ -59,6 +61,8 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
   handleOpenLocationModal,
   handleDeleteCalendar,
   handleDeleteLocation,
+  isDeletingCalendar,
+  isDeletingLocation,
   calRouter,
   showInlineAddLink,
   handleToggleInlineAddLink,
@@ -197,6 +201,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                   onClick={() => calRouter.push(`/edit/calendar?id=${calendar.id}`)}
                   onActionClick={() => handleDeleteCalendar(sectionName)}
                   actionIcon="trash"
+                  isActionLoading={isDeletingCalendar[sectionName]}
                 />
               </div>
             ) : (
@@ -227,6 +232,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                   onClick={() => calRouter.push(`/edit/location?id=${location.id}`)}
                   onActionClick={() => handleDeleteLocation(sectionName)}
                   actionIcon="trash"
+                  isActionLoading={isDeletingLocation[sectionName]}
                 />
               </div>
             ) : (

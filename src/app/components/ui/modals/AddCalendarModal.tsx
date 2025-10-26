@@ -76,15 +76,21 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
       sessionStorage.setItem('oauth-origin-page', window.location.pathname);
 
       if (provider === 'google') {
-        // Redirect to Google OAuth
+        // Redirect to Google OAuth using incremental authorization
         const params = new URLSearchParams({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID!,
           redirect_uri: `${window.location.origin}/api/calendar-connections/google/callback`,
           response_type: 'code',
-          scope: 'https://www.googleapis.com/auth/calendar.readonly openid profile email',
+          scope: 'https://www.googleapis.com/auth/calendar.readonly',
           access_type: 'offline',
           prompt: 'select_account',
-          state: encodeURIComponent(JSON.stringify({ userEmail, section }))
+          include_granted_scopes: 'true', // Key for incremental auth - keeps existing permissions
+          login_hint: userEmail, // Suggest the correct account
+          state: encodeURIComponent(JSON.stringify({
+            userEmail,
+            section,
+            returnUrl: window.location.pathname
+          }))
         });
 
         window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -96,7 +102,11 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           response_type: 'code',
           scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access',
           prompt: 'select_account',
-          state: encodeURIComponent(JSON.stringify({ userEmail, section }))
+          state: encodeURIComponent(JSON.stringify({
+            userEmail,
+            section,
+            returnUrl: window.location.pathname
+          }))
         });
 
         window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;

@@ -45,6 +45,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { profile: userProfile } = useProfile();
 
   // Animation state
@@ -60,10 +61,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
+  const [showCalendarAddedModal, setShowCalendarAddedModal] = useState(false);
 
   const dismissSuccessModal = () => setShowSuccessModal(false);
   const dismissUpsellModal = () => setShowUpsellModal(false);
   const dismissAddCalendarModal = () => setShowAddCalendarModal(false);
+  const dismissCalendarAddedModal = () => setShowCalendarAddedModal(false);
   
   // Check if contact is already saved by checking exchange state
   const exchangeState = getExchangeState(token);
@@ -232,6 +235,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   }, [profile.backgroundImage]);
 
+  // Handle calendar OAuth callback - show success modal when calendar is added
+  useEffect(() => {
+    const calendarAdded = searchParams.get('calendar');
+    if (calendarAdded === 'added') {
+      // Clean up URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('calendar');
+      window.history.replaceState({}, document.title, url.toString());
+
+      // Show success modal
+      setShowCalendarAddedModal(true);
+    }
+  }, [searchParams]);
+
   // Handle back navigation with animation
   const handleBack = () => {
     console.log('🎯 ContactView: Back button clicked, starting exit animation');
@@ -392,7 +409,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   };
 
   // Phase 6: Handle Smart Schedule CTA
-  const router = useRouter();
   const handleScheduleMeetUp = async () => {
     if (!session?.user?.id) return;
 
@@ -413,10 +429,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   };
 
-  // Handle calendar added callback
+  // Handle calendar added callback from modal
   const handleCalendarAdded = () => {
     dismissAddCalendarModal();
     // After calendar is added, navigate to smart-schedule
+    router.push(`/contact/${profile.userId}/smart-schedule`);
+  };
+
+  // Handle calendar added success modal CTA
+  const handleCalendarAddedContinue = () => {
+    dismissCalendarAddedModal();
+    // Navigate to smart-schedule page
     router.push(`/contact/${profile.userId}/smart-schedule`);
   };
 
@@ -561,7 +584,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   src={profile.profileImage}
                   alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
                   size="lg"
-                  avatarGenerated={profile.aiGeneration?.avatarGenerated}
                 />
               </div>
             </div>
@@ -711,6 +733,18 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
+        />
+
+        {/* Calendar Added Success Modal */}
+        <StandardModal
+          isOpen={showCalendarAddedModal}
+          onClose={dismissCalendarAddedModal}
+          title="Calendar Connected! 🎉"
+          subtitle="Your calendar has been connected successfully. Let's find a time to meet up!"
+          primaryButtonText="Find a time"
+          onPrimaryButtonClick={handleCalendarAddedContinue}
+          showSecondaryButton={false}
+          showCloseButton={false}
         />
       </div>
     </div>
