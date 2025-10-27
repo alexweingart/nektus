@@ -20,12 +20,24 @@ import type { TemplateHandlerResult } from './types';
 
 /**
  * Build formatting instructions for Stage 5 LLM - Event Generation (Path B)
- * Contains exact pre-formatted strings and message format rules
+ * Contains decomposed time/place data for selective formatting and rationale generation
  */
 function buildFormattingInstructions(
-  timeStrings: string[],
-  primaryPlaceStrings: string[],
-  alternativePlaceStrings: string[],
+  timeData: Array<{
+    dayLabel: string;
+    dateContext: string;
+    time: string;
+    isTomorrowOrToday: boolean;
+  }>,
+  placeData: Array<{
+    name: string;
+    url: string;
+    rating?: number;
+    distance_km?: number;
+    price_level?: number;
+    open_now?: boolean;
+    explanations: string[];
+  }>,
   template: Partial<Event>,
   showAlternativePlaces: boolean,
   showAlternativeTimes: boolean,
@@ -33,40 +45,76 @@ function buildFormattingInstructions(
   user2Name: string,
   calendarType: string
 ): string {
-  return `## PRE-BUILT STRINGS TO USE
+  // Build time data display
+  const timeDataDisplay = timeData.map((t, i) =>
+    `Slot ${i}:\n  dayLabel: "${t.dayLabel}"\n  dateContext: "${t.dateContext}"\n  time: "${t.time}"\n  isTomorrowOrToday: ${t.isTomorrowOrToday}`
+  ).join('\n\n');
 
-TIME STRINGS (copy EXACTLY - do NOT reformat):
-${timeStrings.map((t, i) => `Slot ${i}: ${t}`).join('\n')}
+  // Build place data display
+  const placeDataDisplay = placeData.map((p, i) =>
+    `Place ${i}:\n  name: "${p.name}"\n  url: "${p.url}"\n  rating: ${p.rating || 'N/A'}\n  distance_km: ${p.distance_km?.toFixed(1) || 'N/A'}\n  explanations: ${p.explanations.join(', ') || 'none'}`
+  ).join('\n\n');
 
-${primaryPlaceStrings.length > 0 ? `PRIMARY PLACE (for main event - copy EXACTLY including markdown):
-${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+  return `## AVAILABLE DATA
 
-ALTERNATIVES (for options list - copy EXACTLY including markdown and explanations):
-${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
+TIME DATA:
+${timeDataDisplay}
+
+${placeData.length > 0 ? `PLACE DATA:
+${placeDataDisplay}
 ` : ''}
 
 ## MESSAGE FORMAT
 
-1. "I've scheduled **${template.title}** for **{Slot X}**${primaryPlaceStrings.length > 0 ? ' at {Place X from PRIMARY}' : ''}."
+**FIRST PARAGRAPH** (main event announcement with rationale):
 
-${template.travelBuffer ? `2. (blank line)
+If isTomorrowOrToday is true:
+"I've scheduled **${template.title}** at [{place.name}]({place.url}) for **{dayLabel}** ({dateContext}) at **{time}**. {rationale}."
 
-3. "*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"
+If isTomorrowOrToday is false:
+"I've scheduled **${template.title}** at [{place.name}]({place.url}) for **{dayLabel}**, {dateContext} at **{time}**. {rationale}."
 
-4. (blank line)
+FORMATTING RULES:
+- Bold ONLY: event name ("${template.title}"), day label, and time
+- Hyperlink ONLY: place name with URL
+- Everything else: plain text
 
-` : ''}${showAlternativePlaces || showAlternativeTimes ? `${template.travelBuffer ? '5' : '2'}. "I also considered these options:"
-${showAlternativePlaces ? `   - {Place 1 from ALTERNATIVES}
-   - {Place 2 from ALTERNATIVES}
-   - {Place 3 from ALTERNATIVES}` : ''}${showAlternativeTimes ? `   - {Slot 1}
-   - {Slot 2}
-   - {Slot 3}` : ''}
+RATIONALE (one sentence explaining your choice):
+Consider these factors based on the data:
+- Time factors: "This is the soonest available time" / "This ${template.intent?.includes('tennis') ? 'afternoon' : 'evening'} slot works well"
+- Place factors: Use explanations array or data (rating, distance)
+- Examples:
+  * "This is the earliest available time at a highly rated venue."
+  * "The venue is centrally located and well-reviewed."
+  * "This provides a convenient afternoon slot at a court close to both of you."
+
+${template.travelBuffer ? `
+**SECOND PARAGRAPH** (blank line, then travel buffer):
+
+*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*
 
 (blank line)
+` : ''}
+${showAlternativePlaces || showAlternativeTimes ? `
+**ALTERNATIVES SECTION**:
 
-` : ''}${includeConflictWarning ? `X. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."
+"I also considered these options:"
 
-` : ''}Final: "When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!"`;
+${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as:
+- [{place.name}]({place.url}) - {explanation from explanations array}` : ''}
+${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}
+
+(blank line)
+` : ''}
+${includeConflictWarning ? `
+**CONFLICT WARNING**:
+
+⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested.
+
+` : ''}
+**FINAL PARAGRAPH**:
+
+"When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!"`;
 }
 
 /**
@@ -329,7 +377,7 @@ export async function streamSchedulingResponse(
           hasNoCommonTime
         );
 
-        // Format helpers
+        // Format helpers - return structured data for selective bolding
         const formatSlotTime = (slot: TimeSlot) => {
           const slotDate = new Date(slot.start);
           const now = new Date();
@@ -341,24 +389,36 @@ export async function streamSchedulingResponse(
           const todayDay = now.toLocaleDateString('en-US', { timeZone: body.timezone });
           const tomorrowDay = tomorrow.toLocaleDateString('en-US', { timeZone: body.timezone });
 
-          const fullDate = slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone });
+          const dayOfWeek = slotDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: body.timezone });
+          const monthDay = slotDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: body.timezone });
           const time = slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
 
           if (slotDay === todayDay) {
-            return `Today (${fullDate}) at ${time}`;
+            return {
+              dayLabel: 'today',
+              dateContext: `${dayOfWeek}, ${monthDay}`,
+              time: time,
+              isTomorrowOrToday: true
+            };
           } else if (slotDay === tomorrowDay) {
-            return `Tomorrow (${fullDate}) at ${time}`;
+            return {
+              dayLabel: 'tomorrow',
+              dateContext: `${dayOfWeek}, ${monthDay}`,
+              time: time,
+              isTomorrowOrToday: true
+            };
           } else {
-            return `${fullDate} at ${time}`;
+            return {
+              dayLabel: dayOfWeek,
+              dateContext: monthDay,
+              time: time,
+              isTomorrowOrToday: false
+            };
           }
         };
 
-        const formatPlaceLink = (place: Place) => {
-          return place.google_maps_url ? `[${place.name}](${place.google_maps_url})` : place.name;
-        };
-
-        const formatPlaceWithExplanation = (place: Place) => {
-          const link = formatPlaceLink(place);
+        // Format place data with decomposed attributes for rationale building
+        const formatPlaceData = (place: Place) => {
           const explanations: string[] = [];
 
           // Build natural language explanations based on place attributes
@@ -386,22 +446,26 @@ export async function streamSchedulingResponse(
             explanations.push('currently closed');
           }
 
-          return explanations.length > 0 ? `${link} - ${explanations.join(', ')}` : link;
+          return {
+            name: place.name,
+            url: place.google_maps_url,
+            rating: place.rating,
+            distance_km: place.distance_from_midpoint_km,
+            price_level: place.price_level,
+            open_now: place.opening_hours?.open_now,
+            explanations: explanations
+          };
         };
 
-        // Pre-build time strings for all slots
-        const timeStrings = slots.slice(0, 10).map(formatSlotTime);
-        // Pre-build place strings:
-        // - Primary selection (index 0): Clean link only
-        // - Alternatives (index 1-3): Link with helpful details
-        const primaryPlaceStrings = places.slice(0, 10).map(formatPlaceLink);
-        const alternativePlaceStrings = places.slice(0, 10).map(formatPlaceWithExplanation);
+        // Pre-build structured time data for all slots
+        const timeData = slots.slice(0, 10).map(formatSlotTime);
+        // Pre-build structured place data for all places
+        const placeData = places.slice(0, 10).map(formatPlaceData);
 
-        // Build formatting instructions with exact strings and format rules
+        // Build formatting instructions with decomposed data
         const formattingInstructions = buildFormattingInstructions(
-          timeStrings,
-          primaryPlaceStrings,
-          alternativePlaceStrings,
+          timeData,
+          placeData,
           templateResult.template,
           showAlternativePlaces,
           showAlternativeTimes,
