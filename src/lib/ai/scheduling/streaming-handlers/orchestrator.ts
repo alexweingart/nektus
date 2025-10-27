@@ -33,55 +33,40 @@ function buildFormattingInstructions(
   user2Name: string,
   calendarType: string
 ): string {
-  // Build example for primary place
-  const primaryPlaceExample = primaryPlaceStrings.length > 0 && primaryPlaceStrings[0]
-    ? ` at ${primaryPlaceStrings[0]}`
-    : '';
+  return `## PRE-BUILT STRINGS TO USE
 
-  return `You must write a message using ONLY these pre-built strings. Do NOT generate your own text for times or places.
+TIME STRINGS (copy EXACTLY - do NOT reformat):
+${timeStrings.map((t, i) => `Slot ${i}: ${t}`).join('\n')}
 
-TIME OPTIONS:
-${timeStrings.map((t, i) => `Slot ${i} → "${t}"`).join('\n')}
+${primaryPlaceStrings.length > 0 ? `PRIMARY PLACE (for main event - copy EXACTLY including markdown):
+${primaryPlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 
-${primaryPlaceStrings.length > 0 ? `PRIMARY PLACE OPTIONS (for main event, use the one you selected):
-${primaryPlaceStrings.map((p, i) => `Place ${i} → ${p}`).join('\n')}
-
-ALTERNATIVE PLACE OPTIONS (for alternatives list, use indices 1, 2, 3):
-${alternativePlaceStrings.map((p, i) => `Place ${i} → ${p}`).join('\n')}
+ALTERNATIVES (for options list - copy EXACTLY including markdown and explanations):
+${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 ` : ''}
 
-YOUR MESSAGE FORMAT:
+## MESSAGE FORMAT
 
-Line 1: I've scheduled **${template.title}** for **[Slot X from above]**${primaryPlaceExample ? ` at [Place X from PRIMARY OPTIONS]` : ''}.
+1. "I've scheduled **${template.title}** for **{Slot X}**${primaryPlaceStrings.length > 0 ? ' at {Place X from PRIMARY}' : ''}."
 
-${template.travelBuffer ? `Line 2: (blank line)
+${template.travelBuffer ? `2. (blank line)
 
-Line 3: *I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*
+3. "*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"
 
-Line 4: (blank line)
+4. (blank line)
 
-` : ''}${showAlternativePlaces || showAlternativeTimes ? `Line ${template.travelBuffer ? '5' : '2'}: I also considered these options:
-
-${showAlternativePlaces ? `Line ${template.travelBuffer ? '6-8' : '3-5'}: List EXACTLY:
-- [Place 1 from ALTERNATIVE OPTIONS]
-- [Place 2 from ALTERNATIVE OPTIONS]
-- [Place 3 from ALTERNATIVE OPTIONS]
-` : ''}${showAlternativeTimes ? `Line ${template.travelBuffer ? '6-8' : '3-5'}: List EXACTLY:
-- [Slot 1 from TIME OPTIONS]
-- [Slot 2 from TIME OPTIONS]
-- [Slot 3 from TIME OPTIONS]
+` : ''}${showAlternativePlaces || showAlternativeTimes ? `${template.travelBuffer ? '5' : '2'}. "I also considered these options:"
+${showAlternativePlaces ? `   - {Place 1 from ALTERNATIVES}
+   - {Place 2 from ALTERNATIVES}
+   - {Place 3 from ALTERNATIVES}` : ''}${showAlternativeTimes ? `   - {Slot 1}
+   - {Slot 2}
+   - {Slot 3}` : ''}
 
 (blank line)
 
-` : ''}` : ''}${includeConflictWarning ? `Line X: ⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested.
+` : ''}${includeConflictWarning ? `X. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."
 
-` : ''}Final line: When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!
-
-CRITICAL:
-- Copy the EXACT strings from the options above (including markdown brackets and links)
-- Do NOT rewrite times or places
-- Do NOT generate your own ratings, distances, or descriptions
-- ONLY use the pre-built strings I provided`;
+` : ''}Final: "When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!"`;
 }
 
 /**
@@ -434,7 +419,8 @@ export async function streamSchedulingResponse(
             { role: 'system', content: EVENT_SELECTION_SYSTEM_PROMPT },
             { role: 'system', content: contextMessage },
             { role: 'system', content: selectionPrompt },
-            { role: 'user', content: `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}\n\n${formattingInstructions}` }
+            { role: 'system', content: formattingInstructions },
+            { role: 'user', content: `Select the best time and place for: ${templateResult.template.title || templateResult.template.intent}` }
           ],
           tools: [{ type: 'function', function: generateEventFunction }],
           tool_choice: { type: 'function', function: { name: 'generateEvent' } },
