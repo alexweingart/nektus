@@ -100,11 +100,12 @@ export function isWithinRadius(center: Coordinates, point: Coordinates, radiusKm
  */
 export function generateGoogleMapsUrl(coordinates: Coordinates, placeName?: string): string {
   if (placeName) {
-    // If we have a place name, use it for better UX
+    // Use both place name and coordinates for accurate, reliable links
     const encodedName = encodeURIComponent(placeName);
-    return `https://www.google.com/maps/search/?api=1&query=${encodedName}`;
+    const query = `${encodedName}+${coordinates.lat},${coordinates.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   } else {
-    // Fallback to coordinates
+    // Fallback to coordinates only
     return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
   }
 }
