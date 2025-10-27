@@ -201,8 +201,8 @@ const ProfileView: React.FC = () => {
       sessionStorage.removeItem('returning-to-profile');
 
       // If we have a contact background, set up crossfade
-      if (contactBackground && profile?.backgroundImage) {
-        console.log('🎯 ProfileView: Setting up background crossfade');
+      if (contactBackground) {
+        console.log('🎯 ProfileView: Setting up background crossfade from contact');
 
         // Create style for contact background that will fade out
         const contactBgStyle = document.createElement('style');
@@ -229,6 +229,11 @@ const ProfileView: React.FC = () => {
           }
         `;
         document.head.appendChild(contactBgStyle);
+
+        // If user has no background image, ensure default background is visible
+        if (!profile?.backgroundImage) {
+          document.body.classList.add('default-nekt-background');
+        }
 
         // Trigger fade out
         requestAnimationFrame(() => {

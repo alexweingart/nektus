@@ -1,4 +1,6 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
+import { ALTERNATIVE_SELECTION_SYSTEM_PROMPT, buildContextMessage } from '@/lib/ai/system-prompts';
+import { buildAlternativesFormattingInstructions } from './orchestrator';
 import { getAllValidSlots } from '@/lib/events/scheduling-utils';
 import { DAYS_TO_MS, formatEventTimeComponents } from '@/lib/events/time-utils';
 import { enqueueContent } from './streaming-utils';
@@ -93,7 +95,7 @@ export async function handleProvideAlternatives({
   }
 
   // Use LLM to intelligently select the best 3 alternative times
-  let selectedAlternatives: string[] = [];
+  const selectedAlternatives: string[] = [];
   if (trueAvailableSlots.length > 0) {
     // Format all slots with metadata for LLM selection
     const slotOptions = trueAvailableSlots.slice(0, 30).map((slot, index) => {
@@ -113,62 +115,70 @@ export async function handleProvideAlternatives({
       };
     });
 
+    // Build context message (standard pattern)
+    const contextMessage = buildContextMessage({
+      calendarType: body.calendarType,
+      availableTimeSlots: trueAvailableSlots,
+      user1Location: body.user1Location,
+      user2Location: body.user2Location,
+    });
+
+    // Build selection prompt with formatted options (standard pattern)
+    const selectionPrompt = `## Available Time Slot Options (timezone: ${timezone})
+
+${slotOptions.map(opt => `${opt.index}: ${opt.formatted} (${opt.dayOfWeek}, ${opt.timeCategory})`).join('\n')}
+
+Total options: ${slotOptions.length}`;
+
+    // Build formatting instructions with exact strings
+    const alternativesContext = needsWiderSearch ? 'that week' : dateDesc;
+    const reason: 'conflicts' | 'no_availability' =
+      !needsWiderSearch && trueAvailableSlots.length === 0 ? 'no_availability' : 'conflicts';
+
+    const allFormattedStrings = slotOptions.map(opt => opt.formatted);
+
+    const formattingInstructions = buildAlternativesFormattingInstructions(
+      currentTimeFormatted,
+      allFormattedStrings,
+      requestedDesc,
+      reason,
+      !!needsWiderSearch,
+      alternativesContext
+    );
+
+    // LLM call following standard Stage 5 pattern
     const selectionCompletion = await createCompletion({
       model: getModelForTask('event'),
       reasoning_effort: getReasoningEffortForTask('event'),
       verbosity: 'low',
       messages: [
-        { role: 'system', content: `You are selecting the best 3 alternative times for a ${body.calendarType} calendar event.
-
-IMPORTANT GUIDELINES:
-- For personal/social events (like tennis): Strongly prefer weekend times and weeknight evenings over weekday midday
-- For work events: Weekday midday times are fine
-- Provide variety: Pick times on different days if possible
-- Consider the activity type: "${template.title || template.intent}"
-- Return ONLY a JSON array of 3 index numbers, e.g., [0, 5, 12]` },
-        { role: 'user', content: `Select the best 3 alternative times from these ${slotOptions.length} options:
-
-${slotOptions.map(opt => `${opt.index}: ${opt.formatted} (${opt.timeCategory})`).join('\n')}
-
-Calendar type: ${body.calendarType}
-Activity: ${template.title || template.intent}
-
-Return only a JSON array of 3 index numbers for the best alternatives.` }
+        { role: 'system', content: ALTERNATIVE_SELECTION_SYSTEM_PROMPT },
+        { role: 'system', content: contextMessage },
+        { role: 'system', content: selectionPrompt },
+        { role: 'system', content: formattingInstructions },
+        { role: 'user', content: `Select the best 3 alternative times for: ${template.title || template.intent}` }
       ],
       response_format: { type: 'json_object' }
     });
 
-    const selectionText = selectionCompletion.choices[0].message.content || '{"indices": [0, 1, 2]}';
+    const selectionText = selectionCompletion.choices[0].message.content || '{"indices": [0, 1, 2], "message": ""}';
     const selection = JSON.parse(selectionText);
     const selectedIndices = selection.indices || selection.indexes || [0, 1, 2];
-
-    selectedAlternatives = selectedIndices
-      .slice(0, 3)
-      .filter((idx: number) => idx >= 0 && idx < slotOptions.length)
-      .map((idx: number) => slotOptions[idx].formatted);
+    const llmMessage = selection.message || '';
 
     console.log(`🤖 LLM selected alternative times: indices ${selectedIndices.join(', ')}`);
+
+    // Stream LLM-generated message
+    enqueueContent(controller, encoder, llmMessage);
+    console.log('✅ Alternatives provided successfully');
+    return;
   }
 
-  const alternativesContext = needsWiderSearch && selectedAlternatives.length > 0
-    ? 'that week'
-    : dateDesc;
+  // Fallback: If no alternatives found at all, send simple message
+  const fallbackMessage = `I checked, but ${requestedDesc} ${!needsWiderSearch && trueAvailableSlots.length === 0 ? 'has no availability' : 'conflicts with existing events'}. Unfortunately, I couldn't find any alternative times${needsWiderSearch ? ' in the next week' : ` in ${dateDesc}`}.
 
-  // Build message with current time, and alternatives
-  let message = `I checked, but ${requestedDesc} ${!needsWiderSearch && trueAvailableSlots.length === 0 ? 'has no availability' : 'conflicts with existing events'}. Here are your options:\n\n`;
-  message += `**Keep original time:** ${currentTimeFormatted}\n\n`;
+Would you like to try a different time range or keep the original time?`;
 
-  if (selectedAlternatives.length > 0) {
-    message += `**Available alternatives${needsWiderSearch ? ` in ${alternativesContext}` : ` in ${dateDesc}`}:**\n`;
-    selectedAlternatives.forEach((alt, i) => {
-      message += `${i + 1}. ${alt}\n`;
-    });
-    message += `\nLet me know which option works best!`;
-  } else {
-    message += `Unfortunately, I couldn't find any other available times${needsWiderSearch ? ' in the next week' : ` in ${dateDesc}`}.`;
-  }
-
-  // Stream message only (no event creation)
-  enqueueContent(controller, encoder, message);
-  console.log('✅ Alternatives provided successfully');
+  enqueueContent(controller, encoder, fallbackMessage);
+  console.log('✅ No alternatives available - fallback message sent');
 }

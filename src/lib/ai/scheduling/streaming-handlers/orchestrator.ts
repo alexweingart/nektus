@@ -19,7 +19,7 @@ import type { Place } from '@/types/places';
 import type { TemplateHandlerResult } from './types';
 
 /**
- * Build formatting instructions for Stage 5 LLM
+ * Build formatting instructions for Stage 5 LLM - Event Generation (Path B)
  * Contains exact pre-formatted strings and message format rules
  */
 function buildFormattingInstructions(
@@ -46,10 +46,13 @@ ${alternativePlaceStrings.map((p, i) => `Place ${i}: ${p}`).join('\n')}
 ` : ''}
 REQUIRED MESSAGE FORMAT:
 1. "I've scheduled **${template.title}** for **[copy Slot X string from above]**${primaryPlaceStrings.length > 0 ? ' at [copy PRIMARY Place X link from above]' : ''}."
-${template.travelBuffer ? `2. "*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"` : ''}
-${showAlternativePlaces || showAlternativeTimes ? `3. "I also considered these options:"` : ''}
+${template.travelBuffer ? `
+2. "*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*"
+
+` : ''}${showAlternativePlaces || showAlternativeTimes ? `3. "I also considered these options:"` : ''}
 ${showAlternativePlaces ? `   - List the exact ALTERNATIVE Place 1, Place 2, and Place 3 strings from above (copy them exactly including explanations)` : ''}
-${showAlternativeTimes ? `   - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)` : ''}
+${showAlternativeTimes ? `   - List the exact time strings for Slot 1, Slot 2, and Slot 3 from above (copy them exactly)
+` : ''}
 ${includeConflictWarning ? `4. "⚠️ **IMPORTANT**: This time conflicts with an existing event in your calendar, but I've scheduled it as requested."` : ''}
 ${showAlternativePlaces || showAlternativeTimes ? '4' : '3'}. "When you create the event, ${user2Name || 'they'}'ll get an invite from your **${calendarType}** calendar. Let me know if you'd like to make any changes!"
 
@@ -59,6 +62,45 @@ CRITICAL RULES:
 - Use ALTERNATIVE place strings (with explanations) for the alternatives list
 - Do NOT add any lines about "Event will start at..." or buffer calculations
 - Do NOT add any extra explanations beyond the format above`;
+}
+
+/**
+ * Build formatting instructions for Stage 5 LLM - Alternatives (Path A)
+ * Contains exact pre-formatted strings for alternatives message
+ */
+export function buildAlternativesFormattingInstructions(
+  currentTimeString: string,
+  alternativeTimeStrings: string[],
+  requestDescription: string,
+  reason: 'conflicts' | 'no_availability',
+  hasWiderSearch: boolean,
+  searchContext: string
+): string {
+  return `EXACT STRINGS TO USE:
+
+CURRENT TIME (the time user wanted):
+"${currentTimeString}"
+
+ALTERNATIVE TIME OPTIONS (copy exactly for selected indices):
+${alternativeTimeStrings.map((t, i) => `Option ${i}: "${t}"`).join('\n')}
+
+REQUIRED MESSAGE FORMAT:
+1. Explain the situation: "I checked, but ${requestDescription} ${reason === 'no_availability' ? 'has no availability' : 'conflicts with existing events'}. Here are your options:"
+
+2. Present current time option: "**Keep original time:** [copy CURRENT TIME string from above]"
+
+3. ${alternativeTimeStrings.length > 0 ? `Present alternatives: "**Available alternatives${hasWiderSearch ? ` in ${searchContext}` : ''}:**"
+   - List your 3 selected options using their exact strings
+   - Number them 1, 2, 3
+   - Use the exact Option X strings from above` : 'If no alternatives: "Unfortunately, I couldn\'t find any other available times."'}
+
+4. ${alternativeTimeStrings.length > 0 ? 'Close with: "Let me know which option works best!"' : 'Close with a helpful suggestion or question'}
+
+CRITICAL RULES:
+- Copy time strings EXACTLY character-for-character
+- Do NOT modify or reformat the time strings
+- Be warm and conversational in your message
+- Keep formatting clean with proper line breaks and bold text`;
 }
 
 /**
@@ -285,9 +327,25 @@ export async function streamSchedulingResponse(
         // Format helpers
         const formatSlotTime = (slot: TimeSlot) => {
           const slotDate = new Date(slot.start);
-          return slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone }) +
-                 ' at ' +
-                 slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          // Check if slot is today or tomorrow
+          const slotDay = slotDate.toLocaleDateString('en-US', { timeZone: body.timezone });
+          const todayDay = now.toLocaleDateString('en-US', { timeZone: body.timezone });
+          const tomorrowDay = tomorrow.toLocaleDateString('en-US', { timeZone: body.timezone });
+
+          const fullDate = slotDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: body.timezone });
+          const time = slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: body.timezone });
+
+          if (slotDay === todayDay) {
+            return `Today (${fullDate}) at ${time}`;
+          } else if (slotDay === tomorrowDay) {
+            return `Tomorrow (${fullDate}) at ${time}`;
+          } else {
+            return `${fullDate} at ${time}`;
+          }
         };
 
         const formatPlaceLink = (place: Place) => {

@@ -31,7 +31,7 @@ export async function handleEditEventTemplate(
 
   let places: Place[] = [];
   let eventTemplate: Partial<Event> | null = null;
-  let previousEvent = cached?.eventResult;
+  const previousEvent = cached?.eventResult;
 
   if (cached && cached.eventTemplate) {
     places = cached.places || [];

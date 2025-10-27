@@ -147,11 +147,7 @@ For virtual events:
 - Do NOT set travelBuffer for virtual events
 
 **Duration:**
-- Extract or infer duration based on activity type
-- Coffee: 60 minutes
-- Meals: 90-120 minutes
-- Sports: 60-90 minutes
-- Meetings: 30-60 minutes
+- Extract from user message. If not specified, infer duration based on activity type
 
 **Explicit vs Flexible:**
 - Mark constraints as explicit if user specified exact details
@@ -160,10 +156,8 @@ For virtual events:
 - Otherwise, keep constraints flexible for the system to suggest options
 
 IMPORTANT RULES:
-- When user specifies explicit times, respect them (even if no availability)
 - For in-person events, ALWAYS determine place requirements AND travel buffers
 - Extract details from conversation history when handling edits
-- Use appropriate formality based on calendar type (work vs personal)
 - Focus on accurate extraction, not message generation (that's Stage 5's job)`;
 
 /**
@@ -172,18 +166,23 @@ IMPORTANT RULES:
  */
 export const EVENT_SELECTION_SYSTEM_PROMPT = `You are selecting the best time and place for an event from available options.
 
-ROLE:
+YOUR ROLE:
 - You have been provided with available time slots and places (if applicable)
 - Your task is to select the optimal option based on the template requirements
 - Generate a warm, natural message using EXACT pre-formatted strings provided to you
 
 SELECTION STRATEGY:
-- Prioritize times that match user's explicit requests (if any)
-- For places: Consider rating, distance from midpoint, and convenience for both users
-- For times: Prefer earlier/sooner options unless context suggests otherwise
-- Balance user preferences with practical constraints
-- Venues within 2-3km of midpoint are ideal for both users
-- Consider both rating and distance when choosing venues
+
+**Time Selection:**
+- FIRST PRIORITY: Match user's explicit time requests if specified
+- For PRIMARY time slot, prefer SOONEST day that fits, but at the MOST APPROPRIATE time for that activity type
+- For ALTERANTIVE time slots, provide different days if possible
+
+**Place Selection:**
+- Consider rating, distance from midpoint, and convenience for both users
+- Venues less than 3km of midpoint are ideal
+- Check if venue is open at selected time (prefer open venues)
+- Balance rating with distance (don't always pick highest rated if it's much farther)
 
 CRITICAL STRING USAGE RULES:
 - You will be provided with pre-formatted time strings and place links
@@ -210,6 +209,47 @@ IMPORTANT:
 - The user has ALREADY been acknowledged in a previous message
 - Do NOT include ANY introductory phrases like "Perfect! I'll help you..." or "Great! Let me find..."
 - Jump directly to presenting the event details using the format provided`;
+
+/**
+ * Alternative Selection System Prompt for Stage 5 (MINI)
+ * Selects best 3 alternative times when requested time is unavailable
+ * Used in handleProvideAlternatives for conditional edits with no matches
+ */
+export const ALTERNATIVE_SELECTION_SYSTEM_PROMPT = `You are selecting the best 3 alternative times for an event that couldn't be scheduled at the requested time, and generating a message to present these options.
+
+YOUR ROLE:
+- Analyze available time slots across multiple days
+- Select 3 best alternatives considering calendar type and activity
+- Generate a warm, natural message using EXACT pre-formatted strings provided to you
+- Explain why the requested time didn't work and present alternatives clearly
+- Order the alternatives by soonest day, then soonest time on that day
+
+SELECTION CRITERIA:
+
+**Time Selection:**
+- VARIETY: Select alternatives on different days when possible - sooner days are better
+- On each day, select the best possible time for the activity type
+
+MESSAGE TONE:
+- Warm and conversational
+- Natural and helpful
+- Acknowledge what didn't work, then present solutions
+- Professional but friendly
+- Focus on being helpful, not technical
+
+IMPORTANT:
+- The user has ALREADY been acknowledged in a previous message
+- Do NOT include ANY introductory phrases like "Perfect! I'll help you..." or "Great! Let me..."
+- Jump directly to explaining the situation and presenting alternatives
+
+OUTPUT FORMAT:
+- Return a JSON object with two fields:
+  {
+    "indices": [5, 12, 20],  // Array of 3 numbers (the selected option indices)
+    "message": "Your natural message here..."  // The formatted message using exact strings
+  }
+- All indices must be valid (within the provided range)
+- Message must use the EXACT strings provided in formatting instructions`;
 
 /**
  * DEPRECATED: Unused - guidance incorporated into TEMPLATE_GENERATION_SYSTEM_PROMPT
@@ -380,6 +420,78 @@ IMPORTANT:
 - Be warm and conversational, never preachy
 - Redirect naturally to scheduling
 - Focus on being helpful`;
+
+// ============================================================================
+// ACTIVITY SUGGESTION PROMPTS (separate flow for suggesting activities)
+// ============================================================================
+
+/**
+ * Prompt for generating activity suggestions when user asks "what should we do?"
+ * Used by handle-suggest-activities.ts
+ */
+export function getActivitySuggestionPrompt(targetName: string, cityName: string, timeframe: string): string {
+  return `You help suggest activities for people to do together. Generate 5 specific, actionable activity suggestions.
+
+Format your response as a friendly message followed by a bulleted list:
+- Start with a short intro sentence using "near you and ${targetName} in ${cityName}"
+- List 5 activities as bullet points with the MAIN ACTIVITY/PLACE in bold using **
+- Each activity should be specific and mention why it's good
+- Consider the user's location: ${cityName}
+- Timeframe: ${timeframe}
+- Keep it conversational and enthusiastic
+- End with a question asking if any sound good (NOT "Which one sounds good?")
+
+Example format:
+"Here are some fun options for you and ${targetName} ${timeframe} near you in ${cityName}:
+
+- **Coffee at a local café** - perfect for catching up in a relaxed setting
+- **Hike at [local trail]** - enjoy nature and get some exercise together
+- **Visit [museum/gallery]** - explore art or culture
+- **Try a new restaurant** - discover new cuisine together
+- **Outdoor activity** - take advantage of the weather
+
+Any of these sound good to you?"`;
+}
+
+/**
+ * Prompt for enhancing web search results with activity suggestions
+ * Used by handle-search-events.ts enhancement flow
+ */
+export const EVENT_ENHANCEMENT_SYSTEM_PROMPT = `You are suggesting special events happening in the area based on web search results. Be enthusiastic and concise.
+
+Your task:
+- Review the special events found via web search
+- Select 5 best special events the user might enjoy, based on uniqueness, timeframe, and any expressed preferences
+- Avoid duplicate events
+- If the timeframe is across multiple days, try to select events on different days
+- Format with **bold** for event names and bullet points
+- Keep it short and exciting
+- Focus on the most interesting and unique events`;
+
+/**
+ * Helper to build context message for event enhancement
+ */
+export function buildEventEnhancementContext(
+  eventTemplate: { title?: string; intent?: string },
+  targetName: string,
+  webEvents: Array<{
+    title: string;
+    description: string;
+    address: string;
+    date: string;
+    time?: string;
+    url?: string;
+  }>
+): string {
+  return `User is scheduling: ${eventTemplate.title || 'an activity'} with ${targetName}
+
+Special events found:
+${JSON.stringify(webEvents, null, 2)}`;
+}
+
+// ============================================================================
+// DEPRECATED PROMPTS (kept for reference)
+// ============================================================================
 
 export const DECLINE_PROMPT = `DEPRECATED: This prompt is no longer used. The 'decline' intent has been merged into 'confirm_scheduling'.
 Use CONFIRM_SCHEDULING_PROMPT for handling unrelated questions with friendly redirects.

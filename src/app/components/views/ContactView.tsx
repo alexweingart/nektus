@@ -49,7 +49,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const { profile: userProfile } = useProfile();
 
   // Animation state
-  const [isEntering, setIsEntering] = useState(true);
+  // Check if we're returning from Google auth - skip animation in that case
+  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const isReturningFromAuth = urlParams.get('incremental_auth') === 'success' || urlParams.get('incremental_auth') === 'denied';
+  const [isEntering, setIsEntering] = useState(!isReturningFromAuth);
   const [isExiting, setIsExiting] = useState(false);
   const contactCardRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
@@ -529,6 +532,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle enter animation - delay 500ms to match profile exit
   useEffect(() => {
+    // Skip animation if returning from auth
+    if (isReturningFromAuth) {
+      setIsEntering(false);
+      return;
+    }
+
     if (!isHistoricalMode) {
       // Delay enter animation by 500ms (matching profile exit duration)
       const enterTimer = setTimeout(() => {
@@ -540,7 +549,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // For historical mode, no delay needed
       setIsEntering(false);
     }
-  }, [isHistoricalMode]);
+  }, [isHistoricalMode, isReturningFromAuth]);
 
   if (!profile) {
     console.log('❌ ContactView: No profile provided, returning null');
