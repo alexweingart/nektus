@@ -141,12 +141,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
-            // Check if either avatar OR background is already generated
+            // Check if either avatar OR background is already generated/uploaded
             // Note: AI-generated avatars don't get background images, so we need to check both flags
             const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
             const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
+            const hasBackgroundImage = !!existingProfile.backgroundImage;
 
-            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated) {
+            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundImage) {
               console.log('[ProfileContext] New user detected - triggering asset generation');
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
@@ -363,10 +364,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Generate background image only if user has a non-initials profile image
     // Wait for profile image generation decision before triggering background generation
-    // Skip if already generated (check aiGeneration flag)
+    // Skip if already generated (check aiGeneration flag) OR if user uploaded one manually
     if (!backgroundGenerationTriggeredRef.current &&
         !profile?.backgroundImage &&
         !profile?.aiGeneration?.backgroundImageGenerated) {
+
+      console.log('[ProfileContext] Background generation conditions check:', {
+        backgroundImage: profile?.backgroundImage,
+        backgroundImageGenerated: profile?.aiGeneration?.backgroundImageGenerated
+      });
 
       // Only generate background if we have a custom (non-initials) profile image
       const shouldGenerateBackground = async () => {
