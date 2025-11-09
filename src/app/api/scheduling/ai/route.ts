@@ -11,13 +11,26 @@ import type { TimeSlot } from '@/types/profile';
 export async function POST(request: NextRequest) {
   try {
     const body: AISchedulingRequest = await request.json();
+
+
+    // Extract user IP for location fallback
+    const userIp = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                    request.headers.get('x-real-ip') ||
+                    '127.0.0.1';
+
     console.log('🔍 AI Scheduling Request Body:', {
       hasUserMessage: !!body.userMessage,
       conversationHistoryLength: body.conversationHistory?.length || 0,
       user1Id: body.user1Id,
       user2Id: body.user2Id,
       contactType: body.calendarType,
+      user1Location: body.user1Location,
+      user2Location: body.user2Location,
+      userIp,
     });
+
+    // Add IP to body for location fallback
+    body.userIp = userIp;
 
     const {
       conversationHistory = [],

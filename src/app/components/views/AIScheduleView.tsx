@@ -89,6 +89,13 @@ export default function AIScheduleView() {
 
       try {
         console.log('🔄 Pre-fetching common time slots for AI scheduling...');
+
+        // Check if Firebase auth is initialized
+        if (!auth.currentUser) {
+          console.warn('⚠️ Firebase auth not ready, skipping common times pre-fetch');
+          return;
+        }
+
         const idToken = await auth.currentUser.getIdToken();
 
         const response = await fetch('/api/scheduling/common-times', {
@@ -136,7 +143,7 @@ export default function AIScheduleView() {
 - Days or times you're free
 - What type of place you'd like to meet at
 
-*And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!*`,
+And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!`,
       }]);
     }
   }, [contactProfile, messages.length]);

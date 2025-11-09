@@ -19,6 +19,8 @@ export async function handleEditEventTemplate(
 
   // Try to get cached places and event template
   const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
+  console.log(`🔍 Looking for cache with key: ${cacheKey}`);
+
   const cached = await processingStateManager.getCached<{
     places?: Place[];
     eventTemplate?: Partial<Event>;
@@ -29,6 +31,14 @@ export async function handleEditEventTemplate(
     };
   }>(cacheKey);
 
+  console.log(`🔍 Cache retrieval result:`, {
+    found: !!cached,
+    hasTemplate: !!cached?.eventTemplate,
+    hasPlaces: !!cached?.places,
+    placesCount: cached?.places?.length || 0,
+    hasEventResult: !!cached?.eventResult
+  });
+
   let places: Place[] = [];
   let eventTemplate: Partial<Event> | null = null;
   const previousEvent = cached?.eventResult;
@@ -38,7 +48,9 @@ export async function handleEditEventTemplate(
     eventTemplate = cached.eventTemplate;
     console.log(`✅ Using cached event template and ${places.length} places`);
   } else {
-    console.log('⚠️ No cached data found - this edit might be slow');
+    console.log('❌ No cached data found - this edit might be slow');
+    console.log(`   Cache key: ${cacheKey}`);
+    console.log(`   user1Id: ${body.user1Id}, user2Id: ${body.user2Id}`);
     throw new Error(
       `Cannot edit event: No cached event template found for users ${body.user1Id} and ${body.user2Id}. ` +
       `Please create a new event instead of editing.`

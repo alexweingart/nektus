@@ -63,9 +63,11 @@ interface FoursquarePlace {
   longitude: number;
   location: FoursquareLocation;
   categories?: FoursquareCategory[];
+  description?: string; // venue description (if available)
   rating?: number; // 0-10 scale (if available)
   price?: number; // 1-4 scale (if available)
   hours?: unknown; // hours structure (if available)
+  tips?: Array<{ text: string }>; // user reviews/tips (if available)
   distance?: number; // meters from search center
 }
 
@@ -80,7 +82,8 @@ export async function searchFoursquarePlaces(
   location: Coordinates,
   radius: number,
   textQuery: string,
-  category?: string
+  category?: string,
+  includePremiumFields?: boolean
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -111,8 +114,11 @@ export async function searchFoursquarePlaces(
 
     // Request specific fields - NEW API field names
     // Core (free): fsq_place_id, name, latitude, longitude, location, categories
-    // Premium (paid): rating, price, hours
-    url.searchParams.set('fields', 'fsq_place_id,name,latitude,longitude,location,categories');
+    // Premium (paid): rating, price, hours, tips, photos, description
+    const fields = includePremiumFields
+      ? 'fsq_place_id,name,latitude,longitude,location,categories,description,rating,price,tips'
+      : 'fsq_place_id,name,latitude,longitude,location,categories';
+    url.searchParams.set('fields', fields);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -166,6 +172,8 @@ export async function searchFoursquarePlaces(
           name: place.name || 'Unknown Place',
           address: address,
           coordinates: placeCoords,
+          description: place.description,
+          tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined, // Convert 0-10 to 0-5 scale if available
           price_level: place.price,
           google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
@@ -219,7 +227,8 @@ export async function searchFoursquarePlaces(
 export async function searchFoursquareNearby(
   location: Coordinates,
   radius: number,
-  categories: string[]
+  categories: string[],
+  includePremiumFields?: boolean
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -238,7 +247,10 @@ export async function searchFoursquareNearby(
     url.searchParams.set('radius', Math.round(radius).toString()); // Must be integer
     url.searchParams.set('categories', categories.join(','));
     url.searchParams.set('limit', '50');
-    url.searchParams.set('fields', 'fsq_place_id,name,latitude,longitude,location,categories');
+    const fields = includePremiumFields
+      ? 'fsq_place_id,name,latitude,longitude,location,categories,description,rating,price,tips'
+      : 'fsq_place_id,name,latitude,longitude,location,categories';
+    url.searchParams.set('fields', fields);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -291,6 +303,8 @@ export async function searchFoursquareNearby(
           name: place.name || 'Unknown Place',
           address: address,
           coordinates: placeCoords,
+          description: place.description,
+          tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined,
           price_level: place.price,
           google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
@@ -347,16 +361,17 @@ export async function searchPlacesByType(
   radius: number,
   type: 'restaurant' | 'cafe' | 'food',
   keyword?: string,
-  _meetingDateTime?: Date
+  _meetingDateTime?: Date,
+  includePremiumFields?: boolean
 ): Promise<Place[]> {
   // Map Google Places type to Foursquare category
   const category = CATEGORY_MAP[type] || CATEGORY_MAP.restaurant;
 
   // Use text search if keyword is provided, otherwise use nearby search
   if (keyword) {
-    return await searchFoursquarePlaces(location, radius, keyword, category);
+    return await searchFoursquarePlaces(location, radius, keyword, category, includePremiumFields);
   } else {
-    return await searchFoursquareNearby(location, radius, [category]);
+    return await searchFoursquareNearby(location, radius, [category], includePremiumFields);
   }
 }
 

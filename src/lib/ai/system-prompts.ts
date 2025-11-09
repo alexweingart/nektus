@@ -175,8 +175,9 @@ SELECTION STRATEGY:
 
 **Time Selection:**
 - FIRST PRIORITY: Match user's explicit time requests if specified
-- For PRIMARY time slot, prefer SOONEST day that fits, but at the MOST APPROPRIATE time for that activity type
-- For ALTERANTIVE time slots, provide different days if possible
+- For PRIMARY time slot, select the SOONEST day that has available slots, then choose the MOST APPROPRIATE time within that day for the activity type (e.g., midday for lunch, afternoon for sports, evening for dinner)
+- EXCEPTION: You may skip to a later day ONLY if the available times on the soonest day are truly inappropriate for the activity (e.g., 9 PM for lunch, 8 AM for dinner). This should be rare.
+- For ALTERNATIVE time slots, provide different days if possible
 
 **Place Selection:**
 - Consider rating, distance from midpoint, and convenience for both users
@@ -193,7 +194,7 @@ CRITICAL STRING USAGE RULES:
 
 MARKDOWN FORMATTING:
 - Use **bold text** for important information like event names, venue names, times, and the other person's name
-- Use *italics* for subtle emphasis or notes (e.g., "*I've included 30-minute travel buffers*")
+- Use regular text for notes about travel buffers (e.g., "I've included 30-minute travel buffers before and after.")
 - Use bullet points for lists of options
 - Use line breaks to organize information clearly
 - Keep formatting clean and minimal - enhance readability without being distracting
@@ -307,7 +308,7 @@ IMPORTANT MESSAGE GUIDELINES:
 
 MARKDOWN FORMATTING:
 - Use **bold text** for important information like event names, venue names, times, and the other person's name
-- Use *italics* for subtle emphasis or notes (e.g., "*Note: I'll include 30-minute travel buffers*")
+- Use regular text for notes about travel buffers (e.g., "I've included 30-minute travel buffers before and after.")
 - Use bullet points for lists of options
 - Use line breaks to organize information clearly
 - Keep formatting clean and minimal - enhance readability without being distracting
@@ -334,7 +335,7 @@ CRITICAL: The user has ALREADY been acknowledged in a previous message. DO NOT i
 START IMMEDIATELY with "I've scheduled..." - nothing before it.
 
 EXAMPLE FORMAT:
-"I've scheduled **dinner with Al** for **Saturday, 7:00-8:30 PM** at [Z & Y Peking Duck](https://www.google.com/maps/search/?api=1&query=Z+%26+Y+Peking+Duck%2C+606+Jackson+St%2C+San+Francisco%2C+CA+94133). *I've included 30-minute travel buffers before and after.*
+"I've scheduled **dinner with Al** for **Saturday, 7:00-8:30 PM** at [Z & Y Peking Duck](https://www.google.com/maps/search/?api=1&query=Z+%26+Y+Peking+Duck%2C+606+Jackson+St%2C+San+Francisco%2C+CA+94133). I've included 30-minute travel buffers before and after.
 
 I also considered these options:
 - [New Thai Elephant](https://www.google.com/maps/search/?api=1&query=New+Thai+Elephant%2C+393+Bay+St%2C+San+Francisco%2C+CA) - great Thai cuisine with good reviews

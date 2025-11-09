@@ -19,6 +19,8 @@ export interface Place {
   name: string;
   address: string;
   coordinates: Coordinates;
+  description?: string; // venue description from Foursquare
+  tips?: string[]; // user reviews/tips from Foursquare (text only)
   rating?: number; // 0-5 scale (converted from Foursquare's 0-10 scale)
   price_level?: number; // 1-4 scale
   google_maps_url: string;

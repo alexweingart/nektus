@@ -200,10 +200,10 @@ IMPORTANT CONTEXT:
 - The event is for both of them together
 
 FORMAT:
-I've scheduled **[activity]** for **${formattedTime}** at [venue name](https://www.google.com/maps/search/?api=1&query=URL_ENCODED_VENUE_AND_ADDRESS). *I've included 30-minute travel buffers before and after.*${conflictWarning}
+I've scheduled **[activity]** for **${formattedTime}** at [USE THE EXACT VENUE LINK PROVIDED BELOW]. I've included 30-minute travel buffers before and after.${conflictWarning}
 ${showAlternativePlaces || showAlternativeTimes ? `
 I also considered these options:
-${showAlternativePlaces ? '- [Alternative place 1](https://www.google.com/maps/search/?api=1&query=URL_ENCODED) - brief context about why this place is good\n- [Alternative place 2](https://www.google.com/maps/search/?api=1&query=URL_ENCODED) - brief context about why this place is good' : ''}
+${showAlternativePlaces ? '- [USE EXACT ALTERNATIVE PLACE LINKS PROVIDED BELOW] - brief context about why this place is good' : ''}
 ${showAlternativeTimes && hasAlternativeTimes ? alternativeTimes.map((t) => `- **${t}** - brief context about why this time could work`).join('\n') : ''}
 ` : ''}
 When you create the event, ${targetName} will get an invite from your ${body.calendarType} calendar. Let me know if you'd like to make any changes!

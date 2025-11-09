@@ -69,7 +69,7 @@ When in doubt, choose 'in-person' - most social activities benefit from being to
         type: 'object',
         description: `HARD time constraints only. Use this ONLY for:
 1. User explicitly specified times (e.g., "in the morning", "after 5pm", "between 2-4pm")
-2. Activities with inherent time requirements (e.g., breakfast 07:00-10:00, lunch 11:00-14:00, dinner 17:00-21:00)
+2. Activities with inherent time requirements (e.g., breakfast, lunch, dinner)
 
 DO NOT use for soft preferences or typical activity times. For example:
 - ✅ USE: "lunch" → lunch hours, "coffee in the morning" → morning hours, "dinner" → dinner hours

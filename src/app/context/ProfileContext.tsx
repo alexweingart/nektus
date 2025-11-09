@@ -120,6 +120,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
             console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
+            console.log('📍 [ProfileContext] Locations loaded:', existingProfile.locations?.map(l => `${l.section}: ${l.city}, ${l.region}`));
 
             // Auto-detect and update timezone if it's different from current browser timezone
             const browserTimezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
@@ -533,9 +534,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // 2. Explicit skipUIUpdate requests
       // Note: Removed form submission skip - we want UI to reflect saved changes immediately
       const skipReactUpdate = options.skipUIUpdate;
-      
+
       if (!skipReactUpdate) {
         console.log('📱 [ProfileContext] Setting profile after save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
+        console.log('📍 [ProfileContext] Locations after save:', merged.locations?.map(l => `${l.section}: ${l.city}, ${l.region}`));
         setProfile(merged);
       } else {
         // However, if this is a background operation and the current profile state is stale (empty userId),

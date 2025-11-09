@@ -83,8 +83,7 @@ const EditProfileView: React.FC = () => {
     router: calRouter
   } = useCalendarLocationManagement({
     profile,
-    saveProfile,
-    onSaveProfile: undefined // Will be set later
+    saveProfile
   });
 
   useFreezeScrollOnFocus(nameInputRef);

@@ -36,6 +36,8 @@ function buildFormattingInstructions(
     distance_km?: number;
     price_level?: number;
     open_now?: boolean;
+    description?: string;
+    tips?: string[];
     explanations: string[];
   }>,
   template: Partial<Event>,
@@ -52,7 +54,7 @@ function buildFormattingInstructions(
 
   // Build place data display
   const placeDataDisplay = placeData.map((p, i) =>
-    `Place ${i}:\n  name: "${p.name}"\n  url: "${p.url}"\n  rating: ${p.rating || 'N/A'}\n  distance_km: ${p.distance_km?.toFixed(1) || 'N/A'}\n  explanations: ${p.explanations.join(', ') || 'none'}`
+    `Place ${i}:\n  name: "${p.name}"\n  url: "${p.url}"\n  rating: ${p.rating || 'N/A'}\n  distance_km: ${p.distance_km?.toFixed(1) || 'N/A'}${p.description ? `\n  description: "${p.description}"` : ''}${p.tips && p.tips.length > 0 ? `\n  reviews: ${p.tips.slice(0, 3).map(t => `"${t}"`).join(', ')}` : ''}\n  explanations: ${p.explanations.join(', ') || 'none'}`
   ).join('\n\n');
 
   return `## AVAILABLE DATA
@@ -68,30 +70,36 @@ ${placeDataDisplay}
 
 **FIRST PARAGRAPH** (main event announcement with rationale):
 
+CRITICAL URL INSTRUCTIONS:
+- URLs are provided in the PLACE DATA section above
+- Each place has a "url" field - this is the COMPLETE Google Maps URL
+- Copy the ENTIRE URL exactly as shown - it starts with "https://www.google.com/maps/search/?api=1&query="
+- DO NOT shorten URLs
+- DO NOT create goo.gl short links
+- DO NOT make up URLs
+- Example: If the url is "https://www.google.com/maps/search/?api=1&query=Tennis+Court+37.7749%2C-122.4194", use that EXACT string
+
 If isTomorrowOrToday is true:
-"I've scheduled **${template.title}** at [{place.name}]({place.url}) for **{dayLabel}** ({dateContext}) at **{time}**. {rationale}."
+"I've scheduled **${template.title}** at [place-name-from-data](exact-complete-url-from-place-data) for **{dayLabel}** ({dateContext}) at **{time}**. {rationale}."
 
 If isTomorrowOrToday is false:
-"I've scheduled **${template.title}** at [{place.name}]({place.url}) for **{dayLabel}**, {dateContext} at **{time}**. {rationale}."
+"I've scheduled **${template.title}** at [place-name-from-data](exact-complete-url-from-place-data) for **{dayLabel}**, {dateContext} at **{time}**. {rationale}."
 
 FORMATTING RULES:
 - Bold ONLY: event name ("${template.title}"), day label, and time
-- Hyperlink ONLY: place name with URL
+- Hyperlink ONLY: place name - use markdown format [name](COMPLETE_URL_FROM_PLACE_DATA)
 - Everything else: plain text
 
 RATIONALE (one sentence explaining your choice):
-Consider these factors based on the data:
-- Time factors: "This is the soonest available time" / "This ${template.intent?.includes('tennis') ? 'afternoon' : 'evening'} slot works well"
-- Place factors: Use explanations array or data (rating, distance)
-- Examples:
-  * "This is the earliest available time at a highly rated venue."
-  * "The venue is centrally located and well-reviewed."
-  * "This provides a convenient afternoon slot at a court close to both of you."
+Critical instructions:
+- Time factors: If multiple slots exist on the selected day, explain WHY you chose this specific time based on the activity type (e.g., afternoon vs morning, avoiding rush hours). Only use "soonest available" if it's truly the first possible slot across all days.
+- Place factors: REQUIRED - Use your real-world knowledge about this specific venue to explain what makes it good for this activity. Think about the venue's actual features, reputation, or characteristics. Do NOT fall back to generic location descriptions.
+- Distance display: ALWAYS convert km to miles (divide by 1.609) and round to 1 decimal place
 
 ${template.travelBuffer ? `
 **SECOND PARAGRAPH** (blank line, then travel buffer):
 
-*I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.*
+I've included ${template.travelBuffer.beforeMinutes || 30}-minute travel buffers before and after.
 
 (blank line)
 ` : ''}
@@ -101,7 +109,14 @@ ${showAlternativePlaces || showAlternativeTimes ? `
 "I also considered these options:"
 
 ${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as:
-- [{place.name}]({place.url}) - {explanation from explanations array}` : ''}
+- [place-name](COMPLETE_URL_FROM_PLACE_DATA) - {brief venue-specific description using your knowledge}
+
+Instructions for alternative venues:
+- Use your real-world knowledge about each venue to write a brief (3-5 word) distinguishing characteristic
+- Focus on what makes each venue unique or notable for this activity
+- Convert any distances from km to miles (divide by 1.609)
+- Do NOT use generic phrases like "convenient location"
+- CRITICAL: Use the COMPLETE url value from PLACE DATA for each alternative place. The URLs are long - that's correct. Do NOT shorten them.` : ''}
 ${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}
 
 (blank line)
@@ -325,6 +340,7 @@ export async function streamSchedulingResponse(
               ...templateResult.placeSearchParams,
             } as any,
             userLocations: [body.user1Location, body.user2Location].filter(Boolean) as string[],
+            userIp: body.userIp, // Pass IP for location fallback
           });
           console.log(`✅ Found ${places.length} places`);
         }
@@ -453,6 +469,8 @@ export async function streamSchedulingResponse(
             distance_km: place.distance_from_midpoint_km,
             price_level: place.price_level,
             open_now: place.opening_hours?.open_now,
+            description: place.description,
+            tips: place.tips,
             explanations: explanations
           };
         };
@@ -461,6 +479,20 @@ export async function streamSchedulingResponse(
         const timeData = slots.slice(0, 10).map(formatSlotTime);
         // Pre-build structured place data for all places
         const placeData = places.slice(0, 10).map(formatPlaceData);
+
+        // LOG: Check if descriptions/reviews are present
+        console.log('📝 Place descriptions & reviews:');
+        placeData.forEach((p, i) => {
+          const desc = p.description ? `DESC: "${p.description.substring(0, 60)}..."` : 'NO DESC';
+          const tips = p.tips && p.tips.length > 0 ? `REVIEWS: ${p.tips.length} tips` : 'NO REVIEWS';
+          console.log(`   Place ${i} (${p.name}): ${desc}, ${tips}`);
+        });
+
+        // LOG: Verify URLs are real Google Maps URLs, not example.com
+        console.log('🔗 Place URLs being sent to LLM:');
+        placeData.forEach((p, i) => {
+          console.log(`   Place ${i}: ${p.name} -> ${p.url.substring(0, 80)}...`);
+        });
 
         // Build formatting instructions with decomposed data
         const formattingInstructions = buildFormattingInstructions(
@@ -473,6 +505,10 @@ export async function streamSchedulingResponse(
           body.user2Name || 'them',
           body.calendarType
         );
+
+        // LOG: Show full formatting instructions to debug URL issues
+        console.log('📋 Formatting instructions preview (first 1500 chars):');
+        console.log(formattingInstructions.substring(0, 1500));
 
         // Call LLM to select best time and place AND generate message
         const eventCompletion = await createCompletion({

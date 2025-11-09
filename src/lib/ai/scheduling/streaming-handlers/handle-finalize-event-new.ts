@@ -109,6 +109,15 @@ export async function handleFinalizeEvent(
 
   // Cache template and places for future edits (30 min TTL)
   const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
+  console.log(`💾 Caching event template with key: ${cacheKey}`);
+  console.log(`💾 Cache data:`, {
+    placesCount: places?.length || 0,
+    templateTitle: template.title,
+    hasEventResult: !!eventResult,
+    user1Id: body.user1Id,
+    user2Id: body.user2Id
+  });
+
   await processingStateManager.set(
     cacheKey,
     {
@@ -123,5 +132,5 @@ export async function handleFinalizeEvent(
     1800 // 30 minutes
   );
 
-  console.log(`✅ Cached template and ${places?.length || 0} places for future edits`);
+  console.log(`✅ Cached template and ${places?.length || 0} places for future edits with TTL 1800s`);
 }

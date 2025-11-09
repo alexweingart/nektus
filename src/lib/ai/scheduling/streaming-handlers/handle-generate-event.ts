@@ -355,7 +355,7 @@ IMPORTANT CONTEXT:
 - The event is for both of them together
 
 FORMAT:
-I've scheduled **[activity]** for **${formattedTime}** at [venue name](https://www.google.com/maps/search/?api=1&query=URL_ENCODED_VENUE_AND_ADDRESS). *I've included 30-minute travel buffers before and after.*${conflictWarning}
+I've scheduled **[activity]** for **${formattedTime}** at [venue name](https://www.google.com/maps/search/?api=1&query=URL_ENCODED_VENUE_AND_ADDRESS) - [brief specific reason why this venue makes sense, such as: high rating, popular for this activity, has specific amenities, known for quality, etc.]. *I've included 30-minute travel buffers before and after.*${conflictWarning}
 ${showAlternativePlaces || showAlternativeTimes ? `
 I also considered these options:
 ${showAlternativePlaces ? '- [Alternative place 1](https://www.google.com/maps/search/?api=1&query=URL_ENCODED) - brief context about why this place is good\n- [Alternative place 2](https://www.google.com/maps/search/?api=1&query=URL_ENCODED) - brief context about why this place is good' : ''}
@@ -363,28 +363,30 @@ ${showAlternativeTimes && hasAlternativeTimes ? alternativeTimes.map((t) => `- *
 ` : ''}
 When you create the event, ${targetName} will get an invite from your ${body.calendarType} calendar. Let me know if you'd like to make any changes!
 
-IMPORTANT: Use the EXACT alternative places provided below. If specific venue names with addresses are given, use those exact names and addresses. Only use general categories if that's what's provided.${conflictWarning ? ' MUST include the calendar conflict warning.' : ''}
+IMPORTANT VENUE INSTRUCTIONS:
+- Use the EXACT alternative places provided below. If specific venue names with addresses are given, use those exact names and addresses.
+- For the PRIMARY venue, include a brief, specific reason why it makes sense (e.g., "it has a 4.8 rating and is known for excellent courts", "it's highly rated for this activity", "popular choice with great amenities"). DON'T just say "centrally located" or "convenient" - mention something specific about the venue itself.${conflictWarning ? '\n- MUST include the calendar conflict warning.' : ''}
 
 Use the EXACT time provided: ${formattedTime}. Use markdown **bold** for emphasis. Don't mention ${targetName} in the first sentence - they're already mentioned in the acknowledgment.` },
       { role: 'user', content: `Write a message for this event:
 - Activity: ${updatedEventTemplate.title}
 - Person: ${targetName}
 - Time: ${formattedTime}
-- Place: [${eventResult.place?.name || 'N/A'}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((eventResult.place?.name || '') + ', ' + (eventResult.place?.address || ''))})${showAlternativePlaces ? `
+- Place: [${eventResult.place?.name || 'N/A'}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((eventResult.place?.name || '') + ', ' + (eventResult.place?.address || ''))})${eventResult.place?.rating ? ` (Rating: ${eventResult.place.rating}/5)` : ''}${eventResult.place?.price_level ? ` (Price: ${'$'.repeat(eventResult.place.price_level)})` : ''}${eventResult.place?.description ? `\n  Description: ${eventResult.place.description}` : ''}${showAlternativePlaces ? `
 - Alternative places: ${(() => {
   // First try places that are open at the selected time
   let alternatives = places
     .filter(p => p.name !== eventResult.place?.name) // Exclude selected place
     .filter(p => isPlaceOpenAt(p, selectedTime)) // Only include places open at selected time
     .slice(0, 3)
-    .map(p => `[${p.name}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ', ' + p.address)})`);
+    .map(p => `[${p.name}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ', ' + p.address)})${p.rating ? ` (${p.rating}/5)` : ''}${p.description ? ` - ${p.description}` : ''}`);
 
   // If not enough open places, include any places we found (might be open, hours unknown)
   if (alternatives.length < 2 && places.length > 1) {
     alternatives = places
       .filter(p => p.name !== eventResult.place?.name)
       .slice(0, 3)
-      .map(p => `[${p.name}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ', ' + p.address)})`);
+      .map(p => `[${p.name}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ', ' + p.address)})${p.rating ? ` (${p.rating}/5)` : ''}${p.description ? ` - ${p.description}` : ''}`);
   }
 
   // If we have specific alternatives, use them
