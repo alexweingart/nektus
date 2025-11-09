@@ -4,8 +4,6 @@ import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils
 import type { AISchedulingRequest, GenerateEventResult } from '@/types/ai-scheduling';
 import type { Event, CalendarUrls } from '@/types';
 import type { Place } from '@/types/places';
-import { getGooglePlaceIds } from '@/lib/places/google-places-client';
-import { generateGoogleMapsUrl } from '@/lib/location/location-utils';
 
 /**
  * Simplified event finalization handler for new 5-stage pipeline.
@@ -30,49 +28,13 @@ export async function handleFinalizeEvent(
 
   enqueueProgress(controller, encoder, 'Creating calendar event...');
 
-  console.log('🔍 Checking if should enrich places:', {
+  // Note: Places are already enriched with Google Place IDs by the orchestrator
+  // before being sent to the LLM. No need to enrich again here.
+  console.log('📍 Using pre-enriched places:', {
     hasEventResultPlace: !!eventResult.place,
     placesLength: places?.length || 0,
-    shouldEnrich: !!(eventResult.place || (places && places.length > 0))
+    selectedPlaceURL: eventResult.place?.google_maps_url?.substring(0, 100) || 'N/A'
   });
-
-  // Enrich places with Google Place IDs for accurate Maps URLs
-  if (eventResult.place || (places && places.length > 0)) {
-    console.log('🚀 Starting Google Place ID enrichment...');
-
-    const placesToEnrich: Place[] = [];
-
-    // Add selected place
-    if (eventResult.place) {
-      placesToEnrich.push(eventResult.place);
-    }
-
-    // Add alternative places (up to 5 total)
-    if (places && places.length > 0) {
-      const alternatives = places.slice(0, 4); // Take first 4 alternatives
-      placesToEnrich.push(...alternatives.filter(p => p.name !== eventResult.place?.name));
-    }
-
-    // Batch lookup Google Place IDs
-    if (placesToEnrich.length > 0) {
-      const placeIdMap = await getGooglePlaceIds(
-        placesToEnrich.map(p => ({ name: p.name, coordinates: p.coordinates }))
-      );
-
-      // Update places with Google Place IDs and regenerate URLs
-      placesToEnrich.forEach(place => {
-        const googlePlaceId = placeIdMap.get(place.name);
-        if (googlePlaceId) {
-          place.google_place_id = googlePlaceId;
-          place.google_maps_url = generateGoogleMapsUrl(
-            place.coordinates,
-            place.name,
-            googlePlaceId
-          );
-        }
-      });
-    }
-  }
 
   // Build event description and location
   const baseDescription = template.description || `${template.title || 'Event'} with ${body.user2Name || 'contact'}`;

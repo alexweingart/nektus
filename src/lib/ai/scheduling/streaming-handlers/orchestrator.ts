@@ -546,6 +546,66 @@ export async function streamSchedulingResponse(
 
         console.log(`✅ Event selected: ${eventResult.startTime} - ${eventResult.endTime}`);
 
+        // Post-process: Enrich place URLs in the LLM-generated message
+        if ((eventResult as any).message && places && places.length > 0) {
+          console.log('🔄 Post-processing message to enrich place URLs...');
+          const { getGooglePlaceIds } = await import('@/lib/places/google-places-client');
+          const { generateGoogleMapsUrl } = await import('@/lib/location/location-utils');
+
+          let message = (eventResult as any).message as string;
+
+          // Extract place names from markdown links in the message
+          // Format: [Place Name](URL)
+          const placeLinksRegex = /\[([^\]]+)\]\(https:\/\/www\.google\.com\/maps\/search\/[^\)]+\)/g;
+          const mentionedPlaceNames = new Set<string>();
+          let match;
+          while ((match = placeLinksRegex.exec(message)) !== null) {
+            mentionedPlaceNames.add(match[1]); // Extract place name from [Place Name](URL)
+          }
+
+          console.log(`📍 Found ${mentionedPlaceNames.size} places mentioned in message:`, Array.from(mentionedPlaceNames));
+
+          // Find Place objects for mentioned places
+          const placesToEnrich = places.filter(p =>
+            Array.from(mentionedPlaceNames).some(name =>
+              p.name.includes(name) || name.includes(p.name)
+            )
+          );
+
+          console.log(`🚀 Enriching ${placesToEnrich.length} places mentioned in message...`);
+
+          if (placesToEnrich.length > 0) {
+            const placeIdMap = await getGooglePlaceIds(
+              placesToEnrich.map(p => ({ name: p.name, coordinates: p.coordinates }))
+            );
+
+            // Update places with Google Place IDs and regenerate URLs
+            placesToEnrich.forEach(place => {
+              const googlePlaceId = placeIdMap.get(place.name);
+              if (googlePlaceId) {
+                place.google_place_id = googlePlaceId;
+                const enrichedUrl = generateGoogleMapsUrl(
+                  place.coordinates,
+                  place.name,
+                  googlePlaceId
+                );
+                place.google_maps_url = enrichedUrl;
+
+                // Replace the old URL in the message
+                // Find the markdown link with this place name and replace its URL
+                const linkRegex = new RegExp(`(\\[${place.name}\\])\\(https:\\/\\/www\\.google\\.com\\/maps\\/search\\/[^\\)]+\\)`, 'g');
+                message = message.replace(linkRegex, `$1(${enrichedUrl})`);
+
+                console.log(`✅ Replaced URL for ${place.name}`);
+              }
+            });
+
+            // Update the message in eventResult
+            (eventResult as any).message = message;
+            console.log('✅ Message URLs enriched with Google Place IDs');
+          }
+        }
+
         // Finalize event (create calendar event, stream result, cache)
         await handleFinalizeEvent(eventResult, templateResult.template, body, controller, encoder, places);
 
