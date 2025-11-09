@@ -20,6 +20,8 @@ export async function getGooglePlaceId(
     // https://developers.google.com/maps/documentation/places/web-service/text-search
     const url = 'https://places.googleapis.com/v1/places:searchText';
 
+    console.log(`🔍 Fetching Google Place ID for "${placeName}" at (${coordinates.lat}, ${coordinates.lng})`);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -41,7 +43,15 @@ export async function getGooglePlaceId(
       }),
     });
 
+    console.log(`📡 Google Places API response status: ${response.status}`);
+
     const data = await response.json();
+    console.log(`📦 Google Places API response data:`, JSON.stringify(data).substring(0, 500));
+
+    if (!response.ok) {
+      console.warn(`⚠️ Google Places API error for "${placeName}": ${response.status} - ${JSON.stringify(data)}`);
+      return null;
+    }
 
     if (data.places && data.places.length > 0) {
       const placeId = data.places[0].id;

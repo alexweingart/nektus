@@ -25,12 +25,21 @@ export async function handleFinalizeEvent(
   encoder: TextEncoder,
   places?: Place[]
 ): Promise<void> {
+  console.log('🎬 handleFinalizeEvent called with places:', places?.length || 0);
   console.log('✅ Finalizing event creation...');
 
   enqueueProgress(controller, encoder, 'Creating calendar event...');
 
+  console.log('🔍 Checking if should enrich places:', {
+    hasEventResultPlace: !!eventResult.place,
+    placesLength: places?.length || 0,
+    shouldEnrich: !!(eventResult.place || (places && places.length > 0))
+  });
+
   // Enrich places with Google Place IDs for accurate Maps URLs
   if (eventResult.place || (places && places.length > 0)) {
+    console.log('🚀 Starting Google Place ID enrichment...');
+
     const placesToEnrich: Place[] = [];
 
     // Add selected place

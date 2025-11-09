@@ -33,7 +33,7 @@ function buildFormattingInstructions(
     name: string;
     url: string;
     rating?: number;
-    distance_km?: number;
+    distance_miles?: number;
     price_level?: number;
     open_now?: boolean;
     description?: string;
@@ -54,7 +54,7 @@ function buildFormattingInstructions(
 
   // Build place data display
   const placeDataDisplay = placeData.map((p, i) =>
-    `Place ${i}:\n  name: "${p.name}"\n  url: "${p.url}"\n  rating: ${p.rating || 'N/A'}\n  distance_km: ${p.distance_km?.toFixed(1) || 'N/A'}${p.description ? `\n  description: "${p.description}"` : ''}${p.tips && p.tips.length > 0 ? `\n  reviews: ${p.tips.slice(0, 3).map(t => `"${t}"`).join(', ')}` : ''}\n  explanations: ${p.explanations.join(', ') || 'none'}`
+    `Place ${i}:\n  name: "${p.name}"\n  url: "${p.url}"\n  rating: ${p.rating || 'N/A'}\n  distance_miles: ${p.distance_miles?.toFixed(1) || 'N/A'}${p.description ? `\n  description: "${p.description}"` : ''}${p.tips && p.tips.length > 0 ? `\n  reviews: ${p.tips.slice(0, 3).map(t => `"${t}"`).join(', ')}` : ''}\n  explanations: ${p.explanations.join(', ') || 'none'}`
   ).join('\n\n');
 
   return `## AVAILABLE DATA
@@ -94,7 +94,7 @@ RATIONALE (one sentence explaining your choice):
 Critical instructions:
 - Time factors: If multiple slots exist on the selected day, explain WHY you chose this specific time based on the activity type (e.g., afternoon vs morning, avoiding rush hours). Only use "soonest available" if it's truly the first possible slot across all days.
 - Place factors: REQUIRED - Use your real-world knowledge about this specific venue to explain what makes it good for this activity. Think about the venue's actual features, reputation, or characteristics. Do NOT fall back to generic location descriptions.
-- Distance display: ALWAYS convert km to miles (divide by 1.609) and round to 1 decimal place
+- Distance display: Use miles as provided in distance_miles field (already converted, rounded to 1 decimal place)
 
 ${template.travelBuffer ? `
 **SECOND PARAGRAPH** (blank line, then travel buffer):
@@ -114,7 +114,7 @@ ${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as:
 Instructions for alternative venues:
 - Use your real-world knowledge about each venue to write a brief (3-5 word) distinguishing characteristic
 - Focus on what makes each venue unique or notable for this activity
-- Convert any distances from km to miles (divide by 1.609)
+- Distance is already in miles in the distance_miles field (no conversion needed)
 - Do NOT use generic phrases like "convenient location"
 - CRITICAL: Use the COMPLETE url value from PLACE DATA for each alternative place. The URLs are long - that's correct. Do NOT shorten them.` : ''}
 ${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}
@@ -462,11 +462,16 @@ export async function streamSchedulingResponse(
             explanations.push('currently closed');
           }
 
+          // Convert km to miles for display
+          const distance_miles = place.distance_from_midpoint_km !== undefined
+            ? place.distance_from_midpoint_km / 1.609
+            : undefined;
+
           return {
             name: place.name,
             url: place.google_maps_url,
             rating: place.rating,
-            distance_km: place.distance_from_midpoint_km,
+            distance_miles: distance_miles,
             price_level: place.price_level,
             open_now: place.opening_hours?.open_now,
             description: place.description,
