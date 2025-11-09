@@ -195,15 +195,21 @@ And if you don't know any of those things, and just want me to suggest based off
       const currentUserLoc = currentUserProfile.locations?.find(
         loc => loc.section === contactType
       );
+      // Build full address with city context to avoid geocoding ambiguity
       const currentUserLocation = currentUserLoc
-        ? `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+        ? currentUserLoc.address
+          ? `${currentUserLoc.address}, ${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+          : `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
         : '';
 
       const contactLoc = contactProfile.locations?.find(
         loc => loc.section === contactType
       );
+      // Build full address with city context to avoid geocoding ambiguity
       const contactLocation = contactLoc
-        ? `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+        ? contactLoc.address
+          ? `${contactLoc.address}, ${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+          : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
         : '';
 
       const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';

@@ -83,7 +83,7 @@ export async function searchFoursquarePlaces(
   radius: number,
   textQuery: string,
   category?: string,
-  includePremiumFields?: boolean
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -96,6 +96,8 @@ export async function searchFoursquarePlaces(
   }
 
   try {
+    console.log(`🔍 Foursquare search: center=(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), radius=${radius}m, query="${textQuery}"`);
+
     const url = new URL('https://places-api.foursquare.com/places/search');
 
     // Required parameters
@@ -176,7 +178,7 @@ export async function searchFoursquarePlaces(
           tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined, // Convert 0-10 to 0-5 scale if available
           price_level: place.price,
-          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
+          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name), // Will be updated with Place ID later
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
             open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
@@ -192,11 +194,23 @@ export async function searchFoursquarePlaces(
       });
 
     // Filter by radius and rating (4+ stars for better quality)
+    console.log(`🔍 Filtering ${places.length} places from Foursquare (radius: ${radius}m = ${(radius / 1000).toFixed(1)}km)`);
     const filteredPlaces = places.filter(place => {
+      const distanceKm = place.distance_from_midpoint_km || 0;
       const withinRadius = isWithinRadius(location, place.coordinates, radius / 1000);
       const goodRating = !place.rating || place.rating >= 4.0; // Include unrated or 4+ star places
+
+      if (!withinRadius) {
+        console.log(`   ❌ Filtered out ${place.name} - ${distanceKm.toFixed(1)}km away (exceeds ${(radius / 1000).toFixed(1)}km radius)`);
+      }
+      if (!goodRating) {
+        console.log(`   ❌ Filtered out ${place.name} - rating ${place.rating} (below 4.0 threshold)`);
+      }
+
       return withinRadius && goodRating;
     });
+
+    console.log(`✅ After filtering: ${filteredPlaces.length} places remaining`);
 
     return filteredPlaces.sort((a, b) => {
       if (a.rating && b.rating) {
@@ -228,7 +242,7 @@ export async function searchFoursquareNearby(
   location: Coordinates,
   radius: number,
   categories: string[],
-  includePremiumFields?: boolean
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -307,7 +321,7 @@ export async function searchFoursquareNearby(
           tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined,
           price_level: place.price,
-          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
+          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name), // Will be updated with Place ID later
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
             open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
@@ -362,7 +376,7 @@ export async function searchPlacesByType(
   type: 'restaurant' | 'cafe' | 'food',
   keyword?: string,
   _meetingDateTime?: Date,
-  includePremiumFields?: boolean
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   // Map Google Places type to Foursquare category
   const category = CATEGORY_MAP[type] || CATEGORY_MAP.restaurant;

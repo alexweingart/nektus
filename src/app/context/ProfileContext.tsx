@@ -43,6 +43,7 @@ type ProfileContextType = {
   streamingBio: string | null;
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingBackgroundImage: string | null;
+  setStreamingBackgroundImage: (imageUrl: string | null) => void;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
 };
@@ -844,6 +845,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         streamingBio,
         streamingSocialContacts,
         streamingBackgroundImage,
+        setStreamingBackgroundImage,
         isGoogleInitials
       }}
     >

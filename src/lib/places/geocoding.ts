@@ -27,6 +27,8 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
     url.searchParams.set('address', address.trim());
     url.searchParams.set('key', apiKey);
 
+    console.log(`🌍 Geocoding address: "${address.trim()}"`);
+
     const response = await fetch(url.toString(), {
       method: 'GET',
     });
@@ -60,6 +62,8 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
 
     const result = data.results[0];
     const location = result.geometry.location;
+
+    console.log(`✅ Geocoded to: ${result.formatted_address} (${location.lat}, ${location.lng})`);
 
     return {
       coordinates: {

@@ -97,15 +97,23 @@ export function isWithinRadius(center: Coordinates, point: Coordinates, radiusKm
 
 /**
  * Generate Google Maps URL for a location
+ * Prefers using Google Place ID when available for accurate place cards
  */
-export function generateGoogleMapsUrl(coordinates: Coordinates, placeName?: string): string {
-  if (placeName) {
-    // Use both place name and coordinates for accurate, reliable links
+export function generateGoogleMapsUrl(
+  coordinates: Coordinates,
+  placeName?: string,
+  googlePlaceId?: string
+): string {
+  if (googlePlaceId && placeName) {
+    // Best option: Use Place ID for guaranteed accurate place card
     const encodedName = encodeURIComponent(placeName);
-    const query = `${encodedName}+${coordinates.lat},${coordinates.lng}`;
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodedName}&query_place_id=${googlePlaceId}`;
+  } else if (placeName) {
+    // Fallback: Use search with place name only
+    const encodedName = encodeURIComponent(placeName);
+    return `https://www.google.com/maps/search/?api=1&query=${encodedName}`;
   } else {
-    // Fallback to coordinates only
+    // Last resort: coordinates only
     return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
   }
 }

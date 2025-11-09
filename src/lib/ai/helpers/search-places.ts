@@ -9,6 +9,7 @@ import { searchFoursquarePlaces, getFoursquareCategoriesForActivity } from '@/li
 export interface PlaceSearchParams {
   intentResult: DetermineIntentResult;
   userLocations: string[];
+  userIp?: string; // For IP-based location fallback
   dateTime?: string;
   timeframe?: 'today' | 'tomorrow' | 'this weekend' | 'next week';
 }
@@ -34,20 +35,20 @@ export interface SpecialEventPlace extends Place, SpecialEvent {
 }
 
 export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> {
-  const { intentResult, userLocations, dateTime: _dateTime, timeframe = 'tomorrow' } = params;
+  const { intentResult, userLocations, userIp, dateTime: _dateTime, timeframe = 'tomorrow' } = params;
 
   console.log(`🎯 determineThingsToDo called with specificity: ${intentResult.intentSpecificity}`);
 
   try {
     switch (intentResult.intentSpecificity) {
       case 'specific_place':
-        return await searchSpecificPlace(intentResult.specificPlace!, userLocations, intentResult.suggestedPlaceTypes);
+        return await searchSpecificPlace(intentResult.specificPlace!, userLocations, intentResult.suggestedPlaceTypes, userIp);
 
       case 'activity_type':
-        return await searchPlacesByActivity(intentResult.activitySearchQuery!, userLocations, intentResult);
+        return await searchPlacesByActivity(intentResult.activitySearchQuery!, userLocations, intentResult, userIp);
 
       case 'generic':
-        return await searchGenericActivities(userLocations, timeframe);
+        return await searchGenericActivities(userLocations, timeframe, userIp);
 
       default:
         console.log('⚠️ Unknown intent specificity, defaulting to empty results');
@@ -63,19 +64,22 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> 
 async function searchSpecificPlace(
   placeName: string,
   userLocations: string[],
-  suggestedPlaceTypes?: string[]
+  suggestedPlaceTypes?: string[],
+  userIp?: string
 ): Promise<Place[]> {
   console.log(`🔍 Tier 1: Searching for specific place: ${placeName}`);
 
   try {
     // Calculate midpoint between users for search center
-    const { searchCenter } = await getMidpointFromLocations(userLocations);
+    const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userIp);
+
+    console.log(`📍 Using dynamic search radius: ${(searchRadiusMeters / 1000).toFixed(1)}km`);
 
     // For specific places, try with no category first (best match), then with suggested categories
     try {
       const places = await searchFoursquarePlaces(
         searchCenter,
-        10000, // 10km radius
+        searchRadiusMeters, // Use dynamic radius based on user distance
         placeName,
         undefined // No category filter for specific place search
       );
@@ -101,44 +105,33 @@ async function searchSpecificPlace(
 async function searchPlacesByActivity(
   activitySearchQuery: string,
   userLocations: string[],
-  intentResult: DetermineIntentResult
+  intentResult: DetermineIntentResult,
+  userIp?: string
 ): Promise<Place[]> {
   console.log(`🎾 Tier 2: Searching for activity: ${activitySearchQuery}`);
-  console.log(`🔍 Intent result received:`, intentResult);
+  console.log(`🔍 Intent result received:`, JSON.stringify(intentResult, null, 2));
+  console.log(`🔍 User locations array:`, userLocations);
 
   try {
     // Calculate midpoint between users for search center
-    const { searchCenter } = await getMidpointFromLocations(userLocations);
+    const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userIp);
+
+    console.log(`📍 SEARCH RADIUS: ${searchRadiusMeters} meters (${(searchRadiusMeters / 1000).toFixed(1)}km)`);
 
     // Use Foursquare categories from intent detection, with fallback
     const categories = intentResult.suggestedPlaceTypes || getFoursquareCategoriesForActivity(activitySearchQuery);
-    console.log(`🎯 Using Foursquare categories for "${activitySearchQuery}": ${categories.length} categories`);
+    console.log(`🎯 ${intentResult.suggestedPlaceTypes ? 'AI provided' : 'Fallback'} Foursquare categories for "${activitySearchQuery}":`, categories);
 
-    const allPlaces: Place[] = [];
+    // Optimization: Pass all categories in a single API call using comma-separated list
+    const places = await searchFoursquarePlaces(
+      searchCenter,
+      searchRadiusMeters, // Use dynamic radius based on user distance
+      activitySearchQuery,
+      categories.join(',') // ← Single call with all categories
+    );
 
-    // Try each suggested category for this activity
-    for (const category of categories) {
-      try {
-        const places = await searchFoursquarePlaces(
-          searchCenter,
-          15000, // 15km radius for activity search
-          activitySearchQuery,
-          category
-        );
-
-        allPlaces.push(...places);
-        console.log(`   Found ${places.length} places for category: ${category}`);
-
-      } catch (error: unknown) {
-        console.log(`   Category ${category} failed for activity search, continuing...`, error);
-        continue;
-      }
-    }
-
-    // Remove duplicates and sort by rating
-    const uniquePlaces = deduplicatePlaces(allPlaces);
-    console.log(`✅ Found ${uniquePlaces.length} unique places for activity: ${activitySearchQuery}`);
-    return uniquePlaces.slice(0, 10); // Return top 10 results
+    console.log(`✅ Found ${places.length} places for activity: ${activitySearchQuery} (categories: ${categories.join(', ')})`);
+    return places.slice(0, 10); // Return top 10 results
 
   } catch (error) {
     console.error('Error searching for places by activity:', error);
@@ -149,13 +142,16 @@ async function searchPlacesByActivity(
 // Tier 3: Generic Activity Discovery
 async function searchGenericActivities(
   userLocations: string[],
-  timeframe: string
+  timeframe: string,
+  userIp?: string
 ): Promise<Place[]> {
   console.log(`🌟 Tier 3: Generic activity discovery for timeframe: ${timeframe}`);
 
   try {
     // Calculate midpoint for context
-    const { searchCenter, primaryLocation } = await getMidpointFromLocations(userLocations);
+    const { searchCenter, searchRadiusMeters, primaryLocation } = await getMidpointFromLocations(userLocations, userIp);
+
+    console.log(`📍 Using dynamic search radius: ${(searchRadiusMeters / 1000).toFixed(1)}km`);
 
     // 3A & 3B: Run in parallel
     const [activitySuggestions, specialEvents] = await Promise.all([
@@ -169,7 +165,7 @@ async function searchGenericActivities(
     console.log(`🎪 3B: Found ${specialEvents.length} special events`);
 
     // 3C: Find places for each LLM-suggested activity
-    const activityPlaces = await findPlacesForActivities(activitySuggestions, searchCenter);
+    const activityPlaces = await findPlacesForActivities(activitySuggestions, searchCenter, searchRadiusMeters);
 
     // 3D: Combine activity places with special event places
     const allPlaces = [...activityPlaces, ...specialEvents];
@@ -297,7 +293,8 @@ async function searchSpecialEvents(
 // 3C: Find Places for Activities
 async function findPlacesForActivities(
   activities: ActivitySuggestion[],
-  searchCenter: { lat: number; lng: number }
+  searchCenter: { lat: number; lng: number },
+  searchRadiusMeters: number
 ): Promise<Place[]> {
   console.log(`🔍 3C: Finding places for ${activities.length} activities`);
 
@@ -312,25 +309,24 @@ async function findPlacesForActivities(
         ? activity.suggestedPlaceTypes
         : getFoursquareCategoriesForActivity(activity.searchQuery);
 
-      for (const category of categories) {
-        try {
-          const places = await searchFoursquarePlaces(
-            searchCenter,
-            12000, // 12km radius
-            activity.searchQuery,
-            category
-          );
+      // Optimization: Pass all categories in a single API call using comma-separated list
+      try {
+        const places = await searchFoursquarePlaces(
+          searchCenter,
+          searchRadiusMeters, // Use dynamic radius based on user distance
+          activity.searchQuery,
+          categories.join(',') // ← Single call with all categories
+        );
 
-          // Take top 2-3 places per activity to maintain diversity
-          const topPlaces = places.slice(0, 3);
-          allPlaces.push(...topPlaces);
+        // Take top 2-3 places per activity to maintain diversity
+        const topPlaces = places.slice(0, 3);
+        allPlaces.push(...topPlaces);
 
-          console.log(`   Found ${places.length} places for ${activity.activity} (category: ${category}), taking top ${topPlaces.length}`);
+        console.log(`   Found ${places.length} places for ${activity.activity} (categories: ${categories.join(', ')}), taking top ${topPlaces.length}`);
 
-        } catch {
-          console.log(`   Category ${category} failed for activity ${activity.activity}, continuing...`);
-          continue;
-        }
+      } catch (_error) {
+        console.error(`Error searching for activity ${activity.activity}:`, _error);
+        continue;
       }
 
     } catch (_error) {
@@ -342,14 +338,46 @@ async function findPlacesForActivities(
 }
 
 // Helper: Calculate midpoint from user locations
-async function getMidpointFromLocations(userLocations: string[]): Promise<{
+async function getMidpointFromLocations(userLocations: string[], userIp?: string): Promise<{
   searchCenter: { lat: number; lng: number };
+  searchRadiusMeters: number;
   primaryLocation: string;
 }> {
   const validLocations = userLocations.filter(loc => loc && loc.trim());
 
   if (validLocations.length === 0) {
-    throw new Error('No valid user locations provided');
+    // Fallback to IP-based location
+    if (userIp) {
+      console.log(`📍 No user locations provided, falling back to IP geolocation for ${userIp}`);
+
+      // Development fallback for localhost
+      if (userIp === '127.0.0.1' || userIp === '::1' || userIp.startsWith('192.168.') || userIp.startsWith('10.')) {
+        const devFallbackLocation = 'San Francisco, CA';
+        console.log(`🔧 Development mode detected (IP: ${userIp}), using fallback: ${devFallbackLocation}`);
+        const geocoded = await geocodeAddress(devFallbackLocation);
+        return {
+          searchCenter: geocoded.coordinates,
+          searchRadiusMeters: 1000, // 1km for single location (matches <3km distance logic)
+          primaryLocation: devFallbackLocation
+        };
+      }
+
+      const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
+      const ipLocation = await getIPLocation(userIp);
+
+      if (ipLocation.city && ipLocation.state) {
+        const fallbackLocation = `${ipLocation.city}, ${ipLocation.state}`;
+        console.log(`✅ Using IP-based location: ${fallbackLocation}`);
+        const geocoded = await geocodeAddress(fallbackLocation);
+        return {
+          searchCenter: geocoded.coordinates,
+          searchRadiusMeters: 1000, // 1km for single location (matches <3km distance logic)
+          primaryLocation: fallbackLocation
+        };
+      }
+    }
+
+    throw new Error('No valid user locations provided and IP geolocation unavailable');
   }
 
   const primaryLocation = validLocations[0];
@@ -359,6 +387,7 @@ async function getMidpointFromLocations(userLocations: string[]): Promise<{
     const geocoded = await geocodeAddress(primaryLocation);
     return {
       searchCenter: geocoded.coordinates,
+      searchRadiusMeters: 1000, // 1km for single location (matches <3km distance logic)
       primaryLocation
     };
   }
@@ -376,12 +405,14 @@ async function getMidpointFromLocations(userLocations: string[]): Promise<{
     const midpoint = calculateMidpoint(geocodedLocations[0], geocodedLocations[1]);
     return {
       searchCenter: midpoint.coordinates,
+      searchRadiusMeters: midpoint.search_radius_meters,
       primaryLocation
     };
   } else {
     // Single location (shouldn't happen as we handle this case above, but safety fallback)
     return {
       searchCenter: geocodedLocations[0],
+      searchRadiusMeters: 5000, // Default 5km for single location
       primaryLocation
     };
   }

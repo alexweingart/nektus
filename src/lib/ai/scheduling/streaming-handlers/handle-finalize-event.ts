@@ -7,6 +7,8 @@ import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils
 import type { AISchedulingRequest, Message, GenerateEventResult } from '@/types/ai-scheduling';
 import type { TimeSlot, Event, CalendarUrls } from '@/types';
 import type { Place } from '@/types/places';
+import { getGooglePlaceIds } from '@/lib/places/google-places-client';
+import { generateGoogleMapsUrl } from '@/lib/location/location-utils';
 
 /**
  * Unified handler for finalizing event time and place selection.
@@ -48,6 +50,27 @@ export async function handleFinalizeEvent({
 
   // Update progress
   enqueueProgress(controller, encoder, isEdit ? 'Updating event...' : 'Selecting time and place...');
+
+  // Enrich places with Google Place IDs for accurate Maps URLs (before LLM selection)
+  if (places && places.length > 0) {
+    const placesToEnrich = places.slice(0, 10); // Enrich top 10 candidates
+    const placeIdMap = await getGooglePlaceIds(
+      placesToEnrich.map(p => ({ name: p.name, coordinates: p.coordinates }))
+    );
+
+    // Update places with Google Place IDs and regenerate URLs
+    placesToEnrich.forEach(place => {
+      const googlePlaceId = placeIdMap.get(place.name);
+      if (googlePlaceId) {
+        place.google_place_id = googlePlaceId;
+        place.google_maps_url = generateGoogleMapsUrl(
+          place.coordinates,
+          place.name,
+          googlePlaceId
+        );
+      }
+    });
+  }
 
   // Build time selection prompt with candidate slots
   const timeSelectionPrompt = buildTimeSelectionPrompt(
