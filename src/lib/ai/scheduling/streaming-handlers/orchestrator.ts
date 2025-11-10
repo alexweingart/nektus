@@ -45,7 +45,9 @@ function buildFormattingInstructions(
   showAlternativeTimes: boolean,
   includeConflictWarning: boolean,
   user2Name: string,
-  calendarType: string
+  calendarType: string,
+  locationContext: 'your_location' | 'other_person_location' | 'midpoint',
+  otherPersonName?: string
 ): string {
   // Build time data display
   const timeDataDisplay = timeData.map((t, i) =>
@@ -94,7 +96,11 @@ RATIONALE (one sentence explaining your choice):
 Critical instructions:
 - Time factors: If multiple slots exist on the selected day, explain WHY you chose this specific time based on the activity type (e.g., afternoon vs morning, avoiding rush hours). Only use "soonest available" if it's truly the first possible slot across all days.
 - Place factors: REQUIRED - Use your real-world knowledge about this specific venue to explain what makes it good for this activity. Think about the venue's actual features, reputation, or characteristics. Do NOT fall back to generic location descriptions.
-- Distance display: Use miles as provided in distance_miles field (already converted, rounded to 1 decimal place)
+- Distance display: Use miles as provided in distance_miles field (already converted, rounded to 1 decimal place). ${
+    locationContext === 'your_location' ? 'Say "X miles from your location"' :
+    locationContext === 'other_person_location' ? `Say "X miles from ${otherPersonName}'s location"` :
+    'Say "X miles from the midpoint"'
+  }
 
 ${template.travelBuffer ? `
 **SECOND PARAGRAPH** (blank line, then travel buffer):
@@ -109,12 +115,13 @@ ${showAlternativePlaces || showAlternativeTimes ? `
 "I also considered these options:"
 
 ${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as:
-- [place-name](COMPLETE_URL_FROM_PLACE_DATA) - {brief venue-specific description using your knowledge}
+[place-name](COMPLETE_URL_FROM_PLACE_DATA). {description of venue} ({distance in miles})
 
 Instructions for alternative venues:
-- Use your real-world knowledge about each venue to write a brief (3-5 word) distinguishing characteristic
+- Use your real-world knowledge about each venue to write a brief (5-10 word) description/rationale
 - Focus on what makes each venue unique or notable for this activity
-- Distance is already in miles in the distance_miles field (no conversion needed)
+- Distance is already in miles in the distance_miles field - display as "0.5 miles" format in parentheses
+- Start description with capital letter (it follows a period)
 - Do NOT use generic phrases like "convenient location"
 - CRITICAL: Use the COMPLETE url value from PLACE DATA for each alternative place. The URLs are long - that's correct. Do NOT shorten them.` : ''}
 ${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}
@@ -499,6 +506,13 @@ export async function streamSchedulingResponse(
           console.log(`   Place ${i}: ${p.name} -> ${p.url.substring(0, 80)}...`);
         });
 
+        // Determine location context for distance display
+        const userLocations = [body.user1Location, body.user2Location].filter(Boolean);
+        const locationContext: 'your_location' | 'other_person_location' | 'midpoint' =
+          userLocations.length === 1
+            ? (body.user1Location ? 'your_location' : 'other_person_location')
+            : 'midpoint';
+
         // Build formatting instructions with decomposed data
         const formattingInstructions = buildFormattingInstructions(
           timeData,
@@ -508,7 +522,9 @@ export async function streamSchedulingResponse(
           showAlternativeTimes,
           includeConflictWarning,
           body.user2Name || 'them',
-          body.calendarType
+          body.calendarType,
+          locationContext,
+          body.user2Name
         );
 
         // LOG: Show full formatting instructions to debug URL issues
