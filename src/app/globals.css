@@ -497,13 +497,13 @@ select {
 /* Bump-to-Match Animations                                                     */
 /* ============================================================================ */
 
-/* Floating animation - gentle breathing motion while waiting for bump */
+/* Breathing animation - gentle scaling motion while waiting for bump */
 @keyframes float {
   0%, 100% {
-    transform: translateY(0px);
+    transform: scale(1);
   }
   50% {
-    transform: translateY(-8px);
+    transform: scale(1.03);
   }
 }
 
@@ -523,13 +523,13 @@ select {
   }
 }
 
-/* Float down - smooth return to position when cancelled/timeout */
+/* Float down - smooth return to normal size when cancelled/timeout */
 @keyframes floatDown {
   0% {
-    transform: translateY(-8px);
+    transform: scale(1.03);
   }
   100% {
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 

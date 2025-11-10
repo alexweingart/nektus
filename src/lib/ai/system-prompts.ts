@@ -180,10 +180,12 @@ SELECTION STRATEGY:
 - For ALTERNATIVE time slots, provide different days if possible
 
 **Place Selection:**
-- Consider rating, distance from midpoint, and convenience for both users
-- Venues less than 3km of midpoint are ideal
+- PRIORITIZE QUALITY: Select the best venue based on multiple factors, not just distance
+- Foursquare ranking order matters: Earlier results (Place 0, Place 1) are typically more popular/relevant
+- Use your own knowledge: Apply what you know about venue quality, reputation, and suitability for the activity
+- Consider proximity: Venues within 3km of midpoint are convenient, but don't sacrifice quality for slightly closer distance
 - Check if venue is open at selected time (prefer open venues)
-- Balance rating with distance (don't always pick highest rated if it's much farther)
+- General rule: Quality and popularity matter more than saving 0.1-0.5 miles of distance
 
 CRITICAL STRING USAGE RULES:
 - You will be provided with pre-formatted time strings and place links

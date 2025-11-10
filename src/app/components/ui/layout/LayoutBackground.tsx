@@ -18,7 +18,8 @@ export function LayoutBackground() {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showBackground, setShowBackground] = useState(false);
-  
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
   // Cache loaded image URLs to prevent re-loading during navigation
   const loadedImagesRef = useRef(new Set<string>());
 
@@ -52,6 +53,25 @@ export function LayoutBackground() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Listen for background transition to contact page
+  useEffect(() => {
+    const handleMatchFound = () => {
+      console.log('🎨 LayoutBackground: Match found, staying visible for crossfade');
+      setIsTransitioning(true);
+
+      // Hide after crossfade completes (1000ms transition + small buffer)
+      setTimeout(() => {
+        console.log('🎨 LayoutBackground: Crossfade complete, hiding now');
+        setIsTransitioning(false);
+      }, 1100);
+    };
+
+    window.addEventListener('match-found', handleMatchFound as EventListener);
+    return () => {
+      window.removeEventListener('match-found', handleMatchFound as EventListener);
+    };
   }, []);
 
   // Handle hidden img loading events
@@ -135,7 +155,8 @@ export function LayoutBackground() {
   }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError, isLoading]);
 
   // Don't render on connect page or contact pages (those views handle their own backgrounds)
-  if (pathname === '/connect' || pathname.startsWith('/contact/')) {
+  // UNLESS we're transitioning (stay visible for crossfade)
+  if (!isTransitioning && (pathname === '/connect' || pathname.startsWith('/contact/'))) {
     return null;
   }
 
@@ -175,9 +196,9 @@ export function LayoutBackground() {
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
             zIndex: 1, // Above safe-area elements but behind content
-            opacity: showBackground ? 1 : 0, // Start at 0% opacity
+            opacity: isTransitioning ? 0 : (showBackground ? 1 : 0), // Fade out during transition
             pointerEvents: 'none', // Critical: allows clicks to pass through
-            transition: 'opacity 1s ease-out' // Simple 1 second fade-in
+            transition: isTransitioning ? 'opacity 1000ms ease-in-out' : 'opacity 1s ease-out' // Match crossfade duration
           }}
         />
       )}

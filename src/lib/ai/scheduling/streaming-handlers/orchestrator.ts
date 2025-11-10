@@ -114,14 +114,16 @@ ${showAlternativePlaces || showAlternativeTimes ? `
 
 "I also considered these options:"
 
-${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as:
-[place-name](COMPLETE_URL_FROM_PLACE_DATA). {description of venue} ({distance in miles})
+${showAlternativePlaces ? `List Place 1, Place 2, Place 3 as BULLETED items:
+- [place-name](COMPLETE_URL_FROM_PLACE_DATA). {description of venue} ({distance in miles})
+- [place-name](COMPLETE_URL_FROM_PLACE_DATA). {description of venue} ({distance in miles})
+- [place-name](COMPLETE_URL_FROM_PLACE_DATA). {description of venue} ({distance in miles})
 
 Instructions for alternative venues:
 - Use your real-world knowledge about each venue to write a brief (5-10 word) description/rationale
 - Focus on what makes each venue unique or notable for this activity
 - Distance is already in miles in the distance_miles field - display as "0.5 miles" format in parentheses
-- Start description with capital letter (it follows a period)
+- Start description with capital letter (it follows a dash)
 - Do NOT use generic phrases like "convenient location"
 - CRITICAL: Use the COMPLETE url value from PLACE DATA for each alternative place. The URLs are long - that's correct. Do NOT shorten them.` : ''}
 ${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}

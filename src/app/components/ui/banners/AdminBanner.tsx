@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { FaTimes } from 'react-icons/fa';
 import { SecondaryButton } from '../buttons/SecondaryButton';
+import { Text } from '../Typography';
 import { useAdminMode } from '../../../providers/AdminModeProvider';
 import { firebaseAuth } from '@/lib/firebase/auth';
 
@@ -12,6 +13,11 @@ export default function AdminBanner() {
   const { isAdminMode, closeAdminMode } = useAdminMode();
   const { data: session, update } = useSession();
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const handleSimulateNekt = useCallback(() => {
+    console.log('🧪 Admin: Triggering Nekt simulation');
+    window.dispatchEvent(new CustomEvent('admin-simulate-nekt'));
+  }, []);
   
   const handleDeleteAccount = useCallback(async () => {
     setDeleteStatus('loading');
@@ -272,26 +278,39 @@ export default function AdminBanner() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-4 z-50">
-      <div className="max-w-4xl mx-auto flex justify-between items-center">
-        <div className="flex-1">
-          <h3 className="font-medium text-yellow-800">Admin mode</h3>
+    <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 z-50 flex justify-center">
+      <div className="w-full bg-red-500/90 border border-red-400 rounded-2xl p-4 backdrop-blur-sm relative" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+        {/* Close button */}
+        <button
+          onClick={closeAdminMode}
+          className="absolute top-3 right-3 p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          aria-label="Close admin mode"
+        >
+          <FaTimes className="w-4 h-4" />
+        </button>
+
+        {/* Text */}
+        <div className="pr-8 mb-3">
+          <Text variant="base" className="text-white">
+            Admin Mode
+          </Text>
         </div>
-        <div className="flex items-center space-x-4">
+
+        {/* Buttons */}
+        <div className="flex gap-2">
           <SecondaryButton
+            variant="light"
+            onClick={handleSimulateNekt}
+          >
+            Simulate Nekt
+          </SecondaryButton>
+          <SecondaryButton
+            variant="light"
             onClick={handleDeleteAccount}
             disabled={deleteStatus === 'loading'}
-            variant="destructive"
           >
             {deleteStatus === 'loading' ? 'Deleting...' : 'Delete Account'}
           </SecondaryButton>
-          <button
-            onClick={closeAdminMode}
-            className="p-2 text-yellow-600 hover:text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors"
-            aria-label="Close admin mode"
-          >
-            <FaTimes />
-          </button>
         </div>
       </div>
     </div>

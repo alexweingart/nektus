@@ -583,7 +583,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
               isExiting ? 'animate-crossfade-exit' : ''
             }`}
             style={{
-              animationDelay: isEntering && !isHistoricalMode ? '500ms' : '0ms'
+              animationDelay: isEntering && !isHistoricalMode ? '500ms' : '0ms',
+              opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
             {/* Profile Image */}
@@ -637,7 +638,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
             }`}
             style={{
               maxWidth: 'var(--max-content-width, 448px)',
-              animationDelay: isEntering && !isHistoricalMode ? '800ms' : '0ms'
+              animationDelay: isEntering && !isHistoricalMode ? '800ms' : '0ms',
+              opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
             {isHistoricalMode ? (

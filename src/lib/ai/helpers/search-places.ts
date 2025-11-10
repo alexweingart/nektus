@@ -82,6 +82,7 @@ async function searchSpecificPlace(
         searchRadiusMeters, // Use dynamic radius based on user distance
         placeName,
         undefined // No category filter for specific place search
+        // Premium fields disabled - using free tier only
       );
 
       if (places.length > 0) {
@@ -128,6 +129,7 @@ async function searchPlacesByActivity(
       searchRadiusMeters, // Use dynamic radius based on user distance
       activitySearchQuery,
       categories.join(',') // ← Single call with all categories
+      // Premium fields disabled - using free tier only
     );
 
     console.log(`✅ Found ${places.length} places for activity: ${activitySearchQuery} (categories: ${categories.join(', ')})`);
@@ -316,6 +318,7 @@ async function findPlacesForActivities(
           searchRadiusMeters, // Use dynamic radius based on user distance
           activity.searchQuery,
           categories.join(',') // ← Single call with all categories
+          // Premium fields disabled - using free tier only
         );
 
         // Take top 2-3 places per activity to maintain diversity

@@ -16,8 +16,8 @@ interface ExchangeButtonProps {
 
 type SharingCategory = 'Personal' | 'Work';
 
-export const ExchangeButton: React.FC<ExchangeButtonProps> = ({ 
-  className 
+export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
+  className
 }) => {
   const router = useRouter();
   const [status, setStatus] = useState<ExchangeStatus>('idle');
@@ -53,6 +53,46 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  // Listen for admin simulation trigger
+  useEffect(() => {
+    const handleSimulateNekt = async () => {
+      console.log('🧪 ExchangeButton: Starting admin simulation');
+
+      // 1. Waiting for bump (floating animation)
+      setStatus('waiting-for-bump');
+      window.dispatchEvent(new CustomEvent('start-floating'));
+
+      // 2. After 3 seconds, bump detected
+      setTimeout(() => {
+        console.log('🧪 ExchangeButton: Simulating bump detected');
+        setStatus('processing');
+        window.dispatchEvent(new CustomEvent('bump-detected'));
+
+        // 3. After 500ms, simulate match and trigger exit animation
+        setTimeout(async () => {
+          console.log('🧪 ExchangeButton: Simulating match - triggering exit animation');
+          setStatus('matched');
+
+          // Trigger exit animation on ProfileView with mock contact background
+          window.dispatchEvent(new CustomEvent('match-found', {
+            detail: {
+              contactBackgroundImage: '' // No background for mock
+            }
+          }));
+
+          // Wait for exit animation to complete (500ms), then navigate
+          setTimeout(() => {
+            sessionStorage.setItem('test-connect-mode', 'true');
+            router.push('/connect?token=test-animation-token');
+          }, 500);
+        }, 500);
+      }, 3000);
+    };
+
+    window.addEventListener('admin-simulate-nekt', handleSimulateNekt as EventListener);
+    return () => window.removeEventListener('admin-simulate-nekt', handleSimulateNekt as EventListener);
+  }, [router]);
 
 
   // Initialize exchange service when needed
@@ -257,7 +297,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Timed Out - Cleaning up...</span>
+            <span>Timed out, try bumping again!</span>
           </div>
         );
       

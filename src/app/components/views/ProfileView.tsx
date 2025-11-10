@@ -133,17 +133,13 @@ const ProfileView: React.FC = () => {
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            z-index: 1;
+            z-index: 2;
             opacity: 0;
             transition: opacity 1000ms ease-in-out;
             pointer-events: none;
           }
           body.crossfade-active::after {
             opacity: 1;
-          }
-          body.crossfade-active::before {
-            opacity: 0;
-            transition: opacity 1000ms ease-in-out;
           }
         `;
         document.head.appendChild(afterStyle);
@@ -448,8 +444,11 @@ const ProfileView: React.FC = () => {
             className={`${
               animationPhase === 'exiting' ? 'animate-button-fade-out' : ''
             } ${
-              animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+              animationPhase === 'entering' ? 'animate-fade-in-up' : ''
             }`}
+            style={{
+              opacity: animationPhase === 'entering' ? 0 : 1
+            }}
           >
             <ExchangeButton />
           </div>
@@ -461,8 +460,12 @@ const ProfileView: React.FC = () => {
               className={`flex justify-center ${
                 animationPhase === 'exiting' ? 'animate-[fadeOut_300ms_ease-in_forwards]' : ''
               } ${
-                animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+                animationPhase === 'entering' ? 'animate-fade-in-up' : ''
               }`}
+              style={{
+                opacity: animationPhase === 'entering' ? 0 : 1,
+                animationDelay: animationPhase === 'entering' ? '100ms' : '0ms'
+              }}
             >
               <SecondaryButton onClick={installPWA}>
                 Add to home screen
