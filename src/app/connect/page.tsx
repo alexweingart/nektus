@@ -17,13 +17,14 @@ function ConnectPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
+
   // Get the exchange token from URL parameters
   const token = searchParams.get('token');
   const mode = searchParams.get('mode');
   const isHistoricalMode = mode === 'historical';
+
+  const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchMatchedProfile() {
@@ -57,7 +58,7 @@ function ConnectPageContent() {
           email: 'mock@example.com',
           name: 'Demo Contact',
           profileImage: '',
-          backgroundImage: '',
+          backgroundImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200',
           bio: 'This is a test contact for animation preview. In real usage, this would show the contact\'s actual profile information.',
           contactEntries: [
             { fieldType: 'name', value: 'Demo Contact', section: 'Personal' },
