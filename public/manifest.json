@@ -1,6 +1,6 @@
 {
-  "name": "Nekt.Us",
-  "short_name": "Nekt.Us",
+  "name": "Nekt",
+  "short_name": "Nekt",
   "description": "Bump to connect with new friends by tapping phones",
   "start_url": "/",
   "display": "standalone",

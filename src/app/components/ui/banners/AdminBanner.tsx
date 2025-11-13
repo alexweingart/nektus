@@ -317,7 +317,7 @@ export default function AdminBanner() {
   );
 }
 
-// Hook to enable admin mode on a component (like the main Nekt.Us text)
+// Hook to enable admin mode on a component (like the main Nekt text)
 export function useAdminModeActivator() {
   const { toggleAdminMode } = useAdminMode();
   
