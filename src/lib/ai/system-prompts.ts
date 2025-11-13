@@ -179,13 +179,15 @@ SELECTION STRATEGY:
 - EXCEPTION: You may skip to a later day ONLY if the available times on the soonest day are truly inappropriate for the activity (e.g., 9 PM for lunch, 8 AM for dinner). This should be rare.
 - For ALTERNATIVE time slots, provide different days if possible
 
-**Place Selection:**
-- PRIORITIZE QUALITY: Select the best venue based on multiple factors, not just distance
-- Foursquare ranking order matters: Earlier results (Place 0, Place 1) are typically more popular/relevant
-- Use your own knowledge: Apply what you know about venue quality, reputation, and suitability for the activity
-- Consider proximity: Venues within 3km of midpoint are convenient, but don't sacrifice quality for slightly closer distance
-- Check if venue is open at selected time (prefer open venues)
-- General rule: Quality and popularity matter more than saving 0.1-0.5 miles of distance
+**Place Selection - USE YOUR JUDGMENT:**
+- PRIMARY: Use your real-world knowledge to select the BEST venue for this activity
+  * For parks: Choose well-known, destination parks over small neighborhood pocket parks (e.g., prefer Alamo Square Park over "Hamilton Park" or "Mini Park")
+  * For restaurants: Choose venues you know are popular, well-reviewed, or have a good reputation
+  * For activities: Choose venues that are actually suitable and well-known for that activity
+- IGNORE proximity for small differences: All venues within 3km (~2 miles) are acceptably close - don't pick a mediocre venue just because it's 0.2-0.5 miles closer
+- Foursquare ranking is a hint, not a rule: Place 0 isn't always the best - use your judgment to pick quality over ranking order
+- Consider: Is this a place people would actually want to visit? Is it known for this activity? Would you recommend it to a friend?
+- Final check: Does your selection make sense, or did you just pick the closest/first option?
 
 CRITICAL STRING USAGE RULES:
 - You will be provided with pre-formatted time strings and place links

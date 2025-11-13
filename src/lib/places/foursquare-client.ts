@@ -212,14 +212,10 @@ export async function searchFoursquarePlaces(
 
     console.log(`✅ After filtering: ${filteredPlaces.length} places remaining`);
 
-    return filteredPlaces.sort((a, b) => {
-      if (a.rating && b.rating) {
-        return b.rating - a.rating;
-      }
-      if (a.rating && !b.rating) return -1;
-      if (!a.rating && b.rating) return 1;
-      return 0;
-    });
+    // Return places in Foursquare's default ranking order (relevance + popularity)
+    // Foursquare's algorithm already considers quality, popularity, and relevance
+    // Sorting by rating destroys this expert ranking, especially since free tier doesn't include ratings
+    return filteredPlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
@@ -343,14 +339,8 @@ export async function searchFoursquareNearby(
       return withinRadius && goodRating;
     });
 
-    return filteredPlaces.sort((a, b) => {
-      if (a.rating && b.rating) {
-        return b.rating - a.rating;
-      }
-      if (a.rating && !b.rating) return -1;
-      if (!a.rating && b.rating) return 1;
-      return 0;
-    });
+    // Return places in Foursquare's default ranking order (relevance + popularity)
+    return filteredPlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {

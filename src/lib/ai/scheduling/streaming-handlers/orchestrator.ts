@@ -453,13 +453,8 @@ export async function streamSchedulingResponse(
             explanations.push('well-reviewed');
           }
 
-          if (place.distance_from_midpoint_km !== undefined) {
-            if (place.distance_from_midpoint_km < 1.5) {
-              explanations.push('very close to midpoint');
-            } else if (place.distance_from_midpoint_km < 3.0) {
-              explanations.push('convenient location');
-            }
-          }
+          // Distance is already shown as a number - let the AI decide if proximity is worth mentioning
+          // Removed automatic distance explanations to avoid biasing toward closer venues
 
           if (place.price_level === 1) {
             explanations.push('budget-friendly');
