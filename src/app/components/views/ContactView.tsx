@@ -59,6 +59,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
+
   
   // Modal state with logging
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -177,66 +178,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     checkExchangeState();
   }, [profile, profile.userId, token, isHistoricalMode]);
 
-  // Handle background crossfade when entering from HistoryView
-  useEffect(() => {
-    const isEnteringFromHistory = sessionStorage.getItem('entering-from-history');
-    const historyBackground = sessionStorage.getItem('history-background-url');
-
-    if (isEnteringFromHistory === 'true') {
-      console.log('🎯 ContactView: Detected entrance from HistoryView, setting up background crossfade');
-
-      // Clear the flags
-      sessionStorage.removeItem('entering-from-history');
-
-      // If we have a history background, set up crossfade
-      if (historyBackground && profile.backgroundImage) {
-        console.log('🎯 ContactView: Setting up background crossfade');
-
-        // Create style for history background that will fade out
-        const historyBgStyle = document.createElement('style');
-        historyBgStyle.id = 'history-background-fadeout';
-        historyBgStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${historyBackground}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 300ms ease-out;
-            pointer-events: none;
-          }
-          body.fade-out-history-bg::after {
-            opacity: 0;
-          }
-        `;
-        document.head.appendChild(historyBgStyle);
-
-        // Trigger fade out
-        requestAnimationFrame(() => {
-          document.body.classList.add('fade-out-history-bg');
-        });
-
-        // Clean up after animation
-        setTimeout(() => {
-          document.body.classList.remove('fade-out-history-bg');
-          const style = document.getElementById('history-background-fadeout');
-          if (style) {
-            style.remove();
-          }
-          sessionStorage.removeItem('history-background-url');
-        }, 300);
-      } else {
-        sessionStorage.removeItem('history-background-url');
-      }
-    }
-  }, [profile.backgroundImage]);
 
   // Handle calendar OAuth callback - show success modal when calendar is added
   useEffect(() => {
@@ -560,7 +501,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1000]">
-
       <div className="min-h-dvh flex flex-col items-center px-4 py-2 relative z-[1001]">
 
         {/* Header with back button for historical contacts */}
@@ -583,7 +523,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
               isExiting ? 'animate-crossfade-exit' : ''
             }`}
             style={{
-              animationDelay: isEntering && !isHistoricalMode ? '500ms' : '0ms',
+              animationDelay: isEntering && !isHistoricalMode ? '0ms' : '0ms',
               opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
@@ -628,7 +568,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           </div>
           {/* End of animated contact card wrapper */}
 
-          {/* Action Buttons - staggered animation starting at 800ms, finishing at 1000ms */}
+          {/* Action Buttons - staggered animation starting at 300ms */}
           <div
             ref={buttonsRef}
             className={`w-full mt-4 mb-4 space-y-3 ${
@@ -638,7 +578,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             }`}
             style={{
               maxWidth: 'var(--max-content-width, 448px)',
-              animationDelay: isEntering && !isHistoricalMode ? '800ms' : '0ms',
+              animationDelay: isEntering && !isHistoricalMode ? '300ms' : '0ms',
               opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >

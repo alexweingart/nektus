@@ -22,79 +22,64 @@ export default function ContactLayout({
 
   useEffect(() => {
     async function loadContact() {
-      if (!session?.user?.id || !contactUserId) return;
+      if (!session?.user?.id || !contactUserId) {
+        console.log('🎨 ContactLayout: Missing session or userId', { session: !!session?.user?.id, contactUserId });
+        return;
+      }
 
       try {
+        console.log('🎨 ContactLayout: Loading contact for background...', contactUserId);
         const contacts = await ClientProfileService.getContacts(session.user.id);
         const savedContact = contacts.find((c: SavedContact) => c.userId === contactUserId);
 
         if (savedContact) {
+          console.log('🎨 ContactLayout: Found contact:', savedContact.userId, 'Background:', savedContact.backgroundImage ? 'Yes' : 'No');
           setContactProfile(savedContact);
+        } else {
+          console.log('🎨 ContactLayout: Contact not found in saved contacts');
         }
       } catch (error) {
-        console.error('Error loading contact for background:', error);
+        console.error('🎨 ContactLayout: Error loading contact for background:', error);
       }
     }
 
     loadContact();
   }, [session?.user?.id, contactUserId]);
 
-  // Apply contact's background image
+  // Apply contact's background using CSS variables and classes
   useEffect(() => {
-    if (!contactProfile) return;
-
-    try {
-      // Remove any existing contact background div from previous contact
-      const existingContactBg = document.getElementById('contact-background');
-      if (existingContactBg) {
-        existingContactBg.remove();
-      }
-
-      // Remove default background class from body
-      document.body.classList.remove('default-nekt-background');
-      document.body.style.background = '';
-
-      if (contactProfile.backgroundImage) {
-        // Create background div with contact's background image
-        const cleanedUrl = contactProfile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-        const backgroundDiv = document.createElement('div');
-        backgroundDiv.id = 'contact-background';
-        backgroundDiv.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-image: url(${cleanedUrl});
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
-          z-index: 1;
-          pointer-events: none;
-        `;
-        document.body.appendChild(backgroundDiv);
-      } else {
-        // No contact background image, use default green pattern
-        document.body.classList.add('default-nekt-background');
-      }
-
-      // Cleanup function
-      return () => {
-        try {
-          const bgDiv = document.getElementById('contact-background');
-          if (bgDiv) {
-            bgDiv.remove();
-          }
-          document.body.classList.remove('default-nekt-background');
-          document.body.style.background = '';
-        } catch {
-          // Error cleaning up background
-        }
-      };
-    } catch {
-      // Error applying contact background
+    if (!contactProfile) {
+      console.log('🎨 ContactLayout: No contact profile yet');
+      return;
     }
-  }, [contactProfile?.backgroundImage, contactProfile]);
+
+    // Always hide user background when on contact page
+    document.body.classList.remove('has-user-background');
+    console.log('🎨 ContactLayout: Hiding user background');
+
+    if (contactProfile.backgroundImage) {
+      // Set CSS variable for contact background
+      const cleanedUrl = contactProfile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
+      console.log('🎨 ContactLayout: Setting contact background:', cleanedUrl);
+      document.documentElement.style.setProperty('--contact-background-image', `url("${cleanedUrl}")`);
+
+      // Show contact background via CSS class
+      document.body.classList.add('show-contact-background');
+      console.log('🎨 ContactLayout: Added show-contact-background class');
+    } else {
+      console.log('🎨 ContactLayout: No background image, green pattern will show');
+      // No contact background, remove class (will show green pattern)
+      document.body.classList.remove('show-contact-background');
+    }
+
+    // Cleanup function - restore user background when leaving
+    return () => {
+      console.log('🎨 ContactLayout: Cleaning up background, restoring user background');
+      document.body.classList.remove('show-contact-background');
+      document.body.classList.add('has-user-background');
+      document.documentElement.style.removeProperty('--contact-background-image');
+    };
+  }, [contactProfile?.backgroundImage]);
 
   return <>{children}</>;
 }

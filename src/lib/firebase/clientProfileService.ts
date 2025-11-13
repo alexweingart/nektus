@@ -274,8 +274,18 @@ export const ClientProfileService = {
       
       const contactsRef = collection(firestore, 'profiles', userId, 'contacts');
       const snapshot = await getDocs(contactsRef);
-      
-      return snapshot.docs.map(doc => doc.data() as SavedContact);
+
+      const contacts = snapshot.docs.map(doc => {
+        const data = doc.data() as SavedContact;
+        console.log('📖 Loaded contact from Firebase:', {
+          userId: data.userId,
+          hasBackgroundImage: !!data.backgroundImage,
+          backgroundImage: data.backgroundImage || 'MISSING'
+        });
+        return data;
+      });
+
+      return contacts;
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {

@@ -169,6 +169,11 @@ body {
   /* Prevent overscroll bounce to avoid black areas */
   overscroll-behavior-y: none;
   overscroll-behavior-x: contain;
+  /* Safe area insets for PWA on iOS - push content away from status bar and home indicator */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   
   /* Green geometric background pattern - always applied */
   background: #0a0f1a;
@@ -187,9 +192,7 @@ body {
   transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
 }
 
-/* OLD: Removed overlay approach - now using pseudo-element layering */
-
-/* Base pseudo-element - hidden by default */
+/* User background - persistent layer always visible */
 body::before {
   content: '';
   position: fixed;
@@ -197,21 +200,40 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
+  background-image: var(--user-background-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: 1; /* Positive z-index, behind content but above body background */
+  z-index: 2; /* Above green pattern */
   opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  transition: opacity 1s ease-out;
   pointer-events: none;
 }
 
-/* Custom background pseudo-element - layered over green pattern */
-body.has-custom-background::before {
-  background-image: var(--custom-background-image);
-  opacity: 1 !important; /* Override the default opacity: 0 */
-  display: block !important;
-  pointer-events: none !important;
+body.has-user-background::before {
+  opacity: 1;
+}
+
+/* Contact background - overlay layer for crossfades */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: var(--contact-background-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 3; /* Above user background */
+  opacity: 0;
+  transition: opacity 500ms ease-in-out;
+  pointer-events: none;
+}
+
+body.show-contact-background::after {
+  opacity: 1;
 }
 
 

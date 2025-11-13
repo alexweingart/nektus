@@ -161,11 +161,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           matchToken: token,
           contactType
         };
-        
+
+        console.log('💾 Saving contact to Firebase:', {
+          userId: (contactProfile as UserProfile).userId,
+          hasBackgroundImage: !!(contactProfile as UserProfile).backgroundImage,
+          backgroundImage: (contactProfile as UserProfile).backgroundImage,
+          contactType
+        });
+
         // Use the contact's userId as the document ID to prevent duplicates
         const contactRef = db.collection('profiles').doc(session.user.id).collection('contacts').doc((contactProfile as UserProfile).userId);
         await contactRef.set(savedContact);
-        
+
         result.firebase.success = true;
         console.log('✅ Contact saved to Firebase using Admin SDK');
       } catch (error) {

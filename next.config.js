@@ -8,7 +8,7 @@ const nextConfig = {
   // Next.js 15.3 configuration
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   serverExternalPackages: ['next-pwa', 'openai'],
-  reactStrictMode: true,
+  reactStrictMode: false, // Temporarily disabled to test production-like behavior
   eslint: {
     ignoreDuringBuilds: true, // Skip ESLint during builds for speed
     dirs: ['src'],
@@ -90,6 +90,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '*.firebasestorage.app',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
       },
     ],
   },

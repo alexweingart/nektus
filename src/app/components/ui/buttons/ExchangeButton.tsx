@@ -74,10 +74,13 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           console.log('🧪 ExchangeButton: Simulating match - triggering exit animation');
           setStatus('matched');
 
+          // Use the mock background for testing crossfade
+          const mockContactBackground = 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200';
+
           // Trigger exit animation on ProfileView with mock contact background
           window.dispatchEvent(new CustomEvent('match-found', {
             detail: {
-              contactBackgroundImage: '' // No background for mock
+              contactBackgroundImage: mockContactBackground
             }
           }));
 
