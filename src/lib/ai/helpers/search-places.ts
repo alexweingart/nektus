@@ -390,7 +390,7 @@ async function getMidpointFromLocations(userLocations: string[], userIp?: string
     const geocoded = await geocodeAddress(primaryLocation);
     return {
       searchCenter: geocoded.coordinates,
-      searchRadiusMeters: 1000, // 1km for single location (matches <3km distance logic)
+      searchRadiusMeters: 1500, // 1.5km for single location (matches <3km distance logic)
       primaryLocation
     };
   }

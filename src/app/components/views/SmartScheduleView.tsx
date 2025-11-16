@@ -163,7 +163,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.userId, router, getContact, loadContacts]);
+  }, [session, params.userId, router, getContact]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
