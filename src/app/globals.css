@@ -228,7 +228,7 @@ body::after {
   background-repeat: no-repeat;
   z-index: 3; /* Above user background */
   opacity: 0;
-  transition: opacity 500ms ease-in-out;
+  transition: opacity 1s ease-in-out;
   pointer-events: none;
 }
 

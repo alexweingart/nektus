@@ -88,7 +88,11 @@ export default function ContactLayout({
       console.log('🎨 ContactLayout: Cleaning up background, restoring user background');
       document.body.classList.remove('show-contact-background');
       document.body.classList.add('has-user-background');
-      document.documentElement.style.removeProperty('--contact-background-image');
+
+      // Remove CSS variable after transition completes (1s to match CSS transition)
+      setTimeout(() => {
+        document.documentElement.style.removeProperty('--contact-background-image');
+      }, 1000);
     };
   }, [contactProfile?.backgroundImage]);
 

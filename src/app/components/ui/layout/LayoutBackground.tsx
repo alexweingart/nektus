@@ -100,11 +100,11 @@ export function LayoutBackground() {
       if (isReturningFromConnect) {
         document.body.classList.remove('show-contact-background');
 
-        // Clear after transition
+        // Clear after transition (1s to match CSS transition)
         setTimeout(() => {
           setContactBackgroundUrl(null);
           document.documentElement.style.removeProperty('--contact-background-image');
-        }, 500);
+        }, 1000);
       }
       // Otherwise, keep background ready for navigation
     }
