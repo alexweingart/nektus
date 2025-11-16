@@ -195,7 +195,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle back navigation with animation
   const handleBack = () => {
-    console.log('🎯 ContactView: Back button clicked, starting exit animation');
+    const backClickTime = performance.now();
+    console.log('🎯 ContactView: Back button clicked at', backClickTime.toFixed(2), 'ms, starting exit animation');
+    sessionStorage.setItem('nav-back-clicked-at', backClickTime.toString());
     setIsExiting(true);
 
     // Mark that we're returning (for coordinating entrance animation)
@@ -217,10 +219,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
     }
 
-    // Wait for exit animation to complete
+    // Wait for exit animation to complete (reduced from 300ms for snappier navigation)
     setTimeout(() => {
+      const navStartTime = performance.now();
+      console.log('🎯 ContactView: Calling onReject (router.push) at', navStartTime.toFixed(2), 'ms');
+      sessionStorage.setItem('nav-router-push-at', navStartTime.toString());
       onReject();
-    }, 300);
+    }, 150);
   };
 
   const handleSaveContact = async () => {
@@ -403,6 +408,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
   useEffect(() => {
+    const abortController = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const preFetchCommonTimeSlots = async () => {
       if (!isHistoricalMode || !session?.user?.id || !profile?.userId || !auth?.currentUser) return;
       if (hasFetchedSlotsRef.current) return; // Already fetched
@@ -435,6 +443,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             duration: 30,
             calendarType: contactType,
           }),
+          signal: abortController.signal, // Allow request to be cancelled
         });
 
         if (response.ok) {
@@ -443,11 +452,25 @@ export const ContactView: React.FC<ContactViewProps> = ({
           console.log(`✅ Proactively pre-fetched ${slots.length} common time slots (cached for scheduling)`);
         }
       } catch (error) {
-        console.log('Pre-fetch failed (non-critical):', error);
+        // Ignore abort errors (expected on unmount)
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Pre-fetch cancelled (component unmounted)');
+        } else {
+          console.log('Pre-fetch failed (non-critical):', error);
+        }
       }
     };
 
-    preFetchCommonTimeSlots();
+    // Defer pre-fetch to avoid blocking initial render
+    timeoutId = setTimeout(() => {
+      preFetchCommonTimeSlots();
+    }, 100); // 100ms delay ensures page is interactive first
+
+    // Cleanup: abort ongoing requests and clear timeout
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      abortController.abort();
+    };
   }, [isHistoricalMode, session?.user?.id, profile?.userId, userProfile?.calendars]);
 
   // Add lifecycle logging

@@ -61,14 +61,18 @@ export function LayoutBackground() {
     // Set CSS variable
     document.documentElement.style.setProperty('--user-background-image', `url("${cleanedUrl}")`);
 
-    // Add class to show user background
-    document.body.classList.add('has-user-background');
+    // Only add class to show user background if NOT on a contact page
+    // Contact pages manage their own backgrounds via ContactLayout
+    const isOnContactPage = pathname.startsWith('/contact/');
+    if (!isOnContactPage) {
+      document.body.classList.add('has-user-background');
+    }
 
     return () => {
       // Cleanup on unmount
       document.body.classList.remove('has-user-background');
     };
-  }, [mounted, isImageLoaded, isLoading, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl]);
+  }, [mounted, isImageLoaded, isLoading, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl, pathname]);
 
   // Set contact background CSS variable when available
   useEffect(() => {

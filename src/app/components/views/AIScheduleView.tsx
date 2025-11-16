@@ -11,7 +11,6 @@ import type { Event } from '@/types/profile';
 import MessageList from '@/app/components/ui/chat/MessageList';
 import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
 import { auth } from '@/lib/firebase/clientConfig';
 
@@ -24,7 +23,7 @@ export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile } = useProfile();
+  const { profile: currentUserProfile, getContact } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,19 +52,19 @@ export default function AIScheduleView() {
     if (!session?.user?.id) return;
 
     try {
-      // Load saved contacts to get the contact profile and type
-      const contacts = await ClientProfileService.getContacts(session.user.id);
-      const savedContact = contacts.find((c: SavedContact) => c.userId === contactUserId);
+      console.log('🔍 [AIScheduleView] Loading contact:', contactUserId);
 
-      if (!savedContact) {
-        console.error('Contact not found in saved contacts');
-        router.push('/history');
-        return;
+      // Get contact from cache (ContactLayout loads it)
+      const savedContact = getContact(contactUserId);
+
+      if (savedContact) {
+        console.log('📦 [AIScheduleView] Using contact');
+        setContactProfile(savedContact);
+        setSavedContact(savedContact);
+      } else {
+        // Contact not loaded yet, wait for ContactLayout to load it
+        console.log('📦 [AIScheduleView] Waiting for ContactLayout to load contact...');
       }
-
-      // Set contact profile and saved contact info
-      setContactProfile(savedContact);
-      setSavedContact(savedContact);
 
     } catch (error) {
       console.error('Error loading profiles:', error);
@@ -73,7 +72,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [contactUserId, session?.user?.id, router]);
+  }, [contactUserId, session?.user?.id, router, getContact]);
 
   useEffect(() => {
     loadProfiles();
@@ -81,6 +80,8 @@ export default function AIScheduleView() {
 
   // Pre-fetch common time slots when profiles are loaded (only once)
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchCommonTimeSlots = async () => {
       if (!session?.user?.id || !contactUserId || !auth?.currentUser) return;
       if (hasFetchedSlotsRef.current) return; // Already fetched
@@ -110,6 +111,7 @@ export default function AIScheduleView() {
             duration: 30, // Use minimum duration for maximum flexibility
             calendarType: contactType,
           }),
+          signal: abortController.signal, // Allow request to be cancelled
         });
 
         if (response.ok) {
@@ -121,13 +123,23 @@ export default function AIScheduleView() {
           console.error(`❌ Failed to pre-fetch common times: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
-        console.error('❌ Error pre-fetching common times:', error);
+        // Ignore abort errors (expected on unmount)
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Pre-fetch cancelled (component unmounted)');
+        } else {
+          console.error('❌ Error pre-fetching common times:', error);
+        }
       }
     };
 
     if (contactProfile && currentUserProfile) {
       fetchCommonTimeSlots();
     }
+
+    // Cleanup: abort ongoing requests
+    return () => {
+      abortController.abort();
+    };
   }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType]);
 
   useEffect(() => {

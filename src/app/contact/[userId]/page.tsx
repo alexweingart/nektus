@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { ContactView } from '../../components/views/ContactView';
 import { Button } from '../../components/ui/buttons/Button';
 import type { SavedContact } from '@/types/contactExchange';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -16,15 +16,24 @@ function ContactPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
+  const { getContact } = useProfile();
   const [contactProfile, setContactProfile] = useState<SavedContact | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   const userId = params.userId as string;
 
   useEffect(() => {
+    const mountTime = performance.now();
+    const clickTime = sessionStorage.getItem('contact-click-time');
+    if (clickTime) {
+      const navDuration = mountTime - parseFloat(clickTime);
+      console.log(`⏱️ [ContactPage] Mounted ${navDuration.toFixed(2)}ms after contact click`);
+      sessionStorage.removeItem('contact-click-time');
+    }
+
     async function fetchContact() {
       if (status === 'loading') return; // Still loading auth
-      
+
       if (!session) {
         console.log('No session, redirecting to home');
         router.push('/');
@@ -38,35 +47,36 @@ function ContactPageContent() {
       }
 
       try {
-        console.log('🔍 Fetching contact for userId:', userId);
-        
-        // Fetch all contacts for the current user
-        const contacts = await ClientProfileService.getContacts(session.user.id);
-        
-        // Find the contact with matching userId
-        const contact = contacts.find((c: SavedContact) => c.userId === userId);
-        
+        console.log('🔍 [ContactPage] Looking for contact:', userId);
+
+        // Get contact from cache (ContactLayout loads it)
+        const contact = getContact(userId);
+
         if (contact) {
           const contactName = getFieldValue(contact.contactEntries, 'name');
-          console.log('✅ Loaded contact:', contactName);
+          console.log('✅ [ContactPage] Using contact:', contactName);
           setContactProfile(contact);
         } else {
-          throw new Error('Contact not found in your saved contacts');
+          // Contact not loaded yet, wait for ContactLayout to load it
+          console.log('📦 [ContactPage] Waiting for ContactLayout to load contact...');
         }
-        
+
       } catch (error) {
         console.error('Failed to load contact:', error);
         setError('Failed to load contact. This contact may no longer be available.');
-      } finally {
-        // No loading state needed
       }
     }
 
     fetchContact();
-  }, [session, status, router, userId]);
+  }, [session, status, router, userId, getContact]);
 
   const handleGoBack = () => {
+    const pushTime = performance.now();
+    console.log('📍 ContactPage: router.push("/history") called at', pushTime.toFixed(2), 'ms');
     router.push('/history');
+    // This won't execute until after push completes
+    const afterPushTime = performance.now();
+    console.log('📍 ContactPage: router.push returned at', afterPushTime.toFixed(2), 'ms (sync operation took', (afterPushTime - pushTime).toFixed(2), 'ms)');
   };
 
   // Show loading only while checking auth

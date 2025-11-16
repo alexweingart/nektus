@@ -13,19 +13,22 @@ import Avatar from '../ui/elements/Avatar';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/lib/firebase/clientConfig';
 
+// Module-level tracking that persists across component mounts
+let lastPreFetchTime = 0;
+const PRE_FETCH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown between pre-fetches
+
 export const HistoryView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { profile: userProfile } = useProfile();
-  const [contacts, setContacts] = useState<SavedContact[]>([]);
+  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache } = useProfile();
+  const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
@@ -58,8 +61,26 @@ export const HistoryView: React.FC = () => {
   }, [searchParams, contacts]);
 
 
-  // Fetch contacts on component mount
+  // Fetch contacts on component mount using ProfileContext cache
   useEffect(() => {
+    const mountTime = performance.now();
+    console.log(`⏱️ [HistoryView] Component mounting at ${mountTime.toFixed(2)}ms`);
+
+    const backClickTime = sessionStorage.getItem('nav-back-clicked-at');
+    const routerPushTime = sessionStorage.getItem('nav-router-push-at');
+
+    if (backClickTime) {
+      const totalNavDuration = mountTime - parseFloat(backClickTime);
+      console.log(`⏱️ [HistoryView] Total navigation: ${totalNavDuration.toFixed(2)}ms (from back button click to mount)`);
+      sessionStorage.removeItem('nav-back-clicked-at');
+    }
+
+    if (routerPushTime) {
+      const routerNavDuration = mountTime - parseFloat(routerPushTime);
+      console.log(`⏱️ [HistoryView] Router.push to mount: ${routerNavDuration.toFixed(2)}ms`);
+      sessionStorage.removeItem('nav-router-push-at');
+    }
+
     const fetchContacts = async () => {
       if (!session?.user?.id) {
         console.log('No session or user ID, redirecting to home');
@@ -70,14 +91,11 @@ export const HistoryView: React.FC = () => {
       try {
         setError(null);
 
-        console.log('🔍 Fetching contacts for user:', session.user.id);
-        const userContacts = await ClientProfileService.getContacts(session.user.id);
-
-        // Sort contacts by addedAt timestamp (newest first)
-        const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
-
-        console.log('✅ Loaded contacts:', sortedContacts.length);
-        setContacts(sortedContacts);
+        console.log('🔍 [HistoryView] Loading contacts...');
+        const loadStart = performance.now();
+        await loadContacts(session.user.id);
+        const loadEnd = performance.now();
+        console.log(`⏱️ [HistoryView] Contacts loaded in ${(loadEnd - loadStart).toFixed(2)}ms`);
         setIsLoading(false);
 
       } catch (error) {
@@ -88,32 +106,44 @@ export const HistoryView: React.FC = () => {
     };
 
     fetchContacts();
-  }, [session, router]);
+  }, [session, router, loadContacts]);
 
-  // Pre-fetch common time slots for recent contacts (proactive caching for scheduling)
+  // Pre-fetch common time slots for recent contacts (truly non-blocking background process)
   useEffect(() => {
-    const preFetchCommonTimeSlotsForContacts = async () => {
-      if (!session?.user?.id || !auth?.currentUser || contacts.length === 0) return;
-      if (hasFetchedSlotsRef.current) return; // Already fetched
+    if (!session?.user?.id || !auth?.currentUser || contacts.length === 0) return;
+    if (hasFetchedSlotsRef.current) return; // Already fetched in this mount
 
+    // Check if we recently pre-fetched (cooldown using module-level variable)
+    const timeSinceLastFetch = Date.now() - lastPreFetchTime;
+    if (timeSinceLastFetch < PRE_FETCH_COOLDOWN) {
+      console.log(`⏭️ Skipping pre-fetch (last fetch was ${Math.round(timeSinceLastFetch / 1000)}s ago, cooldown: ${PRE_FETCH_COOLDOWN / 1000}s)`);
       hasFetchedSlotsRef.current = true;
+      return;
+    }
 
-      // Pre-fetch for up to 3 most recent contacts to avoid too many requests
-      const recentContacts = contacts.slice(0, 3);
+    hasFetchedSlotsRef.current = true;
+    lastPreFetchTime = Date.now();
 
-      for (const contact of recentContacts) {
-        // Only pre-fetch if user has calendar for this contact type
+    // Get recent contacts (synchronous but trivial)
+    const recentContacts = contacts.slice(0, 3);
+
+    // Schedule each fetch independently with staggered timing to avoid blocking
+    recentContacts.forEach((contact, index) => {
+      // Use requestIdleCallback with staggered timeouts to ensure no blocking
+      const scheduleDelay = index * 100; // Stagger by 100ms each
+
+      const scheduleFetch = () => {
         const userHasCalendar = userProfile?.calendars?.some(
           (cal) => cal.section === contact.contactType
         );
 
-        if (!userHasCalendar) continue;
+        if (!userHasCalendar) return;
 
-        try {
-          console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
-          const idToken = await auth.currentUser.getIdToken();
+        console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
 
-          const response = await fetch('/api/scheduling/common-times', {
+        // Execute fetch in truly async manner (no blocking)
+        auth.currentUser!.getIdToken()
+          .then(idToken => fetch('/api/scheduling/common-times', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -125,20 +155,29 @@ export const HistoryView: React.FC = () => {
               duration: 30,
               calendarType: contact.contactType,
             }),
+          }))
+          .then(response => {
+            if (response.ok) {
+              return response.json().then(data => {
+                const slots = data.slots || [];
+                console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
+              });
+            }
+          })
+          .catch(() => {
+            console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
           });
+      };
 
-          if (response.ok) {
-            const data = await response.json();
-            const slots = data.slots || [];
-            console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
-          }
-        } catch {
-          console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
-        }
+      // Use requestIdleCallback if available, with staggered fallback
+      if ('requestIdleCallback' in window) {
+        setTimeout(() => {
+          requestIdleCallback(scheduleFetch, { timeout: 5000 });
+        }, scheduleDelay);
+      } else {
+        setTimeout(scheduleFetch, scheduleDelay);
       }
-    };
-
-    preFetchCommonTimeSlotsForContacts();
+    });
   }, [contacts, session?.user?.id, userProfile?.calendars]);
 
   const handleRetry = () => {
@@ -191,9 +230,16 @@ export const HistoryView: React.FC = () => {
   };
 
   const handleContactTap = (contact: SavedContact) => {
+    const clickTime = performance.now();
+    console.log(`👆 [HistoryView] Contact clicked at ${clickTime.toFixed(2)}ms`);
+    sessionStorage.setItem('contact-click-time', clickTime.toString());
+
     // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
     // Navigate to the new contact page using userId
     router.push(`/contact/${contact.userId}`);
+
+    const afterPushTime = performance.now();
+    console.log(`👆 [HistoryView] router.push returned at ${afterPushTime.toFixed(2)}ms (took ${(afterPushTime - clickTime).toFixed(2)}ms)`);
   };
 
   const handleCalendarClick = (e: React.MouseEvent, contact: SavedContact) => {

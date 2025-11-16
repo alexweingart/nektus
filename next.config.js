@@ -20,6 +20,11 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  // Optimize for faster rebuilds in development
+  swcMinify: true,
+  compiler: {
+    removeConsole: false, // Keep console logs in dev
+  },
   webpack: (config, { isServer, dev }) => {
     // This makes sure the OpenAI module is only bundled server-side
     if (!isServer) {
@@ -127,7 +132,7 @@ const config = process.env.NODE_ENV === 'production'
       register: true,
       skipWaiting: true,
       disable: false, // PWA enabled
-      cacheOnFrontEndNav: true,
+      cacheOnFrontEndNav: false, // CRITICAL: Disable to prevent blocking navigation
       disableDevLogs: true,
       // buildExcludes: [
       //   /middleware-manifest\.json$/,

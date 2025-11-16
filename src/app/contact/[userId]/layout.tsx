@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { useProfile } from '@/app/context/ProfileContext';
 import type { SavedContact } from '@/types/contactExchange';
 
 /**
@@ -17,6 +17,7 @@ export default function ContactLayout({
 }) {
   const params = useParams();
   const { data: session } = useSession();
+  const { getContact, loadContacts } = useProfile();
   const contactUserId = params.userId as string;
   const [contactProfile, setContactProfile] = useState<SavedContact | null>(null);
 
@@ -29,8 +30,18 @@ export default function ContactLayout({
 
       try {
         console.log('🎨 ContactLayout: Loading contact for background...', contactUserId);
-        const contacts = await ClientProfileService.getContacts(session.user.id);
-        const savedContact = contacts.find((c: SavedContact) => c.userId === contactUserId);
+
+        // Check cache first
+        let savedContact = getContact(contactUserId);
+
+        if (!savedContact) {
+          // Not in cache, load all contacts (this will populate cache)
+          console.log('📦 [ContactLayout] Contact not in cache, loading...');
+          const allContacts = await loadContacts(session.user.id);
+          savedContact = allContacts.find(c => c.userId === contactUserId) || null;
+        } else {
+          console.log('📦 [ContactLayout] Using cached contact');
+        }
 
         if (savedContact) {
           console.log('🎨 ContactLayout: Found contact:', savedContact.userId, 'Background:', savedContact.backgroundImage ? 'Yes' : 'No');
@@ -44,7 +55,7 @@ export default function ContactLayout({
     }
 
     loadContact();
-  }, [session?.user?.id, contactUserId]);
+  }, [session?.user?.id, contactUserId, getContact, loadContacts]);
 
   // Apply contact's background using CSS variables and classes
   useEffect(() => {

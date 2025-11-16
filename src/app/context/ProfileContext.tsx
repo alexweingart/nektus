@@ -6,6 +6,7 @@ import type { Session } from 'next-auth';
 import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
 import { ProfileSaveService } from '@/lib/services/client/profileSaveService';
 import { UserProfile } from '@/types/profile';
+import type { SavedContact } from '@/types/contactExchange';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
 import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
@@ -46,6 +47,13 @@ type ProfileContextType = {
   setStreamingBackgroundImage: (imageUrl: string | null) => void;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
+  // Contacts cache management
+  contacts: SavedContact[] | null;
+  contactsLoadedAt: number | null;
+  loadContacts: (userId: string, force?: boolean) => Promise<SavedContact[]>;
+  getContact: (contactUserId: string) => SavedContact | null;
+  getContacts: () => SavedContact[];
+  invalidateContactsCache: () => void;
 };
 
 // Create context
@@ -78,15 +86,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Track if current profile image is Google auto-generated initials
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
-  
+
+  // Contacts cache state
+  const [contacts, setContacts] = useState<SavedContact[] | null>(null);
+  const [contactsLoadedAt, setContactsLoadedAt] = useState<number | null>(null);
+
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
   const bioAndSocialGenerationTriggeredRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
+  const contactsLoadingPromiseRef = useRef<Promise<SavedContact[]> | null>(null);
 
-  
+
   const profileRef = useRef<UserProfile | null>(null);
+
+  // Contacts cache duration - 5 minutes (matches auth state expiry pattern)
+  const CONTACTS_CACHE_DURATION = 5 * 60 * 1000;
 
 
   // Profile creation/loading effect
@@ -772,6 +788,67 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsNavigatingFromSetup(navigating);
   }, []);
 
+  // Contacts cache methods
+  const loadContacts = useCallback(async (userId: string, force: boolean = false): Promise<SavedContact[]> => {
+    // Check if cache is still valid (unless forced refresh)
+    if (!force && contacts && contactsLoadedAt) {
+      const age = Date.now() - contactsLoadedAt;
+      if (age < CONTACTS_CACHE_DURATION) {
+        console.log('📦 [ProfileContext] Using cached contacts (age:', Math.round(age / 1000), 'seconds)');
+        return contacts;
+      } else {
+        console.log('📦 [ProfileContext] Contacts cache expired (age:', Math.round(age / 1000), 'seconds)');
+      }
+    }
+
+    // If already loading, return the existing promise to prevent duplicate requests
+    if (contactsLoadingPromiseRef.current) {
+      console.log('📦 [ProfileContext] Contacts already loading, waiting for existing request...');
+      return contactsLoadingPromiseRef.current;
+    }
+
+    // Create and store the loading promise
+    const loadingPromise = (async () => {
+      try {
+        console.log('📦 [ProfileContext] Fetching contacts from Firestore...');
+        const userContacts = await ProfileService.getContacts(userId);
+
+        // Sort contacts by addedAt timestamp (newest first)
+        const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
+
+        console.log('✅ [ProfileContext] Loaded and cached', sortedContacts.length, 'contacts');
+        setContacts(sortedContacts);
+        setContactsLoadedAt(Date.now());
+
+        return sortedContacts;
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load contacts:', error);
+        throw error;
+      } finally {
+        // Clear the loading promise ref when done
+        contactsLoadingPromiseRef.current = null;
+      }
+    })();
+
+    contactsLoadingPromiseRef.current = loadingPromise;
+    return loadingPromise;
+  }, [contacts, contactsLoadedAt, CONTACTS_CACHE_DURATION]);
+
+  const getContact = useCallback((contactUserId: string): SavedContact | null => {
+    if (!contacts) return null;
+    return contacts.find(c => c.userId === contactUserId) || null;
+  }, [contacts]);
+
+  const getContacts = useCallback((): SavedContact[] => {
+    return contacts || [];
+  }, [contacts]);
+
+  const invalidateContactsCache = useCallback(() => {
+    console.log('📦 [ProfileContext] Invalidating contacts cache');
+    setContacts(null);
+    setContactsLoadedAt(null);
+  }, []);
+
   // Make profile available globally for easy debugging
   if (typeof window !== 'undefined') {
     (window as unknown as { getProfile: () => UserProfile | null }).getProfile = () => {
@@ -852,7 +929,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         streamingSocialContacts,
         streamingBackgroundImage,
         setStreamingBackgroundImage,
-        isGoogleInitials
+        isGoogleInitials,
+        contacts,
+        contactsLoadedAt,
+        loadContacts,
+        getContact,
+        getContacts,
+        invalidateContactsCache
       }}
     >
       {children}
@@ -869,11 +952,6 @@ export function useProfile() {
   return context;
 }
 
-// Helper function to check if profile has a valid phone number
-export function profileHasPhone(profile: UserProfile | null): boolean {
-  if (!profile?.contactEntries) return false;
-  
-  const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
-  return !!(phoneEntry?.value && phoneEntry.value.trim() !== '');
-}
+// Re-export utility function for backwards compatibility
+export { profileHasPhone } from '@/lib/utils/profile-utils';
 

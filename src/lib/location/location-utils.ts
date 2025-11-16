@@ -42,14 +42,11 @@ export function calculateMidpoint(coord1: Coordinates, coord2: Coordinates): Mid
   const totalDistance = calculateDistance(coord1, coord2);
 
   // Set search radius based on distance between points
-  // For very close locations (< 3km), use 1km radius
-  // For close locations (3-5km), use 2km radius
+  // For close locations (< 3km), use 1.5km radius
   // For distant locations, use 30% of the distance but cap at 25km
   let searchRadiusKm;
   if (totalDistance < 3) {
-    searchRadiusKm = 1;
-  } else if (totalDistance < 5) {
-    searchRadiusKm = 2;
+    searchRadiusKm = 1.5;
   } else {
     searchRadiusKm = Math.min(totalDistance * 0.3, 25);
   }
