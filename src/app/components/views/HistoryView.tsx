@@ -13,19 +13,22 @@ import Avatar from '../ui/elements/Avatar';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/lib/firebase/clientConfig';
 
+// Module-level tracking that persists across component mounts
+let lastPreFetchTime = 0;
+const PRE_FETCH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown between pre-fetches
+
 export const HistoryView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { profile: userProfile } = useProfile();
-  const [contacts, setContacts] = useState<SavedContact[]>([]);
+  const { profile: userProfile, loadContacts, getContacts } = useProfile();
+  const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
@@ -57,69 +60,27 @@ export const HistoryView: React.FC = () => {
     }
   }, [searchParams, contacts]);
 
-  // Handle background crossfade when returning from ContactView
+
+  // Fetch contacts on component mount using ProfileContext cache
   useEffect(() => {
-    const isReturning = sessionStorage.getItem('returning-to-history');
-    const contactBackground = sessionStorage.getItem('contact-background-url');
+    const mountTime = performance.now();
+    console.log(`⏱️ [HistoryView] Component mounting at ${mountTime.toFixed(2)}ms`);
 
-    if (isReturning === 'true') {
-      console.log('🎯 HistoryView: Detected return from ContactView, setting up background crossfade');
+    const backClickTime = sessionStorage.getItem('nav-back-clicked-at');
+    const routerPushTime = sessionStorage.getItem('nav-router-push-at');
 
-      // Clear the flags
-      sessionStorage.removeItem('returning-to-history');
-
-      // If we have a contact background, set up crossfade
-      if (contactBackground && userProfile?.backgroundImage) {
-        console.log('🎯 HistoryView: Setting up background crossfade');
-
-        // Create style for contact background that will fade out
-        const contactBgStyle = document.createElement('style');
-        contactBgStyle.id = 'contact-background-fadeout';
-        contactBgStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${contactBackground}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 300ms ease-out;
-            pointer-events: none;
-          }
-          body.fade-out-contact-bg::after {
-            opacity: 0;
-          }
-        `;
-        document.head.appendChild(contactBgStyle);
-
-        // Trigger fade out
-        requestAnimationFrame(() => {
-          document.body.classList.add('fade-out-contact-bg');
-        });
-
-        // Clean up after animation
-        setTimeout(() => {
-          document.body.classList.remove('fade-out-contact-bg');
-          const style = document.getElementById('contact-background-fadeout');
-          if (style) {
-            style.remove();
-          }
-          sessionStorage.removeItem('contact-background-url');
-        }, 300);
-      } else {
-        sessionStorage.removeItem('contact-background-url');
-      }
+    if (backClickTime) {
+      const totalNavDuration = mountTime - parseFloat(backClickTime);
+      console.log(`⏱️ [HistoryView] Total navigation: ${totalNavDuration.toFixed(2)}ms (from back button click to mount)`);
+      sessionStorage.removeItem('nav-back-clicked-at');
     }
-  }, [userProfile?.backgroundImage]);
 
-  // Fetch contacts on component mount
-  useEffect(() => {
+    if (routerPushTime) {
+      const routerNavDuration = mountTime - parseFloat(routerPushTime);
+      console.log(`⏱️ [HistoryView] Router.push to mount: ${routerNavDuration.toFixed(2)}ms`);
+      sessionStorage.removeItem('nav-router-push-at');
+    }
+
     const fetchContacts = async () => {
       if (!session?.user?.id) {
         console.log('No session or user ID, redirecting to home');
@@ -130,14 +91,11 @@ export const HistoryView: React.FC = () => {
       try {
         setError(null);
 
-        console.log('🔍 Fetching contacts for user:', session.user.id);
-        const userContacts = await ClientProfileService.getContacts(session.user.id);
-
-        // Sort contacts by addedAt timestamp (newest first)
-        const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
-
-        console.log('✅ Loaded contacts:', sortedContacts.length);
-        setContacts(sortedContacts);
+        console.log('🔍 [HistoryView] Loading contacts...');
+        const loadStart = performance.now();
+        await loadContacts(session.user.id);
+        const loadEnd = performance.now();
+        console.log(`⏱️ [HistoryView] Contacts loaded in ${(loadEnd - loadStart).toFixed(2)}ms`);
         setIsLoading(false);
 
       } catch (error) {
@@ -148,32 +106,45 @@ export const HistoryView: React.FC = () => {
     };
 
     fetchContacts();
-  }, [session, router]);
+  }, [session, router, loadContacts]);
 
-  // Pre-fetch common time slots for recent contacts (proactive caching for scheduling)
+  // Pre-fetch common time slots for recent contacts (truly non-blocking background process)
   useEffect(() => {
-    const preFetchCommonTimeSlotsForContacts = async () => {
-      if (!session?.user?.id || !auth?.currentUser || contacts.length === 0) return;
-      if (hasFetchedSlotsRef.current) return; // Already fetched
+    if (!session?.user?.id || !auth?.currentUser || contacts.length === 0) return;
+    if (hasFetchedSlotsRef.current) return; // Already fetched in this mount
 
+    // Check if we recently pre-fetched (cooldown using module-level variable)
+    const timeSinceLastFetch = Date.now() - lastPreFetchTime;
+    if (timeSinceLastFetch < PRE_FETCH_COOLDOWN) {
+      console.log(`⏭️ Skipping pre-fetch (last fetch was ${Math.round(timeSinceLastFetch / 1000)}s ago, cooldown: ${PRE_FETCH_COOLDOWN / 1000}s)`);
       hasFetchedSlotsRef.current = true;
+      return;
+    }
 
-      // Pre-fetch for up to 3 most recent contacts to avoid too many requests
-      const recentContacts = contacts.slice(0, 3);
+    hasFetchedSlotsRef.current = true;
+    lastPreFetchTime = Date.now();
 
-      for (const contact of recentContacts) {
-        // Only pre-fetch if user has calendar for this contact type
+    // Get recent contacts (synchronous but trivial)
+    const recentContacts = contacts.slice(0, 3);
+
+    // Schedule each fetch independently with staggered timing to avoid blocking
+    recentContacts.forEach((contact, index) => {
+      // Use requestIdleCallback with staggered timeouts to ensure no blocking
+      const scheduleDelay = index * 100; // Stagger by 100ms each
+
+      const scheduleFetch = () => {
         const userHasCalendar = userProfile?.calendars?.some(
           (cal) => cal.section === contact.contactType
         );
 
-        if (!userHasCalendar) continue;
+        if (!userHasCalendar) return;
 
-        try {
-          console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
-          const idToken = await auth.currentUser.getIdToken();
+        console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
 
-          const response = await fetch('/api/scheduling/common-times', {
+        // Execute fetch in truly async manner (no blocking)
+        if (!auth?.currentUser) return;
+        auth.currentUser.getIdToken()
+          .then(idToken => fetch('/api/scheduling/common-times', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -185,20 +156,29 @@ export const HistoryView: React.FC = () => {
               duration: 30,
               calendarType: contact.contactType,
             }),
+          }))
+          .then(response => {
+            if (response.ok) {
+              return response.json().then(data => {
+                const slots = data.slots || [];
+                console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
+              });
+            }
+          })
+          .catch(() => {
+            console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
           });
+      };
 
-          if (response.ok) {
-            const data = await response.json();
-            const slots = data.slots || [];
-            console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
-          }
-        } catch {
-          console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
-        }
+      // Use requestIdleCallback if available, with staggered fallback
+      if ('requestIdleCallback' in window) {
+        setTimeout(() => {
+          requestIdleCallback(scheduleFetch, { timeout: 5000 });
+        }, scheduleDelay);
+      } else {
+        setTimeout(scheduleFetch, scheduleDelay);
       }
-    };
-
-    preFetchCommonTimeSlotsForContacts();
+    });
   }, [contacts, session?.user?.id, userProfile?.calendars]);
 
   const handleRetry = () => {
@@ -251,16 +231,16 @@ export const HistoryView: React.FC = () => {
   };
 
   const handleContactTap = (contact: SavedContact) => {
-    // Store flags for crossfade animation when entering ContactView
-    sessionStorage.setItem('entering-from-history', 'true');
+    const clickTime = performance.now();
+    console.log(`👆 [HistoryView] Contact clicked at ${clickTime.toFixed(2)}ms`);
+    sessionStorage.setItem('contact-click-time', clickTime.toString());
 
-    // Store history background for crossfade
-    if (userProfile?.backgroundImage) {
-      sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
-    }
-
+    // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
     // Navigate to the new contact page using userId
     router.push(`/contact/${contact.userId}`);
+
+    const afterPushTime = performance.now();
+    console.log(`👆 [HistoryView] router.push returned at ${afterPushTime.toFixed(2)}ms (took ${(afterPushTime - clickTime).toFixed(2)}ms)`);
   };
 
   const handleCalendarClick = (e: React.MouseEvent, contact: SavedContact) => {
@@ -277,14 +257,7 @@ export const HistoryView: React.FC = () => {
     );
 
     if (userHasCalendar) {
-      // Store flags for crossfade animation when entering SmartScheduleView
-      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
-
-      // Store history background for crossfade
-      if (userProfile?.backgroundImage) {
-        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
-      }
-
+      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
       // Navigate to smart-schedule page with 'from' parameter
       router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
     } else {
@@ -299,14 +272,7 @@ export const HistoryView: React.FC = () => {
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     if (selectedContact) {
-      // Store flags for crossfade animation when entering SmartScheduleView
-      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
-
-      // Store history background for crossfade
-      if (userProfile?.backgroundImage) {
-        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
-      }
-
+      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
       // After calendar is added, navigate to smart-schedule with 'from' parameter
       router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
     }
@@ -316,14 +282,7 @@ export const HistoryView: React.FC = () => {
     setShowCalendarAddedModal(false);
 
     if (selectedContact) {
-      // Store flags for crossfade animation when entering SmartScheduleView
-      sessionStorage.setItem('entering-from-history-to-schedule', 'true');
-
-      // Store history background for crossfade
-      if (userProfile?.backgroundImage) {
-        sessionStorage.setItem('history-background-url', userProfile.backgroundImage);
-      }
-
+      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
       // Clean up the stored contact ID
       sessionStorage.removeItem('calendar-contact-id');
 

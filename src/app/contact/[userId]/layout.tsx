@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
+import { useProfile } from '@/app/context/ProfileContext';
 import type { SavedContact } from '@/types/contactExchange';
 
 /**
@@ -17,84 +17,69 @@ export default function ContactLayout({
 }) {
   const params = useParams();
   const { data: session } = useSession();
+  const { getContact, loadContacts } = useProfile();
   const contactUserId = params.userId as string;
   const [contactProfile, setContactProfile] = useState<SavedContact | null>(null);
 
   useEffect(() => {
     async function loadContact() {
-      if (!session?.user?.id || !contactUserId) return;
+      if (!session?.user?.id || !contactUserId) {
+        return;
+      }
 
       try {
-        const contacts = await ClientProfileService.getContacts(session.user.id);
-        const savedContact = contacts.find((c: SavedContact) => c.userId === contactUserId);
+        // Check cache first
+        let savedContact = getContact(contactUserId);
+
+        if (!savedContact) {
+          // Not in cache, load all contacts (this will populate cache)
+          const allContacts = await loadContacts(session.user.id);
+          savedContact = allContacts.find(c => c.userId === contactUserId) || null;
+        }
 
         if (savedContact) {
           setContactProfile(savedContact);
         }
       } catch (error) {
-        console.error('Error loading contact for background:', error);
+        console.error('🎨 ContactLayout: Error loading contact for background:', error);
       }
     }
 
     loadContact();
-  }, [session?.user?.id, contactUserId]);
+  }, [session?.user?.id, contactUserId, getContact, loadContacts]);
 
-  // Apply contact's background image
+  // Apply contact's background using CSS variables and classes
   useEffect(() => {
-    if (!contactProfile) return;
-
-    try {
-      // Remove any existing contact background div from previous contact
-      const existingContactBg = document.getElementById('contact-background');
-      if (existingContactBg) {
-        existingContactBg.remove();
-      }
-
-      // Remove default background class from body
-      document.body.classList.remove('default-nekt-background');
-      document.body.style.background = '';
-
-      if (contactProfile.backgroundImage) {
-        // Create background div with contact's background image
-        const cleanedUrl = contactProfile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-        const backgroundDiv = document.createElement('div');
-        backgroundDiv.id = 'contact-background';
-        backgroundDiv.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-image: url(${cleanedUrl});
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
-          z-index: 1;
-          pointer-events: none;
-        `;
-        document.body.appendChild(backgroundDiv);
-      } else {
-        // No contact background image, use default green pattern
-        document.body.classList.add('default-nekt-background');
-      }
-
-      // Cleanup function
-      return () => {
-        try {
-          const bgDiv = document.getElementById('contact-background');
-          if (bgDiv) {
-            bgDiv.remove();
-          }
-          document.body.classList.remove('default-nekt-background');
-          document.body.style.background = '';
-        } catch {
-          // Error cleaning up background
-        }
-      };
-    } catch {
-      // Error applying contact background
+    if (!contactProfile) {
+      return;
     }
-  }, [contactProfile?.backgroundImage, contactProfile]);
+
+    // Always hide user background when on contact page
+    document.body.classList.remove('has-user-background');
+
+    if (contactProfile.backgroundImage) {
+      // Set CSS variable for contact background
+      const cleanedUrl = contactProfile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
+      document.documentElement.style.setProperty('--contact-background-image', `url("${cleanedUrl}")`);
+
+      // Show contact background via CSS class
+      document.body.classList.add('show-contact-background');
+    } else {
+      // No contact background, remove class (will show green pattern)
+      document.body.classList.remove('show-contact-background');
+    }
+
+    // Cleanup function - restore user background when leaving
+    return () => {
+      document.body.classList.remove('show-contact-background');
+      document.body.classList.add('has-user-background');
+
+      // Remove CSS variable after transition completes (1s to match CSS transition)
+      setTimeout(() => {
+        document.documentElement.style.removeProperty('--contact-background-image');
+      }, 1000);
+    };
+  }, [contactProfile?.backgroundImage]);
 
   return <>{children}</>;
 }

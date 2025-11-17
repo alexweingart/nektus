@@ -109,8 +109,48 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
 
   try {
-    const { streamingBio } = await req.json();
-    
+    const { streamingBio, imageData } = await req.json();
+
+    // Case 1: User uploaded a custom background image
+    if (imageData) {
+      console.log(`[API/BACKGROUND] Uploading custom background image for user ${userId}`);
+
+      // Convert base64 to buffer
+      const imageBuffer = Buffer.from(imageData.replace(/^data:image\/[a-z]+;base64,/, ''), 'base64');
+
+      // Upload to Firebase Storage
+      const uploadTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase upload timeout after 20 seconds')), 20000)
+      );
+
+      const uploadPromise = uploadImageBuffer(imageBuffer, userId, 'background');
+      console.log('[API/BACKGROUND] Waiting for Firebase upload...');
+      const permanentImageUrl = await Promise.race([uploadPromise, uploadTimeoutPromise]) as string;
+
+      // Update profile with custom background
+      console.log('[API/BACKGROUND] Updating profile in Firestore...');
+      const firestoreTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore update timeout after 10 seconds')), 10000)
+      );
+
+      const profile = await AdminProfileService.getProfile(userId);
+      const updatePromise = AdminProfileService.updateProfile(userId, {
+        backgroundImage: permanentImageUrl,
+        aiGeneration: {
+          bioGenerated: profile?.aiGeneration?.bioGenerated || false,
+          avatarGenerated: profile?.aiGeneration?.avatarGenerated || false,
+          backgroundImageGenerated: false // Mark as user-uploaded, not AI-generated
+        }
+      });
+
+      await Promise.race([updatePromise, firestoreTimeoutPromise]);
+
+      console.log('[API/BACKGROUND] Custom background uploaded & saved to Firestore', { userId, imageUrl: permanentImageUrl });
+
+      return NextResponse.json({ imageUrl: permanentImageUrl });
+    }
+
+    // Case 2: Generate AI background based on bio and profile image colors
     // Always get the most recent profile to ensure we have any newly generated bio
     const profile = await AdminProfileService.getProfile(userId);
     if (!profile) {

@@ -311,7 +311,8 @@ export function createTravelBufferDescription(
     return originalDescription;
   }
 
-  const actualStart = new Date(new Date(eventResult.startTime).getTime() + eventTemplate.travelBuffer.beforeMinutes * 60 * 1000);
+  // eventResult.startTime is ALREADY the correct event start time (buffer applied during slot generation)
+  const actualStart = new Date(eventResult.startTime);
   const actualEnd = new Date(actualStart.getTime() + (eventTemplate.duration || 60) * 60 * 1000);
 
   const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone || 'UTC' };
@@ -392,10 +393,10 @@ export function determineAlternativesToShow(
   includeConflictWarning: boolean;
   reason: string;
 } {
-  // Detect date/time constraints (BROAD - any scheduling preference)
+  // Detect date/time constraints (EXPLICIT ONLY - user actually specified a time)
+  // Don't count preferredSchedulableHours (implicit from activity type like "dinner")
   const hasDateTimeConstraint = !!(
     template.preferredSchedulableDates ||
-    template.preferredSchedulableHours ||
     template.hasExplicitTimeRequest ||
     editResult?.timePreference
   );

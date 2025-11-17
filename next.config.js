@@ -8,7 +8,7 @@ const nextConfig = {
   // Next.js 15.3 configuration
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   serverExternalPackages: ['next-pwa', 'openai'],
-  reactStrictMode: true,
+  reactStrictMode: false, // Temporarily disabled to test production-like behavior
   eslint: {
     ignoreDuringBuilds: true, // Skip ESLint during builds for speed
     dirs: ['src'],
@@ -19,6 +19,9 @@ const nextConfig = {
     // your project has type errors.
     // !! WARN !!
     ignoreBuildErrors: true,
+  },
+  compiler: {
+    removeConsole: false, // Keep console logs in dev
   },
   webpack: (config, { isServer, dev }) => {
     // This makes sure the OpenAI module is only bundled server-side
@@ -91,6 +94,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.firebasestorage.app',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
     ],
   },
   async headers() {
@@ -123,7 +130,7 @@ const config = process.env.NODE_ENV === 'production'
       register: true,
       skipWaiting: true,
       disable: false, // PWA enabled
-      cacheOnFrontEndNav: true,
+      cacheOnFrontEndNav: false, // CRITICAL: Disable to prevent blocking navigation
       disableDevLogs: true,
       // buildExcludes: [
       //   /middleware-manifest\.json$/,

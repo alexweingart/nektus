@@ -24,7 +24,7 @@ import { SelectedSections } from './SelectedSections';
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
+  const { profile, saveProfile, isSaving: isProfileSaving, setStreamingBackgroundImage } = useProfile();
   const router = useRouter();
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -83,8 +83,7 @@ const EditProfileView: React.FC = () => {
     router: calRouter
   } = useCalendarLocationManagement({
     profile,
-    saveProfile,
-    onSaveProfile: undefined // Will be set later
+    saveProfile
   });
 
   useFreezeScrollOnFocus(nameInputRef);
@@ -93,6 +92,13 @@ const EditProfileView: React.FC = () => {
   React.useEffect(() => {
     loadFromStorage();
   }, [loadFromStorage]);
+
+  // Clear streaming background image on unmount
+  React.useEffect(() => {
+    return () => {
+      setStreamingBackgroundImage(null);
+    };
+  }, [setStreamingBackgroundImage]);
 
   // Handle mode change - update both carousel and local state
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
@@ -105,9 +111,12 @@ const EditProfileView: React.FC = () => {
     fieldSectionManager.setImageValue('profileImage', imageData)
   );
 
-  const handleBackgroundImageUpload = createUploadHandler('background', (imageData) =>
-    fieldSectionManager.setImageValue('backgroundImage', imageData)
-  );
+  const handleBackgroundImageUpload = createUploadHandler('background', (imageData) => {
+    // Update local state
+    fieldSectionManager.setImageValue('backgroundImage', imageData);
+    // Update ProfileContext for immediate visual feedback
+    setStreamingBackgroundImage(imageData);
+  });
 
   // Handle field input change
   const handleFieldChange = (fieldType: string, value: string, section: FieldSection) => {

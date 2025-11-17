@@ -42,14 +42,11 @@ export function calculateMidpoint(coord1: Coordinates, coord2: Coordinates): Mid
   const totalDistance = calculateDistance(coord1, coord2);
 
   // Set search radius based on distance between points
-  // For very close locations (< 3km), use 1km radius
-  // For close locations (3-5km), use 2km radius
+  // For close locations (< 3km), use 1.5km radius
   // For distant locations, use 30% of the distance but cap at 25km
   let searchRadiusKm;
   if (totalDistance < 3) {
-    searchRadiusKm = 1;
-  } else if (totalDistance < 5) {
-    searchRadiusKm = 2;
+    searchRadiusKm = 1.5;
   } else {
     searchRadiusKm = Math.min(totalDistance * 0.3, 25);
   }
@@ -97,14 +94,23 @@ export function isWithinRadius(center: Coordinates, point: Coordinates, radiusKm
 
 /**
  * Generate Google Maps URL for a location
+ * Prefers using Google Place ID when available for accurate place cards
  */
-export function generateGoogleMapsUrl(coordinates: Coordinates, placeName?: string): string {
-  if (placeName) {
-    // If we have a place name, use it for better UX
+export function generateGoogleMapsUrl(
+  coordinates: Coordinates,
+  placeName?: string,
+  googlePlaceId?: string
+): string {
+  if (googlePlaceId && placeName) {
+    // Best option: Use Place ID for guaranteed accurate place card
+    const encodedName = encodeURIComponent(placeName);
+    return `https://www.google.com/maps/search/?api=1&query=${encodedName}&query_place_id=${googlePlaceId}`;
+  } else if (placeName) {
+    // Fallback: Use search with place name only
     const encodedName = encodeURIComponent(placeName);
     return `https://www.google.com/maps/search/?api=1&query=${encodedName}`;
   } else {
-    // Fallback to coordinates
+    // Last resort: coordinates only
     return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
   }
 }

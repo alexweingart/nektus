@@ -101,6 +101,17 @@ export class ProfileSaveService {
         };
 
       }
+
+      // Validate image fields - prevent saving base64 data URLs to Firestore
+      // Base64 data URLs can exceed Firestore's 1MB field limit
+      if (processedUpdates.backgroundImage && processedUpdates.backgroundImage.startsWith('data:image/')) {
+        console.warn('[ProfileSaveService] Skipping base64 backgroundImage - waiting for upload to complete');
+        delete processedUpdates.backgroundImage;
+      }
+      if (processedUpdates.profileImage && processedUpdates.profileImage.startsWith('data:image/')) {
+        console.warn('[ProfileSaveService] Skipping base64 profileImage - waiting for upload to complete');
+        delete processedUpdates.profileImage;
+      }
       
       // Determine merge strategy
       const merged = options.directUpdate

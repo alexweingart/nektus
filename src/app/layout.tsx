@@ -8,6 +8,8 @@ import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
+import { ContactBackgroundOverlay } from './components/ui/layout/ContactBackgroundOverlay';
+import { ParticleNetwork } from './components/ui/layout/ParticleNetwork';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,7 +20,7 @@ const inter = Inter({
 const THEME_COLOR = '#000000';
 
 export const metadata: Metadata = {
-  title: "Nekt.Us - Bump to Connect",
+  title: "Nekt - Bump to Connect",
   description: "Exchange contact info and social profiles by bumping phones",
   manifest: "/manifest.json",
   icons: {
@@ -29,7 +31,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: 'Nekt.Us',
+    title: 'Nekt',
     statusBarStyle: 'black-translucent',
     startupImage: '/pwa/nektus-logo-pwa-192x192.png',
   },
@@ -71,6 +73,8 @@ export default async function RootLayout({
           <ProfileProvider>
             <AdminModeProvider>
               <LayoutBackground />
+              <ParticleNetwork />
+              <ContactBackgroundOverlay />
               <AdminBanner />
               <div style={{ position: 'relative', zIndex: 10 }}>
                 {children}

@@ -17,18 +17,19 @@ function ConnectPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
+
   // Get the exchange token from URL parameters
   const token = searchParams.get('token');
   const mode = searchParams.get('mode');
   const isHistoricalMode = mode === 'historical';
 
+  const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchMatchedProfile() {
       if (status === 'loading') return; // Still loading auth
-      
+
       if (!session) {
         console.log('No session, redirecting to home');
         router.push('/');
@@ -41,6 +42,37 @@ function ConnectPageContent() {
         return;
       }
 
+      // Special handling for test mode - check before cache check
+      if (token === 'test-animation-token') {
+        console.log('🧪 Test mode: Using mock profile for animation testing');
+
+        // Check if we already have the mock profile loaded
+        if (contactProfile && contactProfile.userId === 'mock-user-123') {
+          console.log('✅ Mock profile already loaded, skipping fetch');
+          return;
+        }
+
+        // Create mock profile for testing
+        const mockProfile: UserProfile = {
+          userId: 'mock-user-123',
+          profileImage: '',
+          backgroundImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200',
+          lastUpdated: Date.now(),
+          contactEntries: [
+            { fieldType: 'name', value: 'Demo Contact', section: 'personal', order: 0, isVisible: true, confirmed: true },
+            { fieldType: 'bio', value: 'This is a test contact for animation preview. In real usage, this would show the contact\'s actual profile information.', section: 'personal', order: 1, isVisible: true, confirmed: true },
+            { fieldType: 'phone', value: '+1234567890', section: 'personal', order: 2, isVisible: true, confirmed: true },
+            { fieldType: 'email', value: 'demo@example.com', section: 'personal', order: 3, isVisible: true, confirmed: true },
+            { fieldType: 'instagram', value: 'democontact', section: 'personal', order: 4, isVisible: true, confirmed: true },
+            { fieldType: 'x', value: 'democontact', section: 'personal', order: 5, isVisible: true, confirmed: true }
+          ],
+          calendars: []
+        };
+
+        setContactProfile(mockProfile);
+        return;
+      }
+
       // Check if we already have this profile cached to avoid re-fetch on back navigation
       if (contactProfile && contactProfile.userId) {
         console.log('✅ Profile already loaded, skipping fetch');
@@ -48,15 +80,16 @@ function ConnectPageContent() {
       }
 
       try {
+
         console.log('🔍 Fetching matched profile for token:', token, isHistoricalMode ? '(historical)' : '(active)');
-        
+
         if (isHistoricalMode) {
           // For historical mode, fetch from saved contacts
           const contacts = await ClientProfileService.getContacts(session.user.id);
-          
+
           // Find the contact with matching token
           const contact = contacts.find((c: SavedContact) => c.matchToken === token);
-          
+
           if (contact) {
             const contactName = getFieldValue(contact.contactEntries, 'name');
             console.log('✅ Loaded historical contact:', contactName);
@@ -67,13 +100,13 @@ function ConnectPageContent() {
         } else {
           // For active exchanges, use the exchange API
           const response = await fetch(`/api/exchange/pair/${token}`);
-          
+
           if (!response.ok) {
             throw new Error('Failed to fetch matched profile');
           }
-          
+
           const result = await response.json();
-          
+
           if (result.success && result.profile) {
             console.log('✅ Loaded matched profile data:', result.profile);
             console.log('📋 Contact entries:', result.profile.contactEntries);
@@ -82,7 +115,7 @@ function ConnectPageContent() {
             throw new Error('Invalid profile response');
           }
         }
-        
+
       } catch (error) {
         console.error('Failed to load matched profile:', error);
         setError(isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile');

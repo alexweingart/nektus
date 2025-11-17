@@ -63,9 +63,11 @@ interface FoursquarePlace {
   longitude: number;
   location: FoursquareLocation;
   categories?: FoursquareCategory[];
+  description?: string; // venue description (if available)
   rating?: number; // 0-10 scale (if available)
   price?: number; // 1-4 scale (if available)
   hours?: unknown; // hours structure (if available)
+  tips?: Array<{ text: string }>; // user reviews/tips (if available)
   distance?: number; // meters from search center
 }
 
@@ -80,7 +82,8 @@ export async function searchFoursquarePlaces(
   location: Coordinates,
   radius: number,
   textQuery: string,
-  category?: string
+  category?: string,
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -93,6 +96,8 @@ export async function searchFoursquarePlaces(
   }
 
   try {
+    console.log(`🔍 Foursquare search: center=(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), radius=${radius}m, query="${textQuery}"`);
+
     const url = new URL('https://places-api.foursquare.com/places/search');
 
     // Required parameters
@@ -111,8 +116,11 @@ export async function searchFoursquarePlaces(
 
     // Request specific fields - NEW API field names
     // Core (free): fsq_place_id, name, latitude, longitude, location, categories
-    // Premium (paid): rating, price, hours
-    url.searchParams.set('fields', 'fsq_place_id,name,latitude,longitude,location,categories');
+    // Premium (paid): rating, price, hours, tips, photos, description
+    const fields = includePremiumFields
+      ? 'fsq_place_id,name,latitude,longitude,location,categories,description,rating,price,tips'
+      : 'fsq_place_id,name,latitude,longitude,location,categories';
+    url.searchParams.set('fields', fields);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -166,9 +174,11 @@ export async function searchFoursquarePlaces(
           name: place.name || 'Unknown Place',
           address: address,
           coordinates: placeCoords,
+          description: place.description,
+          tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined, // Convert 0-10 to 0-5 scale if available
           price_level: place.price,
-          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
+          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name), // Will be updated with Place ID later
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
             open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
@@ -184,20 +194,28 @@ export async function searchFoursquarePlaces(
       });
 
     // Filter by radius and rating (4+ stars for better quality)
+    console.log(`🔍 Filtering ${places.length} places from Foursquare (radius: ${radius}m = ${(radius / 1000).toFixed(1)}km)`);
     const filteredPlaces = places.filter(place => {
+      const distanceKm = place.distance_from_midpoint_km || 0;
       const withinRadius = isWithinRadius(location, place.coordinates, radius / 1000);
       const goodRating = !place.rating || place.rating >= 4.0; // Include unrated or 4+ star places
+
+      if (!withinRadius) {
+        console.log(`   ❌ Filtered out ${place.name} - ${distanceKm.toFixed(1)}km away (exceeds ${(radius / 1000).toFixed(1)}km radius)`);
+      }
+      if (!goodRating) {
+        console.log(`   ❌ Filtered out ${place.name} - rating ${place.rating} (below 4.0 threshold)`);
+      }
+
       return withinRadius && goodRating;
     });
 
-    return filteredPlaces.sort((a, b) => {
-      if (a.rating && b.rating) {
-        return b.rating - a.rating;
-      }
-      if (a.rating && !b.rating) return -1;
-      if (!a.rating && b.rating) return 1;
-      return 0;
-    });
+    console.log(`✅ After filtering: ${filteredPlaces.length} places remaining`);
+
+    // Return places in Foursquare's default ranking order (relevance + popularity)
+    // Foursquare's algorithm already considers quality, popularity, and relevance
+    // Sorting by rating destroys this expert ranking, especially since free tier doesn't include ratings
+    return filteredPlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
@@ -219,7 +237,8 @@ export async function searchFoursquarePlaces(
 export async function searchFoursquareNearby(
   location: Coordinates,
   radius: number,
-  categories: string[]
+  categories: string[],
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   const apiKey = process.env.FOURSQUARE_API_KEY;
 
@@ -238,7 +257,10 @@ export async function searchFoursquareNearby(
     url.searchParams.set('radius', Math.round(radius).toString()); // Must be integer
     url.searchParams.set('categories', categories.join(','));
     url.searchParams.set('limit', '50');
-    url.searchParams.set('fields', 'fsq_place_id,name,latitude,longitude,location,categories');
+    const fields = includePremiumFields
+      ? 'fsq_place_id,name,latitude,longitude,location,categories,description,rating,price,tips'
+      : 'fsq_place_id,name,latitude,longitude,location,categories';
+    url.searchParams.set('fields', fields);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -291,9 +313,11 @@ export async function searchFoursquareNearby(
           name: place.name || 'Unknown Place',
           address: address,
           coordinates: placeCoords,
+          description: place.description,
+          tips: place.tips?.map(tip => tip.text) || undefined, // Extract text from tips array
           rating: place.rating ? place.rating / 2 : undefined,
           price_level: place.price,
-          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name),
+          google_maps_url: generateGoogleMapsUrl(placeCoords, place.name), // Will be updated with Place ID later
           distance_from_midpoint_km: Math.round(distanceFromCenter * 10) / 10,
           opening_hours: place.hours ? {
             open_now: (place.hours as Record<string, unknown>).open_now as boolean | undefined,
@@ -315,14 +339,8 @@ export async function searchFoursquareNearby(
       return withinRadius && goodRating;
     });
 
-    return filteredPlaces.sort((a, b) => {
-      if (a.rating && b.rating) {
-        return b.rating - a.rating;
-      }
-      if (a.rating && !b.rating) return -1;
-      if (!a.rating && b.rating) return 1;
-      return 0;
-    });
+    // Return places in Foursquare's default ranking order (relevance + popularity)
+    return filteredPlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
@@ -347,16 +365,17 @@ export async function searchPlacesByType(
   radius: number,
   type: 'restaurant' | 'cafe' | 'food',
   keyword?: string,
-  _meetingDateTime?: Date
+  _meetingDateTime?: Date,
+  includePremiumFields: boolean = false
 ): Promise<Place[]> {
   // Map Google Places type to Foursquare category
   const category = CATEGORY_MAP[type] || CATEGORY_MAP.restaurant;
 
   // Use text search if keyword is provided, otherwise use nearby search
   if (keyword) {
-    return await searchFoursquarePlaces(location, radius, keyword, category);
+    return await searchFoursquarePlaces(location, radius, keyword, category, includePremiumFields);
   } else {
-    return await searchFoursquareNearby(location, radius, [category]);
+    return await searchFoursquareNearby(location, radius, [category], includePremiumFields);
   }
 }
 

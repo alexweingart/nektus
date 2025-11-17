@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { getEventTemplate, getEventTimeFromSlotWithBuffer } from '@/lib/events/event-templates';
@@ -8,12 +9,10 @@ import { getSuggestedTimes } from '@/lib/events/scheduling-utils';
 import { createCompleteCalendarEvent, generateIcsContent, downloadICSFile } from '@/lib/events/event-utils';
 import { fetchPlacesForChips } from '@/lib/places/place-utils';
 import type { UserProfile, TimeSlot } from '@/types/profile';
-import type { SavedContact } from '@/types/contactExchange';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
 import { getFieldValue } from '@/lib/utils/profileTransforms';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { auth } from '@/lib/firebase/clientConfig';
@@ -58,7 +57,7 @@ export default function SmartScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile } = useProfile();
+  const { profile: currentUserProfile, getContact } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
@@ -142,19 +141,19 @@ export default function SmartScheduleView() {
       if (!session?.user?.id || !params.userId) return;
 
       try {
-        // Load saved contact to get the section and profile data
-        const contacts = await ClientProfileService.getContacts(session.user.id);
-        const savedContact = contacts.find((c: SavedContact) => c.userId === params.userId);
+        console.log('🔍 [SmartScheduleView] Loading contact:', params.userId);
 
-        if (!savedContact) {
-          console.error('Contact not found in saved contacts');
-          router.push('/');
-          return;
+        // Get contact from cache (ContactLayout loads it)
+        const savedContact = getContact(params.userId as string);
+
+        if (savedContact) {
+          console.log('📦 [SmartScheduleView] Using contact');
+          setSection(savedContact.contactType);
+          setContactProfile(savedContact);
+        } else {
+          // Contact not loaded yet, wait for ContactLayout to load it
+          console.log('📦 [SmartScheduleView] Waiting for ContactLayout to load contact...');
         }
-
-        // Set section from saved contact
-        setSection(savedContact.contactType);
-        setContactProfile(savedContact);
       } catch (error) {
         console.error('Error loading contact:', error);
         router.push('/');
@@ -164,7 +163,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.userId, router]);
+  }, [session, params.userId, router, getContact]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
@@ -520,7 +519,7 @@ export default function SmartScheduleView() {
                 <ItemChip
                   key={chip.id}
                   icon={
-                    <img src={`/icons/${chip.icon}.svg`} className="w-6 h-6 text-white" alt="" style={{ filter: 'brightness(0) invert(1)' }} />
+                    <Image src={`/icons/${chip.icon}.svg`} width={24} height={24} className="w-6 h-6 text-white" alt="" style={{ filter: 'brightness(0) invert(1)' }} />
                   }
                   title={title}
                   subtitle={subtitle}

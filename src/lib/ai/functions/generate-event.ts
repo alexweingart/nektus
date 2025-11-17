@@ -4,17 +4,23 @@ import type { Place } from '@/types/places';
 
 export const generateEventFunction: OpenAIFunction = {
   name: 'generateEvent',
-  description: 'Select optimal time slot and place for this event.',
+  description: 'Select optimal time/place and rank alternatives for this event.',
   parameters: {
     type: 'object',
     properties: {
-      selectedSlotIndex: {
-        type: 'number',
-        description: 'Index of chosen time slot from the candidate slots list (0-based)',
+      rankedSlotIndices: {
+        type: 'array',
+        items: { type: 'number' },
+        description: 'Array of 4 time slot indices [best, alt1, alt2, alt3] from candidate slots (0-based). All indices must be distinct.',
       },
-      selectedPlaceIndex: {
-        type: 'number',
-        description: 'Index of chosen place from the places list (0-based, required for in-person events)',
+      rankedPlaceIndices: {
+        type: 'array',
+        items: { type: 'number' },
+        description: 'Array of 4 place indices [best, alt1, alt2, alt3] (0-based, for in-person events only). All indices must be distinct. Alternative places should prefer those open at selected time when possible.',
+      },
+      message: {
+        type: 'string',
+        description: 'Natural message using the EXACT time/place/links provided in the user prompt. Copy the markdown links exactly as given.',
       },
       calendarProvider: {
         type: 'string',
@@ -22,7 +28,7 @@ export const generateEventFunction: OpenAIFunction = {
         description: 'Preferred calendar provider',
       },
     },
-    required: ['selectedSlotIndex', 'calendarProvider'],
+    required: ['rankedSlotIndices', 'message', 'calendarProvider'],
   },
 };
 
@@ -31,15 +37,24 @@ export function processGenerateEventResult(
   candidateSlots: TimeSlot[],
   places: Place[],
   eventTemplate: Partial<Event>
-): GenerateEventResult {
+): GenerateEventResult & { rankedSlotIndices: number[], rankedPlaceIndices: number[] } {
   try {
     const parsed = JSON.parse(args);
 
-    console.log('🎯 LLM selected slot index:', parsed.selectedSlotIndex);
-    console.log('🎯 LLM selected place index:', parsed.selectedPlaceIndex);
+    // Extract best choices from ranked arrays (index 0 is the best)
+    const rankedSlotIndices = parsed.rankedSlotIndices || [0, 1, 2, 3];
+    const rankedPlaceIndices = parsed.rankedPlaceIndices || [0, 1, 2, 3];
+
+    const selectedSlotIndex = rankedSlotIndices[0];
+    const selectedPlaceIndex = rankedPlaceIndices[0];
+
+    console.log('🎯 LLM ranked slot indices:', rankedSlotIndices);
+    console.log('🎯 LLM ranked place indices:', rankedPlaceIndices);
+    console.log('🏆 Selected slot index (best):', selectedSlotIndex);
+    console.log('🏆 Selected place index (best):', selectedPlaceIndex);
 
     // LLM picks from candidate slots
-    const selectedSlot = candidateSlots[parsed.selectedSlotIndex || 0];
+    const selectedSlot = candidateSlots[selectedSlotIndex];
 
     if (!selectedSlot) {
       throw new Error('No selected slot available - this should not happen');
@@ -56,7 +71,7 @@ export function processGenerateEventResult(
     console.log('⏰ Actual event end:', actualEventEnd.toISOString());
 
     const selectedPlace = places && places.length > 0
-      ? places[parsed.selectedPlaceIndex || 0]
+      ? places[selectedPlaceIndex]
       : undefined;
 
     console.log('🏆 Selected place:', selectedPlace ? `${selectedPlace.name} - ${selectedPlace.address}` : 'None');
@@ -70,6 +85,9 @@ export function processGenerateEventResult(
       place: selectedPlace,
       calendarUrl: '', // Will be generated in the main handler
       calendarProvider: parsed.calendarProvider,
+      message: parsed.message,
+      rankedSlotIndices,
+      rankedPlaceIndices,
     };
   } catch (_error) {
     console.error('Error parsing generateEvent result:', _error);

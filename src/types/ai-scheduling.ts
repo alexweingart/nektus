@@ -10,6 +10,7 @@ export interface AISchedulingRequest {
   user2Email?: string;
   user1Location?: string;
   user2Location?: string;
+  userIp?: string; // For IP-based location fallback
   calendarType: 'personal' | 'work';
   availableTimeSlots?: TimeSlot[]; // Optional - now fetched from server cache
   timezone: string;
@@ -103,6 +104,7 @@ export interface GenerateEventResult {
   place?: Place;
   calendarUrl: string;
   calendarProvider: string;
+  message?: string;
 }
 
 export interface NavigateToBookingParams {

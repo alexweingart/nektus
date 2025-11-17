@@ -6,181 +6,142 @@ import Image from 'next/image';
 import { useProfile } from '../../../context/ProfileContext';
 
 /**
- * Layout-level background manager
- * Renders persistent custom background div for authenticated users with background images
- * Preloads images before displaying to prevent black screen flashes
- * Uses ref-based caching to prevent re-loading during navigation
+ * CSS-based background manager using body::before and body::after
+ * Sets CSS variables and toggles classes for smooth transitions
+ * No React render delays - backgrounds always present in DOM
  */
 export function LayoutBackground() {
   const { profile, isLoading, streamingBackgroundImage } = useProfile();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [showBackground, setShowBackground] = useState(false);
-  
-  // Cache loaded image URLs to prevent re-loading during navigation
+  const [contactBackgroundUrl, setContactBackgroundUrl] = useState<string | null>(null);
+
+  // Cache loaded image URLs
   const loadedImagesRef = useRef(new Set<string>());
 
-  // Helper function to get base URL for comparison (without cache busting)
-  const getBaseUrl = (url: string): string => {
-    return url.replace(/[\n\r\t]/g, '').trim();
-  };
+  // Track previous pathname to detect navigation direction
+  const prevPathnameRef = useRef(pathname);
 
-  // Stable timestamp for cache busting - only changes when base URL changes
-  const stableTimestampRef = useRef<{ url: string; timestamp: number } | null>(null);
-  
-  // Helper function to clean and prepare image URL with stable cache busting
+  // Helper function to clean image URL
   const cleanImageUrl = useCallback((url: string): string => {
-    const baseUrl = getBaseUrl(url);
-    
-    // Only generate new timestamp if base URL changed
-    if (!stableTimestampRef.current || stableTimestampRef.current.url !== baseUrl) {
-      stableTimestampRef.current = {
-        url: baseUrl,
-        timestamp: Date.now()
-      };
-    }
-    
-    let cleanedUrl = baseUrl;
-    if (cleanedUrl.includes('firebase') || cleanedUrl.includes('googleusercontent.com')) {
-      const separator = cleanedUrl.includes('?') ? '&' : '?';
-      cleanedUrl = `${cleanedUrl}${separator}v=${stableTimestampRef.current.timestamp}`;
-    }
-    return cleanedUrl;
+    return url.replace(/[\n\r\t]/g, '').trim();
   }, []);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle hidden img loading events
+  // Listen for match-found event to capture contact background
+  useEffect(() => {
+    const handleMatchFound = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { contactBackgroundImage } = customEvent.detail || {};
+
+      if (contactBackgroundImage) {
+        setContactBackgroundUrl(contactBackgroundImage);
+      }
+    };
+
+    window.addEventListener('match-found', handleMatchFound as EventListener);
+    return () => {
+      window.removeEventListener('match-found', handleMatchFound as EventListener);
+    };
+  }, []);
+
+  // Set user background CSS variable when image loads
+  useEffect(() => {
+    if (!mounted || !isImageLoaded || isLoading) return;
+
+    const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
+    if (!userBackgroundUrl) return;
+
+    const cleanedUrl = cleanImageUrl(userBackgroundUrl);
+
+    // Set CSS variable
+    document.documentElement.style.setProperty('--user-background-image', `url("${cleanedUrl}")`);
+
+    // Only add class to show user background if NOT on a contact page
+    // Contact pages manage their own backgrounds via ContactLayout
+    const isOnContactPage = pathname.startsWith('/contact/');
+    if (!isOnContactPage) {
+      document.body.classList.add('has-user-background');
+    }
+
+    return () => {
+      // Cleanup on unmount
+      document.body.classList.remove('has-user-background');
+    };
+  }, [mounted, isImageLoaded, isLoading, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl, pathname]);
+
+  // Set contact background CSS variable when available
+  useEffect(() => {
+    if (!contactBackgroundUrl) return;
+
+    const cleanedUrl = cleanImageUrl(contactBackgroundUrl);
+    document.documentElement.style.setProperty('--contact-background-image', `url("${cleanedUrl}")`);
+  }, [contactBackgroundUrl, cleanImageUrl]);
+
+  // Toggle contact background visibility based on pathname
+  useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    prevPathnameRef.current = pathname;
+
+    if (!contactBackgroundUrl) return;
+
+    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+
+    if (isOnContactPage) {
+      document.body.classList.add('show-contact-background');
+    } else {
+      // Only hide and clear if we're coming BACK from /connect
+      const isReturningFromConnect = prevPathname === '/connect' && pathname === '/';
+
+      if (isReturningFromConnect) {
+        document.body.classList.remove('show-contact-background');
+
+        // Clear after transition (1s to match CSS transition)
+        setTimeout(() => {
+          setContactBackgroundUrl(null);
+          document.documentElement.style.removeProperty('--contact-background-image');
+        }, 1000);
+      }
+      // Otherwise, keep background ready for navigation
+    }
+  }, [pathname, contactBackgroundUrl]);
+
+  // Handle image load
   const handleImageLoad = useCallback(() => {
     const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
     if (backgroundImageUrl) {
       const cleanedUrl = cleanImageUrl(backgroundImageUrl);
-      
-      // Add delay to ensure progressive JPEG is fully rendered
-      setTimeout(() => {
-        setIsImageLoaded(true);
-        setImageError(false);
-        // Cache this URL as successfully loaded
-        loadedImagesRef.current.add(cleanedUrl);
-        
-        // Trigger blur-to-sharp transition quickly
-        setTimeout(() => {
-          setShowBackground(true);
-        }, 100); // Quick transition for fast blur-up
-      }, 0); // No delay
+      setIsImageLoaded(true);
+      loadedImagesRef.current.add(cleanedUrl);
     }
   }, [streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl]);
 
-  const handleImageError = useCallback(() => {
-    setImageError(true);
-    setIsImageLoaded(false);
-  }, []);
+  // User background URL
+  const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
 
-  // Store previous URL to detect actual changes
-  const prevUrlRef = useRef<string>('');
-  
-  // Reset states only when background image URL actually changes
-  useEffect(() => {
-    const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
-    
-    if (!mounted || !backgroundImageUrl || isLoading) {
-      setIsImageLoaded(false);
-      setImageError(false);
-      setShowBackground(false);
-      prevUrlRef.current = '';
-      return;
-    }
-
-    const baseUrl = getBaseUrl(backgroundImageUrl);
-    const cleanedUrl = cleanImageUrl(backgroundImageUrl);
-    
-    // Only reset if the base URL actually changed (ignore cache busting)
-    if (prevUrlRef.current === baseUrl) {
-      return; // Same base URL, no need to reset
-    }
-    
-    prevUrlRef.current = baseUrl;
-
-    // Skip setup if image was already loaded this session
-    if (loadedImagesRef.current.has(cleanedUrl)) {
-      setIsImageLoaded(true);
-      setImageError(false);
-      setShowBackground(true); // Show immediately for cached images
-      return;
-    }
-
-    // Start loading state - the hidden img will trigger load events
-    setImageError(false);
-    setIsImageLoaded(false);
-    setShowBackground(false);
-  }, [mounted, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl, isLoading]);
-
-  // Only hide green background AFTER profile loads AND custom image is loaded and ready
-  useEffect(() => {
-    if (!mounted) return;
-
-    // CRITICAL: Never hide green background during profile loading to prevent black flash
-    if (isLoading) {
-      document.body.classList.remove('has-custom-background');
-      return;
-    }
-
-    return () => {
-      // Cleanup: no DOM manipulation needed for direct div approach
-    };
-  }, [mounted, streamingBackgroundImage, profile?.backgroundImage, isImageLoaded, imageError, isLoading]);
-
-  // Don't render on connect page or contact pages (those views handle their own backgrounds)
-  if (pathname === '/connect' || pathname.startsWith('/contact/')) {
+  // Don't render anything if no user background
+  if (!mounted || isLoading || !userBackgroundUrl) {
     return null;
   }
 
-  // Don't render on server, during profile loading, if no background image, or on error
-  const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
-  if (!mounted || isLoading || !backgroundImageUrl || imageError) {
-    return null;
-  }
-
-  const cleanedUrl = cleanImageUrl(backgroundImageUrl);
+  const cleanedUserUrl = cleanImageUrl(userBackgroundUrl);
 
   return (
     <>
-      {/* Hidden img tag for immediate loading - loads before DOM ready unlike background-image */}
+      {/* Hidden img tag for preloading user background */}
       <Image
-        src={cleanedUrl}
+        src={cleanedUserUrl}
         alt=""
         width={1}
         height={1}
         style={{ display: 'none' }}
         onLoad={handleImageLoad}
-        onError={handleImageError}
         priority
       />
-      
-      {/* Background overlay with fast blur-up technique */}
-      {isImageLoaded && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `url("${cleanedUrl}")`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            zIndex: 1, // Above safe-area elements but behind content
-            opacity: showBackground ? 1 : 0, // Start at 0% opacity
-            pointerEvents: 'none', // Critical: allows clicks to pass through
-            transition: 'opacity 1s ease-out' // Simple 1 second fade-in
-          }}
-        />
-      )}
     </>
   );
 }

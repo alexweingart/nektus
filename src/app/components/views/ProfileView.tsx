@@ -112,48 +112,9 @@ const ProfileView: React.FC = () => {
       setAnimationPhase('wind-up');
     };
 
-    const handleMatchFound = (event: CustomEvent) => {
+    const handleMatchFound = (_event: CustomEvent) => {
       console.log('🎯 ProfileView: Match found, starting exit animation');
-      const { contactBackgroundImage } = event.detail || {};
-
-      // Prepare contact background for crossfade
-      if (contactBackgroundImage) {
-        // Create body::after for contact background
-        const afterStyle = document.createElement('style');
-        afterStyle.id = 'contact-background-transition';
-        afterStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${contactBackgroundImage}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 1;
-            opacity: 0;
-            transition: opacity 1000ms ease-in-out;
-            pointer-events: none;
-          }
-          body.crossfade-active::after {
-            opacity: 1;
-          }
-          body.crossfade-active::before {
-            opacity: 0;
-            transition: opacity 1000ms ease-in-out;
-          }
-        `;
-        document.head.appendChild(afterStyle);
-
-        // Trigger crossfade
-        requestAnimationFrame(() => {
-          document.body.classList.add('crossfade-active');
-        });
-      }
-
+      // Background crossfade now handled by LayoutBackground component
       setAnimationPhase('exiting');
     };
 
@@ -192,61 +153,13 @@ const ProfileView: React.FC = () => {
   // Handle return from ContactView
   useEffect(() => {
     const isReturning = sessionStorage.getItem('returning-to-profile');
-    const contactBackground = sessionStorage.getItem('contact-background-url');
 
     if (isReturning === 'true') {
       console.log('🎯 ProfileView: Detected return from ContactView, starting fade-in');
 
       // Clear the flags
       sessionStorage.removeItem('returning-to-profile');
-
-      // If we have a contact background, set up crossfade
-      if (contactBackground && profile?.backgroundImage) {
-        console.log('🎯 ProfileView: Setting up background crossfade');
-
-        // Create style for contact background that will fade out
-        const contactBgStyle = document.createElement('style');
-        contactBgStyle.id = 'contact-background-fadeout';
-        contactBgStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${contactBackground}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 1;
-            opacity: 1;
-            transition: opacity 300ms ease-out;
-            pointer-events: none;
-          }
-          body.fade-out-contact-bg::after {
-            opacity: 0;
-          }
-        `;
-        document.head.appendChild(contactBgStyle);
-
-        // Trigger fade out
-        requestAnimationFrame(() => {
-          document.body.classList.add('fade-out-contact-bg');
-        });
-
-        // Clean up after animation
-        setTimeout(() => {
-          document.body.classList.remove('fade-out-contact-bg');
-          const style = document.getElementById('contact-background-fadeout');
-          if (style) {
-            style.remove();
-          }
-          sessionStorage.removeItem('contact-background-url');
-        }, 300);
-      } else {
-        sessionStorage.removeItem('contact-background-url');
-      }
+      sessionStorage.removeItem('contact-background-url'); // Background crossfade now handled by LayoutBackground
 
       // Trigger entrance animation
       setAnimationPhase('entering');
@@ -441,10 +354,13 @@ const ProfileView: React.FC = () => {
           <div
             ref={nektButtonRef}
             className={`${
-              animationPhase === 'exiting' ? 'animate-button-fade-out' : ''
+              animationPhase === 'exiting' ? 'animate-[buttonFadeOut_300ms_ease-out_forwards]' : ''
             } ${
-              animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+              animationPhase === 'entering' ? 'animate-fade-in-up' : ''
             }`}
+            style={{
+              opacity: animationPhase === 'entering' ? 0 : 1
+            }}
           >
             <ExchangeButton />
           </div>
@@ -454,10 +370,14 @@ const ProfileView: React.FC = () => {
             <div
               ref={pwaButtonRef}
               className={`flex justify-center ${
-                animationPhase === 'exiting' ? 'animate-[fadeOut_300ms_ease-in_forwards]' : ''
+                animationPhase === 'exiting' ? 'animate-[buttonFadeOut_300ms_ease-out_forwards]' : ''
               } ${
-                animationPhase === 'entering' ? 'animate-slide-enter-left' : ''
+                animationPhase === 'entering' ? 'animate-fade-in-up' : ''
               }`}
+              style={{
+                opacity: animationPhase === 'entering' ? 0 : 1,
+                animationDelay: animationPhase === 'entering' ? '100ms' : '0ms'
+              }}
             >
               <SecondaryButton onClick={installPWA}>
                 Add to home screen

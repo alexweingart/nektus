@@ -64,19 +64,36 @@ export const useImageUpload = () => {
     const reader = new FileReader();
     reader.onload = async (e: ProgressEvent<FileReader>) => {
       const imageData = e.target?.result as string;
+
+      // Show immediate preview with base64 (temporary)
       onSuccess(imageData);
-      
-      // Call the appropriate API endpoint
+
+      // Call the appropriate API endpoint and wait for permanent URL
       const endpoint = uploadType === 'profile' ? 'profile-image' : 'background-image';
       try {
-        await fetch(`/api/profile/generate/${endpoint}`, {
+        const response = await fetch(`/api/profile/generate/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageData }),
         });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Update with permanent URL from Firebase Storage
+        if (data.imageUrl) {
+          onSuccess(data.imageUrl);
+        } else {
+          throw new Error('No image URL returned from server');
+        }
       } catch (error) {
         console.error(`Error uploading ${uploadType} image:`, error);
         alert(`Failed to upload ${uploadType} image. Please try again.`);
+        // Revert to empty on error
+        onSuccess('');
       }
     };
     reader.readAsDataURL(file);

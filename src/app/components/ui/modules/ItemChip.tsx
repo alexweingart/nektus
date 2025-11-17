@@ -104,7 +104,7 @@ export const ItemChip: React.FC<ItemChipProps> = ({
             }
           }}
           disabled={isActionLoading}
-          className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-gray-400 hover:text-white hover:bg-white/20 transition-transform ${
+          className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-transform ${
             isActionLoading ? 'opacity-50 cursor-not-allowed' : 'active:scale-90'
           }`}
           aria-label="Action"

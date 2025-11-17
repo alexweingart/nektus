@@ -39,7 +39,11 @@ When in doubt, choose 'in-person' - most social activities benefit from being to
       },
       explicitUserTimes: {
         type: 'boolean',
-        description: 'True if user specified exact times',
+        description: 'True if user specified an exact date/time (e.g., "Tuesday at 12pm", "tomorrow at 2pm", "Friday at 6pm"). Set to true when user provides BOTH a specific day AND a specific time. Set to false for vague requests like "next week", "sometime this weekend", or just "lunch" without a specific time.',
+      },
+      explicitTime: {
+        type: 'string',
+        description: 'The specific time user requested in 24-hour format (e.g., "12:00", "14:30", "09:00"). REQUIRED when explicitUserTimes is true. This captures the exact time the user wants, separate from the preferredSchedulableHours range. Example: "lunch Tuesday at 12pm" → explicitTime: "12:00" AND preferredSchedulableHours: lunch range (11:00-14:30).',
       },
       explicitUserPlace: {
         type: 'boolean',
@@ -67,17 +71,21 @@ When in doubt, choose 'in-person' - most social activities benefit from being to
       },
       preferredSchedulableHours: {
         type: 'object',
-        description: `HARD time constraints only. Use this ONLY for:
+        description: `Time constraints for this event. Use this for:
 1. User explicitly specified times (e.g., "in the morning", "after 5pm", "between 2-4pm")
-2. Activities with inherent time requirements (e.g., breakfast 07:00-10:00, lunch 11:00-14:00, dinner 17:00-21:00)
+2. CRITICAL - ALWAYS set for meal/social intents:
+   - lunch → 11:00-14:30 on all days
+   - breakfast → 07:00-10:00 on all days
+   - dinner → 17:00-21:00 on all days
+   - drinks → 17:00-23:00 on all days
+   - coffee → 07:00-17:00 on all days
 
-DO NOT use for soft preferences or typical activity times. For example:
-- ✅ USE: "lunch" → lunch hours, "coffee in the morning" → morning hours, "dinner" → dinner hours
-- ❌ DON'T USE: "walk in the park" (no inherent time constraint), "shopping" (no inherent time constraint), "movie" (can be anytime)
+IMPORTANT: Set these hours EVEN IF user specified an explicit time (e.g., "lunch Tuesday at 12pm" should have BOTH the Tuesday date constraint AND lunch hours 11:00-14:30). The explicit time will be honored, but the hours are needed for finding alternative times if the requested time is unavailable.
 
-If unsure, leave empty and let the LLM choose the best time based on calendar type and event appropriateness.
+DO NOT use for activities without inherent time constraints:
+- ❌ DON'T USE: "walk in the park", "shopping", "movie" (no inherent time requirement)
 
-Format as 24-hour time strings.`,
+Format as 24-hour time strings (e.g., "11:00", "14:30").`,
         properties: {
           monday: {
             type: 'array',
@@ -219,6 +227,7 @@ export function processGenerateEventTemplateResult(args: string): Partial<Event>
       specificPlaceName?: string;
       placeSearchQuery?: string;
       searchForPlaces?: boolean;
+      explicitTime?: string;
     } = {
       title: parsed.title,
       description: parsed.description,
@@ -228,6 +237,10 @@ export function processGenerateEventTemplateResult(args: string): Partial<Event>
       explicitUserTimes: parsed.explicitUserTimes,
       explicitUserPlace: parsed.explicitUserPlace,
     };
+
+    if (parsed.explicitTime) {
+      eventTemplate.explicitTime = parsed.explicitTime;
+    }
 
     if (parsed.preferredSchedulableHours) {
       eventTemplate.preferredSchedulableHours = parsed.preferredSchedulableHours;

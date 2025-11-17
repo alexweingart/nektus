@@ -82,6 +82,14 @@ export function generateFreeSlots(
 ): TimeSlot[] {
   console.log(`📊 generateFreeSlots: ${busyTimes.length} busy times, ${startTime.toISOString()} to ${endTime.toISOString()}, timezone: ${userTimezone || 'UTC'}`);
 
+  // DEBUG: Log ALL busy times
+  console.log(`🔍 ALL ${busyTimes.length} BUSY TIMES:`);
+  busyTimes.forEach((busy, idx) => {
+    const start = new Date(busy.start);
+    const end = new Date(busy.end);
+    console.log(`  ${idx + 1}. ${start.toLocaleString('en-US', { timeZone: userTimezone || 'UTC', dateStyle: 'short', timeStyle: 'short' })} - ${end.toLocaleString('en-US', { timeZone: userTimezone || 'UTC', timeStyle: 'short' })}`);
+  });
+
   let slots: TimeSlot[] = [];
   const currentDate = new Date(startTime);
 
@@ -112,10 +120,44 @@ export function generateFreeSlots(
     const dayOfWeek = getDayOfWeek(currentDate);
     const daySchedulableHours = schedulableHours[dayOfWeek];
 
+    // DEBUG: Track specific weekend days
+    const dateStr = currentDate.toLocaleDateString('en-US', { timeZone: userTimezone || 'UTC', month: '2-digit', day: '2-digit', year: 'numeric' });
+    const isTargetWeekend = dateStr === '11/15/2025' || dateStr === '11/16/2025';
+
+    if (isTargetWeekend) {
+      console.log(`\n🎯 Processing ${dateStr} (${dayOfWeek}):`);
+      console.log(`  Schedulable hours:`, daySchedulableHours);
+    }
+
     if (daySchedulableHours && daySchedulableHours.length > 0) {
       for (const timeBlock of daySchedulableHours) {
         const daySlots = generate30MinSlotsForTimeBlock(currentDate, timeBlock, minStartTime, userTimezone);
+
+        if (isTargetWeekend) {
+          console.log(`  Generated ${daySlots.length} slots for time block ${timeBlock.start}-${timeBlock.end}`);
+          console.log(`  Sample slots:`, daySlots.slice(0, 5).map(s => new Date(s.start).toLocaleString('en-US', { timeZone: userTimezone || 'UTC', timeStyle: 'short' })));
+        }
+
         const freeSlots = daySlots.filter(slot => !isSlotBusy(slot, busyTimes));
+
+        if (isTargetWeekend) {
+          const filteredCount = daySlots.length - freeSlots.length;
+          console.log(`  Filtered out ${filteredCount} busy slots, keeping ${freeSlots.length} free slots`);
+          if (filteredCount > 0) {
+            console.log(`  Busy slots filtered:`);
+            daySlots.filter(slot => isSlotBusy(slot, busyTimes)).slice(0, 10).forEach(slot => {
+              const slotStart = new Date(slot.start);
+              const slotEnd = new Date(slot.end);
+              const conflictingBusy = busyTimes.find(busy => {
+                const busyStart = new Date(busy.start);
+                const busyEnd = new Date(busy.end);
+                return slotStart < busyEnd && slotEnd > busyStart;
+              });
+              console.log(`    ❌ ${slotStart.toLocaleString('en-US', { timeZone: userTimezone || 'UTC', timeStyle: 'short' })} - conflicts with ${conflictingBusy ? new Date(conflictingBusy.start).toLocaleString('en-US', { timeZone: userTimezone || 'UTC', dateStyle: 'short', timeStyle: 'short' }) + ' - ' + new Date(conflictingBusy.end).toLocaleString('en-US', { timeZone: userTimezone || 'UTC', timeStyle: 'short' }) : 'unknown'}`);
+            });
+          }
+        }
+
         slots.push(...freeSlots);
       }
     }

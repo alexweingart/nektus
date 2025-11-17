@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate cache key with version (bump version to invalidate cache after bug fixes)
-    const CACHE_VERSION = 'v23'; // Bumped to v22 - reverted incorrect findSlotIntersection changes, relying on getAllValidSlots
+    const CACHE_VERSION = 'v24'; // Bumped to v24 - added weekend slot debugging
     const cacheKey = `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
 
     // Try to get from cache first

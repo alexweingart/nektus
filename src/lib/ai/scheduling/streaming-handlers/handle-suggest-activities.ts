@@ -1,4 +1,5 @@
 import { createCompletion, AI_MODELS } from '@/lib/ai/scheduling/openai-client';
+import { getActivitySuggestionPrompt } from '@/lib/ai/system-prompts';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueProgress, enqueueContent, enqueueClearLoading, enqueueEnhancementPending } from './streaming-utils';
 import type { AISchedulingRequest, Message } from '@/types/ai-scheduling';
@@ -42,27 +43,7 @@ export async function handleSuggestActivities(
     reasoning_effort: 'low',
     verbosity: 'low',
     messages: [
-      { role: 'system', content: `You help suggest activities for people to do together. Generate 3-5 specific, actionable activity suggestions.
-
-Format your response as a friendly message followed by a bulleted list:
-- Start with a short intro sentence using "near you and ${targetName} in ${cityName}"
-- List 3-5 activities as bullet points with the MAIN ACTIVITY/PLACE in bold using **
-- Each activity should be specific and mention why it's good
-- Consider the user's location: ${cityName}
-- Timeframe: ${timeframe}
-- Keep it conversational and enthusiastic
-- End with a question asking if any sound good (NOT "Which one sounds good?")
-
-Example format:
-"Here are some fun options for you and ${targetName} ${timeframe} near you in ${cityName}:
-
-- **Coffee at a local café** - perfect for catching up in a relaxed setting
-- **Hike at [local trail]** - enjoy nature and get some exercise together
-- **Visit [museum/gallery]** - explore art or culture
-- **Try a new restaurant** - discover new cuisine together
-- **Outdoor activity** - take advantage of the weather
-
-Any of these sound good to you?"` },
+      { role: 'system', content: getActivitySuggestionPrompt(targetName, cityName, timeframe) },
       { role: 'system', content: contextMessage },
       ...conversationHistory.map(msg => ({ role: msg.role as 'system' | 'user' | 'assistant', content: msg.content })),
       { role: 'user', content: body.userMessage },
@@ -103,15 +84,20 @@ Any of these sound good to you?"` },
   // Send enhancement_pending event to trigger frontend polling
   enqueueEnhancementPending(controller, encoder, processingId);
 
-  console.log(`🌐 Starting background web search for ${eventLocation} ${timeframe} with processingId: ${processingId}...`);
+  console.log(`🌐 Starting background web search for ${cityName} ${timeframe} with processingId: ${processingId}...`);
 
-  // Start background web search with streaming updates
+  // Start background web search with streaming updates (use city name for better search results)
   handleSearchEvents(
     processingId,
-    eventLocation,
+    cityName,
     timeframe,
     targetName
   ).catch(error => {
-    console.error('Background web search error:', error);
+    console.error('❌ Background web search error:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error?.constructor?.name
+    });
   });
 }

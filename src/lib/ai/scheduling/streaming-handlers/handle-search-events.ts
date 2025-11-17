@@ -1,4 +1,5 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/ai/scheduling/openai-client';
+import { EVENT_ENHANCEMENT_SYSTEM_PROMPT, buildEventEnhancementContext } from '@/lib/ai/system-prompts';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { Event, TimeSlot } from '@/types';
@@ -266,10 +267,9 @@ export async function handleSearchEventsEnhancement(
       reasoning_effort: getReasoningEffortForTask('navigation'),
       verbosity: 'low',
       messages: [
-        { role: 'system', content: `You are suggesting special events happening in the area. Be enthusiastic and concise.` },
-        { role: 'system', content: `User is scheduling: ${eventTemplate.title || 'an activity'} with ${targetName}` },
-        { role: 'system', content: `Special events found: ${JSON.stringify(webEvents)}` },
-        { role: 'user', content: `Based on these special events, suggest 2-3 alternative activities they might enjoy. Format with **bold** for event names and bullet points. Keep it short and exciting!` }
+        { role: 'system', content: EVENT_ENHANCEMENT_SYSTEM_PROMPT },
+        { role: 'system', content: buildEventEnhancementContext(eventTemplate, targetName, webEvents) },
+        { role: 'user', content: 'Suggest 5 alternative activities based on these special events.' }
       ],
       temperature: 0.8,
     });

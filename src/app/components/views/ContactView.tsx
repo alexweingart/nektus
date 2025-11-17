@@ -49,13 +49,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const { profile: userProfile } = useProfile();
 
   // Animation state
-  const [isEntering, setIsEntering] = useState(true);
+  // Check if we're returning from Google auth - skip animation in that case
+  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const isReturningFromAuth = urlParams.get('incremental_auth') === 'success' || urlParams.get('incremental_auth') === 'denied';
+  const [isEntering, setIsEntering] = useState(!isReturningFromAuth);
   const [isExiting, setIsExiting] = useState(false);
   const contactCardRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
+
   
   // Modal state with logging
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -174,66 +178,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
     checkExchangeState();
   }, [profile, profile.userId, token, isHistoricalMode]);
 
-  // Handle background crossfade when entering from HistoryView
+
+  // Handle calendar OAuth callback - show success modal when calendar is added
   useEffect(() => {
-    const isEnteringFromHistory = sessionStorage.getItem('entering-from-history');
-    const historyBackground = sessionStorage.getItem('history-background-url');
+    const calendarAdded = searchParams.get('calendar');
+    if (calendarAdded === 'added') {
+      // Clean up URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('calendar');
+      window.history.replaceState({}, document.title, url.toString());
 
-    if (isEnteringFromHistory === 'true') {
-      console.log('🎯 ContactView: Detected entrance from HistoryView, setting up background crossfade');
-
-      // Clear the flags
-      sessionStorage.removeItem('entering-from-history');
-
-      // If we have a history background, set up crossfade
-      if (historyBackground && profile.backgroundImage) {
-        console.log('🎯 ContactView: Setting up background crossfade');
-
-        // Create style for history background that will fade out
-        const historyBgStyle = document.createElement('style');
-        historyBgStyle.id = 'history-background-fadeout';
-        historyBgStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${historyBackground}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 300ms ease-out;
-            pointer-events: none;
-          }
-          body.fade-out-history-bg::after {
-            opacity: 0;
-          }
-        `;
-        document.head.appendChild(historyBgStyle);
-
-        // Trigger fade out
-        requestAnimationFrame(() => {
-          document.body.classList.add('fade-out-history-bg');
-        });
-
-        // Clean up after animation
-        setTimeout(() => {
-          document.body.classList.remove('fade-out-history-bg');
-          const style = document.getElementById('history-background-fadeout');
-          if (style) {
-            style.remove();
-          }
-          sessionStorage.removeItem('history-background-url');
-        }, 300);
-      } else {
-        sessionStorage.removeItem('history-background-url');
-      }
+      // Show success modal
+      setShowCalendarAddedModal(true);
     }
-  }, [profile.backgroundImage]);
+  }, [searchParams]);
 
   // Handle calendar OAuth callback - show success modal when calendar is added
   useEffect(() => {
@@ -251,7 +209,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle back navigation with animation
   const handleBack = () => {
-    console.log('🎯 ContactView: Back button clicked, starting exit animation');
+    const backClickTime = performance.now();
+    console.log('🎯 ContactView: Back button clicked at', backClickTime.toFixed(2), 'ms, starting exit animation');
+    sessionStorage.setItem('nav-back-clicked-at', backClickTime.toString());
     setIsExiting(true);
 
     // Mark that we're returning (for coordinating entrance animation)
@@ -273,10 +233,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
     }
 
-    // Wait for exit animation to complete
+    // Wait for exit animation to complete (reduced from 300ms for snappier navigation)
     setTimeout(() => {
+      const navStartTime = performance.now();
+      console.log('🎯 ContactView: Calling onReject (router.push) at', navStartTime.toFixed(2), 'ms');
+      sessionStorage.setItem('nav-router-push-at', navStartTime.toString());
       onReject();
-    }, 300);
+    }, 150);
   };
 
   const handleSaveContact = async () => {
@@ -459,6 +422,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
   useEffect(() => {
+    const abortController = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const preFetchCommonTimeSlots = async () => {
       if (!isHistoricalMode || !session?.user?.id || !profile?.userId || !auth?.currentUser) return;
       if (hasFetchedSlotsRef.current) return; // Already fetched
@@ -491,6 +457,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             duration: 30,
             calendarType: contactType,
           }),
+          signal: abortController.signal, // Allow request to be cancelled
         });
 
         if (response.ok) {
@@ -499,11 +466,25 @@ export const ContactView: React.FC<ContactViewProps> = ({
           console.log(`✅ Proactively pre-fetched ${slots.length} common time slots (cached for scheduling)`);
         }
       } catch (error) {
-        console.log('Pre-fetch failed (non-critical):', error);
+        // Ignore abort errors (expected on unmount)
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Pre-fetch cancelled (component unmounted)');
+        } else {
+          console.log('Pre-fetch failed (non-critical):', error);
+        }
       }
     };
 
-    preFetchCommonTimeSlots();
+    // Defer pre-fetch to avoid blocking initial render
+    timeoutId = setTimeout(() => {
+      preFetchCommonTimeSlots();
+    }, 100); // 100ms delay ensures page is interactive first
+
+    // Cleanup: abort ongoing requests and clear timeout
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      abortController.abort();
+    };
   }, [isHistoricalMode, session?.user?.id, profile?.userId, userProfile?.calendars]);
 
   // Add lifecycle logging
@@ -529,6 +510,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle enter animation - delay 500ms to match profile exit
   useEffect(() => {
+    // Skip animation if returning from auth
+    if (isReturningFromAuth) {
+      setIsEntering(false);
+      return;
+    }
+
     if (!isHistoricalMode) {
       // Delay enter animation by 500ms (matching profile exit duration)
       const enterTimer = setTimeout(() => {
@@ -540,7 +527,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // For historical mode, no delay needed
       setIsEntering(false);
     }
-  }, [isHistoricalMode]);
+  }, [isHistoricalMode, isReturningFromAuth]);
 
   if (!profile) {
     console.log('❌ ContactView: No profile provided, returning null');
@@ -551,7 +538,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1000]">
-
       <div className="min-h-dvh flex flex-col items-center px-4 py-2 relative z-[1001]">
 
         {/* Header with back button for historical contacts */}
@@ -574,7 +560,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
               isExiting ? 'animate-crossfade-exit' : ''
             }`}
             style={{
-              animationDelay: isEntering && !isHistoricalMode ? '500ms' : '0ms'
+              animationDelay: isEntering && !isHistoricalMode ? '0ms' : '0ms',
+              opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
             {/* Profile Image */}
@@ -618,7 +605,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           </div>
           {/* End of animated contact card wrapper */}
 
-          {/* Action Buttons - staggered animation starting at 800ms, finishing at 1000ms */}
+          {/* Action Buttons - staggered animation starting at 300ms */}
           <div
             ref={buttonsRef}
             className={`w-full mt-4 mb-4 space-y-3 ${
@@ -628,7 +615,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
             }`}
             style={{
               maxWidth: 'var(--max-content-width, 448px)',
-              animationDelay: isEntering && !isHistoricalMode ? '800ms' : '0ms'
+              animationDelay: isEntering && !isHistoricalMode ? '300ms' : '0ms',
+              opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
             {isHistoricalMode ? (

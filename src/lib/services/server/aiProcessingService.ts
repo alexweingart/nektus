@@ -1,10 +1,21 @@
 import type { ProcessingState, AISchedulingRequest, DetermineIntentResult, AISchedulingFinalResponse } from '@/types/ai-scheduling';
 import { Redis } from '@upstash/redis';
 
+// Extend global to include our processing states
+declare global {
+  // eslint-disable-next-line no-var
+  var __processingStates__: Map<string, ProcessingState | unknown> | undefined;
+}
+
+// Use Node.js global object to share state across all API route instances
+if (!global.__processingStates__) {
+  global.__processingStates__ = new Map<string, ProcessingState | unknown>();
+}
+
 // Redis-based storage for processing states with in-memory fallback
 class ProcessingStateManager {
   private redis: Redis | null = null;
-  private memoryStates = new Map<string, ProcessingState | unknown>(); // Fallback for development
+  private memoryStates = global.__processingStates__!; // Use global storage for sharing across API routes
 
   constructor() {
     // Initialize Redis only if environment variables are present
@@ -53,7 +64,16 @@ class ProcessingStateManager {
       } else {
         // Fallback to in-memory storage
         this.memoryStates.set(id, state);
-        console.log(`📝 Created processing state in memory: ${id} (Redis not available)`);
+        console.log(`📝 Created processing state in memory: ${id} (Redis not available, global map size: ${this.memoryStates.size})`);
+        // @ts-expect-error - Adding debug instance ID to Map for tracking
+        console.log(`📝 Global map instance ID: ${this.memoryStates.__instanceId || 'none'}`);
+
+        // Set instance ID for debugging
+        // @ts-expect-error - Adding debug instance ID to Map for tracking
+        if (!this.memoryStates.__instanceId) {
+          // @ts-expect-error - Adding debug instance ID to Map for tracking
+          this.memoryStates.__instanceId = Math.random().toString(36).substring(7);
+        }
 
         // Clean up memory state after 5 minutes
         setTimeout(() => {
@@ -89,6 +109,8 @@ class ProcessingStateManager {
         }
       } else {
         // Check in-memory storage
+        // @ts-expect-error - Accessing debug instance ID from Map
+        console.log(`🔍 Checking memory for ${id}, global map size: ${this.memoryStates.size}, instance ID: ${this.memoryStates.__instanceId || 'none'}`);
         const state = this.memoryStates.get(id);
         if (state) {
           console.log(`🔍 Retrieved processing state from memory: ${id}`);

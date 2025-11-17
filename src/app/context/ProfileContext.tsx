@@ -6,6 +6,7 @@ import type { Session } from 'next-auth';
 import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
 import { ProfileSaveService } from '@/lib/services/client/profileSaveService';
 import { UserProfile } from '@/types/profile';
+import type { SavedContact } from '@/types/contactExchange';
 import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
 import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
@@ -43,8 +44,16 @@ type ProfileContextType = {
   streamingBio: string | null;
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingBackgroundImage: string | null;
+  setStreamingBackgroundImage: (imageUrl: string | null) => void;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
+  // Contacts cache management
+  contacts: SavedContact[] | null;
+  contactsLoadedAt: number | null;
+  loadContacts: (userId: string, force?: boolean) => Promise<SavedContact[]>;
+  getContact: (contactUserId: string) => SavedContact | null;
+  getContacts: () => SavedContact[];
+  invalidateContactsCache: () => void;
 };
 
 // Create context
@@ -77,15 +86,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Track if current profile image is Google auto-generated initials
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
-  
+
+  // Contacts cache state
+  const [contacts, setContacts] = useState<SavedContact[] | null>(null);
+  const [contactsLoadedAt, setContactsLoadedAt] = useState<number | null>(null);
+
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
   const bioAndSocialGenerationTriggeredRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
+  const contactsLoadingPromiseRef = useRef<Promise<SavedContact[]> | null>(null);
 
-  
+
   const profileRef = useRef<UserProfile | null>(null);
+
+  // Contacts cache duration - 5 minutes (matches auth state expiry pattern)
+  const CONTACTS_CACHE_DURATION = 5 * 60 * 1000;
 
 
   // Profile creation/loading effect
@@ -109,7 +126,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // This prevents profile regeneration in new browsers
             try {
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
-              console.log('[ProfileContext] Firebase Auth completed successfully');
             } catch (authError) {
               console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
               // Continue without Firebase Auth - the app should still work with limited functionality
@@ -119,11 +135,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Check for existing profile
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
-            console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
-
             // Auto-detect and update timezone if it's different from current browser timezone
             const browserTimezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
-            console.log(`[ProfileContext] Timezone check: current=${existingProfile.timezone}, browser=${browserTimezone}, needsUpdate=${existingProfile.timezone !== browserTimezone}`);
             if (browserTimezone && existingProfile.timezone !== browserTimezone) {
               console.log(`[ProfileContext] Updating timezone from ${existingProfile.timezone || 'undefined'} to ${browserTimezone}`);
               // Update timezone in Firebase (silent update - no UI state change needed yet)
@@ -139,12 +152,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
-            // Check if either avatar OR background is already generated
+            // Check if either avatar OR background is already generated/uploaded
             // Note: AI-generated avatars don't get background images, so we need to check both flags
             const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
             const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
+            const hasBackgroundImage = !!existingProfile.backgroundImage;
 
-            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated) {
+            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundImage) {
               console.log('[ProfileContext] New user detected - triggering asset generation');
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
@@ -361,10 +375,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Generate background image only if user has a non-initials profile image
     // Wait for profile image generation decision before triggering background generation
-    // Skip if already generated (check aiGeneration flag)
+    // Skip if already generated (check aiGeneration flag) OR if user uploaded one manually
     if (!backgroundGenerationTriggeredRef.current &&
         !profile?.backgroundImage &&
         !profile?.aiGeneration?.backgroundImageGenerated) {
+
+      console.log('[ProfileContext] Background generation conditions check:', {
+        backgroundImage: profile?.backgroundImage,
+        backgroundImageGenerated: profile?.aiGeneration?.backgroundImageGenerated
+      });
 
       // Only generate background if we have a custom (non-initials) profile image
       const shouldGenerateBackground = async () => {
@@ -533,15 +552,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // 2. Explicit skipUIUpdate requests
       // Note: Removed form submission skip - we want UI to reflect saved changes immediately
       const skipReactUpdate = options.skipUIUpdate;
-      
+
       if (!skipReactUpdate) {
-        console.log('📱 [ProfileContext] Setting profile after save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
         setProfile(merged);
       } else {
         // However, if this is a background operation and the current profile state is stale (empty userId),
         // we should update it to prevent UI showing empty data during streaming
         if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
-          console.log('📱 [ProfileContext] Setting profile after background save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
           setProfile(merged);
         }
       }
@@ -628,9 +645,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                         contactEntries: updatedEntries
                       };
                       profileRef.current = updatedProfile;
-                      console.log('📱 [ProfileContext] Setting profile from streaming update:', updatedProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
                       setProfile(updatedProfile);
-                      
+
                       // Also update streaming state for immediate feedback
                       setStreamingSocialContacts(updatedEntries);
                     }
@@ -763,6 +779,60 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsNavigatingFromSetup(navigating);
   }, []);
 
+  // Contacts cache methods
+  const loadContacts = useCallback(async (userId: string, force: boolean = false): Promise<SavedContact[]> => {
+    // Check if cache is still valid (unless forced refresh)
+    if (!force && contacts && contactsLoadedAt) {
+      const age = Date.now() - contactsLoadedAt;
+      if (age < CONTACTS_CACHE_DURATION) {
+        return contacts;
+      }
+    }
+
+    // If already loading, return the existing promise to prevent duplicate requests
+    if (contactsLoadingPromiseRef.current) {
+      return contactsLoadingPromiseRef.current;
+    }
+
+    // Create and store the loading promise
+    const loadingPromise = (async () => {
+      try {
+        const userContacts = await ProfileService.getContacts(userId);
+
+        // Sort contacts by addedAt timestamp (newest first)
+        const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
+
+        setContacts(sortedContacts);
+        setContactsLoadedAt(Date.now());
+
+        return sortedContacts;
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load contacts:', error);
+        throw error;
+      } finally {
+        // Clear the loading promise ref when done
+        contactsLoadingPromiseRef.current = null;
+      }
+    })();
+
+    contactsLoadingPromiseRef.current = loadingPromise;
+    return loadingPromise;
+  }, [contacts, contactsLoadedAt, CONTACTS_CACHE_DURATION]);
+
+  const getContact = useCallback((contactUserId: string): SavedContact | null => {
+    if (!contacts) return null;
+    return contacts.find(c => c.userId === contactUserId) || null;
+  }, [contacts]);
+
+  const getContacts = useCallback((): SavedContact[] => {
+    return contacts || [];
+  }, [contacts]);
+
+  const invalidateContactsCache = useCallback(() => {
+    setContacts(null);
+    setContactsLoadedAt(null);
+  }, []);
+
   // Make profile available globally for easy debugging
   if (typeof window !== 'undefined') {
     (window as unknown as { getProfile: () => UserProfile | null }).getProfile = () => {
@@ -842,7 +912,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         streamingBio,
         streamingSocialContacts,
         streamingBackgroundImage,
-        isGoogleInitials
+        setStreamingBackgroundImage,
+        isGoogleInitials,
+        contacts,
+        contactsLoadedAt,
+        loadContacts,
+        getContact,
+        getContacts,
+        invalidateContactsCache
       }}
     >
       {children}
@@ -859,11 +936,6 @@ export function useProfile() {
   return context;
 }
 
-// Helper function to check if profile has a valid phone number
-export function profileHasPhone(profile: UserProfile | null): boolean {
-  if (!profile?.contactEntries) return false;
-  
-  const phoneEntry = profile.contactEntries.find(e => e.fieldType === 'phone');
-  return !!(phoneEntry?.value && phoneEntry.value.trim() !== '');
-}
+// Re-export utility function for backwards compatibility
+export { profileHasPhone } from '@/lib/utils/profile-utils';
 

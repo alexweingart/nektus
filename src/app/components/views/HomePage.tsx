@@ -50,7 +50,7 @@ const HomePage: React.FC = () => {
           <div style={{ maxWidth: '448px', width: '100%' }}>
             <Image 
               src="/nektus-logo.svg" 
-              alt="Nekt.Us Logo" 
+              alt="Nekt Logo" 
               width={448}
               height={154} // 448 * (original height/width ratio 110/320 = 0.34375)
               style={{ 

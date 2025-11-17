@@ -11,7 +11,6 @@ import type { Event } from '@/types/profile';
 import MessageList from '@/app/components/ui/chat/MessageList';
 import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
-import { ClientProfileService } from '@/lib/firebase/clientProfileService';
 import { useProfile } from '@/app/context/ProfileContext';
 import { auth } from '@/lib/firebase/clientConfig';
 
@@ -24,7 +23,7 @@ export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile } = useProfile();
+  const { profile: currentUserProfile, getContact } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,19 +52,13 @@ export default function AIScheduleView() {
     if (!session?.user?.id) return;
 
     try {
-      // Load saved contacts to get the contact profile and type
-      const contacts = await ClientProfileService.getContacts(session.user.id);
-      const savedContact = contacts.find((c: SavedContact) => c.userId === contactUserId);
+      // Get contact from cache (ContactLayout loads it)
+      const savedContact = getContact(contactUserId);
 
-      if (!savedContact) {
-        console.error('Contact not found in saved contacts');
-        router.push('/history');
-        return;
+      if (savedContact) {
+        setContactProfile(savedContact);
+        setSavedContact(savedContact);
       }
-
-      // Set contact profile and saved contact info
-      setContactProfile(savedContact);
-      setSavedContact(savedContact);
 
     } catch (error) {
       console.error('Error loading profiles:', error);
@@ -73,7 +66,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [contactUserId, session?.user?.id, router]);
+  }, [contactUserId, session?.user?.id, router, getContact]);
 
   useEffect(() => {
     loadProfiles();
@@ -81,6 +74,8 @@ export default function AIScheduleView() {
 
   // Pre-fetch common time slots when profiles are loaded (only once)
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchCommonTimeSlots = async () => {
       if (!session?.user?.id || !contactUserId || !auth?.currentUser) return;
       if (hasFetchedSlotsRef.current) return; // Already fetched
@@ -89,6 +84,13 @@ export default function AIScheduleView() {
 
       try {
         console.log('🔄 Pre-fetching common time slots for AI scheduling...');
+
+        // Check if Firebase auth is initialized
+        if (!auth.currentUser) {
+          console.warn('⚠️ Firebase auth not ready, skipping common times pre-fetch');
+          return;
+        }
+
         const idToken = await auth.currentUser.getIdToken();
 
         const response = await fetch('/api/scheduling/common-times', {
@@ -103,6 +105,7 @@ export default function AIScheduleView() {
             duration: 30, // Use minimum duration for maximum flexibility
             calendarType: contactType,
           }),
+          signal: abortController.signal, // Allow request to be cancelled
         });
 
         if (response.ok) {
@@ -114,13 +117,23 @@ export default function AIScheduleView() {
           console.error(`❌ Failed to pre-fetch common times: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
-        console.error('❌ Error pre-fetching common times:', error);
+        // Ignore abort errors (expected on unmount)
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Pre-fetch cancelled (component unmounted)');
+        } else {
+          console.error('❌ Error pre-fetching common times:', error);
+        }
       }
     };
 
     if (contactProfile && currentUserProfile) {
       fetchCommonTimeSlots();
     }
+
+    // Cleanup: abort ongoing requests
+    return () => {
+      abortController.abort();
+    };
   }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType]);
 
   useEffect(() => {
@@ -136,7 +149,7 @@ export default function AIScheduleView() {
 - Days or times you're free
 - What type of place you'd like to meet at
 
-*And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!*`,
+And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!`,
       }]);
     }
   }, [contactProfile, messages.length]);
@@ -150,7 +163,6 @@ export default function AIScheduleView() {
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
-
 
   const handleSend = async () => {
 
@@ -188,15 +200,21 @@ export default function AIScheduleView() {
       const currentUserLoc = currentUserProfile.locations?.find(
         loc => loc.section === contactType
       );
+      // Build full address with city context to avoid geocoding ambiguity
       const currentUserLocation = currentUserLoc
-        ? `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+        ? currentUserLoc.address
+          ? `${currentUserLoc.address}, ${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+          : `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
         : '';
 
       const contactLoc = contactProfile.locations?.find(
         loc => loc.section === contactType
       );
+      // Build full address with city context to avoid geocoding ambiguity
       const contactLocation = contactLoc
-        ? `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+        ? contactLoc.address
+          ? `${contactLoc.address}, ${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+          : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
         : '';
 
       const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
@@ -220,7 +238,7 @@ export default function AIScheduleView() {
           user2Email: contactEmail,
           user1Location: currentUserLocation,
           user2Location: contactLocation,
-          contactType: contactType,
+          calendarType: contactType,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           availableTimeSlots: commonTimeSlots, // Pass pre-fetched slots
         }),

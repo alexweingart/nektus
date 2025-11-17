@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Terms of Use - Nekt.Us',
-  description: 'Terms of Use for Nekt.Us - Rules and guidelines for using our service',
+  title: 'Terms of Use - Nekt',
+  description: 'Terms of Use for Nekt - Rules and guidelines for using our service',
 }
 
 export default function TermsPage() {
@@ -18,14 +18,14 @@ export default function TermsPage() {
             </p>
             
             <p className="mb-4">
-              Welcome to Nekt.Us! These Terms of Use (&quot;Terms&quot;) govern your use of our mobile web application and services. By accessing or using Nekt.Us, you agree to be bound by these Terms.
+              Welcome to Nekt! These Terms of Use (&quot;Terms&quot;) govern your use of our mobile web application and services. By accessing or using Nekt, you agree to be bound by these Terms.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-4">Acceptance of Terms</h2>
             <p className="text-gray-300 mb-3">
-              By using Nekt.Us, you confirm that you:
+              By using Nekt, you confirm that you:
             </p>
             <ul className="list-disc list-inside space-y-1 text-gray-300">
               <li>Are at least 13 years old</li>
@@ -38,7 +38,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Description of Service</h2>
             <p className="text-gray-300">
-              Nekt.Us is a contact-sharing application that allows users to exchange contact information and social media profiles through device proximity (Bluetooth) connections. The service includes profile creation, AI-generated content, and contact management features.
+              Nekt is a contact-sharing application that allows users to exchange contact information and social media profiles through device proximity (Bluetooth) connections. The service includes profile creation, AI-generated content, and contact management features.
             </p>
           </section>
 
@@ -95,7 +95,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Data Sharing and Connections</h2>
             <p className="text-gray-300 mb-3">
-              When you use Nekt.Us to connect with other users:
+              When you use Nekt to connect with other users:
             </p>
             <ul className="list-disc list-inside space-y-2 text-gray-300">
               <li>You choose what information to share with each connection</li>
@@ -115,7 +115,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Intellectual Property</h2>
             <p className="text-gray-300">
-              The Nekt.Us service, including its design, functionality, and underlying technology, is protected by intellectual property laws. You may not copy, modify, or distribute our proprietary technology without permission.
+              The Nekt service, including its design, functionality, and underlying technology, is protected by intellectual property laws. You may not copy, modify, or distribute our proprietary technology without permission.
             </p>
           </section>
 
@@ -161,7 +161,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Governing Law</h2>
             <p className="text-gray-300">
-              These Terms are governed by the laws of the jurisdiction where Nekt.Us operates, without regard to conflict of law principles.
+              These Terms are governed by the laws of the jurisdiction where Nekt operates, without regard to conflict of law principles.
             </p>
           </section>
 
@@ -174,7 +174,7 @@ export default function TermsPage() {
           
           <section className="pt-4 border-t border-gray-600">
             <p className="text-gray-400 text-xs text-center">
-              By using Nekt.Us, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use.
+              By using Nekt, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use.
             </p>
           </section>
         </div>

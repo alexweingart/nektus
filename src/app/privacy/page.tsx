@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - Nekt.Us',
-  description: 'Privacy Policy for Nekt.Us - How we protect your data',
+  title: 'Privacy Policy - Nekt',
+  description: 'Privacy Policy for Nekt - How we protect your data',
 }
 
 export default function PrivacyPage() {
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             </p>
             
             <p className="mb-4">
-              Nekt.Us ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile web application.
+              Nekt ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile web application.
             </p>
           </section>
 

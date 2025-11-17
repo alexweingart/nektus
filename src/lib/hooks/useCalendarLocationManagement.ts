@@ -5,13 +5,11 @@ import type { UserProfile, UserLocation, Calendar } from '@/types/profile';
 interface UseCalendarLocationManagementProps {
   profile: UserProfile | null;
   saveProfile: (data: Partial<UserProfile>) => Promise<UserProfile | null>;
-  onSaveProfile?: () => Promise<void>;
 }
 
 export function useCalendarLocationManagement({
   profile,
-  saveProfile,
-  onSaveProfile
+  saveProfile
 }: UseCalendarLocationManagementProps) {
   const router = useRouter();
 
@@ -59,24 +57,24 @@ export function useCalendarLocationManagement({
   }, []);
 
   const handleLocationAdded = useCallback(async (locations: UserLocation[]) => {
-    // Update profile locations directly (locations are special, not regular fields)
-    if (profile) {
-      profile.locations = profile.locations || [];
-      locations.forEach(loc => {
-        // Remove existing location for this section if any
-        profile.locations = profile.locations!.filter((l: UserLocation) => l.section !== loc.section);
-        // Add the new location
-        profile.locations!.push(loc);
-      });
-    }
-
     setIsLocationModalOpen(false);
 
-    // Trigger profile save
-    if (onSaveProfile) {
-      await onSaveProfile();
+    // Update profile locations (merge with existing locations)
+    if (profile && saveProfile) {
+      const updatedLocations = profile.locations || [];
+
+      locations.forEach(loc => {
+        // Remove existing location for this section if any
+        const filtered = updatedLocations.filter((l: UserLocation) => l.section !== loc.section);
+        filtered.push(loc);
+        updatedLocations.length = 0;
+        updatedLocations.push(...filtered);
+      });
+
+      // Save to Firebase
+      await saveProfile({ locations: updatedLocations });
     }
-  }, [profile, onSaveProfile]);
+  }, [profile, saveProfile]);
 
   const handleDeleteCalendar = useCallback(async (section: 'personal' | 'work') => {
     const calendar = getCalendarForSection(section);
