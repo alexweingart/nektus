@@ -52,18 +52,12 @@ export default function AIScheduleView() {
     if (!session?.user?.id) return;
 
     try {
-      console.log('🔍 [AIScheduleView] Loading contact:', contactUserId);
-
       // Get contact from cache (ContactLayout loads it)
       const savedContact = getContact(contactUserId);
 
       if (savedContact) {
-        console.log('📦 [AIScheduleView] Using contact');
         setContactProfile(savedContact);
         setSavedContact(savedContact);
-      } else {
-        // Contact not loaded yet, wait for ContactLayout to load it
-        console.log('📦 [AIScheduleView] Waiting for ContactLayout to load contact...');
       }
 
     } catch (error) {
@@ -169,7 +163,6 @@ And if you don't know any of those things, and just want me to suggest based off
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
-
 
   const handleSend = async () => {
 

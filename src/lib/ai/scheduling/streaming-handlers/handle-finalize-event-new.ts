@@ -116,7 +116,7 @@ export async function handleFinalizeEvent(
   // Stream the final event
   enqueueEvent(controller, encoder, finalEvent);
 
-  // Cache template and places for future edits (30 min TTL)
+  // Cache template, places, and final event for future edits and navigation (30 min TTL)
   const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
   console.log(`💾 Caching event template with key: ${cacheKey}`);
   console.log(`💾 Cache data:`, {
@@ -137,9 +137,10 @@ export async function handleFinalizeEvent(
         endTime: eventResult.endTime,
         place: eventResult.place,
       },
+      finalEvent, // Cache the complete event with calendar URLs for navigation
     },
     1800 // 30 minutes
   );
 
-  console.log(`✅ Cached template and ${places?.length || 0} places for future edits with TTL 1800s`);
+  console.log(`✅ Cached template, final event, and ${places?.length || 0} places for future edits with TTL 1800s`);
 }

@@ -70,24 +70,42 @@ async function searchSpecificPlace(
   console.log(`🔍 Tier 1: Searching for specific place: ${placeName}`);
 
   try {
-    // Calculate midpoint between users for search center
-    const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userIp);
+    // Calculate midpoint between users for search center (for location-based ranking)
+    const { searchCenter } = await getMidpointFromLocations(userLocations, userIp);
 
-    console.log(`📍 Using dynamic search radius: ${(searchRadiusMeters / 1000).toFixed(1)}km`);
+    // For specific place searches, use a LARGE radius (100km) to cast a wide net
+    // The text search and Foursquare's relevance ranking will handle matching
+    // Location is used for RANKING, not filtering
+    const WIDE_SEARCH_RADIUS = 100000; // 100km in meters
 
-    // For specific places, try with no category first (best match), then with suggested categories
+    console.log(`📍 Using wide search radius for specific place: ${(WIDE_SEARCH_RADIUS / 1000).toFixed(1)}km`);
+
+    // For specific places, use suggested categories to ensure we get the right type of venue
+    // (e.g., searching for "Chic N Time" for dinner should only match restaurants, not barbershops)
+    const categories = suggestedPlaceTypes?.join(',');
+
     try {
       const places = await searchFoursquarePlaces(
         searchCenter,
-        searchRadiusMeters, // Use dynamic radius based on user distance
+        WIDE_SEARCH_RADIUS, // Wide radius for specific place searches
         placeName,
-        undefined // No category filter for specific place search
+        categories // Filter by activity type (e.g., restaurants for dinner)
         // Premium fields disabled - using free tier only
       );
 
+      console.log(`🔍 Foursquare returned ${places.length} results for "${placeName}"`);
+
+      // Log ALL results for debugging (up to 10)
       if (places.length > 0) {
-        console.log(`✅ Found ${places.length} matches for specific place: ${placeName}`);
-        return places.slice(0, 1); // Return only the best match
+        console.log(`📋 ALL ${Math.min(places.length, 10)} results from Foursquare (showing top 10):`);
+        places.slice(0, 10).forEach((place, i) => {
+          console.log(`   ${i + 1}. ${place.name} - ${place.distance_from_midpoint_km?.toFixed(1)}km away - rating: ${place.rating || 'N/A'} - ${place.address}`);
+        });
+      }
+
+      if (places.length > 0) {
+        console.log(`✅ Found ${places.length} matches for specific place: ${placeName} (categories: ${categories || 'any'})`);
+        return places.slice(0, 10); // Return top 10 matches so Stage 5 can pick the best one
       }
     } catch (error) {
       console.log(`   Search failed for specific place: ${placeName}`, error);

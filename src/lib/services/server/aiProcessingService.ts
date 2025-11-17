@@ -1,10 +1,20 @@
 import type { ProcessingState, AISchedulingRequest, DetermineIntentResult, AISchedulingFinalResponse } from '@/types/ai-scheduling';
 import { Redis } from '@upstash/redis';
 
+// Extend global to include our processing states
+declare global {
+  var __processingStates__: Map<string, ProcessingState | unknown> | undefined;
+}
+
+// Use Node.js global object to share state across all API route instances
+if (!global.__processingStates__) {
+  global.__processingStates__ = new Map<string, ProcessingState | unknown>();
+}
+
 // Redis-based storage for processing states with in-memory fallback
 class ProcessingStateManager {
   private redis: Redis | null = null;
-  private memoryStates = new Map<string, ProcessingState | unknown>(); // Fallback for development
+  private memoryStates = global.__processingStates__!; // Use global storage for sharing across API routes
 
   constructor() {
     // Initialize Redis only if environment variables are present
@@ -53,7 +63,13 @@ class ProcessingStateManager {
       } else {
         // Fallback to in-memory storage
         this.memoryStates.set(id, state);
-        console.log(`📝 Created processing state in memory: ${id} (Redis not available)`);
+        console.log(`📝 Created processing state in memory: ${id} (Redis not available, global map size: ${this.memoryStates.size})`);
+        console.log(`📝 Global map instance ID: ${(this.memoryStates as any).__instanceId || 'none'}`);
+
+        // Set instance ID for debugging
+        if (!(this.memoryStates as any).__instanceId) {
+          (this.memoryStates as any).__instanceId = Math.random().toString(36).substring(7);
+        }
 
         // Clean up memory state after 5 minutes
         setTimeout(() => {
@@ -89,6 +105,7 @@ class ProcessingStateManager {
         }
       } else {
         // Check in-memory storage
+        console.log(`🔍 Checking memory for ${id}, global map size: ${this.memoryStates.size}, instance ID: ${(this.memoryStates as any).__instanceId || 'none'}`);
         const state = this.memoryStates.get(id);
         if (state) {
           console.log(`🔍 Retrieved processing state from memory: ${id}`);

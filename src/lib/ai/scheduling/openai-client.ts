@@ -169,6 +169,12 @@ ACTION REQUIRED: Perform web search NOW and return results.`;
 
     // Use OpenAI Responses API with web_search tool with STREAMING for better performance
     console.log('📡 Making STREAMING request to OpenAI Responses API...');
+    console.log('📡 Request details:', {
+      model,
+      location: location ? `${location.city}, ${location.country}` : 'none',
+      inputPreview: input.substring(0, 100) + '...'
+    });
+
     const startTime = Date.now();
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -194,9 +200,22 @@ ACTION REQUIRED: Perform web search NOW and return results.`;
     console.log(`📡 Stream connection established in ${Date.now() - startTime}ms, status: ${response.status}`);
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('OpenAI Responses API error:', error);
-      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
+      const errorText = await response.text();
+      console.error('❌ OpenAI Responses API HTTP error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+
+      // Try to parse as JSON
+      let errorJson;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch {
+        errorJson = { raw: errorText };
+      }
+
+      throw new Error(`OpenAI API error (${response.status}): ${errorText.substring(0, 500)}`);
     }
 
     // Handle streaming response

@@ -25,17 +25,6 @@ export function SessionProvider({ children, session }: SessionProviderProps) {
 
     // Only log if session actually changed
     if (session !== prevSessionRef.current) {
-      if (session) {
-        // Only log in development environment
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔑 Session:', session.user?.email || 'Unknown user');
-        }
-      } else {
-        // Only log in development environment
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔒 No session');
-        }
-      }
       prevSessionRef.current = session;
     }
   }, [session]);

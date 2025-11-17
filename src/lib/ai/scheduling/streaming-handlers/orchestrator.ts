@@ -126,7 +126,11 @@ Instructions for alternative venues:
 - Start description with capital letter (it follows a dash)
 - Do NOT use generic phrases like "convenient location"
 - CRITICAL: Use the COMPLETE url value from PLACE DATA for each alternative place. The URLs are long - that's correct. Do NOT shorten them.` : ''}
-${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 using same format as first paragraph but without rationale` : ''}
+${showAlternativeTimes ? `List Slot 1, Slot 2, Slot 3 as BULLETED items using this format:
+- **{dayLabel}**, {dateContext} at **{time}**. Brief context about why this time could work
+
+Example: "- **Saturday**, Nov 16 at **6:30 PM**. Ideal dinner time on a weekend night, where both of you are available."
+` : ''}
 
 (blank line)
 ` : ''}
@@ -359,9 +363,62 @@ export async function streamSchedulingResponse(
         // ===================================================================
         console.log('🤖 Stage 5: LLM selection');
 
-        // Path A: Conditional edit with no matching times → Provide alternatives
+        // Helper to construct requested time from template
+        const getRequestedTimeFromTemplate = (template: Partial<Event>): string | null => {
+          const { preferredSchedulableDates, preferredSchedulableHours } = template;
+
+          if (!preferredSchedulableDates?.startDate || !preferredSchedulableHours) {
+            return null;
+          }
+
+          // Find the first day with schedulable hours (should be the requested day)
+          const days = Object.keys(preferredSchedulableHours);
+          if (days.length === 0) return null;
+
+          const firstDay = days[0];
+          const timeWindow = preferredSchedulableHours[firstDay][0];
+
+          if (!timeWindow) return null;
+
+          // Parse the time (format: "12:00")
+          const [hours, minutes] = timeWindow.start.split(':').map(Number);
+
+          // Combine date and time
+          const requestedDate = new Date(preferredSchedulableDates.startDate + 'T00:00:00');
+          requestedDate.setHours(hours, minutes, 0, 0);
+
+          return requestedDate.toISOString();
+        };
+
+        // Check if this is an explicit time request
+        const hasExplicitTimeRequest = (templateResult.template as any).hasExplicitTimeRequest;
+
+        // Path A1: NEW event with explicit time request that has no availability
+        if (hasExplicitTimeRequest && hasNoCommonTime && !templateResult.isConditional) {
+          console.log('📋 Path A1: Explicit time request with no matches → provideAlternatives');
+
+          const requestedTime = getRequestedTimeFromTemplate(templateResult.template);
+          if (!requestedTime) {
+            console.warn('⚠️ Could not construct requested time from template, falling through to normal flow');
+          } else {
+            await handleProvideAlternatives({
+              availableTimeSlots,
+              template: templateResult.template,
+              currentEventTime: requestedTime,
+              body,
+              controller,
+              encoder,
+              timezone: body.timezone,
+            });
+
+            controller.close();
+            return;
+          }
+        }
+
+        // Path A2: Conditional edit with no matching times → Provide alternatives
         if (templateResult.isConditional && hasNoCommonTime) {
-          console.log('📋 Path A: Conditional edit with no matches → provideAlternatives');
+          console.log('📋 Path A2: Conditional edit with no matches → provideAlternatives');
 
           // Get current event time from cached result
           const currentEventTime = templateResult.previousEvent?.startTime || new Date().toISOString();
@@ -420,14 +477,14 @@ export async function streamSchedulingResponse(
 
           if (slotDay === todayDay) {
             return {
-              dayLabel: 'today',
+              dayLabel: 'Today',
               dateContext: `${dayOfWeek}, ${monthDay}`,
               time: time,
               isTomorrowOrToday: true
             };
           } else if (slotDay === tomorrowDay) {
             return {
-              dayLabel: 'tomorrow',
+              dayLabel: 'Tomorrow',
               dateContext: `${dayOfWeek}, ${monthDay}`,
               time: time,
               isTomorrowOrToday: true
@@ -484,8 +541,20 @@ export async function streamSchedulingResponse(
           };
         };
 
-        // Pre-build structured time data for all slots
-        const timeData = slots.slice(0, 10).map(formatSlotTime);
+        // Pre-build structured time data - ensure distinct days for alternatives
+        const allTimeData = slots.map(formatSlotTime);
+
+        // Filter to one slot per day to ensure alternatives are on different days
+        const seenDays = new Set<string>();
+        const timeData = allTimeData.filter(td => {
+          const dayKey = `${td.dayLabel}-${td.dateContext}`; // Unique key per day
+          if (seenDays.has(dayKey)) {
+            return false;
+          }
+          seenDays.add(dayKey);
+          return true;
+        }).slice(0, 10); // Take up to 10 distinct days
+
         // Pre-build structured place data for all places
         const placeData = places.slice(0, 10).map(formatPlaceData);
 

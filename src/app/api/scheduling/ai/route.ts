@@ -10,6 +10,8 @@ import type { TimeSlot } from '@/types/profile';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🎯 POST /api/scheduling/ai - Request received!');
+
     const body: AISchedulingRequest = await request.json();
 
 

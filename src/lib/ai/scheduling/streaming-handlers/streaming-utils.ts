@@ -107,3 +107,16 @@ export function enqueueEnhancementPending(
     `data: ${JSON.stringify({ type: 'enhancement_pending', processingId })}\n\n`
   ));
 }
+
+/**
+ * Helper to send navigate_to_calendar event with calendar URL
+ */
+export function enqueueNavigateToCalendar(
+  controller: StreamController,
+  encoder: StreamEncoder,
+  calendarUrl: string
+): void {
+  controller.enqueue(encoder.encode(
+    `data: ${JSON.stringify({ type: 'navigate_to_calendar', calendarUrl })}\n\n`
+  ));
+}

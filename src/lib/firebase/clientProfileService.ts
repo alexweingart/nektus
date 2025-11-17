@@ -277,11 +277,6 @@ export const ClientProfileService = {
 
       const contacts = snapshot.docs.map(doc => {
         const data = doc.data() as SavedContact;
-        console.log('📖 Loaded contact from Firebase:', {
-          userId: data.userId,
-          hasBackgroundImage: !!data.backgroundImage,
-          backgroundImage: data.backgroundImage || 'MISSING'
-        });
         return data;
       });
 

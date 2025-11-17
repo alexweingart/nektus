@@ -393,10 +393,10 @@ export function determineAlternativesToShow(
   includeConflictWarning: boolean;
   reason: string;
 } {
-  // Detect date/time constraints (BROAD - any scheduling preference)
+  // Detect date/time constraints (EXPLICIT ONLY - user actually specified a time)
+  // Don't count preferredSchedulableHours (implicit from activity type like "dinner")
   const hasDateTimeConstraint = !!(
     template.preferredSchedulableDates ||
-    template.preferredSchedulableHours ||
     template.hasExplicitTimeRequest ||
     editResult?.timePreference
   );

@@ -84,15 +84,20 @@ export async function handleSuggestActivities(
   // Send enhancement_pending event to trigger frontend polling
   enqueueEnhancementPending(controller, encoder, processingId);
 
-  console.log(`🌐 Starting background web search for ${eventLocation} ${timeframe} with processingId: ${processingId}...`);
+  console.log(`🌐 Starting background web search for ${cityName} ${timeframe} with processingId: ${processingId}...`);
 
-  // Start background web search with streaming updates
+  // Start background web search with streaming updates (use city name for better search results)
   handleSearchEvents(
     processingId,
-    eventLocation,
+    cityName,
     timeframe,
     targetName
   ).catch(error => {
-    console.error('Background web search error:', error);
+    console.error('❌ Background web search error:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error?.constructor?.name
+    });
   });
 }

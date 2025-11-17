@@ -18,10 +18,12 @@ interface ProvideAlternativesParams {
 }
 
 /**
- * Stage 5 handler for conditional edits when no matching times found.
+ * Stage 5 handler for when requested time is unavailable.
  * Provides alternatives instead of creating an event.
  *
- * Called when: isConditional=true AND hasNoCommonTime=true
+ * Called when:
+ * - Explicit time request with no availability (hasExplicitTimeRequest=true AND hasNoCommonTime=true)
+ * - Conditional edit with no matching times (isConditional=true AND hasNoCommonTime=true)
  */
 export async function handleProvideAlternatives({
   availableTimeSlots,
@@ -32,7 +34,7 @@ export async function handleProvideAlternatives({
   encoder,
   timezone,
 }: ProvideAlternativesParams): Promise<void> {
-  console.log('🔄 Providing alternatives for conditional edit (no matching times found)');
+  console.log('🔄 Providing alternatives (requested time unavailable)');
 
   // Get ONLY truly available slots (no fallback)
   let trueAvailableSlots = getAllValidSlots(

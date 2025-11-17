@@ -126,7 +126,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // This prevents profile regeneration in new browsers
             try {
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
-              console.log('[ProfileContext] Firebase Auth completed successfully');
             } catch (authError) {
               console.error('[ProfileContext] Firebase Auth failed, continuing without auth:', authError);
               // Continue without Firebase Auth - the app should still work with limited functionality
@@ -136,12 +135,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Check for existing profile
           const existingProfile = await ProfileService.getProfile(session.user.id);
           if (existingProfile) {
-            console.log('📱 [ProfileContext] Setting profile from Firebase:', existingProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
-            console.log('📍 [ProfileContext] Locations loaded:', existingProfile.locations?.map(l => `${l.section}: ${l.city}, ${l.region}`));
-
             // Auto-detect and update timezone if it's different from current browser timezone
             const browserTimezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
-            console.log(`[ProfileContext] Timezone check: current=${existingProfile.timezone}, browser=${browserTimezone}, needsUpdate=${existingProfile.timezone !== browserTimezone}`);
             if (browserTimezone && existingProfile.timezone !== browserTimezone) {
               console.log(`[ProfileContext] Updating timezone from ${existingProfile.timezone || 'undefined'} to ${browserTimezone}`);
               // Update timezone in Firebase (silent update - no UI state change needed yet)
@@ -559,14 +554,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const skipReactUpdate = options.skipUIUpdate;
 
       if (!skipReactUpdate) {
-        console.log('📱 [ProfileContext] Setting profile after save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
-        console.log('📍 [ProfileContext] Locations after save:', merged.locations?.map(l => `${l.section}: ${l.city}, ${l.region}`));
         setProfile(merged);
       } else {
         // However, if this is a background operation and the current profile state is stale (empty userId),
         // we should update it to prevent UI showing empty data during streaming
         if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
-          console.log('📱 [ProfileContext] Setting profile after background save:', merged.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
           setProfile(merged);
         }
       }
@@ -653,9 +645,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                         contactEntries: updatedEntries
                       };
                       profileRef.current = updatedProfile;
-                      console.log('📱 [ProfileContext] Setting profile from streaming update:', updatedProfile.contactEntries?.map(f => `${f.fieldType}-${f.section}:${f.order}`));
                       setProfile(updatedProfile);
-                      
+
                       // Also update streaming state for immediate feedback
                       setStreamingSocialContacts(updatedEntries);
                     }
@@ -794,29 +785,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!force && contacts && contactsLoadedAt) {
       const age = Date.now() - contactsLoadedAt;
       if (age < CONTACTS_CACHE_DURATION) {
-        console.log('📦 [ProfileContext] Using cached contacts (age:', Math.round(age / 1000), 'seconds)');
         return contacts;
-      } else {
-        console.log('📦 [ProfileContext] Contacts cache expired (age:', Math.round(age / 1000), 'seconds)');
       }
     }
 
     // If already loading, return the existing promise to prevent duplicate requests
     if (contactsLoadingPromiseRef.current) {
-      console.log('📦 [ProfileContext] Contacts already loading, waiting for existing request...');
       return contactsLoadingPromiseRef.current;
     }
 
     // Create and store the loading promise
     const loadingPromise = (async () => {
       try {
-        console.log('📦 [ProfileContext] Fetching contacts from Firestore...');
         const userContacts = await ProfileService.getContacts(userId);
 
         // Sort contacts by addedAt timestamp (newest first)
         const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
 
-        console.log('✅ [ProfileContext] Loaded and cached', sortedContacts.length, 'contacts');
         setContacts(sortedContacts);
         setContactsLoadedAt(Date.now());
 
@@ -844,7 +829,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [contacts]);
 
   const invalidateContactsCache = useCallback(() => {
-    console.log('📦 [ProfileContext] Invalidating contacts cache');
     setContacts(null);
     setContactsLoadedAt(null);
   }, []);
