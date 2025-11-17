@@ -58,9 +58,18 @@ export const editEventTemplateFunction: OpenAIFunction = {
         type: 'number',
         description: 'Index of different place from cached options if user wants to change to one of the suggested alternatives. Only provide if editType includes "place" AND user is selecting from existing suggestions.',
       },
+      newSpecificPlace: {
+        type: 'string',
+        description: 'Specific venue name if user wants to change to a particular place by name (e.g., "Ella Hill Hutch Center", "Blue Bottle Coffee", "California Tennis Club"). Only provide if editType includes "place" AND user specifies a particular venue by name. DO NOT use for generic types like "park" or "cafe" - use newPlaceType for those.',
+      },
       newPlaceType: {
         type: 'string',
-        description: 'Type of new venue if user wants a completely different kind of place (e.g., "park", "cafe", "library"). Only provide if editType includes "place" AND user requests a different type of venue than what was originally suggested.',
+        description: 'Type of new venue if user wants a completely different kind of place (e.g., "park", "cafe", "library"). Only provide if editType includes "place" AND user requests a different TYPE of venue (NOT a specific named venue). Use newSpecificPlace for named venues like "Ella Hill" or "Blue Bottle".',
+      },
+      suggestedPlaceTypes: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Google Places API types for the new place type (e.g., ["park", "tourist_attraction"] for parks, ["cafe", "restaurant"] for cafes). Only provide when newPlaceType is specified to help with searching.',
       },
       newDuration: {
         type: 'number',
@@ -82,7 +91,9 @@ export interface EditEventTemplateResult {
   };
   newPreferredSchedulableHours?: Partial<SchedulableHours>;
   newPlaceIndex?: number;
+  newSpecificPlace?: string;
   newPlaceType?: string;
+  suggestedPlaceTypes?: string[];
   newDuration?: number;
 }
 
@@ -117,8 +128,16 @@ export function processEditEventTemplateResult(args: string): EditEventTemplateR
       result.newPlaceIndex = parsed.newPlaceIndex;
     }
 
+    if (parsed.newSpecificPlace !== undefined) {
+      result.newSpecificPlace = parsed.newSpecificPlace;
+    }
+
     if (parsed.newPlaceType !== undefined) {
       result.newPlaceType = parsed.newPlaceType;
+    }
+
+    if (parsed.suggestedPlaceTypes !== undefined) {
+      result.suggestedPlaceTypes = parsed.suggestedPlaceTypes;
     }
 
     if (parsed.newDuration !== undefined) {

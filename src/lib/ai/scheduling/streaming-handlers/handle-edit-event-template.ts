@@ -123,17 +123,44 @@ export async function handleEditEventTemplate(
   let needsPlaceSearch = false;
   let placeSearchParams;
 
-  // If user wants a different TYPE of place, search for new venues
-  if (editResult.newPlaceType) {
+  // Priority 1: User wants a SPECIFIC named venue (e.g., "Ella Hill", "Blue Bottle Coffee")
+  if (editResult.newSpecificPlace) {
+    console.log(`🎯 User requested specific venue: "${editResult.newSpecificPlace}" - will search in Stage 4`);
+    needsPlaceSearch = true;
+    placeSearchParams = {
+      intentSpecificity: 'specific_place' as const,
+      activitySearchQuery: editResult.newSpecificPlace,
+      suggestedPlaceTypes: editResult.suggestedPlaceTypes || [],
+    };
+    // Mark as explicit place request and store the name
+    eventTemplate.explicitUserPlace = true;
+    (eventTemplate as any).specificPlaceName = editResult.newSpecificPlace;
+    // Clear cached places since we'll be searching for new ones
+    places = [];
+  }
+  // Priority 2: User wants a different TYPE of place (e.g., "park", "cafe")
+  else if (editResult.newPlaceType) {
     console.log(`🔍 User requested different venue type: "${editResult.newPlaceType}" - will search in Stage 4`);
     needsPlaceSearch = true;
     placeSearchParams = {
       intentSpecificity: 'activity_type' as const,
       activitySearchQuery: editResult.newPlaceType,
-      suggestedPlaceTypes: [editResult.newPlaceType],
+      suggestedPlaceTypes: editResult.suggestedPlaceTypes || [editResult.newPlaceType],
     };
+    // This is NOT an explicit place request (it's a type request)
+    eventTemplate.explicitUserPlace = false;
     // Clear cached places since we'll be searching for new ones
     places = [];
+  }
+  // Priority 3: User selected from existing alternatives by index
+  else if (editResult.newPlaceIndex !== undefined && places.length > 0) {
+    // User is selecting from cached alternatives - keep cached places
+    console.log(`✅ User selected alternative place at index ${editResult.newPlaceIndex}`);
+    // Mark as explicit place request and store the selected place name
+    eventTemplate.explicitUserPlace = true;
+    if (places[editResult.newPlaceIndex]) {
+      (eventTemplate as any).specificPlaceName = places[editResult.newPlaceIndex].name;
+    }
   }
 
   // Apply default travel buffer

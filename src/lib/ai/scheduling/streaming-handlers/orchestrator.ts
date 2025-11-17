@@ -47,7 +47,8 @@ function buildFormattingInstructions(
   calendarType: string,
   locationContext: 'your_location' | 'other_person_location' | 'midpoint',
   otherPersonName?: string,
-  conflictContext?: { requestedTime: string; requestedTimeIndex: number }
+  conflictContext?: { requestedTime: string; requestedTimeIndex: number },
+  explicitPlaceRequest?: string
 ): string {
   // Build time data display
   const timeDataDisplay = timeData.map((t, i) =>
@@ -66,6 +67,19 @@ ${timeDataDisplay}
 
 ${placeData.length > 0 ? `PLACE DATA:
 ${placeDataDisplay}
+` : ''}
+
+${explicitPlaceRequest ? `## CRITICAL: USER'S EXPLICIT PLACE REQUEST
+
+The user EXPLICITLY requested this specific venue: "${explicitPlaceRequest}"
+
+PLACE SELECTION REQUIREMENT:
+- You MUST select the place from PLACE DATA that BEST MATCHES "${explicitPlaceRequest}"
+- Match by name similarity - look for places containing "${explicitPlaceRequest}" or variations
+- DO NOT substitute with a different venue, even if you think another option is better
+- DO NOT prioritize distance, rating, or other factors over matching the requested name
+- If multiple places match, choose the best match based on name relevance
+
 ` : ''}
 
 ## MESSAGE FORMAT
@@ -630,6 +644,12 @@ export async function streamSchedulingResponse(
             ? (body.user1Location ? 'your_location' : 'other_person_location')
             : 'midpoint';
 
+        // Extract specific place name if user explicitly requested one
+        const explicitPlaceRequest = (templateResult.template as any).specificPlaceName;
+        if (explicitPlaceRequest) {
+          console.log(`🎯 User explicitly requested place: "${explicitPlaceRequest}"`);
+        }
+
         // Build formatting instructions with decomposed data
         const formattingInstructions = buildFormattingInstructions(
           timeData,
@@ -642,7 +662,8 @@ export async function streamSchedulingResponse(
           body.calendarType,
           locationContext,
           body.user2Name,
-          conflictContext
+          conflictContext,
+          explicitPlaceRequest
         );
 
         // LOG: Show full formatting instructions to debug URL issues
