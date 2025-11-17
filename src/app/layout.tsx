@@ -8,6 +8,7 @@ import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
+import { ContactBackgroundOverlay } from './components/ui/layout/ContactBackgroundOverlay';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -71,6 +72,7 @@ export default async function RootLayout({
           <ProfileProvider>
             <AdminModeProvider>
               <LayoutBackground />
+              <ContactBackgroundOverlay />
               <AdminBanner />
               <div style={{ position: 'relative', zIndex: 10 }}>
                 {children}
