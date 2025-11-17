@@ -20,8 +20,6 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
-  // Optimize for faster rebuilds in development
-  swcMinify: true,
   compiler: {
     removeConsole: false, // Keep console logs in dev
   },
