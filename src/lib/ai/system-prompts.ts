@@ -119,11 +119,20 @@ TEMPLATE EXTRACTION REQUIREMENTS:
 - Generate a clear, natural title (e.g., "Coffee with Al", "Tennis at Presidio")
 
 **Time Preferences:**
-- Extract explicit time requests ("tomorrow at 2pm", "Friday evening")
-- Set hasExplicitTimeRequest: true if user specified exact date/time
-- Extract preferred time ranges if mentioned ("mornings", "after work")
-- Set preferredSchedulableHours if user mentions time of day
+- Extract explicit time requests ("tomorrow at 2pm", "Friday evening", "Tuesday at 12pm")
+- Set explicitUserTimes: true ONLY if user specified BOTH exact date AND exact time (e.g., "Tuesday at 12pm", "Friday at 6pm")
+- Set explicitUserTimes: false for vague requests ("next week", "sometime soon", "lunch" without time)
+- When explicitUserTimes is true, ALSO set explicitTime in 24-hour format (e.g., "12:00", "14:30", "18:00")
 - Set preferredSchedulableDates if user mentions specific days
+- CRITICAL: ALWAYS set preferredSchedulableHours for meal intents (breakfast, lunch, dinner, drinks, coffee):
+  * lunch → 11:00-14:30 on all days
+  * breakfast → 07:00-10:00 on all days
+  * dinner → 17:00-21:00 on all days
+  * drinks → 17:00-23:00 on all days
+  * coffee → 07:00-17:00 on all days
+  * Set these EVEN IF user specified an explicit time (e.g., "lunch Tuesday at 12pm" should have explicitTime: "12:00" AND preferredSchedulableHours: lunch hours 11:00-14:30)
+  * The explicitTime will be honored for the primary event, but the hours range is needed for finding alternative times
+- Also set preferredSchedulableHours if user mentions time of day ("mornings" → 07:00-12:00, "after work" → 17:00-22:00)
 
 **Place Requirements:**
 

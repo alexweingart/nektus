@@ -47,7 +47,8 @@ function buildFormattingInstructions(
   user2Name: string,
   calendarType: string,
   locationContext: 'your_location' | 'other_person_location' | 'midpoint',
-  otherPersonName?: string
+  otherPersonName?: string,
+  conflictContext?: { requestedTime: string; requestedTimeIndex: number }
 ): string {
   // Build time data display
   const timeDataDisplay = timeData.map((t, i) =>
@@ -93,14 +94,29 @@ FORMATTING RULES:
 - Everything else: plain text
 
 RATIONALE (one sentence explaining your choice):
-Critical instructions:
-- Time factors: If multiple slots exist on the selected day, explain WHY you chose this specific time based on the activity type (e.g., afternoon vs morning, avoiding rush hours). Only use "soonest available" if it's truly the first possible slot across all days.
+
+${conflictContext ? `
+CONFLICT-SPECIFIC INSTRUCTIONS:
+- You MUST select Slot ${conflictContext.requestedTimeIndex} (the user's explicitly requested time)
+- Time selection: You selected this time per the user's explicit request. Mention that it either conflicts with an existing event OR is outside the schedulable hours for at least one person.
+- Place factors: REQUIRED - Focus your rationale on WHY you picked this specific venue using your real-world knowledge about this venue's features, reputation, or characteristics.
+- Alternative times: REQUIRED - Show the other available time slots as alternatives (Slot 1, Slot 2, Slot 3, etc.) in the ALTERNATIVES SECTION. These are times that don't conflict.
+- Distance display: Use miles as provided in distance_miles field (already converted, rounded to 1 decimal place). ${
+    locationContext === 'your_location' ? 'Say "X miles from your location"' :
+    locationContext === 'other_person_location' ? `Say "X miles from ${otherPersonName}'s location"` :
+    'Say "X miles from the midpoint"'
+  }
+- Example: "I picked this time per your request, though it does conflict with an existing event or is outside the schedulable hours for at least one of you. I chose [venue] because [specific venue knowledge and why it's good for this activity]."
+` : `
+NORMAL INSTRUCTIONS:
+- Day/Time factors: Explain WHY you chose this specific day and time based on the activity type (e.g., afternoon vs morning, weekday vs weekend, avoiding rush hours). Only use "soonest available" if it's truly the first possible slot across all days.
 - Place factors: REQUIRED - Use your real-world knowledge about this specific venue to explain what makes it good for this activity. Think about the venue's actual features, reputation, or characteristics. Do NOT fall back to generic location descriptions.
 - Distance display: Use miles as provided in distance_miles field (already converted, rounded to 1 decimal place). ${
     locationContext === 'your_location' ? 'Say "X miles from your location"' :
     locationContext === 'other_person_location' ? `Say "X miles from ${otherPersonName}'s location"` :
     'Say "X miles from the midpoint"'
   }
+`}
 
 ${template.travelBuffer ? `
 **SECOND PARAGRAPH** (blank line, then travel buffer):
@@ -328,7 +344,7 @@ export async function streamSchedulingResponse(
         enqueueProgress(controller, encoder, 'Finding time and place...');
 
         // Get candidate slots with fallback
-        const { slots, hasNoCommonTime, hasExplicitTimeConflict } = getCandidateSlotsWithFallback(
+        let { slots, hasNoCommonTime, hasExplicitTimeConflict } = getCandidateSlotsWithFallback(
           availableTimeSlots,
           {
             duration: templateResult.template.duration || 60,
@@ -364,24 +380,15 @@ export async function streamSchedulingResponse(
         console.log('🤖 Stage 5: LLM selection');
 
         // Helper to construct requested time from template
-        const getRequestedTimeFromTemplate = (template: Partial<Event>): string | null => {
-          const { preferredSchedulableDates, preferredSchedulableHours } = template;
+        const getRequestedTimeFromTemplate = (template: Partial<Event> & { explicitTime?: string }): string | null => {
+          const { preferredSchedulableDates, explicitTime } = template;
 
-          if (!preferredSchedulableDates?.startDate || !preferredSchedulableHours) {
+          if (!preferredSchedulableDates?.startDate || !explicitTime) {
             return null;
           }
 
-          // Find the first day with schedulable hours (should be the requested day)
-          const days = Object.keys(preferredSchedulableHours);
-          if (days.length === 0) return null;
-
-          const firstDay = days[0];
-          const timeWindow = preferredSchedulableHours[firstDay][0];
-
-          if (!timeWindow) return null;
-
-          // Parse the time (format: "12:00")
-          const [hours, minutes] = timeWindow.start.split(':').map(Number);
+          // Parse the explicit time (format: "12:00")
+          const [hours, minutes] = explicitTime.split(':').map(Number);
 
           // Combine date and time
           const requestedDate = new Date(preferredSchedulableDates.startDate + 'T00:00:00');
@@ -391,28 +398,66 @@ export async function streamSchedulingResponse(
         };
 
         // Check if this is an explicit time request
-        const hasExplicitTimeRequest = (templateResult.template as any).hasExplicitTimeRequest;
+        const hasExplicitTimeRequest = (templateResult.template as any).explicitUserTimes;
 
         // Path A1: NEW event with explicit time request that has no availability
+        // Use same logic as Path B, but include requested time and show conflict message
+        let conflictContext: { requestedTime: string; requestedTimeIndex: number } | undefined;
+
         if (hasExplicitTimeRequest && hasNoCommonTime && !templateResult.isConditional) {
-          console.log('📋 Path A1: Explicit time request with no matches → provideAlternatives');
+          console.log('📋 Path A1: Explicit time request with no availability → using Path B with conflict');
 
           const requestedTime = getRequestedTimeFromTemplate(templateResult.template);
           if (!requestedTime) {
             console.warn('⚠️ Could not construct requested time from template, falling through to normal flow');
           } else {
-            await handleProvideAlternatives({
-              availableTimeSlots,
-              template: templateResult.template,
-              currentEventTime: requestedTime,
-              body,
-              controller,
-              encoder,
-              timezone: body.timezone,
-            });
+            // Modify template: widen date range, adjust time constraints from intent
+            const today = new Date();
+            const twoWeeksFromNow = new Date(today);
+            twoWeeksFromNow.setDate(today.getDate() + 14);
 
-            controller.close();
-            return;
+            const modifiedTemplate = {
+              ...templateResult.template,
+              preferredSchedulableDates: {
+                startDate: today.toISOString().split('T')[0],
+                endDate: twoWeeksFromNow.toISOString().split('T')[0],
+                description: 'the next two weeks',
+              },
+              // Keep time constraints from intent (e.g., lunch hours), not explicit single time
+              // The preferredSchedulableHours will be used for filtering, but we'll add requested time manually
+            };
+
+            // Get slots with modified template
+            const { slots: modifiedSlots } = getCandidateSlotsWithFallback(
+              availableTimeSlots,
+              {
+                duration: modifiedTemplate.duration || 60,
+                intent: modifiedTemplate.intent,
+                preferredSchedulableHours: modifiedTemplate.preferredSchedulableHours,
+                preferredSchedulableDates: modifiedTemplate.preferredSchedulableDates,
+                travelBuffer: modifiedTemplate.travelBuffer,
+              },
+              body.calendarType
+            );
+
+            // Add requested time as first slot (even though it conflicts/is unavailable)
+            const requestedDate = new Date(requestedTime);
+            const requestedEndDate = new Date(requestedDate.getTime() + (modifiedTemplate.duration || 60) * 60 * 1000);
+            const requestedSlot: TimeSlot = {
+              start: requestedDate.toISOString(),
+              end: requestedEndDate.toISOString(),
+            };
+
+            slots = [requestedSlot, ...modifiedSlots];
+            conflictContext = {
+              requestedTime: requestedDate.toISOString(),
+              requestedTimeIndex: 0, // First slot is the requested time
+            };
+
+            // Update template reference for Path B
+            templateResult.template = modifiedTemplate;
+
+            console.log(`✅ Added requested time as primary slot with ${slots.length - 1} alternatives`);
           }
         }
 
@@ -446,7 +491,11 @@ export async function streamSchedulingResponse(
         const { showAlternativePlaces, showAlternativeTimes, includeConflictWarning } =
           determineAlternativesToShow(templateResult.template, !hasExplicitTimeConflict);
 
-        console.log(`📋 Alternatives to show: places=${showAlternativePlaces}, times=${showAlternativeTimes}, conflict=${includeConflictWarning}`);
+        // If we have a conflict context, show only time alternatives (not place alternatives)
+        const finalShowAlternativePlaces = conflictContext ? false : showAlternativePlaces;
+        const finalShowAlternativeTimes = conflictContext ? true : showAlternativeTimes;
+
+        console.log(`📋 Alternatives to show: places=${finalShowAlternativePlaces} (original: ${showAlternativePlaces}), times=${finalShowAlternativeTimes} (original: ${showAlternativeTimes}), conflict=${includeConflictWarning}`);
         console.log(`📋 Calendar type for message: ${body.calendarType}`);
 
         // Build prompt for LLM time/place selection
@@ -584,13 +633,14 @@ export async function streamSchedulingResponse(
           timeData,
           placeData,
           templateResult.template,
-          showAlternativePlaces,
-          showAlternativeTimes,
+          finalShowAlternativePlaces,
+          finalShowAlternativeTimes,
           includeConflictWarning,
           body.user2Name || 'them',
           body.calendarType,
           locationContext,
-          body.user2Name
+          body.user2Name,
+          conflictContext
         );
 
         // LOG: Show full formatting instructions to debug URL issues
