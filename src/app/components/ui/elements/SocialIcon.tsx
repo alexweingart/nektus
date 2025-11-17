@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import Image from 'next/image';
 import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 import { openMessagingApp } from '@/lib/services/client/messagingService';
 
@@ -138,15 +139,19 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     // Only show custom icon (favicon) for custom link types
     if (linkType === 'custom' && customIcon) {
       const containerSize = size === 'sm' ? 'w-6 h-6' : size === 'lg' ? 'w-16 h-16 p-3' : 'w-10 h-10 p-2';
+      const imageSize = size === 'sm' ? 24 : size === 'lg' ? 64 : 40;
       const variantStyles = variant === 'white' ? 'hover:bg-white/20' : 'hover:bg-white/10';
       return (
         <div className={`${containerSize} rounded-full transition-colors duration-200 ${
           disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:opacity-100 active:opacity-90 ${variantStyles}`
         }`}>
-          <img
+          <Image
             src={customIcon}
             alt={platform}
+            width={imageSize}
+            height={imageSize}
             className="w-full h-full object-contain rounded-full"
+            unoptimized
           />
         </div>
       );

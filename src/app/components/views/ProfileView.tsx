@@ -112,7 +112,7 @@ const ProfileView: React.FC = () => {
       setAnimationPhase('wind-up');
     };
 
-    const handleMatchFound = (event: CustomEvent) => {
+    const handleMatchFound = (_event: CustomEvent) => {
       console.log('🎯 ProfileView: Match found, starting exit animation');
       // Background crossfade now handled by LayoutBackground component
       setAnimationPhase('exiting');

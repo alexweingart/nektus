@@ -55,17 +55,16 @@ function ConnectPageContent() {
         // Create mock profile for testing
         const mockProfile: UserProfile = {
           userId: 'mock-user-123',
-          email: 'mock@example.com',
-          name: 'Demo Contact',
           profileImage: '',
           backgroundImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200',
-          bio: 'This is a test contact for animation preview. In real usage, this would show the contact\'s actual profile information.',
+          lastUpdated: Date.now(),
           contactEntries: [
-            { fieldType: 'name', value: 'Demo Contact', section: 'Personal' },
-            { fieldType: 'phone', value: '+1234567890', section: 'Personal' },
-            { fieldType: 'email', value: 'demo@example.com', section: 'Personal' },
-            { fieldType: 'instagram', value: 'democontact', section: 'Personal' },
-            { fieldType: 'x', value: 'democontact', section: 'Personal' }
+            { fieldType: 'name', value: 'Demo Contact', section: 'personal', order: 0, isVisible: true, confirmed: true },
+            { fieldType: 'bio', value: 'This is a test contact for animation preview. In real usage, this would show the contact\'s actual profile information.', section: 'personal', order: 1, isVisible: true, confirmed: true },
+            { fieldType: 'phone', value: '+1234567890', section: 'personal', order: 2, isVisible: true, confirmed: true },
+            { fieldType: 'email', value: 'demo@example.com', section: 'personal', order: 3, isVisible: true, confirmed: true },
+            { fieldType: 'instagram', value: 'democontact', section: 'personal', order: 4, isVisible: true, confirmed: true },
+            { fieldType: 'x', value: 'democontact', section: 'personal', order: 5, isVisible: true, confirmed: true }
           ],
           calendars: []
         };

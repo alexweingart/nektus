@@ -2,7 +2,7 @@ import { createCompleteCalendarEvent, createTravelBufferDescription, calculateCa
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils';
 import type { AISchedulingRequest, GenerateEventResult } from '@/types/ai-scheduling';
-import type { Event, CalendarUrls } from '@/types';
+import type { Event } from '@/types';
 import type { Place } from '@/types/places';
 
 /**
@@ -94,7 +94,7 @@ export async function handleFinalizeEvent(
     duration: template.duration || 60,
     calendar_urls,
     eventType: (template.eventType || 'in-person') as 'video' | 'in-person',
-    intent: (template.intent || 'custom') as any,
+    intent: (template.intent || 'custom') as Event['intent'],
     preferredPlaces: eventResult.place ? [eventResult.place] : undefined,
     travelBuffer: template.travelBuffer,
     status: 'scheduled' as const,
@@ -110,7 +110,7 @@ export async function handleFinalizeEvent(
   });
 
   // Stream the message (if LLM generated one) or use default
-  const message = (eventResult as any).message || `I've scheduled **${template.title}** for you and ${body.user2Name || 'your contact'}!`;
+  const message = eventResult.message || `I've scheduled **${template.title}** for you and ${body.user2Name || 'your contact'}!`;
   enqueueContent(controller, encoder, message);
 
   // Stream the final event

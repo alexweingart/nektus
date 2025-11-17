@@ -3,6 +3,7 @@ import { enqueueContent, enqueueNavigateToCalendar } from './streaming-utils';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { Event } from '@/types';
+import type { Place } from '@/types/places';
 
 export async function handleNavigateBooking(
   toolCall: { function: { arguments: string } },
@@ -17,7 +18,7 @@ export async function handleNavigateBooking(
   const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
   const cached = await processingStateManager.getCached<{
     eventTemplate?: Partial<Event>;
-    eventResult?: { startTime: string; endTime: string; place?: any };
+    eventResult?: { startTime: string; endTime: string; place?: Place };
     finalEvent?: Event;
   }>(cacheKey);
 

@@ -6,14 +6,13 @@ import { navigateToBookingLinkFunction } from '@/lib/ai/functions/navigate-to-bo
 import { editEventTemplateFunction } from '@/lib/ai/functions/edit-event-template';
 import { searchPlaces } from '@/lib/ai/helpers/search-places';
 import { getCandidateSlotsWithFallback } from '@/lib/events/scheduling-utils';
-import { processingStateManager } from '@/lib/services/server/aiProcessingService';
-import { enqueueAcknowledgment, enqueueProgress, enqueueError, enqueueContent } from './streaming-utils';
+import { enqueueAcknowledgment, enqueueProgress, enqueueError } from './streaming-utils';
 import { handleGenerateEventTemplate } from './handle-generate-event-template';
 import { handleEditEventTemplate } from './handle-edit-event-template';
 import { handleProvideAlternatives } from './handle-provide-alternatives';
 import { handleFinalizeEvent } from './handle-finalize-event-new';
 import { buildTimeSelectionPrompt } from './handler-utils';
-import type { AISchedulingRequest, Message, OpenAIToolCall } from '@/types/ai-scheduling';
+import type { AISchedulingRequest, Message, OpenAIToolCall, DetermineIntentResult } from '@/types/ai-scheduling';
 import type { TimeSlot, Event } from '@/types';
 import type { Place } from '@/types/places';
 import type { TemplateHandlerResult } from './types';
@@ -344,7 +343,7 @@ export async function streamSchedulingResponse(
         enqueueProgress(controller, encoder, 'Finding time and place...');
 
         // Get candidate slots with fallback
-        let { slots, hasNoCommonTime, hasExplicitTimeConflict } = getCandidateSlotsWithFallback(
+        const result = getCandidateSlotsWithFallback(
           availableTimeSlots,
           {
             duration: templateResult.template.duration || 60,
@@ -352,10 +351,13 @@ export async function streamSchedulingResponse(
             preferredSchedulableHours: templateResult.template.preferredSchedulableHours,
             preferredSchedulableDates: templateResult.template.preferredSchedulableDates,
             travelBuffer: templateResult.template.travelBuffer,
-            hasExplicitTimeRequest: (templateResult.template as any).hasExplicitTimeRequest,
+            hasExplicitTimeRequest: templateResult.template.hasExplicitTimeRequest,
           },
           body.calendarType
         );
+        let slots = result.slots;
+        const hasNoCommonTime = result.hasNoCommonTime;
+        const hasExplicitTimeConflict = result.hasExplicitTimeConflict;
 
         console.log(`✅ Found ${slots.length} candidate slots (hasNoCommonTime: ${hasNoCommonTime}, hasExplicitTimeConflict: ${hasExplicitTimeConflict})`);
 
@@ -367,7 +369,7 @@ export async function streamSchedulingResponse(
             intentResult: {
               intent: 'create_event',
               ...templateResult.placeSearchParams,
-            } as any,
+            } as DetermineIntentResult,
             userLocations: [body.user1Location, body.user2Location].filter(Boolean) as string[],
             userIp: body.userIp, // Pass IP for location fallback
           });
@@ -398,7 +400,7 @@ export async function streamSchedulingResponse(
         };
 
         // Check if this is an explicit time request
-        const hasExplicitTimeRequest = (templateResult.template as any).explicitUserTimes;
+        const hasExplicitTimeRequest = templateResult.template.explicitUserTimes;
 
         // Path A1: NEW event with explicit time request that has no availability
         // Use same logic as Path B, but include requested time and show conflict message
@@ -679,12 +681,12 @@ export async function streamSchedulingResponse(
         console.log(`✅ Event selected: ${eventResult.startTime} - ${eventResult.endTime}`);
 
         // Post-process: Enrich place URLs in the LLM-generated message
-        if ((eventResult as any).message && places && places.length > 0) {
+        if (eventResult.message && places && places.length > 0) {
           console.log('🔄 Post-processing message to enrich place URLs...');
           const { getGooglePlaceIds } = await import('@/lib/places/google-places-client');
           const { generateGoogleMapsUrl } = await import('@/lib/location/location-utils');
 
-          let message = (eventResult as any).message as string;
+          let message = eventResult.message;
 
           // Extract place names from markdown links in the message
           // Format: [Place Name](URL)
@@ -733,7 +735,7 @@ export async function streamSchedulingResponse(
             });
 
             // Update the message in eventResult
-            (eventResult as any).message = message;
+            eventResult.message = message;
             console.log('✅ Message URLs enriched with Google Place IDs');
           }
         }

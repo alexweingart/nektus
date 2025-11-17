@@ -1,5 +1,4 @@
 import { processEditEventTemplateResult } from '@/lib/ai/functions/edit-event-template';
-import { searchPlaces } from '@/lib/ai/helpers/search-places';
 import { applyDefaultTravelBuffer } from '@/lib/events/event-utils';
 import { timeToMinutes, minutesToTime } from '@/lib/events/time-utils';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';

@@ -97,7 +97,6 @@ export async function handleProvideAlternatives({
   }
 
   // Use LLM to intelligently select the best 3 alternative times
-  const selectedAlternatives: string[] = [];
   if (trueAvailableSlots.length > 0) {
     // Format all slots with metadata for LLM selection
     const slotOptions = trueAvailableSlots.slice(0, 30).map((slot, index) => {

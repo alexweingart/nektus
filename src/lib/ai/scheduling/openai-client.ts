@@ -207,14 +207,6 @@ ACTION REQUIRED: Perform web search NOW and return results.`;
         body: errorText
       });
 
-      // Try to parse as JSON
-      let errorJson;
-      try {
-        errorJson = JSON.parse(errorText);
-      } catch {
-        errorJson = { raw: errorText };
-      }
-
       throw new Error(`OpenAI API error (${response.status}): ${errorText.substring(0, 500)}`);
     }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { getEventTemplate, getEventTimeFromSlotWithBuffer } from '@/lib/events/event-templates';
@@ -8,7 +9,6 @@ import { getSuggestedTimes } from '@/lib/events/scheduling-utils';
 import { createCompleteCalendarEvent, generateIcsContent, downloadICSFile } from '@/lib/events/event-utils';
 import { fetchPlacesForChips } from '@/lib/places/place-utils';
 import type { UserProfile, TimeSlot } from '@/types/profile';
-import type { SavedContact } from '@/types/contactExchange';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
@@ -519,7 +519,7 @@ export default function SmartScheduleView() {
                 <ItemChip
                   key={chip.id}
                   icon={
-                    <img src={`/icons/${chip.icon}.svg`} className="w-6 h-6 text-white" alt="" style={{ filter: 'brightness(0) invert(1)' }} />
+                    <Image src={`/icons/${chip.icon}.svg`} width={24} height={24} className="w-6 h-6 text-white" alt="" style={{ filter: 'brightness(0) invert(1)' }} />
                   }
                   title={title}
                   subtitle={subtitle}

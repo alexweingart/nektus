@@ -321,13 +321,10 @@ export function getAllValidSlots(
   }
 
   const validSlots: TimeSlot[] = [];
-  let slotsPassedHoursCheck = 0;
-  let slotsFailedConsecutiveCheck = 0;
 
   for (let i = 0; i < filteredSlots.length; i++) {
     const startSlot = filteredSlots[i];
     const slotTime = new Date(startSlot.start);
-    const slotEndTime = new Date(startSlot.end);
 
     // Only check schedulable hours if there are actual constraints
     if (eventTemplate.preferredSchedulableHours && Object.keys(eventTemplate.preferredSchedulableHours).length > 0) {
@@ -342,8 +339,6 @@ export function getAllValidSlots(
         continue;
       }
     }
-
-    slotsPassedHoursCheck++;
 
     // When there's a before buffer, we need to check if there's enough consecutive free time
     // The slot at index i represents when FREE TIME starts
@@ -396,7 +391,6 @@ export function getAllValidSlots(
     const coversRequiredEnd = consecutiveEndTime.getTime() >= requiredEndTime.getTime();
 
     if (!coversRequiredStart || !coversRequiredEnd) {
-      slotsFailedConsecutiveCheck++;
       continue;
     }
 

@@ -35,7 +35,7 @@ export interface SpecialEventPlace extends Place, SpecialEvent {
 }
 
 export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> {
-  const { intentResult, userLocations, userIp, dateTime: _dateTime, timeframe = 'tomorrow' } = params;
+  const { intentResult, userLocations, userIp, timeframe = 'tomorrow' } = params;
 
   console.log(`🎯 determineThingsToDo called with specificity: ${intentResult.intentSpecificity}`);
 
@@ -441,18 +441,6 @@ async function getMidpointFromLocations(userLocations: string[], userIp?: string
 
 // Note: This function is replaced by getFoursquareCategoriesForActivity from foursquare-client
 // Removed - no longer used
-
-// Helper: Remove duplicate places based on place_id
-function deduplicatePlaces(places: Place[]): Place[] {
-  const seen = new Set<string>();
-  return places.filter(place => {
-    if (seen.has(place.place_id)) {
-      return false;
-    }
-    seen.add(place.place_id);
-    return true;
-  });
-}
 
 // Fallback activity suggestions
 function getDefaultActivitySuggestions(): ActivitySuggestion[] {

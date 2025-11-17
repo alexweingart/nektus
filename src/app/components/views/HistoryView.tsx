@@ -27,7 +27,7 @@ export const HistoryView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache } = useProfile();
+  const { profile: userProfile, loadContacts, getContacts } = useProfile();
   const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +142,8 @@ export const HistoryView: React.FC = () => {
         console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
 
         // Execute fetch in truly async manner (no blocking)
-        auth.currentUser!.getIdToken()
+        if (!auth?.currentUser) return;
+        auth.currentUser.getIdToken()
           .then(idToken => fetch('/api/scheduling/common-times', {
             method: 'POST',
             headers: {

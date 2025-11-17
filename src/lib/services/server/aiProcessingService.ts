@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis';
 
 // Extend global to include our processing states
 declare global {
+  // eslint-disable-next-line no-var
   var __processingStates__: Map<string, ProcessingState | unknown> | undefined;
 }
 
@@ -64,11 +65,14 @@ class ProcessingStateManager {
         // Fallback to in-memory storage
         this.memoryStates.set(id, state);
         console.log(`📝 Created processing state in memory: ${id} (Redis not available, global map size: ${this.memoryStates.size})`);
-        console.log(`📝 Global map instance ID: ${(this.memoryStates as any).__instanceId || 'none'}`);
+        // @ts-expect-error - Adding debug instance ID to Map for tracking
+        console.log(`📝 Global map instance ID: ${this.memoryStates.__instanceId || 'none'}`);
 
         // Set instance ID for debugging
-        if (!(this.memoryStates as any).__instanceId) {
-          (this.memoryStates as any).__instanceId = Math.random().toString(36).substring(7);
+        // @ts-expect-error - Adding debug instance ID to Map for tracking
+        if (!this.memoryStates.__instanceId) {
+          // @ts-expect-error - Adding debug instance ID to Map for tracking
+          this.memoryStates.__instanceId = Math.random().toString(36).substring(7);
         }
 
         // Clean up memory state after 5 minutes
@@ -105,7 +109,8 @@ class ProcessingStateManager {
         }
       } else {
         // Check in-memory storage
-        console.log(`🔍 Checking memory for ${id}, global map size: ${this.memoryStates.size}, instance ID: ${(this.memoryStates as any).__instanceId || 'none'}`);
+        // @ts-expect-error - Accessing debug instance ID from Map
+        console.log(`🔍 Checking memory for ${id}, global map size: ${this.memoryStates.size}, instance ID: ${this.memoryStates.__instanceId || 'none'}`);
         const state = this.memoryStates.get(id);
         if (state) {
           console.log(`🔍 Retrieved processing state from memory: ${id}`);

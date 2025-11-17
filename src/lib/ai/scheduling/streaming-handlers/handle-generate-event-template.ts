@@ -70,8 +70,7 @@ export async function handleGenerateEventTemplate(
     placeSearchParams: eventTemplate.eventType === 'in-person' ? {
       suggestedPlaceTypes: eventTemplate.suggestedPlaceTypes,
       intentSpecificity: eventTemplate.intentSpecificity as 'specific_place' | 'activity_type' | 'generic',
-      activitySearchQuery: eventTemplate.activitySearchQuery || eventTemplate.placeSearchQuery,
-      specificPlace: eventTemplate.specificPlaceName // Pass the specific place name to search
+      activitySearchQuery: eventTemplate.activitySearchQuery || eventTemplate.placeSearchQuery
     } : undefined
   };
 }

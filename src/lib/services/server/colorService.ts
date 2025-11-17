@@ -122,7 +122,7 @@ export function pickAccentColors(palette: string[], count = 2): string[] {
  */
 export function isAchromatic(hex: string): boolean {
   const [r, g, b] = hexToRgb(hex);
-  const { s, v } = rgbToHsv(r, g, b);
+  const { s } = rgbToHsv(r, g, b);
 
   // A color is achromatic if its saturation is very low
   // Threshold of 0.15 catches greys, blacks, and whites while allowing muted colors
