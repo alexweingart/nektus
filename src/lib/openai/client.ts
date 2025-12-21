@@ -104,13 +104,18 @@ export function getOpenAIClient(): CustomOpenAI {
             size: params.size || '1024x1024'
           };
           
-          // Make the API call
+          // Make the API call (non-streaming)
           const response = await standardClient.images.generate(finalParams as Parameters<typeof standardClient.images.generate>[0]);
-          
-          // Return our simplified format
-          return {
-            data: response.data || []
-          };
+
+          // Type guard: ensure response is ImagesResponse (not Stream)
+          if ('data' in response) {
+            // Return our simplified format
+            return {
+              data: response.data || []
+            };
+          }
+
+          throw new Error('Unexpected response type from images.generate');
         } catch (error) {
           console.error('[OpenAI Client] Error in images.generate:', error);
           throw error;

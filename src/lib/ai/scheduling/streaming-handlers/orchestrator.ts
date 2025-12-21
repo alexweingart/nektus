@@ -691,6 +691,11 @@ export async function streamSchedulingResponse(
           throw new Error('No generateEvent tool call returned');
         }
 
+        // Ensure it's a function tool call (not a custom tool call)
+        if (eventToolCall.type !== 'function') {
+          throw new Error('Expected function tool call');
+        }
+
         // Process the event result
         const eventResult = processGenerateEventResult(
           eventToolCall.function.arguments,

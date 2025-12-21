@@ -116,7 +116,7 @@ export const useImageUpload = () => {
 /**
  * Custom hook for managing profile view mode (Personal/Work) with localStorage and carousel
  */
-export const useProfileViewMode = (carouselRef: React.RefObject<HTMLElement>) => {
+export const useProfileViewMode = (carouselRef: React.RefObject<HTMLDivElement | null>) => {
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
 
   // Animate carousel to match selected mode

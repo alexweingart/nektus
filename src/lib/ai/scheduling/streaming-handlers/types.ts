@@ -36,5 +36,6 @@ export interface TemplateHandlerResult {
     suggestedPlaceTypes?: string[];
     intentSpecificity?: 'specific_place' | 'activity_type' | 'generic';
     activitySearchQuery?: string;
+    specificPlace?: string;
   };
 }
