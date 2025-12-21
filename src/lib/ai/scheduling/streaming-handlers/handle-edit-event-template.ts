@@ -129,6 +129,7 @@ export async function handleEditEventTemplate(
     needsPlaceSearch = true;
     placeSearchParams = {
       intentSpecificity: 'specific_place' as const,
+      specificPlace: editResult.newSpecificPlace, // Required by searchSpecificPlace
       activitySearchQuery: editResult.newSpecificPlace,
       suggestedPlaceTypes: editResult.suggestedPlaceTypes || [],
     };

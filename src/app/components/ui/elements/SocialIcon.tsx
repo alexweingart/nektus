@@ -70,7 +70,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       case 'x':
         return `https://x.com/${usernameFormatted}`;
       case 'linkedin':
-        return `https://linkedin.com/in/${usernameFormatted}`;
+        return `https://www.linkedin.com/in/${usernameFormatted}`;
       case 'snapchat':
         return `https://snapchat.com/add/${usernameFormatted}`;
       case 'whatsapp':
@@ -105,8 +105,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       return;
     }
 
-    // Handle custom icon (favicon) - username contains the full URL
-    if (customIcon && username) {
+    // Handle custom links - username contains the full URL
+    if (linkType === 'custom' && username) {
       window.open(username, '_blank', 'noopener,noreferrer');
       return;
     }

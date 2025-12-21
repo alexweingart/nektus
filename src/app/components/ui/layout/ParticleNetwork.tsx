@@ -20,6 +20,7 @@ export function ParticleNetwork() {
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number>();
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
     // Check for reduced motion preference
@@ -32,8 +33,27 @@ export function ParticleNetwork() {
   }, []);
 
   useEffect(() => {
+    // Check for show-particles class on body
+    const checkShowClass = () => {
+      setShouldShow(document.body.classList.contains('show-particles'));
+    };
+
+    // Initial check
+    checkShowClass();
+
+    // Watch for class changes using MutationObserver
+    const observer = new MutationObserver(checkShowClass);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || prefersReducedMotion) return;
+    if (!canvas || prefersReducedMotion || !shouldShow) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -119,9 +139,9 @@ export function ParticleNetwork() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, shouldShow]);
 
-  if (prefersReducedMotion) {
+  if (prefersReducedMotion || !shouldShow) {
     return null;
   }
 

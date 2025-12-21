@@ -189,12 +189,37 @@ body {
   transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
 }
 
-/* Pseudo-element no longer needed for glow overlay */
-body::after {
-  content: none;
+/* ParticleNetwork canvas - hidden by default, only shown when explicitly needed */
+canvas[style*="z-index: 0"] {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
 }
 
-/* Pulsing glow overlay moved - now defined after body styles above */
+body.show-particles canvas[style*="z-index: 0"] {
+  opacity: 1;
+}
+
+/* Default background - shown when user has no custom background and has initials avatar */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: var(--default-background-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1; /* Above ParticleNetwork (0), below user background (2) */
+  opacity: 0;
+  transition: opacity 1s ease-out;
+  pointer-events: none;
+}
+
+body.show-default-background::after {
+  opacity: 1;
+}
 
 /* User background - persistent layer always visible */
 body::before {

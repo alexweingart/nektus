@@ -63,7 +63,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
       case 'x':
         return `https://x.com/${username}`;
       case 'linkedin':
-        return `https://linkedin.com/in/${username}`;
+        return `https://www.linkedin.com/in/${username}`;
       case 'snapchat':
         return `https://www.snapchat.com/add/${username}`;
       case 'whatsapp':

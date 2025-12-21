@@ -52,6 +52,7 @@ export default async function RootLayout({
       <html
         lang="en"
         className="bg-black"
+        data-scroll-behavior="smooth"
         style={{
           backgroundColor: '#000'
         }}

@@ -15,10 +15,10 @@ const PUBLIC_PATHS = [
   '/terms'
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for public paths and static files
+  // Skip proxy for public paths and static files
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path)) ||
       pathname.includes('.') ||
       pathname.startsWith('/_next') ||

@@ -5,14 +5,10 @@ const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
 
 // Using App Router configuration - prevents _document error
 const nextConfig = {
-  // Next.js 15.3 configuration
+  // Next.js 16 configuration
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   serverExternalPackages: ['next-pwa', 'openai'],
   reactStrictMode: false, // Temporarily disabled to test production-like behavior
-  eslint: {
-    ignoreDuringBuilds: true, // Skip ESLint during builds for speed
-    dirs: ['src'],
-  },
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -20,6 +16,8 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  // Turbopack configuration (Next.js 16 default)
+  turbopack: {},
   compiler: {
     removeConsole: false, // Keep console logs in dev
   },

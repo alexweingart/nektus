@@ -609,7 +609,7 @@ Return your findings as JSON with this exact structure:
     const patterns: Record<string, string> = {
       facebook: `https://facebook.com/${username}`,
       instagram: `https://instagram.com/${username}`,
-      linkedin: `https://linkedin.com/in/${username}`,
+      linkedin: `https://www.linkedin.com/in/${username}`,
       x: `https://x.com/${username}`,
       snapchat: `https://snapchat.com/add/${username}`,
       whatsapp: `https://wa.me/${username}`,

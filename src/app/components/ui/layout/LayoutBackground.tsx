@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { useProfile } from '../../../context/ProfileContext';
 
@@ -11,7 +12,8 @@ import { useProfile } from '../../../context/ProfileContext';
  * No React render delays - backgrounds always present in DOM
  */
 export function LayoutBackground() {
-  const { profile, isLoading, streamingBackgroundImage } = useProfile();
+  const { data: session, status } = useSession();
+  const { profile, isLoading, streamingBackgroundImage, isGoogleInitials } = useProfile();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -109,6 +111,72 @@ export function LayoutBackground() {
       // Otherwise, keep background ready for navigation
     }
   }, [pathname, contactBackgroundUrl]);
+
+  // Manage default background and particle network visibility
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Set default background image CSS variable
+    document.documentElement.style.setProperty('--default-background-image', 'url("/DefaultBackgroundImage.png")');
+
+    // Wait for both session and profile to be determined (don't show anything while loading)
+    if (status === 'loading' || isLoading) {
+      return;
+    }
+
+    // Determine if avatar is initials or AI-generated
+    const isInitialsAvatar = profile?.aiGeneration?.avatarGenerated === true || isGoogleInitials;
+
+    // Check if we have any background (user or contact)
+    const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
+    const hasBackground = !!userBackgroundUrl || !!contactBackgroundUrl;
+
+    // Signed out (authenticated status determined) → show particles, no default background
+    if (!session) {
+      document.body.classList.add('show-particles');
+      document.body.classList.remove('show-default-background');
+      return;
+    }
+
+    // Determine if we're on a contact page
+    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+
+    // Signed in logic - different behavior for contact pages vs user pages
+    if (isOnContactPage) {
+      // CONTACT PAGE LOGIC
+      if (contactBackgroundUrl) {
+        // Contact has background → show it, no particles, no default
+        document.body.classList.remove('show-particles');
+        document.body.classList.remove('show-default-background');
+      } else {
+        // Contact has NO background → show default background, no particles
+        document.body.classList.remove('show-particles');
+        document.body.classList.add('show-default-background');
+      }
+    } else {
+      // USER PAGE LOGIC
+      if (userBackgroundUrl) {
+        // User has background → show it, no particles, no default
+        document.body.classList.remove('show-particles');
+        document.body.classList.remove('show-default-background');
+      } else if (isInitialsAvatar) {
+        // No background + initials avatar → show default background, no particles
+        document.body.classList.remove('show-particles');
+        document.body.classList.add('show-default-background');
+      } else {
+        // No background + real photo → show particles, no default
+        document.body.classList.add('show-particles');
+        document.body.classList.remove('show-default-background');
+      }
+    }
+
+    return () => {
+      // Cleanup on unmount
+      document.body.classList.remove('show-particles');
+      document.body.classList.remove('show-default-background');
+      document.documentElement.style.removeProperty('--default-background-image');
+    };
+  }, [mounted, session, status, profile, streamingBackgroundImage, contactBackgroundUrl, isGoogleInitials, pathname]);
 
   // Handle image load
   const handleImageLoad = useCallback(() => {
