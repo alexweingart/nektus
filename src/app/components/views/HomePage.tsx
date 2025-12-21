@@ -21,7 +21,7 @@ const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   return (
-    <div className="relative">
+    <div className="relative min-h-dvh">
       {/* Main content */}
       <div className="flex items-start justify-center pt-[10vh]">
         <div

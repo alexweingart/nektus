@@ -135,7 +135,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
+      <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-dvh">
         <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
           <PageHeader onBack={() => router.back()} title="Location" />
           <Text className="text-white/60">Loading...</Text>
@@ -146,7 +146,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
 
   if (!location || !editedLocation) {
     return (
-      <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
+      <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-dvh">
         <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
           <PageHeader onBack={() => router.back()} title="Location" />
           <Text className="text-white/60">Location not found</Text>
@@ -156,7 +156,7 @@ export default function LocationView({ locationId }: LocationViewProps) {
   }
 
   return (
-    <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
+    <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-dvh">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
         <PageHeader
           onBack={() => router.back()}

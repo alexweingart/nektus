@@ -144,7 +144,7 @@ input:-webkit-autofill:active {
 }
 
 html {
-  height: 100dvh;
+  min-height: 100dvh;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
@@ -296,10 +296,9 @@ body.show-contact-background .contact-background-overlay {
   html {
     background-attachment: scroll !important;
   }
-  
+
   /* Ensure full height coverage and prevent overscroll */
   html, body {
-    height: 100dvh;
     min-height: 100dvh;
     overscroll-behavior-y: none;
     overscroll-behavior-x: contain;

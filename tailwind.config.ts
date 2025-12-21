@@ -29,6 +29,9 @@ export default {
       backgroundImage: {
         'nekt-gradient': 'linear-gradient(135deg, #E7FED2, #71E454)',
       },
+      padding: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
     },
   },
   plugins: [],

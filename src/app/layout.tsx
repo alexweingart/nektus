@@ -77,7 +77,7 @@ export default async function RootLayout({
               <ParticleNetwork />
               <ContactBackgroundOverlay />
               <AdminBanner />
-              <div style={{ position: 'relative', zIndex: 10 }}>
+              <div className="min-h-dvh" style={{ position: 'relative', zIndex: 10 }}>
                 {children}
               </div>
             </AdminModeProvider>
