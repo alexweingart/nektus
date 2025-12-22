@@ -67,7 +67,7 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
   },
   'connect': {
     particleDensity: 10000, // High density
-    particleSpeed: 0.5,     // Fast
+    particleSpeed: 0.8,     // Very fast - imminent connection energy
     connectionDistance: 180,
     connectionOpacity: 0.25,
     hasGravity: false,
