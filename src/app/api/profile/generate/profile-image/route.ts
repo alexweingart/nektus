@@ -71,14 +71,13 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
       setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
     );
 
-    // Generate the image with base64 response format
+    // Generate the image - GPT image models return base64 by default (response_format not supported)
     const imageGenerationPromise = client.images.generate({
       model: 'gpt-image-1.5',
       prompt,
       n: 1,
       size: '1024x1024',
       quality: 'low',
-      response_format: 'b64_json',
     });
 
     console.log('[API/PROFILE-IMAGE] Waiting for OpenAI response...');

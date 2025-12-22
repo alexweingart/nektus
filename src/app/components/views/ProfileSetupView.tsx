@@ -24,7 +24,7 @@ function ProfileSetupView() {
     required: true,
   });
   
-  const { saveProfile, profile, isSaving: isProfileSaving, isLoading: isProfileLoading, setNavigatingFromSetup } = useProfile();
+  const { saveProfile, profile, isSaving: isProfileSaving, isLoading: isProfileLoading, setNavigatingFromSetup, isGoogleInitials, streamingProfileImage } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -163,7 +163,12 @@ function ProfileSetupView() {
             <div className="mb-4">
               <div className="border-4 border-white shadow-lg rounded-full">
                 <Avatar
-                  src={getOptimalProfileImageUrl(profile?.profileImage, 400)}
+                  src={
+                    // Use streaming image first, then check if Google initials (show gradient fallback)
+                    isGoogleInitials && !streamingProfileImage
+                      ? undefined
+                      : getOptimalProfileImageUrl(streamingProfileImage || profile?.profileImage, 400)
+                  }
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                   isLoading={isProfileLoading}

@@ -19,7 +19,26 @@ const GoogleIcon = () => (
 // Component handles just the welcome screen
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
-  
+
+  // Check if running as PWA on iOS (client-side only)
+  const [isIOSPWA, setIsIOSPWA] = React.useState(false);
+
+  React.useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOSPWA(isStandalone && isIOS);
+  }, []);
+
+  const handleSignIn = async () => {
+    // Standard sign-in for non-PWA (iOS PWA uses the link directly)
+    signIn('google');
+  };
+
+  // Auth URL for iOS PWA
+  const iosPWAAuthUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth-complete')}`
+    : '/';
+
   return (
     <div className="relative">
       {/* Main content */}
@@ -65,17 +84,37 @@ const HomePage: React.FC = () => {
         <Heading as="h1" className="text-center w-full mb-10">
           Bump to Connect
         </Heading>
-        
-        <Button
-          variant="white"
-          size="xl"
-          className="w-full mb-2 text-gray-700 font-medium"
-          onClick={() => signIn('google')}
-          icon={<GoogleIcon />}
-        >
-          Sign in with Google
-        </Button>
-        
+
+        {isIOSPWA ? (
+          // For iOS PWA: Use real link to avoid popup blocking
+          <Button
+            asChild
+            variant="white"
+            size="xl"
+            className="w-full mb-2 text-gray-700 font-medium"
+          >
+            <a
+              href={iosPWAAuthUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="mr-2"><GoogleIcon /></span>
+              Sign in with Google
+            </a>
+          </Button>
+        ) : (
+          // For non-PWA: Use standard NextAuth flow
+          <Button
+            variant="white"
+            size="xl"
+            className="w-full mb-2 text-gray-700 font-medium"
+            onClick={handleSignIn}
+            icon={<GoogleIcon />}
+          >
+            Sign in with Google
+          </Button>
+        )}
+
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
           to start nekt&apos;ing
         </p>

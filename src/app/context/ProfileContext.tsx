@@ -45,6 +45,7 @@ type ProfileContextType = {
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingBackgroundImage: string | null;
   setStreamingBackgroundImage: (imageUrl: string | null) => void;
+  streamingProfileImage: string | null;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
   // Contacts cache management
@@ -83,6 +84,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [streamingBio, setStreamingBio] = useState<string | null>(null);
   const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactEntries'] | null>(null);
   const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
+  const [streamingProfileImage, setStreamingProfileImage] = useState<string | null>(null);
 
   // Track if current profile image is Google auto-generated initials
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
@@ -359,8 +361,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           .then(data => {
             if (data.imageUrl) {
               console.log('[ProfileContext] Profile image saved to Firebase storage:', data.imageUrl);
-              // Don't set streaming state - wait for profile reload to avoid race conditions
-              // The image will be available when we reload the profile from Firebase after all generations complete
+              // Update streaming state for immediate UI feedback
+              setStreamingProfileImage(data.imageUrl);
             }
           })
           .catch(error => {
@@ -913,6 +915,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         streamingSocialContacts,
         streamingBackgroundImage,
         setStreamingBackgroundImage,
+        streamingProfileImage,
         isGoogleInitials,
         contacts,
         contactsLoadedAt,

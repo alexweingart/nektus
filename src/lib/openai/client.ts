@@ -12,6 +12,8 @@ interface ImageGenerationParams {
   size?: CustomImageSize;
   quality?: 'low' | 'medium' | 'high' | 'auto';
   model?: string;
+  // Note: response_format is only for DALL-E models. GPT image models (gpt-image-1, gpt-image-1.5)
+  // always return base64 by default and don't support this parameter.
   response_format?: 'url' | 'b64_json';
 }
 
