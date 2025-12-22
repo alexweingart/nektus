@@ -72,7 +72,7 @@ export default function RootLayout({
             <AdminModeProvider>
               <HeightDebugger />
               <LayoutBackground />
-              <ParticleNetwork />
+              {/* ParticleNetwork is rendered inside LayoutBackground with proper context-aware props */}
               <AdminBanner />
               <div style={{ position: 'relative', zIndex: 10 }}>
                 {children}
