@@ -113,8 +113,14 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   // Handle color changes instantly (no interpolation)
   useEffect(() => {
     const newColors = colors || DEFAULT_COLORS;
+    console.log('🎨 ParticleNetwork: Colors updated', {
+      context,
+      receivedColors: colors,
+      usingColors: newColors,
+      particleColor: newColors.particle
+    });
     currentColorsRef.current = newColors;
-  }, [colors]);
+  }, [colors, context]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

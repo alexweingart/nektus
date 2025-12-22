@@ -59,8 +59,11 @@ export function LayoutBackground() {
       const customEvent = event as CustomEvent;
       const { backgroundColors } = customEvent.detail || {};
 
+      console.log('🎨 LayoutBackground: match-found event received', { backgroundColors });
+
       if (backgroundColors) {
         setContactProfile({ backgroundColors });
+        console.log('🎨 LayoutBackground: contactProfile updated with colors', backgroundColors);
       }
     };
 
@@ -119,13 +122,23 @@ export function LayoutBackground() {
       // Contact page logic
       const contactColors = contactProfile?.backgroundColors;
 
+      console.log('🎨 LayoutBackground: Contact page detected', {
+        pathname,
+        hasContactProfile: !!contactProfile,
+        contactColors,
+        hasEnoughColors: contactColors && contactColors.length >= 3
+      });
+
       if (contactColors && contactColors.length >= 3) {
+        const particleColors = convertToParticleColors(contactColors);
+        console.log('🎨 LayoutBackground: Using contact colors', { contactColors, particleColors });
         return {
-          colors: convertToParticleColors(contactColors),
+          colors: particleColors,
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
       } else {
         // Contact has no custom colors - use default with appropriate context
+        console.log('🎨 LayoutBackground: No contact colors, using defaults');
         return {
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
