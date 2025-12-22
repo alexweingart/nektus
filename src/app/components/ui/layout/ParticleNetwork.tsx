@@ -94,6 +94,9 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
+  // Prevent React.StrictMode from creating duplicate animation loops
+  const hasInitializedRef = useRef(false);
+
   // Current colors ref (instant updates, no interpolation)
   const currentColorsRef = useRef<ParticleColors>(colors || DEFAULT_COLORS);
 
@@ -128,6 +131,13 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Prevent duplicate initialization from React.StrictMode in development
+    if (hasInitializedRef.current) {
+      console.log('🎨 ParticleNetwork: Skipping duplicate initialization (StrictMode)');
+      return;
+    }
+    hasInitializedRef.current = true;
 
     // Set canvas size to match HTML element
     const updateSize = () => {
@@ -250,6 +260,8 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = undefined;
       }
+      // Reset initialization flag so component can reinitialize when config changes
+      hasInitializedRef.current = false;
     };
   }, [prefersReducedMotion, config]);
 
