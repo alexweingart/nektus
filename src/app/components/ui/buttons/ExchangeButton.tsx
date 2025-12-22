@@ -74,13 +74,10 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           console.log('🧪 ExchangeButton: Simulating match - triggering exit animation');
           setStatus('matched');
 
-          // Use the mock background for testing crossfade
-          const mockContactBackground = 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200';
-
-          // Trigger exit animation on ProfileView with mock contact background
+          // Trigger exit animation on ProfileView with demo contact colors
           window.dispatchEvent(new CustomEvent('match-found', {
             detail: {
-              contactBackgroundImage: mockContactBackground
+              backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493']  // Demo coral/pink colors
             }
           }));
 
@@ -127,24 +124,24 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           // Store token for use in setTimeout callback
           const matchToken = state.match.token;
 
-          // Fetch contact profile to get background image
-          let contactBackgroundImage = '';
+          // Fetch contact profile to get background colors
+          let backgroundColors: string[] | undefined;
           try {
             const response = await fetch(`/api/exchange/pair/${matchToken}`);
             if (response.ok) {
               const result = await response.json();
-              if (result.success && result.profile?.backgroundImage) {
-                contactBackgroundImage = result.profile.backgroundImage;
+              if (result.success && result.profile?.backgroundColors) {
+                backgroundColors = result.profile.backgroundColors;
               }
             }
           } catch (error) {
-            console.error('Failed to fetch contact background:', error);
+            console.error('Failed to fetch contact background colors:', error);
           }
 
-          // Emit match-found event with contact background
-          console.log('🎯 ExchangeButton: Emitting match-found event');
+          // Emit match-found event with contact background colors
+          console.log('🎯 ExchangeButton: Emitting match-found event', { backgroundColors });
           window.dispatchEvent(new CustomEvent('match-found', {
-            detail: { contactBackgroundImage }
+            detail: { backgroundColors }
           }));
 
           // Navigate after a small delay to allow animation to start
