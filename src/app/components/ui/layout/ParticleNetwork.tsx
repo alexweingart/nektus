@@ -94,11 +94,8 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-  // Color interpolation refs
+  // Current colors ref (instant updates, no interpolation)
   const currentColorsRef = useRef<ParticleColors>(colors || DEFAULT_COLORS);
-  const targetColorsRef = useRef<ParticleColors>(colors || DEFAULT_COLORS);
-  const colorTransitionStartRef = useRef<number>(0);
-  const isTransitioningRef = useRef(false);
 
   // Get config for current context
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS['signed-out'];
@@ -113,23 +110,10 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
-  // Handle color changes with interpolation
+  // Handle color changes instantly (no interpolation)
   useEffect(() => {
     const newColors = colors || DEFAULT_COLORS;
-
-    // Check if colors actually changed
-    const colorsChanged =
-      currentColorsRef.current.particle !== newColors.particle ||
-      currentColorsRef.current.connection !== newColors.connection ||
-      currentColorsRef.current.gradientStart !== newColors.gradientStart ||
-      currentColorsRef.current.gradientEnd !== newColors.gradientEnd;
-
-    if (colorsChanged) {
-      // Start color transition
-      targetColorsRef.current = newColors;
-      colorTransitionStartRef.current = Date.now();
-      isTransitioningRef.current = true;
-    }
+    currentColorsRef.current = newColors;
   }, [colors]);
 
   useEffect(() => {
@@ -166,58 +150,9 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     updateSize();
     window.addEventListener('resize', updateSize);
 
-    // Helper function to interpolate between two rgba colors
-    const interpolateColor = (color1: string, color2: string, progress: number): string => {
-      // Extract rgba values
-      const extractRgba = (color: string) => {
-        if (color.startsWith('rgba')) {
-          const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
-          if (match) {
-            return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseFloat(match[4] || '1')];
-          }
-        } else if (color.startsWith('#')) {
-          const hex = color.replace('#', '');
-          const r = parseInt(hex.substring(0, 2), 16);
-          const g = parseInt(hex.substring(2, 4), 16);
-          const b = parseInt(hex.substring(4, 6), 16);
-          return [r, g, b, 1];
-        }
-        return [0, 0, 0, 1];
-      };
-
-      const [r1, g1, b1, a1] = extractRgba(color1);
-      const [r2, g2, b2, a2] = extractRgba(color2);
-
-      const r = Math.round(r1 + (r2 - r1) * progress);
-      const g = Math.round(g1 + (g2 - g1) * progress);
-      const b = Math.round(b1 + (b2 - b1) * progress);
-      const a = a1 + (a2 - a1) * progress;
-
-      return `rgba(${r}, ${g}, ${b}, ${a})`;
-    };
-
     // Animation loop
     const animate = () => {
       const particles = particlesRef.current;
-
-      // Handle color interpolation (1 second transition)
-      if (isTransitioningRef.current) {
-        const elapsed = Date.now() - colorTransitionStartRef.current;
-        const transitionDuration = 1000; // 1 second
-        const progress = Math.min(elapsed / transitionDuration, 1);
-
-        // Lerp colors
-        currentColorsRef.current = {
-          particle: interpolateColor(currentColorsRef.current.particle, targetColorsRef.current.particle, progress),
-          connection: interpolateColor(currentColorsRef.current.connection, targetColorsRef.current.connection, progress),
-          gradientStart: interpolateColor(currentColorsRef.current.gradientStart, targetColorsRef.current.gradientStart, progress),
-          gradientEnd: interpolateColor(currentColorsRef.current.gradientEnd, targetColorsRef.current.gradientEnd, progress)
-        };
-
-        if (progress >= 1) {
-          isTransitioningRef.current = false;
-        }
-      }
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
