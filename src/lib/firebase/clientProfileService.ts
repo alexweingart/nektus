@@ -271,7 +271,7 @@ export const ClientProfileService = {
         console.warn('Cannot get contacts: Firebase not initialized');
         return [];
       }
-      
+
       const contactsRef = collection(firestore, 'profiles', userId, 'contacts');
       const snapshot = await getDocs(contactsRef);
 
@@ -290,6 +290,34 @@ export const ClientProfileService = {
         console.error('Failed to get contacts:', error);
         return [];
       }
+    }
+  },
+
+  /**
+   * Deletes a contact from the user's contacts collection
+   * @param userId The ID of the user who owns the contact list
+   * @param contactUserId The ID of the contact to delete
+   * @returns Promise that resolves when the operation completes
+   */
+  async deleteContact(userId: string, contactUserId: string): Promise<void> {
+    try {
+      const firestore = await ensureInitialized();
+      if (!firestore) {
+        console.warn('Cannot delete contact: Firebase not initialized');
+        return;
+      }
+
+      const contactRef = doc(firestore, 'profiles', userId, 'contacts', contactUserId);
+      await deleteDoc(contactRef);
+      console.log('Deleted contact for user:', userId, 'contactUserId:', contactUserId);
+    } catch (error) {
+      const firestoreError = error as FirestoreError;
+      if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+        console.warn('Permission denied when deleting contact. User may not have sufficient permissions.');
+      } else {
+        console.error('Failed to delete contact:', error);
+      }
+      throw error;
     }
   }
 }; 

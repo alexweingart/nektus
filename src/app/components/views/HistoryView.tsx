@@ -27,13 +27,16 @@ export const HistoryView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { profile: userProfile, loadContacts, getContacts } = useProfile();
+  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache } = useProfile();
   const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
   const [showCalendarAddedModal, setShowCalendarAddedModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<SavedContact | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<SavedContact | null>(null);
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const hasFetchedSlotsRef = useRef(false);
 
   // Handle calendar OAuth callback - show success modal when calendar is added
@@ -291,6 +294,61 @@ export const HistoryView: React.FC = () => {
     }
   };
 
+  // Long-press handler for delete
+  const handleLongPress = (contact: SavedContact) => {
+    setContactToDelete(contact);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteContact = async () => {
+    if (!contactToDelete || !session?.user?.id) return;
+
+    setDeletingContactId(contactToDelete.userId);
+    setShowDeleteModal(false);
+
+    try {
+      // Get Firebase ID token for authentication
+      const currentUser = auth?.currentUser;
+      if (!currentUser) {
+        throw new Error('No authenticated user');
+      }
+
+      const idToken = await currentUser.getIdToken();
+
+      // Call DELETE API endpoint
+      const response = await fetch(`/api/contacts/${contactToDelete.userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete contact');
+      }
+
+      // Invalidate contacts cache to trigger re-fetch
+      invalidateContactsCache();
+
+      // Reload contacts to update the list
+      await loadContacts(session.user.id, true);
+
+      console.log('Contact deleted successfully:', contactToDelete.userId);
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+      setError('Failed to delete contact. Please try again.');
+    } finally {
+      setDeletingContactId(null);
+      setContactToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setContactToDelete(null);
+  };
+
   // Loading state - show empty content
   if (isLoading) {
     return (
@@ -428,7 +486,9 @@ export const HistoryView: React.FC = () => {
                 truncateTitle
                 onClick={() => handleContactTap(contact)}
                 onActionClick={(e) => handleCalendarClick(e, contact)}
+                onLongPress={() => handleLongPress(contact)}
                 actionIcon="calendar"
+                isActionLoading={deletingContactId === contact.userId}
               />
             ))}
           </div>
@@ -457,6 +517,21 @@ export const HistoryView: React.FC = () => {
         showSecondaryButton={false}
         showCloseButton={false}
       />
+
+      {/* Delete Contact Confirmation Modal */}
+      {contactToDelete && (
+        <StandardModal
+          isOpen={showDeleteModal}
+          onClose={handleCancelDelete}
+          title="Delete Contact?"
+          subtitle={`Are you sure you want to delete ${getFieldValue(contactToDelete.contactEntries, 'name')}? This cannot be undone.`}
+          primaryButtonText="Delete"
+          onPrimaryButtonClick={handleDeleteContact}
+          secondaryButtonText="Cancel"
+          onSecondaryButtonClick={handleCancelDelete}
+          showCloseButton={false}
+        />
+      )}
     </div>
   );
 }; 

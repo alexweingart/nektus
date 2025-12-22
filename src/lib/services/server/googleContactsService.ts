@@ -163,23 +163,26 @@ export async function saveToGoogleContacts(
   profile: UserProfile
 ): Promise<GoogleContactsCreateResponse> {
   const createResult = await createGoogleContact(accessToken, profile);
-  
+
   if (!createResult.success || !createResult.contactId) {
     return createResult;
   }
 
-  // Try to add photo if available
+  // Fire-and-forget photo upload in background (non-blocking)
   if (profile.profileImage) {
-    const photoResult = await updateGoogleContactPhoto(
-      accessToken, 
-      createResult.contactId, 
+    updateGoogleContactPhoto(
+      accessToken,
+      createResult.contactId,
       profile.profileImage
-    );
-    
-    // Don't fail the entire operation if photo update fails
-    if (!photoResult.success) {
-      console.warn('Contact created but photo update failed:', photoResult.error);
-    }
+    ).then(photoResult => {
+      if (photoResult.success) {
+        console.log('✅ Photo uploaded successfully in background');
+      } else {
+        console.warn('⚠️ Background photo upload failed:', photoResult.error);
+      }
+    }).catch(err => {
+      console.error('❌ Background photo upload error:', err);
+    });
   }
 
   return createResult;

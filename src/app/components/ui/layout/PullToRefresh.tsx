@@ -114,17 +114,17 @@ export function PullToRefresh({
   const showRefreshIndicator = pullDistance > 20 || isRefreshing;
 
   return (
-    <div 
+    <div
       ref={containerRef}
       data-scrollable="true"
-      className={`min-h-dvh overflow-y-auto overflow-x-hidden ${className}`}
+      className={`overflow-y-auto overflow-x-hidden ${className}`}
       style={{
-        transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(pullDistance, 60)}px)` : `translateY(${pullDistance}px)`) : 'translateY(0px)',
+        transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(Math.max(pullDistance, 0), 60)}px)` : `translateY(${Math.max(pullDistance, 0)}px)`) : 'translateY(0px)',
         transition: isPulling && pullDistance > 0 ? 'none' : 'transform 0.2s ease-out',
-        height: '100dvh',
+        maxHeight: '100dvh', // Use max-height instead of fixed height to prevent overflow
         minHeight: '100dvh',
         // Prevent overscroll bounce to avoid black area
-        overscrollBehaviorY: 'none',
+        overscrollBehaviorY: 'contain',
         overscrollBehaviorX: 'contain'
       }}
     >

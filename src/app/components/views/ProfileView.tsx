@@ -238,7 +238,7 @@ const ProfileView: React.FC = () => {
   if ((isProfileLoading || sessionStatus === 'loading') && !isNavigatingFromSetup) {
     console.log('[ProfileView] Showing main loading state (auth/profile loading)');
     // Return empty div - green background pattern from body will show through for smooth transition
-    return <div className="min-h-dvh w-full" />;
+    return <div className="w-full" />;
   }
 
   // Show loading state during account deletion to prevent "Unable to load profile" flash
@@ -272,7 +272,7 @@ const ProfileView: React.FC = () => {
   if (isNavigatingFromSetup && !profile) {
     console.log('[ProfileView] Navigating from setup with no profile - showing save state');
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-2">
+      <div className="flex flex-col items-center justify-center px-4 py-2">
         <div className="flex flex-col items-center">
           <LoadingSpinner size="sm" className="mb-4" />
           <p className="text-white">Saving your profile...</p>
@@ -283,7 +283,7 @@ const ProfileView: React.FC = () => {
 
 
   return (
-    <div className="min-h-dvh flex flex-col items-center px-4 py-2">
+    <div className="flex flex-col items-center px-4 py-2">
       {/* Top Navigation Buttons - Fixed */}
       <div
         ref={topButtonsRef}

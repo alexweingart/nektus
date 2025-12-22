@@ -1,15 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { SessionProvider } from "./providers/SessionProvider";
 import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
-import { ContactBackgroundOverlay } from './components/ui/layout/ContactBackgroundOverlay';
 import { ParticleNetwork } from './components/ui/layout/ParticleNetwork';
+import { HeightDebugger } from './components/debug/HeightDebugger';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,6 +16,12 @@ const inter = Inter({
 
 // Theme color for PWA and root background
 const THEME_COLOR = '#000000';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: "Nekt - Bump to Connect",
@@ -41,24 +45,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession(authOptions);
-
   return (
       <html
         lang="en"
-        className="bg-black"
         data-scroll-behavior="smooth"
-        style={{
-          backgroundColor: '#000'
-        }}
       >
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=overlays-content, viewport-fit=cover" />
         <meta name="description" content="Exchange contact info and social profiles by bumping phones" />
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -70,14 +67,14 @@ export default async function RootLayout({
         <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
       </head>
       <body className={`${inter.variable} antialiased`}>
-        <SessionProvider session={session}>
+        <SessionProvider>
           <ProfileProvider>
             <AdminModeProvider>
+              <HeightDebugger />
               <LayoutBackground />
               <ParticleNetwork />
-              <ContactBackgroundOverlay />
               <AdminBanner />
-              <div className="min-h-dvh" style={{ position: 'relative', zIndex: 10 }}>
+              <div style={{ position: 'relative', zIndex: 10 }}>
                 {children}
               </div>
             </AdminModeProvider>

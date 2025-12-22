@@ -2,7 +2,7 @@
   "name": "Nekt",
   "short_name": "Nekt",
   "description": "Bump to connect with new friends by tapping phones",
-  "start_url": "/",
+  "start_url": "/?pwa=true",
   "display": "standalone",
   "background_color": "#004D40",
   "theme_color": "#004D40",

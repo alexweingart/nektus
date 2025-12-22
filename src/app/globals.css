@@ -124,7 +124,7 @@ input:-webkit-autofill:active {
 
 /* Base styles */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   color: var(--foreground);
   background-color: transparent; /* Allow body::before background to show through */
   font-synthesis: none;
@@ -135,31 +135,44 @@ input:-webkit-autofill:active {
 }
 
 /* Reset and base styles */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html {
-  min-height: 100dvh;
+  /* iOS PWA fix: Use JS-set custom property for full screen height (853px) */
+  /* Falls back to 100vh if JS hasn't loaded yet */
+  height: var(--full-screen-height, 100vh);
+
+  /* CRITICAL: Prevent scrolling completely */
+  position: fixed;
+  width: 100%;
+
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-  scroll-behavior: smooth;
-  /* Set a solid black background color as the base for the entire app. */
-  background-color: #000;
-   /* Allow overscroll on Y-axis for pull-to-refresh, but contain X-axis */
-   overscroll-behavior-x: contain;
-   overscroll-behavior-y: auto;
-   /* Hide scrollbars but preserve scroll for pull-to-refresh */
-   scrollbar-width: none; /* Firefox */
-   -ms-overflow-style: none; /* IE and Edge */
+
+  /* Solid dark green to match canvas gradient - fills safe areas where gradient can't render */
+  background-color: #0a0f1a !important;
+
+  /* Prevent any scrolling or overscroll */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+  /* Prevent touch scrolling */
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
 }
 
 body {
-  min-height: 100dvh;
+  /* iOS PWA fix: FORCE full height (was min-height but computed to 793px) */
+  height: var(--full-screen-height, 100vh) !important;
+
+  overflow-y: hidden;
   font-family: var(--font-inter);
   color: hsl(var(--foreground));
   position: relative;
@@ -169,33 +182,58 @@ body {
   /* Prevent overscroll bounce to avoid black areas */
   overscroll-behavior-y: none;
   overscroll-behavior-x: contain;
-  /* Safe area insets for PWA on iOS - push content away from status bar and home indicator */
+
+  /* Safe area insets - push content down from notch/sides, but not bottom (footer handles that) */
   padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 
-  /* Green geometric background pattern - always applied */
-  background: #0a0f1a;
-  background-image:
-    /* Green accent circles */
-    radial-gradient(circle at 20% 30%, rgba(34, 197, 94, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(34, 197, 94, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 60% 10%, rgba(34, 197, 94, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 15% 80%, rgba(34, 197, 94, 0.12) 0%, transparent 45%),
-    radial-gradient(circle at 90% 20%, rgba(34, 197, 94, 0.06) 0%, transparent 55%);
+  /* Transparent to allow canvas/background layers to show through */
+  background-color: transparent;
 
   /* Smooth transitions for background changes */
   transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
 }
 
+/* ============================================================================
+   BACKGROUND LAYER STACK (bottom to top)
+   ============================================================================
+
+   Layer -1: Canvas (ParticleNetwork)
+     - Dark green gradient with animated particles
+     - Shown when signed out or when signed in with real photo but no background
+     - Controlled by body.show-particles class
+     - Extends to full screen height (852px on iPhone 14)
+
+   Layer 1: Default Background (body::after)
+     - Static background image (DefaultBackgroundImage.png)
+     - Shown when user has initials avatar but no custom background
+     - Controlled by body.show-default-background class
+
+   Layer 2: User Background (body::before)
+     - User's custom background image
+     - Controlled by body.has-user-background class
+     - Uses --user-background-image CSS variable
+
+   Layer 3: Contact Background (.contact-background-overlay)
+     - Contact's background image when viewing contact page
+     - Controlled by body.show-contact-background class
+     - Uses --contact-background-image CSS variable
+     - Allows crossfade transitions between user and contact backgrounds
+
+   Layer 10: Page Content
+     - All UI elements, text, buttons, etc.
+     - z-index: 10 set in layout.tsx
+
+   ============================================================================ */
+
 /* ParticleNetwork canvas - hidden by default, only shown when explicitly needed */
-canvas[style*="z-index: 0"] {
+canvas[style*="z-index: -1"] {
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
 }
 
-body.show-particles canvas[style*="z-index: 0"] {
+body.show-particles canvas[style*="z-index: -1"] {
   opacity: 1;
 }
 
@@ -205,13 +243,13 @@ body::after {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: var(--full-screen-height, 100vh);
   background-image: var(--default-background-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: 1; /* Above ParticleNetwork (0), below user background (2) */
+  z-index: 1;
   opacity: 0;
   transition: opacity 1s ease-out;
   pointer-events: none;
@@ -227,13 +265,13 @@ body::before {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: var(--full-screen-height, 100vh);
   background-image: var(--user-background-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: 2; /* Above green pattern and pulsing glow */
+  z-index: 2;
   opacity: 0;
   transition: opacity 1s ease-out;
   pointer-events: none;
@@ -244,18 +282,17 @@ body.has-user-background::before {
 }
 
 /* Contact background - overlay layer for crossfades */
-/* Note: Using a custom class-based element since ::after is used for pulsing glow */
 .contact-background-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: var(--full-screen-height, 100vh);
   background-image: var(--contact-background-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: 3; /* Above user background */
+  z-index: 3;
   opacity: 0;
   transition: opacity 1s ease-in-out;
   pointer-events: none;
@@ -264,15 +301,6 @@ body.has-user-background::before {
 body.show-contact-background .contact-background-overlay {
   opacity: 1;
 }
-
-/* Glow layers no longer needed */
-.breathing-glow-layer-2,
-.breathing-glow-layer-3 {
-  display: none;
-}
-
-
-
 
 /* Fixed background that covers safe areas including notch */
 .safe-area-background {
@@ -290,16 +318,27 @@ body.show-contact-background .contact-background-overlay {
   /* Background will be set via inline styles */
 }
 
-  /* iOS specific fixes */
+/* Footer padding - needs !important to override universal reset */
+.footer-spacing {
+  padding-bottom: calc(32px + env(safe-area-inset-bottom)) !important;
+}
+
+/* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
   /* Fix background-attachment: fixed on iOS by disabling it */
   html {
     background-attachment: scroll !important;
   }
 
-  /* Ensure full height coverage and prevent overscroll */
-  html, body {
-    min-height: 100dvh;
+  /* Prevent overscroll (height handled by inset: 0) */
+  html {
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: contain;
+  }
+
+  body {
+    height: var(--full-screen-height, 100vh) !important;
+    overflow-y: hidden;
     overscroll-behavior-y: none;
     overscroll-behavior-x: contain;
   }
@@ -340,7 +379,7 @@ body.show-contact-background .contact-background-overlay {
   input[type="tel"]:-webkit-autofill,
   input[inputmode="tel"]:-webkit-autofill {
     -webkit-box-shadow: 0 0 0 30px transparent inset !important;
-    -webkit-text-fill-color: black !important;
+    -webkit-text-fill-color: white !important;
     background-color: transparent !important;
   }
 }

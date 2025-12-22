@@ -194,11 +194,19 @@ export class RealTimeContactExchangeService {
       
       try {
         const response = await fetch(`/api/exchange/status/${this.sessionId}`);
-        
+
         if (!response.ok) {
-          throw new Error('Failed to check match status');
+          // Extract actual error from server response
+          let serverMessage = 'Unknown error';
+          try {
+            const errorBody = await response.json();
+            serverMessage = errorBody.message || serverMessage;
+          } catch {
+            // Response wasn't JSON
+          }
+          throw new Error(`Status check failed (${response.status}): ${serverMessage}`);
         }
-        
+
         const result = await response.json();
         
         if (result.success && result.hasMatch && result.match) {
@@ -365,7 +373,15 @@ export class RealTimeContactExchangeService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send exchange request');
+      // Extract actual error from server response
+      let serverMessage = 'Unknown error';
+      try {
+        const errorBody = await response.json();
+        serverMessage = errorBody.message || serverMessage;
+      } catch {
+        // Response wasn't JSON
+      }
+      throw new Error(`Exchange failed (${response.status}): ${serverMessage}`);
     }
 
     const result: ContactExchangeResponse = await response.json();

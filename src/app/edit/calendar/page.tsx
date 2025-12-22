@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import CalendarView from '@/app/components/views/CalendarView';
 
-export default function EditCalendarPage() {
+function EditCalendarContent() {
   const searchParams = useSearchParams();
   const calendarId = searchParams.get('id');
 
@@ -17,4 +17,12 @@ export default function EditCalendarPage() {
   }
 
   return <CalendarView calendarId={calendarId} />;
+}
+
+export default function EditCalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <EditCalendarContent />
+    </Suspense>
+  );
 }

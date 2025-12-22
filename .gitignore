@@ -44,3 +44,4 @@ pglite-debug.log
 *.tsbuildinfo
 next-env.d.ts
 .log
+.env*.local

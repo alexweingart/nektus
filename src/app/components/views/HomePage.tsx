@@ -21,7 +21,7 @@ const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
   
   return (
-    <div className="relative min-h-dvh">
+    <div className="relative">
       {/* Main content */}
       <div className="flex items-start justify-center pt-[10vh]">
         <div
@@ -83,7 +83,14 @@ const HomePage: React.FC = () => {
       </div>
       
       {/* Footer links positioned at bottom of viewport */}
-      <div className="fixed bottom-0 left-0 right-0 text-center text-sm text-white pb-safe pb-8">
+      <div
+        className="fixed left-0 right-0 text-center text-sm text-white"
+        style={{
+          bottom: 0,
+          paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
+          backgroundColor: 'transparent'
+        }}
+      >
         <div className="mb-2">
           <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
             Privacy

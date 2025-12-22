@@ -349,6 +349,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
 
       {/* Phone number input */}
       <input
+        suppressHydrationWarning
         ref={(element) => {
           if (typeof ref === 'function') {
             ref(element);

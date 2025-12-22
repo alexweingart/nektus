@@ -16,6 +16,7 @@ interface ItemChipProps {
   actionIcon?: 'trash' | 'calendar' | ReactNode;  // Predefined icons or custom
   isActionLoading?: boolean;  // Show loading spinner on action button
   onClick?: () => void;
+  onLongPress?: () => void;  // Long-press handler (500ms hold)
   className?: string;
   truncateTitle?: boolean;  // Enable text truncation with ellipsis
 }
@@ -29,9 +30,35 @@ export const ItemChip: React.FC<ItemChipProps> = ({
   actionIcon,
   isActionLoading = false,
   onClick,
+  onLongPress,
   className = '',
   truncateTitle = false
 }) => {
+  const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Long-press handlers
+  const handlePointerDown = () => {
+    if (!onLongPress) return;
+
+    longPressTimerRef.current = setTimeout(() => {
+      onLongPress();
+    }, 500); // 500ms for long-press
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
   // Render predefined icon
   const renderActionIcon = () => {
     if (actionIcon === 'trash') {
@@ -66,6 +93,9 @@ export const ItemChip: React.FC<ItemChipProps> = ({
       className={`flex items-center p-4 bg-black/40 border border-white/10 rounded-2xl backdrop-blur-sm ${
         onClick ? 'cursor-pointer hover:bg-black/50' : ''
       } ${className}`}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       {/* Clickable area - excludes action button */}
       <div

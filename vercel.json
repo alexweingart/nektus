@@ -9,5 +9,11 @@
     "src/app/api/bio-and-social/route.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/keepalive",
+      "schedule": "0 0 */7 * *"
+    }
+  ]
 } 

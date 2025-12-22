@@ -32,6 +32,9 @@ export default {
       padding: {
         'safe': 'env(safe-area-inset-bottom)',
       },
+      margin: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
     },
   },
   plugins: [],

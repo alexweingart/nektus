@@ -5,11 +5,11 @@
 
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import LocationView from '@/app/components/views/LocationView';
 
-export default function EditLocationPage() {
+function EditLocationContent() {
   const searchParams = useSearchParams();
   const locationId = searchParams.get('id');
 
@@ -18,4 +18,12 @@ export default function EditLocationPage() {
   }
 
   return <LocationView locationId={locationId} />;
+}
+
+export default function EditLocationPage() {
+  return (
+    <Suspense fallback={null}>
+      <EditLocationContent />
+    </Suspense>
+  );
 }

@@ -3,7 +3,7 @@ import { Redis } from '@upstash/redis';
 
 // Extend global to include our processing states
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __processingStates__: Map<string, ProcessingState | unknown> | undefined;
 }
 

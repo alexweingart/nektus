@@ -11,6 +11,7 @@ import { Button } from '../ui/buttons/Button';
 import Avatar from '../ui/elements/Avatar';
 import SocialIconsList from '../ui/elements/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
+import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import ReactMarkdown from 'react-markdown';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
@@ -652,7 +653,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   onClick={handleSaveContact}
                   disabled={isSaving || isLoading}
                 >
-                  {getButtonText()}
+                  {isSaving ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <LoadingSpinner size="sm" />
+                      <span>Saving...</span>
+                    </div>
+                  ) : (
+                    getButtonText()
+                  )}
                 </Button>
 
                 {/* Success/Error Messages - handled by modals now */}

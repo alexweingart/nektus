@@ -49,3 +49,50 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const { userId } = await params;
+
+    // Get the current user's ID from the Authorization header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify the session token
+    const { auth, db } = await getFirebaseAdmin();
+    const idToken = authHeader.replace('Bearer ', '');
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const currentUserId = decodedToken.uid;
+
+    if (!currentUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Delete the contact from Firebase
+    const contactRef = db
+      .collection('profiles')
+      .doc(currentUserId)
+      .collection('contacts')
+      .doc(userId);
+
+    const contactDoc = await contactRef.get();
+    if (!contactDoc.exists) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    await contactRef.delete();
+
+    return NextResponse.json({ success: true, message: 'Contact deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting contact:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete contact' },
+      { status: 500 }
+    );
+  }
+}

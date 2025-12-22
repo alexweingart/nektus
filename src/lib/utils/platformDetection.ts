@@ -4,7 +4,7 @@
  */
 
 const EMBEDDED_BROWSER_INDICATORS = [
-  'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview', 'chrome-mobile'
+  'gsa/', 'googleapp', 'fb', 'fban', 'fbav', 'instagram', 'twitter', 'line/', 'wechat', 'weibo', 'webview'
 ];
 
 export const detectPlatform = () => {

@@ -12,6 +12,7 @@ export interface VCardOptions {
   includeSocialMedia?: boolean;
   includeNotes?: boolean;
   contactUrl?: string; // Optional contact URL to include in notes
+  skipPhotoFetch?: boolean; // Skip photo fetching for instant vCard display (iOS optimization)
 }
 
 /**
@@ -390,13 +391,13 @@ export const saveVCard = async (
  */
 export const displayVCardInlineForIOS = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
   const isEmbedded = isEmbeddedBrowser();
-  
+
   if (isEmbedded) {
     return;
   }
-  
+
   const vCardOptions: VCardOptions = {
-    includePhoto: true,
+    includePhoto: !options?.skipPhotoFetch, // Skip photo if requested for instant display
     includeSocialMedia: false,
     includeNotes: true,
     contactUrl: options?.contactUrl

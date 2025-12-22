@@ -22,13 +22,18 @@ function updateEnvWithNgrokUrl(ngrokUrl) {
 
 // Function to extract ngrok URL from output
 function extractNgrokUrl(output) {
+  // First try to match the specific domain we're using
+  const bedbugMatch = output.match(/https:\/\/bedbug-fond-pleasantly\.ngrok-free\.app/);
+  if (bedbugMatch) return bedbugMatch[0];
+
+  // Fallback to any ngrok URL
   const httpsMatch = output.match(/https:\/\/[a-zA-Z0-9-]+\.ngrok-free\.app/);
   return httpsMatch ? httpsMatch[0] : null;
 }
 
 // Start ngrok tunnel
 console.log('🚀 Starting ngrok tunnel...');
-const ngrok = spawn('ngrok', ['http', '3000'], { stdio: ['pipe', 'pipe', 'pipe'] });
+const ngrok = spawn('ngrok', ['http', '3000', '--domain=bedbug-fond-pleasantly.ngrok-free.app', '--log', 'stdout'], { stdio: ['pipe', 'pipe', 'pipe'] });
 
 let urlFound = false;
 

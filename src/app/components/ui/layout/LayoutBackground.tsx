@@ -65,7 +65,7 @@ export function LayoutBackground() {
 
     // Only add class to show user background if NOT on a contact page
     // Contact pages manage their own backgrounds via ContactLayout
-    const isOnContactPage = pathname.startsWith('/contact/');
+    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
     if (!isOnContactPage) {
       document.body.classList.add('has-user-background');
     }
@@ -119,8 +119,23 @@ export function LayoutBackground() {
     // Set default background image CSS variable
     document.documentElement.style.setProperty('--default-background-image', 'url("/DefaultBackgroundImage.png")');
 
-    // Wait for both session and profile to be determined (don't show anything while loading)
-    if (status === 'loading' || isLoading) {
+    // Debug logging
+    console.log('=== LAYOUT BACKGROUND DEBUG ===');
+    console.log('session status:', status);
+    console.log('isLoading:', isLoading);
+    console.log('session:', session ? 'exists' : 'null');
+    console.log('pathname:', pathname);
+
+    // Wait for session to be determined
+    if (status === 'loading') {
+      console.log('Session still loading, not showing particles yet');
+      return;
+    }
+
+    // If signed in, wait for profile to load
+    // If signed out, don't wait (there's no profile to load)
+    if (session && isLoading) {
+      console.log('Signed in but profile still loading, not showing particles yet');
       return;
     }
 
@@ -133,8 +148,10 @@ export function LayoutBackground() {
 
     // Signed out (authenticated status determined) → show particles, no default background
     if (!session) {
+      console.log('User is signed out - showing particles');
       document.body.classList.add('show-particles');
       document.body.classList.remove('show-default-background');
+      console.log('Body classes:', document.body.className);
       return;
     }
 
@@ -152,6 +169,7 @@ export function LayoutBackground() {
         // Contact has NO background → show default background, no particles
         document.body.classList.remove('show-particles');
         document.body.classList.add('show-default-background');
+        document.body.classList.remove('show-contact-background');
       }
     } else {
       // USER PAGE LOGIC
@@ -209,6 +227,11 @@ export function LayoutBackground() {
         style={{ display: 'none' }}
         onLoad={handleImageLoad}
         priority
+      />
+      {/* Contact background overlay - always render for smooth crossfades */}
+      <div
+        className="contact-background-overlay"
+        style={{ pointerEvents: 'none' }}
       />
     </>
   );

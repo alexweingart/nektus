@@ -6,12 +6,12 @@ import { Session } from "next-auth";
 
 interface SessionProviderProps {
   children: ReactNode;
-  session: Session | null;
+  session?: Session | null;
 }
 
 export function SessionProvider({ children, session }: SessionProviderProps) {
   const initialRender = useRef(true);
-  const prevSessionRef = useRef<Session | null>(null);
+  const prevSessionRef = useRef<Session | null | undefined>(null);
 
   // Log session changes for debugging in development only
   useEffect(() => {

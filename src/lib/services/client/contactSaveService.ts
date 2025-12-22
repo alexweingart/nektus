@@ -89,24 +89,42 @@ function likelyHasGoogleContactsPermission(platform: string, token: string): boo
  * Helper function to call save-contact API with different options
  */
 async function callSaveContactAPI(token: string, options: { skipGoogleContacts?: boolean; skipFirebase?: boolean; googleOnly?: boolean } = {}): Promise<ContactSaveResult> {
-  const response = await fetch('/api/contacts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, ...options })
-  });
+  try {
+    const response = await fetch('/api/contacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, ...options }),
+      keepalive: true // Ensure request completes even if page navigates (iOS vCard display)
+    });
 
-  const result = await response.json();
-  
-  if (!response.ok) {
-    // For Google-only calls, check if we have a specific error message
-    if (options.googleOnly && result.google?.error) {
-      console.warn('⚠️ Google Contacts save failed with specific error:', result.google.error);
-      return result; // Return the result with the specific error instead of throwing
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('❌ API returned non-JSON response:', {
+        status: response.status,
+        contentType,
+        bodyPreview: text.substring(0, 200)
+      });
+      throw new Error(`API returned ${contentType || 'unknown content type'} instead of JSON`);
     }
-    throw new Error(`API request failed: ${response.status}`);
-  }
 
-  return result;
+    const result = await response.json();
+
+    if (!response.ok) {
+      // For Google-only calls, check if we have a specific error message
+      if (options.googleOnly && result.google?.error) {
+        console.warn('⚠️ Google Contacts save failed with specific error:', result.google.error);
+        return result; // Return the result with the specific error instead of throwing
+      }
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('❌ API call error:', error);
+    throw error;
+  }
 }
 
 /**
@@ -252,54 +270,79 @@ export async function saveContactFlow(
       };
     }
     
-    // Traditional flow: try both Firebase and Google
-    console.log('🔄 Traditional flow: Trying Firebase and Google in parallel...');
-    const [firebaseResult, googleSaveResult] = await Promise.all([
-      callSaveContactAPI(token, { skipGoogleContacts: true }),
-      callSaveContactAPI(token, { googleOnly: true }).catch(error => {
-        console.warn('⚠️ Google Contacts save failed:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Google Contacts save failed';
-        return {
-          google: { 
-            success: false, 
-            error: errorMessage 
-          }
-        };
+    // ULTRA-OPTIMIZED flow: Start saves FIRST, then show vCard immediately
+    console.log('🚀 Ultra-optimized flow: Starting saves, then instant vCard...');
+
+    // START API calls BEFORE showing vCard (so they're not cancelled by navigation)
+    const firebaseSavePromise = callSaveContactAPI(token, { skipGoogleContacts: true });
+    const googleSavePromise = callSaveContactAPI(token, { googleOnly: true });
+
+    // Handle Firebase save result
+    firebaseSavePromise
+      .then(result => {
+        if (result?.firebase?.success) {
+          console.log('✅ Firebase save successful in background');
+          // Update exchange state after successful save
+          setExchangeState(token, {
+            state: 'completed_success',
+            platform,
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
+        } else {
+          console.error('❌ Firebase save failed in background:', result?.firebase?.error || 'Unknown error');
+        }
       })
-    ]);
-    
-    if (!firebaseResult.firebase.success) {
-      console.error('❌ Firebase save failed');
-      return {
-        success: false,
-        firebase: firebaseResult.firebase,
-        google: { success: false, error: 'Firebase save failed' },
-        platform
-      };
-    }
+      .catch(error => {
+        console.error('❌ Background Firebase save error:', error?.message || error);
+      });
 
-    console.log('✅ Firebase save successful - contact is saved!');
-    const googleResult = googleSaveResult.google;
+    // Handle Google save result
+    googleSavePromise
+      .then(result => {
+        if (result?.google?.success) {
+          console.log('✅ Google Contacts saved in background');
+        } else {
+          console.log('⚠️ Google Contacts save failed in background:', result?.google?.error || 'Unknown error');
+        }
+      })
+      .catch(error => {
+        console.error('❌ Background Google save error:', error?.message || error);
+      });
 
-    // Step 2: Platform-specific logic for Google Contacts
-    
-    // iOS non-embedded browsers (Safari/Chrome/Edge) - the only truly different platform
+    // NOW show vCard (after API calls have started)
     const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
     if (iosNonEmbedded) {
-      
-      // Try to show vCard inline for Safari and wait for dismissal
+      // Show vCard immediately (API calls already started, won't be cancelled)
       try {
-        // Generate contact URL for the profile
         const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/contact/${profile.userId}`;
-        
-        console.log('📱 Displaying vCard for iOS Safari and waiting for dismissal...');
-        await displayVCardInlineForIOS(profile, { 
-          contactUrl 
+
+        console.log('📱 Displaying vCard (saves already in progress)...');
+        displayVCardInlineForIOS(profile, {
+          contactUrl,
+          skipPhotoFetch: true
+        }).then(() => {
+          console.log('📱 vCard dismissed by user');
+        }).catch(error => {
+          console.warn('Failed to display vCard:', error);
         });
-        console.log('📱 vCard dismissed, now showing appropriate modal');
       } catch (error) {
-        console.warn('Failed to display vCard inline for iOS Safari:', error);
+        console.warn('Failed to trigger vCard display:', error);
       }
+    }
+
+    // Check permission for UI display
+    const userHasPermission = likelyHasGoogleContactsPermission(platform, token);
+
+    // Create results for immediate UI feedback (assume success)
+    const firebaseResult = { firebase: { success: true } };
+    const googleResult = {
+      success: userHasPermission,
+      error: userHasPermission ? undefined : 'Saving in background'
+    };
+
+    // For iOS, we already showed vCard, now show modal
+    if (iosNonEmbedded) {
       
       if (googleResult.success) {
         // Both Firebase and Google successful

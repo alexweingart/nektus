@@ -64,7 +64,7 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
     console.log(`[API/PROFILE-IMAGE] Using AI prompt:`, prompt);
 
     const client = getOpenAIClient();
-    console.log(`[API/PROFILE-IMAGE] Calling OpenAI API with model: gpt-image-1, size: 1024x1024`);
+    console.log(`[API/PROFILE-IMAGE] Calling OpenAI API with model: gpt-image-1.5, size: 1024x1024`);
 
     // Add timeout wrapper for OpenAI API call
     const timeoutPromise = new Promise((_, reject) =>
@@ -73,11 +73,12 @@ async function generateProfileImageForProfile(profile: UserProfile): Promise<Buf
 
     // Generate the image with base64 response format
     const imageGenerationPromise = client.images.generate({
-      model: 'gpt-image-1',
+      model: 'gpt-image-1.5',
       prompt,
       n: 1,
       size: '1024x1024',
       quality: 'low',
+      response_format: 'b64_json',
     });
 
     console.log('[API/PROFILE-IMAGE] Waiting for OpenAI response...');

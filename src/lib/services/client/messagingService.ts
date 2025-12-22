@@ -34,7 +34,7 @@ function detectPlatform(): 'ios' | 'android' | 'web' {
   }
 
   const userAgent = window.navigator.userAgent.toLowerCase();
-  
+
   if (/iphone|ipad|ipod/.test(userAgent)) {
     return 'ios';
   } else if (/android/.test(userAgent)) {
@@ -42,6 +42,20 @@ function detectPlatform(): 'ios' | 'android' | 'web' {
   } else {
     return 'web';
   }
+}
+
+/**
+ * Navigate to a protocol scheme URL using programmatic anchor click
+ * This avoids the iOS Safari "about:blank" popup issue
+ */
+function navigateToProtocolScheme(url: string): void {
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.style.display = 'none';
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
 }
 
 /**
@@ -53,22 +67,22 @@ export function openMessagingApp(messageText: string, phoneNumber?: string): voi
   
   try {
     if (platform === 'ios') {
-      // Use Messages app on iOS
+      // Use Messages app on iOS - programmatic anchor avoids "about:blank" popup
       if (phoneNumber) {
         // If we have a phone number, open Messages with specific contact
         const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-        window.open(`sms:${cleanPhone}&body=${encodedMessage}`, '_blank');
+        navigateToProtocolScheme(`sms:${cleanPhone}&body=${encodedMessage}`);
       } else {
         // Open Messages app to compose new message
-        window.open(`sms:&body=${encodedMessage}`, '_blank');
+        navigateToProtocolScheme(`sms:&body=${encodedMessage}`);
       }
     } else if (platform === 'android') {
-      // Use SMS app on Android
+      // Use SMS app on Android - consistent approach with iOS
       if (phoneNumber) {
         const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-        window.open(`sms:${cleanPhone}?body=${encodedMessage}`, '_blank');
+        navigateToProtocolScheme(`sms:${cleanPhone}?body=${encodedMessage}`);
       } else {
-        window.open(`sms:?body=${encodedMessage}`, '_blank');
+        navigateToProtocolScheme(`sms:?body=${encodedMessage}`);
       }
     } else {
       // Web fallback - copy to clipboard and show instructions
