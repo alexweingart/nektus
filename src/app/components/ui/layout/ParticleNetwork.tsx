@@ -94,8 +94,9 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-  // Current colors ref (instant updates, no interpolation)
-  const currentColorsRef = useRef<ParticleColors>(colors || DEFAULT_COLORS);
+  // Update colors ref during render (before effects run)
+  const currentColorsRef = useRef<ParticleColors>(DEFAULT_COLORS);
+  currentColorsRef.current = colors || DEFAULT_COLORS;
 
   // Get config for current context
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS['signed-out'];
@@ -109,18 +110,6 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
-
-  // Handle color changes instantly (no interpolation)
-  useEffect(() => {
-    const newColors = colors || DEFAULT_COLORS;
-    console.log('🎨 ParticleNetwork: Colors updated', {
-      context,
-      receivedColors: colors,
-      usingColors: newColors,
-      particleColor: newColors.particle
-    });
-    currentColorsRef.current = newColors;
-  }, [colors, context]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
