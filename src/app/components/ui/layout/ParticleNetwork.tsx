@@ -67,13 +67,6 @@ export function ParticleNetwork() {
         window.innerHeight.toString()
       );
       canvas.height = fullHeight;
-
-      console.log('=== PARTICLE NETWORK CANVAS ===');
-      console.log('Canvas bitmap width:', canvas.width);
-      console.log('Canvas bitmap height:', canvas.height);
-      console.log('Canvas CSS height:', getComputedStyle(canvas).height);
-      console.log('--full-screen-height:', fullHeight);
-      console.log('==============================');
     };
     updateSize();
     window.addEventListener('resize', updateSize);
@@ -92,17 +85,6 @@ export function ParticleNetwork() {
       });
     }
     particlesRef.current = particles;
-
-    // Log particle distribution
-    console.log('=== PARTICLE DISTRIBUTION ===');
-    console.log('Total particles:', particles.length);
-    const bottomArea = particles.filter(p => p.y > 750).length;
-    const middleArea = particles.filter(p => p.y > 400 && p.y <= 750).length;
-    const topArea = particles.filter(p => p.y <= 400).length;
-    console.log('Particles in bottom area (>750px):', bottomArea);
-    console.log('Particles in middle area (400-750px):', middleArea);
-    console.log('Particles in top area (<400px):', topArea);
-    console.log('=============================');
 
     // Animation loop
     const animate = () => {
@@ -172,11 +154,14 @@ export function ParticleNetwork() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed top-0 left-0 pointer-events-none"
+      className="fixed pointer-events-none"
       style={{
         zIndex: -1,
+        top: 'calc(-1 * var(--safe-area-inset-top, 0px))',
+        left: 0,
+        right: 0,
         width: '100%',
-        height: 'var(--full-screen-height, 100vh)',
+        height: 'calc(100vh + var(--safe-area-inset-top, 0px) + var(--safe-area-inset-bottom, 0px))',
         background: 'radial-gradient(ellipse at top, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.12) 40%, rgba(10, 15, 26, 0.8) 70%, #0a0f1a 100%)',
       }}
     />

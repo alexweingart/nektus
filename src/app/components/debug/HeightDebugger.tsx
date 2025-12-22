@@ -12,59 +12,22 @@ export function HeightDebugger() {
     const setFullScreenHeight = () => {
       // window.outerHeight gives the full screen including safe areas
       const fullHeight = window.outerHeight;
+      const viewportHeight = window.innerHeight;
 
-      // Set CSS custom property on root element
+      // Calculate safe area insets (since env() returns 0px on iOS PWA in portrait)
+      // Top inset = difference between outer and inner height
+      const topInset = fullHeight - viewportHeight;
+
+      // For bottom inset, check if we're in standalone mode (PWA)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      // On iPhone with home indicator, bottom safe area is typically 34px in portrait
+      // We'll calculate it based on screen size if standalone
+      const bottomInset = isStandalone ? 34 : 0;
+
+      // Set CSS custom properties on root element
       document.documentElement.style.setProperty('--full-screen-height', `${fullHeight}px`);
-
-      console.log('=== HEIGHT DEBUG ===');
-      console.log('Full screen height set to:', fullHeight);
-      console.log('window.screen.height:', window.screen.height);
-      console.log('window.outerHeight:', window.outerHeight);
-      console.log('window.innerHeight:', window.innerHeight);
-      console.log('visualViewport.height:', window.visualViewport?.height);
-      console.log('CSS variable --full-screen-height:',
-        getComputedStyle(document.documentElement).getPropertyValue('--full-screen-height'));
-
-      // Check safe area insets
-      const computedStyle = getComputedStyle(document.documentElement);
-      console.log('--- Safe Area Insets ---');
-      console.log('safe-area-inset-top:', computedStyle.getPropertyValue('padding-top') ||
-        getComputedStyle(document.body).paddingTop);
-      console.log('safe-area-inset-bottom:', computedStyle.getPropertyValue('padding-bottom') ||
-        getComputedStyle(document.body).paddingBottom);
-      console.log('safe-area-inset-left:', computedStyle.getPropertyValue('padding-left') ||
-        getComputedStyle(document.body).paddingLeft);
-      console.log('safe-area-inset-right:', computedStyle.getPropertyValue('padding-right') ||
-        getComputedStyle(document.body).paddingRight);
-
-      // Also check body padding which uses env()
-      console.log('--- Body Padding (uses env) ---');
-      console.log('body.paddingTop:', getComputedStyle(document.body).paddingTop);
-      console.log('body.paddingBottom:', getComputedStyle(document.body).paddingBottom);
-      console.log('body.paddingLeft:', getComputedStyle(document.body).paddingLeft);
-      console.log('body.paddingRight:', getComputedStyle(document.body).paddingRight);
-
-      // Check ContactBackgroundOverlay dimensions
-      const overlay = document.querySelector('.contact-background-overlay');
-      if (overlay) {
-        const overlayStyle = getComputedStyle(overlay);
-        console.log('--- ContactBackgroundOverlay ---');
-        console.log('height:', overlayStyle.height);
-        console.log('marginTop:', overlayStyle.marginTop);
-        console.log('marginBottom:', overlayStyle.marginBottom);
-        console.log('top:', overlayStyle.top);
-        console.log('bottom:', overlayStyle.bottom);
-      }
-
-      // Check canvas dimensions
-      const canvas = document.querySelector('canvas');
-      if (canvas) {
-        console.log('--- Canvas ---');
-        console.log('canvas.width:', canvas.width);
-        console.log('canvas.height:', canvas.height);
-        console.log('canvas computed height:', getComputedStyle(canvas).height);
-      }
-      console.log('==================');
+      document.documentElement.style.setProperty('--safe-area-inset-top', `${topInset}px`);
+      document.documentElement.style.setProperty('--safe-area-inset-bottom', `${bottomInset}px`);
     };
 
     // Set immediately on mount

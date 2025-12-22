@@ -146,13 +146,13 @@ input:-webkit-autofill:active {
 }
 
 html {
-  /* iOS PWA fix: Use JS-set custom property for full screen height (853px) */
-  /* Falls back to 100vh if JS hasn't loaded yet */
-  height: var(--full-screen-height, 100vh);
+  /* iOS PWA fix: Use min-height with safe-area-inset-top to prevent bottom gap */
+  min-height: calc(100% + var(--safe-area-inset-top, 0px));
+  height: 100%;
 
-  /* CRITICAL: Prevent scrolling completely */
-  position: fixed;
+  /* Prevent scrolling without position:fixed (which clips children) */
   width: 100%;
+  overflow: hidden; /* Prevent scrolling on html */
 
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -169,14 +169,14 @@ html {
 }
 
 body {
-  /* iOS PWA fix: FORCE full height (was min-height but computed to 793px) */
-  height: var(--full-screen-height, 100vh) !important;
+  /* iOS PWA fix: Use min-height with safe-area-inset-top to extend backgrounds into safe area */
+  min-height: calc(100% + var(--safe-area-inset-top, 0px));
+  height: 100%;
 
-  overflow-y: hidden;
+  overflow: hidden; /* Prevent scrolling but on body instead of html */
   font-family: var(--font-inter);
   color: hsl(var(--foreground));
   position: relative;
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Prevent overscroll bounce to avoid black areas */

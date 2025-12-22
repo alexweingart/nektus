@@ -7,15 +7,22 @@ import { Button } from '../ui/buttons/Button';
 import { Heading } from '../ui/Typography';
 
 // Footer component exported separately so it can be rendered outside PullToRefresh
-export const HomeFooter: React.FC = () => (
-  <div
-    className="fixed left-0 right-0 text-center text-sm text-white"
-    style={{
-      bottom: 0,
-      paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
-      backgroundColor: 'transparent'
-    }}
-  >
+export const HomeFooter: React.FC = () => {
+  const [isPWA, setIsPWA] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsPWA(window.matchMedia('(display-mode: standalone)').matches);
+  }, []);
+
+  return (
+    <div
+      className="fixed left-0 right-0 text-center text-sm text-white"
+      style={{
+        bottom: 0,
+        paddingBottom: '32px',
+        backgroundColor: 'transparent'
+      }}
+    >
     <div className="mb-2">
       <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
         Privacy
@@ -29,7 +36,8 @@ export const HomeFooter: React.FC = () => (
       © 2025 Cardamore, Inc. All rights reserved.
     </div>
   </div>
-);
+  );
+};
 
 // Google icon SVG component
 const GoogleIcon = () => (
@@ -55,14 +63,30 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleSignIn = async () => {
-    // Standard sign-in for non-PWA (iOS PWA uses the link directly)
+    alert('BUTTON CLICKED!'); // Simple test to verify clicks work
+
+    // Check iOS PWA on every click (more reliable than state)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    console.log('🔍 Sign-in clicked:', {
+      isStandalone,
+      isIOSDevice,
+      userAgent: navigator.userAgent,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'
+    });
+
+    if (isStandalone && isIOSDevice) {
+      const authUrl = `${window.location.origin}/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth-complete')}`;
+      console.log('📱 iOS PWA detected - navigating to:', authUrl);
+      window.location.href = authUrl;
+      return;
+    }
+
+    console.log('🌐 Non-PWA - using standard NextAuth');
+    // Standard sign-in for non-PWA
     signIn('google');
   };
-
-  // Auth URL for iOS PWA
-  const iosPWAAuthUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth-complete')}`
-    : '/';
 
   return (
     <div className="relative">
@@ -110,33 +134,15 @@ const HomePage: React.FC = () => {
           Bump to Connect
         </Heading>
 
-        {isIOSPWA ? (
-          // For iOS PWA: Use window.location.href (target="_blank" is blocked by iOS PWAs)
-          <Button
-            variant="white"
-            size="xl"
-            className="w-full mb-2 text-gray-700 font-medium"
-            onClick={() => {
-              // window.location.href triggers iOS in-app browser for OAuth
-              // After OAuth completes, iOS closes in-app browser and returns to PWA
-              window.location.href = iosPWAAuthUrl;
-            }}
-            icon={<GoogleIcon />}
-          >
-            Sign in with Google
-          </Button>
-        ) : (
-          // For non-PWA: Use standard NextAuth flow
-          <Button
-            variant="white"
-            size="xl"
-            className="w-full mb-2 text-gray-700 font-medium"
-            onClick={handleSignIn}
-            icon={<GoogleIcon />}
-          >
-            Sign in with Google
-          </Button>
-        )}
+        <Button
+          variant="white"
+          size="xl"
+          className="w-full mb-2 text-gray-700 font-medium"
+          onClick={handleSignIn}
+          icon={<GoogleIcon />}
+        >
+          Sign in with Google
+        </Button>
 
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
           to start nekt&apos;ing
