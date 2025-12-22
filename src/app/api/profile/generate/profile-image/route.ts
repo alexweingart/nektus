@@ -120,7 +120,16 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
 
   try {
-    const { imageData } = await req.json();
+    // Parse request body, handling empty or malformed JSON
+    let imageData: string | undefined;
+    try {
+      const body = await req.json();
+      imageData = body.imageData;
+    } catch (jsonError) {
+      console.log('[API/PROFILE-IMAGE] No valid JSON body, proceeding with AI generation');
+      imageData = undefined;
+    }
+
     let newImageUrl: string;
 
     if (imageData) {

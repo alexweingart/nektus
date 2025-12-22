@@ -154,13 +154,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
-            // Check if either avatar OR background is already generated/uploaded
-            // Note: AI-generated avatars don't get background images, so we need to check both flags
+            // Check if either avatar OR background colors are already generated/extracted
+            // Note: AI-generated avatars get background colors extracted from the avatar
             const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
             const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
-            const hasBackgroundImage = !!existingProfile.backgroundImage;
+            const hasBackgroundColors = !!existingProfile.backgroundColors;
 
-            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundImage) {
+            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundColors) {
               console.log('[ProfileContext] New user detected - triggering asset generation');
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
@@ -375,15 +375,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Generate background image only if user has a non-initials profile image
-    // Wait for profile image generation decision before triggering background generation
-    // Skip if already generated (check aiGeneration flag) OR if user uploaded one manually
+    // Extract background colors only if user has a non-initials profile image
+    // Wait for profile image generation decision before triggering background color extraction
+    // Skip if already extracted (check aiGeneration flag) OR if colors already exist
     if (!backgroundGenerationTriggeredRef.current &&
-        !profile?.backgroundImage &&
+        !profile?.backgroundColors &&
         !profile?.aiGeneration?.backgroundImageGenerated) {
 
-      console.log('[ProfileContext] Background generation conditions check:', {
-        backgroundImage: profile?.backgroundImage,
+      console.log('[ProfileContext] Background color extraction conditions check:', {
+        backgroundColors: profile?.backgroundColors,
         backgroundImageGenerated: profile?.aiGeneration?.backgroundImageGenerated
       });
 
@@ -422,13 +422,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       backgroundGenerationTriggeredRef.current = true;
 
       const backgroundGeneration = shouldGenerateBackground().then(async (shouldGenerate) => {
-        console.log('[ProfileContext] Background generation check - shouldGenerate:', shouldGenerate);
+        console.log('[ProfileContext] Background color extraction check - shouldGenerate:', shouldGenerate);
         if (!shouldGenerate) {
-          console.log('[ProfileContext] Skipping background generation - user has initials or no custom profile image');
+          console.log('[ProfileContext] Skipping background color extraction - user has initials or no custom profile image');
           return;
         }
 
-        console.log('[ProfileContext] Making background image API call');
+        console.log('[ProfileContext] Making background color extraction API call');
 
         // Get the current bio from profile for background generation
         const bioEntry = profile?.contactEntries?.find(e => e.fieldType === 'bio');
@@ -442,20 +442,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         })
           .then(res => {
             if (!res.ok) {
-              throw new Error(`Background generation API failed with status: ${res.status}`);
+              throw new Error(`Background color extraction API failed with status: ${res.status}`);
             }
             return res.json();
           })
           .then(data => {
-            if (data.imageUrl) {
-              console.log('[ProfileContext] Background image saved to Firebase storage:', data.imageUrl);
-              // Update streaming state for immediate UI feedback
-              setStreamingBackgroundImage(data.imageUrl);
+            if (data.backgroundColors) {
+              console.log('[ProfileContext] Background colors extracted and saved to Firestore:', data.backgroundColors);
+              // Colors are saved to Firestore by the API - profile will be reloaded
             }
           });
       })
         .catch(error => {
-          console.error('[ProfileContext] Background generation failed:', error);
+          console.error('[ProfileContext] Background color extraction failed:', error);
           backgroundGenerationTriggeredRef.current = false;
         });
 
