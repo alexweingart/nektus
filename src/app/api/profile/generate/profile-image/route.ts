@@ -31,18 +31,20 @@ function generateProfileImagePrompt(name: string): string {
   const initials = getInitials(name);
   const firstLetter = initials.charAt(0);
 
-  return `Create a minimalist robot avatar icon in a bold, vector logo style. ` +
-    `The robot should be a single iconic glyph composed of simple geometric shapes (circles, rounded rectangles, rounded triangles). ` +
-    `CRITICAL: Use negative space within the robot's face panel to form the letter "${firstLetter}". The letter should be clearly readable and integrated into the design, not added as text. ` +
+  return `Create a minimalist robot face/head icon in a bold, vector logo style. ` +
+    `IMPORTANT: Show only the robot's face/head - no body, no torso, no shoulders. Just the head. ` +
+    `The robot face should be a single iconic glyph composed of simple geometric shapes (circles, rounded rectangles, rounded triangles). ` +
+    `CRITICAL: Use negative space within the robot's face/screen to form the letter "${firstLetter}". The letter should be clearly readable and integrated into the design, not added as text. ` +
     `Background: gradient from pale cream (#E7FED2) to lime green (#71E454) at 135 degrees, filling the entire square image edge-to-edge. ` +
-    `The robot should be centered and use thick, consistent strokes with rounded corners throughout. ` +
+    `The robot face should be centered and use thick, consistent strokes with rounded corners throughout. ` +
     `Style: modern, friendly, tech-forward. Think mascot-like but minimal—like a logo mark for a tech company. ` +
-    `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot glyph structure. ` +
+    `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot face structure. ` +
     `CRITICAL: The gradient (#E7FED2 to #71E454) must fill the entire image from edge to edge. ` +
     `CRITICAL: Do not add white backgrounds, white circles, or any other background shapes. ` +
     `CRITICAL: Do not include any text, letters as text, or typography. The "${firstLetter}" should be formed by negative space only. ` +
+    `CRITICAL: Only show the robot's head/face - no body parts below the head. ` +
     `Color palette: Robot should use dark teal (#004D40) or near-black for maximum contrast against the nekt gradient background. ` +
-    `Keep it simple, iconic, and instantly recognizable as a robot avatar.`;
+    `Keep it simple, iconic, and instantly recognizable as a robot face.`;
 }
 
 /**
