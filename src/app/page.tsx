@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import dynamicImport from 'next/dynamic';
 import { Suspense } from 'react';
 import { PullToRefresh } from './components/ui/layout/PullToRefresh';
+import { HomeFooter } from './components/views/HomePage';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -52,9 +53,13 @@ export default function Home() {
   }
   
   // Unauthenticated home page with pull-to-refresh
+  // Footer rendered outside PullToRefresh so it stays fixed during pull
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-      <HomePage />
-    </PullToRefresh>
+    <>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <HomePage />
+      </PullToRefresh>
+      <HomeFooter />
+    </>
   );
 }

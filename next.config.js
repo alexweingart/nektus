@@ -139,6 +139,15 @@ const config = process.env.NODE_ENV === 'production'
       // ],
       runtimeCaching: [
         {
+          // Exclude auth routes from service worker caching
+          // Prevents interference with OAuth state validation
+          urlPattern: /^\/api\/auth\/.*/,
+          handler: 'NetworkOnly',
+          options: {
+            cacheName: 'auth-cache',
+          },
+        },
+        {
           urlPattern: /\/favicon\.(ico|svg|png)$/,
           handler: 'NetworkOnly',
           options: {

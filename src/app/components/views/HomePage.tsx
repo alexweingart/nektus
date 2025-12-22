@@ -6,6 +6,31 @@ import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { Heading } from '../ui/Typography';
 
+// Footer component exported separately so it can be rendered outside PullToRefresh
+export const HomeFooter: React.FC = () => (
+  <div
+    className="fixed left-0 right-0 text-center text-sm text-white"
+    style={{
+      bottom: 0,
+      paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
+      backgroundColor: 'transparent'
+    }}
+  >
+    <div className="mb-2">
+      <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
+        Privacy
+      </Link>
+      <span className="mx-2">|</span>
+      <Link href="/terms" className="font-bold hover:text-gray-300 transition-colors">
+        Terms
+      </Link>
+    </div>
+    <div className="text-xs text-gray-300">
+      © 2025 Cardamore, Inc. All rights reserved.
+    </div>
+  </div>
+);
+
 // Google icon SVG component
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
@@ -86,21 +111,19 @@ const HomePage: React.FC = () => {
         </Heading>
 
         {isIOSPWA ? (
-          // For iOS PWA: Use real link to avoid popup blocking
+          // For iOS PWA: Use window.location.href (target="_blank" is blocked by iOS PWAs)
           <Button
-            asChild
             variant="white"
             size="xl"
             className="w-full mb-2 text-gray-700 font-medium"
+            onClick={() => {
+              // window.location.href triggers iOS in-app browser for OAuth
+              // After OAuth completes, iOS closes in-app browser and returns to PWA
+              window.location.href = iosPWAAuthUrl;
+            }}
+            icon={<GoogleIcon />}
           >
-            <a
-              href={iosPWAAuthUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="mr-2"><GoogleIcon /></span>
-              Sign in with Google
-            </a>
+            Sign in with Google
           </Button>
         ) : (
           // For non-PWA: Use standard NextAuth flow
@@ -118,29 +141,6 @@ const HomePage: React.FC = () => {
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
           to start nekt&apos;ing
         </p>
-        </div>
-      </div>
-      
-      {/* Footer links positioned at bottom of viewport */}
-      <div
-        className="fixed left-0 right-0 text-center text-sm text-white"
-        style={{
-          bottom: 0,
-          paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
-          backgroundColor: 'transparent'
-        }}
-      >
-        <div className="mb-2">
-          <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
-            Privacy
-          </Link>
-          <span className="mx-2">|</span>
-          <Link href="/terms" className="font-bold hover:text-gray-300 transition-colors">
-            Terms
-          </Link>
-        </div>
-        <div className="text-xs text-gray-300">
-          © 2025 Cardamore, Inc. All rights reserved.
         </div>
       </div>
     </div>
