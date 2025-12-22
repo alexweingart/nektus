@@ -234,15 +234,24 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
+    // Cancel any existing animation before starting new one
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      console.log('🎨 ParticleNetwork: Cancelled previous animation loop');
+    }
+
     animate();
+    console.log('🎨 ParticleNetwork: Animation loop started', { context, particleColor: currentColorsRef.current.particle });
 
     return () => {
+      console.log('🎨 ParticleNetwork: Cleanup - cancelling animation');
       window.removeEventListener('resize', updateSize);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
       }
     };
-  }, [prefersReducedMotion, config, context]);
+  }, [prefersReducedMotion, config]);
 
   if (prefersReducedMotion) {
     return null;
