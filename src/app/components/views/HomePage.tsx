@@ -63,23 +63,28 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleSignIn = async () => {
-    alert('BUTTON CLICKED!'); // Simple test to verify clicks work
-
     // Check iOS PWA on every click (more reliable than state)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    console.log('🔍 Sign-in clicked:', {
-      isStandalone,
-      isIOSDevice,
-      userAgent: navigator.userAgent,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'
-    });
+    console.log('🔍 Sign-in clicked:', { isStandalone, isIOSDevice });
 
     if (isStandalone && isIOSDevice) {
-      const authUrl = `${window.location.origin}/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth-complete')}`;
-      console.log('📱 iOS PWA detected - navigating to:', authUrl);
-      window.location.href = authUrl;
+      // For iOS PWA: Navigate directly to Google OAuth, bypassing NextAuth sign-in page
+      // This avoids the external redirect issue in PWA context
+      const callbackUrl = `${window.location.origin}/api/auth/callback/google`;
+
+      // Build Google OAuth URL directly
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '')}` +
+        `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
+        `&response_type=code` +
+        `&scope=${encodeURIComponent('openid email profile')}` +
+        `&access_type=offline` +
+        `&prompt=select_account`;
+
+      console.log('📱 iOS PWA - navigating directly to Google OAuth:', googleAuthUrl);
+      window.location.href = googleAuthUrl;
       return;
     }
 

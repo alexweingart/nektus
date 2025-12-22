@@ -234,13 +234,21 @@ export const ContactView: React.FC<ContactViewProps> = ({
       }
     }
 
-    // Wait for exit animation to complete (reduced from 300ms for snappier navigation)
-    setTimeout(() => {
+    // Navigate immediately - iOS Safari throttles setTimeout during touch interactions
+    // Using requestAnimationFrame + setTimeout(0) for more reliable iOS execution
+    const performNavigation = () => {
       const navStartTime = performance.now();
       console.log('🎯 ContactView: Calling onReject (router.push) at', navStartTime.toFixed(2), 'ms');
       sessionStorage.setItem('nav-router-push-at', navStartTime.toString());
       onReject();
-    }, 150);
+    };
+
+    // Use requestAnimationFrame to ensure we're in sync with the next frame,
+    // then navigate immediately. This is more reliable on iOS than setTimeout alone.
+    requestAnimationFrame(() => {
+      // Use a microtask to ensure React state updates are flushed
+      Promise.resolve().then(performNavigation);
+    });
   };
 
   const handleSaveContact = async () => {
@@ -539,7 +547,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1000]">
-      <div className="min-h-dvh flex flex-col items-center px-4 py-2 relative z-[1001]">
+      <div
+        className="min-h-dvh flex flex-col items-center px-4 relative z-[1001]"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+          paddingBottom: '8px'
+        }}
+      >
 
         {/* Header with back button for historical contacts */}
         {isHistoricalContact && (
