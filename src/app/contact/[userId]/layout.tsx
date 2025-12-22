@@ -39,6 +39,13 @@ export default function ContactLayout({
 
         if (savedContact) {
           setContactProfile(savedContact);
+
+          // Dispatch match-found event for LayoutBackground to show the contact background
+          if (savedContact.backgroundImage) {
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: { contactBackgroundImage: savedContact.backgroundImage }
+            }));
+          }
         }
       } catch (error) {
         console.error('🎨 ContactLayout: Error loading contact for background:', error);

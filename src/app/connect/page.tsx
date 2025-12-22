@@ -69,6 +69,13 @@ function ConnectPageContent() {
           calendars: []
         };
 
+        // Dispatch match-found event for LayoutBackground to show the contact background
+        if (mockProfile.backgroundImage) {
+          window.dispatchEvent(new CustomEvent('match-found', {
+            detail: { contactBackgroundImage: mockProfile.backgroundImage }
+          }));
+        }
+
         setContactProfile(mockProfile);
         return;
       }
@@ -93,6 +100,14 @@ function ConnectPageContent() {
           if (contact) {
             const contactName = getFieldValue(contact.contactEntries, 'name');
             console.log('✅ Loaded historical contact:', contactName);
+
+            // Dispatch match-found event for LayoutBackground to show the contact background
+            if (contact.backgroundImage) {
+              window.dispatchEvent(new CustomEvent('match-found', {
+                detail: { contactBackgroundImage: contact.backgroundImage }
+              }));
+            }
+
             setContactProfile(contact);
           } else {
             throw new Error('Historical contact not found');
@@ -110,6 +125,14 @@ function ConnectPageContent() {
           if (result.success && result.profile) {
             console.log('✅ Loaded matched profile data:', result.profile);
             console.log('📋 Contact entries:', result.profile.contactEntries);
+
+            // Dispatch match-found event for LayoutBackground to show the contact background
+            if (result.profile.backgroundImage) {
+              window.dispatchEvent(new CustomEvent('match-found', {
+                detail: { contactBackgroundImage: result.profile.backgroundImage }
+              }));
+            }
+
             setContactProfile(result.profile);
           } else {
             throw new Error('Invalid profile response');

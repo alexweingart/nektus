@@ -209,25 +209,27 @@ export function LayoutBackground() {
   // User background URL
   const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
 
-  // Don't render anything if no user background
-  if (!mounted || isLoading || !userBackgroundUrl) {
+  // Don't render anything until mounted
+  if (!mounted) {
     return null;
   }
 
-  const cleanedUserUrl = cleanImageUrl(userBackgroundUrl);
+  const cleanedUserUrl = userBackgroundUrl ? cleanImageUrl(userBackgroundUrl) : null;
 
   return (
     <>
-      {/* Hidden img tag for preloading user background */}
-      <Image
-        src={cleanedUserUrl}
-        alt=""
-        width={1}
-        height={1}
-        style={{ display: 'none' }}
-        onLoad={handleImageLoad}
-        priority
-      />
+      {/* Hidden img tag for preloading user background - only render if user has background */}
+      {cleanedUserUrl && !isLoading && (
+        <Image
+          src={cleanedUserUrl}
+          alt=""
+          width={1}
+          height={1}
+          style={{ display: 'none' }}
+          onLoad={handleImageLoad}
+          priority
+        />
+      )}
       {/* Contact background overlay - always render for smooth crossfades */}
       <div
         className="contact-background-overlay"
