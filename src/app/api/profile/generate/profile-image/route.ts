@@ -25,22 +25,24 @@ function getInitials(name: string): string {
 
 /**
  * Generate a prompt for AI profile image creation
- * Creates an artistic avatar featuring a playful flower/plant (no text)
+ * Creates a robot glyph avatar with negative space forming the user's first initial
  */
 function generateProfileImagePrompt(name: string): string {
   const initials = getInitials(name);
   const firstLetter = initials.charAt(0);
 
-  return `Create a square profile avatar with a gradient background from pale cream (#E7FED2) to lime green (#71E454). ` +
-    `Feature a single playful, cute flower or plant that starts with the letter "${firstLetter}". ` +
-    `The person's name is "${name}" - use your best judgment to determine if the style should lean slightly more masculine (bolder shapes, stronger lines but still cute), ` +
-    `feminine (softer curves, delicate details, extra cute), or neutral (balanced). ` +
-    `CRITICAL: The gradient must fill the entire image from edge to edge. ` +
-    `CRITICAL: Do not add white circles, white backgrounds, or any white shapes. ` +
-    `CRITICAL: Do not include any text or letters in the image. ` +
-    `CRITICAL: The gradient colors (#E7FED2 to #71E454) must be visible throughout the entire image. ` +
-    `The flower/plant should be centered and overlaid on the gradient. ` +
-    `Style: whimsical, playful, minimalist, geometric. Think kawaii-inspired but modern and clean. No photorealism.`;
+  return `Create a minimalist robot avatar icon in a bold, vector logo style. ` +
+    `The robot should be a single iconic glyph composed of simple geometric shapes (circles, rounded rectangles, rounded triangles). ` +
+    `CRITICAL: Use negative space within the robot's face panel to form the letter "${firstLetter}". The letter should be clearly readable and integrated into the design, not added as text. ` +
+    `Background: gradient from pale cream (#E7FED2) to lime green (#71E454) at 135 degrees, filling the entire square image edge-to-edge. ` +
+    `The robot should be centered and use thick, consistent strokes with rounded corners throughout. ` +
+    `Style: modern, friendly, tech-forward. Think mascot-like but minimal—like a logo mark for a tech company. ` +
+    `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot glyph structure. ` +
+    `CRITICAL: The gradient (#E7FED2 to #71E454) must fill the entire image from edge to edge. ` +
+    `CRITICAL: Do not add white backgrounds, white circles, or any other background shapes. ` +
+    `CRITICAL: Do not include any text, letters as text, or typography. The "${firstLetter}" should be formed by negative space only. ` +
+    `Color palette: Robot should use dark teal (#004D40) or near-black for maximum contrast against the nekt gradient background. ` +
+    `Keep it simple, iconic, and instantly recognizable as a robot avatar.`;
 }
 
 /**

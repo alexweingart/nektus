@@ -40,10 +40,10 @@ export default function ContactLayout({
         if (savedContact) {
           setContactProfile(savedContact);
 
-          // Dispatch match-found event for LayoutBackground to show the contact background
-          if (savedContact.backgroundImage) {
+          // Dispatch match-found event for LayoutBackground with contact's background colors
+          if (savedContact.backgroundColors) {
             window.dispatchEvent(new CustomEvent('match-found', {
-              detail: { contactBackgroundImage: savedContact.backgroundImage }
+              detail: { backgroundColors: savedContact.backgroundColors }
             }));
           }
         }

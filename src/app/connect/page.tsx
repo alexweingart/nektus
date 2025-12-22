@@ -69,10 +69,10 @@ function ConnectPageContent() {
           calendars: []
         };
 
-        // Dispatch match-found event for LayoutBackground to show the contact background
-        if (mockProfile.backgroundImage) {
+        // Dispatch match-found event for LayoutBackground with contact's background colors
+        if (mockProfile.backgroundColors) {
           window.dispatchEvent(new CustomEvent('match-found', {
-            detail: { contactBackgroundImage: mockProfile.backgroundImage }
+            detail: { backgroundColors: mockProfile.backgroundColors }
           }));
         }
 
@@ -101,10 +101,10 @@ function ConnectPageContent() {
             const contactName = getFieldValue(contact.contactEntries, 'name');
             console.log('✅ Loaded historical contact:', contactName);
 
-            // Dispatch match-found event for LayoutBackground to show the contact background
-            if (contact.backgroundImage) {
+            // Dispatch match-found event for LayoutBackground with contact's background colors
+            if (contact.backgroundColors) {
               window.dispatchEvent(new CustomEvent('match-found', {
-                detail: { contactBackgroundImage: contact.backgroundImage }
+                detail: { backgroundColors: contact.backgroundColors }
               }));
             }
 
@@ -126,10 +126,10 @@ function ConnectPageContent() {
             console.log('✅ Loaded matched profile data:', result.profile);
             console.log('📋 Contact entries:', result.profile.contactEntries);
 
-            // Dispatch match-found event for LayoutBackground to show the contact background
-            if (result.profile.backgroundImage) {
+            // Dispatch match-found event for LayoutBackground with contact's background colors
+            if (result.profile.backgroundColors) {
               window.dispatchEvent(new CustomEvent('match-found', {
-                detail: { contactBackgroundImage: result.profile.backgroundImage }
+                detail: { backgroundColors: result.profile.backgroundColors }
               }));
             }
 

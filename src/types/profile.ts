@@ -28,6 +28,7 @@ export interface UserProfile {
   userId: string;
   profileImage: string;
   backgroundImage: string;
+  backgroundColors?: string[];  // Extracted colors for ParticleNetwork: [dominant, accent1, accent2]
   lastUpdated: number;
   contactEntries: ContactEntry[];  // Everything is now a ContactEntry (name, bio, contacts)
   // AI generation completion flags - persist across sessions

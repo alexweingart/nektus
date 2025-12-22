@@ -227,17 +227,7 @@ body {
 
    ============================================================================ */
 
-/* ParticleNetwork canvas - hidden by default, only shown when explicitly needed */
-canvas[style*="z-index: -1"] {
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
-}
-
-body.show-particles canvas[style*="z-index: -1"] {
-  opacity: 1;
-}
-
-/* Default background - shown when user has no custom background and has initials avatar */
+/* Default background - shown as fallback for prefers-reduced-motion users */
 body::after {
   content: '';
   position: fixed;
@@ -256,49 +246,6 @@ body::after {
 }
 
 body.show-default-background::after {
-  opacity: 1;
-}
-
-/* User background - persistent layer always visible */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: var(--full-screen-height, 100vh);
-  background-image: var(--user-background-image);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 1s ease-out;
-  pointer-events: none;
-}
-
-body.has-user-background::before {
-  opacity: 1;
-}
-
-/* Contact background - overlay layer for crossfades */
-.contact-background-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: var(--full-screen-height, 100vh);
-  background-image: var(--contact-background-image);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 3;
-  opacity: 0;
-  transition: opacity 1s ease-in-out;
-  pointer-events: none;
-}
-
-body.show-contact-background .contact-background-overlay {
   opacity: 1;
 }
 

@@ -1,47 +1,66 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import Image from 'next/image';
 import { useProfile } from '../../../context/ProfileContext';
+import { ParticleNetwork } from './ParticleNetwork';
+import type { ParticleNetworkProps } from './ParticleNetwork';
+
+interface ContactProfile {
+  backgroundColors?: string[];
+}
 
 /**
- * CSS-based background manager using body::before and body::after
- * Sets CSS variables and toggles classes for smooth transitions
- * No React render delays - backgrounds always present in DOM
+ * Helper function to convert hex color to rgba with alpha
+ */
+function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Convert background colors array to ParticleNetwork colors using Option A mapping
+ * @param backgroundColors Array of [dominant, accent1, accent2]
+ * @returns ParticleNetwork color configuration
+ */
+function convertToParticleColors(backgroundColors: string[]) {
+  const [dominant, accent1, accent2] = backgroundColors;
+
+  return {
+    gradientStart: hexToRgba(accent1, 0.4),      // Bright accent at top
+    gradientEnd: dominant,                       // Main color fills background
+    particle: hexToRgba(accent2, 0.6),          // Bright particles
+    connection: hexToRgba(accent2, 0.15)        // Subtle connections (same hue as particles)
+  };
+}
+
+/**
+ * Background manager that orchestrates ParticleNetwork with context-aware settings
+ * and personalized colors extracted from profile images
  */
 export function LayoutBackground() {
   const { data: session, status } = useSession();
-  const { profile, isLoading, streamingBackgroundImage, isGoogleInitials } = useProfile();
+  const { profile, isLoading } = useProfile();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [contactBackgroundUrl, setContactBackgroundUrl] = useState<string | null>(null);
-
-  // Cache loaded image URLs
-  const loadedImagesRef = useRef(new Set<string>());
-
-  // Track previous pathname to detect navigation direction
-  const prevPathnameRef = useRef(pathname);
-
-  // Helper function to clean image URL
-  const cleanImageUrl = useCallback((url: string): string => {
-    return url.replace(/[\n\r\t]/g, '').trim();
-  }, []);
+  const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Listen for match-found event to capture contact background
+  // Listen for match-found event to capture contact profile data
   useEffect(() => {
     const handleMatchFound = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { contactBackgroundImage } = customEvent.detail || {};
+      const { backgroundColors } = customEvent.detail || {};
 
-      if (contactBackgroundImage) {
-        setContactBackgroundUrl(contactBackgroundImage);
+      if (backgroundColors) {
+        setContactProfile({ backgroundColors });
       }
     };
 
@@ -51,190 +70,116 @@ export function LayoutBackground() {
     };
   }, []);
 
-  // Set user background CSS variable when image loads
+  // Clear contact profile when navigating away from contact pages
   useEffect(() => {
-    if (!mounted || !isImageLoaded || isLoading) return;
-
-    const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
-    if (!userBackgroundUrl) return;
-
-    const cleanedUrl = cleanImageUrl(userBackgroundUrl);
-
-    // Set CSS variable
-    document.documentElement.style.setProperty('--user-background-image', `url("${cleanedUrl}")`);
-
-    // Only add class to show user background if NOT on a contact page
-    // Contact pages manage their own backgrounds via ContactLayout
-    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
-    if (!isOnContactPage) {
-      document.body.classList.add('has-user-background');
-    }
-
-    return () => {
-      // Cleanup on unmount
-      document.body.classList.remove('has-user-background');
-    };
-  }, [mounted, isImageLoaded, isLoading, streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl, pathname]);
-
-  // Set contact background CSS variable when available
-  useEffect(() => {
-    if (!contactBackgroundUrl) return;
-
-    const cleanedUrl = cleanImageUrl(contactBackgroundUrl);
-    document.documentElement.style.setProperty('--contact-background-image', `url("${cleanedUrl}")`);
-  }, [contactBackgroundUrl, cleanImageUrl]);
-
-  // Toggle contact background visibility based on pathname
-  useEffect(() => {
-    const prevPathname = prevPathnameRef.current;
-    prevPathnameRef.current = pathname;
-
-    if (!contactBackgroundUrl) return;
-
     const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
 
-    if (isOnContactPage) {
-      document.body.classList.add('show-contact-background');
-    } else {
-      // Only hide and clear if we're coming BACK from /connect
-      const isReturningFromConnect = prevPathname === '/connect' && pathname === '/';
+    if (!isOnContactPage && contactProfile) {
+      // Clear after a delay to allow transition
+      const timeout = setTimeout(() => {
+        setContactProfile(null);
+      }, 1000);
 
-      if (isReturningFromConnect) {
-        document.body.classList.remove('show-contact-background');
-
-        // Clear after transition (1s to match CSS transition)
-        setTimeout(() => {
-          setContactBackgroundUrl(null);
-          document.documentElement.style.removeProperty('--contact-background-image');
-        }, 1000);
-      }
-      // Otherwise, keep background ready for navigation
+      return () => clearTimeout(timeout);
     }
-  }, [pathname, contactBackgroundUrl]);
+  }, [pathname, contactProfile]);
 
-  // Manage default background and particle network visibility
+  // Set default background CSS variable for prefers-reduced-motion fallback
   useEffect(() => {
     if (!mounted) return;
 
-    // Set default background image CSS variable
     document.documentElement.style.setProperty('--default-background-image', 'url("/DefaultBackgroundImage.png")');
 
-    // Debug logging
-    console.log('=== LAYOUT BACKGROUND DEBUG ===');
-    console.log('session status:', status);
-    console.log('isLoading:', isLoading);
-    console.log('session:', session ? 'exists' : 'null');
-    console.log('pathname:', pathname);
-
-    // Wait for session to be determined
-    if (status === 'loading') {
-      console.log('Session still loading, not showing particles yet');
-      return;
-    }
-
-    // If signed in, wait for profile to load
-    // If signed out, don't wait (there's no profile to load)
-    if (session && isLoading) {
-      console.log('Signed in but profile still loading, not showing particles yet');
-      return;
-    }
-
-    // Determine if avatar is initials or AI-generated
-    const isInitialsAvatar = profile?.aiGeneration?.avatarGenerated === true || isGoogleInitials;
-
-    // Check if we have any background (user or contact)
-    const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
-    const hasBackground = !!userBackgroundUrl || !!contactBackgroundUrl;
-
-    // Signed out (authenticated status determined) → show particles, no default background
-    if (!session) {
-      console.log('User is signed out - showing particles');
-      document.body.classList.add('show-particles');
-      document.body.classList.remove('show-default-background');
-      console.log('Body classes:', document.body.className);
-      return;
-    }
-
-    // Determine if we're on a contact page
-    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
-
-    // Signed in logic - different behavior for contact pages vs user pages
-    if (isOnContactPage) {
-      // CONTACT PAGE LOGIC
-      if (contactBackgroundUrl) {
-        // Contact has background → show it, no particles, no default
-        document.body.classList.remove('show-particles');
-        document.body.classList.remove('show-default-background');
-      } else {
-        // Contact has NO background → show default background, no particles
-        document.body.classList.remove('show-particles');
-        document.body.classList.add('show-default-background');
-        document.body.classList.remove('show-contact-background');
-      }
-    } else {
-      // USER PAGE LOGIC
-      if (userBackgroundUrl) {
-        // User has background → show it, no particles, no default
-        document.body.classList.remove('show-particles');
-        document.body.classList.remove('show-default-background');
-      } else if (isInitialsAvatar) {
-        // No background + initials avatar → show default background, no particles
-        document.body.classList.remove('show-particles');
-        document.body.classList.add('show-default-background');
-      } else {
-        // No background + real photo → show particles, no default
-        document.body.classList.add('show-particles');
-        document.body.classList.remove('show-default-background');
-      }
-    }
-
     return () => {
-      // Cleanup on unmount
-      document.body.classList.remove('show-particles');
-      document.body.classList.remove('show-default-background');
       document.documentElement.style.removeProperty('--default-background-image');
     };
-  }, [mounted, session, status, profile, streamingBackgroundImage, contactBackgroundUrl, isGoogleInitials, pathname]);
+  }, [mounted]);
 
-  // Handle image load
-  const handleImageLoad = useCallback(() => {
-    const backgroundImageUrl = streamingBackgroundImage || profile?.backgroundImage;
-    if (backgroundImageUrl) {
-      const cleanedUrl = cleanImageUrl(backgroundImageUrl);
-      setIsImageLoaded(true);
-      loadedImagesRef.current.add(cleanedUrl);
+  // Determine context and background colors
+  const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
+    // Wait for session to be determined
+    if (status === 'loading') {
+      return { context: 'signed-out' };
     }
-  }, [streamingBackgroundImage, profile?.backgroundImage, cleanImageUrl]);
 
-  // User background URL
-  const userBackgroundUrl = streamingBackgroundImage || profile?.backgroundImage;
+    // Signed out
+    if (!session) {
+      return { context: 'signed-out' };
+    }
 
-  // Don't render anything until mounted
+    // Signed in - wait for profile to load
+    if (isLoading) {
+      return { context: 'signed-out' };
+    }
+
+    // Determine if on contact page
+    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+
+    if (isOnContactPage) {
+      // Contact page logic
+      const contactColors = contactProfile?.backgroundColors;
+
+      if (contactColors && contactColors.length >= 3) {
+        return {
+          colors: convertToParticleColors(contactColors),
+          context: pathname === '/connect' ? 'connect' : 'contact'
+        };
+      } else {
+        // Contact has no custom colors - use default with appropriate context
+        return {
+          context: pathname === '/connect' ? 'connect' : 'contact'
+        };
+      }
+    } else {
+      // User profile page logic
+      const userColors = profile?.backgroundColors;
+
+      if (userColors && userColors.length >= 3) {
+        // User has custom colors
+        return {
+          colors: convertToParticleColors(userColors),
+          context: 'profile'
+        };
+      } else {
+        // User has no custom colors - use default nekt colors with profile-default context
+        // This differentiates from signed-out via density, motion, and connections
+        return {
+          context: 'profile-default'
+        };
+      }
+    }
+  }, [status, session, isLoading, pathname, profile, contactProfile]);
+
+  // Manage default background visibility for prefers-reduced-motion fallback
+  useEffect(() => {
+    if (!mounted) return;
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const updateDefaultBackground = () => {
+      if (mediaQuery.matches) {
+        // Show default background for reduced motion users
+        document.body.classList.add('show-default-background');
+      } else {
+        // Hide default background for normal users (ParticleNetwork shows instead)
+        document.body.classList.remove('show-default-background');
+      }
+    };
+
+    updateDefaultBackground();
+    mediaQuery.addEventListener('change', updateDefaultBackground);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateDefaultBackground);
+      document.body.classList.remove('show-default-background');
+    };
+  }, [mounted]);
+
   if (!mounted) {
     return null;
   }
 
-  const cleanedUserUrl = userBackgroundUrl ? cleanImageUrl(userBackgroundUrl) : null;
+  const particleProps = getParticleNetworkProps();
 
-  return (
-    <>
-      {/* Hidden img tag for preloading user background - only render if user has background */}
-      {cleanedUserUrl && !isLoading && (
-        <Image
-          src={cleanedUserUrl}
-          alt=""
-          width={1}
-          height={1}
-          style={{ display: 'none' }}
-          onLoad={handleImageLoad}
-          priority
-        />
-      )}
-      {/* Contact background overlay - always render for smooth crossfades */}
-      <div
-        className="contact-background-overlay"
-        style={{ pointerEvents: 'none' }}
-      />
-    </>
-  );
+  return <ParticleNetwork {...particleProps} />;
 }
