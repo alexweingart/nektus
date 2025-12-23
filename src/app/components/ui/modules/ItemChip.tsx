@@ -90,7 +90,7 @@ export const ItemChip: React.FC<ItemChipProps> = ({
 
   return (
     <div
-      className={`flex items-center p-4 bg-black/40 border border-white/10 rounded-2xl backdrop-blur-sm ${
+      className={`flex items-center p-4 bg-black/60 border border-white/10 rounded-2xl backdrop-blur-lg ${
         onClick ? 'cursor-pointer hover:bg-black/50' : ''
       } ${className}`}
       onPointerDown={handlePointerDown}

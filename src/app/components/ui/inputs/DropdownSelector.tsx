@@ -136,7 +136,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
       {isOpen && !disabled && typeof window !== 'undefined' && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[9999] w-60 shadow-lg rounded-2xl max-h-60 overflow-hidden backdrop-blur-sm border border-white/20"
+          className="fixed z-[9999] w-60 shadow-lg rounded-2xl max-h-60 overflow-hidden backdrop-blur-lg border border-white/20"
           style={{
             top: `${menuPosition.top}px`,
             left: `${menuPosition.left}px`,

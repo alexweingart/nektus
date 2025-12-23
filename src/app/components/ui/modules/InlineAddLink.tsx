@@ -158,7 +158,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
 
   return (
     <div
-      className="w-full max-w-md mx-auto bg-black/40 backdrop-blur-sm rounded-2xl p-6 space-y-4 relative z-50"
+      className="w-full max-w-md mx-auto bg-black/60 backdrop-blur-lg rounded-2xl p-6 space-y-4 relative z-50"
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
       tabIndex={-1}

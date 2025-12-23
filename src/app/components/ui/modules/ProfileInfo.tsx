@@ -154,7 +154,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
       </div>
       
       {/* Carousel Container - Full width background */}
-      <div className="w-full bg-black/60 backdrop-blur-sm py-4 rounded-2xl overflow-hidden">
+      <div className="w-full bg-black/60 backdrop-blur-lg py-4 rounded-2xl overflow-hidden">
           <div 
             ref={carouselRef}
             className="flex transition-transform duration-300 ease-out"

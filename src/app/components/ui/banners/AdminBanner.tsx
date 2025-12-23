@@ -279,7 +279,7 @@ export default function AdminBanner() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 z-50 flex justify-center">
-      <div className="w-full bg-red-500/90 border border-red-400 rounded-2xl p-4 backdrop-blur-sm relative" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+      <div className="w-full bg-red-500/90 border border-red-400 rounded-2xl p-4 backdrop-blur-lg relative" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
         {/* Close button */}
         <button
           onClick={closeAdminMode}

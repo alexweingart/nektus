@@ -48,7 +48,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
       </div>
 
       {/* Content with blur background */}
-      <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+      <div className="w-full bg-black/60 backdrop-blur-lg px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
         {/* Name */}
         <div className="text-center mb-4">
           <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'Anonymous'}</h1>

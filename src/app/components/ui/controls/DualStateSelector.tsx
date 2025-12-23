@@ -25,7 +25,7 @@ export function DualStateSelector<T extends string>({
 }: DualStateSelectorProps<T>) {
   return (
     <div className={cn(
-      "relative bg-black/40 backdrop-blur-sm rounded-full flex",
+      "relative bg-black/60 backdrop-blur-lg rounded-full flex",
       className
     )}>
       {/* Background slider for selected state */}

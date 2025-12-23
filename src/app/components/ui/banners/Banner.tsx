@@ -30,7 +30,7 @@ export const Banner: React.FC<BannerProps> = ({
   const borderClass = variant === 'admin' ? 'border-red-400' : 'border-white/20';
 
   return (
-    <div className={`${bgClass} border ${borderClass} rounded-2xl p-4 backdrop-blur-sm`}>
+    <div className={`${bgClass} border ${borderClass} rounded-2xl p-4 backdrop-blur-lg`}>
       <div className="flex items-center gap-3">
         {/* Icon */}
         <div className="flex-shrink-0">
