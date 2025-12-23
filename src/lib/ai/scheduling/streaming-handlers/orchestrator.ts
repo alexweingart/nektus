@@ -499,7 +499,7 @@ export async function streamSchedulingResponse(
         enqueueProgress(controller, encoder, 'Selecting time and place...');
 
         // Determine which alternatives to show
-        const { determineAlternativesToShow } = await import('@/lib/events/event-utils');
+        const { determineAlternativesToShow } = await import('./handler-utils');
         const { showAlternativePlaces, showAlternativeTimes, includeConflictWarning } =
           determineAlternativesToShow(templateResult.template, true);
 

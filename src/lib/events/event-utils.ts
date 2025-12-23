@@ -199,7 +199,6 @@ export function createCompleteCalendarEvent(
     preferredPlaces?: Place[];
   },
   otherUser: { email: string },
-  _currentUser?: { displayName?: string },
   timezone?: string
 ): {
   formattedTitle: string;
@@ -286,166 +285,6 @@ export function applyDefaultTravelBuffer(eventTemplate: Partial<Event>): Partial
     };
   }
   return eventTemplate;
-}
-
-/**
- * Create description with travel buffer information for in-person events
- */
-export function createTravelBufferDescription(
-  originalDescription: string,
-  eventResult: { place?: Place; startTime?: string },
-  eventTemplate: Partial<Event>,
-  timezone?: string
-): string {
-  if (eventTemplate.eventType !== 'in-person' || !eventTemplate.travelBuffer || !eventResult.startTime) {
-    return originalDescription;
-  }
-
-  // eventResult.startTime is ALREADY the correct event start time (buffer applied during slot generation)
-  const actualStart = new Date(eventResult.startTime);
-  const actualEnd = new Date(actualStart.getTime() + (eventTemplate.duration || 60) * 60 * 1000);
-
-  const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone || 'UTC' };
-  const startTimeStr = actualStart.toLocaleTimeString('en-US', timeOptions);
-  const endTimeStr = actualEnd.toLocaleTimeString('en-US', timeOptions);
-  const placeName = eventResult.place?.name || 'the venue';
-
-  return `Meeting time: ${startTimeStr} - ${endTimeStr}\nIncludes ${eventTemplate.travelBuffer.beforeMinutes} min of travel time to ${placeName} and ${eventTemplate.travelBuffer.afterMinutes} min back`;
-}
-
-/**
- * Build final event object with all required fields
- * Used by AI scheduling to construct the complete Event object
- */
-export function buildFinalEvent(
-  organizerId: string,
-  attendeeId: string,
-  eventResult: { title: string; startTime: string; endTime: string; place?: Place },
-  template: Partial<Event>,
-  finalDescription: string,
-  locationString: string,
-  calendar_urls: { google: string; outlook: string; apple: string }
-): Event {
-  const finalEvent: Event = {
-    id: `temp-${Date.now()}`,
-    organizerId,
-    attendeeId,
-    title: eventResult.title,
-    description: finalDescription,
-    duration: template.duration || 60,
-    eventType: template.eventType || 'video',
-    intent: template.intent || 'custom',
-    startTime: new Date(eventResult.startTime),
-    endTime: new Date(eventResult.endTime),
-    location: locationString,
-    travelBuffer: template.travelBuffer,
-    calendar_urls: {
-      google: calendar_urls.google,
-      outlook: calendar_urls.outlook,
-      apple: calendar_urls.apple,
-    },
-    status: 'template',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    preferredPlaces: eventResult.place ? [eventResult.place] : undefined,
-  };
-
-  return finalEvent;
-}
-
-/**
- * Determine which alternatives to show based on user constraints and validity
- *
- * Logic:
- * - If time is invalid (conflict): ALWAYS show time alternatives + warning
- * - If both date/time AND place constrained + valid: show nothing
- * - If date/time constrained + valid: show place alternatives
- * - If place constrained + valid: show time alternatives
- * - If neither constrained: show place alternatives (default)
- */
-export function determineAlternativesToShow(
-  template: Partial<Event> & {
-    preferredSchedulableDates?: { startDate: string; endDate: string; description?: string };
-    preferredSchedulableHours?: Partial<SchedulableHours>;
-    hasExplicitTimeRequest?: boolean;
-    intentSpecificity?: string;
-    intent?: string;
-  },
-  hasValidTime: boolean,
-  editResult?: {
-    timePreference?: 'earlier' | 'later' | 'specific';
-    newPlaceType?: string;
-    newPlaceIndex?: number;
-  }
-): {
-  showAlternativePlaces: boolean;
-  showAlternativeTimes: boolean;
-  includeConflictWarning: boolean;
-  reason: string;
-} {
-  // Detect date/time constraints (EXPLICIT ONLY - user actually specified a time)
-  // Don't count preferredSchedulableHours (implicit from activity type like "dinner")
-  const hasDateTimeConstraint = !!(
-    template.preferredSchedulableDates ||
-    template.hasExplicitTimeRequest ||
-    editResult?.timePreference
-  );
-
-  // Detect place constraints (NARROW - only explicit venue requests)
-  const hasPlaceConstraint = !!(
-    template.intentSpecificity === 'specific_place' ||
-    editResult?.newPlaceType ||
-    editResult?.newPlaceIndex ||
-    (template.intent && /at .+? (park|cafe|restaurant|gym|court)/i.test(template.intent) && !/at a /i.test(template.intent))
-  );
-
-  // Rule 1: If time is invalid (conflict), ALWAYS show time alternatives + warning
-  if (!hasValidTime) {
-    return {
-      showAlternativePlaces: false,
-      showAlternativeTimes: true,
-      includeConflictWarning: true,
-      reason: 'conflict-show-time-alternatives'
-    };
-  }
-
-  // Rule 2: Both date/time AND place specified + valid → show nothing
-  if (hasDateTimeConstraint && hasPlaceConstraint) {
-    return {
-      showAlternativePlaces: false,
-      showAlternativeTimes: false,
-      includeConflictWarning: false,
-      reason: 'both-specified-valid'
-    };
-  }
-
-  // Rule 3: Date/time specified + valid → show place alternatives
-  if (hasDateTimeConstraint) {
-    return {
-      showAlternativePlaces: true,
-      showAlternativeTimes: false,
-      includeConflictWarning: false,
-      reason: 'time-fixed-show-places'
-    };
-  }
-
-  // Rule 4: Place specified + valid → show time alternatives
-  if (hasPlaceConstraint) {
-    return {
-      showAlternativePlaces: false,
-      showAlternativeTimes: true,
-      includeConflictWarning: false,
-      reason: 'place-fixed-show-times'
-    };
-  }
-
-  // Rule 5: Default (neither specified) → show place alternatives
-  return {
-    showAlternativePlaces: true,
-    showAlternativeTimes: false,
-    includeConflictWarning: false,
-    reason: 'default-show-places'
-  };
 }
 
 /**
@@ -585,11 +424,9 @@ export async function composeAndOpenCalendarEvent(params: {
 
   // Create calendar URLs using contact's email
   const contactForCalendar = { email: contactEmail };
-  const displayName = getFieldValue(currentUserProfile.contactEntries, 'name') || undefined;
   const { formattedTitle, calendar_urls } = createCompleteCalendarEvent(
     event,
-    contactForCalendar,
-    { displayName }
+    contactForCalendar
   );
 
   // Determine preferred provider from user's calendars

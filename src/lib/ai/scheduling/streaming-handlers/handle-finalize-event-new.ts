@@ -1,4 +1,4 @@
-import { createCompleteCalendarEvent, createTravelBufferDescription, calculateCalendarBlockTimes } from '@/lib/events/event-utils';
+import { createCompleteCalendarEvent, calculateCalendarBlockTimes } from '@/lib/events/event-utils';
 import { processingStateManager } from '@/lib/services/server/aiProcessingService';
 import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils';
 import type { AISchedulingRequest, GenerateEventResult } from '@/types/ai-scheduling';
@@ -42,13 +42,17 @@ export async function handleFinalizeEvent(
     ? `${eventResult.place.name}${eventResult.place.address ? `, ${eventResult.place.address}` : ''}`
     : '';
 
-  // Build travel buffer description
-  const description = createTravelBufferDescription(
-    baseDescription,
-    eventResult,
-    template,
-    body.timezone
-  );
+  // Build description with travel buffer information for in-person events
+  let description = baseDescription;
+  if (template.eventType === 'in-person' && template.travelBuffer && eventResult.startTime) {
+    const actualStart = new Date(eventResult.startTime);
+    const actualEnd = new Date(actualStart.getTime() + (template.duration || 60) * 60 * 1000);
+    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: body.timezone || 'UTC' };
+    const startTimeStr = actualStart.toLocaleTimeString('en-US', timeOptions);
+    const endTimeStr = actualEnd.toLocaleTimeString('en-US', timeOptions);
+    const placeName = eventResult.place?.name || 'the venue';
+    description = `Meeting time: ${startTimeStr} - ${endTimeStr}\nIncludes ${template.travelBuffer.beforeMinutes} min of travel time to ${placeName} and ${template.travelBuffer.afterMinutes} min back`;
+  }
 
   // Convert ISO strings to Date objects
   const eventStartDate = new Date(eventResult.startTime);
@@ -77,7 +81,6 @@ export async function handleFinalizeEvent(
   const { calendar_urls } = createCompleteCalendarEvent(
     calendarEvent,
     { email: body.user2Id },
-    undefined,
     body.timezone
   );
 
