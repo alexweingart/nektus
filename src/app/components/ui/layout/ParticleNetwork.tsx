@@ -22,12 +22,20 @@ export interface ParticleNetworkProps {
   context?: 'signed-out' | 'profile' | 'profile-default' | 'connect' | 'contact';
 }
 
-// Default nekt green colors
+// Default nekt green colors (for signed-out)
 const DEFAULT_COLORS: ParticleColors = {
   particle: 'rgba(200, 255, 200, 0.6)',
   connection: 'rgba(34, 197, 94, 0.15)',
-  gradientStart: 'rgba(34, 197, 94, 0.3)',
-  gradientEnd: '#0a0f1a'
+  gradientStart: 'rgba(34, 197, 94, 0.3)', // Light green at top
+  gradientEnd: '#0a0f1a'                    // Dark at bottom
+};
+
+// Inverted gradient for signed-in users without custom colors (profile-default)
+const DEFAULT_COLORS_INVERTED: ParticleColors = {
+  particle: 'rgba(200, 255, 200, 0.6)',
+  connection: 'rgba(34, 197, 94, 0.15)',
+  gradientStart: '#0a0f1a',                 // Dark at top
+  gradientEnd: 'rgba(34, 197, 94, 0.3)'     // Light green at bottom
 };
 
 // Context-specific configuration
@@ -179,7 +187,8 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   });
 
   // Detect color changes and start transition
-  const newColors = colors || DEFAULT_COLORS;
+  // Use inverted gradient for profile-default context if no custom colors provided
+  const newColors = colors || (context === 'profile-default' ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS);
   if (!colorsEqual(newColors, transitionRef.current.toColors)) {
     // Get current interpolated colors as starting point
     const now = performance.now();
