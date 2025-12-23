@@ -48,6 +48,7 @@ type ProfileContextType = {
   streamingProfileImage: string | null;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
+  isCheckingGoogleImage: boolean;
   // Contacts cache management
   contacts: SavedContact[] | null;
   contactsLoadedAt: number | null;
@@ -88,6 +89,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Track if current profile image is Google auto-generated initials
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
+  const [isCheckingGoogleImage, setIsCheckingGoogleImage] = useState(false);
 
   // Contacts cache state
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
@@ -307,6 +309,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         shouldGenerate = true;
       } else if (currentProfileImage?.includes('googleusercontent.com')) {
         // For Google users, check if it's auto-generated initials
+        setIsCheckingGoogleImage(true); // Start checking
         try {
           const accessToken = session?.accessToken;
           if (accessToken) {
@@ -324,6 +327,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // On error, assume it's a real photo to avoid unnecessary generation
           shouldGenerate = false;
           setIsGoogleInitials(false);
+        } finally {
+          setIsCheckingGoogleImage(false); // Done checking
         }
       } else {
         setIsGoogleInitials(false);
@@ -916,6 +921,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setStreamingBackgroundImage,
         streamingProfileImage,
         isGoogleInitials,
+        isCheckingGoogleImage,
         contacts,
         contactsLoadedAt,
         loadContacts,

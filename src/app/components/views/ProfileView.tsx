@@ -31,7 +31,8 @@ const ProfileView: React.FC = () => {
     streamingBio,
     streamingSocialContacts,
     streamingProfileImage,
-    isGoogleInitials
+    isGoogleInitials,
+    isCheckingGoogleImage
   } = useProfile();
 
 
@@ -197,23 +198,30 @@ const ProfileView: React.FC = () => {
 
   // Profile image - use streaming value for immediate updates after generation
   // Filter out Google initials images to show our gradient instead
+  // While checking Google image, hide it (src=undefined) to prevent flash
   const profileImageSrc = useMemo(() => {
     const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
 
-    // Prioritize streaming image for crossfade, otherwise filter out confirmed Google initials
+    // Prioritize streaming image for crossfade
     if (streamingProfileImage) {
       return getOptimalProfileImageUrl(streamingProfileImage, 400);
     }
 
-    if (isGoogleInitials) {
-      return undefined; // Show gradient fallback for confirmed Google initials
+    // Hide Google image while checking or if confirmed initials
+    if (isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)) {
+      return undefined;
     }
 
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials]);
+  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
 
-  // Calculate if we should show initials - true for confirmed Google initials (enables crossfade)
-  const shouldShowInitials = isGoogleInitials;
+  // Calculate if we should show initials - true for confirmed Google initials or while checking
+  const shouldShowInitials = useMemo(() => {
+    const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
+    return isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
+  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
 
   // Contact channels with streaming support
   const contactChannels = useMemo(() => {

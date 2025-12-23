@@ -24,7 +24,7 @@ function ProfileSetupView() {
     required: true,
   });
   
-  const { saveProfile, profile, isSaving: isProfileSaving, isLoading: isProfileLoading, setNavigatingFromSetup, isGoogleInitials, streamingProfileImage } = useProfile();
+  const { saveProfile, profile, isSaving: isProfileSaving, isLoading: isProfileLoading, setNavigatingFromSetup, isGoogleInitials, isCheckingGoogleImage, streamingProfileImage } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -154,16 +154,18 @@ function ProfileSetupView() {
 
   // When we have a streaming image, use it as src (for crossfade)
   // When we have Google initials (confirmed by async check), use undefined (to show our custom initials)
+  // While checking Google image, hide it (src=undefined) to prevent flash
   const profileImageUrl = streamingProfileImage || profile?.profileImage;
+  const isGoogleUrl = profileImageUrl?.includes('googleusercontent.com');
+
   const avatarSrc = streamingProfileImage
     ? getOptimalProfileImageUrl(streamingProfileImage, 400)
-    : isGoogleInitials
-      ? undefined
+    : isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)
+      ? undefined  // Hide Google image while checking or if confirmed initials
       : getOptimalProfileImageUrl(profileImageUrl, 400);
 
-  // Keep showInitials true if we have confirmed Google initials, even when streaming image arrives
-  // This allows the Avatar to crossfade from initials to the streaming image
-  const avatarShowInitials = isGoogleInitials;
+  // Show initials if: confirmed Google initials, OR checking a Google image (prevents flash)
+  const avatarShowInitials = isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
 
   // Render form content without outer wrapper
   return (
