@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Find slots that both users have available
-    const commonSlots = findSlotIntersection(user1Slots, user2Slots, duration, travelBuffer);
+    const commonSlots = findSlotIntersection(user1Slots, user2Slots);
 
     console.log(`✅ Calculated ${commonSlots.length} common time slots`);
     if (commonSlots.length > 0) {

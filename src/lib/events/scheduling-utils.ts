@@ -1,7 +1,8 @@
 import { TimeSlot, SchedulableHours, SchedulingParams } from '@/types';
 import { getEventTemplate } from './event-templates';
-import { timeToMinutes, parseTimeString, getDayOfWeek } from './time-utils';
+import { timeToMinutes, getDayOfWeek } from './time-utils';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS, UNIVERSAL_SCHEDULABLE_HOURS } from '@/lib/constants';
+import { createFallbackFromTemplate, getDateRange } from './slot-generator';
 
 export interface SuggestedTimes {
   [chipId: string]: { start: string; end: string } | null;
@@ -101,30 +102,6 @@ function selectOptimalTimeSlot(
   });
 
   return slotsWithDistance[0].slot;
-}
-
-// Helper to get date range from preferred dates or use default (tomorrow + 14 days)
-function getDateRange(preferredSchedulableDates?: {
-  startDate: string;
-  endDate: string;
-}): { startDate: Date; endDate: Date } {
-  if (preferredSchedulableDates?.startDate && preferredSchedulableDates?.endDate) {
-    const startDate = new Date(preferredSchedulableDates.startDate + 'T00:00:00');
-    const endDate = new Date(preferredSchedulableDates.endDate + 'T23:59:59');
-
-    // Validate dates
-    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-      return { startDate, endDate };
-    }
-  }
-
-  // Fallback to tomorrow + 14 days
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() + 1);
-  const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 14);
-
-  return { startDate, endDate };
 }
 
 // Helper to check if slot time is within schedulable hours
@@ -404,11 +381,9 @@ export function getCandidateSlotsWithFallback(
   availableTimeSlots: TimeSlot[],
   template: {
     duration: number;
-    intent?: string;
     preferredSchedulableHours?: SchedulableHours;
     preferredSchedulableDates?: { startDate: string; endDate: string; description?: string };
     travelBuffer?: { beforeMinutes: number; afterMinutes: number };
-    hasExplicitTimeRequest?: boolean;
   },
   calendarType: 'personal' | 'work'
 ): {
@@ -435,7 +410,6 @@ export function getCandidateSlotsWithFallback(
     slots = createFallbackFromTemplate(
       {
         duration: template.duration,
-        intent: template.intent || 'custom',
         preferredSchedulableHours: template.preferredSchedulableHours,
         preferredSchedulableDates: template.preferredSchedulableDates,
         travelBuffer: template.travelBuffer,
@@ -447,107 +421,3 @@ export function getCandidateSlotsWithFallback(
 
   return { slots, hasNoCommonTime };
 }
-
-/**
- * Create fallback time slots using event template preferences when no common slots are available
- * Generates multiple candidate slots across the preferred date range and schedulable hours
- * This allows the LLM to choose the best option considering calendar type and event appropriateness
- */
-function createFallbackFromTemplate(
-  eventTemplate: {
-    duration: number;
-    intent: string;
-    preferredSchedulableHours?: SchedulableHours;
-    preferredSchedulableDates?: {
-      startDate: string; // YYYY-MM-DD format
-      endDate: string;   // YYYY-MM-DD format
-    };
-    travelBuffer?: { beforeMinutes: number; afterMinutes: number };
-  },
-  calendarType: 'personal' | 'work' = 'personal'
-): TimeSlot[] {
-  const fallbackSlots: TimeSlot[] = [];
-
-  // Calculate total duration including travel buffers
-  const totalDurationNeeded = eventTemplate.travelBuffer
-    ? eventTemplate.duration + eventTemplate.travelBuffer.beforeMinutes + eventTemplate.travelBuffer.afterMinutes
-    : eventTemplate.duration;
-
-  // Determine date range
-  const { startDate, endDate } = getDateRange(eventTemplate.preferredSchedulableDates);
-
-  const currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    const dayOfWeek = getDayOfWeek(currentDate);
-
-    let timeWindows: { start: string; end: string }[] = [];
-
-    if (eventTemplate.preferredSchedulableHours && eventTemplate.preferredSchedulableHours[dayOfWeek]) {
-      timeWindows = eventTemplate.preferredSchedulableHours[dayOfWeek];
-    } else {
-      // No specific schedulable hours - use reasonable defaults based on calendar type
-      if (calendarType === 'personal') {
-        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-        if (isWeekend) {
-          // Weekend: 9 AM - 9 PM
-          timeWindows = [{ start: '09:00', end: '21:00' }];
-        } else {
-          // Weekday evening: 5 PM - 9 PM
-          timeWindows = [{ start: '17:00', end: '21:00' }];
-        }
-      } else {
-        // Work calendar: weekdays 9 AM - 5 PM
-        const isWeekday = currentDate.getDay() >= 1 && currentDate.getDay() <= 5;
-        if (isWeekday) {
-          timeWindows = [{ start: '09:00', end: '17:00' }];
-        }
-        // Skip weekends for work calendar
-      }
-    }
-
-    for (const window of timeWindows) {
-      const windowStart = parseTimeString(window.start);
-      const windowEnd = parseTimeString(window.end);
-
-      // Create slots every 30 minutes within the window
-      let slotTime = new Date(currentDate);
-      slotTime.setHours(windowStart.hour, windowStart.minute, 0, 0);
-
-      const windowEndTime = new Date(currentDate);
-      windowEndTime.setHours(windowEnd.hour, windowEnd.minute, 0, 0);
-
-      while (slotTime.getTime() + totalDurationNeeded * 60 * 1000 <= windowEndTime.getTime()) {
-        const slotEnd = new Date(slotTime.getTime() + totalDurationNeeded * 60 * 1000);
-
-        const slot = {
-          start: slotTime.toISOString(),
-          end: slotEnd.toISOString()
-        };
-
-        fallbackSlots.push(slot);
-
-        // Move to next 30-minute increment
-        slotTime = new Date(slotTime.getTime() + 30 * 60 * 1000);
-      }
-    }
-
-    // Move to next day
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  if (fallbackSlots.length === 0) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-
-    const endTime = new Date(tomorrow.getTime() + totalDurationNeeded * 60 * 1000);
-
-    return [{
-      start: tomorrow.toISOString(),
-      end: endTime.toISOString()
-    }];
-  }
-
-  return fallbackSlots;
-}
-

@@ -361,11 +361,9 @@ export async function streamSchedulingResponse(
           availableTimeSlots,
           {
             duration: templateResult.template.duration || 60,
-            intent: templateResult.template.intent,
             preferredSchedulableHours: templateResult.template.preferredSchedulableHours,
             preferredSchedulableDates: templateResult.template.preferredSchedulableDates,
             travelBuffer: templateResult.template.travelBuffer,
-            hasExplicitTimeRequest: templateResult.template.hasExplicitTimeRequest,
           },
           body.calendarType
         );
@@ -447,7 +445,6 @@ export async function streamSchedulingResponse(
               availableTimeSlots,
               {
                 duration: modifiedTemplate.duration || 60,
-                intent: modifiedTemplate.intent,
                 preferredSchedulableHours: modifiedTemplate.preferredSchedulableHours,
                 preferredSchedulableDates: modifiedTemplate.preferredSchedulableDates,
                 travelBuffer: modifiedTemplate.travelBuffer,
