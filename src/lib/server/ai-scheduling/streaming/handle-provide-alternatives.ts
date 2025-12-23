@@ -1,6 +1,6 @@
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/lib/server/ai-scheduling/openai-client';
 import { ALTERNATIVE_SELECTION_SYSTEM_PROMPT, buildContextMessage } from '@/lib/server/ai-scheduling/system-prompts';
-import { buildAlternativesFormattingInstructions } from './orchestrator';
+import { buildAlternativesFormattingInstructions } from './formatting-utils';
 import { getAllValidSlots } from '@/lib/server/calendar/scheduling';
 import { DAYS_TO_MS, formatEventTimeComponents } from '@/lib/server/calendar/time';
 import { enqueueContent } from './streaming-utils';

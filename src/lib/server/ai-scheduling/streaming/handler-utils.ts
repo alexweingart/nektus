@@ -205,3 +205,195 @@ export function determineAlternativesToShow(
     reason: 'default-show-places'
   };
 }
+
+/**
+ * Construct requested time from event template
+ * Used when user explicitly requests a specific time
+ */
+export function getRequestedTimeFromTemplate(
+  template: Partial<Event> & { explicitTime?: string }
+): string | null {
+  const { preferredSchedulableDates, explicitTime } = template;
+
+  if (!preferredSchedulableDates?.startDate || !explicitTime) {
+    return null;
+  }
+
+  // Parse the explicit time (format: "12:00")
+  const [hours, minutes] = explicitTime.split(':').map(Number);
+
+  // Combine date and time
+  const requestedDate = new Date(preferredSchedulableDates.startDate + 'T00:00:00');
+  requestedDate.setHours(hours, minutes, 0, 0);
+
+  return requestedDate.toISOString();
+}
+
+/**
+ * Format time slot for display with smart day labels
+ * Returns structured data for selective formatting in LLM prompts
+ */
+export function formatSlotTime(
+  slot: TimeSlot,
+  timezone: string
+): {
+  dayLabel: string;
+  dateContext: string;
+  time: string;
+  isTomorrowOrToday: boolean;
+} {
+  const slotDate = new Date(slot.start);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Check if slot is today or tomorrow
+  const slotDay = slotDate.toLocaleDateString('en-US', { timeZone: timezone });
+  const todayDay = now.toLocaleDateString('en-US', { timeZone: timezone });
+  const tomorrowDay = tomorrow.toLocaleDateString('en-US', { timeZone: timezone });
+
+  const dayOfWeek = slotDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone });
+  const monthDay = slotDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: timezone });
+  const time = slotDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
+
+  if (slotDay === todayDay) {
+    return {
+      dayLabel: 'Today',
+      dateContext: `${dayOfWeek}, ${monthDay}`,
+      time: time,
+      isTomorrowOrToday: true
+    };
+  } else if (slotDay === tomorrowDay) {
+    return {
+      dayLabel: 'Tomorrow',
+      dateContext: `${dayOfWeek}, ${monthDay}`,
+      time: time,
+      isTomorrowOrToday: true
+    };
+  } else {
+    return {
+      dayLabel: dayOfWeek,
+      dateContext: monthDay,
+      time: time,
+      isTomorrowOrToday: false
+    };
+  }
+}
+
+/**
+ * Format place data with explanations for LLM prompts
+ * Converts km to miles and builds natural language explanations
+ */
+export function formatPlaceData(place: Place): {
+  name: string;
+  url: string;
+  rating?: number;
+  distance_miles?: number;
+  price_level?: number;
+  open_now?: boolean;
+  description?: string;
+  tips?: string[];
+  explanations: string[];
+} {
+  const explanations: string[] = [];
+
+  // Build natural language explanations based on place attributes
+  if (place.rating && place.rating >= 4.5) {
+    explanations.push('highly rated');
+  } else if (place.rating && place.rating >= 4.0) {
+    explanations.push('well-reviewed');
+  }
+
+  // Distance is already shown as a number - let the AI decide if proximity is worth mentioning
+  // Removed automatic distance explanations to avoid biasing toward closer venues
+
+  if (place.price_level === 1) {
+    explanations.push('budget-friendly');
+  } else if (place.price_level && place.price_level >= 3) {
+    explanations.push('upscale option');
+  }
+
+  if (place.opening_hours?.open_now === false) {
+    explanations.push('currently closed');
+  }
+
+  // Convert km to miles for display
+  const distance_miles = place.distance_from_midpoint_km !== undefined
+    ? place.distance_from_midpoint_km / 1.609
+    : undefined;
+
+  return {
+    name: place.name,
+    url: place.google_maps_url,
+    rating: place.rating,
+    distance_miles: distance_miles,
+    price_level: place.price_level,
+    open_now: place.opening_hours?.open_now,
+    description: place.description,
+    tips: place.tips,
+    explanations: explanations
+  };
+}
+
+/**
+ * Enrich place URLs in LLM-generated message with actual Google Place IDs
+ * Replaces search URLs with direct place URLs for better user experience
+ */
+export async function enrichPlaceUrls(
+  message: string,
+  places: Place[]
+): Promise<string> {
+  if (!message || !places || places.length === 0) {
+    return message;
+  }
+
+  const { getGooglePlaceIds } = await import('@/lib/server/places/google');
+  const { generateGoogleMapsUrl } = await import('@/lib/server/location/location');
+
+  // Extract place names from markdown links in the message
+  // Format: [Place Name](URL)
+  const placeLinksRegex = /\[([^\]]+)\]\(https:\/\/www\.google\.com\/maps\/search\/[^\)]+\)/g;
+  const mentionedPlaceNames = new Set<string>();
+  let match;
+  while ((match = placeLinksRegex.exec(message)) !== null) {
+    mentionedPlaceNames.add(match[1]); // Extract place name from [Place Name](URL)
+  }
+
+  // Find Place objects for mentioned places
+  const placesToEnrich = places.filter(p =>
+    Array.from(mentionedPlaceNames).some(name =>
+      p.name.includes(name) || name.includes(p.name)
+    )
+  );
+
+  if (placesToEnrich.length === 0) {
+    return message;
+  }
+
+  // Get Google Place IDs for mentioned places
+  const placeIdMap = await getGooglePlaceIds(
+    placesToEnrich.map(p => ({ name: p.name, coordinates: p.coordinates }))
+  );
+
+  // Update places with Google Place IDs and regenerate URLs
+  let updatedMessage = message;
+  placesToEnrich.forEach(place => {
+    const googlePlaceId = placeIdMap.get(place.name);
+    if (googlePlaceId) {
+      place.google_place_id = googlePlaceId;
+      const enrichedUrl = generateGoogleMapsUrl(
+        place.coordinates,
+        place.name,
+        googlePlaceId
+      );
+      place.google_maps_url = enrichedUrl;
+
+      // Replace the old URL in the message
+      // Find the markdown link with this place name and replace its URL
+      const linkRegex = new RegExp(`(\\[${place.name}\\])\\(https:\\/\\/www\\.google\\.com\\/maps\\/search\\/[^\\)]+\\)`, 'g');
+      updatedMessage = updatedMessage.replace(linkRegex, `$1(${enrichedUrl})`);
+    }
+  });
+
+  return updatedMessage;
+}
