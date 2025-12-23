@@ -281,8 +281,19 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
       // Get current interpolated colors
       const renderColors = getCurrentColors();
 
-      // Update gradient background
-      const gradientStyle = `radial-gradient(ellipse at top, ${renderColors.gradientStart} 0%, ${renderColors.gradientStart.replace('0.3', '0.12')} 40%, ${renderColors.gradientEnd} 70%, ${renderColors.gradientEnd} 100%)`;
+      // Update gradient background with properly lightened middle stop
+      const lightenedStart = (() => {
+        const match = renderColors.gradientStart.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+        if (match) {
+          const [, r, g, b, a] = match;
+          const currentAlpha = parseFloat(a || '1');
+          const lightenedAlpha = currentAlpha * 0.4; // Reduce to 40% of current opacity
+          return `rgba(${r}, ${g}, ${b}, ${lightenedAlpha})`;
+        }
+        return renderColors.gradientStart;
+      })();
+
+      const gradientStyle = `radial-gradient(ellipse at top, ${renderColors.gradientStart} 0%, ${lightenedStart} 40%, ${renderColors.gradientEnd} 70%, ${renderColors.gradientEnd} 100%)`;
       canvas.style.background = gradientStyle;
 
       // Clear canvas
@@ -384,7 +395,17 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
 
   // Initial gradient (will be updated by animation loop)
   const initialColors = getCurrentColors();
-  const initialGradient = `radial-gradient(ellipse at top, ${initialColors.gradientStart} 0%, ${initialColors.gradientStart.replace('0.3', '0.12')} 40%, ${initialColors.gradientEnd} 70%, ${initialColors.gradientEnd} 100%)`;
+  const initialLightenedStart = (() => {
+    const match = initialColors.gradientStart.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+    if (match) {
+      const [, r, g, b, a] = match;
+      const currentAlpha = parseFloat(a || '1');
+      const lightenedAlpha = currentAlpha * 0.4; // Reduce to 40% of current opacity
+      return `rgba(${r}, ${g}, ${b}, ${lightenedAlpha})`;
+    }
+    return initialColors.gradientStart;
+  })();
+  const initialGradient = `radial-gradient(ellipse at top, ${initialColors.gradientStart} 0%, ${initialLightenedStart} 40%, ${initialColors.gradientEnd} 70%, ${initialColors.gradientEnd} 100%)`;
 
   return (
     <canvas
