@@ -305,7 +305,6 @@ export default function SmartScheduleView() {
 
     const eventName = getEventName(eventTemplate.intent, contactName, currentUserName, eventTemplate.eventType);
     const eventDescription = getEventDescription(
-      eventTemplate.intent,
       contactName,
       eventTemplate,
       actualMeetingStart,
@@ -338,9 +337,8 @@ export default function SmartScheduleView() {
 
     // Determine preferred provider from user's calendars
     let preferredProvider = 'google';
-    const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
-    if (userCalendar) {
-      preferredProvider = userCalendar.provider;
+    if (currentUserCalendar) {
+      preferredProvider = currentUserCalendar.provider;
     }
 
     // Open calendar or download ICS
@@ -381,7 +379,6 @@ export default function SmartScheduleView() {
   };
 
   const getEventDescription = (
-    _intent: string,
     contactName: string,
     eventTemplate?: EventTemplate,
     actualStart?: Date,

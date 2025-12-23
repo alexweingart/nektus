@@ -66,41 +66,16 @@ export const HistoryView: React.FC = () => {
 
   // Fetch contacts on component mount using ProfileContext cache
   useEffect(() => {
-    const mountTime = performance.now();
-    console.log(`⏱️ [HistoryView] Component mounting at ${mountTime.toFixed(2)}ms`);
-
-    const backClickTime = sessionStorage.getItem('nav-back-clicked-at');
-    const routerPushTime = sessionStorage.getItem('nav-router-push-at');
-
-    if (backClickTime) {
-      const totalNavDuration = mountTime - parseFloat(backClickTime);
-      console.log(`⏱️ [HistoryView] Total navigation: ${totalNavDuration.toFixed(2)}ms (from back button click to mount)`);
-      sessionStorage.removeItem('nav-back-clicked-at');
-    }
-
-    if (routerPushTime) {
-      const routerNavDuration = mountTime - parseFloat(routerPushTime);
-      console.log(`⏱️ [HistoryView] Router.push to mount: ${routerNavDuration.toFixed(2)}ms`);
-      sessionStorage.removeItem('nav-router-push-at');
-    }
-
     const fetchContacts = async () => {
       if (!session?.user?.id) {
-        console.log('No session or user ID, redirecting to home');
         router.push('/');
         return;
       }
 
       try {
         setError(null);
-
-        console.log('🔍 [HistoryView] Loading contacts...');
-        const loadStart = performance.now();
         await loadContacts(session.user.id);
-        const loadEnd = performance.now();
-        console.log(`⏱️ [HistoryView] Contacts loaded in ${(loadEnd - loadStart).toFixed(2)}ms`);
         setIsLoading(false);
-
       } catch (error) {
         console.error('Failed to load contacts:', error);
         setError('Failed to load contact history');
@@ -119,7 +94,6 @@ export const HistoryView: React.FC = () => {
     // Check if we recently pre-fetched (cooldown using module-level variable)
     const timeSinceLastFetch = Date.now() - lastPreFetchTime;
     if (timeSinceLastFetch < PRE_FETCH_COOLDOWN) {
-      console.log(`⏭️ Skipping pre-fetch (last fetch was ${Math.round(timeSinceLastFetch / 1000)}s ago, cooldown: ${PRE_FETCH_COOLDOWN / 1000}s)`);
       hasFetchedSlotsRef.current = true;
       return;
     }
@@ -142,8 +116,6 @@ export const HistoryView: React.FC = () => {
 
         if (!userHasCalendar) return;
 
-        console.log(`🔄 Proactively pre-fetching common time slots for ${getFieldValue(contact.contactEntries, 'name')}...`);
-
         // Execute fetch in truly async manner (no blocking)
         if (!auth?.currentUser) return;
         auth.currentUser.getIdToken()
@@ -162,14 +134,11 @@ export const HistoryView: React.FC = () => {
           }))
           .then(response => {
             if (response.ok) {
-              return response.json().then(data => {
-                const slots = data.slots || [];
-                console.log(`✅ Pre-fetched ${slots.length} slots for ${getFieldValue(contact.contactEntries, 'name')}`);
-              });
+              return response.json();
             }
           })
           .catch(() => {
-            console.log(`Pre-fetch failed for ${getFieldValue(contact.contactEntries, 'name')} (non-critical)`);
+            // Pre-fetch failed (non-critical)
           });
       };
 
@@ -234,23 +203,13 @@ export const HistoryView: React.FC = () => {
   };
 
   const handleContactTap = (contact: SavedContact) => {
-    const clickTime = performance.now();
-    console.log(`👆 [HistoryView] Contact clicked at ${clickTime.toFixed(2)}ms`);
-    sessionStorage.setItem('contact-click-time', clickTime.toString());
-
-    // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
-    // Navigate to the new contact page using userId
     router.push(`/contact/${contact.userId}`);
-
-    const afterPushTime = performance.now();
-    console.log(`👆 [HistoryView] router.push returned at ${afterPushTime.toFixed(2)}ms (took ${(afterPushTime - clickTime).toFixed(2)}ms)`);
   };
 
   const handleCalendarClick = (e: React.MouseEvent, contact: SavedContact) => {
     e.stopPropagation(); // Prevent contact tap when clicking calendar button
 
     if (!session?.user?.id) {
-      console.warn('Cannot schedule: no user session');
       return;
     }
 
@@ -260,13 +219,10 @@ export const HistoryView: React.FC = () => {
     );
 
     if (userHasCalendar) {
-      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
-      // Navigate to smart-schedule page with 'from' parameter
       router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
     } else {
       // Store contact ID for after calendar is added
       sessionStorage.setItem('calendar-contact-id', contact.userId);
-      // Open Add Calendar modal
       setSelectedContact(contact);
       setShowAddCalendarModal(true);
     }
@@ -275,8 +231,6 @@ export const HistoryView: React.FC = () => {
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     if (selectedContact) {
-      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
-      // After calendar is added, navigate to smart-schedule with 'from' parameter
       router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
     }
   };
@@ -285,11 +239,7 @@ export const HistoryView: React.FC = () => {
     setShowCalendarAddedModal(false);
 
     if (selectedContact) {
-      // Background crossfade now handled by CSS system (LayoutBackground + ContactLayout)
-      // Clean up the stored contact ID
       sessionStorage.removeItem('calendar-contact-id');
-
-      // Navigate to smart-schedule page
       router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
     }
   };
@@ -333,8 +283,6 @@ export const HistoryView: React.FC = () => {
 
       // Reload contacts to update the list
       await loadContacts(session.user.id, true);
-
-      console.log('Contact deleted successfully:', contactToDelete.userId);
     } catch (error) {
       console.error('Failed to delete contact:', error);
       setError('Failed to delete contact. Please try again.');
