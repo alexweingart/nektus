@@ -31,24 +31,19 @@ function ConnectPageContent() {
       if (status === 'loading') return; // Still loading auth
 
       if (!session) {
-        console.log('No session, redirecting to home');
         router.push('/');
         return;
       }
 
       if (!token) {
-        console.log('No exchange token provided, redirecting to home');
         router.push('/');
         return;
       }
 
       // Special handling for test mode - check before cache check
       if (token === 'test-animation-token') {
-        console.log('🧪 Test mode: Using mock profile for animation testing');
-
         // Check if we already have the mock profile loaded
         if (contactProfile && contactProfile.userId === 'mock-user-123') {
-          console.log('✅ Mock profile already loaded, skipping fetch');
           return;
         }
 
@@ -83,13 +78,10 @@ function ConnectPageContent() {
 
       // Check if we already have this profile cached to avoid re-fetch on back navigation
       if (contactProfile && contactProfile.userId) {
-        console.log('✅ Profile already loaded, skipping fetch');
         return;
       }
 
       try {
-
-        console.log('🔍 Fetching matched profile for token:', token, isHistoricalMode ? '(historical)' : '(active)');
 
         if (isHistoricalMode) {
           // For historical mode, fetch from saved contacts
@@ -99,9 +91,6 @@ function ConnectPageContent() {
           const contact = contacts.find((c: SavedContact) => c.matchToken === token);
 
           if (contact) {
-            const contactName = getFieldValue(contact.contactEntries, 'name');
-            console.log('✅ Loaded historical contact:', contactName);
-
             // Dispatch match-found event for LayoutBackground with contact's background colors
             if (contact.backgroundColors) {
               window.dispatchEvent(new CustomEvent('match-found', {
@@ -124,9 +113,6 @@ function ConnectPageContent() {
           const result = await response.json();
 
           if (result.success && result.profile) {
-            console.log('✅ Loaded matched profile data:', result.profile);
-            console.log('📋 Contact entries:', result.profile.contactEntries);
-
             // Dispatch match-found event for LayoutBackground with contact's background colors
             if (result.profile.backgroundColors) {
               window.dispatchEvent(new CustomEvent('match-found', {
@@ -175,16 +161,8 @@ function ConnectPageContent() {
   }
 
   // Show contact view if authenticated and profile is loaded
-  console.log('🔍 Render check:', {
-    hasSession: !!session,
-    hasContactProfile: !!contactProfile,
-    hasToken: !!token,
-    shouldRender: !!(session && contactProfile && token)
-  });
-
   if (session && contactProfile && token) {
-    console.log('🎯 Rendering ContactView with profile:', contactProfile.userId);
-    const contactView = (
+    return (
       <ContactView
         profile={contactProfile}
         onReject={() => router.push('/')}
@@ -192,12 +170,9 @@ function ConnectPageContent() {
         token={token}
       />
     );
-    console.log('📱 ContactView JSX created:', !!contactView);
-    return contactView;
   }
 
   // Wait for profile to load - no visual fallback
-  console.log('⏳ ConnectPage: Waiting for data - returning null');
   return null;
 }
 

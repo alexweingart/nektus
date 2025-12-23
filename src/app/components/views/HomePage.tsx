@@ -67,8 +67,6 @@ const HomePage: React.FC = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    console.log('🔍 Sign-in clicked:', { isStandalone, isIOSDevice });
-
     if (isStandalone && isIOSDevice) {
       // For iOS PWA: Navigate directly to Google OAuth, bypassing NextAuth sign-in page
       // This avoids the external redirect issue in PWA context
@@ -83,12 +81,10 @@ const HomePage: React.FC = () => {
         `&access_type=offline` +
         `&prompt=select_account`;
 
-      console.log('📱 iOS PWA - navigating directly to Google OAuth:', googleAuthUrl);
       window.location.href = googleAuthUrl;
       return;
     }
 
-    console.log('🌐 Non-PWA - using standard NextAuth');
     // Standard sign-in for non-PWA
     signIn('google');
   };

@@ -44,7 +44,7 @@ function convertToParticleColors(backgroundColors: string[]) {
  */
 export function LayoutBackground() {
   const { data: session, status } = useSession();
-  const { profile, isLoading, getContact } = useProfile();
+  const { profile, isLoading, isNavigatingFromSetup, getContact } = useProfile();
   const pathname = usePathname();
   const params = useParams();
   const [mounted, setMounted] = useState(false);
@@ -60,11 +60,8 @@ export function LayoutBackground() {
       const customEvent = event as CustomEvent;
       const { backgroundColors } = customEvent.detail || {};
 
-      console.log('🎨 LayoutBackground: match-found event received', { backgroundColors });
-
       if (backgroundColors) {
         setContactProfile({ backgroundColors });
-        console.log('🎨 LayoutBackground: contactProfile updated with colors', backgroundColors);
       }
     };
 
@@ -80,14 +77,11 @@ export function LayoutBackground() {
 
     if (isContactRoute && getContact) {
       const userId = params.userId as string;
-      console.log('🎨 LayoutBackground: Loading contact colors for route:', userId);
-
       const contact = getContact(userId);
+
       if (contact?.backgroundColors) {
-        console.log('🎨 LayoutBackground: Found contact colors from route:', contact.backgroundColors);
         setContactProfile({ backgroundColors: contact.backgroundColors });
       } else {
-        console.log('🎨 LayoutBackground: No colors found for contact:', userId);
         // Clear contact profile if navigating to a contact without colors
         setContactProfile(null);
       }
@@ -121,8 +115,9 @@ export function LayoutBackground() {
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
-    // Wait for session to be determined
-    if (status === 'loading') {
+    // Wait for INITIAL session check only
+    // Ignore status 'loading' if we already have a session (prevents flash during session refresh)
+    if (status === 'loading' && !session) {
       return { context: 'signed-out' };
     }
 
@@ -131,8 +126,14 @@ export function LayoutBackground() {
       return { context: 'signed-out' };
     }
 
+    // Special case: setup page should use inverted gradient like profile
+    if (pathname === '/setup') {
+      return { context: 'profile-default' };
+    }
+
     // Signed in - wait for profile to load
-    if (isLoading) {
+    // UNLESS navigating from setup (prevent flash during profile load)
+    if (isLoading && !isNavigatingFromSetup) {
       return { context: 'signed-out' };
     }
 
@@ -143,23 +144,13 @@ export function LayoutBackground() {
       // Contact page logic
       const contactColors = contactProfile?.backgroundColors;
 
-      console.log('🎨 LayoutBackground: Contact page detected', {
-        pathname,
-        hasContactProfile: !!contactProfile,
-        contactColors,
-        hasEnoughColors: contactColors && contactColors.length >= 3
-      });
-
       if (contactColors && contactColors.length >= 3) {
         const particleColors = convertToParticleColors(contactColors);
-        console.log('🎨 LayoutBackground: Using contact colors', { contactColors, particleColors });
         return {
           colors: particleColors,
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
       } else {
-        // Contact has no custom colors - use default with appropriate context
-        console.log('🎨 LayoutBackground: No contact colors, using defaults');
         return {
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
@@ -169,20 +160,17 @@ export function LayoutBackground() {
       const userColors = profile?.backgroundColors;
 
       if (userColors && userColors.length >= 3) {
-        // User has custom colors
         return {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
       } else {
-        // User has no custom colors - use default nekt colors with profile-default context
-        // This differentiates from signed-out via density, motion, and connections
         return {
           context: 'profile-default'
         };
       }
     }
-  }, [status, session, isLoading, pathname, profile, contactProfile]);
+  }, [status, session, isLoading, isNavigatingFromSetup, pathname, profile, contactProfile]);
 
   // Manage default background visibility for prefers-reduced-motion fallback
   useEffect(() => {

@@ -172,6 +172,7 @@ function ProfileSetupView() {
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                   isLoading={isProfileLoading}
+                  showInitials={isGoogleInitials && !streamingProfileImage}
                 />
               </div>
             </div>

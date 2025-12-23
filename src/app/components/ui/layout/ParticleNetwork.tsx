@@ -382,14 +382,11 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     // Cancel any existing animation before starting new one
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
-      console.log('🎨 ParticleNetwork: Cancelled previous animation loop');
     }
 
     animate();
-    console.log('🎨 ParticleNetwork: Animation loop started', { context, particleColor: getCurrentColors().particle });
 
     return () => {
-      console.log('🎨 ParticleNetwork: Cleanup - cancelling animation');
       window.removeEventListener('resize', updateSize);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);

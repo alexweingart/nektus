@@ -16,6 +16,7 @@ interface ProfileInfoProps {
   bioContent: string;
   className?: string;
   isLoadingProfile?: boolean;
+  isGoogleInitials?: boolean; // Whether Google profile has auto-generated initials
 }
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({
@@ -23,13 +24,16 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   profileImageSrc,
   bioContent,
   className,
-  isLoadingProfile = false
+  isLoadingProfile = false,
+  isGoogleInitials = false
 }) => {
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number>(0);
   const isDraggingRef = useRef<boolean>(false);
+
+  const showInitialsValue = isGoogleInitials && !profileImageSrc;
 
   // Load selected mode from localStorage on mount
   useEffect(() => {
@@ -142,6 +146,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
             size="lg"
             isLoading={isLoadingProfile}
+            showInitials={showInitialsValue}
           />
         </div>
       </div>

@@ -69,7 +69,6 @@ const ProfileView: React.FC = () => {
           // Only show modal if the save was recent (within last 30 seconds)
           const timeDiff = Date.now() - timestamp;
           if (timeDiff < 30000) {
-            console.log('🎉 Showing success modal for recently saved contact:', contactProfile.name);
             setSavedContactProfile(contactProfile);
             setShowSuccessModal(true);
           }
@@ -97,24 +96,20 @@ const ProfileView: React.FC = () => {
   // Listen for bump animation events
   useEffect(() => {
     const handleStartFloating = () => {
-      console.log('🎯 ProfileView: Starting floating animation');
       setShouldStopFloating(false);
       setAnimationPhase('floating');
     };
 
     const handleStopFloating = () => {
-      console.log('🎯 ProfileView: Stop floating requested, will finish current cycle');
       setShouldStopFloating(true);
       // Don't change animation phase yet - let animation iteration event handle it
     };
 
     const handleBumpDetected = () => {
-      console.log('🎯 ProfileView: Bump detected, starting wind-up animation');
       setAnimationPhase('wind-up');
     };
 
     const handleMatchFound = (_event: CustomEvent) => {
-      console.log('🎯 ProfileView: Match found, starting exit animation');
       // Background crossfade now handled by LayoutBackground component
       setAnimationPhase('exiting');
     };
@@ -139,7 +134,6 @@ const ProfileView: React.FC = () => {
 
     const handleAnimationIteration = () => {
       if (shouldStopFloating && animationPhase === 'floating') {
-        console.log('🎯 ProfileView: Float cycle complete, stopping now');
         setAnimationPhase('idle');
         setShouldStopFloating(false);
       }
@@ -156,8 +150,6 @@ const ProfileView: React.FC = () => {
     const isReturning = sessionStorage.getItem('returning-to-profile');
 
     if (isReturning === 'true') {
-      console.log('🎯 ProfileView: Detected return from ContactView, starting fade-in');
-
       // Clear the flags
       sessionStorage.removeItem('returning-to-profile');
       sessionStorage.removeItem('contact-background-url'); // Background crossfade now handled by LayoutBackground
@@ -182,16 +174,15 @@ const ProfileView: React.FC = () => {
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = contactName.split(' ')[0];
     const messageText = generateMessageText(contactFirstName, senderFirstName);
-    
+
     // Try to use phone number if available
     let phoneNumber = '';
-    
+
     if (savedContactProfile?.contactEntries) {
       const phoneEntry = savedContactProfile.contactEntries.find(e => e.fieldType === 'phone');
       phoneNumber = phoneEntry?.value || '';
     }
-    
-    console.log('📱 Opening messaging app with:', { messageText, phoneNumber });
+
     openMessagingApp(messageText, phoneNumber);
     
     setShowSuccessModal(false);
@@ -237,14 +228,12 @@ const ProfileView: React.FC = () => {
 
   // Show loading state while checking auth status or loading profile, but not when navigating from setup
   if ((isProfileLoading || sessionStatus === 'loading') && !isNavigatingFromSetup) {
-    console.log('[ProfileView] Showing main loading state (auth/profile loading)');
     // Return empty div - green background pattern from body will show through for smooth transition
     return <div className="w-full" />;
   }
 
   // Show loading state during account deletion to prevent "Unable to load profile" flash
   if (isProfileLoading && !isNavigatingFromSetup) {
-    console.log('[ProfileView] Showing deletion loading state');
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
@@ -256,7 +245,6 @@ const ProfileView: React.FC = () => {
   }
 
   if (!profile && !isNavigatingFromSetup) {
-    console.log('[ProfileView] No profile and not navigating from setup - showing error');
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
@@ -271,7 +259,6 @@ const ProfileView: React.FC = () => {
 
   // If navigating from setup and no profile yet, show a minimal loading state
   if (isNavigatingFromSetup && !profile) {
-    console.log('[ProfileView] Navigating from setup with no profile - showing save state');
     return (
       <div className="flex flex-col items-center justify-center px-4 py-2">
         <div className="flex flex-col items-center">
@@ -346,6 +333,7 @@ const ProfileView: React.FC = () => {
               bioContent={bioContent}
               className="w-full flex flex-col items-center"
               isLoadingProfile={isProfileLoading}
+              isGoogleInitials={isGoogleInitials}
             />
           )}
         </div>
@@ -407,10 +395,7 @@ const ProfileView: React.FC = () => {
         title="Nekt in a tap"
         subtitle="Tap the share icon, then select &quot;Add to Home Screen&quot;"
         primaryButtonText="I&apos;ll do that right now!"
-        onPrimaryButtonClick={() => {
-          console.log('📱 PWA install modal button clicked');
-          closeIOSModal();
-        }}
+        onPrimaryButtonClick={closeIOSModal}
         showSecondaryButton={false}
         showCloseButton={false}
       />
