@@ -94,3 +94,19 @@ export function sortContactEntries(entries: ContactEntry[]): ContactEntry[] {
 export function hasContactEntryContent(entry: ContactEntry): boolean {
   return Boolean(entry.value && entry.value.trim() !== '');
 }
+
+/**
+ * Extract phone number from ContactEntry array
+ */
+export function getPhoneNumber(contactEntries: ContactEntry[] | undefined): string {
+  if (!contactEntries) return '';
+  const phoneEntry = contactEntries.find(e => e.fieldType === 'phone');
+  return phoneEntry?.value || '';
+}
+
+/**
+ * Extract first name from full name
+ */
+export function getFirstName(fullName: string): string {
+  return fullName.split(' ')[0] || fullName;
+}

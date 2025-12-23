@@ -8,14 +8,13 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
-import Avatar from '../ui/elements/Avatar';
-import SocialIconsList from '../ui/elements/SocialIconsList';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
-import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
-import ReactMarkdown from 'react-markdown';
+import { ContactButton } from '../ui/buttons/ContactButton';
+import { ContactInfo } from '../ui/modules/ContactInfo';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { getFieldValue, getPhoneNumber, getFirstName } from '@/lib/utils/profileTransforms';
+import { cleanUrlParams } from '@/lib/utils/urlUtils';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Text } from "../ui/Typography";
@@ -23,11 +22,13 @@ import { generateMessageText, openMessagingAppDirectly } from '@/lib/services/cl
 import { useSession } from 'next-auth/react';
 import { saveContactFlow } from '@/lib/services/client/contactSaveService';
 import { startIncrementalAuth } from '@/lib/services/client/clientIncrementalAuthService';
-import { getExchangeState, setExchangeState, shouldShowUpsell, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
+import { getExchangeState, markUpsellShown, markUpsellDismissedGlobally } from '@/lib/services/client/exchangeStateService';
 import { isEmbeddedBrowser } from '@/lib/utils/platformDetection';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
-import { auth } from '@/lib/firebase/clientConfig';
+import { useContactExchangeState } from '@/lib/hooks/useContactExchangeState';
+import { useSchedulingPreFetch } from '@/lib/hooks/useSchedulingPreFetch';
+import { useContactBackNavigation } from '@/lib/hooks/useContactBackNavigation';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -48,208 +49,44 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { profile: userProfile } = useProfile();
+  const { data: session } = useSession();
 
   // Animation state
   // Check if we're returning from Google auth - skip animation in that case
   const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const isReturningFromAuth = urlParams.get('incremental_auth') === 'success' || urlParams.get('incremental_auth') === 'denied';
   const [isEntering, setIsEntering] = useState(!isReturningFromAuth);
-  const [isExiting, setIsExiting] = useState(false);
   const contactCardRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
   // Check if we're in historical mode (either from URL param or prop)
   const isHistoricalMode = searchParams.get('mode') === 'historical' || isHistoricalContact;
 
-  
-  // Modal state with logging
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
+  // Modal state management via custom hook
+  const {
+    showSuccessModal,
+    setShowSuccessModal,
+    showUpsellModal,
+    setShowUpsellModal,
+    isSuccess
+  } = useContactExchangeState(token, profile, isHistoricalMode);
+
+  // Additional modals not managed by the hook
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
   const [showCalendarAddedModal, setShowCalendarAddedModal] = useState(false);
 
-  const dismissSuccessModal = () => setShowSuccessModal(false);
-  const dismissUpsellModal = () => setShowUpsellModal(false);
-  const dismissAddCalendarModal = () => setShowAddCalendarModal(false);
-  const dismissCalendarAddedModal = () => setShowCalendarAddedModal(false);
-  
-  // Check if contact is already saved by checking exchange state
-  const exchangeState = getExchangeState(token);
-  const isSuccess = exchangeState?.state === 'completed_success' || exchangeState?.state === 'completed_firebase_only';
-  const getButtonText = () => isSuccess ? "Done" : 'Save Contact';
-
-  // Check for exchange state on mount
-  useEffect(() => {
-    if (isHistoricalMode) return;
-    
-    const checkExchangeState = async () => {
-      try {
-        const exchangeState = getExchangeState(token);
-        
-        if (!exchangeState) {
-          return;
-        }
-        
-        // Check if this matches the current profile
-        if (exchangeState.profileId !== profile.userId) {
-          return;
-        }
-        
-        // Check for auth success URL params first
-        const urlParams = new URLSearchParams(window.location.search);
-        const authResult = urlParams.get('incremental_auth');
-        
-        if (authResult === 'success') {
-          // Show success modal immediately - we know auth succeeded!
-          setShowSuccessModal(true);
-          
-          // Clean up URL parameters
-          const url = new URL(window.location.href);
-          url.searchParams.delete('incremental_auth');
-          url.searchParams.delete('contact_save_token');
-          url.searchParams.delete('profile_id');
-          window.history.replaceState({}, document.title, url.toString());
-          
-          // Update exchange state to completed_success immediately
-          setExchangeState(token, {
-            state: 'completed_success',
-            platform: exchangeState?.platform || 'android',
-            profileId: profile.userId || '',
-            timestamp: Date.now()
-          });
-          
-          // Make Google API call in background (don't wait for it)
-          saveContactFlow(profile, token).catch(() => {
-            // Could optionally show a toast notification if the background save fails
-          });
-          
-          return;
-        }
-        
-        if (authResult === 'denied') {
-          // For denied, we still need to call saveContactFlow to handle the denial logic
-          const result = await saveContactFlow(profile, token);
-          
-          if (result.showUpsellModal) {
-            setShowUpsellModal(true);
-          }
-          if (result.showSuccessModal) {
-            setShowSuccessModal(true);
-          }
-          
-          return;
-        }
-        
-        // Handle different states (only if no auth params)
-        if (exchangeState.state === 'completed_success') {
-          setShowSuccessModal(true);
-          return;
-        }
-        
-        if (exchangeState.state === 'auth_in_progress') {
-          // Call saveContactFlow to handle potential auth return
-          const result = await saveContactFlow(profile, token);
-          
-          if (result.showUpsellModal) {
-            setShowUpsellModal(true);
-          }
-          if (result.showSuccessModal) {
-            setShowSuccessModal(true);
-          }
-          
-          return;
-        }
-        
-        if (exchangeState.state === 'completed_firebase_only') {
-          // Check if we should show upsell based on platform rules
-          const iosNonEmbedded = exchangeState.platform === 'ios' && !isEmbeddedBrowser();
-          if (shouldShowUpsell(token, exchangeState.platform, iosNonEmbedded)) {
-            setShowUpsellModal(true);
-          } else {
-            setShowSuccessModal(true);
-          }
-          return;
-        }
-        
-      } catch {
-        // Error checking exchange state
-      }
-    };
-
-    checkExchangeState();
-  }, [profile, profile.userId, token, isHistoricalMode]);
+  // Back navigation with animation handling
+  const { isExiting, handleBack } = useContactBackNavigation(isHistoricalMode, profile, onReject);
 
 
   // Handle calendar OAuth callback - show success modal when calendar is added
   useEffect(() => {
     const calendarAdded = searchParams.get('calendar');
     if (calendarAdded === 'added') {
-      // Clean up URL parameter
-      const url = new URL(window.location.href);
-      url.searchParams.delete('calendar');
-      window.history.replaceState({}, document.title, url.toString());
-
-      // Show success modal
+      cleanUrlParams(['calendar']);
       setShowCalendarAddedModal(true);
     }
   }, [searchParams]);
-
-  // Handle calendar OAuth callback - show success modal when calendar is added
-  useEffect(() => {
-    const calendarAdded = searchParams.get('calendar');
-    if (calendarAdded === 'added') {
-      // Clean up URL parameter
-      const url = new URL(window.location.href);
-      url.searchParams.delete('calendar');
-      window.history.replaceState({}, document.title, url.toString());
-
-      // Show success modal
-      setShowCalendarAddedModal(true);
-    }
-  }, [searchParams]);
-
-  // Handle back navigation with animation
-  const handleBack = () => {
-    const backClickTime = performance.now();
-    console.log('🎯 ContactView: Back button clicked at', backClickTime.toFixed(2), 'ms, starting exit animation');
-    sessionStorage.setItem('nav-back-clicked-at', backClickTime.toString());
-    setIsExiting(true);
-
-    // Mark that we're returning (for coordinating entrance animation)
-    if (isHistoricalMode) {
-      console.log('🎯 ContactView: Marking return to history');
-      sessionStorage.setItem('returning-to-history', 'true');
-
-      // Store contact background for crossfade
-      if (profile.backgroundImage) {
-        sessionStorage.setItem('contact-background-url', profile.backgroundImage);
-      }
-    } else {
-      console.log('🎯 ContactView: Marking return to profile');
-      sessionStorage.setItem('returning-to-profile', 'true');
-
-      // Store contact background for crossfade
-      if (profile.backgroundImage) {
-        sessionStorage.setItem('contact-background-url', profile.backgroundImage);
-      }
-    }
-
-    // Navigate immediately - iOS Safari throttles setTimeout during touch interactions
-    // Using requestAnimationFrame + setTimeout(0) for more reliable iOS execution
-    const performNavigation = () => {
-      const navStartTime = performance.now();
-      console.log('🎯 ContactView: Calling onReject (router.push) at', navStartTime.toFixed(2), 'ms');
-      sessionStorage.setItem('nav-router-push-at', navStartTime.toString());
-      onReject();
-    };
-
-    // Use requestAnimationFrame to ensure we're in sync with the next frame,
-    // then navigate immediately. This is more reliable on iOS than setTimeout alone.
-    requestAnimationFrame(() => {
-      // Use a microtask to ensure React state updates are flushed
-      Promise.resolve().then(performNavigation);
-    });
-  };
 
   const handleSaveContact = async () => {
     try {
@@ -288,7 +125,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle navigation after success modal is dismissed
   const handleSuccessModalClose = () => {
-    dismissSuccessModal();
+    setShowSuccessModal(false);
     // Exchange state already persists the completion status
   };
 
@@ -296,14 +133,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       // Use the proper startIncrementalAuth function with current user's ID
       await startIncrementalAuth(token, session?.user?.id || '');
-      
+
     } catch {
       // Keep the upsell modal open on error
     }
   };
 
   const handleUpsellDecline = () => {
-    dismissUpsellModal();
+    setShowUpsellModal(false);
     
     // For iOS Safari/Chrome/Edge, use global tracking
     const exchangeState = getExchangeState(token);
@@ -318,27 +155,20 @@ export const ContactView: React.FC<ContactViewProps> = ({
     }
   };
 
-  // Helper function to extract phone number from contact entries
-  const extractPhoneNumber = (contactEntries: typeof profile.contactEntries): string => {
-    if (!contactEntries) return '';
-    const phoneEntry = contactEntries.find(e => e.fieldType === 'phone');
-    return phoneEntry?.value || '';
-  };
-
   const handleSayHi = () => {
     if (!session?.user?.name) {
       return;
     }
 
-    const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName,undefined,profile.userId);
-    const phoneNumber = extractPhoneNumber(profile.contactEntries);
-    
+    const senderFirstName = getFirstName(session.user.name);
+    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
+    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, profile.userId);
+    const phoneNumber = getPhoneNumber(profile.contactEntries);
+
     openMessagingAppDirectly(messageText, phoneNumber);
-    
+
     // Exchange state already persists the completion status
-    dismissSuccessModal();
+    setShowSuccessModal(false);
   };
 
   // Handle messaging for historical contacts
@@ -347,10 +177,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
       return;
     }
 
-    const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = getFieldValue(profile.contactEntries, 'name').split(' ')[0];
+    const senderFirstName = getFirstName(session.user.name);
+    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
     const messageText = generateMessageText(contactFirstName, senderFirstName);
-    const phoneNumber = extractPhoneNumber(profile.contactEntries);
+    const phoneNumber = getPhoneNumber(profile.contactEntries);
 
     openMessagingAppDirectly(messageText, phoneNumber);
   };
@@ -403,20 +233,25 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle calendar added callback from modal
   const handleCalendarAdded = () => {
-    dismissAddCalendarModal();
+    setShowAddCalendarModal(false);
     // After calendar is added, navigate to smart-schedule
     router.push(`/contact/${profile.userId}/smart-schedule`);
   };
 
   // Handle calendar added success modal CTA
   const handleCalendarAddedContinue = () => {
-    dismissCalendarAddedModal();
+    setShowCalendarAddedModal(false);
     // Navigate to smart-schedule page
     router.push(`/contact/${profile.userId}/smart-schedule`);
   };
 
-  const { data: session } = useSession();
-  const hasFetchedSlotsRef = useRef(false);
+  // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
+  useSchedulingPreFetch({
+    isHistoricalMode,
+    sessionUserId: session?.user?.id,
+    profile,
+    userCalendars: userProfile?.calendars
+  });
 
   const bioContent = useMemo(() => {
     return getFieldValue(profile?.contactEntries, 'bio') || 'Welcome to my profile!';
@@ -428,73 +263,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
       <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
     ),
   }), []);
-
-  // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
-  useEffect(() => {
-    const abortController = new AbortController();
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    const preFetchCommonTimeSlots = async () => {
-      if (!isHistoricalMode || !session?.user?.id || !profile?.userId || !auth?.currentUser) return;
-      if (hasFetchedSlotsRef.current) return; // Already fetched
-
-      const savedContact = profile as SavedContact;
-      const contactType = savedContact.contactType;
-
-      // Only pre-fetch if user has calendar for this contact type
-      const userHasCalendar = userProfile?.calendars?.some(
-        (cal) => cal.section === contactType
-      );
-
-      if (!userHasCalendar) return;
-
-      hasFetchedSlotsRef.current = true;
-
-      try {
-        console.log('🔄 Proactively pre-fetching common time slots for contact page...');
-        const idToken = await auth.currentUser.getIdToken();
-
-        const response = await fetch('/api/scheduling/common-times', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            user1Id: session.user.id,
-            user2Id: profile.userId,
-            duration: 30,
-            calendarType: contactType,
-          }),
-          signal: abortController.signal, // Allow request to be cancelled
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const slots = data.slots || [];
-          console.log(`✅ Proactively pre-fetched ${slots.length} common time slots (cached for scheduling)`);
-        }
-      } catch (error) {
-        // Ignore abort errors (expected on unmount)
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log('Pre-fetch cancelled (component unmounted)');
-        } else {
-          console.log('Pre-fetch failed (non-critical):', error);
-        }
-      }
-    };
-
-    // Defer pre-fetch to avoid blocking initial render
-    timeoutId = setTimeout(() => {
-      preFetchCommonTimeSlots();
-    }, 100); // 100ms delay ensures page is interactive first
-
-    // Cleanup: abort ongoing requests and clear timeout
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      abortController.abort();
-    };
-  }, [isHistoricalMode, session?.user?.id, profile?.userId, userProfile?.calendars]);
 
   // Add lifecycle logging
   useEffect(() => {
@@ -579,44 +347,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
               opacity: isEntering && !isHistoricalMode ? 0 : 1
             }}
           >
-            {/* Profile Image */}
-            <div className="mb-4">
-              <div className="border-4 border-white shadow-lg rounded-full">
-                <Avatar
-                  src={profile.profileImage}
-                  alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
-                  size="lg"
-                />
-              </div>
-            </div>
-
-            {/* Content with blur background */}
-            <div className="w-full bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
-            {/* Name */}
-            <div className="text-center mb-4">
-              <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'Anonymous'}</h1>
-            </div>
-            
-            {/* Bio */}
-            <div className="text-center mb-6">
-              <div className="text-white text-sm leading-relaxed">
-                <ReactMarkdown components={markdownComponents}>
-                  {bioContent}
-                </ReactMarkdown>
-              </div>
-            </div>
-            
-            {/* Social Media Icons */}
-            <div className="w-full mb-4 text-center">
-              {profile.contactEntries && (
-                <SocialIconsList
-                  contactEntries={profile.contactEntries}
-                  size="md"
-                  variant="white"
-                />
-              )}
-            </div>
-          </div>
+            <ContactInfo
+              profile={profile}
+              bioContent={bioContent}
+              markdownComponents={markdownComponents}
+            />
           </div>
           {/* End of animated contact card wrapper */}
 
@@ -660,22 +395,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
               // Normal contact exchange mode buttons
               <>
                 {/* Save Contact Button (Primary) */}
-                <Button
-                  variant="white"
-                  size="xl"
-                  className="w-full font-bold"
+                <ContactButton
+                  isSuccess={isSuccess}
+                  isSaving={isSaving}
+                  isLoading={isLoading}
                   onClick={handleSaveContact}
-                  disabled={isSaving || isLoading}
-                >
-                  {isSaving ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <LoadingSpinner size="sm" />
-                      <span>Saving...</span>
-                    </div>
-                  ) : (
-                    getButtonText()
-                  )}
-                </Button>
+                />
 
                 {/* Success/Error Messages - handled by modals now */}
 
@@ -722,7 +447,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         {/* Contact Write Upsell Modal */}
         <StandardModal
           isOpen={showUpsellModal}
-          onClose={dismissUpsellModal}
+          onClose={() => setShowUpsellModal(false)}
           title="Save to Google Contacts?"
           subtitle={`We saved ${getFieldValue(profile.contactEntries, 'name')}'s contact to Nekt, but we need permission to save to Google so you can easily text them.`}
           primaryButtonText="Yes!"
@@ -735,7 +460,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         {/* Add Calendar Modal */}
         <AddCalendarModal
           isOpen={showAddCalendarModal}
-          onClose={dismissAddCalendarModal}
+          onClose={() => setShowAddCalendarModal(false)}
           section={
             isHistoricalMode
               ? (profile as SavedContact).contactType
@@ -748,7 +473,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
         {/* Calendar Added Success Modal */}
         <StandardModal
           isOpen={showCalendarAddedModal}
-          onClose={dismissCalendarAddedModal}
+          onClose={() => setShowCalendarAddedModal(false)}
           title="Calendar Connected! 🎉"
           subtitle="Your calendar has been connected successfully. Let's find a time to meet up!"
           primaryButtonText="Find a time"
