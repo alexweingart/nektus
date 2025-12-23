@@ -11,10 +11,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        white: "bg-white/40 text-gray-900 hover:bg-white/50 border border-white/40 rounded-full shadow-md backdrop-blur-lg transition-all",
-        circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white/40 text-gray-900 hover:bg-white/50 border border-white/40 shadow-md backdrop-blur-lg transition-all",
-        theme: "bg-white/40 text-[#004D40] hover:bg-white/50 border border-white/40 rounded-full shadow-md backdrop-blur-lg transition-all font-semibold",
-        destructive: "bg-red-500/40 text-white hover:bg-red-500/50 border border-red-400/50 rounded-full shadow-md backdrop-blur-lg transition-all",
+        white: "bg-white/80 text-gray-900 hover:bg-white/90 border border-white/60 rounded-full shadow-md backdrop-blur-lg transition-all",
+        circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white/80 text-gray-900 hover:bg-white/90 border border-white/60 shadow-md backdrop-blur-lg transition-all",
+        theme: "bg-white/80 text-[#004D40] hover:bg-white/90 border border-white/60 rounded-full shadow-md backdrop-blur-lg transition-all font-semibold",
+        destructive: "bg-red-500/80 text-white hover:bg-red-500/90 border border-red-400/70 rounded-full shadow-md backdrop-blur-lg transition-all",
       },
       size: {
         md: "h-12 px-6 text-base",
