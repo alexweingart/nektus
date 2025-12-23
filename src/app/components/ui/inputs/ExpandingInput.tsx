@@ -75,7 +75,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
         {hasIconOrToggle ? (
           // Complex version with icon and/or toggle
           <div
-            className={`flex items-start w-full ${
+            className={`flex items-center w-full min-h-[56px] py-3 ${
               isWhiteVariant
                 ? 'bg-white border border-gray-200'
                 : 'bg-black/40 border border-white/20'
@@ -86,10 +86,11 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
                 ? 'focus-within:bg-gray-50 focus-within:border-gray-300 focus-within:shadow-sm'
                 : 'focus-within:bg-black/50 focus-within:border-white/40 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.15)]'
             } ${className || ''}`}
+            style={{ overflow: 'visible' }}
           >
             {/* Icon on the left */}
             {icon && (
-              <div className="flex items-center justify-center pl-4 pr-2 py-3 self-center w-14">
+              <div className="flex items-center justify-center pl-4 pr-2 w-14">
                 {icon}
               </div>
             )}
@@ -98,22 +99,22 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
             <textarea
               ref={ref}
               data-expanding-input="true"
+              rows={1}
               value={value}
               onChange={handleChange}
               placeholder={placeholder}
               className={`
                 flex-1 bg-transparent focus:outline-none ${
-                  isWhiteVariant ? 'text-gray-900' : 'text-white'
-                } font-medium text-base resize-none ${
-                  isWhiteVariant ? 'placeholder-gray-400' : 'placeholder-white/40'
-                }
-                ${icon ? 'px-2' : 'pl-6 pr-2'} py-3
+                  isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
+                } font-medium text-base resize-none
+                ${icon ? 'pr-2' : 'pr-2 pl-6'}
                 ${inputClassName}
               `}
               style={{
                 boxSizing: 'border-box',
-                overflow: 'hidden',
-                lineHeight: '1.25',
+                overflow: 'visible',
+                lineHeight: '1',
+                padding: '2px',
                 border: 'none',
                 outline: 'none',
                 boxShadow: 'none',
@@ -131,7 +132,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               <button
                 type="button"
                 onClick={onToggleHide}
-                className="flex items-center justify-center pr-4 w-12 py-3 self-center text-white/60 hover:text-white transition-colors"
+                className="flex items-center justify-center pr-4 w-12 text-white/60 hover:text-white transition-colors"
                 aria-label={isHidden ? 'Show field' : 'Hide field'}
               >
                 <EyeIcon isOpen={isHidden} />
@@ -139,27 +140,36 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
             )}
           </div>
         ) : (
-          // Simple version without icon or toggle
-          <textarea
+          // Simple version without icon or toggle - wrapped for vertical centering
+          <div
+            className={`flex items-center rounded-[1.75rem] min-h-[56px] px-6 py-3 ${
+              isWhiteVariant
+                ? 'bg-white border border-gray-200 focus-within:bg-gray-50 focus-within:border-gray-300 focus-within:shadow-sm'
+                : 'bg-black/40 border border-white/20 focus-within:bg-black/50 focus-within:border-white/40 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.15)]'
+            } transition-all ${className || ''}`}
+            style={{ overflow: 'visible' }}
+          >
+            <textarea
               ref={ref}
               data-expanding-input="true"
+              rows={1}
               value={value}
               onChange={handleChange}
               placeholder={placeholder}
               className={`
-                ${
-                  isWhiteVariant
-                    ? 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:bg-gray-50 focus:border-gray-300 focus:shadow-sm'
-                    : 'bg-black/40 border border-white/20 text-white placeholder-white/40 focus:bg-black/50 focus:border-white/40 focus:shadow-[0_0_20px_rgba(255,255,255,0.15)]'
-                } rounded-[1.75rem]
-                font-medium text-base px-6 py-3 resize-none
-                focus:outline-none focus:rounded-[1.75rem] transition-all
-                ${className || ''} ${inputClassName}
+                w-full bg-transparent focus:outline-none ${
+                  isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
+                } font-medium text-base resize-none
+                ${inputClassName}
               `}
               style={{
                 boxSizing: 'border-box',
-                overflow: 'hidden',
-                lineHeight: '1.25',
+                overflow: 'visible',
+                lineHeight: '1',
+                padding: '2px',
+                display: 'block',
+                outline: 'none',
+                border: 'none',
               }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -168,6 +178,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               }}
               {...props}
             />
+          </div>
         )}
       </>
     );
