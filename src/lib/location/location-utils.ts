@@ -116,13 +116,6 @@ export function generateGoogleMapsUrl(
 }
 
 /**
- * Generate Google Maps directions URL between two points
- */
-export function generateDirectionsUrl(origin: Coordinates, destination: Coordinates): string {
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}`;
-}
-
-/**
  * Validate coordinates are within valid ranges
  */
 export function validateCoordinates(coordinates: Coordinates): boolean {
@@ -152,53 +145,6 @@ export function formatDistance(distanceKm: number): string {
   } else {
     return `${Math.round(distanceKm)}km`;
   }
-}
-
-/**
- * Calculate optimal meeting suggestions based on two user locations
- * Considers travel time fairness and venue density
- */
-export function calculateOptimalSearchZones(
-  userA: Coordinates,
-  userB: Coordinates
-): MidpointCalculation[] {
-  const distance = calculateDistance(userA, userB);
-
-  // For very close users (< 3km), just search around midpoint
-  if (distance < 3) {
-    return [calculateMidpoint(userA, userB)];
-  }
-
-  // For distant users (> 50km), search multiple zones
-  if (distance > 50) {
-    const midpoint = calculateMidpoint(userA, userB);
-
-    // Also search closer to each user for their convenience
-    const quarterPointA: Coordinates = {
-      lat: userA.lat + (midpoint.coordinates.lat - userA.lat) * 0.5,
-      lng: userA.lng + (midpoint.coordinates.lng - userA.lng) * 0.5,
-    };
-
-    const quarterPointB: Coordinates = {
-      lat: userB.lat + (midpoint.coordinates.lat - userB.lat) * 0.5,
-      lng: userB.lng + (midpoint.coordinates.lng - userB.lng) * 0.5,
-    };
-
-    return [
-      midpoint,
-      {
-        coordinates: quarterPointA,
-        search_radius_meters: 10000, // 10km radius
-      },
-      {
-        coordinates: quarterPointB,
-        search_radius_meters: 10000, // 10km radius
-      },
-    ];
-  }
-
-  // For medium distances, just use midpoint with appropriate radius
-  return [calculateMidpoint(userA, userB)];
 }
 
 /**

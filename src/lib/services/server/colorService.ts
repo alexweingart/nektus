@@ -13,25 +13,6 @@ const rgbToHex = (r: number, g: number, b: number): string =>
   }).join('');
 
 /**
- * Extracts the dominant (most frequent) colour from an image buffer.
- * Falls back to a naive byte-sampling strategy if library extraction fails.
- */
-export async function getDominantColor(imageBuffer: Buffer): Promise<string> {
-  try {
-    const detected = await fileTypeFromBuffer(imageBuffer);
-    const mime = detected?.mime || 'image/jpeg';
-    const [color] = await getColors(imageBuffer, { count: 1, type: mime });
-    return color.hex();
-  } catch (error) {
-    console.error('Error getting dominant color with get-image-colors, falling back:', error);
-    const r = imageBuffer[0] || 0;
-    const g = imageBuffer[Math.floor(imageBuffer.length / 2)] || 0;
-    const b = imageBuffer[imageBuffer.length - 1] || 0;
-    return rgbToHex(r, g, b);
-  }
-}
-
-/**
  * Extracts a colour palette from an image buffer.
  * Returns `colorCount` distinct HEX colours ordered by prominence.
  * Falls back to the previous byte-sampling implementation on failure so the

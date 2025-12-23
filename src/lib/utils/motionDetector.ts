@@ -392,9 +392,7 @@ export class MotionDetector {
         // iOS Safari caches motion values. When a new listener is added, the first events
         // may contain stale data from the previous session. Skip them to avoid false positives.
         // This is an iOS Safari quirk - we cannot clear their internal motion cache.
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const WARMUP_EVENTS = isIOS ? 3 : 0;
+        const WARMUP_EVENTS = MotionDetector.isIOSDevice() ? 3 : 0;
 
         if (motionEventCount <= WARMUP_EVENTS) {
           // Still update previous values so jerk calculation is correct after warmup
