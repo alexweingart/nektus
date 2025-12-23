@@ -143,7 +143,6 @@ export function LayoutBackground() {
     if (isOnContactPage) {
       // Contact page logic
       const contactColors = contactProfile?.backgroundColors;
-      const userColors = profile?.backgroundColors;
 
       if (contactColors && contactColors.length >= 3) {
         // Use contact's colors
@@ -152,13 +151,8 @@ export function LayoutBackground() {
           colors: particleColors,
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
-      } else if (userColors && userColors.length >= 3) {
-        // Fall back to user's colors while contact colors load (prevents green flash)
-        return {
-          colors: convertToParticleColors(userColors),
-          context: pathname === '/connect' ? 'connect' : 'contact'
-        };
       } else {
+        // No contact colors - use default inverted gradient
         return {
           context: pathname === '/connect' ? 'connect' : 'contact'
         };

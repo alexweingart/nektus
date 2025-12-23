@@ -65,12 +65,10 @@ function ConnectPageContent() {
           calendars: []
         };
 
-        // Dispatch match-found event for LayoutBackground with contact's background colors
-        if (mockProfile.backgroundColors) {
-          window.dispatchEvent(new CustomEvent('match-found', {
-            detail: { backgroundColors: mockProfile.backgroundColors }
-          }));
-        }
+        // Always dispatch match-found event to signal loading complete
+        window.dispatchEvent(new CustomEvent('match-found', {
+          detail: mockProfile.backgroundColors ? { backgroundColors: mockProfile.backgroundColors } : {}
+        }));
 
         setContactProfile(mockProfile);
         return;
@@ -91,12 +89,10 @@ function ConnectPageContent() {
           const contact = contacts.find((c: SavedContact) => c.matchToken === token);
 
           if (contact) {
-            // Dispatch match-found event for LayoutBackground with contact's background colors
-            if (contact.backgroundColors) {
-              window.dispatchEvent(new CustomEvent('match-found', {
-                detail: { backgroundColors: contact.backgroundColors }
-              }));
-            }
+            // Always dispatch match-found event to signal loading complete
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: contact.backgroundColors ? { backgroundColors: contact.backgroundColors } : {}
+            }));
 
             setContactProfile(contact);
           } else {
@@ -113,12 +109,10 @@ function ConnectPageContent() {
           const result = await response.json();
 
           if (result.success && result.profile) {
-            // Dispatch match-found event for LayoutBackground with contact's background colors
-            if (result.profile.backgroundColors) {
-              window.dispatchEvent(new CustomEvent('match-found', {
-                detail: { backgroundColors: result.profile.backgroundColors }
-              }));
-            }
+            // Always dispatch match-found event to signal loading complete
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: result.profile.backgroundColors ? { backgroundColors: result.profile.backgroundColors } : {}
+            }));
 
             setContactProfile(result.profile);
           } else {

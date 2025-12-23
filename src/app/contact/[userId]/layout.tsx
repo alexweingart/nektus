@@ -40,30 +40,34 @@ export default function ContactLayout({
         if (savedContact) {
           setContactProfile(savedContact);
 
-          // Dispatch match-found event for LayoutBackground with contact's background colors
+          // Always dispatch match-found event to signal loading complete
           if (savedContact.backgroundColors) {
             window.dispatchEvent(new CustomEvent('match-found', {
               detail: { backgroundColors: savedContact.backgroundColors }
             }));
           } else {
-            // Contact doesn't have backgroundColors - extract from their profile image
-            try {
-              const response = await fetch(`/api/contacts/${contactUserId}/colors`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-              });
+            // No colors - dispatch empty event to signal completion
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: {}
+            }));
 
-              if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.backgroundColors) {
-                  window.dispatchEvent(new CustomEvent('match-found', {
-                    detail: { backgroundColors: data.backgroundColors }
-                  }));
-                }
+            // Try color extraction in background (non-blocking)
+            fetch(`/api/contacts/${contactUserId}/colors`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data?.success && data?.backgroundColors) {
+                // Update with extracted colors
+                window.dispatchEvent(new CustomEvent('match-found', {
+                  detail: { backgroundColors: data.backgroundColors }
+                }));
               }
-            } catch {
-              // Color extraction failed silently - will use fallback colors
-            }
+            })
+            .catch(() => {
+              // Extraction failed - already using default
+            });
           }
         }
       } catch (error) {
