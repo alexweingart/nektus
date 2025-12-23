@@ -219,10 +219,23 @@ export async function searchFoursquarePlaces(
 
     console.log(`✅ After filtering: ${filteredPlaces.length} places remaining`);
 
+    // Deduplicate by place_id (same place can appear multiple times in results)
+    const seenPlaceIds = new Set<string>();
+    const uniquePlaces = filteredPlaces.filter(place => {
+      if (seenPlaceIds.has(place.place_id)) {
+        console.log(`   ❌ Filtered out duplicate: ${place.name} (${place.place_id})`);
+        return false;
+      }
+      seenPlaceIds.add(place.place_id);
+      return true;
+    });
+
+    console.log(`✅ After deduplication: ${uniquePlaces.length} unique places`);
+
     // Return places in Foursquare's default ranking order (relevance + popularity)
     // Foursquare's algorithm already considers quality, popularity, and relevance
     // Sorting by rating destroys this expert ranking, especially since free tier doesn't include ratings
-    return filteredPlaces;
+    return uniquePlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
@@ -346,8 +359,18 @@ export async function searchFoursquareNearby(
       return withinRadius && goodRating;
     });
 
+    // Deduplicate by place_id
+    const seenPlaceIds = new Set<string>();
+    const uniquePlaces = filteredPlaces.filter(place => {
+      if (seenPlaceIds.has(place.place_id)) {
+        return false;
+      }
+      seenPlaceIds.add(place.place_id);
+      return true;
+    });
+
     // Return places in Foursquare's default ranking order (relevance + popularity)
-    return filteredPlaces;
+    return uniquePlaces;
 
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
