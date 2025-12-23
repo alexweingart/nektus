@@ -152,23 +152,18 @@ function ProfileSetupView() {
 
   // Don't wait for profile - show form immediately for new users
 
-  // Synchronously detect Google initials to prevent flash
-  // Check if profile image is from Google (might be initials) BEFORE isGoogleInitials is set
-  const profileImageUrl = streamingProfileImage || profile?.profileImage;
-  const isLikelyGoogleInitials = profileImageUrl?.includes('googleusercontent.com') || isGoogleInitials;
-
-  // Debug logging for avatar props
   // When we have a streaming image, use it as src (for crossfade)
-  // When we only have Google initials, use undefined (to show our custom initials)
+  // When we have Google initials (confirmed by async check), use undefined (to show our custom initials)
+  const profileImageUrl = streamingProfileImage || profile?.profileImage;
   const avatarSrc = streamingProfileImage
     ? getOptimalProfileImageUrl(streamingProfileImage, 400)
-    : isLikelyGoogleInitials
+    : isGoogleInitials
       ? undefined
       : getOptimalProfileImageUrl(profileImageUrl, 400);
 
-  // Keep showInitials true if we have Google initials, even when streaming image arrives
+  // Keep showInitials true if we have confirmed Google initials, even when streaming image arrives
   // This allows the Avatar to crossfade from initials to the streaming image
-  const avatarShowInitials = isLikelyGoogleInitials;
+  const avatarShowInitials = isGoogleInitials;
 
   // Render form content without outer wrapper
   return (
