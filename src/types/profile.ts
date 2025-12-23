@@ -46,7 +46,8 @@ export interface UserProfile {
 // Unified bio and social generation types
 export interface BioAndSocialGenerationResponse {
   bio: string;
-  contactEntries: ContactEntry[];
+  socialProfiles: Record<string, string | null>; // platform -> username
+  verified: Record<string, boolean>; // platform -> verification status
   success: boolean;
   socialProfilesDiscovered: number;
   socialProfilesVerified: number;
