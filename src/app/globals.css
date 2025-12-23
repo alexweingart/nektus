@@ -842,7 +842,10 @@ button {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(var(--glass-tint-color), 0.25) 0%, rgba(var(--glass-tint-color), 0.15) 100%);
+  /* Dual gradient: white highlight + color tint (matches DualStateSelector) */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%),
+    linear-gradient(135deg, rgba(var(--glass-tint-color), 0.30) 0%, rgba(var(--glass-tint-color), 0.20) 100%);
   pointer-events: none;
   z-index: 1;
 }
