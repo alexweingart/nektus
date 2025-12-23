@@ -152,6 +152,24 @@ function ProfileSetupView() {
 
   // Don't wait for profile - show form immediately for new users
 
+  // Synchronously detect Google initials to prevent flash
+  // Check if profile image is from Google (might be initials) BEFORE isGoogleInitials is set
+  const profileImageUrl = streamingProfileImage || profile?.profileImage;
+  const isLikelyGoogleInitials = profileImageUrl?.includes('googleusercontent.com') || isGoogleInitials;
+
+  // Debug logging for avatar props
+  // When we have a streaming image, use it as src (for crossfade)
+  // When we only have Google initials, use undefined (to show our custom initials)
+  const avatarSrc = streamingProfileImage
+    ? getOptimalProfileImageUrl(streamingProfileImage, 400)
+    : isLikelyGoogleInitials
+      ? undefined
+      : getOptimalProfileImageUrl(profileImageUrl, 400);
+
+  // Keep showInitials true if we have Google initials, even when streaming image arrives
+  // This allows the Avatar to crossfade from initials to the streaming image
+  const avatarShowInitials = isLikelyGoogleInitials;
+
   // Render form content without outer wrapper
   return (
     <>
@@ -163,16 +181,11 @@ function ProfileSetupView() {
             <div className="mb-4">
               <div className="border-4 border-white shadow-lg rounded-full">
                 <Avatar
-                  src={
-                    // Use streaming image first, then check if Google initials (show gradient fallback)
-                    isGoogleInitials && !streamingProfileImage
-                      ? undefined
-                      : getOptimalProfileImageUrl(streamingProfileImage || profile?.profileImage, 400)
-                  }
+                  src={avatarSrc}
                   alt={session?.user?.name || 'Profile'}
                   size="lg"
                   isLoading={isProfileLoading}
-                  showInitials={isGoogleInitials && !streamingProfileImage}
+                  showInitials={avatarShowInitials}
                 />
               </div>
             </div>

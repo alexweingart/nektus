@@ -62,7 +62,7 @@ const Avatar: React.FC<AvatarProps> = ({
       setTimeout(() => {
         setIsTransitioning(false);
         setPreviouslyShowedInitials(false);
-      }, 3000); // 3 seconds for visibility
+      }, 1000); // 1 second crossfade
     } else {
       // Normal image change (no transition)
       setHasError(false);
@@ -124,14 +124,14 @@ const Avatar: React.FC<AvatarProps> = ({
     return (
       <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
         {/* Initials fading out - start visible, fade to invisible */}
-        <div className="absolute inset-0 bg-nekt-gradient flex items-center justify-center transition-opacity duration-[3000ms] opacity-100 animate-[fadeOut_3000ms_ease-out_forwards]">
+        <div className="absolute inset-0 bg-nekt-gradient flex items-center justify-center opacity-100 animate-[fade-out_1000ms_ease-out_forwards]">
           <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
             {initials}
           </span>
         </div>
         {/* Image fading in - start invisible, fade to visible */}
         {imgSrc && (
-          <div className="absolute inset-0 opacity-0 animate-[fadeIn_3000ms_ease-out_forwards]">
+          <div className="absolute inset-0 opacity-0 animate-[fade-in_1000ms_ease-out_forwards]">
             <Image
               src={imgSrc}
               alt={alt}

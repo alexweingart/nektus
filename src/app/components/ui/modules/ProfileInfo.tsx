@@ -33,7 +33,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const startXRef = useRef<number>(0);
   const isDraggingRef = useRef<boolean>(false);
 
-  const showInitialsValue = isGoogleInitials && !profileImageSrc;
+  // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
+  // This enables the Avatar component to crossfade from initials to the generated image
+  const showInitialsValue = isGoogleInitials;
 
   // Load selected mode from localStorage on mount
   useEffect(() => {

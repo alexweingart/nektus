@@ -198,11 +198,28 @@ const ProfileView: React.FC = () => {
   // Profile image - use streaming value for immediate updates after generation
   // Filter out Google initials images to show our gradient instead
   const profileImageSrc = useMemo(() => {
-    if (isGoogleInitials && !streamingProfileImage) {
-      return undefined; // Show gradient fallback for Google initials (unless we have a new generated image)
-    }
     const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+
+    // Synchronously detect Google URLs to prevent flash
+    const isLikelyGoogleInitials = baseImageUrl?.includes('googleusercontent.com') || isGoogleInitials;
+
+    // Prioritize streaming image for crossfade, otherwise filter out Google initials
+    if (streamingProfileImage) {
+      return getOptimalProfileImageUrl(streamingProfileImage, 400);
+    }
+
+    if (isLikelyGoogleInitials) {
+      return undefined; // Show gradient fallback for Google initials
+    }
+
     return getOptimalProfileImageUrl(baseImageUrl, 400);
+  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials]);
+
+  // Calculate if we should show initials - true for Google initials (enables crossfade)
+  const shouldShowInitials = useMemo(() => {
+    const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+    const isLikelyGoogleInitials = baseImageUrl?.includes('googleusercontent.com') || isGoogleInitials;
+    return isLikelyGoogleInitials;
   }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials]);
 
   // Contact channels with streaming support
@@ -333,7 +350,7 @@ const ProfileView: React.FC = () => {
               bioContent={bioContent}
               className="w-full flex flex-col items-center"
               isLoadingProfile={isProfileLoading}
-              isGoogleInitials={isGoogleInitials}
+              isGoogleInitials={shouldShowInitials}
             />
           )}
         </div>
