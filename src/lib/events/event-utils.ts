@@ -1,7 +1,7 @@
 import { getCurrentTimeInUserTimezone } from './time-utils';
 import { getEventTimeFromSlotWithBuffer } from './event-templates';
 import { getFieldValue } from '../utils/profileTransforms';
-import type { Event, SchedulableHours, EventTemplate, UserProfile, TimeSlot } from '@/types';
+import type { Event, EventTemplate, UserProfile, TimeSlot } from '@/types';
 import type { Place } from '@/types/places';
 
 export interface CalendarEvent {
