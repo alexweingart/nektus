@@ -39,6 +39,17 @@ function convertToParticleColors(backgroundColors: string[]) {
 }
 
 /**
+ * Default inverted colors for profile-style backgrounds (dark at top, light at bottom)
+ * Used for contacts without custom backgrounds
+ */
+const DEFAULT_COLORS_INVERTED = {
+  particle: 'rgba(200, 255, 200, 0.6)',
+  connection: 'rgba(34, 197, 94, 0.15)',
+  gradientStart: '#0a0f1a',                 // Dark at top
+  gradientEnd: 'rgba(34, 197, 94, 0.3)'     // Light green at bottom
+};
+
+/**
  * Background manager that orchestrates ParticleNetwork with context-aware settings
  * and personalized colors extracted from profile images
  */
@@ -152,8 +163,9 @@ export function LayoutBackground() {
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
       } else {
-        // No contact colors - use default inverted gradient
+        // No contact colors - use default inverted gradient (profile-style)
         return {
+          colors: DEFAULT_COLORS_INVERTED,
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
       }
