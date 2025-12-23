@@ -44,7 +44,6 @@ export default function ChatInput({
           disabled={disabled}
           variant="white"
           className="w-[80%]"
-          inputClassName="shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
         />
         <Button
           onClick={onSend}
