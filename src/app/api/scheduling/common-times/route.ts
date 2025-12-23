@@ -6,7 +6,7 @@ import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/lib/calendar-pro
 import { getAppleBusyTimes } from '@/lib/calendar-providers/apple';
 import { findSlotIntersection, generateFreeSlots, mergeBusyTimes, getAvailabilityTimeRange } from '@/lib/events/slot-generator';
 import { TimeSlot, Calendar } from '@/types';
-import { getDefaultSchedulableHours } from '@/lib/firebase/firebase-db';
+import { getDefaultSchedulableHours } from '@/lib/events/scheduling-utils';
 import { CalendarTokens } from '@/types';
 import { Redis } from '@upstash/redis';
 

@@ -7,7 +7,6 @@ import { ClientProfileService as ProfileService } from '@/lib/firebase/clientPro
 import { ProfileSaveService } from '@/lib/services/client/profileSaveService';
 import { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { createDefaultProfile as createDefaultProfileService } from '@/lib/services/server/newUserService';
 import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
 import { firebaseAuth } from '@/lib/firebase/auth';
 
@@ -60,16 +59,6 @@ type ProfileContextType = {
 
 // Create context
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
-
-// Helper functions
-const createDefaultProfile = (session?: Session): UserProfile => {
-  if (!session) {
-    throw new Error('Session required to create default profile');
-  }
-
-  const result = createDefaultProfileService({ session });
-  return result.profile;
-};
 
 // Provider component
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
@@ -221,15 +210,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             // Note: Per CALCONNECT_MERGE_SPEC, we no longer auto-trigger asset generation on profile refresh
             // Assets are only generated when explicitly requested by the user
           } else {
-            // Profile should exist due to server-side creation, but create fallback if needed
-            const newProfile = createDefaultProfile(session);
-            setProfile(newProfile);
-            console.log('[ProfileContext] Created fallback profile - server-side creation may have failed');
-
-            // Trigger asset generation for fallback profile
-            generateProfileAssets().catch(error => {
-              console.error('[ProfileContext] Asset generation error:', error);
+            // Profile should exist due to server-side creation in NextAuth JWT callback
+            // If it doesn't exist, ServerProfileService.getOrCreateProfile() failed silently
+            const errorMessage = `[ProfileContext] Profile missing for user ${session.user.id} - ServerProfileService.getOrCreateProfile() should have created it during authentication. This indicates a server-side profile creation failure.`;
+            console.error(errorMessage);
+            
+            // Set profile to null to prevent UI from showing invalid state
+            setProfile(null);
+            
+            // Log additional context for debugging
+            console.error('[ProfileContext] Profile creation failure details:', {
+              userId: session.user.id,
+              email: session.user.email,
+              timestamp: new Date().toISOString(),
+              suggestion: 'Check server logs for ServerProfileService errors during authentication'
             });
+            
+            // Don't throw - let the app continue, but profile will be null
+            // User will see appropriate error state in UI
           }
         } catch (error) {
           console.error('[ProfileContext] Failed to load or create profile:', error);
@@ -554,7 +552,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     let merged: UserProfile;
 
     try {
-      const current = profileRef.current || createDefaultProfile(session);
+      // Profile must be loaded before saving - fail explicitly if missing
+      if (!profileRef.current) {
+        const errorMessage = `[ProfileContext] Cannot save profile - profile not loaded for user ${session.user.id}. Profile must be loaded before save operations.`;
+        console.error(errorMessage);
+        throw new Error('Profile not loaded - cannot save');
+      }
+      
+      const current = profileRef.current;
       
       // Use ProfileSaveService for core saving logic
       const saveResult = await ProfileSaveService.saveProfile(

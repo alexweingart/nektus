@@ -4,8 +4,6 @@
  */
 
 import type { UserProfile, ContactEntry } from '@/types/profile';
-import type { CountryCode } from 'libphonenumber-js';
-import { processSocialProfile } from '@/lib/utils/socialMedia';
 
 /**
  * Get a field value from ContactEntry array by fieldType
@@ -17,7 +15,7 @@ export function getFieldValue(contactEntries: ContactEntry[] | undefined, fieldT
 }
 
 /**
- * Generate social URL using existing socialMedia utilities
+ * Generate social URL from platform and username
  */
 export function generateSocialUrl(fieldType: string, username: string): string {
   if (!username || fieldType === 'email' || fieldType === 'phone') return '';
@@ -26,17 +24,26 @@ export function generateSocialUrl(fieldType: string, username: string): string {
   if (fieldType === 'whatsapp') return `+${username}`;
   if (fieldType === 'wechat') return '';
   
-  // Use existing socialMedia utility and strip the protocol to maintain same format
-  const dummyProfile = { username, url: '', userConfirmed: true };
-  const processedProfile = processSocialProfile(fieldType as Parameters<typeof processSocialProfile>[0], dummyProfile);
+  // Social media URL patterns
+  const urlPatterns: Record<string, string> = {
+    facebook: 'facebook.com/',
+    instagram: 'instagram.com/',
+    x: 'x.com/',
+    linkedin: 'linkedin.com/in/',
+    snapchat: 'snapchat.com/add/',
+    telegram: 't.me/',
+  };
   
-  // Strip https:// to maintain the same format as before
-  return processedProfile.url.replace(/^https?:\/\//, '');
+  const urlPattern = urlPatterns[fieldType.toLowerCase()];
+  if (!urlPattern) return '';
+  
+  // Return URL without protocol to maintain same format as before
+  return `${urlPattern}${username}`;
 }
 
 /**
  * Transform a saved UserProfile (from Firebase) into ContactEntry[] and images for editing
- * Note: For true new users, newUserService.createDefaultProfile() should be called first
+ * Note: Profiles are created server-side by ServerProfileService.getOrCreateProfile() during authentication
  * This function handles existing users and edge cases with missing contactEntries
  */
 export function firebaseToContactEntries(
@@ -65,46 +72,13 @@ export function firebaseToContactEntries(
   }
   
   // Edge case: profile exists but missing/empty contactEntries
-  // This shouldn't happen if newUserService ran properly, but handle gracefully
+  // This shouldn't happen if ServerProfileService ran properly, but handle gracefully
   console.warn('Profile exists but missing contactEntries - this may indicate an issue with profile creation');
   
   return { 
     contactEntries: [],
     images 
   };
-}
-
-/**
- * Extract phone number data from unified fields or digits
- */
-export function extractPhoneData(
-  digitsOrFields: string | ContactEntry[],
-  phoneCountry: CountryCode,
-  formatPhoneNumber: (digits: string, countryCode?: CountryCode) => {
-    internationalPhone: string;
-    nationalPhone: string;
-    error?: string;
-  }
-): {
-  internationalPhone: string;
-  nationalPhone: string;
-} {
-  let digits: string;
-  
-  if (typeof digitsOrFields === 'string') {
-    digits = digitsOrFields;
-  } else {
-    // Extract from unified fields
-    const phoneEntry = digitsOrFields.find(e => e.fieldType === 'phone');
-    digits = phoneEntry?.value || '';
-  }
-  
-  if (!digits) {
-    return { internationalPhone: '', nationalPhone: '' };
-  }
-  
-  const { internationalPhone, nationalPhone } = formatPhoneNumber(digits, phoneCountry);
-  return { internationalPhone, nationalPhone };
 }
 
 /**

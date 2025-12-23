@@ -1,9 +1,25 @@
 import { TimeSlot, SchedulableHours, Event, SchedulingParams } from '@/types';
 import { getEventTemplate } from './event-templates';
 import { timeToMinutes, parseTimeString, getDayOfWeek } from './time-utils';
+import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS, UNIVERSAL_SCHEDULABLE_HOURS } from '@/lib/constants';
 
 export interface SuggestedTimes {
   [chipId: string]: { start: string; end: string } | null;
+}
+
+/**
+ * Get default schedulable hours based on calendar state
+ * @param state - The calendar state ('universal', 'work', or 'personal')
+ * @returns Default schedulable hours for the given state
+ */
+export function getDefaultSchedulableHours(state: 'universal' | 'work' | 'personal'): SchedulableHours {
+  if (state === 'work') {
+    return WORK_SCHEDULABLE_HOURS;
+  } else if (state === 'personal') {
+    return PERSONAL_SCHEDULABLE_HOURS;
+  } else {
+    return UNIVERSAL_SCHEDULABLE_HOURS;
+  }
 }
 
 // Utility functions for middle-time slot selection

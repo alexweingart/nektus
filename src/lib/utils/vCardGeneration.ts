@@ -157,15 +157,7 @@ function detectImageType(response: Response, arrayBuffer: ArrayBuffer): string {
 }
 
 function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string {
-  // Try data URI format first (RFC 6350 compliant)
-  const mimeType = imageType.toLowerCase() === 'jpeg' ? 'image/jpeg' : `image/${imageType.toLowerCase()}`;
-  const dataUri = `data:${mimeType};base64,${base64Data}`;
-  
-  if (dataUri.length < 75) {
-    return `PHOTO:${dataUri}`;
-  }
-  
-  // If data URI is too long, use traditional BASE64 encoding with line folding
+  // Use traditional BASE64 encoding with line folding for vCard compatibility
   const photoPrefix = `PHOTO;ENCODING=BASE64;TYPE=${imageType}:`;
   const prefixLength = photoPrefix.length;
   const firstLineSpace = 75 - prefixLength;
@@ -234,10 +226,10 @@ export const generateVCard = async (profile: UserProfile, options: VCardOptions 
   
   if (includeSocialMedia && profile.contactEntries) {
     const processedPlatforms = new Set<string>();
-    
+
     profile.contactEntries.forEach((entry) => {
-      if (entry.fieldType === 'phone' || entry.fieldType === 'email' || entry.fieldType === 'name' || entry.fieldType === 'bio') return;
-      
+      if (['phone', 'email', 'name', 'bio'].includes(entry.fieldType)) return;
+
       if (entry.value) {
         const url = getSocialMediaUrl(entry.fieldType, entry.value);
         if (url) {
@@ -323,13 +315,9 @@ const getPlatformTypeForIOS = (platform: string): string => {
   return platformConfig?.iosName || platform;
 };
 
-const createVCardBlob = async (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
+export const createVCardFile = async (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
   const vCardContent = await generateVCard(profile, options);
   return new Blob([vCardContent], { type: 'text/vcard;charset=utf-8' });
-};
-
-export const createVCardFile = (profile: UserProfile, options?: VCardOptions): Promise<Blob> => {
-  return createVCardBlob(profile, options);
 };
 
 /**
@@ -342,7 +330,7 @@ export const generateVCardFilename = (profile: UserProfile): string => {
 };
 
 export const downloadVCard = async (profile: UserProfile, options?: VCardOptions): Promise<void> => {
-  const vCardBlob = await createVCardBlob(profile, options);
+  const vCardBlob = await createVCardFile(profile, options);
   const filename = generateVCardFilename(profile);
   
   const url = URL.createObjectURL(vCardBlob);
@@ -396,48 +384,49 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
     return;
   }
 
-  const vCardOptions: VCardOptions = {
-    includePhoto: !options?.skipPhotoFetch, // Skip photo if requested for instant display
+  // iOS-specific vCard options for optimal UX:
+  // - includePhoto: configurable via skipPhotoFetch for instant display
+  // - includeSocialMedia: false (reduces scroll distance to save button)
+  // - includeNotes: true (bio provides useful context)
+  const vCardBlob = await createVCardFile(profile, {
+    includePhoto: !options?.skipPhotoFetch,
     includeSocialMedia: false,
     includeNotes: true,
     contactUrl: options?.contactUrl
-  };
-  
-  const vCardBlob = await createVCardBlob(profile, vCardOptions);
+  });
   const url = URL.createObjectURL(vCardBlob);
   
   return new Promise<void>((resolve) => {
     try {
       window.location.href = url;
-      
-      const handleFocusReturn = () => {
-        cleanup();
-        resolve();
-      };
-      
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          cleanup();
-          resolve();
-        }
-      };
-      
+
       const cleanup = () => {
-        window.removeEventListener('focus', handleFocusReturn);
+        window.removeEventListener('focus', cleanupAndResolve);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         URL.revokeObjectURL(url);
       };
-      
-      window.addEventListener('focus', handleFocusReturn);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      
-      setTimeout(() => {
+
+      const cleanupAndResolve = () => {
         cleanup();
         resolve();
-      }, 10000);
+      };
+
+      const handleVisibilityChange = () => {
+        if (!document.hidden) cleanupAndResolve();
+      };
+
+      window.addEventListener('focus', cleanupAndResolve);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      setTimeout(cleanupAndResolve, 10000);
 
     } catch {
-      generateVCard(profile, vCardOptions).then(vCardContent => {
+      generateVCard(profile, {
+        includePhoto: !options?.skipPhotoFetch,
+        includeSocialMedia: false,
+        includeNotes: true,
+        contactUrl: options?.contactUrl
+      }).then(vCardContent => {
         showVCardInstructions(profile, vCardContent);
         URL.revokeObjectURL(url);
         resolve();

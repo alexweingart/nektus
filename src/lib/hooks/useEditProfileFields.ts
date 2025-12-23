@@ -177,11 +177,7 @@ export const useEditProfileFields = ({
   initialImages = { profileImage: '', backgroundImage: '' },
   onFieldsChange
 }: UseEditProfileFieldsProps): UseEditProfileFieldsReturn => {
-  
-  // Track confirmed channels locally
-  const [confirmedChannels, setConfirmedChannels] = useState<Set<string>>(new Set());
-  const confirmedChannelsRef = useRef<Set<string>>(new Set());
-  
+
   // Calculate initial fields from Firebase profile data
   const calculateInitialFields = useCallback((): ContactEntry[] => {
     const firebaseData = profile?.contactEntries;
@@ -195,10 +191,7 @@ export const useEditProfileFields = ({
       { fieldType: 'email', value: session?.user?.email || '', section: 'work' as FieldSection, order: 1, isVisible: true, confirmed: false }
     ];
 
-    const result = firebaseData || defaultData;
-
-
-    return result;
+    return firebaseData || defaultData;
   }, [profile?.contactEntries, session?.user?.name, session?.user?.email]);
 
   // Unified state: ALL field data in one place
@@ -218,11 +211,13 @@ export const useEditProfileFields = ({
   // Image state (separate from text fields)
   const [images, setImages] = useState<{ profileImage: string; backgroundImage: string }>(initialImages);
   const imagesRef = useRef(images);
-  
-  // Keep ref updated
+  const fieldsRef = useRef(fields);
+
+  // Keep refs updated
   useEffect(() => {
     imagesRef.current = images;
-  }, [images]);
+    fieldsRef.current = fields;
+  }, [images, fields]);
   
   // Update fields and notify
   const updateFields = useCallback((newFields: ContactEntry[]) => {
@@ -231,12 +226,13 @@ export const useEditProfileFields = ({
     onFieldsChange?.(newFields, imagesRef.current);
   }, [onFieldsChange]);
   
-  
+
   // Update images and notify
   const updateImages = useCallback((newImages: { profileImage: string; backgroundImage: string }) => {
     setImages(newImages);
-    onFieldsChange?.(fields, newImages);
-  }, [onFieldsChange, fields]);
+    // Use ref to avoid dependency on fields
+    onFieldsChange?.(fieldsRef.current, newImages);
+  }, [onFieldsChange]);
   
   // Get field value by fieldType
   const getFieldValue = useCallback((fieldType: string): string => {
@@ -306,36 +302,23 @@ export const useEditProfileFields = ({
     updateImages({ ...images, [type]: value });
   }, [images, updateImages]);
   
-  // Keep ref in sync with state
-  useEffect(() => {
-    confirmedChannelsRef.current = confirmedChannels;
-  }, [confirmedChannels]);
-
   // Mark a channel as confirmed
   const markChannelAsConfirmed = useCallback((fieldType: string) => {
-    setConfirmedChannels(prev => {
-      const newSet = new Set(prev).add(fieldType);
-      confirmedChannelsRef.current = newSet;
-      return newSet;
-    });
     // Use setFields directly to avoid batching conflicts with updateFieldValue
-    setFields(prevFields => prevFields.map(field => 
+    setFields(prevFields => prevFields.map(field =>
       field.fieldType === fieldType ? { ...field, confirmed: true } : field
     ));
   }, []);
   
   // Check if a channel is unconfirmed
   const isChannelUnconfirmed = useCallback((fieldType: string): boolean => {
-    // If user has manually confirmed it this session, it's confirmed
-    if (confirmedChannels.has(fieldType)) return false;
-    
     // Find the field entry
     const field = fields.find(f => f.fieldType === fieldType);
     if (!field) return false;
-    
+
     // Only show as unconfirmed if it has content but isn't confirmed
     return Boolean(field.value && field.value.trim() !== '') && !Boolean(field.confirmed);
-  }, [confirmedChannels, fields]);
+  }, [fields]);
   
   // Field filtering functions
   const getFieldsBySection = useCallback((section: FieldSection): ContactEntry[] => {
