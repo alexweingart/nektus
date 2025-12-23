@@ -9,6 +9,7 @@ import { searchFoursquarePlaces, getFoursquareCategoriesForActivity } from '@/li
 export interface PlaceSearchParams {
   intentResult: DetermineIntentResult;
   userLocations: string[];
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>; // Coordinates from user profiles
   userIp?: string; // For IP-based location fallback
   dateTime?: string;
   timeframe?: 'today' | 'tomorrow' | 'this weekend' | 'next week';
@@ -35,20 +36,20 @@ export interface SpecialEventPlace extends Place, SpecialEvent {
 }
 
 export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> {
-  const { intentResult, userLocations, userIp, timeframe = 'tomorrow' } = params;
+  const { intentResult, userLocations, userCoordinates, userIp, timeframe = 'tomorrow' } = params;
 
   console.log(`🎯 determineThingsToDo called with specificity: ${intentResult.intentSpecificity}`);
 
   try {
     switch (intentResult.intentSpecificity) {
       case 'specific_place':
-        return await searchSpecificPlace(intentResult.specificPlace!, userLocations, intentResult.suggestedPlaceTypes, userIp);
+        return await searchSpecificPlace(intentResult.specificPlace!, userLocations, intentResult.suggestedPlaceTypes, userCoordinates, userIp);
 
       case 'activity_type':
-        return await searchPlacesByActivity(intentResult.activitySearchQuery!, userLocations, intentResult, userIp);
+        return await searchPlacesByActivity(intentResult.activitySearchQuery!, userLocations, intentResult, userCoordinates, userIp);
 
       case 'generic':
-        return await searchGenericActivities(userLocations, timeframe, userIp);
+        return await searchGenericActivities(userLocations, timeframe, userCoordinates, userIp);
 
       default:
         console.log('⚠️ Unknown intent specificity, defaulting to empty results');
@@ -65,13 +66,14 @@ async function searchSpecificPlace(
   placeName: string,
   userLocations: string[],
   suggestedPlaceTypes?: string[],
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
   console.log(`🔍 Tier 1: Searching for specific place: ${placeName}`);
 
   try {
     // Calculate midpoint between users for search center (for location-based ranking)
-    const { searchCenter } = await getMidpointFromLocations(userLocations, userIp);
+    const { searchCenter } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
     // For specific place searches, use a LARGE radius (100km) to cast a wide net
     // The text search and Foursquare's relevance ranking will handle matching
@@ -125,6 +127,7 @@ async function searchPlacesByActivity(
   activitySearchQuery: string,
   userLocations: string[],
   intentResult: DetermineIntentResult,
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
   console.log(`🎾 Tier 2: Searching for activity: ${activitySearchQuery}`);
@@ -133,7 +136,7 @@ async function searchPlacesByActivity(
 
   try {
     // Calculate midpoint between users for search center
-    const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userIp);
+    const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
     console.log(`📍 SEARCH RADIUS: ${searchRadiusMeters} meters (${(searchRadiusMeters / 1000).toFixed(1)}km)`);
 
@@ -159,13 +162,14 @@ async function searchPlacesByActivity(
 async function searchGenericActivities(
   userLocations: string[],
   timeframe: string,
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
   console.log(`🌟 Tier 3: Generic activity discovery for timeframe: ${timeframe}`);
 
   try {
     // Calculate midpoint for context
-    const { searchCenter, searchRadiusMeters, primaryLocation } = await getMidpointFromLocations(userLocations, userIp);
+    const { searchCenter, searchRadiusMeters, primaryLocation } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
     console.log(`📍 Using dynamic search radius: ${(searchRadiusMeters / 1000).toFixed(1)}km`);
 
@@ -355,11 +359,39 @@ async function findPlacesForActivities(
 }
 
 // Helper: Calculate midpoint from user locations
-async function getMidpointFromLocations(userLocations: string[], userIp?: string): Promise<{
+async function getMidpointFromLocations(
+  userLocations: string[],
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
+  userIp?: string
+): Promise<{
   searchCenter: { lat: number; lng: number };
   searchRadiusMeters: number;
   primaryLocation: string;
 }> {
+  // If we have coordinates, use them directly (avoid geocoding!)
+  const validCoordinates = userCoordinates?.filter(coord => coord && coord.lat && coord.lng) || [];
+
+  if (validCoordinates.length > 0) {
+    console.log(`✅ Using ${validCoordinates.length} coordinate(s) from user profiles (no geocoding needed)`);
+
+    if (validCoordinates.length === 1) {
+      return {
+        searchCenter: validCoordinates[0]!,
+        searchRadiusMeters: 1500, // 1.5km for single location
+        primaryLocation: userLocations[0] || 'User location'
+      };
+    } else {
+      // Multiple coordinates - calculate midpoint
+      const midpoint = calculateMidpoint(validCoordinates[0]!, validCoordinates[1]!);
+      return {
+        searchCenter: midpoint.coordinates,
+        searchRadiusMeters: midpoint.search_radius_meters,
+        primaryLocation: userLocations[0] || 'User location'
+      };
+    }
+  }
+
+  // Fallback to geocoding if no coordinates available
   const validLocations = userLocations.filter(loc => loc && loc.trim());
 
   if (validLocations.length === 0) {

@@ -210,6 +210,7 @@ export function processGenerateEventTemplateResult(args: string): Partial<Event>
   specificPlaceName?: string;
   placeSearchQuery?: string;
   searchForPlaces?: boolean;
+  suggestedPlaceTypes?: string[];
 } {
   try {
     const parsed = JSON.parse(args);
@@ -220,6 +221,7 @@ export function processGenerateEventTemplateResult(args: string): Partial<Event>
       specificPlaceName?: string;
       placeSearchQuery?: string;
       searchForPlaces?: boolean;
+      suggestedPlaceTypes?: string[];
       explicitTime?: string;
     } = {
       title: parsed.title,

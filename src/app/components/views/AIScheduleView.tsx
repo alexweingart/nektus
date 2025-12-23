@@ -217,6 +217,10 @@ And if you don't know any of those things, and just want me to suggest based off
           : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
         : '';
 
+      // Extract coordinates from user locations
+      const currentUserCoordinates = currentUserLoc?.coordinates;
+      const contactCoordinates = contactLoc?.coordinates;
+
       const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
       const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
 
@@ -238,6 +242,8 @@ And if you don't know any of those things, and just want me to suggest based off
           user2Email: contactEmail,
           user1Location: currentUserLocation,
           user2Location: contactLocation,
+          user1Coordinates: currentUserCoordinates,
+          user2Coordinates: contactCoordinates,
           calendarType: contactType,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           availableTimeSlots: commonTimeSlots, // Pass pre-fetched slots

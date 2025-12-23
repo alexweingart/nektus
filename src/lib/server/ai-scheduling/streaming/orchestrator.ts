@@ -381,6 +381,7 @@ export async function streamSchedulingResponse(
               ...templateResult.placeSearchParams,
             } as DetermineIntentResult,
             userLocations: [body.user1Location, body.user2Location].filter(Boolean) as string[],
+            userCoordinates: [body.user1Coordinates, body.user2Coordinates], // Pass coordinates from profiles
             userIp: body.userIp, // Pass IP for location fallback
           });
           console.log(`✅ Found ${places.length} places`);
