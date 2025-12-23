@@ -233,15 +233,6 @@ export interface SchedulingParams {
   user2Id: string;
   calendarType: 'personal' | 'work';
   eventTemplateIds: string[];
-  preFetchData?: {
-    commonSlots: TimeSlot[];
-    timestamp: Date;
-    calendarType: 'personal' | 'work';
-    user1Id: string;
-    user2Id: string;
-  } | null;
-  isPreFetching?: boolean;
-  dynamicTemplate?: Event;
 }
 
 // Availability request/response

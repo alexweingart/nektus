@@ -1,4 +1,4 @@
-import { TimeSlot, SchedulableHours, Event, SchedulingParams } from '@/types';
+import { TimeSlot, SchedulableHours, SchedulingParams } from '@/types';
 import { getEventTemplate } from './event-templates';
 import { timeToMinutes, parseTimeString, getDayOfWeek } from './time-utils';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS, UNIVERSAL_SCHEDULABLE_HOURS } from '@/lib/constants';
@@ -103,17 +103,6 @@ function selectOptimalTimeSlot(
   return slotsWithDistance[0].slot;
 }
 
-// Helper to load event template (static or dynamic)
-function getTemplateConfig(templateId: string, dynamicTemplate?: Event): Event | null {
-  // Check if this is a dynamic template (runtime-provided event config)
-  if (dynamicTemplate && templateId === dynamicTemplate.id) {
-    return dynamicTemplate;
-  }
-
-  // Load static template from event-templates.ts
-  return getEventTemplate(templateId) || null;
-}
-
 // Helper to get date range from preferred dates or use default (tomorrow + 14 days)
 function getDateRange(preferredSchedulableDates?: {
   startDate: string;
@@ -187,13 +176,12 @@ function isSlotWithinSchedulableHours(
 // Process common slots into suggested times for specific event templates
 function processCommonSlots(
   commonSlots: TimeSlot[],
-  eventTemplateIds: string[],
-  dynamicTemplate?: Event
+  eventTemplateIds: string[]
 ): SuggestedTimes {
   const times: SuggestedTimes = {};
 
   for (const templateId of eventTemplateIds) {
-    const eventTemplate = getTemplateConfig(templateId, dynamicTemplate);
+    const eventTemplate = getEventTemplate(templateId);
 
     if (!eventTemplate) {
       times[templateId] = null;
@@ -241,27 +229,12 @@ function processCommonSlots(
   return times;
 }
 
-// Main function to get suggested times with smart pre-fetch handling
+// Main function to get suggested times
 export async function getSuggestedTimes(
   params: SchedulingParams,
   firebaseUser: { getIdToken: () => Promise<string> } | null
 ): Promise<SuggestedTimes> {
-  const { user1Id, user2Id, calendarType, eventTemplateIds, preFetchData } = params;
-
-
-  // 1. Use pre-fetch data if available and valid
-  if (preFetchData &&
-      preFetchData.user1Id === user1Id &&
-      preFetchData.user2Id === user2Id &&
-      preFetchData.calendarType === calendarType &&
-      preFetchData.commonSlots.length > 0) {
-
-    return processCommonSlots(preFetchData.commonSlots, eventTemplateIds, params.dynamicTemplate);
-  }
-
-  // 2. If pre-fetch is in progress, we could wait briefly or proceed with fresh call
-  // For now, we'll proceed with fresh call to ensure users don't wait
-  // 3. Make fresh call to combined-common-times
+  const { user1Id, user2Id, calendarType, eventTemplateIds } = params;
 
   try {
     if (!firebaseUser) throw new Error('No authenticated user');
@@ -287,7 +260,7 @@ export async function getSuggestedTimes(
 
     const data = await response.json();
 
-    return processCommonSlots(data.slots || [], eventTemplateIds, params.dynamicTemplate);
+    return processCommonSlots(data.slots || [], eventTemplateIds);
 
   } catch (error) {
     console.error('❌ Error in getSuggestedTimes:', error);

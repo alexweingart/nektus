@@ -40,7 +40,12 @@ const SEQUENTIAL_DETECTION = {
 
 
 export class MotionDetector {
-  // Persistent sequential detection state - now properly managed per session
+  // Sequential detection state - tracks priming across motion events
+  // Lifecycle:
+  //   - Reset by startNewSession() between exchanges
+  //   - Reset by detectMotion() at start of each detection attempt
+  //   - Updated during motion event processing to track priming
+  //   - Reset by pageshow event on bfcache restoration (Safari back/forward)
   private static sequentialState = {
     magnitudePrimed: false,
     strongMagnitudePrimed: false,
@@ -57,92 +62,10 @@ export class MotionDetector {
    * Start a new motion detection session - clears priming state and prepares for detection
    */
   static startNewSession(): void {
-    const isIOS = this.isIOSDevice();
-
-    // Log current state before reset
-    const beforeState = {
-      magnitudePrimed: this.sequentialState.magnitudePrimed,
-      strongMagnitudePrimed: this.sequentialState.strongMagnitudePrimed,
-      jerkPrimed: this.sequentialState.jerkPrimed,
-      strongJerkPrimed: this.sequentialState.strongJerkPrimed
-    };
-
-    const msg = `startNewSession() called - Before: mag=${beforeState.magnitudePrimed}, strongMag=${beforeState.strongMagnitudePrimed}, jerk=${beforeState.jerkPrimed}, strongJerk=${beforeState.strongJerkPrimed}`;
-    console.log(`🔄 ${msg}`);
-
-    // Send to remote logs
-    fetch('/api/debug/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'session_start',
-        message: msg,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(() => {});
-
-    // Force complete state reset - iOS Safari can persist static state across browser contexts
-    this.sequentialState = {
-      magnitudePrimed: false,
-      strongMagnitudePrimed: false,
-      jerkPrimed: false,
-      strongJerkPrimed: false,
-      sessionStartTime: Date.now(),
-      lastResetTime: Date.now()
-    };
+    console.log('🔄 startNewSession() called');
+    this.sequentialState = this.createCleanState();
     this.isCancelled = false;
-    
-    // Additional iOS-specific state cleanup with multiple strategies
-    if (isIOS) {
-      const hasAnyPrimedState = this.sequentialState.magnitudePrimed || 
-                               this.sequentialState.strongMagnitudePrimed || 
-                               this.sequentialState.jerkPrimed || 
-                               this.sequentialState.strongJerkPrimed;
-
-      // Strategy 1: Force garbage collection of any lingering state references
-      this.sequentialState = Object.assign({}, this.sequentialState);
-      
-      // Strategy 2: Explicit property overwrite to combat persistent references
-      this.sequentialState.magnitudePrimed = false;
-      this.sequentialState.strongMagnitudePrimed = false; 
-      this.sequentialState.jerkPrimed = false;
-      this.sequentialState.strongJerkPrimed = false;
-      
-      // Strategy 3: Force a new object reference
-      const cleanState = {
-        magnitudePrimed: false,
-        strongMagnitudePrimed: false,
-        jerkPrimed: false,
-        strongJerkPrimed: false,
-        sessionStartTime: Date.now(),
-        lastResetTime: Date.now()
-      };
-      this.sequentialState = cleanState;
-      
-      // Strategy 4: Nuclear option for persistent state - delete and recreate
-      if (hasAnyPrimedState) {
-        delete (this as unknown as { sequentialState?: typeof MotionDetector.sequentialState }).sequentialState;
-        this.sequentialState = cleanState;
-        console.log('🍎 iOS: Nuclear state reset applied due to persistent state');
-      }
-      
-      console.log('🍎 iOS-specific aggressive state cleanup applied');
-    }
-
-    // Log state after reset
-    const afterMsg = `After reset: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
-    console.log(`✅ ${afterMsg}`);
-
-    // Send to remote logs
-    fetch('/api/debug/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'session_reset',
-        message: afterMsg,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(() => {});
+    console.log('✅ Motion state reset complete');
   }
 
   // Track active motion listener for proper cleanup
@@ -153,30 +76,17 @@ export class MotionDetector {
    */
   static endSession(): void {
     this.isCancelled = true;
-    
+
     // Immediately remove active motion listener to prevent race conditions
     if (this.activeMotionListener && typeof window !== 'undefined') {
       window.removeEventListener('devicemotion', this.activeMotionListener);
       this.activeMotionListener = null;
       console.log('🧹 Immediately removed motion listener');
     }
-    
-    this.sequentialState = {
-      magnitudePrimed: false,
-      strongMagnitudePrimed: false,
-      jerkPrimed: false,
-      strongJerkPrimed: false,
-      sessionStartTime: 0,
-      lastResetTime: Date.now()
-    };
-    console.log('🧹 Motion session ended');
-  }
 
-  /**
-   * Get current sequential detection state
-   */
-  static getSequentialState(): typeof MotionDetector.sequentialState {
-    return { ...this.sequentialState };
+    this.sequentialState = this.createCleanState();
+    this.sequentialState.sessionStartTime = 0; // Mark as ended
+    console.log('🧹 Motion session ended');
   }
 
   /**
@@ -199,11 +109,37 @@ export class MotionDetector {
   }
 
   /**
+   * Log debug message to console and remote logs
+   */
+  private static logDebug(event: string, message: string): void {
+    console.log(message);
+    fetch('/api/debug/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, message, timestamp: new Date().toISOString() })
+    }).catch(() => {});
+  }
+
+  /**
+   * Create a clean state object with all priming flags set to false
+   */
+  private static createCleanState() {
+    return {
+      magnitudePrimed: false,
+      strongMagnitudePrimed: false,
+      jerkPrimed: false,
+      strongJerkPrimed: false,
+      sessionStartTime: Date.now(),
+      lastResetTime: Date.now()
+    };
+  }
+
+  /**
    * Log the specific type of motion detection that occurred
    */
   private static logDetectionResult(
     strongBumpDetection: boolean,
-    strongTapDetection: boolean, 
+    strongTapDetection: boolean,
     magnitudePrimedDetection: boolean,
     strongMagnitudePrimedDetection: boolean,
     jerkPrimedDetection: boolean,
@@ -211,55 +147,34 @@ export class MotionDetector {
     magnitude: number,
     jerk: number
   ): void {
-    if (strongBumpDetection) {
-      console.log(`🎯 Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
-    } else if (strongTapDetection) {
-      console.log(`🎯 Strong tap detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
-    } else if (magnitudePrimedDetection) {
-      console.log(`🎯 Magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`);
-    } else if (strongMagnitudePrimedDetection) {
-      console.log(`🎯 Strong magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk}`);
-    } else if (jerkPrimedDetection) {
-      console.log(`🎯 Jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`);
-    } else if (strongJerkPrimedDetection) {
-      console.log(`🎯 Strong jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.magnitude}`);
-    }
+    const detections = [
+      [strongBumpDetection, `Strong bump detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`],
+      [strongTapDetection, `Strong tap detected: mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`],
+      [magnitudePrimedDetection, `Magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.jerk}`],
+      [strongMagnitudePrimedDetection, `Strong magnitude-primed detection: jerk=${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk}`],
+      [jerkPrimedDetection, `Jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.magnitude}`],
+      [strongJerkPrimedDetection, `Strong jerk-primed detection: mag=${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.magnitude}`]
+    ] as const;
+
+    const detected = detections.find(([condition]) => condition);
+    if (detected) console.log(`🎯 ${detected[1]}`);
   }
 
 
 
   private static getBrowserInfo() {
     const userAgent = navigator.userAgent;
-    
-    // Detect iOS (including Chrome on iOS)  
     const isIOS = this.isIOSDevice();
-    
-    // Detect Chrome on iOS (Chrome on iOS uses Safari's WebKit but identifies as Chrome)
-    const isChromeOnIOS = isIOS && /CriOS/.test(userAgent);
-    
-    // Detect Safari on iOS or other iOS browsers that support motion (like Google app)
-    const isSafariOnIOS = isIOS && !isChromeOnIOS && (/Safari/.test(userAgent) || 
-                         (typeof DeviceMotionEvent !== 'undefined' && 
-                          typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'));
-    
-    // Detect desktop Safari
-    const isDesktopSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent) && !isIOS;
-    
-    // Detect Android
-    const isAndroid = /Android/.test(userAgent);
-    
-    // Detect Chrome on Android
-    const isChromeOnAndroid = isAndroid && /Chrome/.test(userAgent);
-    
+    const hasRequestPermission = typeof DeviceMotionEvent !== 'undefined' &&
+      typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function';
+
     return {
       isIOS,
-      isChromeOnIOS,
-      isSafariOnIOS,
-      isDesktopSafari,
-      isAndroid,
-      isChromeOnAndroid,
-      hasRequestPermission: typeof DeviceMotionEvent !== 'undefined' && 
-                           typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'
+      isChromeOnIOS: isIOS && /CriOS/.test(userAgent),
+      isSafariOnIOS: isIOS && !/CriOS/.test(userAgent) && (/Safari/.test(userAgent) || hasRequestPermission),
+      isDesktopSafari: /Safari/.test(userAgent) && !/Chrome/.test(userAgent) && !isIOS,
+      isAndroid: /Android/.test(userAgent),
+      hasRequestPermission
     };
   }
 
@@ -306,17 +221,13 @@ export class MotionDetector {
     
     if (browserInfo.isSafariOnIOS && !browserInfo.hasRequestPermission) {
       console.log('🚫 iOS Safari without requestPermission - possibly private browsing or older iOS');
-      return { 
-        success: false, 
-        message: 'Motion permission not available. Please disable private browsing or update iOS.' 
+      return {
+        success: false,
+        message: 'Motion permission not available. Please disable private browsing or update iOS.'
       };
     }
-    
-    if (browserInfo.isChromeOnAndroid || browserInfo.isAndroid) {
-      return { success: true };
-    }
-    
-    // Fallback for other browsers
+
+    // Android and other browsers don't require permission
     return { success: true };
   }
 
@@ -334,56 +245,31 @@ export class MotionDetector {
     // Reset cancellation for new detection
     this.isCancelled = false;
 
-    // Use strong bump profile as default thresholds (standardized across all devices)
     // Generate unique call ID to track overlapping calls
     const callId = Math.random().toString(36).substring(2, 8);
 
     // DEBUG: Log when detectMotion is called and current state
-    const debugMsg = `detectMotion() called [${callId}] - Current state: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
-    console.log(`📱 ${debugMsg}`);
+    const debugMsg = `📱 detectMotion() called [${callId}] - Current state: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed}`;
+    this.logDebug('motion_start', debugMsg);
 
-    // Send to remote debug logs
-    fetch('/api/debug/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'motion_start',
-        message: debugMsg,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(() => {});
-
-    // CRITICAL FIX: Reset primed states for each detectMotion call
-    // This prevents false positives from previous detectMotion calls in the same session
+    // CRITICAL: Reset primed states at start of each detectMotion call
+    // This is essential for the multi-hit loop in realTimeContactExchangeService
+    // Without this, primed states from first hit contaminate subsequent hits causing false positives
+    // Sequential detection still works within a single detectMotion call (across motion events)
     this.sequentialState.magnitudePrimed = false;
     this.sequentialState.strongMagnitudePrimed = false;
     this.sequentialState.jerkPrimed = false;
     this.sequentialState.strongJerkPrimed = false;
 
     // Log the reset
-    const resetMsg = `detectMotion() reset primed states to false [${callId}]`;
-    console.log(`🔄 ${resetMsg}`);
-    fetch('/api/debug/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'motion_reset',
-        message: resetMsg,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(() => {});
+    this.logDebug('motion_reset', `🔄 detectMotion() reset primed states to false [${callId}]`);
 
     return new Promise((resolve) => {
       let resolved = false;
       let motionEventCount = 0;
       let previousMagnitude = 0;
       let previousTimestamp = 0;
-      // Use persistent sequential detection state (maintains across multiple detectMotion calls within session)
-      let magnitudePrimed = this.sequentialState.magnitudePrimed;
-      let strongMagnitudePrimed = this.sequentialState.strongMagnitudePrimed;
-      let jerkPrimed = this.sequentialState.jerkPrimed;
-      let strongJerkPrimed = this.sequentialState.strongJerkPrimed;
-      
+
       const handleMotion = (event: DeviceMotionEvent) => {
         if (resolved || this.isCancelled) return;
 
@@ -424,59 +310,30 @@ export class MotionDetector {
           const deltaMagnitude = magnitude - previousMagnitude;
           jerk = Math.abs(deltaMagnitude / deltaTime); // m/s³
         }
-        // Note: Using fixed thresholds (no adaptive recalculation needed)
-        
-        // Update sequential detection state (both local and persistent)
-        if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !magnitudePrimed) {
-          magnitudePrimed = true;
+
+        // Update sequential detection state
+        if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !this.sequentialState.magnitudePrimed) {
           this.sequentialState.magnitudePrimed = true;
-          const msg = `Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} (eventCount=${motionEventCount})`;
-          console.log(`📈 ${msg}`);
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
-          }).catch(() => {});
+          this.logDebug('motion_priming', `📈 Magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.magnitudePrime.magnitude} (eventCount=${motionEventCount})`);
         }
-        if (magnitude >= SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude && !strongMagnitudePrimed) {
-          strongMagnitudePrimed = true;
+        if (magnitude >= SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude && !this.sequentialState.strongMagnitudePrimed) {
           this.sequentialState.strongMagnitudePrimed = true;
-          const msg = `Strong magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude}`;
-          console.log(`📈 ${msg}`);
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
-          }).catch(() => {});
+          this.logDebug('motion_priming', `📈 Strong magnitude primed: ${magnitude.toFixed(2)} ≥ ${SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude}`);
         }
-        if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk && !jerkPrimed) {
-          jerkPrimed = true;
+        if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk && !this.sequentialState.jerkPrimed) {
           this.sequentialState.jerkPrimed = true;
-          const msg = `Jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}`;
-          console.log(`📊 ${msg}`);
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
-          }).catch(() => {});
+          this.logDebug('motion_priming', `📊 Jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.jerkPrime.jerk}`);
         }
-        if (jerk >= SEQUENTIAL_DETECTION.strongJerkPrime.jerk && !strongJerkPrimed) {
-          strongJerkPrimed = true;
+        if (jerk >= SEQUENTIAL_DETECTION.strongJerkPrime.jerk && !this.sequentialState.strongJerkPrimed) {
           this.sequentialState.strongJerkPrimed = true;
-          const msg = `Strong jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.jerk}`;
-          console.log(`📊 ${msg}`);
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'motion_priming', message: msg, timestamp: new Date().toISOString() })
-          }).catch(() => {});
+          this.logDebug('motion_priming', `📊 Strong jerk primed: ${jerk.toFixed(1)} ≥ ${SEQUENTIAL_DETECTION.strongJerkPrime.jerk}`);
         }
         
         // Check for sequential detection: primed conditions from previous events
-        const magnitudePrimedDetection = magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk;
-        const strongMagnitudePrimedDetection = strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk;
-        const jerkPrimedDetection = jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude;
-        const strongJerkPrimedDetection = strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude;
+        const magnitudePrimedDetection = this.sequentialState.magnitudePrimed && jerk >= SEQUENTIAL_DETECTION.magnitudePrime.jerk;
+        const strongMagnitudePrimedDetection = this.sequentialState.strongMagnitudePrimed && jerk >= SEQUENTIAL_DETECTION.strongMagnitudePrime.jerk;
+        const jerkPrimedDetection = this.sequentialState.jerkPrimed && magnitude >= SEQUENTIAL_DETECTION.jerkPrime.magnitude;
+        const strongJerkPrimedDetection = this.sequentialState.strongJerkPrimed && magnitude >= SEQUENTIAL_DETECTION.strongJerkPrime.magnitude;
         const sequentialDetection = magnitudePrimedDetection || strongMagnitudePrimedDetection || jerkPrimedDetection || strongJerkPrimedDetection;
         
         // Check for dual threshold detection: either profile can trigger
@@ -487,20 +344,8 @@ export class MotionDetector {
         // Check for detection: dual threshold or sequential detection
         if (dualThresholdDetection || sequentialDetection) {
           // DEBUG: Log which specific detection triggered
-          const debugMsg = `DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)} | Primed: mag=${magnitudePrimed}, strongMag=${strongMagnitudePrimed}, jerk=${jerkPrimed}, strongJerk=${strongJerkPrimed} | Types: bump=${strongBumpDetection}, tap=${strongTapDetection}, magPrimed=${magnitudePrimedDetection}, strongMagPrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`;
-
-          console.log(`🔍 ${debugMsg}`);
-
-          // Send to remote debug logs
-          fetch('/api/debug/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'motion_detection',
-              message: debugMsg,
-              timestamp: new Date().toISOString()
-            })
-          }).catch(() => {});
+          const debugMsg = `🔍 DETECTION TRIGGERED: mag=${magnitude.toFixed(3)}, jerk=${jerk.toFixed(1)} | Primed: mag=${this.sequentialState.magnitudePrimed}, strongMag=${this.sequentialState.strongMagnitudePrimed}, jerk=${this.sequentialState.jerkPrimed}, strongJerk=${this.sequentialState.strongJerkPrimed} | Types: bump=${strongBumpDetection}, tap=${strongTapDetection}, magPrimed=${magnitudePrimedDetection}, strongMagPrimed=${strongMagnitudePrimedDetection}, jerkPrimed=${jerkPrimedDetection}, strongJerkPrimed=${strongJerkPrimedDetection}`;
+          this.logDebug('motion_detection', debugMsg);
 
           this.logDetectionResult(
             strongBumpDetection, strongTapDetection, magnitudePrimedDetection,
@@ -575,4 +420,16 @@ export class MotionDetector {
     // Convert to hex string
     return Math.abs(hash).toString(16).padStart(8, '0');
   }
+}
+
+// Handle Safari bfcache restoration - reset state when page restored from cache
+// bfcache preserves the JavaScript heap including static variables, so we must reset on restoration
+if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      // Page restored from bfcache - static variables preserved, must reset
+      console.log('🔄 bfcache restoration detected - resetting motion state');
+      MotionDetector.startNewSession();
+    }
+  });
 }

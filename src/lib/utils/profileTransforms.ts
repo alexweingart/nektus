@@ -17,14 +17,14 @@ export function getFieldValue(contactEntries: ContactEntry[] | undefined, fieldT
 /**
  * Generate social URL from platform and username
  */
-export function generateSocialUrl(fieldType: string, username: string): string {
+export function generateSocialUrl(fieldType: string, username: string, includeProtocol: boolean = false): string {
   if (!username || fieldType === 'email' || fieldType === 'phone') return '';
-  
+
   // Special cases that don't use standard URL patterns
   if (fieldType === 'whatsapp') return `+${username}`;
   if (fieldType === 'wechat') return '';
-  
-  // Social media URL patterns
+
+  // Social media URL patterns (AI-discoverable platforms only)
   const urlPatterns: Record<string, string> = {
     facebook: 'facebook.com/',
     instagram: 'instagram.com/',
@@ -33,12 +33,12 @@ export function generateSocialUrl(fieldType: string, username: string): string {
     snapchat: 'snapchat.com/add/',
     telegram: 't.me/',
   };
-  
+
   const urlPattern = urlPatterns[fieldType.toLowerCase()];
   if (!urlPattern) return '';
-  
-  // Return URL without protocol to maintain same format as before
-  return `${urlPattern}${username}`;
+
+  const url = `${urlPattern}${username}`;
+  return includeProtocol ? `https://${url}` : url;
 }
 
 /**

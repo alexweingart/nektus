@@ -158,9 +158,7 @@ export default function SmartScheduleView() {
         user1Id: session.user.id,
         user2Id: contactProfile.userId,
         calendarType: section,
-        eventTemplateIds,
-        preFetchData: null,
-        isPreFetching: false
+        eventTemplateIds
       }, auth.currentUser);
 
       // Map event template IDs back to chip IDs
