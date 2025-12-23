@@ -142,12 +142,31 @@ async function searchPlacesByActivity(
 
     // Just use text search - Foursquare is smart enough to find the right places
     // No need for category filtering!
-    const places = await searchFoursquarePlaces(
+    let places = await searchFoursquarePlaces(
       searchCenter,
       searchRadiusMeters,
       activitySearchQuery,
       undefined // No category filtering - let Foursquare's text search do its job
     );
+
+    // If we got fewer than 4 results, try expanding the radius
+    const MIN_DESIRED_PLACES = 4;
+    if (places.length < MIN_DESIRED_PLACES) {
+      const expandedRadius = searchRadiusMeters * 2; // Double the radius
+      console.log(`⚠️  Only found ${places.length} places, expanding radius to ${(expandedRadius / 1000).toFixed(1)}km`);
+
+      const expandedPlaces = await searchFoursquarePlaces(
+        searchCenter,
+        expandedRadius,
+        activitySearchQuery,
+        undefined
+      );
+
+      if (expandedPlaces.length > places.length) {
+        places = expandedPlaces;
+        console.log(`✅ Found ${places.length} places with expanded radius`);
+      }
+    }
 
     console.log(`✅ Found ${places.length} places for activity: ${activitySearchQuery}`);
     return places.slice(0, 10); // Return top 10 results
