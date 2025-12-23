@@ -51,7 +51,10 @@ input:-webkit-autofill:active {
   :root {
     /* Core dimensions */
     --max-content-width: 448px;  /* Standard max-width for content */
-    
+
+    /* Glass tint color - brand green for colored glass effects */
+    --glass-tint-color: 113, 228, 84; /* Bright lime green from logo */
+
     /* Core color palette - using hex for consistency */
     --background: transparent;  /* No background - let body::before handle it */
     --foreground: #ffffff;    /* White text for light theme */
@@ -824,4 +827,27 @@ button {
     filter: none;
     transition: none;
   }
+}
+
+/* ============================================================================ */
+/* Glass Tint Utility - adds brand color overlay                              */
+/* ============================================================================ */
+
+.glass-tinted {
+  position: relative;
+}
+
+.glass-tinted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(var(--glass-tint-color), 0.25) 0%, rgba(var(--glass-tint-color), 0.15) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-tinted > * {
+  position: relative;
+  z-index: 2;
 }

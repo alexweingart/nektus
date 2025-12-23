@@ -11,6 +11,7 @@ import { firebaseAuth } from '@/lib/client/auth/firebase';
 import { isAndroidPlatform } from '@/lib/client/platform-detection';
 import { syncTimezone, type SessionPhoneEntry } from '@/lib/client/profile/utils';
 import { generateProfileAssets } from '@/lib/client/profile/asset-generation';
+import { hexToRgb } from '@/lib/cn';
 
 // Types
 interface SessionProfile {
@@ -256,6 +257,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Update profileRef whenever profile changes
   useEffect(() => {
     profileRef.current = profile;
+  }, [profile]);
+
+  // Liquid Glass: Set global color tint from user's profile
+  useEffect(() => {
+    if (profile?.backgroundColors) {
+      // Use accent2 to match particle dots
+      const profileColor = profile.backgroundColors[2] || profile.backgroundColors[1] || profile.backgroundColors[0];
+      if (profileColor) {
+        const rgb = hexToRgb(profileColor);
+        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        console.log('[ProfileContext] Setting global glass tint from backgroundColors[2]:', profileColor, '→', rgbString);
+        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
+      }
+    } else {
+      console.log('[ProfileContext] No backgroundColors, using default green');
+      document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
+    }
   }, [profile]);
 
   // Save profile to Firestore

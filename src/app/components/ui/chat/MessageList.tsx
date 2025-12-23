@@ -16,10 +16,10 @@ export default function MessageList({ messages, onCreateEvent }: MessageListProp
           key={message.id}
           className={`rounded-2xl p-4 ${
             message.type === 'user'
-              ? 'max-w-[80%] bg-black/40 border border-white/10 backdrop-blur-sm text-white ml-auto'
+              ? 'max-w-[80%] bg-black/60 border border-white/20 backdrop-blur-sm text-white ml-auto'
               : message.isProcessing && message.content === ''
-                ? 'w-auto inline-block bg-white border border-gray-200'
-                : 'max-w-[80%] bg-white border border-gray-200'
+                ? 'w-auto inline-block bg-white/60 border border-gray-200 backdrop-blur-md'
+                : 'max-w-[80%] bg-white/60 border border-gray-200 backdrop-blur-md'
           }`}
         >
           {/* Typing indicator (3 dots) */}

@@ -31,11 +31,12 @@ export function DualStateSelector<T extends string>({
       {/* Background slider for selected state */}
       <div
         className={cn(
-          "absolute top-0 bottom-0 bg-white/30 rounded-full",
+          "absolute top-0 bottom-0 rounded-full",
           selectedOption === options[0] ? 'left-0' : 'right-0'
         )}
         style={{
           width: '50%',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08)), linear-gradient(135deg, rgba(var(--glass-tint-color), 0.30), rgba(var(--glass-tint-color), 0.20))',
           transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
         }}
       />
