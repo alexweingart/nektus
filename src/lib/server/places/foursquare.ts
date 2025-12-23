@@ -97,6 +97,7 @@ export async function searchFoursquarePlaces(
 
   try {
     console.log(`🔍 Foursquare search: center=(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), radius=${radius}m, query="${textQuery}"`);
+    console.log(`🔑 API Key (first 10/last 10): ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 10)}`);
 
     const url = new URL('https://places-api.foursquare.com/places/search');
 
@@ -122,6 +123,9 @@ export async function searchFoursquarePlaces(
       : 'fsq_place_id,name,latitude,longitude,location,categories';
     url.searchParams.set('fields', fields);
 
+    console.log(`🌐 Full URL: ${url.toString()}`);
+    console.log(`📋 Request headers: Accept=application/json, Authorization=${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 10)}`);
+
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -132,6 +136,9 @@ export async function searchFoursquarePlaces(
     });
 
     const data: FoursquareResponse = await response.json();
+
+    console.log(`📡 Response status: ${response.status}`);
+    console.log(`📡 Response body:`, JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       if (response.status === 429) {
