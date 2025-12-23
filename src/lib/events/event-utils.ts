@@ -39,12 +39,6 @@ export function generateGoogleCalendarUrl(event: CalendarEvent): string {
   const startFormatted = formatDateTimeForGoogle(event.startTime);
   const endFormatted = formatDateTimeForGoogle(event.endTime);
 
-  console.log('Google Calendar URL generation:');
-  console.log('  Start time (Date):', event.startTime);
-  console.log('  Start formatted:', startFormatted);
-  console.log('  End time (Date):', event.endTime);
-  console.log('  End formatted:', endFormatted);
-
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.title,
@@ -57,10 +51,7 @@ export function generateGoogleCalendarUrl(event: CalendarEvent): string {
     params.append('add', event.attendees.join(','));
   }
 
-  const url = `${baseUrl}?${params.toString()}`;
-  console.log('  Final URL:', url);
-
-  return url;
+  return `${baseUrl}?${params.toString()}`;
 }
 
 /**
@@ -103,9 +94,9 @@ export function generateIcsContent(event: CalendarEvent, userTimezone?: string):
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     `UID:${uid}`,
-    `DTSTAMP:${formatDateTimeForIcs(now)}`,
-    `DTSTART:${formatDateTimeForIcs(event.startTime)}`,
-    `DTEND:${formatDateTimeForIcs(event.endTime)}`,
+    `DTSTAMP:${formatDateTimeForGoogle(now)}`,
+    `DTSTART:${formatDateTimeForGoogle(event.startTime)}`,
+    `DTEND:${formatDateTimeForGoogle(event.endTime)}`,
     `SUMMARY:${escapeIcsText(event.title)}`,
     event.description ? `DESCRIPTION:${escapeIcsText(event.description)}` : '',
     `LOCATION:${escapeIcsText(event.location)}`,
@@ -170,9 +161,6 @@ function formatDateTimeForGoogle(date: Date): string {
 
   return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 }
-
-// Alias for ICS format (same as Google format)
-const formatDateTimeForIcs = formatDateTimeForGoogle;
 
 /**
  * Escape text for ICS format
@@ -411,14 +399,6 @@ export function determineAlternativesToShow(
     (template.intent && /at .+? (park|cafe|restaurant|gym|court)/i.test(template.intent) && !/at a /i.test(template.intent))
   );
 
-  console.log(`📊 Alternative determination:`, {
-    hasDateTimeConstraint,
-    hasPlaceConstraint,
-    hasValidTime,
-    dateInfo: template.preferredSchedulableDates?.description,
-    placeInfo: template.intentSpecificity
-  });
-
   // Rule 1: If time is invalid (conflict), ALWAYS show time alternatives + warning
   if (!hasValidTime) {
     return {
@@ -467,10 +447,6 @@ export function determineAlternativesToShow(
     reason: 'default-show-places'
   };
 }
-
-// Legacy function names for backward compatibility
-export const formatDateForGoogle = formatDateTimeForGoogle;
-export const generateICSContent = generateIcsContent;
 
 /**
  * Format event name based on intent and event type

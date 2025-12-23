@@ -117,18 +117,39 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API/BIO-AND-SOCIAL] Fresh profile before merge has ${freshProfile.contactEntries?.length || 0} entries`);
 
+    // Convert socialProfiles to ContactEntry objects
+    const generatedEntries: ContactEntry[] = [];
+    const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
+
+    for (const platform of platforms) {
+      const username = result.socialProfiles[platform];
+      const isVerified = result.verified[platform];
+
+      if (username) {
+        generatedEntries.push({
+          fieldType: platform,
+          value: username,
+          section: platform === 'linkedin' ? 'work' : 'personal',
+          order: 0, // Will be reassigned by ProfileSaveService
+          isVisible: true,
+          confirmed: false, // AI-generated profiles are unconfirmed
+          automatedVerification: isVerified || false,
+          discoveryMethod: 'ai' as const
+        });
+      }
+    }
+
     // CRITICAL: Merge generated social profiles with existing contact channels to preserve phone data
     const existingEntries = freshProfile.contactEntries || [];
-    const generatedEntries = result.contactEntries || [];
-    
+
     // Start with existing entries (preserves phone, WhatsApp, etc.)
     const mergedEntries = [...existingEntries];
 
-    console.log(`[API/BIO-AND-SOCIAL] Existing entries before merge:`, existingEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
-    console.log(`[API/BIO-AND-SOCIAL] Generated entries to merge:`, generatedEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
+    console.log(`[API/BIO-AND-SOCIAL] Existing entries before merge:`, existingEntries.map((e: ContactEntry) => `${e.fieldType}-${e.section}:${e.order}`));
+    console.log(`[API/BIO-AND-SOCIAL] Generated entries to merge:`, generatedEntries.map((e: ContactEntry) => `${e.fieldType}-${e.section}:${e.order}`));
 
     // Add or update entries from generated social profiles
-    generatedEntries.forEach((generatedEntry) => {
+    generatedEntries.forEach((generatedEntry: ContactEntry) => {
       const existingIndex = mergedEntries.findIndex(e => e.fieldType === generatedEntry.fieldType);
       if (existingIndex >= 0) {
         console.log(`[API/BIO-AND-SOCIAL] OVERWRITING ${generatedEntry.fieldType}:`, mergedEntries[existingIndex], ' → ', generatedEntry);
@@ -136,8 +157,8 @@ export async function POST(request: NextRequest) {
         mergedEntries[existingIndex] = { ...mergedEntries[existingIndex], ...generatedEntry };
       } else {
         console.log(`[API/BIO-AND-SOCIAL] ADDING ${generatedEntry.fieldType}`);
-        // Add new entry (social profiles) - cast to ContactEntry
-        mergedEntries.push(generatedEntry as ContactEntry);
+        // Add new entry (social profiles)
+        mergedEntries.push(generatedEntry);
       }
     });
 

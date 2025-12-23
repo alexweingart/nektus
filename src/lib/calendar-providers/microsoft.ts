@@ -97,45 +97,6 @@ export async function refreshMicrosoftToken(refreshToken: string): Promise<{
   }
 }
 
-interface CalendarEvent {
-  title: string;
-  start: string;
-  end: string;
-  location?: string;
-  attendees?: string[];
-  description?: string;
-  eventType?: 'video' | 'in-person';
-}
-
-export function generateOutlookCalendarUrl(event: CalendarEvent): string {
-  const url = new URL('https://outlook.live.com/calendar/0/deeplink/compose');
-
-  url.searchParams.append('subject', event.title);
-
-  // Microsoft expects local datetime format (not UTC with Z)
-  const formatDateForOutlook = (isoDate: string) => {
-    return new Date(isoDate).toISOString().slice(0, -1); // Remove 'Z'
-  };
-
-  url.searchParams.append('startdt', formatDateForOutlook(event.start));
-  url.searchParams.append('enddt', formatDateForOutlook(event.end));
-
-  if (event.location) {
-    url.searchParams.append('location', event.location);
-  }
-
-  if (event.attendees && event.attendees.length > 0) {
-    url.searchParams.append('to', event.attendees.join(';'));
-  }
-
-  // Microsoft doesn't allow setting reminders via deep-link, so we don't include reminder text
-  if (event.description) {
-    url.searchParams.append('body', event.description);
-  }
-
-  return url.toString();
-}
-
 export async function getMicrosoftCalendarList(accessToken: string): Promise<Array<{
   id: string;
   name: string;

@@ -60,6 +60,7 @@ export interface AIBioAndSocialResult {
     instagram?: string | null;
     linkedin?: string | null;
     x?: string | null;
+    snapchat?: string | null;
   };
 }
 

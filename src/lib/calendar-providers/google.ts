@@ -98,52 +98,6 @@ export async function refreshGoogleToken(refreshToken: string): Promise<{
   }
 }
 
-interface CalendarEvent {
-  title: string;
-  start: string;
-  end: string;
-  location?: string;
-  attendees?: string[];
-  description?: string;
-  eventType?: 'video' | 'in-person';
-}
-
-export function generateGoogleCalendarUrl(event: CalendarEvent): string {
-  const url = new URL('https://calendar.google.com/calendar/render');
-
-  url.searchParams.append('action', 'TEMPLATE');
-  url.searchParams.append('text', event.title);
-
-  // Convert ISO dates to Google Calendar format (YYYYMMDDTHHMMSSZ)
-  const formatDateForGoogle = (isoDate: string) => {
-    return new Date(isoDate).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  };
-
-  const startFormatted = formatDateForGoogle(event.start);
-  const endFormatted = formatDateForGoogle(event.end);
-  url.searchParams.append('dates', `${startFormatted}/${endFormatted}`);
-
-  if (event.location) {
-    url.searchParams.append('location', event.location);
-  }
-
-  if (event.attendees && event.attendees.length > 0) {
-    url.searchParams.append('add', event.attendees.join(','));
-  }
-
-  // Add standard reminder guidance to description since Google Calendar web deep-link can't set reminders
-  let description = event.description || '';
-
-  const reminderText = '📅 Reminder: Set a 10-minute reminder for this event.';
-  description = description ? `${description}\n\n${reminderText}` : reminderText;
-
-  if (description) {
-    url.searchParams.append('details', description);
-  }
-
-  return url.toString();
-}
-
 export async function getGoogleCalendarList(accessToken: string): Promise<Array<{
   id: string;
   summary: string;
