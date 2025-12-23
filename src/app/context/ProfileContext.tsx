@@ -243,9 +243,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const generateProfileAssets = async () => {
     const userId = session?.user?.id;
     if (!userId) return;
-    
+
     const generations: Promise<unknown>[] = [];
     let bioAndSocialGenerationPromise: Promise<{ bio: string; contactChannels: unknown }> | null = null;
+    // Track Google initials check result locally (React state isn't immediate)
+    let localIsGoogleInitials = false;
     
     // PHASE 2: Skip bio and social generation on sign-in
     // This is disabled for the CalConnect merge - users will manually add their bio
@@ -314,11 +316,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const accessToken = session?.accessToken;
           if (accessToken) {
             shouldGenerate = await isGoogleInitialsImage(accessToken);
+            localIsGoogleInitials = shouldGenerate; // Track locally for use later in this function
             setIsGoogleInitials(shouldGenerate);
             console.log('[ProfileContext] Google profile check result:', shouldGenerate ? 'initials' : 'real photo');
           } else {
             // No access token - assume it's a real photo to avoid unnecessary generation
             shouldGenerate = false;
+            localIsGoogleInitials = false;
             setIsGoogleInitials(false);
             console.log('[ProfileContext] No access token available, assuming real photo');
           }
@@ -326,6 +330,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           console.error('[ProfileContext] Error checking Google profile image:', error);
           // On error, assume it's a real photo to avoid unnecessary generation
           shouldGenerate = false;
+          localIsGoogleInitials = false;
           setIsGoogleInitials(false);
         } finally {
           setIsCheckingGoogleImage(false); // Done checking
@@ -402,7 +407,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             const updatedProfile = await ProfileService.getProfile(userId);
             // Only generate background for user-uploaded images, not AI-generated ones
             return updatedProfile?.profileImage &&
-                   !updatedProfile.profileImage.includes('googleusercontent.com') &&
                    !updatedProfile.aiGeneration?.avatarGenerated;
           } catch (error) {
             console.error('[ProfileContext] Error waiting for profile image generation:', error);
@@ -416,10 +420,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Don't generate for:
           // 1. No profile image at all
           // 2. AI-generated avatars (those get solid color backgrounds)
+          // 3. Google auto-generated initials (use localIsGoogleInitials for immediate check)
           if (!currentProfileImage) return false;
+          if (localIsGoogleInitials) return false; // Skip Google initials, but allow real Google photos
 
           // For Firebase-stored images, only generate background if it's user-uploaded (not AI-generated)
-          // For Google images, we'll generate a profile image first, so this won't be reached
           return !profile?.aiGeneration?.avatarGenerated;
         }
       };
