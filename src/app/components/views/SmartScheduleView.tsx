@@ -9,11 +9,10 @@ import { getSuggestedTimes } from '@/lib/events/scheduling-utils';
 import { composeAndOpenCalendarEvent } from '@/lib/events/event-utils';
 import { formatSmartDay } from '@/lib/events/time-utils';
 import { fetchPlacesForChips } from '@/lib/places/place-utils';
-import type { UserProfile, TimeSlot, SuggestionChip, EventTemplate } from '@/types/profile';
+import type { UserProfile, TimeSlot, SuggestionChip } from '@/types/profile';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { auth } from '@/lib/firebase/clientConfig';
@@ -263,8 +262,6 @@ export default function SmartScheduleView() {
   if (loading || !contactProfile) {
     return null;
   }
-
-  const contactName = getFieldValue(contactProfile.contactEntries, 'name');
 
   return (
     <div className="min-h-dvh relative z-[1001]">
