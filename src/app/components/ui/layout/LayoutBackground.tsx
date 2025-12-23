@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../../../context/ProfileContext';
 import { ParticleNetwork } from './ParticleNetwork';
@@ -44,8 +44,9 @@ function convertToParticleColors(backgroundColors: string[]) {
  */
 export function LayoutBackground() {
   const { data: session, status } = useSession();
-  const { profile, isLoading } = useProfile();
+  const { profile, isLoading, getContact } = useProfile();
   const pathname = usePathname();
+  const params = useParams();
   const [mounted, setMounted] = useState(false);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
 
@@ -53,7 +54,7 @@ export function LayoutBackground() {
     setMounted(true);
   }, []);
 
-  // Listen for match-found event to capture contact profile data
+  // Listen for match-found event to capture contact profile data (for /connect route)
   useEffect(() => {
     const handleMatchFound = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -73,9 +74,29 @@ export function LayoutBackground() {
     };
   }, []);
 
+  // Load contact colors from URL for contact routes (/contact/[userId]/*)
+  useEffect(() => {
+    const isContactRoute = pathname?.startsWith('/contact/') && params?.userId;
+
+    if (isContactRoute && getContact) {
+      const userId = params.userId as string;
+      console.log('🎨 LayoutBackground: Loading contact colors for route:', userId);
+
+      const contact = getContact(userId);
+      if (contact?.backgroundColors) {
+        console.log('🎨 LayoutBackground: Found contact colors from route:', contact.backgroundColors);
+        setContactProfile({ backgroundColors: contact.backgroundColors });
+      } else {
+        console.log('🎨 LayoutBackground: No colors found for contact:', userId);
+        // Clear contact profile if navigating to a contact without colors
+        setContactProfile(null);
+      }
+    }
+  }, [pathname, params?.userId, getContact]);
+
   // Clear contact profile when navigating away from contact pages
   useEffect(() => {
-    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+    const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
 
     if (!isOnContactPage && contactProfile) {
       // Clear after a delay to allow transition
