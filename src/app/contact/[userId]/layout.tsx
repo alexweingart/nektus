@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '@/app/context/ProfileContext';
 import type { SavedContact } from '@/types/contactExchange';
+import { hexToRgb } from '@/lib/cn';
 
 /**
  * Layout for contact pages - applies contact's background image
@@ -17,7 +18,7 @@ export default function ContactLayout({
 }) {
   const params = useParams();
   const { data: session } = useSession();
-  const { getContact, loadContacts } = useProfile();
+  const { profile: userProfile, getContact, loadContacts } = useProfile();
   const contactUserId = params.userId as string;
   const [contactProfile, setContactProfile] = useState<SavedContact | null>(null);
 
@@ -110,6 +111,37 @@ export default function ContactLayout({
       }, 1000);
     };
   }, [contactProfile?.backgroundImage]);
+
+  // Liquid Glass: Override global color with contact's color
+  useEffect(() => {
+    if (contactProfile?.backgroundColors) {
+      // Use accent2 to match particle dots
+      const contactColor = contactProfile.backgroundColors[2] || contactProfile.backgroundColors[1] || contactProfile.backgroundColors[0];
+      if (contactColor) {
+        const rgb = hexToRgb(contactColor);
+        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        console.log('[ContactLayout] Overriding glass tint with contact color from backgroundColors[2]:', contactColor, '→', rgbString);
+        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
+      }
+    }
+
+    // Cleanup: Restore user's color when leaving contact page
+    return () => {
+      if (userProfile?.backgroundColors) {
+        const userColor = userProfile.backgroundColors[2] || userProfile.backgroundColors[1] || userProfile.backgroundColors[0];
+        if (userColor) {
+          const rgb = hexToRgb(userColor);
+          const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+          console.log('[ContactLayout] Restoring user color on unmount:', userColor, '→', rgbString);
+          document.documentElement.style.setProperty('--glass-tint-color', rgbString);
+        }
+      } else {
+        // No user colors, reset to default green
+        console.log('[ContactLayout] Restoring default green on unmount');
+        document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
+      }
+    };
+  }, [contactProfile?.backgroundColors, userProfile?.backgroundColors]);
 
   return <>{children}</>;
 }
