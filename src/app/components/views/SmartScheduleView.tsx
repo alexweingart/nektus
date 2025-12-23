@@ -6,9 +6,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { getEventTemplate, getEventTimeFromSlotWithBuffer } from '@/lib/events/event-templates';
 import { getSuggestedTimes } from '@/lib/events/scheduling-utils';
-import { createCompleteCalendarEvent, generateIcsContent, downloadICSFile } from '@/lib/events/event-utils';
+import { composeAndOpenCalendarEvent } from '@/lib/events/event-utils';
+import { formatSmartDay } from '@/lib/events/time-utils';
 import { fetchPlacesForChips } from '@/lib/places/place-utils';
-import type { UserProfile, TimeSlot } from '@/types/profile';
+import type { UserProfile, TimeSlot, SuggestionChip, EventTemplate } from '@/types/profile';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
@@ -16,26 +17,6 @@ import { getFieldValue } from '@/lib/utils/profileTransforms';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { auth } from '@/lib/firebase/clientConfig';
-
-// Suggestion chip type
-interface SuggestionChip {
-  id: string;
-  eventId: string;
-  icon: string;
-}
-
-// Event template type (simplified from full Event type)
-interface EventTemplate {
-  id: string;
-  title: string;
-  duration: number;
-  eventType: 'video' | 'in-person';
-  intent: string;
-  travelBuffer?: {
-    beforeMinutes: number;
-    afterMinutes: number;
-  };
-}
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },
@@ -251,7 +232,7 @@ export default function SmartScheduleView() {
 
   // Handle chip click
   const handleChipClick = async (chip: SuggestionChip) => {
-    if (!currentUserProfile || !contactProfile) return;
+    if (!currentUserProfile || !contactProfile || !session?.user) return;
 
     const eventTemplate = getEventTemplate(chip.eventId);
     if (!eventTemplate) return;
@@ -261,161 +242,21 @@ export default function SmartScheduleView() {
 
     if (hasCheckedChip) {
       if (existingTime) {
-        openCalendarCompose(existingTime, eventTemplate, chipPlaces[chip.id] || null);
+        composeAndOpenCalendarEvent({
+          slot: existingTime,
+          eventTemplate,
+          place: chipPlaces[chip.id] || null,
+          currentUserProfile,
+          contactProfile,
+          section,
+          currentUserId: session.user.id
+        });
       } else {
         alert('No available time slots found in the next 14 days');
       }
     } else {
       alert('Please wait for scheduling data to load');
     }
-  };
-
-  // Open calendar compose
-  const openCalendarCompose = async (slot: TimeSlot, eventTemplate: EventTemplate, place: Place | null) => {
-    if (!currentUserProfile || !contactProfile || !session?.user) return;
-
-    // Calculate actual meeting times
-    const slotStartDate = new Date(slot.start);
-    const { start: actualMeetingStart, end: actualMeetingEnd } = getEventTimeFromSlotWithBuffer(
-      slotStartDate,
-      eventTemplate.duration,
-      eventTemplate.travelBuffer
-    );
-
-    // Calendar event includes buffer time
-    const beforeBuffer = eventTemplate.travelBuffer?.beforeMinutes || 0;
-    const afterBuffer = eventTemplate.travelBuffer?.afterMinutes || 0;
-    const startDate = new Date(actualMeetingStart.getTime() - beforeBuffer * 60 * 1000);
-    const endDate = new Date(actualMeetingEnd.getTime() + afterBuffer * 60 * 1000);
-
-    // Create event details
-    const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
-
-    // Get current user's calendar for this section
-    const currentUserCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
-
-    if (!currentUserCalendar) {
-      alert('Please add a calendar for this profile type in your settings');
-      return;
-    }
-
-    // Get contact's calendar email if they have one, otherwise use their profile email
-    const contactCalendar = contactProfile.calendars?.find(cal => cal.section === section);
-    const contactEmail = contactCalendar?.email || getFieldValue(contactProfile.contactEntries, 'email');
-
-    const eventName = getEventName(eventTemplate.intent, contactName, currentUserName, eventTemplate.eventType);
-    const eventDescription = getEventDescription(
-      contactName,
-      eventTemplate,
-      actualMeetingStart,
-      actualMeetingEnd,
-      'Google Meet',
-      currentUserName,
-      place?.name,
-      currentUserProfile.userId  // Pass current user's ID for profile link
-    );
-
-    const event = {
-      title: eventName,
-      description: eventDescription,
-      startTime: startDate,
-      endTime: endDate,
-      location: (eventTemplate.eventType === 'in-person' && place) ? place.name : undefined,
-      eventType: eventTemplate.eventType,
-      travelBuffer: eventTemplate.travelBuffer,
-      preferredPlaces: place ? [place] : undefined
-    };
-
-    // Create calendar URLs using contact's email
-    const contactForCalendar = { email: contactEmail };
-    const displayName = getFieldValue(currentUserProfile.contactEntries, 'name') || undefined;
-    const { formattedTitle, calendar_urls } = createCompleteCalendarEvent(
-      event,
-      contactForCalendar,  // Contact's email (calendar or profile)
-      { displayName }
-    );
-
-    // Determine preferred provider from user's calendars
-    let preferredProvider = 'google';
-    if (currentUserCalendar) {
-      preferredProvider = currentUserCalendar.provider;
-    }
-
-    // Open calendar or download ICS
-    if (preferredProvider === 'apple') {
-      const calendarEvent = {
-        title: formattedTitle,
-        description: event.description,
-        location: event.location || '',
-        startTime: event.startTime,
-        endTime: event.endTime,
-        attendees: [contactEmail]  // Use contact's email
-      };
-      const icsContent = generateIcsContent(calendarEvent);
-      const filename = `${formattedTitle.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
-      downloadICSFile(icsContent, filename);
-    } else {
-      const calendarUrl = preferredProvider === 'microsoft' ? calendar_urls.outlook : calendar_urls.google;
-      window.open(calendarUrl, '_blank');
-    }
-  };
-
-  // Helper functions
-  const getEventName = (intent: string, contactName: string, userName?: string, eventType?: string): string => {
-    if (eventType === 'video') {
-      return `${contactName} / ${userName || 'User'} 1-1`;
-    }
-
-    switch (intent) {
-      case 'coffee': return 'Coffee';
-      case 'lunch': return 'Lunch';
-      case 'dinner': return 'Dinner';
-      case 'drinks': return 'Drinks';
-      case 'live_working_session': return 'Live Working Session';
-      case 'quick_sync': return 'Quick Sync';
-      case 'deep_dive': return 'Deep Dive';
-      default: return 'Meeting';
-    }
-  };
-
-  const getEventDescription = (
-    contactName: string,
-    eventTemplate?: EventTemplate,
-    actualStart?: Date,
-    actualEnd?: Date,
-    videoPlatform?: string,
-    organizerName?: string,
-    placeName?: string,
-    currentUserId?: string
-  ): string => {
-    let description = '';
-
-    if (eventTemplate?.eventType === 'in-person' && eventTemplate?.travelBuffer && actualStart && actualEnd) {
-      const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
-      const startTime = actualStart.toLocaleTimeString('en-US', timeOptions);
-      const endTime = actualEnd.toLocaleTimeString('en-US', timeOptions);
-      const beforeBuffer = eventTemplate.travelBuffer.beforeMinutes;
-      const afterBuffer = eventTemplate.travelBuffer.afterMinutes;
-      const place = placeName || 'the venue';
-
-      description = `Meeting time: ${startTime} - ${endTime}\nIncludes ${beforeBuffer} min of travel time to ${place} and ${afterBuffer} min back`;
-    } else if (eventTemplate?.eventType === 'video') {
-      const platform = videoPlatform || 'platform TBD';
-      if (platform === 'Google Meet' || platform === 'Microsoft Teams') {
-        description = `Video call on ${platform}`;
-      } else {
-        const organizer = organizerName || 'organizer';
-        description = `Video call on ${platform} - ${organizer} to send video link or phone #`;
-      }
-    } else {
-      description = `Meeting with ${contactName}`;
-    }
-
-    // Add Nekt branding footer
-    const profileUrl = currentUserId ? `https://nekt.us/${currentUserId}` : 'https://nekt.us';
-    description += `\n\nScheduled via Nekt (nekt.us). You can check out my profile here: ${profileUrl}`;
-
-    return description;
   };
 
   // Loading state
@@ -463,29 +304,6 @@ export default function SmartScheduleView() {
               const isUnavailable = hasCheckedChip && !suggestedTime;
               const eventTemplate = getEventTemplate(chip.eventId);
               const place = chipPlaces[chip.id];
-
-              // Helper function to format day string
-              const formatSmartDay = (date: Date): string => {
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-                const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-                if (inputDate.getTime() === today.getTime()) {
-                  return 'Today';
-                }
-
-                if (inputDate.getTime() === tomorrow.getTime()) {
-                  return 'Tomorrow';
-                }
-
-                const daysDiff = Math.floor((inputDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                if (daysDiff > 0 && daysDiff <= 7) {
-                  return date.toLocaleDateString('en-US', { weekday: 'long' });
-                }
-
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              };
 
               // Build subtitle with time information like CalConnect
               const subtitle = loadingTimes

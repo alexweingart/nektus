@@ -1,5 +1,7 @@
 import { getCurrentTimeInUserTimezone } from './time-utils';
-import type { Event, SchedulableHours } from '@/types';
+import { getEventTimeFromSlotWithBuffer } from './event-templates';
+import { getFieldValue } from '../utils/profileTransforms';
+import type { Event, SchedulableHours, EventTemplate, UserProfile, TimeSlot } from '@/types';
 import type { Place } from '@/types/places';
 
 export interface CalendarEvent {
@@ -469,3 +471,172 @@ export function determineAlternativesToShow(
 // Legacy function names for backward compatibility
 export const formatDateForGoogle = formatDateTimeForGoogle;
 export const generateICSContent = generateIcsContent;
+
+/**
+ * Format event name based on intent and event type
+ */
+export function formatEventName(
+  intent: string,
+  contactName: string,
+  userName?: string,
+  eventType?: string
+): string {
+  if (eventType === 'video') {
+    return `${contactName} / ${userName || 'User'} 1-1`;
+  }
+
+  switch (intent) {
+    case 'coffee': return 'Coffee';
+    case 'lunch': return 'Lunch';
+    case 'dinner': return 'Dinner';
+    case 'drinks': return 'Drinks';
+    case 'live_working_session': return 'Live Working Session';
+    case 'quick_sync': return 'Quick Sync';
+    case 'deep_dive': return 'Deep Dive';
+    default: return 'Meeting';
+  }
+}
+
+/**
+ * Generate event description with travel buffer information and Nekt branding
+ */
+export function generateEventDescription(
+  contactName: string,
+  eventTemplate?: EventTemplate,
+  actualStart?: Date,
+  actualEnd?: Date,
+  videoPlatform?: string,
+  organizerName?: string,
+  placeName?: string,
+  currentUserId?: string
+): string {
+  let description = '';
+
+  if (eventTemplate?.eventType === 'in-person' && eventTemplate?.travelBuffer && actualStart && actualEnd) {
+    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+    const startTime = actualStart.toLocaleTimeString('en-US', timeOptions);
+    const endTime = actualEnd.toLocaleTimeString('en-US', timeOptions);
+    const beforeBuffer = eventTemplate.travelBuffer.beforeMinutes;
+    const afterBuffer = eventTemplate.travelBuffer.afterMinutes;
+    const place = placeName || 'the venue';
+
+    description = `Meeting time: ${startTime} - ${endTime}\nIncludes ${beforeBuffer} min of travel time to ${place} and ${afterBuffer} min back`;
+  } else if (eventTemplate?.eventType === 'video') {
+    const platform = videoPlatform || 'platform TBD';
+    if (platform === 'Google Meet' || platform === 'Microsoft Teams') {
+      description = `Video call on ${platform}`;
+    } else {
+      const organizer = organizerName || 'organizer';
+      description = `Video call on ${platform} - ${organizer} to send video link or phone #`;
+    }
+  } else {
+    description = `Meeting with ${contactName}`;
+  }
+
+  // Add Nekt branding footer
+  const profileUrl = currentUserId ? `https://nekt.us/${currentUserId}` : 'https://nekt.us';
+  description += `\n\nScheduled via Nekt (nekt.us). You can check out my profile here: ${profileUrl}`;
+
+  return description;
+}
+
+/**
+ * Compose and open a calendar event or download ICS file
+ */
+export async function composeAndOpenCalendarEvent(params: {
+  slot: TimeSlot;
+  eventTemplate: EventTemplate;
+  place: Place | null;
+  currentUserProfile: UserProfile;
+  contactProfile: UserProfile;
+  section: 'personal' | 'work';
+  currentUserId: string;
+}): Promise<void> {
+  const { slot, eventTemplate, place, currentUserProfile, contactProfile, section, currentUserId } = params;
+
+  // Calculate actual meeting times
+  const slotStartDate = new Date(slot.start);
+  const { start: actualMeetingStart, end: actualMeetingEnd } = getEventTimeFromSlotWithBuffer(
+    slotStartDate,
+    eventTemplate.duration,
+    eventTemplate.travelBuffer
+  );
+
+  // Calendar event includes buffer time
+  const beforeBuffer = eventTemplate.travelBuffer?.beforeMinutes || 0;
+  const afterBuffer = eventTemplate.travelBuffer?.afterMinutes || 0;
+  const startDate = new Date(actualMeetingStart.getTime() - beforeBuffer * 60 * 1000);
+  const endDate = new Date(actualMeetingEnd.getTime() + afterBuffer * 60 * 1000);
+
+  // Create event details
+  const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
+  const contactName = getFieldValue(contactProfile.contactEntries, 'name');
+
+  // Get current user's calendar for this section
+  const currentUserCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
+
+  if (!currentUserCalendar) {
+    alert('Please add a calendar for this profile type in your settings');
+    return;
+  }
+
+  // Get contact's calendar email if they have one, otherwise use their profile email
+  const contactCalendar = contactProfile.calendars?.find(cal => cal.section === section);
+  const contactEmail = contactCalendar?.email || getFieldValue(contactProfile.contactEntries, 'email');
+
+  const eventName = formatEventName(eventTemplate.intent, contactName, currentUserName, eventTemplate.eventType);
+  const eventDescription = generateEventDescription(
+    contactName,
+    eventTemplate,
+    actualMeetingStart,
+    actualMeetingEnd,
+    'Google Meet',
+    currentUserName,
+    place?.name,
+    currentUserId
+  );
+
+  const event = {
+    title: eventName,
+    description: eventDescription,
+    startTime: startDate,
+    endTime: endDate,
+    location: (eventTemplate.eventType === 'in-person' && place) ? place.name : undefined,
+    eventType: eventTemplate.eventType,
+    travelBuffer: eventTemplate.travelBuffer,
+    preferredPlaces: place ? [place] : undefined
+  };
+
+  // Create calendar URLs using contact's email
+  const contactForCalendar = { email: contactEmail };
+  const displayName = getFieldValue(currentUserProfile.contactEntries, 'name') || undefined;
+  const { formattedTitle, calendar_urls } = createCompleteCalendarEvent(
+    event,
+    contactForCalendar,
+    { displayName }
+  );
+
+  // Determine preferred provider from user's calendars
+  let preferredProvider = 'google';
+  if (currentUserCalendar) {
+    preferredProvider = currentUserCalendar.provider;
+  }
+
+  // Open calendar or download ICS
+  if (preferredProvider === 'apple') {
+    const calendarEvent = {
+      title: formattedTitle,
+      description: event.description,
+      location: event.location || '',
+      startTime: event.startTime,
+      endTime: event.endTime,
+      attendees: [contactEmail]
+    };
+    const icsContent = generateIcsContent(calendarEvent);
+    const filename = `${formattedTitle.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    downloadICSFile(icsContent, filename);
+  } else {
+    const calendarUrl = preferredProvider === 'microsoft' ? calendar_urls.outlook : calendar_urls.google;
+    window.open(calendarUrl, '_blank');
+  }
+}

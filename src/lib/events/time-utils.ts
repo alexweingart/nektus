@@ -297,3 +297,28 @@ export function getTimezoneOffsetString(date: Date, timezone: string): string {
     return '+00:00'; // Fallback to UTC
   }
 }
+
+/**
+ * Format date as "Today", "Tomorrow", weekday, or "Mon DD" format
+ */
+export function formatSmartDay(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (inputDate.getTime() === today.getTime()) {
+    return 'Today';
+  }
+
+  if (inputDate.getTime() === tomorrow.getTime()) {
+    return 'Tomorrow';
+  }
+
+  const daysDiff = Math.floor((inputDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysDiff > 0 && daysDiff <= 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}

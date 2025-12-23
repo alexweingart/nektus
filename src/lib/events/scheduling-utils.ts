@@ -185,7 +185,7 @@ function isSlotWithinSchedulableHours(
 }
 
 // Process common slots into suggested times for specific event templates
-export function processCommonSlots(
+function processCommonSlots(
   commonSlots: TimeSlot[],
   eventTemplateIds: string[],
   dynamicTemplate?: Event
@@ -441,7 +441,6 @@ export function getCandidateSlotsWithFallback(
 ): {
   slots: TimeSlot[];
   hasNoCommonTime: boolean;
-  hasExplicitTimeConflict: boolean;
 } {
   // Try to get valid slots from common availability
   let slots = getAllValidSlots(availableTimeSlots, {
@@ -452,7 +451,6 @@ export function getCandidateSlotsWithFallback(
   });
 
   let hasNoCommonTime = false;
-  const hasExplicitTimeConflict = false;
 
   // Fallback if no common slots found
   if (slots.length === 0) {
@@ -460,8 +458,6 @@ export function getCandidateSlotsWithFallback(
     // It just means we're generating slots based on preferred hours
     // instead of using pre-computed common availability.
     // The fallback slots might be completely free.
-    // We only set hasExplicitTimeConflict if the user explicitly requested
-    // a specific time that conflicts (handled by hasExplicitTimeRequest flag).
 
     slots = createFallbackFromTemplate(
       {
@@ -476,7 +472,7 @@ export function getCandidateSlotsWithFallback(
     hasNoCommonTime = true;
   }
 
-  return { slots, hasNoCommonTime, hasExplicitTimeConflict };
+  return { slots, hasNoCommonTime };
 }
 
 /**
@@ -484,7 +480,7 @@ export function getCandidateSlotsWithFallback(
  * Generates multiple candidate slots across the preferred date range and schedulable hours
  * This allows the LLM to choose the best option considering calendar type and event appropriateness
  */
-export function createFallbackFromTemplate(
+function createFallbackFromTemplate(
   eventTemplate: {
     duration: number;
     intent: string;

@@ -371,9 +371,8 @@ export async function streamSchedulingResponse(
         );
         let slots = result.slots;
         const hasNoCommonTime = result.hasNoCommonTime;
-        const hasExplicitTimeConflict = result.hasExplicitTimeConflict;
 
-        console.log(`✅ Found ${slots.length} candidate slots (hasNoCommonTime: ${hasNoCommonTime}, hasExplicitTimeConflict: ${hasExplicitTimeConflict})`);
+        console.log(`✅ Found ${slots.length} candidate slots (hasNoCommonTime: ${hasNoCommonTime})`);
 
         // Search places if needed
         let places: Place[] = templateResult.cachedPlaces || [];
@@ -505,7 +504,7 @@ export async function streamSchedulingResponse(
         // Determine which alternatives to show
         const { determineAlternativesToShow } = await import('@/lib/events/event-utils');
         const { showAlternativePlaces, showAlternativeTimes, includeConflictWarning } =
-          determineAlternativesToShow(templateResult.template, !hasExplicitTimeConflict);
+          determineAlternativesToShow(templateResult.template, true);
 
         // If we have a conflict context, show only time alternatives (not place alternatives)
         const finalShowAlternativePlaces = conflictContext ? false : showAlternativePlaces;

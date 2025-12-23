@@ -168,6 +168,19 @@ export interface Event {
   updatedAt: Date;
 }
 
+// Subset of Event with only fields needed for calendar composition
+export interface EventTemplate {
+  id: string;
+  title: string;
+  duration: number;
+  eventType: 'video' | 'in-person';
+  intent: string;
+  travelBuffer?: {
+    beforeMinutes: number;
+    afterMinutes: number;
+  };
+}
+
 // Location interface
 export interface UserLocation {
   id: string;
