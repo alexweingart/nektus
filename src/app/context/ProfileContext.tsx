@@ -161,11 +161,29 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
             const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
             const hasBackgroundColors = !!existingProfile.backgroundColors;
+            const profileImage = existingProfile.profileImage || session?.user?.image;
+            const isGoogleImage = profileImage?.includes('googleusercontent.com');
+
+            console.log('[ProfileContext] Profile loaded - checking asset generation:', {
+              avatarAlreadyGenerated,
+              backgroundAlreadyGenerated,
+              hasBackgroundColors,
+              backgroundColors: existingProfile.backgroundColors,
+              profileImage: profileImage?.substring(0, 50) + '...',
+              isGoogleImage
+            });
 
             if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundColors) {
               console.log('[ProfileContext] New user detected - triggering asset generation');
               generateProfileAssets().catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
+              });
+            } else if (!hasBackgroundColors && profileImage && !avatarAlreadyGenerated) {
+              // Existing user with a profile image but no background colors
+              // This handles users with real Google photos who need color extraction
+              console.log('[ProfileContext] Existing user needs background color extraction');
+              generateProfileAssets().catch(error => {
+                console.error('[ProfileContext] Background color extraction error:', error);
               });
             }
 

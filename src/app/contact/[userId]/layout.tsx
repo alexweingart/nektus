@@ -45,6 +45,25 @@ export default function ContactLayout({
             window.dispatchEvent(new CustomEvent('match-found', {
               detail: { backgroundColors: savedContact.backgroundColors }
             }));
+          } else {
+            // Contact doesn't have backgroundColors - extract from their profile image
+            try {
+              const response = await fetch(`/api/contacts/${contactUserId}/colors`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.backgroundColors) {
+                  window.dispatchEvent(new CustomEvent('match-found', {
+                    detail: { backgroundColors: data.backgroundColors }
+                  }));
+                }
+              }
+            } catch {
+              // Color extraction failed silently - will use fallback colors
+            }
           }
         }
       } catch (error) {

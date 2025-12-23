@@ -148,6 +148,20 @@ const Avatar: React.FC<AvatarProps> = ({
     );
   }
 
+  // If we get here without imgSrc, show initials fallback
+  if (!imgSrc) {
+    const initials = getInitials(alt);
+    const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
+
+    return (
+      <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className} bg-nekt-gradient flex items-center justify-center`}>
+        <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
+          {initials}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
       <Image
