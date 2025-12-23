@@ -28,7 +28,6 @@ const ProfileView: React.FC = () => {
     profile,
     isLoading: isProfileLoading,
     isNavigatingFromSetup,
-    streamingBio,
     streamingSocialContacts,
     streamingProfileImage,
     isGoogleInitials,
@@ -191,10 +190,9 @@ const ProfileView: React.FC = () => {
 
   // Memoized values that need to be declared before conditional returns
   const bioContent = useMemo(() => {
-    // Prioritize streaming bio during generation, then profile bio, then default
     const profileBio = getFieldValue(currentProfile?.contactEntries, 'bio');
-    return streamingBio || profileBio || 'My bio is going to be awesome once I create it.';
-  }, [streamingBio, currentProfile?.contactEntries]);
+    return profileBio || 'My bio is going to be awesome once I create it.';
+  }, [currentProfile?.contactEntries]);
 
   // Profile image - use streaming value for immediate updates after generation
   // Filter out Google initials images to show our gradient instead

@@ -306,7 +306,13 @@ And if you don't know any of those things, and just want me to suggest based off
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6">
+      <div
+        className="flex-1 overflow-y-auto px-6"
+        style={{
+          maskImage: 'linear-gradient(to bottom, transparent 0, black 40px, black calc(100% - 40px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 40px, black calc(100% - 40px), transparent 100%)',
+        }}
+      >
         <div className="max-w-[var(--max-content-width,448px)] mx-auto space-y-3 pb-2 pt-4">
           <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
           <div ref={messagesEndRef} />
