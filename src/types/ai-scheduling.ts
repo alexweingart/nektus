@@ -1,6 +1,16 @@
 import { Place } from './places';
 import { TimeSlot, Event } from './profile';
 
+// Shared intent types to prevent drift
+export type SchedulingIntent =
+  | 'create_event'
+  | 'navigate_to_booking_link'
+  | 'modify_event'
+  | 'decline'
+  | 'confirm_scheduling';
+
+export type SchedulingIntentExtended = SchedulingIntent | 'special_events';
+
 export interface AISchedulingRequest {
   userMessage: string;
   conversationHistory: Message[];
@@ -23,7 +33,7 @@ export interface Message {
 }
 
 export interface AISchedulingResponse {
-  intent: 'create_event' | 'navigate_to_booking_link' | 'modify_event' | 'decline' | 'confirm_scheduling';
+  intent: SchedulingIntent;
   event?: Event;
   message: string;
   showCreateButton?: boolean;
@@ -40,7 +50,7 @@ export interface AISchedulingAcknowledgment {
 
 export interface AISchedulingFinalResponse {
   type: 'final';
-  intent: 'create_event' | 'navigate_to_booking_link' | 'modify_event' | 'decline' | 'confirm_scheduling' | 'special_events';
+  intent: SchedulingIntentExtended;
   event?: Event;
   message: string;
   showCreateButton?: boolean;
@@ -67,7 +77,7 @@ export interface DetermineIntentParams {
 }
 
 export interface DetermineIntentResult {
-  intent: 'create_event' | 'confirm_scheduling' | 'navigate_to_booking_link' | 'modify_event' | 'decline';
+  intent: SchedulingIntent;
   activityType?: string;
   intentSpecificity?: 'specific_place' | 'activity_type' | 'generic';
   activityIntent?: string;
@@ -142,3 +152,42 @@ export interface OpenAIToolCall {
 
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 export type Verbosity = 'low' | 'medium' | 'high';
+
+/**
+ * Result from template generation/edit handlers (Stage 3)
+ * Contains the event template and metadata for business logic coordination
+ */
+export interface TemplateHandlerResult {
+  /** Event template with scheduling constraints */
+  template: Partial<Event>;
+
+  /** Handler mode: 'new' for generateEventTemplate, 'edit' for editEventTemplate */
+  mode: 'new' | 'edit';
+
+  /** Whether this is a conditional edit ("do I have...?") */
+  isConditional?: boolean;
+
+  /** Time preference for conditional edits */
+  timePreference?: 'earlier' | 'later' | 'specific';
+
+  /** Previous event details (for edits only) */
+  previousEvent?: {
+    startTime: string;
+    endTime: string;
+    place?: Place;
+  };
+
+  /** Cached places from previous search (for edits when place type unchanged) */
+  cachedPlaces?: Place[];
+
+  /** Whether we need to search for places in Stage 4 */
+  needsPlaceSearch: boolean;
+
+  /** Parameters for place search (if needsPlaceSearch = true) */
+  placeSearchParams?: {
+    suggestedPlaceTypes?: string[];
+    intentSpecificity?: 'specific_place' | 'activity_type' | 'generic';
+    activitySearchQuery?: string;
+    specificPlace?: string;
+  };
+}

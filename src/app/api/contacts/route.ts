@@ -6,11 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getProfile, getFirebaseAdmin } from '@/lib/firebase/adminConfig';
-import { saveToGoogleContacts } from '@/lib/services/server/googleContactsService';
-import { getExchangeMatch } from '@/lib/redis/client';
-import { getContactsAccessToken } from '@/lib/services/server/serverIncrementalAuthService';
-import { filterProfileByCategory } from '@/lib/utils/profileFiltering';
+import { getProfile, getFirebaseAdmin } from '@/lib/config/firebase/admin';
+import { saveToGoogleContacts } from '@/lib/server/contacts/google';
+import { getExchangeMatch } from '@/lib/server/contacts/matching';
+import { getContactsAccessToken } from '@/lib/server/auth/google-incremental';
+import { filterProfileByCategory } from '@/lib/client/profile/filtering';
 import type { ContactSaveResult } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 

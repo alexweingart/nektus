@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/lib/firebase/adminProfileService';
-import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
+import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
+import { uploadImageBuffer } from '@/lib/config/firebase/admin';
 import { UserProfile } from '@/types/profile';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
-import { generateInitialsAvatar, dataUrlToBuffer } from '@/lib/utils/initialsAvatar';
-import { getOpenAIClient } from '@/lib/openai/client';
+import { getFieldValue } from '@/lib/client/profile/transforms';
+import { generateInitialsAvatar, dataUrlToBuffer } from '@/lib/client/profile/avatar';
+import { getOpenAIClient } from '@/lib/config/openai';
 
 /**
  * Extract initials from a name string
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       // Delete old profile images (both .svg and .jpg) to force cache refresh
       if (profile.profileImage) {
         try {
-          const { storage } = await import('@/lib/firebase/adminConfig').then(m => m.getFirebaseAdmin());
+          const { storage } = await import('@/lib/config/firebase/admin').then(m => m.getFirebaseAdmin());
           const rawBucketName = process.env.FIREBASE_STORAGE_BUCKET ||
                                process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
                                `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;

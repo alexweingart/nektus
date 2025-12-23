@@ -6,8 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/lib/firebase/adminProfileService';
-import { encryptCalendarTokens } from '@/lib/calendar-providers/tokens';
+import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
+import { encryptCalendarTokens } from '@/lib/client/calendar/providers/tokens';
 import { Calendar } from '@/types/profile';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/lib/constants';
 

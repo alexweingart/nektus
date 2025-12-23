@@ -6,7 +6,7 @@ import { FaTimes } from 'react-icons/fa';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { Text } from '../Typography';
 import { useAdminMode } from '../../../providers/AdminModeProvider';
-import { firebaseAuth } from '@/lib/firebase/auth';
+import { firebaseAuth } from '@/lib/client/auth/firebase';
 
 // The admin mode banner component
 export default function AdminBanner() {

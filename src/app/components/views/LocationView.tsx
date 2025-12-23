@@ -7,7 +7,7 @@ import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { Text } from '@/app/components/ui/Typography';
 import { SecondaryButton } from '@/app/components/ui/buttons/SecondaryButton';
 import { ValidatedInput } from '@/app/components/ui/inputs/ValidatedInput';
-import { validateCompleteAddress } from '@/lib/location/address-validation';
+import { validateCompleteAddress } from '@/lib/server/location/address-validation';
 import type { UserLocation, AddressValidation } from '@/types/profile';
 import type { RadarAddressValidationResponse } from '@/app/api/location/validate/route';
 

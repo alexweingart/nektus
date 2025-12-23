@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
-import { adminUpdateMicrosoftTokens, adminGetMultipleUserData, adminGetUserTimezoneById } from '@/lib/firebase/firebase-admin-db';
-import { getGoogleBusyTimes, refreshGoogleToken } from '@/lib/calendar-providers/google';
-import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/lib/calendar-providers/microsoft';
-import { getAppleBusyTimes } from '@/lib/calendar-providers/apple';
-import { findSlotIntersection, generateFreeSlots, mergeBusyTimes, getAvailabilityTimeRange } from '@/lib/events/slot-generator';
+import { getFirebaseAdmin } from '@/lib/config/firebase/admin';
+import { adminUpdateMicrosoftTokens, adminGetMultipleUserData, adminGetUserTimezoneById } from '@/lib/server/calendar/firebase-admin';
+import { getGoogleBusyTimes, refreshGoogleToken } from '@/lib/client/calendar/providers/google';
+import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/lib/client/calendar/providers/microsoft';
+import { getAppleBusyTimes } from '@/lib/client/calendar/providers/apple';
+import { findSlotIntersection, generateFreeSlots, mergeBusyTimes, getAvailabilityTimeRange } from '@/lib/server/calendar/slots-generator';
 import { TimeSlot, Calendar } from '@/types';
-import { getDefaultSchedulableHours } from '@/lib/events/scheduling-utils';
+import { getDefaultSchedulableHours } from '@/lib/server/calendar/scheduling';
 import { CalendarTokens } from '@/types';
 import { Redis } from '@upstash/redis';
 
@@ -236,7 +236,7 @@ async function getUserFreeSlotsWithData(
                 }
 
                 // Get all owned calendars for this user (automatic - no UI selection needed)
-                const { getGoogleCalendarList } = await import('@/lib/calendar-providers/google');
+                const { getGoogleCalendarList } = await import('@/lib/client/calendar/providers/google');
                 const availableCalendars = await getGoogleCalendarList(googleToken);
                 const calendarIds = availableCalendars.length > 0
                   ? availableCalendars.map(cal => cal.id)
@@ -454,7 +454,7 @@ async function validateAndRefreshGoogleToken(tokens: CalendarTokens, userId: str
       const refreshedData = await refreshGoogleToken(tokens.refreshToken);
 
       // Update tokens in database
-      const { adminUpdateCalendarTokens } = await import('@/lib/firebase/firebase-admin-db');
+      const { adminUpdateCalendarTokens } = await import('@/lib/server/calendar/firebase-admin');
       await adminUpdateCalendarTokens(userId, 'google', refreshedData.accessToken, refreshedData.expiresAt);
 
       return refreshedData.accessToken;
@@ -478,7 +478,7 @@ async function validateAndRefreshGoogleToken(tokens: CalendarTokens, userId: str
         const refreshedData = await refreshGoogleToken(tokens.refreshToken);
 
         // Update tokens in database
-        const { adminUpdateCalendarTokens } = await import('@/lib/firebase/firebase-admin-db');
+        const { adminUpdateCalendarTokens } = await import('@/lib/server/calendar/firebase-admin');
         await adminUpdateCalendarTokens(userId, 'google', refreshedData.accessToken, refreshedData.expiresAt);
 
         return refreshedData.accessToken;

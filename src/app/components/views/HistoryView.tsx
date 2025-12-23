@@ -14,10 +14,10 @@ import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
 import { useProfile } from '@/app/context/ProfileContext';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { getFieldValue } from '@/lib/client/profile/transforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
-import { auth } from '@/lib/firebase/clientConfig';
+import { auth } from '@/lib/config/firebase/client';
 
 // Module-level tracking that persists across component mounts
 let lastPreFetchTime = 0;

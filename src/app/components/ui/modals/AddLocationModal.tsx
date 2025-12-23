@@ -10,7 +10,7 @@ import { StandardModal } from './StandardModal';
 import { Text } from '../Typography';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { ValidatedInput } from '../inputs/ValidatedInput';
-import { validateCompleteAddress } from '@/lib/location/address-validation';
+import { validateCompleteAddress } from '@/lib/server/location/address-validation';
 import type { FieldSection, UserLocation, AddressValidation } from '@/types/profile';
 import type { RadarAddressValidationResponse } from '@/app/api/location/validate/route';
 import type { ReverseGeocodeResponse } from '@/app/api/location/reverse-geocode/route';

@@ -146,8 +146,7 @@ input:-webkit-autofill:active {
 }
 
 html {
-  /* iOS PWA fix: Use min-height with safe-area-inset-top to prevent bottom gap */
-  min-height: calc(100% + var(--safe-area-inset-top, 0px));
+  min-height: 100%;
   height: 100%;
 
   /* Prevent scrolling without position:fixed (which clips children) */
@@ -169,8 +168,7 @@ html {
 }
 
 body {
-  /* iOS PWA fix: Use min-height with safe-area-inset-top to extend backgrounds into safe area */
-  min-height: calc(100% + var(--safe-area-inset-top, 0px));
+  min-height: 100%;
   height: 100%;
 
   overflow: hidden; /* Prevent scrolling but on body instead of html */
@@ -193,6 +191,14 @@ body {
 
   /* Smooth transitions for background changes */
   transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* iOS PWA: Adjust scrollable containers to account for body's safe area padding */
+@media all and (display-mode: standalone) {
+  [data-scrollable="true"] {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
+  }
 }
 
 /* ============================================================================

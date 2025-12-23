@@ -12,9 +12,9 @@ import {
   atomicExchangeAndMatch,
   storeExchangeMatch,
   cleanupUserExchanges
-} from '@/lib/redis/client';
-import { getRedisTime } from '@/lib/services/server/redisTimeService';
-import { getProfile } from '@/lib/firebase/adminConfig';
+} from '@/lib/server/contacts/matching';
+import { getRedisTime } from '@/lib/server/contacts/redis-time';
+import { getProfile } from '@/lib/config/firebase/admin';
 
 function getClientIP(request: NextRequest): string {
   // Get IP address for matching
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       - Client timestamp (for reference): ${exchangeRequest.ts || 'N/A'}`)
 
     // Get IP location data (should be cached from ping endpoint)
-    const { getIPLocation } = await import('@/lib/services/server/ipGeolocationService');
+    const { getIPLocation } = await import('@/lib/server/location/ip-geolocation');
     const locationData = await getIPLocation(clientIP);
     
     console.log(`📍 Location data for ${clientIP} (cached: ${locationData.cached ? 'yes' : 'no'}):`, {

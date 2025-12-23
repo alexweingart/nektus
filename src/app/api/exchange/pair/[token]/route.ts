@@ -10,8 +10,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
-import { getExchangeMatch } from '@/lib/redis/client';
-import { filterProfileByCategory } from '@/lib/utils/profileFiltering';
+import { getExchangeMatch } from '@/lib/server/contacts/matching';
+import { filterProfileByCategory } from '@/lib/client/profile/filtering';
 
 /**
  * Creates a mock profile for development/testing purposes

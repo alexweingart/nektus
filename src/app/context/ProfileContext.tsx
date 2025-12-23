@@ -3,12 +3,12 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import type { Session } from 'next-auth';
-import { ClientProfileService as ProfileService } from '@/lib/firebase/clientProfileService';
-import { ProfileSaveService } from '@/lib/services/client/profileSaveService';
+import { ClientProfileService as ProfileService } from '@/lib/client/profile/firebase-save';
+import { ProfileSaveService } from '@/lib/client/profile/save';
 import { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { isGoogleInitialsImage } from '@/lib/services/client/googleProfileImageService';
-import { firebaseAuth } from '@/lib/firebase/auth';
+import { isGoogleInitialsImage } from '@/lib/client/profile/google-image';
+import { firebaseAuth } from '@/lib/client/auth/firebase';
 
 // Types
 interface SessionProfileEntry {
@@ -902,7 +902,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     // Helper to load vCard testing functions
     (window as unknown as { loadVCardTests: () => Promise<boolean> }).loadVCardTests = async () => {
       try {
-        const vCardService = await import('@/lib/utils/vCardGeneration');
+        const vCardService = await import('@/lib/client/contacts/vcard');
         const windowWithVCard = window as unknown as {
           generateVCard: typeof vCardService.generateVCard;
           createVCardFile: typeof vCardService.createVCardFile;
@@ -973,5 +973,5 @@ export function useProfile() {
 }
 
 // Re-export utility function for backwards compatibility
-export { profileHasPhone } from '@/lib/utils/profile-utils';
+export { profileHasPhone } from '@/lib/client/profile/utils';
 

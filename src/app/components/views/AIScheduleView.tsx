@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useStreamingAI, type ChatMessage } from '@/lib/hooks/useStreamingAI';
+import { useStreamingAI, type ChatMessage } from '@/lib/hooks/use-streaming-ai';
 import type { UserProfile, TimeSlot } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import type { Message as AIMessage } from '@/types/ai-scheduling';
@@ -12,7 +12,7 @@ import MessageList from '@/app/components/ui/chat/MessageList';
 import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { useProfile } from '@/app/context/ProfileContext';
-import { auth } from '@/lib/firebase/clientConfig';
+import { auth } from '@/lib/config/firebase/client';
 
 // Helper: Generate unique message IDs
 function generateMessageId(offset = 0): string {
@@ -288,7 +288,7 @@ And if you don't know any of those things, and just want me to suggest based off
   }
 
   return (
-    <div className="min-h-dvh relative z-[1001] flex flex-col">
+    <div className="h-dvh relative z-[1001] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-6 pt-2">
         <div className="max-w-[var(--max-content-width,448px)] mx-auto">

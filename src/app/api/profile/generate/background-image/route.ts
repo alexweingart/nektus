@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/lib/firebase/adminProfileService';
-import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/lib/services/server/colorService';
-import { uploadImageBuffer } from '@/lib/firebase/adminConfig';
+import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
+import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/lib/server/profile/colors';
+import { uploadImageBuffer } from '@/lib/config/firebase/admin';
 import { NextRequest } from 'next/server';
 
 /**

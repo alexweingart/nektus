@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 import { ProfileViewSelector, type ProfileViewMode } from '../controls/ProfileViewSelector';
-import { filterProfileByCategory, type SharingCategory } from '@/lib/utils/profileFiltering';
+import { filterProfileByCategory, type SharingCategory } from '@/lib/client/profile/filtering';
 import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
-import { getFieldValue } from '@/lib/utils/profileTransforms';
+import { getFieldValue } from '@/lib/client/profile/transforms';
 
 interface ProfileInfoProps {
   profile: UserProfile;

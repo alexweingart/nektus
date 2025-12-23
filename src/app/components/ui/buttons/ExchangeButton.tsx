@@ -99,7 +99,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const initializeService = async () => {
     try {
       // Always use real-time service (removed simulation)
-      const { RealTimeContactExchangeService, generateSessionId } = await import('@/lib/services/client/realTimeContactExchangeService');
+      const { RealTimeContactExchangeService, generateSessionId } = await import('@/lib/client/contacts/exchange/service');
       const sessionId = generateSessionId();
       const service = new RealTimeContactExchangeService(sessionId, async (state: ContactExchangeState) => {
         console.log('🎯 ExchangeButton received state change:', state.status, state);

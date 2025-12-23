@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdmin } from '@/lib/firebase/adminConfig';
+import { getFirebaseAdmin } from '@/lib/config/firebase/admin';
 import type { SavedContact } from '@/types/contactExchange';
 
 export async function GET(

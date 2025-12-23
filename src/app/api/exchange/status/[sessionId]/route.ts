@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getExchangeMatch, redis } from '@/lib/redis/client';
+import { getExchangeMatch } from '@/lib/server/contacts/matching';
+import { redis } from '@/lib/config/redis';
 
 export async function GET(
   request: NextRequest,

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/lib/firebase/adminProfileService';
+import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
 
 export async function DELETE(
   request: NextRequest,

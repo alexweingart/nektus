@@ -11,9 +11,9 @@ interface PullToRefreshProps {
   disabled?: boolean;
 }
 
-export function PullToRefresh({ 
-  children, 
-  onRefresh, 
+export function PullToRefresh({
+  children,
+  onRefresh,
   pullThreshold = 80,
   className = '',
   disabled = false
@@ -121,7 +121,7 @@ export function PullToRefresh({
       style={{
         transform: pullDistance > 0 ? (isRefreshing ? `translateY(${Math.min(Math.max(pullDistance, 0), 60)}px)` : `translateY(${Math.max(pullDistance, 0)}px)`) : 'translateY(0px)',
         transition: isPulling && pullDistance > 0 ? 'none' : 'transform 0.2s ease-out',
-        maxHeight: '100dvh', // Use max-height instead of fixed height to prevent overflow
+        maxHeight: '100dvh',
         minHeight: '100dvh',
         // Prevent overscroll bounce to avoid black area
         overscrollBehaviorY: 'contain',

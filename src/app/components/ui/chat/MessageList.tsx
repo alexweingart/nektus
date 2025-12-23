@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import EventCard from './EventCard';
 import type { Event } from '@/types/profile';
-import type { ChatMessage } from '@/lib/hooks/useStreamingAI';
+import type { ChatMessage } from '@/lib/hooks/use-streaming-ai';
 
 interface MessageListProps {
   messages: ChatMessage[];

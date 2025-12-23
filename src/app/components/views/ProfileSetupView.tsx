@@ -6,17 +6,17 @@ import { Button } from '../ui/buttons/Button';
 import { DropdownPhoneInput } from '../ui/inputs/DropdownPhoneInput';
 import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { Heading } from '../ui/Typography';
-import { useFreezeScrollOnFocus } from '@/lib/hooks/useFreezeScrollOnFocus';
+import { useFreezeScrollOnFocus } from '@/lib/hooks/use-freeze-scroll-on-focus';
 import Avatar from '../ui/elements/Avatar';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
 import type { Country } from '../ui/inputs/DropdownPhoneInput';
-import { formatPhoneNumber } from '@/lib/utils/phoneFormatter';
+import { formatPhoneNumber } from '@/lib/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
-import { detectPlatform } from '@/lib/utils/platformDetection';
-import { getOptimalProfileImageUrl } from '@/lib/utils/imageUtils';
+import { detectPlatform } from '@/lib/client/platform-detection';
+import { getOptimalProfileImageUrl } from '@/lib/client/profile/image';
 
 function ProfileSetupView() {
   // Session and authentication

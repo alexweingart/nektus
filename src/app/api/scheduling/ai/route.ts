@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildContextMessage } from '@/lib/ai/system-prompts';
-import { streamSchedulingResponse } from '@/lib/ai/scheduling/streaming-handlers/orchestrator';
-import { handleNavigateBooking } from '@/lib/ai/scheduling/streaming-handlers/handle-navigate-booking';
-import { handleSuggestActivities } from '@/lib/ai/scheduling/streaming-handlers/handle-suggest-activities';
-import { handleSearchEvents } from '@/lib/ai/scheduling/streaming-handlers/handle-search-events';
-import { handleShowMoreEvents } from '@/lib/ai/scheduling/streaming-handlers/handle-show-more-events';
+import { buildContextMessage } from '@/lib/server/ai-scheduling/system-prompts';
+import { streamSchedulingResponse } from '@/lib/server/ai-scheduling/streaming/orchestrator';
+import { handleNavigateBooking } from '@/lib/server/ai-scheduling/streaming/handle-navigate-booking';
+import { handleSuggestActivities } from '@/lib/server/ai-scheduling/streaming/handle-suggest-activities';
+import { handleSearchEvents } from '@/lib/server/ai-scheduling/streaming/handle-search-events';
+import { handleShowMoreEvents } from '@/lib/server/ai-scheduling/streaming/handle-show-more-events';
 import type { AISchedulingRequest, Message } from '@/types/ai-scheduling';
 import type { TimeSlot } from '@/types/profile';
 
