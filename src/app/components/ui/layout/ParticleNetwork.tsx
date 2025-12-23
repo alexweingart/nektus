@@ -84,6 +84,81 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
 };
 
 /**
+ * Parse a color string (rgba or hex) into RGBA components
+ */
+function parseColor(color: string): { r: number; g: number; b: number; a: number } | null {
+  // Handle rgba(r, g, b, a) format
+  const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+  if (rgbaMatch) {
+    return {
+      r: parseInt(rgbaMatch[1]),
+      g: parseInt(rgbaMatch[2]),
+      b: parseInt(rgbaMatch[3]),
+      a: parseFloat(rgbaMatch[4] || '1')
+    };
+  }
+
+  // Handle hex format #RRGGBB
+  const hexMatch = color.match(/^#([0-9a-f]{6})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+      a: 1
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Interpolate between two colors
+ * @param color1 Starting color
+ * @param color2 Ending color
+ * @param progress Interpolation progress (0 to 1)
+ */
+function interpolateColor(color1: string, color2: string, progress: number): string {
+  const rgba1 = parseColor(color1);
+  const rgba2 = parseColor(color2);
+
+  if (!rgba1 || !rgba2) return color2; // Fallback to target color
+
+  // Ease out cubic for smoother finish
+  const eased = 1 - Math.pow(1 - progress, 3);
+
+  const r = Math.round(rgba1.r + (rgba2.r - rgba1.r) * eased);
+  const g = Math.round(rgba1.g + (rgba2.g - rgba1.g) * eased);
+  const b = Math.round(rgba1.b + (rgba2.b - rgba1.b) * eased);
+  const a = rgba1.a + (rgba2.a - rgba1.a) * eased;
+
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+/**
+ * Interpolate between two color sets
+ */
+function interpolateColorSet(from: ParticleColors, to: ParticleColors, progress: number): ParticleColors {
+  return {
+    particle: interpolateColor(from.particle, to.particle, progress),
+    connection: interpolateColor(from.connection, to.connection, progress),
+    gradientStart: interpolateColor(from.gradientStart, to.gradientStart, progress),
+    gradientEnd: interpolateColor(from.gradientEnd, to.gradientEnd, progress)
+  };
+}
+
+/**
+ * Check if two color sets are equal
+ */
+function colorsEqual(a: ParticleColors, b: ParticleColors): boolean {
+  return a.particle === b.particle &&
+         a.connection === b.connection &&
+         a.gradientStart === b.gradientStart &&
+         a.gradientEnd === b.gradientEnd;
+}
+
+/**
  * Particle Network Background
  * Creates a subtle network of particles that connect when nearby,
  * with context-aware motion patterns and personalized colors.
@@ -94,9 +169,63 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-  // Update colors ref during render (before effects run)
-  const currentColorsRef = useRef<ParticleColors>(DEFAULT_COLORS);
-  currentColorsRef.current = colors || DEFAULT_COLORS;
+  // Transition state for smooth color interpolation
+  const transitionRef = useRef({
+    fromColors: DEFAULT_COLORS,
+    toColors: DEFAULT_COLORS,
+    startTime: 0,
+    duration: 1000, // 1 second
+    isTransitioning: false
+  });
+
+  // Detect color changes and start transition
+  const newColors = colors || DEFAULT_COLORS;
+  if (!colorsEqual(newColors, transitionRef.current.toColors)) {
+    // Get current interpolated colors as starting point
+    const now = performance.now();
+    let currentColors = transitionRef.current.toColors;
+
+    if (transitionRef.current.isTransitioning) {
+      // Mid-transition, use current interpolated state as new starting point
+      const elapsed = now - transitionRef.current.startTime;
+      const progress = Math.min(elapsed / transitionRef.current.duration, 1);
+      currentColors = interpolateColorSet(
+        transitionRef.current.fromColors,
+        transitionRef.current.toColors,
+        progress
+      );
+    }
+
+    // Start new transition
+    transitionRef.current = {
+      fromColors: currentColors,
+      toColors: newColors,
+      startTime: now,
+      duration: prefersReducedMotion ? 0 : 1000, // Instant if reduced motion
+      isTransitioning: true
+    };
+  }
+
+  // Helper to get current interpolated colors
+  const getCurrentColors = (): ParticleColors => {
+    if (!transitionRef.current.isTransitioning) {
+      return transitionRef.current.toColors;
+    }
+
+    const elapsed = performance.now() - transitionRef.current.startTime;
+    const progress = Math.min(elapsed / transitionRef.current.duration, 1);
+
+    if (progress >= 1) {
+      transitionRef.current.isTransitioning = false;
+      return transitionRef.current.toColors;
+    }
+
+    return interpolateColorSet(
+      transitionRef.current.fromColors,
+      transitionRef.current.toColors,
+      progress
+    );
+  };
 
   // Get config for current context
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS['signed-out'];
@@ -149,6 +278,13 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     const animate = () => {
       const particles = particlesRef.current;
 
+      // Get current interpolated colors
+      const renderColors = getCurrentColors();
+
+      // Update gradient background
+      const gradientStyle = `radial-gradient(ellipse at top, ${renderColors.gradientStart} 0%, ${renderColors.gradientStart.replace('0.3', '0.12')} 40%, ${renderColors.gradientEnd} 70%, ${renderColors.gradientEnd} 100%)`;
+      canvas.style.background = gradientStyle;
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -180,8 +316,8 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
         if (particle.y < 0) particle.y = canvas.height;
         if (particle.y > canvas.height) particle.y = 0;
 
-        // Draw particle with current color
-        ctx.fillStyle = currentColorsRef.current.particle;
+        // Draw particle with interpolated color
+        ctx.fillStyle = renderColors.particle;
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         ctx.fill();
@@ -201,7 +337,7 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
             const distanceFactor = 1 - distance / config.connectionDistance;
 
             // Parse base connection color and apply distance-based opacity
-            const baseColor = currentColorsRef.current.connection;
+            const baseColor = renderColors.connection;
             const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
 
             if (match) {
@@ -209,7 +345,7 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
               const finalOpacity = parseFloat(a || '1') + (distanceFactor * config.connectionOpacity);
               ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${finalOpacity})`;
             } else {
-              ctx.strokeStyle = currentColorsRef.current.connection;
+              ctx.strokeStyle = renderColors.connection;
             }
 
             ctx.beginPath();
@@ -246,8 +382,9 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     return null;
   }
 
-  // Build gradient from current colors
-  const gradientStyle = `radial-gradient(ellipse at top, ${currentColorsRef.current.gradientStart} 0%, ${currentColorsRef.current.gradientStart.replace('0.3', '0.12')} 40%, ${currentColorsRef.current.gradientEnd} 70%, ${currentColorsRef.current.gradientEnd} 100%)`;
+  // Initial gradient (will be updated by animation loop)
+  const initialColors = getCurrentColors();
+  const initialGradient = `radial-gradient(ellipse at top, ${initialColors.gradientStart} 0%, ${initialColors.gradientStart.replace('0.3', '0.12')} 40%, ${initialColors.gradientEnd} 70%, ${initialColors.gradientEnd} 100%)`;
 
   return (
     <canvas
@@ -260,7 +397,7 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
         right: 0,
         width: '100%',
         height: 'calc(100vh + var(--safe-area-inset-top, 0px) + var(--safe-area-inset-bottom, 0px))',
-        background: gradientStyle,
+        background: initialGradient,
       }}
     />
   );
