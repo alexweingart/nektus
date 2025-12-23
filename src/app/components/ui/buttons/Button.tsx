@@ -7,14 +7,14 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/cn"
  
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 button-release glass-tinted overflow-hidden",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 button-release",
   {
     variants: {
       variant: {
-        white: "bg-white/80 text-gray-900 hover:bg-white/90 border border-white/60 rounded-full shadow-md backdrop-blur-lg transition-all",
-        circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white/80 text-gray-900 hover:bg-white/90 border border-white/60 shadow-md backdrop-blur-lg transition-all",
-        theme: "bg-white/80 text-[#004D40] hover:bg-white/90 border border-white/60 rounded-full shadow-md backdrop-blur-lg transition-all font-semibold",
-        destructive: "bg-red-500/80 text-white hover:bg-red-500/90 border border-red-400/70 rounded-full shadow-md backdrop-blur-lg transition-all",
+        white: "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 rounded-full shadow-md",
+        circle: "rounded-full aspect-square p-0 flex items-center justify-center bg-white text-gray-900 hover:bg-gray-100 border border-gray-200 shadow-md",
+        theme: "bg-white text-[#004D40] hover:bg-gray-50 border border-gray-200 rounded-full shadow-md",
+        destructive: "bg-red-500 text-white hover:bg-red-600 border border-red-600 rounded-full shadow-md",
       },
       size: {
         md: "h-12 px-6 text-base",
