@@ -366,7 +366,7 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     }
 
     animate();
-    console.log('🎨 ParticleNetwork: Animation loop started', { context, particleColor: currentColorsRef.current.particle });
+    console.log('🎨 ParticleNetwork: Animation loop started', { context, particleColor: getCurrentColors().particle });
 
     return () => {
       console.log('🎨 ParticleNetwork: Cleanup - cancelling animation');
