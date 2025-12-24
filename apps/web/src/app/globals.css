@@ -1,0 +1,447 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Enable View Transitions API for smooth page transitions */
+@view-transition {
+  navigation: auto;
+}
+
+/* Customize the view transition animation */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+}
+
+::view-transition-old(root) {
+  animation-name: fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: fade-in;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer base {
+  :root {
+    /* Core dimensions */
+    --max-content-width: 448px;  /* Standard max-width for content */
+
+    /* Glass tint color - brand green for colored glass effects */
+    --glass-tint-color: 113, 228, 84; /* Bright lime green from logo */
+
+    /* Core color palette - using hex for consistency */
+    --background: transparent;  /* No background - let body::before handle it */
+    --foreground: #ffffff;    /* White text for light theme */
+    
+    /* Primary colors */
+    --primary: 122 39% 49%;     /* Brand green */
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 114 39% 42%;  /* Slightly darker for hover */
+    --primary-light: 122 39% 90%; /* For subtle backgrounds */
+    
+    /* Secondary colors */
+    --secondary: 114 25% 29%;    /* Darker green */
+    --secondary-foreground: 0 0% 100%; 
+    
+    /* UI colors */
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+
+    /* Border and input */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 122 39% 49%;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Border radius */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-full: 9999px;
+  }
+}
+
+/* Base styles */
+:root {
+  color-scheme: dark;
+  color: var(--foreground);
+  background-color: transparent; /* Allow body::before background to show through */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Reset and base styles */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+html {
+  min-height: 100%;
+  height: 100%;
+
+  /* Prevent scrolling without position:fixed (which clips children) */
+  width: 100%;
+  overflow: hidden; /* Prevent scrolling on html */
+
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Solid dark green to match canvas gradient - fills safe areas where gradient can't render */
+  background-color: #0a0f1a !important;
+
+  /* Prevent any scrolling or overscroll */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+  /* Prevent touch scrolling */
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+body {
+  min-height: 100%;
+  height: 100%;
+
+  overflow: hidden; /* Prevent scrolling but on body instead of html */
+  font-family: var(--font-inter);
+  color: hsl(var(--foreground));
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent overscroll bounce to avoid black areas */
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: contain;
+
+  /* Safe area insets - push content down from notch/sides, but not bottom (footer handles that) */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+
+  /* Transparent to allow canvas/background layers to show through */
+  background-color: transparent;
+
+  /* Smooth transitions for background changes */
+  transition: background-image 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* iOS PWA: Adjust scrollable containers to account for body's safe area padding */
+@media all and (display-mode: standalone) {
+  [data-scrollable="true"] {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* ============================================================================
+   BACKGROUND LAYER STACK (bottom to top)
+   ============================================================================
+
+   Layer -1: Canvas (ParticleNetwork)
+     - Dark green gradient with animated particles
+     - Shown when signed out or when signed in with real photo but no background
+     - Controlled by body.show-particles class
+     - Extends to full screen height (852px on iPhone 14)
+
+   Layer 1: Default Background (body::after)
+     - Static background image (DefaultBackgroundImage.png)
+     - Shown when user has initials avatar but no custom background
+     - Controlled by body.show-default-background class
+
+   Layer 2: User Background (body::before)
+     - User's custom background image
+     - Controlled by body.has-user-background class
+     - Uses --user-background-image CSS variable
+
+   Layer 3: Contact Background (.contact-background-overlay)
+     - Contact's background image when viewing contact page
+     - Controlled by body.show-contact-background class
+     - Uses --contact-background-image CSS variable
+     - Allows crossfade transitions between user and contact backgrounds
+
+   Layer 10: Page Content
+     - All UI elements, text, buttons, etc.
+     - z-index: 10 set in layout.tsx
+
+   ============================================================================ */
+
+/* Default background - shown as fallback for prefers-reduced-motion users */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--full-screen-height, 100vh);
+  background-image: var(--default-background-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 1s ease-out;
+  pointer-events: none;
+}
+
+body.show-default-background::after {
+  opacity: 1;
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Fix background-attachment: fixed on iOS by disabling it */
+  html {
+    background-attachment: scroll !important;
+  }
+
+  /* Prevent overscroll (height handled by inset: 0) */
+  html {
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: contain;
+  }
+
+  body {
+    height: var(--full-screen-height, 100vh) !important;
+    overflow-y: hidden;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: contain;
+  }
+  /* Prevent zoom on input focus in iOS < 13 */
+  input[type='color'],
+  input[type='date'],
+  input[type='datetime'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='month'],
+  input[type='number'],
+  input[type='password'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='text'],
+  input[type='time'],
+  input[type='url'],
+  input[type='week'],
+  textarea,
+  select,
+  [contenteditable] {
+    font-size: 1rem;
+  }
+
+  /* Prevent Safari's yellow autofill background */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+    -webkit-text-fill-color: inherit !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Specific fix for phone input fields */
+  input[type="tel"]:-webkit-autofill,
+  input[inputmode="tel"]:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+    -webkit-text-fill-color: white !important;
+    background-color: transparent !important;
+  }
+}
+
+/* Form elements reset */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  appearance: none;
+}
+
+/* Focus styles for keyboard navigation */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Remove default focus styles for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Card component */
+@layer components {
+  .card {
+    @apply rounded-2xl p-6 transition-all duration-200;
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-md);
+  }
+  
+  .card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+  }
+  
+  
+  /* Form elements */
+  input, textarea, select {
+    @apply p-3 w-full outline-none transition-all rounded-full;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    color: var(--foreground);
+  }
+  
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+}
+
+
+/* vCard Modal Styles */
+.vcard-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.vcard-modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.vcard-modal h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.vcard-modal p {
+  margin: 0 0 20px 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.vcard-modal ol {
+  text-align: left;
+  color: #666;
+  margin: 0 0 20px 0;
+  padding-left: 20px;
+}
+
+.vcard-modal textarea {
+  width: 100%;
+  height: 120px;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  background: #f9f9f9;
+}
+
+.vcard-modal-buttons {
+  margin-top: 20px;
+}
+
+.vcard-modal-btn {
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.vcard-modal-btn.copy {
+  background: #007AFF;
+  color: white;
+}
+
+.vcard-modal-btn.close {
+  background: #666;
+  color: white;
+}
+
+/* ============================================================================ */
+/* Nekt Gradient Utilities                                                     */
+/* ============================================================================ */
+
+:root {
+  /* Nekt logo gradient colors - matching the official brand */
+  --nekt-gradient-light: #E7FED2; /* Pale cream/green from logo */
+  --nekt-gradient-dark: #71E454;  /* Bright lime green from logo */
+  --nekt-gradient: linear-gradient(135deg, #E7FED2 0%, #71E454 100%);
+}
+
+/* ============================================================================ */
+/* Glass Tint Utility - adds brand color overlay                              */
+/* ============================================================================ */
+
+.glass-tinted {
+  position: relative;
+}
+
+.glass-tinted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* Dual gradient: white highlight + color tint (matches DualStateSelector) */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%),
+    linear-gradient(135deg, rgba(var(--glass-tint-color), 0.30) 0%, rgba(var(--glass-tint-color), 0.20) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-tinted > * {
+  position: relative;
+  z-index: 2;
+}
