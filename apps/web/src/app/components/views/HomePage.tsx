@@ -135,7 +135,7 @@ const HomePage: React.FC = () => {
           Conversations → Friendships
         </Heading>
         <Text variant="base" className="text-center text-lg opacity-90 mb-10 px-4">
-          Exchange contacts & socials in seconds, then schedule hangouts
+          Exchange contacts & socials and schedule meetings in seconds
         </Text>
 
         <Button
