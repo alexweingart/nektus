@@ -30,6 +30,29 @@ export const metadata: Metadata = {
   title: "Nekt - Turn conversations into friendships",
   description: "Share contact info in seconds, then schedule your next meetup",
   manifest: "/manifest.json",
+  metadataBase: new URL('https://nekt.us'),
+  openGraph: {
+    title: 'Nekt: Turn conversations into friendships',
+    description: 'Exchange contacts & socials in seconds, then schedule hangouts',
+    url: 'https://nekt.us',
+    siteName: 'Nekt',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Nekt - Turn conversations into friendships',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Nekt: Turn conversations into friendships',
+    description: 'Exchange contacts & socials in seconds, then schedule hangouts',
+    images: ['/og-image.png'],
+  },
   icons: {
     apple: [
       { url: '/pwa/nektus-logo-pwa-192x192.png', sizes: '192x192', type: 'image/png' },
