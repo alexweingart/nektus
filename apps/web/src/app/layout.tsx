@@ -27,8 +27,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Nekt - Bump to Connect",
-  description: "Exchange contact info and social profiles by bumping phones",
+  title: "Nekt - Turn conversations into friendships",
+  description: "Share contact info in seconds, then schedule your next meetup",
   manifest: "/manifest.json",
   icons: {
     apple: [
@@ -59,7 +59,7 @@ export default function RootLayout({
         data-scroll-behavior="smooth"
       >
       <head>
-        <meta name="description" content="Exchange contact info and social profiles by bumping phones" />
+        <meta name="description" content="Share contact info in seconds, then schedule your next meetup" />
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
