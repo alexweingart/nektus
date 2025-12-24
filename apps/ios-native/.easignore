@@ -1,0 +1,3 @@
+# Ignore other apps but keep monorepo structure
+../../apps/web
+../../.git
