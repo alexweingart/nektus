@@ -445,3 +445,14 @@ select {
   position: relative;
   z-index: 2;
 }
+
+/* ============================================================================ */
+/* Button text selection prevention                                           */
+/* ============================================================================ */
+
+button {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}

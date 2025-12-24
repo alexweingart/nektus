@@ -36,8 +36,8 @@ export class RealTimeContactExchangeService {
    */
   private async getMotionDetector() {
     if (!this.motionDetector) {
-      const module = await import('@/lib/client/contacts/motion');
-      this.motionDetector = module.MotionDetector;
+      const motionModule = await import('@/lib/client/contacts/motion');
+      this.motionDetector = motionModule.MotionDetector;
     }
     return this.motionDetector;
   }
