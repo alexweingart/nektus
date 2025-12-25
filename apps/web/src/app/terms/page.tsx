@@ -1,14 +1,11 @@
-import { Metadata } from 'next'
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Terms of Use - Nekt',
-  description: 'Terms of Use for Nekt - Rules and guidelines for using our service',
-}
+import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 export default function TermsPage() {
   return (
-    <div className="fixed inset-0 overflow-y-auto overflow-x-hidden text-foreground">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <PullToRefresh disabled={true} onRefresh={() => {}}>
+      <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
         <h1 className="text-3xl font-bold mb-8 text-center">Terms of Use</h1>
         
         <div className="space-y-6 text-sm leading-relaxed">
@@ -179,6 +176,6 @@ export default function TermsPage() {
           </section>
         </div>
       </div>
-    </div>
+    </PullToRefresh>
   )
 }

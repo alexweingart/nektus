@@ -8,16 +8,8 @@
  * - Auth state management
  */
 
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import {
-  getAuth,
-  signInWithCustomToken,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User,
-  Auth,
-} from "firebase/auth";
 import * as SecureStore from "expo-secure-store";
+import type { User, Auth, FirebaseApp, AuthStateCallback } from "../../../types/firebase";
 
 // Firebase configuration - using environment variables with Expo prefix
 const firebaseConfig = {
@@ -41,30 +33,35 @@ const STORAGE_KEYS = {
 // Token refresh threshold (50 minutes)
 const TOKEN_REFRESH_THRESHOLD = 50 * 60 * 1000;
 
-// Singleton Firebase app instance
+// Singleton Firebase app instance (mock - we use REST APIs only)
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 
 /**
- * Get or initialize the Firebase app
+ * Get or initialize the Firebase app (mock - REST only)
  */
 export function getFirebaseApp(): FirebaseApp {
   if (!app) {
-    if (getApps().length === 0) {
-      app = initializeApp(firebaseConfig);
-    } else {
-      app = getApp();
-    }
+    app = {
+      name: "[DEFAULT]",
+      options: firebaseConfig,
+      automaticDataCollectionEnabled: false,
+    };
   }
   return app;
 }
 
 /**
- * Get the Firebase Auth instance
+ * Get the Firebase Auth instance (mock - REST only)
  */
 export function getFirebaseAuth(): Auth {
   if (!auth) {
-    auth = getAuth(getFirebaseApp());
+    auth = {
+      currentUser: null,
+      app: getFirebaseApp(),
+      name: "[DEFAULT]",
+      config: firebaseConfig,
+    };
   }
   return auth;
 }
@@ -302,6 +299,10 @@ export async function signInWithToken(
     } as unknown as User;
 
     console.log("[firebase] Successfully signed in user:", userId);
+
+    // Notify auth state listeners
+    notifyAuthStateChange(mockUser);
+
     return mockUser;
   } catch (error) {
     console.error("[firebase] Sign in failed:", error);
@@ -363,6 +364,10 @@ export async function restoreSession(): Promise<{
     } as unknown as User;
 
     console.log("[firebase] Session restored for user:", userId);
+
+    // Notify auth state listeners
+    notifyAuthStateChange(mockUser);
+
     return { restored: true, user: mockUser, needsRefresh: false };
   } catch (error) {
     console.error("[firebase] Failed to restore session:", error);
@@ -381,6 +386,8 @@ export async function signOut(): Promise<void> {
     restAuthResult = null;
     // Clear stored tokens
     await clearAuthTokens();
+    // Notify auth state listeners
+    notifyAuthStateChange(null);
     console.log("[firebase] User signed out");
   } catch (error) {
     console.error("[firebase] Sign out failed:", error);
@@ -411,12 +418,36 @@ export async function getIdToken(): Promise<string | null> {
   }
 }
 
+// Auth state listeners
+const authStateListeners = new Set<AuthStateCallback>();
+let currentAuthUser: User | null = null;
+
 /**
  * Subscribe to auth state changes
  */
 export function subscribeToAuthState(
-  callback: (user: User | null) => void
+  callback: AuthStateCallback
 ): () => void {
+  authStateListeners.add(callback);
+
+  // Immediately call with current state
+  callback(currentAuthUser);
+
+  // Return unsubscribe function
+  return () => {
+    authStateListeners.delete(callback);
+  };
+}
+
+/**
+ * Notify all auth state listeners of a change
+ */
+function notifyAuthStateChange(user: User | null) {
+  currentAuthUser = user;
   const authInstance = getFirebaseAuth();
-  return onAuthStateChanged(authInstance, callback);
+  authInstance.currentUser = user;
+
+  authStateListeners.forEach((callback) => {
+    callback(user);
+  });
 }

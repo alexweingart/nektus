@@ -262,7 +262,7 @@ export default function SmartScheduleView() {
   }
 
   return (
-    <div className="min-h-dvh relative z-[1001]">
+    <div className="relative z-[1001]">
       {/* Header */}
       <div className="px-6 pt-2">
         <div className="max-w-[var(--max-content-width,448px)] mx-auto">

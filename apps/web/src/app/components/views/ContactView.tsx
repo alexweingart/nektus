@@ -314,14 +314,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   console.log('✅ ContactView: Rendering with profile:', profile.userId);
 
   return (
-    <div className="fixed inset-0 z-[1000]">
-      <div
-        className="min-h-dvh flex flex-col items-center px-4 relative z-[1001]"
-        style={{
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
-          paddingBottom: '8px'
-        }}
-      >
+    <div className="flex flex-col items-center px-4 py-2 relative z-[1001]">
 
         {/* Header with back button for historical contacts */}
         {isHistoricalContact && (
@@ -482,6 +475,5 @@ export const ContactView: React.FC<ContactViewProps> = ({
           showCloseButton={false}
         />
       </div>
-    </div>
   );
 };

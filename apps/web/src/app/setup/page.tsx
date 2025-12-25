@@ -41,7 +41,7 @@ function SetupPageContent() {
     
     return (
       <PullToRefresh onRefresh={handleRefresh}>
-        <div className="flex flex-col items-center px-4 py-2 min-h-dvh">
+        <div className="flex flex-col items-center px-4 py-2">
           <ProfileSetupView />
         </div>
       </PullToRefresh>

@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ParticleNetwork, ParticleNetworkProps } from "./ParticleNetwork";
+import { ParticleNetworkLite as ParticleNetwork, ParticleNetworkProps } from "./ParticleNetworkLite";
 import { useProfile } from "../../../../modules/context/ProfileContext";
 
 // Helper function to convert hex to rgba

@@ -300,7 +300,7 @@ export const HistoryView: React.FC = () => {
   // Loading state - show empty content
   if (isLoading) {
     return (
-      <div className="min-h-dvh flex flex-col items-center px-4 py-2">
+      <div className="flex flex-col items-center px-4 py-2">
         {/* Header */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
           <Button
@@ -326,7 +326,7 @@ export const HistoryView: React.FC = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-dvh flex flex-col items-center px-4 py-2">
+      <div className="flex flex-col items-center px-4 py-2">
         {/* Header */}
         <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
           <Button 
@@ -362,7 +362,7 @@ export const HistoryView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center px-4 py-2">
+    <div className="flex flex-col items-center px-4 py-2">
       {/* Header */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0">
         <Button

@@ -1,14 +1,11 @@
-import { Metadata } from 'next'
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy - Nekt',
-  description: 'Privacy Policy for Nekt - How we protect your data',
-}
+import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 export default function PrivacyPage() {
   return (
-    <div className="fixed inset-0 overflow-y-auto overflow-x-hidden text-foreground">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <PullToRefresh disabled={true} onRefresh={() => {}}>
+      <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
         <h1 className="text-3xl font-bold mb-8 text-center">Privacy Policy</h1>
         
         <div className="space-y-6 text-sm leading-relaxed">
@@ -124,6 +121,6 @@ export default function PrivacyPage() {
           </section>
         </div>
       </div>
-    </div>
+    </PullToRefresh>
   )
 }

@@ -105,7 +105,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
 
   if (!calendar && !isLoading) {
     return (
-      <div className="min-h-dvh">
+      <div>
         <div className="max-w-2xl mx-auto px-6">
           <PageHeader title="Edit Calendar" onBack={handleBack} />
           <div className="py-6">
@@ -121,7 +121,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
   }
 
   return (
-    <div className="flex flex-col items-center px-4 py-2 pb-8 relative min-h-dvh">
+    <div className="flex flex-col items-center px-4 py-2 pb-8 relative">
       <div className="w-full max-w-[var(--max-content-width,448px)] space-y-5">
         <PageHeader
           title="Edit Calendar"
