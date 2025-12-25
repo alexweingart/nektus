@@ -294,9 +294,9 @@ And if you don't know any of those things, and just want me to suggest based off
   }
 
   return (
-    <div className="relative z-[1001] flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Header */}
-      <div className="px-6 pt-2">
+      <div className="px-6 pt-2 flex-shrink-0">
         <div className="max-w-[var(--max-content-width,448px)] mx-auto">
           <PageHeader
             onBack={handleBack}
@@ -305,21 +305,23 @@ And if you don't know any of those things, and just want me to suggest based off
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="px-6">
+      {/* Messages - scrollable area */}
+      <div className="flex-1 overflow-y-auto px-6">
         <div className="max-w-[var(--max-content-width,448px)] mx-auto space-y-3 pb-2 pt-4">
           <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Input */}
-      <ChatInput
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onSend={handleSend}
-        disabled={isProcessing}
-      />
+      {/* Input - fixed at bottom */}
+      <div className="flex-shrink-0">
+        <ChatInput
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onSend={handleSend}
+          disabled={isProcessing}
+        />
+      </div>
     </div>
   );
 }

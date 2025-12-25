@@ -19,17 +19,4 @@ config.resolver = {
   disableHierarchicalLookup: false,
 };
 
-// Help Babel resolve plugins in monorepo
-config.transformer = {
-  ...config.transformer,
-  babelTransformerPath: require.resolve("metro-react-native-babel-transformer"),
-};
-
-// Set NODE_PATH to help with module resolution
-process.env.NODE_PATH = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(monorepoRoot, "node_modules"),
-  process.env.NODE_PATH,
-].filter(Boolean).join(path.delimiter);
-
 module.exports = withNativeWind(config, { input: "./global.css" });
