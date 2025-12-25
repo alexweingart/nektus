@@ -376,7 +376,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
             <SecondaryButton
               variant="destructive"
               className="cursor-pointer"
-              onClick={() => signOut()}
+              onClick={() => signOut({ callbackUrl: '/' })}
             >
               Sign Out
             </SecondaryButton>
