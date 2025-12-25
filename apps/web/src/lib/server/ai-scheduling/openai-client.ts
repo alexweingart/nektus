@@ -1,9 +1,18 @@
 import OpenAI from 'openai';
 import type { ReasoningEffort, Verbosity } from '@/types/ai-scheduling';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiInstance: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openaiInstance) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not set in environment variables');
+    }
+    openaiInstance = new OpenAI({ apiKey });
+  }
+  return openaiInstance;
+}
 
 export const AI_MODELS = {
   GPT5: 'gpt-5',
@@ -75,7 +84,7 @@ export async function createCompletion(options: CreateCompletionOptions) {
       (completionParams as unknown as Record<string, unknown>).verbosity = verbosity;
     }
 
-    const completion = await openai.chat.completions.create(completionParams);
+    const completion = await getOpenAI().chat.completions.create(completionParams);
 
     return completion;
   } catch (error) {
@@ -335,4 +344,5 @@ ACTION REQUIRED: Perform web search NOW and return results.`;
   }
 }
 
-export { openai };
+// Export the getter function instead of the instance
+export { getOpenAI };
