@@ -1,0 +1,10 @@
+# Ignore monorepo config that confuses EAS
+turbo.json
+.turbo/
+
+# Ignore web app (not needed for iOS build)
+apps/web/
+
+# Keep ios-native and shared packages for the build
+!apps/ios-native/
+!packages/

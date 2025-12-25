@@ -12,7 +12,6 @@ import { ProfileSetupView } from "./src/ui/components/views/ProfileSetupView";
 import { ProfileView } from "./src/ui/components/views/ProfileView";
 import { PrivacyView } from "./src/ui/components/views/PrivacyView";
 import { TermsView } from "./src/ui/components/views/TermsView";
-import { SplashScreen } from "./src/ui/components/views/SplashScreen";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();
@@ -27,11 +26,6 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-// Loading View - uses our custom splash screen with gradient + logo
-function LoadingView() {
-  return <SplashScreen />;
-}
 
 // Main app content - routes to appropriate view using navigation
 function AppContent() {
@@ -57,9 +51,9 @@ function AppContent() {
     }
   }, [isLoading]);
 
-  // Show our custom splash screen while loading
+  // Keep native splash visible while loading
   if (isLoading || !appIsReady) {
-    return <LoadingView />;
+    return null;
   }
 
   // Determine initial route based on auth state

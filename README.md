@@ -1,37 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nektus Monorepo
+
+A monorepo containing the Nekt web app and iOS mobile app with shared code.
+
+## Project Structure
+
+```
+nektus/
+├── apps/
+│   ├── web/          # Next.js web app (existing)
+│   └── ios-native/   # React Native/Expo iOS app (new)
+├── packages/
+│   ├── shared-types/     # TypeScript type definitions
+│   ├── shared-utils/     # Platform-agnostic utilities
+│   └── shared-services/  # Firebase and business logic services
+├── turbo.json        # Turborepo configuration
+├── pnpm-workspace.yaml
+└── package.json
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+- Xcode (for iOS development)
+- Apple Developer Account ($99/year)
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Web App:**
+```bash
+pnpm dev:web
+# or
+cd apps/web && pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**iOS App (Simulator):**
+```bash
+cd apps/ios-native && pnpm ios
+```
 
-## Learn More
+### Building
 
-To learn more about Next.js, take a look at the following resources:
+**Build all packages:**
+```bash
+pnpm build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Build web app only:**
+```bash
+pnpm build:web
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploying to TestFlight
 
-## Deploy on Vercel
+### 1. Login to Expo
+```bash
+eas login
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 2. Configure EAS Project
+```bash
+cd apps/ios-native
+eas init
+```
+This will create an EAS project and update `app.json` with your project ID.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-Test commit
+### 3. Configure Apple Credentials
+```bash
+eas credentials
+```
+Follow the prompts to configure your Apple Developer credentials.
+
+### 4. Update App Configuration
+Edit `apps/ios-native/app.json`:
+- Update `expo.owner` with your Expo username
+- Verify `ios.bundleIdentifier` is correct
+
+Edit `apps/ios-native/eas.json`:
+- Update `submit.production.ios.appleId` with your Apple ID
+- Update `submit.production.ios.ascAppId` with your App Store Connect app ID
+
+### 5. Build for TestFlight
+```bash
+cd apps/ios-native
+eas build --platform ios --profile preview
+```
+
+### 6. Submit to TestFlight
+```bash
+eas submit --platform ios
+```
+
+## Shared Packages
+
+### @nektus/shared-types
+TypeScript type definitions shared between web and mobile:
+- `UserProfile` - User profile data structure
+- `ContactEntry` - Contact field entries
+- `ContactExchange*` - Contact exchange types
+
+### @nektus/shared-utils
+Platform-agnostic utility functions:
+- `formatPhoneNumber()` - Phone number formatting
+- `getHighResGoogleImage()` - Google image URL optimization
+- `getFieldValue()` - Extract values from contact entries
+- `generateSocialUrl()` - Generate social media URLs
+
+### @nektus/shared-services
+Business logic services (Firebase, etc.):
+- Profile service (coming soon)
+- Contact exchange service (coming soon)
+
+## Next Steps (Phase 2)
+
+1. **Authentication** - Implement Google Sign-In with Expo AuthSession
+2. **Profile Management** - Migrate Firebase profile service
+3. **Contact Exchange** - Implement motion detection with expo-sensors
+4. **UI Components** - Build React Native equivalents
+
+See `SPEC.md` for the full iOS feature roadmap.

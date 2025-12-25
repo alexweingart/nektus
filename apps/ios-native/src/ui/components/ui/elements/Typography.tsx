@@ -30,8 +30,8 @@ export function Label({ children, style }: HeadingProps) {
 
 const styles = StyleSheet.create({
   heading: {
-    fontSize: 28,
-    fontWeight: "600",
+    fontSize: 24, // text-2xl (1.5rem = 24px)
+    fontWeight: "700", // font-bold
     color: "#ffffff",
     marginBottom: 8,
   },

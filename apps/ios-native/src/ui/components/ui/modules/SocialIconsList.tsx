@@ -19,6 +19,7 @@ const ICON_FIELD_TYPES = [
   "snapchat",
   "tiktok",
   "github",
+  "whatsapp",
   "website",
 ];
 
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    paddingHorizontal: 16,
+    // No padding - web uses gap-4 for spacing between icons only
   },
 });
 

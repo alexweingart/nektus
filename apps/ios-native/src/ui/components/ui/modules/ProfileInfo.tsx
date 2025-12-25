@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+// TODO: Uncomment after rebuild - import { BlurView } from "@react-native-community/blur";
+import Svg, { Path } from "react-native-svg";
 import { Avatar } from "../elements/Avatar";
 import { Heading, BodyText } from "../elements/Typography";
 import { ProfileViewSelector } from "../controls/ProfileViewSelector";
@@ -22,6 +24,8 @@ interface ProfileInfoProps {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = 50;
+const CONTAINER_PADDING = 24; // paddingHorizontal from container
+const CARD_WIDTH = SCREEN_WIDTH - (CONTAINER_PADDING * 2); // Account for padding
 
 export function ProfileInfo({ profile, session }: ProfileInfoProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("personal");
@@ -33,10 +37,11 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
     session?.user?.name ||
     "User";
 
-  // Get bio
-  const bio = profile?.contactEntries?.find(
-    (e) => e.fieldType === "bio"
+  // Get bio (with placeholder fallback like web)
+  const profileBio = profile?.contactEntries?.find(
+    (e) => e.fieldType === "bio" && e.isVisible
   )?.value;
+  const bio = profileBio || "My bio is going to be awesome once I create it.";
 
   // Filter contact entries by section
   const getFilteredEntries = (mode: ViewMode) => {
@@ -45,6 +50,14 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
       (e) => e.section === mode || e.section === "universal"
     );
   };
+
+  // Get locations from profile
+  const personalLocation = profile?.locations?.find(loc => loc.section === "personal");
+  const workLocation = profile?.locations?.find(loc => loc.section === "work");
+
+  // Filter entries by section
+  const personalEntries = getFilteredEntries("personal");
+  const workEntries = getFilteredEntries("work");
 
   // Pan responder for swipe gestures
   const panResponder = useRef(
@@ -55,8 +68,8 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
       onPanResponderMove: (_, gestureState) => {
         // Limit the swipe distance
         const limitedDx = Math.max(
-          Math.min(gestureState.dx, SCREEN_WIDTH / 2),
-          -SCREEN_WIDTH / 2
+          Math.min(gestureState.dx, CARD_WIDTH / 2),
+          -CARD_WIDTH / 2
         );
         translateX.setValue(limitedDx);
       },
@@ -79,12 +92,10 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
     })
   ).current;
 
-  const filteredEntries = getFilteredEntries(viewMode);
-
   return (
     <View style={styles.container}>
-      {/* Profile Header */}
-      <View style={styles.header}>
+      {/* 1. Avatar - OUTSIDE the box, centered */}
+      <View style={styles.avatarWrapper}>
         <View style={styles.avatarContainer}>
           <Avatar
             src={profile?.profileImage}
@@ -93,40 +104,101 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
             isLoading={!profile}
           />
         </View>
-        <Heading>{name}</Heading>
-        {bio && <BodyText style={styles.bio}>{bio}</BodyText>}
       </View>
 
-      {/* View Mode Selector */}
-      <ProfileViewSelector selected={viewMode} onSelect={setViewMode} />
+      {/* 2. Frosted glass box */}
+      <View style={styles.cardContainer}>
+        {/* TODO: Uncomment BlurView after rebuild */}
+        {/* <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType="dark"
+          blurAmount={10}
+          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+        /> */}
 
-      {/* Swipeable Content */}
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            transform: [{ translateX }],
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <SocialIconsList contactEntries={filteredEntries} />
-      </Animated.View>
+        {/* Swipeable content with PanResponder */}
+        <Animated.View
+          style={[
+            styles.swipeableContent,
+            {
+              transform: [{ translateX }],
+            },
+          ]}
+          {...panResponder.panHandlers}
+        >
+          {/* Personal View */}
+          <View style={styles.viewContent}>
+            {/* Name */}
+            <Heading style={styles.name}>{name}</Heading>
+
+            {/* Location with SVG pin icon */}
+            {personalLocation && (
+              <View style={styles.locationRow}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                  <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </Svg>
+                <BodyText style={styles.locationText}>
+                  {personalLocation.city}, {personalLocation.region}
+                </BodyText>
+              </View>
+            )}
+
+            {/* Bio (always shown with placeholder fallback) */}
+            <BodyText style={styles.bio}>{bio}</BodyText>
+
+            {/* Social Icons */}
+            <SocialIconsList contactEntries={personalEntries} />
+          </View>
+
+          {/* Work View */}
+          <View style={styles.viewContent}>
+            {/* Name */}
+            <Heading style={styles.name}>{name}</Heading>
+
+            {/* Location with SVG pin icon */}
+            {workLocation && (
+              <View style={styles.locationRow}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                  <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </Svg>
+                <BodyText style={styles.locationText}>
+                  {workLocation.city}, {workLocation.region}
+                </BodyText>
+              </View>
+            )}
+
+            {/* Bio (always shown with placeholder fallback) */}
+            <BodyText style={styles.bio}>{bio}</BodyText>
+
+            {/* Social Icons */}
+            <SocialIconsList contactEntries={workEntries} />
+          </View>
+        </Animated.View>
+
+        {/* View Selector - AT BOTTOM, INSIDE BOX */}
+        <View style={styles.selectorWrapper}>
+          <ProfileViewSelector selected={viewMode} onSelect={setViewMode} />
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     alignItems: "center",
     paddingHorizontal: 24,
+    width: "100%",
   },
-  header: {
+  avatarWrapper: {
+    marginBottom: 16,
     alignItems: "center",
-    marginBottom: 24,
+    width: "100%",
   },
   avatarContainer: {
+    alignSelf: "center",
     borderWidth: 4,
     borderColor: "#ffffff",
     borderRadius: 68,
@@ -135,17 +207,51 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    marginBottom: 16,
+  },
+  cardContainer: {
+    width: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.6)", // Fallback
+    borderRadius: 16, // rounded-2xl
+    overflow: "hidden",
+    paddingBottom: 16,
+  },
+  swipeableContent: {
+    flexDirection: "row",
+    width: CARD_WIDTH * 2, // Two views side by side (accounting for container padding)
+  },
+  viewContent: {
+    width: CARD_WIDTH, // Each view takes card width (not full screen)
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    alignItems: "center",
+  },
+  name: {
+    textAlign: "center",
+    marginBottom: 12,
+    width: "100%", // Ensure full width for proper centering
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 8,
+  },
+  locationText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 14,
   },
   bio: {
     textAlign: "center",
-    marginTop: 8,
+    marginBottom: 16, // mb-4 (match web)
     paddingHorizontal: 16,
-    color: "#aaa",
+    color: "#ffffff",
+    fontSize: 14, // text-sm (match web variant="small")
+    lineHeight: 22, // leading-relaxed (~1.57)
   },
-  content: {
-    flex: 1,
-    width: "100%",
+  selectorWrapper: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+    marginTop: 16,
   },
 });
 

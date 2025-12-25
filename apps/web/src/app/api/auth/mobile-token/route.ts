@@ -1,0 +1,285 @@
+import { NextRequest, NextResponse } from "next/server";
+import { OAuth2Client } from "google-auth-library";
+import { createCustomTokenWithCorrectSub } from "@/lib/config/firebase/admin";
+import { ServerProfileService } from "@/lib/server/profile/create";
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+interface GoogleUserInfo {
+  sub: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+}
+
+interface GoogleTokenResponse {
+  access_token: string;
+  id_token?: string;
+  token_type: string;
+  expires_in: number;
+  scope: string;
+}
+
+/**
+ * Get user info from Google using an access token
+ */
+async function getUserInfoFromAccessToken(accessToken: string): Promise<GoogleUserInfo> {
+  const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get user info: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Exchange an authorization code for tokens using PKCE
+ * For iOS native apps, we use the iOS client ID (no secret - public client with PKCE)
+ */
+async function exchangeCodeForTokens(
+  code: string,
+  codeVerifier: string,
+  redirectUri: string
+): Promise<GoogleTokenResponse> {
+  const tokenEndpoint = "https://oauth2.googleapis.com/token";
+
+  // iOS apps are "public clients" - use iOS client ID without secret
+  // The code_verifier from PKCE serves as proof instead of client_secret
+  const iosClientId = process.env.GOOGLE_IOS_CLIENT_ID;
+
+  if (!iosClientId) {
+    throw new Error("GOOGLE_IOS_CLIENT_ID not configured");
+  }
+
+  const params = new URLSearchParams({
+    client_id: iosClientId,
+    code,
+    code_verifier: codeVerifier,
+    grant_type: "authorization_code",
+    redirect_uri: redirectUri,
+  });
+
+  console.log("[mobile-token] Exchanging code with iOS client ID:", iosClientId.substring(0, 20) + "...");
+  console.log("[mobile-token] Redirect URI:", redirectUri);
+
+  const response = await fetch(tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("[mobile-token] Token exchange failed:", error);
+    throw new Error(`Token exchange failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Mobile authentication endpoint
+ *
+ * This endpoint handles authentication for the iOS app:
+ * 1. Receives a Google ID token OR access token from expo-auth-session
+ * 2. Verifies the token with Google
+ * 3. Creates a Firebase custom token for the user
+ * 4. Creates/retrieves the user's profile
+ * 5. Returns both the Firebase token and profile data
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { googleIdToken, googleAccessToken, googleAuthorizationCode, codeVerifier, redirectUri } = body;
+
+    if (!googleIdToken && !googleAccessToken && !googleAuthorizationCode) {
+      return NextResponse.json(
+        { error: "Missing googleIdToken, googleAccessToken, or googleAuthorizationCode" },
+        { status: 400 }
+      );
+    }
+
+    let userId: string;
+    let userInfo: { name: string | null; email: string | null; image: string | null };
+
+    // Try ID token first (preferred), then access token, then authorization code
+    if (googleIdToken) {
+      // Verify the Google ID token
+      // Accept both web and iOS client IDs as valid audiences
+      try {
+        const validAudiences = [
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_IOS_CLIENT_ID,
+        ].filter(Boolean) as string[];
+
+        const ticket = await client.verifyIdToken({
+          idToken: googleIdToken,
+          audience: validAudiences,
+        });
+        const payload = ticket.getPayload();
+
+        if (!payload || !payload.sub) {
+          return NextResponse.json(
+            { error: "Invalid token payload" },
+            { status: 401 }
+          );
+        }
+
+        userId = payload.sub;
+        userInfo = {
+          name: payload.name || null,
+          email: payload.email || null,
+          image: payload.picture || null,
+        };
+        console.log("[mobile-token] Verified ID token for user:", userId);
+      } catch (verifyError) {
+        console.error("[mobile-token] Failed to verify Google ID token:", verifyError);
+        return NextResponse.json(
+          { error: "Invalid Google ID token" },
+          { status: 401 }
+        );
+      }
+    } else if (googleAccessToken) {
+      // Use access token to get user info
+      try {
+        const googleUserInfo = await getUserInfoFromAccessToken(googleAccessToken);
+
+        if (!googleUserInfo.sub) {
+          return NextResponse.json(
+            { error: "Invalid access token - no user ID" },
+            { status: 401 }
+          );
+        }
+
+        userId = googleUserInfo.sub;
+        userInfo = {
+          name: googleUserInfo.name || null,
+          email: googleUserInfo.email || null,
+          image: googleUserInfo.picture || null,
+        };
+        console.log("[mobile-token] Got user info from access token for user:", userId);
+      } catch (accessError) {
+        console.error("[mobile-token] Failed to get user info from access token:", accessError);
+        return NextResponse.json(
+          { error: "Invalid Google access token" },
+          { status: 401 }
+        );
+      }
+    } else if (googleAuthorizationCode && codeVerifier && redirectUri) {
+      // Exchange authorization code for tokens (iOS PKCE flow)
+      try {
+        console.log("[mobile-token] Exchanging authorization code for tokens");
+        const tokens = await exchangeCodeForTokens(googleAuthorizationCode, codeVerifier, redirectUri);
+
+        // If we got an ID token, verify it
+        if (tokens.id_token) {
+          const ticket = await client.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+          });
+          const payload = ticket.getPayload();
+
+          if (!payload || !payload.sub) {
+            return NextResponse.json(
+              { error: "Invalid token payload from code exchange" },
+              { status: 401 }
+            );
+          }
+
+          userId = payload.sub;
+          userInfo = {
+            name: payload.name || null,
+            email: payload.email || null,
+            image: payload.picture || null,
+          };
+          console.log("[mobile-token] Verified ID token from code exchange for user:", userId);
+        } else {
+          // Fall back to access token
+          const googleUserInfo = await getUserInfoFromAccessToken(tokens.access_token);
+
+          if (!googleUserInfo.sub) {
+            return NextResponse.json(
+              { error: "Invalid tokens from code exchange - no user ID" },
+              { status: 401 }
+            );
+          }
+
+          userId = googleUserInfo.sub;
+          userInfo = {
+            name: googleUserInfo.name || null,
+            email: googleUserInfo.email || null,
+            image: googleUserInfo.picture || null,
+          };
+          console.log("[mobile-token] Got user info from code exchange access token for user:", userId);
+        }
+      } catch (codeError) {
+        console.error("[mobile-token] Failed to exchange authorization code:", codeError);
+        return NextResponse.json(
+          { error: "Failed to exchange authorization code" },
+          { status: 401 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Invalid request - missing required parameters" },
+        { status: 400 }
+      );
+    }
+
+    // Create Firebase custom token
+    let firebaseToken: string;
+    try {
+      firebaseToken = await createCustomTokenWithCorrectSub(userId);
+    } catch (tokenError) {
+      console.error("[mobile-token] Failed to create Firebase token:", tokenError);
+      return NextResponse.json(
+        { error: "Failed to create authentication token" },
+        { status: 500 }
+      );
+    }
+
+    // Get or create user profile
+    let profile, needsSetup;
+    try {
+      const result = await ServerProfileService.getOrCreateProfile(userId, userInfo);
+      profile = result.profile;
+      needsSetup = result.needsSetup;
+    } catch (profileError) {
+      console.error("[mobile-token] Failed to get/create profile:", profileError);
+      // Still return the token even if profile fails - client can retry profile later
+      return NextResponse.json({
+        firebaseToken,
+        profile: null,
+        needsSetup: true,
+        userId,
+        user: userInfo,
+      });
+    }
+
+    console.log("[mobile-token] Successfully authenticated user:", userId);
+
+    return NextResponse.json({
+      firebaseToken,
+      profile,
+      needsSetup,
+      userId,
+      user: userInfo,
+    });
+  } catch (error) {
+    console.error("[mobile-token] Unexpected error:", error);
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}

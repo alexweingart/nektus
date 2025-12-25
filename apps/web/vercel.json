@@ -1,0 +1,20 @@
+{
+  "installCommand": "bun install",
+  "functions": {
+    "src/app/api/media/background-image/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/media/profile-image/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/bio-and-social/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/keepalive",
+      "schedule": "0 0 */7 * *"
+    }
+  ]
+} 

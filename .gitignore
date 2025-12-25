@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -17,11 +17,12 @@
 /playwright-report
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
 /build
+dist/
 
 # misc
 .DS_Store
@@ -44,4 +45,23 @@ pglite-debug.log
 *.tsbuildinfo
 next-env.d.ts
 .log
-.env*.local
+
+# turbo
+.turbo
+
+# expo / react native
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.expo/
+ios/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+
+# pnpm
+pnpm-lock.yaml

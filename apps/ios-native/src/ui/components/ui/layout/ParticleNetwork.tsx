@@ -3,9 +3,12 @@ import { StyleSheet, useWindowDimensions, View } from "react-native";
 import {
   Canvas,
   Circle,
+  Fill,
   Line,
   RadialGradient,
   Rect,
+  Skia,
+  Shader,
   vec,
 } from "@shopify/react-native-skia";
 
@@ -45,6 +48,52 @@ interface ContextConfig {
   particleSpeed: number;
   connectionDistance: number;
   connectionOpacity: number;
+}
+
+// SKSL shader for elliptical gradient (matches web's radial-gradient(ellipse at top, ...))
+const ellipticalGradientSource = `
+  uniform vec2 resolution;
+  uniform vec2 center;
+  uniform float radiusX;
+  uniform float radiusY;
+  uniform vec4 colorStart;
+  uniform vec4 colorEnd;
+
+  vec4 main(vec2 fragCoord) {
+    // Calculate normalized distance from center using ellipse formula
+    float dx = (fragCoord.x - center.x) / radiusX;
+    float dy = (fragCoord.y - center.y) / radiusY;
+    float dist = sqrt(dx * dx + dy * dy);
+
+    // Clamp and interpolate between colors
+    float t = clamp(dist, 0.0, 1.0);
+    return mix(colorStart, colorEnd, t);
+  }
+`;
+
+// Create shader at runtime to handle potential compilation issues
+const getEllipticalGradientShader = () => {
+  try {
+    return Skia.RuntimeEffect.Make(ellipticalGradientSource);
+  } catch (e) {
+    console.warn("Failed to create elliptical gradient shader:", e);
+    return null;
+  }
+};
+
+// Parse rgba string to vec4 for shader uniforms
+function parseRgbaToVec4(rgbaString: string): number[] {
+  const match = rgbaString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/);
+  if (!match) {
+    return [0, 0, 0, 1];
+  }
+  const [, r, g, b, a = "1"] = match;
+  return [
+    parseInt(r) / 255,
+    parseInt(g) / 255,
+    parseInt(b) / 255,
+    parseFloat(a),
+  ];
 }
 
 const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
@@ -87,6 +136,9 @@ export function ParticleNetwork({
   const { width, height } = useWindowDimensions();
   const renderColors = colors || DEFAULT_COLORS;
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS["signed-out"];
+
+  // Create elliptical gradient shader (memoized)
+  const ellipticalShader = useMemo(() => getEllipticalGradientShader(), []);
 
   // Animation frame counter
   const frameRef = useRef(0);
@@ -174,21 +226,31 @@ export function ParticleNetwork({
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Canvas style={{ flex: 1 }}>
-        {/* Background radial gradient - ellipse at top like web */}
-        {/* Just 2 colors: green at center, dark at edges */}
-        {/* Use scaleX transform to compress horizontally, making it elliptical */}
-        <Rect x={0} y={0} width={width} height={height}>
-          <RadialGradient
-            c={vec(width / 2, 0)}
-            r={height * 0.9}
-            colors={[
-              renderColors.gradientStart,
-              renderColors.gradientEnd,
-            ]}
-            transform={[{ scaleX: 0.2 }]}
-            origin={vec(width / 2, 0)}
-          />
-        </Rect>
+        {/* Background elliptical gradient - emanates from top center */}
+        {ellipticalShader ? (
+          <Fill>
+            <Shader
+              source={ellipticalShader}
+              uniforms={{
+                resolution: vec(width, height),
+                center: vec(width / 2, 0),
+                radiusX: width * 0.4,
+                radiusY: height * 0.8,
+                colorStart: parseRgbaToVec4(renderColors.gradientStart),
+                colorEnd: parseRgbaToVec4(renderColors.gradientEnd),
+              }}
+            />
+          </Fill>
+        ) : (
+          /* Fallback to circular radial gradient */
+          <Rect x={0} y={0} width={width} height={height}>
+            <RadialGradient
+              c={vec(width / 2, 0)}
+              r={height * 1.2}
+              colors={[renderColors.gradientStart, renderColors.gradientEnd]}
+            />
+          </Rect>
+        )}
 
         {/* Draw connections */}
         {connections.map((conn, index) => (
@@ -196,7 +258,7 @@ export function ParticleNetwork({
             key={`conn-${index}`}
             p1={vec(conn.x1, conn.y1)}
             p2={vec(conn.x2, conn.y2)}
-            color={`rgba(34, 197, 94, ${conn.opacity})`}
+            color={renderColors.connection.replace(/[\d.]+\)$/, `${conn.opacity})`)}
             strokeWidth={1}
           />
         ))}
