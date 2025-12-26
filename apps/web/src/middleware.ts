@@ -27,7 +27,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Get the JWT token to check authentication and profile
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  // Use secure cookies in production OR if running HTTPS in development
+  const isSecure = process.env.NODE_ENV === 'production' || request.url.startsWith('https://');
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: isSecure
+  });
 
   // If no token (unauthenticated user)
   if (!token) {
@@ -40,11 +46,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // For authenticated users - handle server-side redirects based on phone number presence
-  if (token) {
+  // Only enforce setup redirect on the root path to allow access to other routes
+  if (token && token.redirectTo) {
     const redirectTo = token.redirectTo as string;
 
-    // Only redirect to setup if user needs setup and isn't already there
-    if (redirectTo === '/setup' && pathname !== '/setup') {
+    // Only redirect to setup if user needs setup and is trying to access the root path
+    if (redirectTo === '/setup' && pathname === '/') {
       return NextResponse.redirect(new URL('/setup', request.url));
     }
   }
