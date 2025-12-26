@@ -1,0 +1,12 @@
+# robots.txt for nekt.us
+# Allow all search engines to crawl the site
+
+User-agent: *
+Allow: /
+
+# Disallow crawling of API endpoints and setup pages
+Disallow: /api/
+Disallow: /setup
+
+# Sitemap location
+Sitemap: https://nekt.us/sitemap.xml

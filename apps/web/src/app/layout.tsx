@@ -28,12 +28,15 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Nekt - Turn conversations into friendships",
-  description: "Share contact info in seconds, then schedule your next meetup",
+  description: "Exchange contacts & socials and schedule meetings in seconds",
   manifest: "/manifest.json",
   metadataBase: new URL('https://nekt.us'),
+  alternates: {
+    canonical: 'https://nekt.us',
+  },
   openGraph: {
-    title: 'Nekt: Turn conversations into friendships',
-    description: 'Exchange contacts & socials in seconds, then schedule hangouts',
+    title: 'Nekt - Turn conversations into friendships',
+    description: 'Exchange contacts & socials and schedule meetings in seconds',
     url: 'https://nekt.us',
     siteName: 'Nekt',
     images: [
@@ -49,8 +52,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nekt: Turn conversations into friendships',
-    description: 'Exchange contacts & socials in seconds, then schedule hangouts',
+    title: 'Nekt - Turn conversations into friendships',
+    description: 'Exchange contacts & socials and schedule meetings in seconds',
     images: ['/og-image.png'],
   },
   icons: {
@@ -82,15 +85,13 @@ export default function RootLayout({
         data-scroll-behavior="smooth"
       >
       <head>
-        <meta name="description" content="Share contact info in seconds, then schedule your next meetup" />
-        <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32" />
       </head>
       <body className={`${inter.variable} antialiased`}>
         <SessionProvider>

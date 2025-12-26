@@ -1,7 +1,7 @@
 {
   "name": "Nekt",
   "short_name": "Nekt",
-  "description": "Bump to connect with new friends by tapping phones",
+  "description": "Exchange contacts & socials and schedule meetings in seconds",
   "start_url": "/?pwa=true",
   "scope": "/",
   "display": "standalone",
