@@ -311,7 +311,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       
               default:
           return (
-            <span className="text-xl font-semibold">Nekt</span>
+            <span className="text-xl font-bold">Nekt</span>
           );
     }
   };
@@ -320,12 +320,12 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const getButtonVariant = () => {
     switch (status) {
       case 'matched':
-        return 'theme' as const;
+        return 'white' as const;
       case 'error':
       case 'timeout':
         return 'destructive' as const;
       default:
-        return 'theme' as const; // Use theme variant for consistent styling
+        return 'white' as const; // Use white variant for consistent styling
     }
   };
 

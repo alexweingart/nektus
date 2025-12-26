@@ -124,7 +124,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
         {selectedOption?.icon ? (
           <span className="mr-1">{renderIcon(selectedOption.icon)}</span>
         ) : (
-          <span className="mr-2 text-black">{placeholder}</span>
+          <span className="mr-2 text-gray-900">{placeholder}</span>
         )}
         <div className="flex flex-col text-white">
           <FaChevronUp className="h-3 w-3" />
