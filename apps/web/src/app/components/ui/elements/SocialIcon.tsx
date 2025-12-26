@@ -184,7 +184,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   })();
 
   return (
-    <div 
+    <div
       className={`inline-block focus:outline-none ${className} ${disabled ? 'opacity-50' : ''}`}
       onClick={handleClick}
       onMouseEnter={() => {/* hover handled by CSS */}}
@@ -207,6 +207,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       style={{
         transform: isActive ? 'scale(0.95)' : 'scale(1)',
         transition: 'transform 0.1s ease-in-out',
+        WebkitUserSelect: 'none',
+        userSelect: 'none'
       }}
     >
       <div className="flex items-center justify-center w-full h-full">

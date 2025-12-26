@@ -110,7 +110,11 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
               data-field-type={isDraggable ? fieldType : undefined}
               data-section={isDraggable ? profile.section : undefined}
               className="w-5 h-5 flex items-center justify-center relative"
-              style={{ touchAction: isDraggable ? 'none' : undefined }}
+              style={{
+                touchAction: isDraggable ? 'none' : undefined,
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
               onContextMenu={isDraggable ? (e) => e.preventDefault() : undefined}
             >
               <SocialIcon
@@ -146,7 +150,11 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
               data-field-type={isDraggable ? fieldType : undefined}
               data-section={isDraggable ? profile.section : undefined}
               className="w-5 h-5 flex items-center justify-center relative"
-              style={{ touchAction: isDraggable ? 'none' : undefined }}
+              style={{
+                touchAction: isDraggable ? 'none' : undefined,
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
               onContextMenu={isDraggable ? (e) => e.preventDefault() : undefined}
             >
               <SocialIcon
