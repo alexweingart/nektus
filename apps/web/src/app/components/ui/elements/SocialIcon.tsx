@@ -133,7 +133,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
         window.open(url, '_blank', 'noopener,noreferrer');
       }
     }
-  }, [disabled, onClick, platform, username, getPlatformUrl, customIcon]);
+  }, [disabled, onClick, platform, username, getPlatformUrl, linkType]);
 
   const iconElement = (() => {
     // Only show custom icon (favicon) for custom link types

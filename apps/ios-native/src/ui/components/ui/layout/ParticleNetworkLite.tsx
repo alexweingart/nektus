@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View, Animated, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Line } from "react-native-svg";
 
 interface Particle {
   x: Animated.Value;
@@ -8,6 +9,8 @@ interface Particle {
   vx: number;
   vy: number;
   size: number;
+  currentX: number; // Track actual position for connections
+  currentY: number;
 }
 
 interface ParticleColors {
@@ -36,42 +39,54 @@ const DEFAULT_COLORS: ParticleColors = {
 interface ContextConfig {
   particleCount: number;
   particleSpeed: number;
+  connectionDistance: number;
+  connectionOpacity: number;
 }
 
 const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
   "signed-out": {
-    particleCount: 30, // Reduced for performance
-    particleSpeed: 0.3,
+    particleCount: 30,
+    particleSpeed: 0.5, // Increased from 0.3
+    connectionDistance: 150,
+    connectionOpacity: 0.25,
   },
   profile: {
     particleCount: 25,
-    particleSpeed: 0.3,
+    particleSpeed: 0.5, // Increased from 0.3
+    connectionDistance: 100,
+    connectionOpacity: 0.2,
   },
   "profile-default": {
     particleCount: 20,
-    particleSpeed: 0.3,
+    particleSpeed: 0.5, // Increased from 0.3
+    connectionDistance: 110,
+    connectionOpacity: 0.2,
   },
   connect: {
     particleCount: 20,
-    particleSpeed: 0.8,
+    particleSpeed: 1.2, // Increased from 0.8
+    connectionDistance: 120,
+    connectionOpacity: 0.25,
   },
   contact: {
     particleCount: 25,
-    particleSpeed: 0.15,
+    particleSpeed: 0.3, // Increased from 0.15
+    connectionDistance: 90,
+    connectionOpacity: 0.3,
   },
 };
 
 /**
- * Lightweight ParticleNetwork using Animated API
+ * Lightweight ParticleNetwork using Animated API + SVG
  *
- * This is a simplified version that replaces @shopify/react-native-skia
- * with native Animated components for much better build performance.
+ * This version replaces @shopify/react-native-skia with native components
+ * while maintaining particle connections using SVG for efficient line rendering.
  *
- * Trade-offs:
- * - Fewer particles (30 vs ~50) for performance
- * - No particle connections (too expensive with View components)
- * - Simpler gradient (elliptical not supported in LinearGradient)
- * - Still provides the same visual atmosphere
+ * Features:
+ * - Animated particles with realistic movement
+ * - SVG-based particle connections (efficient rendering)
+ * - LinearGradient background
+ * - Configurable speed and connection distance
  */
 export function ParticleNetworkLite({
   colors,
@@ -81,16 +96,29 @@ export function ParticleNetworkLite({
   const renderColors = colors || DEFAULT_COLORS;
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS["signed-out"];
 
+  // Track connections for rendering
+  const [connections, setConnections] = useState<Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    opacity: number;
+  }>>([]);
+
   // Initialize particles
   const particles = useMemo(() => {
     const result: Particle[] = [];
     for (let i = 0; i < config.particleCount; i++) {
+      const startX = Math.random() * width;
+      const startY = Math.random() * height;
       result.push({
-        x: new Animated.Value(Math.random() * width),
-        y: new Animated.Value(Math.random() * height),
+        x: new Animated.Value(startX),
+        y: new Animated.Value(startY),
         vx: (Math.random() - 0.5) * config.particleSpeed,
         vy: (Math.random() - 0.5) * config.particleSpeed,
         size: Math.random() * 2 + 1,
+        currentX: startX,
+        currentY: startY,
       });
     }
     return result;
@@ -99,46 +127,60 @@ export function ParticleNetworkLite({
   // Animation loop
   useEffect(() => {
     let animationId: number;
-    const particleData = particles.map((p) => ({
-      x: 0,
-      y: 0,
-      vx: p.vx,
-      vy: p.vy,
-    }));
-
-    // Get initial values
-    particles.forEach((particle, i) => {
-      // @ts-ignore - accessing private _value
-      particleData[i].x = particle.x._value || 0;
-      // @ts-ignore - accessing private _value
-      particleData[i].y = particle.y._value || 0;
-    });
+    let frameCount = 0;
 
     const animate = () => {
-      particles.forEach((particle, i) => {
-        const data = particleData[i];
+      frameCount++;
 
+      // Update particle positions
+      particles.forEach((particle) => {
         // Update position
-        data.x += data.vx;
-        data.y += data.vy;
+        particle.currentX += particle.vx;
+        particle.currentY += particle.vy;
 
         // Wrap around edges
-        if (data.x < 0) data.x = width;
-        if (data.x > width) data.x = 0;
-        if (data.y < 0) data.y = height;
-        if (data.y > height) data.y = 0;
+        if (particle.currentX < 0) particle.currentX = width;
+        if (particle.currentX > width) particle.currentX = 0;
+        if (particle.currentY < 0) particle.currentY = height;
+        if (particle.currentY > height) particle.currentY = 0;
 
         // Update animated values
-        particle.x.setValue(data.x);
-        particle.y.setValue(data.y);
+        particle.x.setValue(particle.currentX);
+        particle.y.setValue(particle.currentY);
       });
+
+      // Update connections every 2 frames for performance
+      if (frameCount % 2 === 0) {
+        const newConnections: typeof connections = [];
+
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].currentX - particles[j].currentX;
+            const dy = particles[i].currentY - particles[j].currentY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < config.connectionDistance) {
+              const distanceFactor = 1 - distance / config.connectionDistance;
+              newConnections.push({
+                x1: particles[i].currentX,
+                y1: particles[i].currentY,
+                x2: particles[j].currentX,
+                y2: particles[j].currentY,
+                opacity: distanceFactor * config.connectionOpacity,
+              });
+            }
+          }
+        }
+
+        setConnections(newConnections);
+      }
 
       animationId = requestAnimationFrame(animate);
     };
 
     animate();
     return () => cancelAnimationFrame(animationId);
-  }, [particles, width, height]);
+  }, [particles, width, height, config.connectionDistance, config.connectionOpacity]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -152,6 +194,21 @@ export function ParticleNetworkLite({
         locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Particle connections using SVG */}
+      <Svg style={StyleSheet.absoluteFill}>
+        {connections.map((conn, index) => (
+          <Line
+            key={`conn-${index}`}
+            x1={conn.x1}
+            y1={conn.y1}
+            x2={conn.x2}
+            y2={conn.y2}
+            stroke={renderColors.connection.replace(/[\d.]+\)$/, `${conn.opacity})`)}
+            strokeWidth={1}
+          />
+        ))}
+      </Svg>
 
       {/* Particles */}
       {particles.map((particle, index) => (

@@ -7,7 +7,6 @@ import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
-import { ParticleNetwork } from './components/ui/layout/ParticleNetwork';
 import { HeightDebugger } from './components/debug/HeightDebugger';
 
 const inter = Inter({

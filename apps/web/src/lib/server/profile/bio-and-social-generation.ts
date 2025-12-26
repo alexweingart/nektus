@@ -4,7 +4,6 @@ import { generateSocialUrl } from '@/lib/client/profile/transforms';
 
 // AI-discoverable social platforms (excludes phone-based platforms handled by PhoneBasedSocialService)
 const AI_DISCOVERABLE_PLATFORMS = ['facebook', 'instagram', 'x', 'linkedin', 'snapchat'] as const;
-type Platform = typeof AI_DISCOVERABLE_PLATFORMS[number];
 
 export class BioAndSocialGenerationService {
   // Verification strategy for each platform

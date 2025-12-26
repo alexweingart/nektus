@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       imageData = body.imageData;
-    } catch (jsonError) {
+    } catch {
       console.log('[API/PROFILE-IMAGE] No valid JSON body, proceeding with AI generation');
       imageData = undefined;
     }

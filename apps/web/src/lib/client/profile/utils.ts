@@ -28,7 +28,7 @@ export function profileHasPhone(profile: UserProfile | null): boolean {
  */
 export async function syncTimezone(
   profile: UserProfile,
-  userId: string
+  _userId: string
 ): Promise<UserProfile> {
   const browserTimezone = typeof Intl !== 'undefined'
     ? Intl.DateTimeFormat().resolvedOptions().timeZone

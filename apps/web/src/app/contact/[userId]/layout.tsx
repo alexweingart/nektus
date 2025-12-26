@@ -110,6 +110,8 @@ export default function ContactLayout({
         document.documentElement.style.removeProperty('--contact-background-image');
       }, 1000);
     };
+    // Only re-run when backgroundImage changes, not on other contactProfile changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactProfile?.backgroundImage]);
 
   // Liquid Glass: Override global color with contact's color

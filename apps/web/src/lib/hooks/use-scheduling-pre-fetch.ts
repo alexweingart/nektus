@@ -87,5 +87,7 @@ export function useSchedulingPreFetch({
       if (timeoutId) clearTimeout(timeoutId);
       abortController.abort();
     };
+    // Only depend on userId, not entire profile object to avoid unnecessary re-fetches
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHistoricalMode, sessionUserId, profile?.userId, userCalendars]);
 }

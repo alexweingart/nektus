@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -7,9 +7,7 @@ import {
   ViewStyle,
   TextStyle,
   View,
-  LayoutChangeEvent,
 } from "react-native";
-import { Canvas, RoundedRect, RadialGradient, vec } from "@shopify/react-native-skia";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "white";
 type ButtonSize = "md" | "lg" | "xl";
@@ -67,9 +65,6 @@ export function Button({
     textStyle,
   ];
 
-  // Glass effect gradient for white/primary variants (matches web radial gradient)
-  const hasGradient = variant === "primary" || variant === "white";
-
   const content = (
     <View style={styles.contentRow}>
       {loading ? (
@@ -85,52 +80,6 @@ export function Button({
       )}
     </View>
   );
-
-  const buttonHeight = sizeStyles[size].height;
-
-  // Track button dimensions for proper gradient centering
-  const [buttonWidth, setButtonWidth] = useState(0);
-
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    setButtonWidth(width);
-  };
-
-  if (hasGradient) {
-    // Calculate gradient radius - use half the diagonal for full coverage
-    const gradientRadius = buttonWidth > 0
-      ? Math.sqrt(Math.pow(buttonWidth / 2, 2) + Math.pow(buttonHeight / 2, 2))
-      : 200; // Fallback
-
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={isDisabled}
-        activeOpacity={0.8}
-        style={[styles.touchable, sizeStyles[size], isDisabled && styles.disabled, style]}
-        onLayout={handleLayout}
-      >
-        {/* Skia radial gradient background - white center fading to edges */}
-        {/* Web: radial-gradient(circle, rgb(255 255 255 / 1), rgb(255 255 255 / 0.6)) */}
-        {buttonWidth > 0 && (
-          <Canvas style={StyleSheet.absoluteFill}>
-            <RoundedRect x={0} y={0} width={buttonWidth} height={buttonHeight} r={9999}>
-              <RadialGradient
-                c={vec(buttonWidth / 2, buttonHeight / 2)}
-                r={gradientRadius}
-                colors={["rgba(255,255,255,1)", "rgba(255,255,255,0.6)"]}
-                positions={[0, 1]}
-              />
-            </RoundedRect>
-          </Canvas>
-        )}
-        {/* Border overlay */}
-        <View style={[styles.gradientBorder, { height: buttonHeight }]} />
-        {/* Content */}
-        {content}
-      </TouchableOpacity>
-    );
-  }
 
   return (
     <TouchableOpacity

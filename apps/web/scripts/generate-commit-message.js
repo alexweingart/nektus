@@ -22,7 +22,7 @@ async function generateCommitMessage() {
     try {
       // Exclude service worker and other auto-generated files from AI analysis
       diff = execSync('git diff --staged --no-color -- . ":(exclude)public/sw.js" ":(exclude)*.map" ":(exclude).next/*"', { encoding: 'utf8' });
-    } catch (error) {
+    } catch {
       console.error('Error: Unable to get git diff. Make sure you have staged changes.');
       process.exit(1);
     }

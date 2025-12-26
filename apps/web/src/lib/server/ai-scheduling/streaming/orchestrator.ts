@@ -21,7 +21,7 @@ import {
 } from './handler-utils';
 import { buildFormattingInstructions } from './formatting-utils';
 import type { AISchedulingRequest, Message, OpenAIToolCall, DetermineIntentResult, TemplateHandlerResult } from '@/types/ai-scheduling';
-import type { TimeSlot, Event } from '@/types';
+import type { TimeSlot } from '@/types';
 import type { Place } from '@/types/places';
 
 /**

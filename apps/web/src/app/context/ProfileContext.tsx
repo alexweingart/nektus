@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import type { Session } from 'next-auth';
 import { ClientProfileService as ProfileService } from '@/lib/client/profile/firebase-save';
 import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/lib/client/profile/save';
 import { UserProfile } from '@/types/profile';

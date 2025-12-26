@@ -325,9 +325,6 @@ And if you don't know any of those things, and just want me to suggest based off
 
     window.visualViewport.addEventListener('resize', handleViewportResize);
 
-    // Initial check
-    handleViewportResize();
-
     return () => {
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
     };

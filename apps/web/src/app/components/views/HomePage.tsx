@@ -8,11 +8,6 @@ import { Heading, Text } from '../ui/Typography';
 
 // Footer component exported separately so it can be rendered outside PullToRefresh
 export const HomeFooter: React.FC = () => {
-  const [isPWA, setIsPWA] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsPWA(window.matchMedia('(display-mode: standalone)').matches);
-  }, []);
 
   return (
     <div
@@ -52,15 +47,6 @@ const GoogleIcon = () => (
 // Component handles just the welcome screen
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
-
-  // Check if running as PWA on iOS (client-side only)
-  const [isIOSPWA, setIsIOSPWA] = React.useState(false);
-
-  React.useEffect(() => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setIsIOSPWA(isStandalone && isIOS);
-  }, []);
 
   const handleSignIn = async () => {
     // Check iOS PWA on every click (more reliable than state)
