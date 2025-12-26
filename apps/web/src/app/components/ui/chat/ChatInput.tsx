@@ -24,7 +24,12 @@ export default function ChatInput({
   };
 
   return (
-    <div className="sticky bottom-0 px-6 pt-6 pb-4 relative">
+    <div
+      className="relative px-6 pt-6"
+      style={{
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))'
+      }}
+    >
       {/* Backdrop blur layer with gradient mask */}
       <div
         className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-b from-transparent via-transparent via-40% to-black/20"

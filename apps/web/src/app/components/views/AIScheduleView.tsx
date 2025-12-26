@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStreamingAI, type ChatMessage } from '@/lib/hooks/use-streaming-ai';
@@ -41,6 +42,9 @@ export default function AIScheduleView() {
   // Pre-fetched common time slots
   const [commonTimeSlots, setCommonTimeSlots] = useState<TimeSlot[]>([]);
   const hasFetchedSlotsRef = useRef(false);
+
+  // Portal for fixed input - must be before early returns
+  const [mounted, setMounted] = useState(false);
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -289,39 +293,45 @@ And if you don't know any of those things, and just want me to suggest based off
     router.push(`/contact/${contactUserId}/smart-schedule${queryString}`);
   };
 
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
   if (loading || !contactProfile || !currentUserProfile) {
     return null;
   }
 
   return (
-    <div className="min-h-full flex flex-col">
-      {/* Header */}
-      <div className="px-6 pt-2 flex-shrink-0">
-        <div className="max-w-[var(--max-content-width,448px)] mx-auto">
+    <>
+      <div className="flex flex-col items-center px-4 py-2 pb-32">
+        {/* Header */}
+        <div className="w-full max-w-[var(--max-content-width,448px)]">
           <PageHeader
             onBack={handleBack}
             title="Find a Time"
           />
         </div>
-      </div>
 
-      {/* Messages - grows to fill space */}
-      <div className="flex-1 px-6">
-        <div className="max-w-[var(--max-content-width,448px)] mx-auto space-y-3 pb-2 pt-4">
+        {/* Messages - extra padding for fixed input */}
+        <div className="w-full max-w-[var(--max-content-width,448px)] space-y-3 pt-4">
           <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Input - sticky at bottom */}
-      <div className="flex-shrink-0 sticky bottom-0">
-        <ChatInput
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onSend={handleSend}
-          disabled={isProcessing}
-        />
-      </div>
-    </div>
+      {/* Input - rendered via portal to be fixed to viewport */}
+      {mounted && createPortal(
+        <div className="fixed bottom-0 left-0 right-0 z-50">
+          <ChatInput
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onSend={handleSend}
+            disabled={isProcessing}
+          />
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
