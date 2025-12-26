@@ -164,7 +164,8 @@ And if you don't know any of those things, and just want me to suggest based off
 
   useEffect(() => {
     // Only auto-scroll when new messages are added, not when existing messages are updated
-    if (messages.length > prevMessagesLengthRef.current) {
+    // Skip auto-scroll for the initial greeting message (messages.length === 1)
+    if (messages.length > prevMessagesLengthRef.current && messages.length > 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
     prevMessagesLengthRef.current = messages.length;

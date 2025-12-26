@@ -311,7 +311,7 @@ export async function streamSchedulingResponse(
             : 'midpoint';
 
         // Extract specific place name if user explicitly requested one
-        const explicitPlaceRequest = (templateResult.template as any).specificPlaceName;
+        const explicitPlaceRequest = templateResult.template.specificPlaceName;
 
         // Build formatting instructions with decomposed data
         const formattingInstructions = buildFormattingInstructions(

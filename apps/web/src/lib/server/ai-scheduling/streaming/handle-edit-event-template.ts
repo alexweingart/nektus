@@ -134,7 +134,7 @@ export async function handleEditEventTemplate(
     };
     // Mark as explicit place request and store the name
     eventTemplate.explicitUserPlace = true;
-    (eventTemplate as any).specificPlaceName = editResult.newSpecificPlace;
+    eventTemplate.specificPlaceName = editResult.newSpecificPlace;
     // Clear cached places since we'll be searching for new ones
     places = [];
   }
@@ -159,7 +159,7 @@ export async function handleEditEventTemplate(
     // Mark as explicit place request and store the selected place name
     eventTemplate.explicitUserPlace = true;
     if (places[editResult.newPlaceIndex]) {
-      (eventTemplate as any).specificPlaceName = places[editResult.newPlaceIndex].name;
+      eventTemplate.specificPlaceName = places[editResult.newPlaceIndex].name;
     }
   }
 
