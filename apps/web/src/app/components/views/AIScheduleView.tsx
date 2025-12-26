@@ -38,6 +38,7 @@ export default function AIScheduleView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Pre-fetched common time slots
   const [commonTimeSlots, setCommonTimeSlots] = useState<TimeSlot[]>([]);
@@ -45,6 +46,7 @@ export default function AIScheduleView() {
 
   // Portal for fixed input - must be before early returns
   const [mounted, setMounted] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -298,6 +300,39 @@ And if you don't know any of those things, and just want me to suggest based off
     return () => setMounted(false);
   }, []);
 
+  // Handle keyboard appearance - adjust scroll to keep messages visible
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleViewportResize = () => {
+      if (!window.visualViewport) return;
+
+      // Calculate keyboard height as the difference between window height and visual viewport height
+      const keyboardHeight = window.innerHeight - window.visualViewport.height;
+      setKeyboardHeight(keyboardHeight);
+
+      // If keyboard is visible and we have messages, scroll to keep last message visible
+      if (keyboardHeight > 0 && messagesContainerRef.current) {
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+          if (messagesEndRef.current && messagesContainerRef.current) {
+            // Scroll messages container to show the last message
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }
+        });
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+
+    // Initial check
+    handleViewportResize();
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    };
+  }, [messages]);
+
   if (loading || !contactProfile || !currentUserProfile) {
     return null;
   }
@@ -314,7 +349,10 @@ And if you don't know any of those things, and just want me to suggest based off
         </div>
 
         {/* Messages - extra padding for fixed input */}
-        <div className="w-full max-w-[var(--max-content-width,448px)] space-y-3 pt-4">
+        <div
+          ref={messagesContainerRef}
+          className="w-full max-w-[var(--max-content-width,448px)] space-y-3 pt-4"
+        >
           <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
           <div ref={messagesEndRef} />
         </div>
@@ -322,7 +360,12 @@ And if you don't know any of those things, and just want me to suggest based off
 
       {/* Input - rendered via portal to be fixed to viewport */}
       {mounted && createPortal(
-        <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 transition-transform duration-200"
+          style={{
+            transform: keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : 'translateY(0)',
+          }}
+        >
           <ChatInput
             value={input}
             onChange={(e) => setInput(e.target.value)}
