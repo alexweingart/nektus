@@ -51,9 +51,11 @@ const DEFAULT_COLORS_INVERTED = {
 
 /**
  * Background manager that orchestrates ParticleNetwork with context-aware settings
- * and personalized colors extracted from profile images
+ * and personalized colors extracted from profile images.
+ *
+ * V2: Simplified to just render ParticleNetwork + children, no wrapper div.
  */
-export function LayoutBackground() {
+export function LayoutBackground({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const { profile, isLoading, isNavigatingFromSetup, getContact } = useProfile();
   const pathname = usePathname();
@@ -123,6 +125,27 @@ export function LayoutBackground() {
       document.documentElement.style.removeProperty('--default-background-image');
     };
   }, [mounted]);
+
+  // Update safe area colors for contact pages
+  useEffect(() => {
+    if (!mounted) return;
+
+    const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+    const contactColors = contactProfile?.backgroundColors;
+    const userColors = profile?.backgroundColors;
+
+    if (isOnContactPage && contactColors && contactColors.length >= 3) {
+      // On contact page with contact colors - use contact's dominant color
+      const [dominant] = contactColors;
+      document.documentElement.style.backgroundColor = dominant;
+      console.log('[LayoutBackground] Setting contact safe area color:', dominant);
+    } else if (!isOnContactPage && userColors && userColors.length >= 3) {
+      // Left contact page - reset to user's dominant color
+      const [dominant] = userColors;
+      document.documentElement.style.backgroundColor = dominant;
+      console.log('[LayoutBackground] Resetting to user safe area color:', dominant);
+    }
+  }, [mounted, pathname, contactProfile, profile]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
@@ -217,5 +240,11 @@ export function LayoutBackground() {
 
   const particleProps = getParticleNetworkProps();
 
-  return <ParticleNetwork {...particleProps} />;
+  // V2: No wrapper div - ParticleNetwork is fixed, children scroll naturally
+  return (
+    <>
+      <ParticleNetwork {...particleProps} />
+      {children}
+    </>
+  );
 }

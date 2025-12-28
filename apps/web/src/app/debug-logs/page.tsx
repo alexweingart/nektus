@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 interface LogEntry {
   timestamp: string;
@@ -96,13 +95,8 @@ export default function DebugLogsPage() {
   const devices = ['all', ...Object.keys(logsByDevice).filter(d => d !== 'unknown'), 'unknown'].filter(d => d !== 'all' || allLogs.length > 0);
   const displayLogs = activeTab === 'all' ? allLogs : (logsByDevice[activeTab] || []);
 
-  const handleRefresh = async () => {
-    window.location.reload();
-  };
-
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-      <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-4xl mx-auto p-4">
         <div className="bg-white rounded-2xl shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Debug Logs</h1>
@@ -175,7 +169,6 @@ export default function DebugLogsPage() {
             </div>
           </div>
         </div>
-      </div>
-    </PullToRefresh>
+    </div>
   );
 }

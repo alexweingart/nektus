@@ -173,9 +173,11 @@ function colorsEqual(a: ParticleColors, b: ParticleColors): boolean {
  */
 export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetworkProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const backgroundRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [cssColors, setCssColors] = useState<ParticleColors | null>(null);
 
   // Transition state for smooth color interpolation
   const transitionRef = useRef({
@@ -186,9 +188,49 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     isTransitioning: false
   });
 
+  // Helper to get colors from CSS variables (set by ProfileContext)
+  const getColorsFromCSSVariables = (): ParticleColors | null => {
+    if (typeof window === 'undefined') return null;
+
+    const gradientStart = getComputedStyle(document.documentElement).getPropertyValue('--gradient-start-color').trim();
+    const gradientEnd = getComputedStyle(document.documentElement).getPropertyValue('--gradient-end-color').trim();
+    const particle = getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim();
+    const connection = getComputedStyle(document.documentElement).getPropertyValue('--connection-color').trim();
+
+    // Only use CSS variables if all are set
+    if (gradientStart && gradientEnd && particle && connection) {
+      return {
+        gradientStart,
+        gradientEnd,
+        particle,
+        connection
+      };
+    }
+
+    return null;
+  };
+
+  // Watch for CSS variable changes (when ProfileContext sets them)
+  useEffect(() => {
+    const checkCssColors = () => {
+      const newCssColors = getColorsFromCSSVariables();
+      if (newCssColors) {
+        setCssColors(newCssColors);
+      }
+    };
+
+    // Check immediately
+    checkCssColors();
+
+    // Also check periodically in case CSS variables change
+    const interval = setInterval(checkCssColors, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Detect color changes and start transition
-  // Use inverted gradient for profile-default context if no custom colors provided
-  const newColors = colors || (context === 'profile-default' ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS);
+  // Priority: 1) colors prop, 2) CSS variables (from ProfileContext), 3) defaults
+  const newColors = colors || cssColors || (context === 'profile-default' ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS);
   if (!colorsEqual(newColors, transitionRef.current.toColors)) {
     // Get current interpolated colors as starting point
     const now = performance.now();
@@ -256,16 +298,11 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size to match HTML element
-    const updateSize = () => {
-      canvas.width = window.innerWidth;
-      const fullHeight = parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--full-screen-height') ||
-        window.innerHeight.toString()
-      );
-      canvas.height = fullHeight;
+    // V2: Lock background height to initial viewport (prevents resize when keyboard opens)
+    const initialHeight = window.innerHeight;
 
-      // Reinitialize particles when canvas resizes
+    // Initialize particles once
+    const initParticles = () => {
       const particleCount = Math.floor((canvas.width * canvas.height) / config.particleDensity);
       const particles: Particle[] = [];
 
@@ -280,7 +317,31 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
       }
       particlesRef.current = particles;
     };
-    updateSize();
+
+    // Set canvas size to match HTML element
+    const updateSize = () => {
+      const previousWidth = canvas.width;
+      const previousHeight = canvas.height;
+
+      canvas.width = window.innerWidth;
+      canvas.height = initialHeight;  // Lock bitmap height to initial viewport
+
+      // Don't set canvas.style.height - let CSS (minHeight: -webkit-fill-available) handle it
+
+      // Only reinitialize particles if canvas size changed significantly (more than 50px)
+      // This prevents reinitialization during pull-to-refresh gestures
+      if (Math.abs(previousWidth - canvas.width) > 50 || Math.abs(previousHeight - canvas.height) > 50) {
+        initParticles();
+      }
+    };
+
+    // Initial setup
+    canvas.width = window.innerWidth;
+    canvas.height = initialHeight;
+    initParticles();
+
+    // No need to maintain style.height - CSS handles it with minHeight: -webkit-fill-available
+
     window.addEventListener('resize', updateSize);
 
     // Animation loop
@@ -290,20 +351,11 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
       // Get current interpolated colors
       const renderColors = getCurrentColors();
 
-      // Update gradient background with properly lightened middle stop
-      const lightenedStart = (() => {
-        const match = renderColors.gradientStart.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
-        if (match) {
-          const [, r, g, b, a] = match;
-          const currentAlpha = parseFloat(a || '1');
-          const lightenedAlpha = currentAlpha * 0.4; // Reduce to 40% of current opacity
-          return `rgba(${r}, ${g}, ${b}, ${lightenedAlpha})`;
-        }
-        return renderColors.gradientStart;
-      })();
-
-      const gradientStyle = `radial-gradient(ellipse at top, ${renderColors.gradientStart} 0%, ${lightenedStart} 40%, ${renderColors.gradientEnd} 70%, ${renderColors.gradientEnd} 100%)`;
-      canvas.style.background = gradientStyle;
+      // V2: 3-color gradient for matching safe areas (dark → light → dark)
+      const gradientStyle = `linear-gradient(to bottom, ${renderColors.gradientEnd} 0%, ${renderColors.gradientStart} 50%, ${renderColors.gradientEnd} 100%)`;
+      if (backgroundRef.current) {
+        backgroundRef.current.style.background = gradientStyle;
+      }
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -399,33 +451,31 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
     return null;
   }
 
-  // Initial gradient (will be updated by animation loop)
+  // V2: Initial linear gradient (will be updated by animation loop)
   const initialColors = getCurrentColors();
-  const initialLightenedStart = (() => {
-    const match = initialColors.gradientStart.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
-    if (match) {
-      const [, r, g, b, a] = match;
-      const currentAlpha = parseFloat(a || '1');
-      const lightenedAlpha = currentAlpha * 0.4; // Reduce to 40% of current opacity
-      return `rgba(${r}, ${g}, ${b}, ${lightenedAlpha})`;
-    }
-    return initialColors.gradientStart;
-  })();
-  const initialGradient = `radial-gradient(ellipse at top, ${initialColors.gradientStart} 0%, ${initialLightenedStart} 40%, ${initialColors.gradientEnd} 70%, ${initialColors.gradientEnd} 100%)`;
+  // Create gradient that starts and ends with same color for matching safe areas
+  // Format: dark (top/safe) → light (middle) → dark (bottom/safe)
+  const initialGradient = `linear-gradient(to bottom, ${initialColors.gradientEnd} 0%, ${initialColors.gradientStart} 50%, ${initialColors.gradientEnd} 100%)`;
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed pointer-events-none"
-      style={{
-        zIndex: -1,
-        top: 'calc(-1 * var(--safe-area-inset-top, 0px))',
-        left: 0,
-        right: 0,
-        width: '100%',
-        height: 'calc(100vh + var(--safe-area-inset-top, 0px) + var(--safe-area-inset-bottom, 0px))',
-        background: initialGradient,
-      }}
-    />
+    <>
+      {/* Background gradient div */}
+      <div
+        ref={backgroundRef}
+        className="particle-network-canvas"
+        style={{
+          background: initialGradient,
+          zIndex: -1
+        }}
+      />
+      {/* Canvas for particles and connections */}
+      <canvas
+        ref={canvasRef}
+        className="particle-network-canvas"
+        style={{
+          zIndex: 0
+        }}
+      />
+    </>
   );
 }

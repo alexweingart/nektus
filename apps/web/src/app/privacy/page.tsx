@@ -1,11 +1,8 @@
 'use client';
 
-import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
-
 export default function PrivacyPage() {
   return (
-    <PullToRefresh disabled={true} onRefresh={() => {}}>
-      <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
+    <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
         <h1 className="text-3xl font-bold mb-8 text-center">Privacy Policy</h1>
         
         <div className="space-y-6 text-sm leading-relaxed">
@@ -120,7 +117,6 @@ export default function PrivacyPage() {
             </p>
           </section>
         </div>
-      </div>
-    </PullToRefresh>
-  )
+    </div>
+  );
 }

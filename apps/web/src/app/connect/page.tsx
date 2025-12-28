@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
 import { Button } from '../components/ui/buttons/Button';
-import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import { ClientProfileService } from '@/lib/client/profile/firebase-save';
@@ -157,14 +156,12 @@ function ConnectPageContent() {
   // Show contact view if authenticated and profile is loaded
   if (session && contactProfile && token) {
     return (
-      <PullToRefresh disabled={true} onRefresh={() => {}}>
-        <ContactView
-          profile={contactProfile}
-          onReject={() => router.push('/')}
-          isLoading={false}
-          token={token}
-        />
-      </PullToRefresh>
+      <ContactView
+        profile={contactProfile}
+        onReject={() => router.push('/')}
+        isLoading={false}
+        token={token}
+      />
     );
   }
 

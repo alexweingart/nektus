@@ -85,14 +85,16 @@
 
 /* Base styles */
 :root {
-  color-scheme: dark;
   color: var(--foreground);
-  background-color: transparent; /* Allow body::before background to show through */
+  background-color: #0a0f1a; /* Solid dark color for safe areas */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+  /* Smooth transition for background-color changes (safe areas) */
+  /* Using cubic-bezier to match ParticleNetwork's ease-out cubic (1 - Math.pow(1 - progress, 3)) */
+  transition: background-color 1000ms cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
 /* Reset and base styles */
@@ -107,45 +109,41 @@
 }
 
 html {
-  min-height: 100%;
+  /* V2: HTML is the scroll container */
   height: 100%;
-
-  /* Prevent scrolling without position:fixed (which clips children) */
   width: 100%;
-  overflow: hidden; /* Prevent scrolling on html */
+  overflow-y: auto;  /* Enable vertical scroll */
+  overflow-x: hidden;
 
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 
-  /* Solid dark green to match canvas gradient - fills safe areas where gradient can't render */
-  background-color: #0a0f1a !important;
+  /* Background matches gradient end color for bottom safe area (home indicator) */
+  background: #0a0f1a;
 
-  /* Prevent any scrolling or overscroll */
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: none;
-  /* Prevent touch scrolling */
-  touch-action: none;
-  -webkit-overflow-scrolling: auto;
+  /* Allow natural overscroll on Y axis */
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
-  min-height: 100%;
-  height: 100%;
+  /* V2: Body flows naturally with HTML scroll */
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  position: relative;
 
-  overflow: hidden; /* Prevent scrolling but on body instead of html */
   font-family: var(--font-inter);
   color: hsl(var(--foreground));
-  position: relative;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent overscroll bounce to avoid black areas */
-  overscroll-behavior-y: none;
-  overscroll-behavior-x: contain;
 
-  /* Safe area insets - push content down from notch/sides, but not bottom (footer handles that) */
-  padding-top: env(safe-area-inset-top);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  /* Allow natural overscroll */
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
+
+  /* No safe area padding - LayoutBackground handles extension behind safe areas */
 
   /* Transparent to allow canvas/background layers to show through */
   background-color: transparent;
@@ -158,7 +156,6 @@ body {
 @media all and (display-mode: standalone) {
   [data-scrollable="true"] {
     max-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
-    min-height: calc(100dvh - env(safe-area-inset-top, 0px)) !important;
   }
 }
 
@@ -201,7 +198,7 @@ body::after {
   top: 0;
   left: 0;
   width: 100%;
-  height: var(--full-screen-height, 100vh);
+  height: 100vh;
   background-image: var(--default-background-image);
   background-size: cover;
   background-position: center;
@@ -223,16 +220,9 @@ body.show-default-background::after {
     background-attachment: scroll !important;
   }
 
-  /* Prevent overscroll (height handled by inset: 0) */
-  html {
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: contain;
-  }
-
+  /* V2: Let HTML scroll naturally on iOS too */
   body {
-    height: var(--full-screen-height, 100vh) !important;
-    overflow-y: hidden;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
     overscroll-behavior-x: contain;
   }
   /* Prevent zoom on input focus in iOS < 13 */
@@ -455,4 +445,20 @@ button {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+}
+
+/* ============================================================================ */
+/* ParticleNetwork canvas - extends into safe areas                           */
+/* ============================================================================ */
+
+.particle-network-canvas {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  min-height: -webkit-fill-available !important;
+  height: 100dvh !important;
+  pointer-events: none !important;
 }

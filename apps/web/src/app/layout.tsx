@@ -8,22 +8,15 @@ import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
 import { HeightDebugger } from './components/debug/HeightDebugger';
+import { ScrollBehavior } from './components/ui/layout/ScrollBehavior';
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
-// Theme color for PWA and root background
-const THEME_COLOR = '#000000';
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: 'cover',
-};
+// Theme color for PWA - transparent to let gradient show through
+const THEME_COLOR = 'transparent';
 
 export const metadata: Metadata = {
   title: "Nekt - Turn conversations into friendships",
@@ -64,12 +57,11 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Nekt',
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     startupImage: '/pwa/nektus-logo-pwa-192x192.png',
   },
   other: {
     'msapplication-TileColor': THEME_COLOR,
-    'theme-color': THEME_COLOR,
   },
 };
 
@@ -84,9 +76,9 @@ export default function RootLayout({
         data-scroll-behavior="smooth"
       >
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -96,13 +88,13 @@ export default function RootLayout({
         <SessionProvider>
           <ProfileProvider>
             <AdminModeProvider>
+              <ScrollBehavior />
               <HeightDebugger />
-              <LayoutBackground />
-              {/* ParticleNetwork is rendered inside LayoutBackground with proper context-aware props */}
-              <AdminBanner />
-              <div style={{ position: 'relative', zIndex: 10 }}>
+              {/* V2: LayoutBackground wraps children - no wrapper div needed */}
+              <LayoutBackground>
+                <AdminBanner />
                 {children}
-              </div>
+              </LayoutBackground>
             </AdminModeProvider>
           </ProfileProvider>
         </SessionProvider>

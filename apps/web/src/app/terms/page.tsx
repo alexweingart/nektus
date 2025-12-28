@@ -1,11 +1,8 @@
 'use client';
 
-import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
-
 export default function TermsPage() {
   return (
-    <PullToRefresh disabled={true} onRefresh={() => {}}>
-      <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
+    <div className="container mx-auto px-4 py-8 max-w-4xl text-foreground">
         <h1 className="text-3xl font-bold mb-8 text-center">Terms of Use</h1>
         
         <div className="space-y-6 text-sm leading-relaxed">
@@ -175,7 +172,6 @@ export default function TermsPage() {
             </p>
           </section>
         </div>
-      </div>
-    </PullToRefresh>
-  )
+    </div>
+  );
 }

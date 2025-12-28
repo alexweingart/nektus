@@ -8,7 +8,6 @@
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import LocationView from '@/app/components/views/LocationView';
-import { PullToRefresh } from '@/app/components/ui/layout/PullToRefresh';
 
 function EditLocationContent() {
   const searchParams = useSearchParams();
@@ -18,11 +17,7 @@ function EditLocationContent() {
     return null;
   }
 
-  return (
-    <PullToRefresh disabled={true} onRefresh={() => {}}>
-      <LocationView locationId={locationId} />
-    </PullToRefresh>
-  );
+  return <LocationView locationId={locationId} />;
 }
 
 export default function EditLocationPage() {

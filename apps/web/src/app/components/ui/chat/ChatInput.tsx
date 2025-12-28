@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import { ExpandingInput } from '@/app/components/ui/inputs/ExpandingInput';
 import { Button } from '@/app/components/ui/buttons/Button';
 
@@ -14,8 +17,14 @@ export default function ChatInput({
   onChange,
   onSend,
   disabled,
-  placeholder = "Describe what you'd like to do..."
+  placeholder = "What would you like to do?"
 }: ChatInputProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [initialHeight] = useState(() => window.innerHeight);
+  const [inputHeight, setInputHeight] = useState(0);
+  const tickingRef = useRef(false);
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !disabled) {
       e.preventDefault();
@@ -23,44 +32,125 @@ export default function ChatInput({
     }
   };
 
+  // V2: Hybrid positioning - fixed when keyboard closed, absolute when open
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    setInputHeight(wrapper.offsetHeight);
+
+    const updatePosition = () => {
+      if (!keyboardOpen) {
+        tickingRef.current = false;
+        return;
+      }
+
+      const scrollY = window.scrollY || window.pageYOffset;
+      const vpHeight = window.visualViewport?.height || window.innerHeight;
+      const keyboardHeight = initialHeight - vpHeight;
+
+      wrapper.style.top = `${scrollY + vpHeight - inputHeight}px`;
+      wrapper.style.paddingBottom = `${keyboardHeight}px`;
+
+      tickingRef.current = false;
+    };
+
+    const requestUpdate = () => {
+      if (!tickingRef.current && keyboardOpen) {
+        requestAnimationFrame(updatePosition);
+        tickingRef.current = true;
+      }
+    };
+
+    const handleViewportChange = () => {
+      const vpHeight = window.visualViewport?.height || window.innerHeight;
+      const wasKeyboardOpen = keyboardOpen;
+      const isKeyboardOpen = vpHeight < initialHeight - 100;
+
+      setKeyboardOpen(isKeyboardOpen);
+
+      if (isKeyboardOpen && !wasKeyboardOpen) {
+        wrapper.style.position = 'absolute';
+        wrapper.style.bottom = 'auto';
+        setInputHeight(wrapper.offsetHeight);
+        updatePosition();
+      } else if (!isKeyboardOpen && wasKeyboardOpen) {
+        wrapper.style.position = 'fixed';
+        wrapper.style.bottom = '0';
+        wrapper.style.top = 'auto';
+        wrapper.style.paddingBottom = '';
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', requestUpdate);
+    }
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+
+    handleViewportChange();
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+        window.visualViewport.removeEventListener('scroll', requestUpdate);
+      }
+      window.removeEventListener('scroll', requestUpdate);
+    };
+  }, [keyboardOpen, initialHeight, inputHeight]);
+
   return (
     <div
-      className="relative px-6 pt-6"
+      ref={wrapperRef}
       style={{
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))'
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 100,
+        overscrollBehavior: 'contain',
+        willChange: 'top',
+        transition: 'top 0.05s linear'
       }}
     >
-      {/* Backdrop blur layer with gradient mask */}
       <div
-        className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-b from-transparent via-transparent via-40% to-black/20"
+        className="relative px-6 pt-6"
         style={{
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))'
         }}
-      />
-
-      {/* Content layer */}
-      <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
-        <ExpandingInput
-          value={value}
-          onChange={onChange}
-          onKeyPress={handleKeyPress}
-          placeholder={placeholder}
-          disabled={disabled}
-          variant="white"
-          className="w-[80%]"
+      >
+        {/* Backdrop blur layer with gradient mask */}
+        <div
+          className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-b from-transparent via-transparent via-40% to-black/20"
+          style={{
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
+          }}
         />
-        <Button
-          onClick={onSend}
-          disabled={!value.trim() || disabled}
-          variant="circle"
-          size="icon"
-          className="w-14 h-14 shrink-0 mt-0"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </Button>
+
+        {/* Content layer */}
+        <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
+          <ExpandingInput
+            value={value}
+            onChange={onChange}
+            onKeyPress={handleKeyPress}
+            placeholder={placeholder}
+            disabled={disabled}
+            variant="white"
+            className="w-[80%]"
+          />
+          <Button
+            onClick={onSend}
+            disabled={!value.trim() || disabled}
+            variant="circle"
+            size="icon"
+            className="w-14 h-14 shrink-0 mt-0"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,6 @@ import type { ContactEntry, FieldSection } from '@/types/profile';
 import PageHeader from '../ui/layout/PageHeader';
 import { useEditProfileFields, useImageUpload, useProfileViewMode } from '@/lib/hooks/use-edit-profile-fields';
 import { useCalendarLocationManagement } from '@/lib/hooks/use-calendar-location-management';
-import { useFreezeScrollOnFocus } from '@/lib/hooks/use-freeze-scroll-on-focus';
 import { getOptimalProfileImageUrl } from '@/lib/client/profile/image';
 import { StaticInput } from '../ui/inputs/StaticInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
@@ -86,7 +85,6 @@ const EditProfileView: React.FC = () => {
     saveProfile
   });
 
-  useFreezeScrollOnFocus(nameInputRef);
 
   // Initialize on mount
   React.useEffect(() => {
@@ -351,7 +349,7 @@ const EditProfileView: React.FC = () => {
           </div>
 
           {/* Sticky Profile View Selector */}
-          <div className="sticky bottom-8 left-0 right-0 z-50 mt-8">
+          <div className="sticky bottom-4 left-0 right-0 z-50 mt-8">
             <div className="flex justify-center">
               <ProfileViewSelector
                 selectedMode={selectedMode}

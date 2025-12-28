@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../context/ProfileContext';
 import ProfileSetupView from '../components/views/ProfileSetupView';
-import { PullToRefresh } from '../components/ui/layout/PullToRefresh';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
@@ -15,11 +14,6 @@ function SetupPageContent() {
   const { isNavigatingFromSetup } = useProfile();
   const router = useRouter();
 
-  const handleRefresh = async () => {
-    // Reload the page to refresh all data
-    window.location.reload();
-  };
-                  
   const isLoading = status === 'loading';
 
   // Handle redirects in useEffect to avoid setState during render
@@ -38,13 +32,11 @@ function SetupPageContent() {
     if (isNavigatingFromSetup) {
       return null;
     }
-    
+
     return (
-      <PullToRefresh onRefresh={handleRefresh}>
-        <div className="flex flex-col items-center px-4 py-2">
-          <ProfileSetupView />
-        </div>
-      </PullToRefresh>
+      <div className="flex flex-col items-center px-4 py-2">
+        <ProfileSetupView />
+      </div>
     );
   }
 

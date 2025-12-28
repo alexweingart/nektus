@@ -261,17 +261,58 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Liquid Glass: Set global color tint from user's profile
   useEffect(() => {
     if (profile?.backgroundColors) {
-      // Use accent2 to match particle dots
-      const profileColor = profile.backgroundColors[2] || profile.backgroundColors[1] || profile.backgroundColors[0];
+      const [dominant, accent1, accent2] = profile.backgroundColors;
+
+      // Use accent2 to match particle dots (for glass tint)
+      const profileColor = accent2 || accent1 || dominant;
       if (profileColor) {
         const rgb = hexToRgb(profileColor);
         const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
         console.log('[ProfileContext] Setting global glass tint from backgroundColors[2]:', profileColor, '→', rgbString);
         document.documentElement.style.setProperty('--glass-tint-color', rgbString);
       }
+
+      // Also set gradient colors for ParticleNetwork (Option A mapping)
+      if (dominant && accent1 && accent2) {
+        // Helper to convert hex to rgba
+        const hexToRgba = (hex: string, alpha: number): string => {
+          const rgb = hexToRgb(hex);
+          return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+        };
+
+        const gradientStart = hexToRgba(accent1, 0.4);  // Bright accent at top
+        const gradientEnd = dominant;                    // Main color fills background
+        const particle = hexToRgba(accent2, 0.6);       // Bright particles
+        const connection = hexToRgba(accent2, 0.15);    // Subtle connections
+
+        console.log('[ProfileContext] Setting gradient colors:', {
+          gradientStart,
+          gradientEnd,
+          particle,
+          connection
+        });
+
+        document.documentElement.style.setProperty('--gradient-start-color', gradientStart);
+        document.documentElement.style.setProperty('--gradient-end-color', gradientEnd);
+        document.documentElement.style.setProperty('--particle-color', particle);
+        document.documentElement.style.setProperty('--connection-color', connection);
+
+        // Set :root background-color to gradientEnd for safe areas
+        document.documentElement.style.backgroundColor = gradientEnd;
+        console.log('[ProfileContext] Setting :root background-color to:', gradientEnd);
+      }
     } else {
       console.log('[ProfileContext] No backgroundColors, using default green');
       document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
+
+      // Clear gradient colors (will use ParticleNetwork defaults)
+      document.documentElement.style.removeProperty('--gradient-start-color');
+      document.documentElement.style.removeProperty('--gradient-end-color');
+      document.documentElement.style.removeProperty('--particle-color');
+      document.documentElement.style.removeProperty('--connection-color');
+
+      // Reset :root background-color to default dark
+      document.documentElement.style.backgroundColor = '#0a0f1a';
     }
   }, [profile]);
 

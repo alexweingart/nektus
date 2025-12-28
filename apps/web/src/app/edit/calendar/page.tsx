@@ -3,7 +3,6 @@
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import CalendarView from '@/app/components/views/CalendarView';
-import { PullToRefresh } from '@/app/components/ui/layout/PullToRefresh';
 
 function EditCalendarContent() {
   const searchParams = useSearchParams();
@@ -17,11 +16,7 @@ function EditCalendarContent() {
     );
   }
 
-  return (
-    <PullToRefresh disabled={true} onRefresh={() => {}}>
-      <CalendarView calendarId={calendarId} />
-    </PullToRefresh>
-  );
+  return <CalendarView calendarId={calendarId} />;
 }
 
 export default function EditCalendarPage() {

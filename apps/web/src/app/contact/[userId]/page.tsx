@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../../components/views/ContactView';
 import { Button } from '../../components/ui/buttons/Button';
-import { PullToRefresh } from '../../components/ui/layout/PullToRefresh';
 import type { SavedContact } from '@/types/contactExchange';
 import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/lib/client/profile/transforms';
@@ -104,22 +103,16 @@ function ContactPageContent() {
     );
   }
 
-  const handleRefresh = async () => {
-    window.location.reload();
-  };
-
   // Show contact view if authenticated and contact is loaded
   if (session && contactProfile) {
     return (
-      <PullToRefresh onRefresh={handleRefresh}>
-        <ContactView
-          profile={contactProfile}
-          onReject={handleGoBack}
-          isLoading={false}
-          token={contactProfile.matchToken}
-          isHistoricalContact={true}
-        />
-      </PullToRefresh>
+      <ContactView
+        profile={contactProfile}
+        onReject={handleGoBack}
+        isLoading={false}
+        token={contactProfile.matchToken}
+        isHistoricalContact={true}
+      />
     );
   }
 

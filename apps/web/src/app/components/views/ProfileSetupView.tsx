@@ -6,7 +6,6 @@ import { Button } from '../ui/buttons/Button';
 import { DropdownPhoneInput } from '../ui/inputs/DropdownPhoneInput';
 import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { Heading } from '../ui/Typography';
-import { useFreezeScrollOnFocus } from '@/lib/hooks/use-freeze-scroll-on-focus';
 import Avatar from '../ui/elements/Avatar';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
@@ -40,7 +39,6 @@ function ProfileSetupView() {
   
   const phoneInputRef = useRef<HTMLInputElement>(null);
   
-  useFreezeScrollOnFocus(phoneInputRef);
   const adminModeProps = useAdminModeActivator();
 
   // Platform-specific delayed focus for keyboard tray behavior

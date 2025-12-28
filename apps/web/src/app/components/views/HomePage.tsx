@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { Heading, Text } from '../ui/Typography';
 
-// Footer component exported separately so it can be rendered outside PullToRefresh
+// Footer component exported separately so it can be rendered as a sibling to HomePage
 export const HomeFooter: React.FC = () => {
 
   return (
