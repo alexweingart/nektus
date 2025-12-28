@@ -358,19 +358,12 @@ And if you don't know any of those things, and just want me to suggest based off
 
       {/* Input - rendered via portal to be fixed to viewport */}
       {mounted && createPortal(
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 transition-transform duration-200"
-          style={{
-            transform: keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : 'translateY(0)',
-          }}
-        >
-          <ChatInput
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSend={handleSend}
-            disabled={isProcessing}
-          />
-        </div>,
+        <ChatInput
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onSend={handleSend}
+          disabled={isProcessing}
+        />,
         document.body
       )}
     </>

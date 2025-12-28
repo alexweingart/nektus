@@ -299,6 +299,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // Set :root background-color to gradientEnd for safe areas
         document.documentElement.style.backgroundColor = gradientEnd;
+        document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
         console.log('[ProfileContext] Setting :root background-color to:', gradientEnd);
       }
     } else {
@@ -313,6 +314,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       // Reset :root background-color to default dark
       document.documentElement.style.backgroundColor = '#0a0f1a';
+      document.documentElement.style.setProperty('--safe-area-color', '#0a0f1a');
     }
   }, [profile]);
 

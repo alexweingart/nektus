@@ -138,11 +138,13 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // On contact page with contact colors - use contact's dominant color
       const [dominant] = contactColors;
       document.documentElement.style.backgroundColor = dominant;
+      document.documentElement.style.setProperty('--safe-area-color', dominant);
       console.log('[LayoutBackground] Setting contact safe area color:', dominant);
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Left contact page - reset to user's dominant color
       const [dominant] = userColors;
       document.documentElement.style.backgroundColor = dominant;
+      document.documentElement.style.setProperty('--safe-area-color', dominant);
       console.log('[LayoutBackground] Resetting to user safe area color:', dominant);
     }
   }, [mounted, pathname, contactProfile, profile]);

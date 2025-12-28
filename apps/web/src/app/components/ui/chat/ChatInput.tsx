@@ -22,8 +22,9 @@ export default function ChatInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [initialHeight] = useState(() => window.innerHeight);
-  const [inputHeight, setInputHeight] = useState(0);
+  const inputHeightRef = useRef(0);
   const tickingRef = useRef(false);
+  const originalPaddingRef = useRef<string>('');
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !disabled) {
@@ -32,12 +33,10 @@ export default function ChatInput({
     }
   };
 
-  // V2: Hybrid positioning - fixed when keyboard closed, absolute when open
+  // Background tester v2 approach: hybrid positioning (fixed → absolute when keyboard opens)
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
-
-    setInputHeight(wrapper.offsetHeight);
 
     const updatePosition = () => {
       if (!keyboardOpen) {
@@ -48,9 +47,12 @@ export default function ChatInput({
       const scrollY = window.scrollY || window.pageYOffset;
       const vpHeight = window.visualViewport?.height || window.innerHeight;
       const keyboardHeight = initialHeight - vpHeight;
+      const basePadding = parseFloat(originalPaddingRef.current) || 0;
 
-      wrapper.style.top = `${scrollY + vpHeight - inputHeight}px`;
-      wrapper.style.paddingBottom = `${keyboardHeight}px`;
+      // Position at bottom of visible viewport (above keyboard)
+      wrapper.style.top = `${scrollY + vpHeight - inputHeightRef.current}px`;
+      // Extend padding: original + keyboard height
+      wrapper.style.paddingBottom = `${basePadding + keyboardHeight}px`;
 
       tickingRef.current = false;
     };
@@ -70,15 +72,27 @@ export default function ChatInput({
       setKeyboardOpen(isKeyboardOpen);
 
       if (isKeyboardOpen && !wasKeyboardOpen) {
+        // Keyboard just opened - switch to absolute positioning
         wrapper.style.position = 'absolute';
         wrapper.style.bottom = 'auto';
-        setInputHeight(wrapper.offsetHeight);
-        updatePosition();
+        inputHeightRef.current = wrapper.offsetHeight;
+
+        // Store original padding and add keyboard height to it
+        const computedStyle = window.getComputedStyle(wrapper);
+        const currentPadding = parseFloat(computedStyle.paddingBottom) || 0;
+        originalPaddingRef.current = computedStyle.paddingBottom;
+
+        // Update position immediately (can't use updatePosition() due to stale state)
+        const scrollY = window.scrollY || window.pageYOffset;
+        const keyboardHeight = initialHeight - vpHeight;
+        wrapper.style.top = `${scrollY + vpHeight - inputHeightRef.current}px`;
+        wrapper.style.paddingBottom = `${currentPadding + keyboardHeight}px`;
       } else if (!isKeyboardOpen && wasKeyboardOpen) {
+        // Keyboard just closed - switch back to fixed
         wrapper.style.position = 'fixed';
         wrapper.style.bottom = '0';
         wrapper.style.top = 'auto';
-        wrapper.style.paddingBottom = '';
+        wrapper.style.paddingBottom = originalPaddingRef.current || '';
       }
     };
 
@@ -97,11 +111,20 @@ export default function ChatInput({
       }
       window.removeEventListener('scroll', requestUpdate);
     };
-  }, [keyboardOpen, initialHeight, inputHeight]);
+  }, [keyboardOpen, initialHeight]);
+
+  // Capture initial height on mount only
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (wrapper) {
+      inputHeightRef.current = wrapper.offsetHeight;
+    }
+  }, []);
 
   return (
     <div
       ref={wrapperRef}
+      className="relative px-6 pt-6 pb-6 bg-white/20 backdrop-blur-lg"
       style={{
         position: 'fixed',
         left: 0,
@@ -109,27 +132,26 @@ export default function ChatInput({
         bottom: 0,
         zIndex: 100,
         overscrollBehavior: 'contain',
-        willChange: 'top',
-        transition: 'top 0.05s linear'
+        // willChange and transition set dynamically when keyboard opens
+        ...(keyboardOpen && {
+          willChange: 'top',
+          transition: 'top 0.05s linear',
+        }),
       }}
     >
+      {/* Glass highlight overlay */}
       <div
-        className="relative px-6 pt-6"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))'
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
         }}
-      >
-        {/* Backdrop blur layer with gradient mask */}
-        <div
-          className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-b from-transparent via-transparent via-40% to-black/20"
-          style={{
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 100%)',
-          }}
-        />
+      />
 
-        {/* Content layer */}
-        <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
+      {/* Subtle top border */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-white/20" />
+
+      {/* Content layer */}
+      <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
           <ExpandingInput
             value={value}
             onChange={onChange}
@@ -150,7 +172,6 @@ export default function ChatInput({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </Button>
-        </div>
       </div>
     </div>
   );
