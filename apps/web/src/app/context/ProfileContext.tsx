@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { ClientProfileService as ProfileService } from '@/lib/client/profile/firebase-save';
 import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/lib/client/profile/save';
 import { UserProfile } from '@/types/profile';
@@ -50,7 +51,8 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 // Provider component
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status: authStatus, update } = useSession();
-  
+  const pathname = usePathname();
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -298,9 +300,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.style.setProperty('--connection-color', connection);
 
         // Set :root background-color to gradientEnd for safe areas
-        document.documentElement.style.backgroundColor = gradientEnd;
-        document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
-        console.log('[ProfileContext] Setting :root background-color to:', gradientEnd);
+        // BUT skip on contact pages - LayoutBackground handles those
+        const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+        if (!isOnContactPage) {
+          document.documentElement.style.backgroundColor = gradientEnd;
+          document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
+          console.log('[ProfileContext] Setting :root background-color to:', gradientEnd);
+        }
       }
     } else {
       console.log('[ProfileContext] No backgroundColors, using default green');
@@ -313,10 +319,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.style.removeProperty('--connection-color');
 
       // Reset :root background-color to default dark
-      document.documentElement.style.backgroundColor = '#0a0f1a';
-      document.documentElement.style.setProperty('--safe-area-color', '#0a0f1a');
+      // BUT skip on contact pages - LayoutBackground handles those
+      const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+      if (!isOnContactPage) {
+        document.documentElement.style.backgroundColor = '#0a0f1a';
+        document.documentElement.style.setProperty('--safe-area-color', '#0a0f1a');
+      }
     }
-  }, [profile]);
+  }, [profile, pathname]);
 
   // Save profile to Firestore
   const saveProfile = useCallback(async (data: Partial<UserProfile>, options: { directUpdate?: boolean; skipUIUpdate?: boolean } = {}): Promise<UserProfile | null> => {
