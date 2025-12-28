@@ -124,7 +124,7 @@ export default function ChatInput({
   return (
     <div
       ref={wrapperRef}
-      className="relative px-6 pt-6 pb-6 bg-white/20 backdrop-blur-lg"
+      className="relative px-6 pt-6 pb-6 bg-white/20 backdrop-blur-lg border-t border-white/20"
       style={{
         position: 'fixed',
         left: 0,
@@ -139,16 +139,6 @@ export default function ChatInput({
         }),
       }}
     >
-      {/* Glass highlight overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
-        }}
-      />
-
-      {/* Subtle top border */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-white/20" />
 
       {/* Content layer */}
       <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
