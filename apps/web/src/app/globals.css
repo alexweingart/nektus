@@ -45,7 +45,7 @@
     background-color: #000000;
 
     /* Smooth background color transitions */
-    transition: background-color 1000ms ease-in-out;
+    transition: background-color 3000ms ease-in-out;
 
     /* Core dimensions */
     --max-content-width: 448px;  /* Standard max-width for content */
@@ -467,4 +467,15 @@ button {
   min-height: -webkit-fill-available !important;
   height: 100dvh !important;
   pointer-events: none !important;
+  opacity: 0;
+  animation: fadeInParticles 3000ms ease-in-out forwards;
+}
+
+@keyframes fadeInParticles {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
