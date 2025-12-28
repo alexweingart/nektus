@@ -41,6 +41,9 @@
 
 @layer base {
   :root {
+    /* Smooth background color transitions */
+    transition: background-color 1000ms ease-in-out;
+
     /* Core dimensions */
     --max-content-width: 448px;  /* Standard max-width for content */
 
