@@ -41,6 +41,9 @@
 
 @layer base {
   :root {
+    /* Start with black and fade to theme color */
+    background-color: #000000;
+
     /* Smooth background color transitions */
     transition: background-color 1000ms ease-in-out;
 
