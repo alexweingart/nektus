@@ -22,9 +22,6 @@ export default function ChatInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [initialHeight] = useState(() => window.innerHeight);
-  const inputHeightRef = useRef(0);
-  const tickingRef = useRef(false);
-  const originalPaddingRef = useRef<string>('');
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !disabled) {
@@ -33,93 +30,53 @@ export default function ChatInput({
     }
   };
 
-  // Background tester v2 approach: hybrid positioning (fixed → absolute when keyboard opens)
+  // Background tester v2: Use absolute from bottom (no ResizeObserver needed!)
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
     const updatePosition = () => {
-      if (!keyboardOpen) {
-        tickingRef.current = false;
-        return;
-      }
-
+      if (!keyboardOpen) return;
       const scrollY = window.scrollY || window.pageYOffset;
       const vpHeight = window.visualViewport?.height || window.innerHeight;
-      const keyboardHeight = initialHeight - vpHeight;
-      const basePadding = parseFloat(originalPaddingRef.current) || 0;
+      const bodyHeight = document.body.scrollHeight;
 
-      // Position at bottom of visible viewport (above keyboard)
-      wrapper.style.top = `${scrollY + vpHeight - inputHeightRef.current}px`;
-      // Extend padding: original + keyboard height
-      wrapper.style.paddingBottom = `${basePadding + keyboardHeight}px`;
-
-      tickingRef.current = false;
-    };
-
-    const requestUpdate = () => {
-      if (!tickingRef.current && keyboardOpen) {
-        requestAnimationFrame(updatePosition);
-        tickingRef.current = true;
-      }
+      // Position bottom edge at visual viewport bottom
+      const bottomValue = bodyHeight - scrollY - vpHeight;
+      wrapper.style.bottom = `${bottomValue}px`;
     };
 
     const handleViewportChange = () => {
       const vpHeight = window.visualViewport?.height || window.innerHeight;
-      const wasKeyboardOpen = keyboardOpen;
       const isKeyboardOpen = vpHeight < initialHeight - 100;
-
       setKeyboardOpen(isKeyboardOpen);
 
-      if (isKeyboardOpen && !wasKeyboardOpen) {
-        // Keyboard just opened - switch to absolute positioning
+      if (isKeyboardOpen) {
         wrapper.style.position = 'absolute';
-        wrapper.style.bottom = 'auto';
-        inputHeightRef.current = wrapper.offsetHeight;
-
-        // Store original padding and add keyboard height to it
-        const computedStyle = window.getComputedStyle(wrapper);
-        const currentPadding = parseFloat(computedStyle.paddingBottom) || 0;
-        originalPaddingRef.current = computedStyle.paddingBottom;
-
-        // Update position immediately (can't use updatePosition() due to stale state)
-        const scrollY = window.scrollY || window.pageYOffset;
-        const keyboardHeight = initialHeight - vpHeight;
-        wrapper.style.top = `${scrollY + vpHeight - inputHeightRef.current}px`;
-        wrapper.style.paddingBottom = `${currentPadding + keyboardHeight}px`;
-      } else if (!isKeyboardOpen && wasKeyboardOpen) {
-        // Keyboard just closed - switch back to fixed
+        wrapper.style.top = 'auto';
+        updatePosition();
+      } else {
         wrapper.style.position = 'fixed';
         wrapper.style.bottom = '0';
         wrapper.style.top = 'auto';
-        wrapper.style.paddingBottom = originalPaddingRef.current || '';
       }
     };
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', requestUpdate);
+      window.visualViewport.addEventListener('scroll', updatePosition);
     }
-    window.addEventListener('scroll', requestUpdate, { passive: true });
-
+    window.addEventListener('scroll', updatePosition, { passive: true });
     handleViewportChange();
 
     return () => {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleViewportChange);
-        window.visualViewport.removeEventListener('scroll', requestUpdate);
+        window.visualViewport.removeEventListener('scroll', updatePosition);
       }
-      window.removeEventListener('scroll', requestUpdate);
+      window.removeEventListener('scroll', updatePosition);
     };
   }, [keyboardOpen, initialHeight]);
-
-  // Capture initial height on mount only
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (wrapper) {
-      inputHeightRef.current = wrapper.offsetHeight;
-    }
-  }, []);
 
   return (
     <div
@@ -132,16 +89,11 @@ export default function ChatInput({
         bottom: 0,
         zIndex: 100,
         overscrollBehavior: 'contain',
-        // willChange and transition set dynamically when keyboard opens
-        ...(keyboardOpen && {
-          willChange: 'top',
-          transition: 'top 0.05s linear',
-        }),
       }}
     >
 
       {/* Content layer */}
-      <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-center gap-3">
+      <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3">
           <ExpandingInput
             value={value}
             onChange={onChange}

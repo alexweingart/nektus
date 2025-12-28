@@ -19,8 +19,10 @@ export function ScrollBehavior() {
       '/setup',               // Setup page
     ];
 
-    // Also apply to contact pages (they're single-screen)
-    const isContactPage = pathname?.startsWith('/contact/');
+    // Apply to contact detail pages (single-screen), but NOT scheduling pages (scrollable)
+    const isContactPage = pathname?.startsWith('/contact/') &&
+                          !pathname?.includes('/ai-schedule') &&
+                          !pathname?.includes('/smart-schedule');
     const isNonScrollablePage = nonScrollablePages.includes(pathname || '') || isContactPage;
 
     if (!isNonScrollablePage) {
