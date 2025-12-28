@@ -85,7 +85,7 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
     particleDensity: 15000,
     particleSpeed: 0.15,    // Slow
     connectionDistance: 140,
-    connectionOpacity: 0.2,  // Match profile
+    connectionOpacity: 0.3,
     hasGravity: false,
     gravityStrength: 0
   }
