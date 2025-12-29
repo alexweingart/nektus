@@ -13,8 +13,9 @@ interface ContactProfile {
 
 // Theme color constants
 const COLORS = {
-  // Darker emerald green (solid, no opacity) - used for both gradients and safe areas
-  emeraldGreenDark: 'rgb(34, 197, 67)',
+  // Darker emerald green (solid, no opacity) - mathematically correct blend of rgba(34, 197, 94, 0.6) over dark
+  // Calculation: 0.6 × rgb(34,197,94) + 0.4 × rgb(10,15,26) = rgb(24,124,67)
+  emeraldGreenDark: 'rgb(24, 124, 67)',
 
   // Dark background
   dark: '#0a0f1a',
