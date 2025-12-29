@@ -260,9 +260,50 @@ body.show-default-background::after {
   /* Specific fix for phone input fields */
   input[type="tel"]:-webkit-autofill,
   input[inputmode="tel"]:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
     -webkit-text-fill-color: white !important;
     background-color: transparent !important;
+    background-image: none !important;
+    caret-color: white !important;
+  }
+
+  /* Android autocomplete tap highlight fix */
+  input[type="tel"],
+  input[inputmode="tel"] {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Remove Android autocomplete suggestion highlight */
+  input[type="tel"]::selection,
+  input[inputmode="tel"]::selection {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  /* Additional Android Chrome autofill states - all possible combinations */
+  input[type="tel"]:-webkit-autofill:hover,
+  input[type="tel"]:-webkit-autofill:focus,
+  input[type="tel"]:-webkit-autofill:active,
+  input[inputmode="tel"]:-webkit-autofill:hover,
+  input[inputmode="tel"]:-webkit-autofill:focus,
+  input[inputmode="tel"]:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+    -webkit-text-fill-color: white !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    transition: background-color 0s 50000s, color 0s 50000s !important;
+    caret-color: white !important;
+  }
+
+  /* Force Chrome to not apply any background on autofill */
+  input[type="tel"][autocomplete="tel"],
+  input[inputmode="tel"][autocomplete="tel"] {
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+
+  input[type="tel"][autocomplete="tel"]:-webkit-autofill,
+  input[inputmode="tel"][autocomplete="tel"]:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
   }
 }
 
