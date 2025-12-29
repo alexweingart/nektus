@@ -317,14 +317,19 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // User profile page logic
       const userColors = profile?.backgroundColors;
 
-      // Use profile colors (whether custom extracted or default theme green)
-      if (userColors && userColors.length >= 3) {
+      // Check if colors exist and are custom (not all the same theme green)
+      const hasCustomColors = userColors &&
+                             userColors.length >= 3 &&
+                             !(userColors[0] === userColors[1] && userColors[1] === userColors[2]);
+
+      if (hasCustomColors) {
+        // Use custom extracted colors for gradient
         return {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
       } else {
-        // Fallback: no colors available - use default green gradient
+        // AI-generated or no colors - use default green gradient
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: 'profile-default'
