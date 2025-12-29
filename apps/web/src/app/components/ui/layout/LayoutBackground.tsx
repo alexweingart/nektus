@@ -177,14 +177,21 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
       console.log('[LayoutBackground] Setting theme green safe area color for contact page (no custom colors), userId:', params?.userId);
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
-      // Left contact page - reset to user's dominant color
+      // Not on contact page - use user's dominant color
       const [dominant] = userColors;
       document.documentElement.style.backgroundColor = dominant;
       document.documentElement.style.setProperty('--safe-area-color', dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
-      console.log('[LayoutBackground] Resetting to user safe area color:', dominant);
+      console.log('[LayoutBackground] Setting user safe area color:', dominant);
+    } else if (!isOnContactPage && profile && (!userColors || userColors.length < 3)) {
+      // Not on contact page, user profile loaded but has no custom colors - use theme green
+      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
+      sessionStorage.removeItem('last-safe-area-userId');
+      console.log('[LayoutBackground] Setting theme green safe area color for profile page (no custom colors)');
     }
   }, [mounted, pathname, contactProfile, profile]);
 
@@ -203,8 +210,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       document.documentElement.style.backgroundColor = lastColor;
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
       console.log('[LayoutBackground] Restored safe area color from session:', lastColor, 'userId:', currentUserId);
-    } else if (!shouldRestore) {
-      console.log('[LayoutBackground] Skipping restore - userId mismatch. Last:', lastUserId, 'Current:', currentUserId);
+    } else if (!shouldRestore && currentUserId) {
+      // On contact page but userId doesn't match - clear old color and set theme green while loading
+      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      console.log('[LayoutBackground] Setting theme green while loading contact (userId mismatch). Last:', lastUserId, 'Current:', currentUserId);
     }
   }, [params?.userId]);
 
