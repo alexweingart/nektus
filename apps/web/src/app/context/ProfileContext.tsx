@@ -286,13 +286,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.log('[ProfileContext] No backgroundColors, using default green');
       document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
 
-      // Reset :root background-color to default dark (LayoutBackground handles particle colors)
-      // BUT skip on contact pages - LayoutBackground handles those
-      const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
-      if (!isOnContactPage) {
-        document.documentElement.style.backgroundColor = '#0a0f1a';
-        document.documentElement.style.setProperty('--safe-area-color', '#0a0f1a');
-      }
+      // LayoutBackground handles all background colors including safe areas
+      // Do NOT set backgroundColor here - it conflicts with LayoutBackground's theme green setting
     }
   }, [profile, pathname]);
 

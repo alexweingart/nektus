@@ -220,12 +220,28 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       console.log('[LayoutBackground] Setting profile safe area color:', dominant);
     } else if (!isOnContactPage && profile && !isLoading) {
       // Fallback: profile loaded with no colors - use theme green
+      console.log('[LayoutBackground] 🟢 ABOUT TO SET THEME GREEN for profile (no colors)');
+      console.log('[LayoutBackground] Before setting - backgroundColor:', document.documentElement.style.backgroundColor);
+      console.log('[LayoutBackground] Before setting - --safe-area-bg:', document.documentElement.style.getPropertyValue('--safe-area-bg'));
+
+      // Set both variable and direct backgroundColor (same as custom colors path)
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-      document.documentElement.style.backgroundColor = COLORS.themeGreen; // Force update
+      document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
       sessionStorage.removeItem('last-safe-area-userId');
+
+      console.log('[LayoutBackground] ✅ AFTER SETTING - backgroundColor:', document.documentElement.style.backgroundColor);
+      console.log('[LayoutBackground] ✅ AFTER SETTING - --safe-area-bg:', document.documentElement.style.getPropertyValue('--safe-area-bg'));
+      console.log('[LayoutBackground] ✅ AFTER SETTING - computed:', getComputedStyle(document.documentElement).backgroundColor);
+
+      // Check if something overwrites it asynchronously
+      setTimeout(() => {
+        console.log('[LayoutBackground] 🕐 100ms LATER - backgroundColor:', document.documentElement.style.backgroundColor);
+        console.log('[LayoutBackground] 🕐 100ms LATER - computed:', getComputedStyle(document.documentElement).backgroundColor);
+      }, 100);
+
       console.log('[LayoutBackground] Setting theme green safe area color for profile page (no colors), profile:', {
         hasProfile: !!profile,
         isLoading,
