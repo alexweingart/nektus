@@ -22,6 +22,7 @@ export default function ChatInput({
   placeholder = "What would you like to do?"
 }: ChatInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const backgroundExtensionRef = useRef<HTMLDivElement>(null);
   const lastFocusTimeRef = useRef(0);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -34,11 +35,12 @@ export default function ChatInput({
     }
   };
 
-  // Track keyboard and position immediately via DOM (avoid React state race conditions)
+  // Track keyboard and show/hide background extension
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const wrapper = wrapperRef.current;
-    if (!wrapper) return;
+    const bgExtension = backgroundExtensionRef.current;
+    if (!wrapper || !bgExtension) return;
 
     const handleViewportResize = () => {
       if (!window.visualViewport) return;
@@ -46,7 +48,25 @@ export default function ChatInput({
       // Always use fixed positioning, force refresh via DOM
       wrapper.style.position = 'fixed';
       wrapper.style.bottom = '0px';
+
+      // Calculate keyboard height
+      const keyboardHeight = window.innerHeight - window.visualViewport.height;
+
+      if (keyboardHeight > 0) {
+        // Keyboard is open - show background extension below viewport
+        // Add extra height and offset to overlap and hide the seam
+        bgExtension.style.height = `${keyboardHeight + 2}px`;
+        bgExtension.style.bottom = `-${keyboardHeight - 1}px`; // Overlap by 1px
+        bgExtension.style.display = 'block';
+      } else {
+        // Keyboard is closed - hide background extension
+        bgExtension.style.display = 'none';
+        bgExtension.style.bottom = '0px'; // Reset position
+      }
     };
+
+    // Initial call
+    handleViewportResize();
 
     window.visualViewport.addEventListener('resize', handleViewportResize);
 
@@ -83,18 +103,19 @@ export default function ChatInput({
   }, []);
 
   return (
-    <div
-      ref={wrapperRef}
-      className="relative px-6 pt-6 pb-6 bg-white/20 backdrop-blur-lg border-t border-white/20"
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 100,
-        overscrollBehavior: 'contain',
-      }}
-    >
+    <>
+      <div
+        ref={wrapperRef}
+        className="relative px-6 pt-6 pb-6 bg-white/20 backdrop-blur-lg border-t border-white/20"
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 100,
+          overscrollBehavior: 'contain',
+        }}
+      >
 
       {/* Content layer */}
       <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3">
@@ -131,6 +152,22 @@ export default function ChatInput({
             </svg>
           </Button>
       </div>
-    </div>
+      </div>
+
+      {/* Background extension that appears behind keyboard */}
+      <div
+        ref={backgroundExtensionRef}
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 99, // Below ChatInput
+          display: 'none', // Hidden by default, shown by JS when keyboard opens
+          pointerEvents: 'none',
+          backgroundColor: 'var(--safe-area-color)', // Use contact's theme color
+        }}
+      />
+    </>
   );
 }
