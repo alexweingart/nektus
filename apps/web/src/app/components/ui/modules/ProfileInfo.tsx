@@ -142,7 +142,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     <div className={className}>
       {/* Profile Image */}
       <div className="mb-4">
-        <div className="border-4 border-white shadow-lg rounded-full">
+        <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
           <Avatar
             src={profileImageSrc}
             alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
