@@ -13,8 +13,8 @@ interface ContactProfile {
 
 // Theme color constants
 const COLORS = {
-  // Darker emerald green (solid, no opacity) - balanced between calculated blend and brighter green
-  emeraldGreenDark: 'rgb(29, 161, 67)',
+  // Darker emerald green (solid, no opacity) - balanced with reduced brightness
+  emeraldGreenDark: 'rgb(29, 150, 67)',
 
   // Dark background
   dark: '#0a0f1a',
