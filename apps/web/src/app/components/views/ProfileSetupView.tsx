@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
 import { DropdownPhoneInput } from '../ui/inputs/DropdownPhoneInput';
 import { useAdminModeActivator } from '../ui/banners/AdminBanner';
-import { Heading } from '../ui/Typography';
+import { Heading, Text } from '../ui/Typography';
 import Avatar from '../ui/elements/Avatar';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
@@ -172,28 +172,18 @@ function ProfileSetupView() {
         {/* Main Content */}
         <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center px-4">
           <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center">
-            {/* Profile Image */}
-            <div className="mb-4">
-              <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
-                <Avatar
-                  src={avatarSrc}
-                  alt={session?.user?.name || 'Profile'}
-                  size="lg"
-                  isLoading={isProfileLoading}
-                  showInitials={avatarShowInitials}
-                />
-              </div>
-            </div>
-            
-            {/* Profile Name - Double click to activate admin mode */}
-            <div className="mb-6 text-center relative z-10">
-              <Heading 
+            {/* Welcome Section - Double click to activate admin mode */}
+            <div className="mb-6 text-center relative z-10 space-y-2">
+              <Heading
                 as="h1"
                 className="cursor-pointer"
                 {...adminModeProps}
               >
-                {session?.user?.name || 'Profile'}
+                Welcome, {session?.user?.name || 'there'}!
               </Heading>
+              <Text variant="base" className="text-white/70">
+                Your new friends will want your number
+              </Text>
             </div>
             
             {/* Phone Input Section */}
