@@ -16,9 +16,9 @@ const COLORS = {
   // Emerald green at 60% opacity (for gradients)
   emeraldGreen60: 'rgba(34, 197, 94, 0.6)',
 
-  // Emerald green at 60% opacity blended over dark background (for solid backgrounds/safe areas)
-  // Calculation: 0.6 × rgb(34,197,94) + 0.4 × rgb(10,15,26) = rgb(24,124,67)
-  emeraldGreen60Solid: 'rgb(24, 124, 67)',
+  // Emerald green solid (for safe areas to match gradient edges)
+  // Using the base emerald green color at full opacity
+  emeraldGreenSolid: 'rgb(34, 197, 94)',
 
   // Dark background
   dark: '#0a0f1a',
@@ -173,11 +173,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-color', dominant);
       console.log('[LayoutBackground] Setting contact safe area color:', dominant);
     } else if (isOnContactPage && (!contactColors || contactColors.length < 3)) {
-      // On contact page with default theme - use solid emerald green (60% blended)
-      document.documentElement.style.backgroundColor = COLORS.emeraldGreen60Solid;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.emeraldGreen60Solid);
-      sessionStorage.setItem('last-safe-area-color', COLORS.emeraldGreen60Solid);
-      console.log('[LayoutBackground] Setting default emerald green safe area color (60% solid) for contact page');
+      // On contact page with default theme - use solid emerald green to match gradient edges
+      document.documentElement.style.backgroundColor = COLORS.emeraldGreenSolid;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.emeraldGreenSolid);
+      sessionStorage.setItem('last-safe-area-color', COLORS.emeraldGreenSolid);
+      console.log('[LayoutBackground] Setting solid emerald green safe area color for contact page');
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Left contact page - reset to user's dominant color
       const [dominant] = userColors;
