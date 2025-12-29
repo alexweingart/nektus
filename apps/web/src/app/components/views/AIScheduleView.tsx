@@ -34,7 +34,7 @@ export default function AIScheduleView() {
 
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState('\u200B'); // Zero-width space to prevent iOS positioning bug
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -178,13 +178,15 @@ And if you don't know any of those things, and just want me to suggest based off
   }, [messages]);
 
   const handleSend = useCallback(async () => {
+    // Strip zero-width space for actual content
+    const actualInput = input.replace(/\u200B/g, '').trim();
 
-    if (!input.trim() || isProcessing || !currentUserProfile || !contactProfile || !session) return;
+    if (!actualInput || isProcessing || !currentUserProfile || !contactProfile || !session) return;
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
       type: 'user',
-      content: input,
+      content: actualInput,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -201,11 +203,11 @@ And if you don't know any of those things, and just want me to suggest based off
     // Add user message to conversation history
     const newUserAIMessage: AIMessage = {
       role: 'user',
-      content: input,
+      content: actualInput,
       timestamp: new Date(),
     };
 
-    setInput('');
+    setInput('\u200B'); // Reset to zero-width space
     setIsProcessing(true);
 
     try {
@@ -247,7 +249,7 @@ And if you don't know any of those things, and just want me to suggest based off
           'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
-          userMessage: input,
+          userMessage: actualInput,
           conversationHistory,
           user1Id: session.user.id,
           user2Id: contactUserId,
@@ -330,21 +332,6 @@ And if you don't know any of those things, and just want me to suggest based off
     };
   }, []);
 
-  // Memoize handlers to prevent ChatInput recreation
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-  }, []);
-
-  // Memoize ChatInput to prevent recreation on re-renders (e.g., from commonTimeSlots updates)
-  const chatInputElement = useMemo(() => (
-    <ChatInput
-      value={input}
-      onChange={handleInputChange}
-      onSend={handleSend}
-      disabled={false}
-      sendDisabled={isProcessing}
-    />
-  ), [input, handleInputChange, handleSend, isProcessing]);
 
   if (loading || !contactProfile || !currentUserProfile) {
     return null;
@@ -371,8 +358,22 @@ And if you don't know any of those things, and just want me to suggest based off
         </div>
       </div>
 
-      {/* Input - rendered via portal to be fixed to viewport */}
-      {mounted && createPortal(chatInputElement, document.body)}
+      {/* Input - rendered directly (no memoization to avoid stale positioning) */}
+      <ChatInput
+        value={input}
+        onChange={(e) => {
+          const newValue = e.target.value;
+          // Ensure we always have at least the zero-width space
+          if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
+            setInput('\u200B');
+          } else {
+            setInput(newValue);
+          }
+        }}
+        onSend={handleSend}
+        disabled={false}
+        sendDisabled={isProcessing}
+      />
     </>
   );
 }

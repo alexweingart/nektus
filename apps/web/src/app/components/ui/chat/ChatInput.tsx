@@ -21,17 +21,38 @@ export default function ChatInput({
   sendDisabled = false,
   placeholder = "What would you like to do?"
 }: ChatInputProps) {
-  console.log('[ChatInput] Component rendered/recreated at', Date.now());
-
   const wrapperRef = useRef<HTMLDivElement>(null);
   const lastFocusTimeRef = useRef(0);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
+    // Strip zero-width space to check if there's actual content
+    const actualContent = value.replace(/\u200B/g, '').trim();
+    if (e.key === 'Enter' && !e.shiftKey && !disabled && actualContent) {
       e.preventDefault();
       onSend();
     }
   };
+
+  // Track keyboard and position immediately via DOM (avoid React state race conditions)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const handleViewportResize = () => {
+      if (!window.visualViewport) return;
+
+      // Always use fixed positioning, force refresh via DOM
+      wrapper.style.position = 'fixed';
+      wrapper.style.bottom = '0px';
+    };
+
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    };
+  }, []);
 
   // Background tester v4: Blur input on scroll to close keyboard
   useEffect(() => {
@@ -47,18 +68,8 @@ export default function ChatInput({
 
       // Ignore scroll events within 1000ms of focus (auto-scroll from keyboard opening)
       const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
-      const isInputFocused = document.activeElement === input;
 
-      console.log('[ChatInput] scroll event:', {
-        timeSinceFocus,
-        isInputFocused,
-        lastFocusTime: lastFocusTimeRef.current,
-        willBlur: isInputFocused && timeSinceFocus > 1000,
-        scrollY: window.scrollY,
-      });
-
-      if (isInputFocused && timeSinceFocus > 1000) {
-        console.log('[ChatInput] BLURRING input due to scroll');
+      if (document.activeElement === input && timeSinceFocus > 1000) {
         input.blur(); // Close keyboard
       }
     };
@@ -86,26 +97,26 @@ export default function ChatInput({
 
       {/* Content layer */}
       <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3">
-          <ExpandingInput
-            value={value}
-            onChange={onChange}
-            onKeyPress={handleKeyPress}
-            onFocus={() => {
-              const now = Date.now();
-              console.log('[ChatInput] FOCUS event fired at', now);
-              lastFocusTimeRef.current = now;
-            }}
-            onBlur={() => {
-              console.log('[ChatInput] BLUR event fired at', Date.now(), 'Stack trace:', new Error().stack);
-            }}
-            placeholder={placeholder}
-            disabled={disabled}
-            variant="white"
-            className="w-[80%]"
-          />
+          <div className="relative w-[80%]">
+            <ExpandingInput
+              value={value}
+              onChange={onChange}
+              onKeyPress={handleKeyPress}
+              onFocus={() => lastFocusTimeRef.current = Date.now()}
+              placeholder="" // Disable native placeholder, we'll handle it ourselves
+              disabled={disabled}
+              variant="white"
+            />
+            {/* Custom placeholder that shows when only zero-width space */}
+            {value.replace(/\u200B/g, '').trim() === '' && (
+              <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 font-medium text-base">
+                {placeholder}
+              </div>
+            )}
+          </div>
           <Button
             onClick={onSend}
-            disabled={!value.trim() || sendDisabled}
+            disabled={!value.replace(/\u200B/g, '').trim() || sendDisabled}
             variant="circle"
             size="icon"
             className="w-14 h-14 shrink-0 mt-0"
