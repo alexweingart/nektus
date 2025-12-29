@@ -174,7 +174,7 @@ function ProfileSetupView() {
           <div className="w-full max-w-[var(--max-content-width)] flex flex-col items-center">
             {/* Profile Image */}
             <div className="mb-4">
-              <div className="border-4 border-white shadow-lg rounded-full">
+              <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
                 <Avatar
                   src={avatarSrc}
                   alt={session?.user?.name || 'Profile'}
