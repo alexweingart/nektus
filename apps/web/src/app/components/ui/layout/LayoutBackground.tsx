@@ -204,14 +204,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
       console.log('[LayoutBackground] Setting profile safe area color:', dominant);
-    } else if (!isOnContactPage && profile) {
-      // Fallback: profile loaded but no colors - use theme green
+    } else if (!isOnContactPage) {
+      // Fallback: not on contact page - use theme green (works for profile loading or no colors)
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
       sessionStorage.removeItem('last-safe-area-userId');
-      console.log('[LayoutBackground] Setting theme green safe area color for profile page (fallback - no colors)');
+      console.log('[LayoutBackground] Setting theme green safe area color for profile page (fallback)');
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId]);
 
