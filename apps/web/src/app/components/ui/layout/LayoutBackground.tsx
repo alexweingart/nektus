@@ -260,12 +260,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     // For contact pages, only restore if userId matches
     const shouldRestore = !currentUserId || lastUserId === currentUserId;
 
-    // Don't restore if profile has loaded without backgroundColors (AI-generated)
-    // Let the main safe area effect handle setting theme green instead
-    const hasBackgroundColors = profile?.backgroundColors && profile.backgroundColors.length >= 3;
-    const shouldSkipRestore = !currentUserId && profile && !isLoading && !hasBackgroundColors;
-
-    if (lastColor && shouldRestore && !shouldSkipRestore) {
+    if (lastColor && shouldRestore) {
       document.documentElement.style.setProperty('--safe-area-bg', lastColor);
       document.documentElement.style.backgroundColor = lastColor; // Force update
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
@@ -293,15 +288,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Clear cached colors if userId doesn't match
       setCachedParticleColors(null);
     }
-
-    console.log('[LayoutBackground] Restore effect:', {
-      lastColor,
-      shouldRestore,
-      shouldSkipRestore,
-      hasBackgroundColors,
-      willRestore: lastColor && shouldRestore && !shouldSkipRestore
-    });
-  }, [params?.userId, profile, isLoading]);
+  }, [params?.userId]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {

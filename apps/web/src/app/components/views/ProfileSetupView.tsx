@@ -186,7 +186,7 @@ function ProfileSetupView() {
             </div>
             
             {/* Profile Name - Double click to activate admin mode */}
-            <div className="mb-6 text-center">
+            <div className="mb-6 text-center relative z-10">
               <Heading 
                 as="h1"
                 className="cursor-pointer"
