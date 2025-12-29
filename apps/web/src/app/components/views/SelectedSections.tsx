@@ -326,7 +326,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
               left: '50%',
               transform: 'translate(-50%, -50%) scale(1.05)',
               zIndex: 9999,
-              width: 'min(448px, calc(100vw - 32px))',
+              width: 'min(448px, calc(100% - 32px))',
               pointerEvents: 'none',
               opacity: 0.95
             }}

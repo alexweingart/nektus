@@ -184,6 +184,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
       {/* Input field based on link type */}
       {linkType === 'Social' ? (
         <CustomSocialInputAdd
+          key="social-input"
           platform={socialPlatform}
           username={socialUsername}
           onPlatformChange={setSocialPlatform}
@@ -192,9 +193,11 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
         />
       ) : (
         <ExpandingInput
+          key="custom-input"
           value={customLinkUrl}
           onChange={(value: string) => setCustomLinkUrl(value)}
           placeholder="https://example.com"
+          autoFocus
         />
       )}
 
