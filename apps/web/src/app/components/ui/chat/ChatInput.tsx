@@ -23,6 +23,7 @@ export default function ChatInput({
 }: ChatInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const lastFocusTimeRef = useRef(0);
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Strip zero-width space to check if there's actual content
@@ -102,13 +103,17 @@ export default function ChatInput({
               value={value}
               onChange={onChange}
               onKeyPress={handleKeyPress}
-              onFocus={() => lastFocusTimeRef.current = Date.now()}
+              onFocus={() => {
+                lastFocusTimeRef.current = Date.now();
+                setIsFocused(true);
+              }}
+              onBlur={() => setIsFocused(false)}
               placeholder="" // Disable native placeholder, we'll handle it ourselves
               disabled={disabled}
               variant="white"
             />
-            {/* Custom placeholder that shows when only zero-width space */}
-            {value.replace(/\u200B/g, '').trim() === '' && (
+            {/* Custom placeholder that shows when unfocused and only zero-width space */}
+            {!isFocused && value.replace(/\u200B/g, '').trim() === '' && (
               <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 font-medium text-base">
                 {placeholder}
               </div>
