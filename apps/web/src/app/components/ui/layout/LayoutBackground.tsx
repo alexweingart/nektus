@@ -17,7 +17,7 @@ const COLORS = {
   emeraldGreenDark: 'rgb(29, 150, 67)',
 
   // Dark background
-  dark: '#0a0f1a',
+  dark: 'rgb(10, 15, 26)',
 
   // Particle colors
   particleLight: 'rgba(200, 255, 200, 0.6)',
