@@ -179,7 +179,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
       // On contact page with contact colors - use contact's dominant color
       const [dominant] = contactColors;
-      document.documentElement.style.backgroundColor = dominant;
+      document.documentElement.style.setProperty('--safe-area-bg', dominant);
+      document.documentElement.style.backgroundColor = dominant; // Force update
       document.documentElement.style.setProperty('--safe-area-color', dominant);
       updateThemeColorMeta(dominant);
       // Persist for page refreshes
@@ -188,7 +189,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       console.log('[LayoutBackground] Setting contact safe area color:', dominant, 'userId:', params?.userId);
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
       // On contact page where contact is loaded but has no colors - use theme green
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
+      document.documentElement.style.backgroundColor = COLORS.themeGreen; // Force update
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
@@ -197,23 +199,30 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Not on contact page - use profile's dominant color (custom or default theme green)
       const [dominant] = userColors;
-      document.documentElement.style.backgroundColor = dominant;
+      document.documentElement.style.setProperty('--safe-area-bg', dominant);
+      document.documentElement.style.backgroundColor = dominant; // Force update
       document.documentElement.style.setProperty('--safe-area-color', dominant);
       updateThemeColorMeta(dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
       console.log('[LayoutBackground] Setting profile safe area color:', dominant);
-    } else if (!isOnContactPage) {
-      // Fallback: not on contact page - use theme green (works for profile loading or no colors)
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+    } else if (!isOnContactPage && profile && !isLoading) {
+      // Fallback: profile loaded with no colors - use theme green
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
+      document.documentElement.style.backgroundColor = COLORS.themeGreen; // Force update
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
       sessionStorage.removeItem('last-safe-area-userId');
-      console.log('[LayoutBackground] Setting theme green safe area color for profile page (fallback)');
+      console.log('[LayoutBackground] Setting theme green safe area color for profile page (no colors), profile:', {
+        hasProfile: !!profile,
+        isLoading,
+        userColors,
+        backgroundColors: profile?.backgroundColors
+      });
     }
-  }, [mounted, pathname, contactProfile, profile, params?.userId]);
+  }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading]);
 
   // On mount, restore last safe area color and particle colors if available (prevents flash on refresh)
   useEffect(() => {
@@ -228,13 +237,15 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const shouldRestore = !currentUserId || lastUserId === currentUserId;
 
     if (lastColor && shouldRestore) {
-      document.documentElement.style.backgroundColor = lastColor;
+      document.documentElement.style.setProperty('--safe-area-bg', lastColor);
+      document.documentElement.style.backgroundColor = lastColor; // Force update
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
       updateThemeColorMeta(lastColor);
       console.log('[LayoutBackground] Restored safe area color from session:', lastColor, 'userId:', currentUserId);
     } else if (!shouldRestore && currentUserId) {
       // On contact page but userId doesn't match - clear old color and set theme green while loading
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
+      document.documentElement.style.backgroundColor = COLORS.themeGreen; // Force update
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
       console.log('[LayoutBackground] Setting theme green while loading contact (userId mismatch). Last:', lastUserId, 'Current:', currentUserId);

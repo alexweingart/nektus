@@ -92,7 +92,11 @@
 /* Base styles */
 :root {
   color: var(--foreground);
-  background-color: #0a0f1a; /* Solid dark color for safe areas */
+  --safe-area-bg: #0a0f1a; /* Default: theme dark, updated by JS for profiles */
+}
+
+html {
+  background-color: var(--safe-area-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -125,7 +129,7 @@ html {
   -webkit-tap-highlight-color: transparent;
 
   /* Background matches gradient end color for bottom safe area (home indicator) */
-  background: #0a0f1a;
+  background: var(--safe-area-bg);
 
   /* Allow natural overscroll on Y axis */
   overscroll-behavior-y: auto;
