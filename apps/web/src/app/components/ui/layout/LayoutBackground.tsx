@@ -56,6 +56,21 @@ function convertToParticleColors(backgroundColors: string[]) {
 }
 
 /**
+ * Update the theme-color meta tag for iOS Safari safe areas
+ */
+function updateThemeColorMeta(color: string) {
+  let metaTag = document.querySelector('meta[name="theme-color"]');
+
+  if (!metaTag) {
+    metaTag = document.createElement('meta');
+    metaTag.setAttribute('name', 'theme-color');
+    document.head.appendChild(metaTag);
+  }
+
+  metaTag.setAttribute('content', color);
+}
+
+/**
  * Default colors for signed-out homepage (dark → theme green → dark)
  */
 const DEFAULT_COLORS = {
@@ -161,14 +176,12 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const contactColors = contactProfile?.backgroundColors;
     const userColors = profile?.backgroundColors;
 
-    // Only use colors if profile picture is user-uploaded (not AI-generated)
-    const hasUserUploadedImage = profile?.aiGeneration?.avatarGenerated === false;
-
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
       // On contact page with contact colors - use contact's dominant color
       const [dominant] = contactColors;
       document.documentElement.style.backgroundColor = dominant;
       document.documentElement.style.setProperty('--safe-area-color', dominant);
+      updateThemeColorMeta(dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
@@ -177,25 +190,28 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // On contact page where contact is loaded but has no colors - use theme green
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
       console.log('[LayoutBackground] Setting theme green safe area color for contact page (no custom colors), userId:', params?.userId);
-    } else if (!isOnContactPage && hasUserUploadedImage && userColors && userColors.length >= 3) {
-      // Not on contact page with user-uploaded image - use user's dominant color
+    } else if (!isOnContactPage && userColors && userColors.length >= 3) {
+      // Not on contact page - use profile's dominant color (custom or default theme green)
       const [dominant] = userColors;
       document.documentElement.style.backgroundColor = dominant;
       document.documentElement.style.setProperty('--safe-area-color', dominant);
+      updateThemeColorMeta(dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
-      console.log('[LayoutBackground] Setting user safe area color:', dominant);
+      console.log('[LayoutBackground] Setting profile safe area color:', dominant);
     } else if (!isOnContactPage && profile) {
-      // Not on contact page with AI-generated image or no colors - use theme green
+      // Fallback: profile loaded but no colors - use theme green
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      updateThemeColorMeta(COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
       sessionStorage.removeItem('last-safe-area-userId');
-      console.log('[LayoutBackground] Setting theme green safe area color for profile page (AI-generated image or no custom colors)');
+      console.log('[LayoutBackground] Setting theme green safe area color for profile page (fallback - no colors)');
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId]);
 
@@ -214,11 +230,13 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     if (lastColor && shouldRestore) {
       document.documentElement.style.backgroundColor = lastColor;
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
+      updateThemeColorMeta(lastColor);
       console.log('[LayoutBackground] Restored safe area color from session:', lastColor, 'userId:', currentUserId);
     } else if (!shouldRestore && currentUserId) {
       // On contact page but userId doesn't match - clear old color and set theme green while loading
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      updateThemeColorMeta(COLORS.themeGreen);
       console.log('[LayoutBackground] Setting theme green while loading contact (userId mismatch). Last:', lastUserId, 'Current:', currentUserId);
     }
 
@@ -298,16 +316,15 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     } else {
       // User profile page logic
       const userColors = profile?.backgroundColors;
-      const hasUserUploadedImage = profile?.aiGeneration?.avatarGenerated === false;
 
-      // Only use custom colors if user uploaded their profile picture (not AI-generated)
-      if (hasUserUploadedImage && userColors && userColors.length >= 3) {
+      // Use profile colors (whether custom extracted or default theme green)
+      if (userColors && userColors.length >= 3) {
         return {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
       } else {
-        // AI-generated profile picture or no custom colors - use default green gradient
+        // Fallback: no colors available - use default green gradient
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: 'profile-default'

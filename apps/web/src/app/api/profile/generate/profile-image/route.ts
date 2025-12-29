@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     // Add cache-busting timestamp to the URL without changing the filename
     const cacheBustedUrl = `${newImageUrl}?t=${Date.now()}`;
 
-    // Extract background colors for user-uploaded images
+    // Extract background colors for user-uploaded images, or set default green for AI-generated
     let backgroundColors: string[] | undefined;
     if (imageData) {
       console.log('[API/PROFILE-IMAGE] Extracting background colors from user-uploaded image');
@@ -216,6 +216,11 @@ export async function POST(req: NextRequest) {
         console.error('[API/PROFILE-IMAGE] Error extracting background colors:', error);
         // Don't fail the whole request if color extraction fails
       }
+    } else {
+      // AI-generated image - use theme green for safe areas
+      const themeGreen = '#1d9643'; // rgb(29, 150, 67)
+      backgroundColors = [themeGreen, themeGreen, themeGreen];
+      console.log('[API/PROFILE-IMAGE] Using default theme green for AI-generated image:', backgroundColors);
     }
 
     // Save the cache-busted URL and colors to the profile

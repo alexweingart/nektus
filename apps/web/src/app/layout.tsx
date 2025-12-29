@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Nekt',
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     startupImage: '/pwa/nektus-logo-pwa-192x192.png',
   },
   other: {
@@ -79,6 +79,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="rgb(29, 150, 67)" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
