@@ -88,6 +88,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const [mounted, setMounted] = useState(false);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
+  const [cachedParticleColors, setCachedParticleColors] = useState<ParticleNetworkProps['colors'] | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -198,10 +199,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId]);
 
-  // On mount, restore last safe area color if available (prevents flash on refresh)
+  // On mount, restore last safe area color and particle colors if available (prevents flash on refresh)
   useEffect(() => {
     const lastColor = sessionStorage.getItem('last-safe-area-color');
     const lastUserId = sessionStorage.getItem('last-safe-area-userId');
+    const lastParticleColors = sessionStorage.getItem('last-particle-colors');
     const currentUserId = params?.userId as string | undefined;
 
     // Only restore if we're on the same contact/page as when saved
@@ -219,6 +221,20 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       console.log('[LayoutBackground] Setting theme green while loading contact (userId mismatch). Last:', lastUserId, 'Current:', currentUserId);
     }
+
+    // Restore particle colors
+    if (lastParticleColors && shouldRestore) {
+      try {
+        const parsed = JSON.parse(lastParticleColors);
+        setCachedParticleColors(parsed);
+        console.log('[LayoutBackground] Restored particle colors from session:', parsed);
+      } catch (e) {
+        console.error('[LayoutBackground] Failed to parse cached particle colors:', e);
+      }
+    } else if (!shouldRestore) {
+      // Clear cached colors if userId doesn't match
+      setCachedParticleColors(null);
+    }
   }, [params?.userId]);
 
   // Determine context and background colors
@@ -227,7 +243,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     // Ignore status 'loading' if we already have a session (prevents flash during session refresh)
     if (status === 'loading' && !session) {
       return {
-        colors: DEFAULT_COLORS,
+        colors: cachedParticleColors || DEFAULT_COLORS,
         context: 'signed-out'
       };
     }
@@ -250,9 +266,10 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
     // Signed in - wait for profile to load
     // UNLESS navigating from setup (prevent flash during profile load)
+    // Use cached colors if available to prevent flash on refresh
     if (isLoading && !isNavigatingFromSetup) {
       return {
-        colors: DEFAULT_COLORS,
+        colors: cachedParticleColors || DEFAULT_COLORS,
         context: 'signed-out'
       };
     }
@@ -297,7 +314,20 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         };
       }
     }
-  }, [status, session, isLoading, isNavigatingFromSetup, pathname, profile, contactProfile]);
+  }, [status, session, isLoading, isNavigatingFromSetup, pathname, profile, contactProfile, cachedParticleColors]);
+
+  // Persist particle colors to sessionStorage to prevent flash on refresh
+  useEffect(() => {
+    if (!mounted) return;
+
+    const props = getParticleNetworkProps();
+
+    // Only cache non-default colors (profile and contact colors)
+    if (props.context !== 'signed-out') {
+      sessionStorage.setItem('last-particle-colors', JSON.stringify(props.colors));
+      console.log('[LayoutBackground] Cached particle colors to session:', props.colors);
+    }
+  }, [mounted, getParticleNetworkProps]);
 
   // Manage default background visibility for prefers-reduced-motion fallback
   useEffect(() => {
