@@ -167,13 +167,15 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       document.documentElement.style.setProperty('--safe-area-color', dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
-      console.log('[LayoutBackground] Setting contact safe area color:', dominant);
-    } else if (isOnContactPage && (!contactColors || contactColors.length < 3)) {
-      // On contact page with default theme - use theme green to match gradient edges
+      sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
+      console.log('[LayoutBackground] Setting contact safe area color:', dominant, 'userId:', params?.userId);
+    } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
+      // On contact page where contact is loaded but has no colors - use theme green
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
-      console.log('[LayoutBackground] Setting theme green safe area color for contact page');
+      sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
+      console.log('[LayoutBackground] Setting theme green safe area color for contact page (no custom colors), userId:', params?.userId);
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Left contact page - reset to user's dominant color
       const [dominant] = userColors;
@@ -181,6 +183,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       document.documentElement.style.setProperty('--safe-area-color', dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
+      sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
       console.log('[LayoutBackground] Resetting to user safe area color:', dominant);
     }
   }, [mounted, pathname, contactProfile, profile]);
@@ -188,12 +191,22 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   // On mount, restore last safe area color if available (prevents flash on refresh)
   useEffect(() => {
     const lastColor = sessionStorage.getItem('last-safe-area-color');
-    if (lastColor) {
+    const lastUserId = sessionStorage.getItem('last-safe-area-userId');
+    const currentUserId = params?.userId as string | undefined;
+
+    // Only restore if we're on the same contact/page as when saved
+    // For non-contact pages (no userId), always restore
+    // For contact pages, only restore if userId matches
+    const shouldRestore = !currentUserId || lastUserId === currentUserId;
+
+    if (lastColor && shouldRestore) {
       document.documentElement.style.backgroundColor = lastColor;
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
-      console.log('[LayoutBackground] Restored safe area color from session:', lastColor);
+      console.log('[LayoutBackground] Restored safe area color from session:', lastColor, 'userId:', currentUserId);
+    } else if (!shouldRestore) {
+      console.log('[LayoutBackground] Skipping restore - userId mismatch. Last:', lastUserId, 'Current:', currentUserId);
     }
-  }, []);
+  }, [params?.userId]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
