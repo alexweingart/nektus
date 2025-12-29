@@ -157,8 +157,7 @@ const EditProfileView: React.FC = () => {
     // Get all fields and let ProfileSaveService handle filtering/dedup
     const profileData = {
       contactEntries: fieldSectionManager.getAllFields(),
-      profileImage: fieldSectionManager.getImageValue('profileImage') || profile?.profileImage || '',
-      backgroundImage: fieldSectionManager.getImageValue('backgroundImage') || profile?.backgroundImage || ''
+      profileImage: fieldSectionManager.getImageValue('profileImage') || profile?.profileImage || ''
     };
 
     // Call the save function - ProfileSaveService will filter and deduplicate

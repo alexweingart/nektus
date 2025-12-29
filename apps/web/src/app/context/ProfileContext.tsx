@@ -147,7 +147,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 setIsCheckingGoogleImage,
                 setStreamingProfileImage,
                 setStreamingSocialContacts,
-                setStreamingBackgroundImage,
                 setProfile
               }).catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
@@ -167,7 +166,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 setIsCheckingGoogleImage,
                 setStreamingProfileImage,
                 setStreamingSocialContacts,
-                setStreamingBackgroundImage,
                 setProfile
               }).catch(error => {
                 console.error('[ProfileContext] Background color extraction error:', error);

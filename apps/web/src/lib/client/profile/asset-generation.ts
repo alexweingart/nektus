@@ -22,7 +22,6 @@ interface GenerateAssetsParams {
   setIsCheckingGoogleImage: (value: boolean) => void;
   setStreamingProfileImage: (value: string | null) => void;
   setStreamingSocialContacts: (value: UserProfile['contactEntries'] | null) => void;
-  setStreamingBackgroundImage: (value: string | null) => void;
   setProfile: (profile: UserProfile) => void;
 }
 
@@ -41,7 +40,6 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
     setIsCheckingGoogleImage,
     setStreamingProfileImage,
     setStreamingSocialContacts,
-    setStreamingBackgroundImage,
     setProfile
   } = params;
 
@@ -224,7 +222,6 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
       if (updatedProfile) {
         // Clear streaming states and set final profile
         setStreamingSocialContacts(null);
-        setStreamingBackgroundImage(null);
         setProfile(updatedProfile);
       }
     } catch (error) {
