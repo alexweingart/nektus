@@ -79,41 +79,6 @@ export default function ContactLayout({
     loadContact();
   }, [session?.user?.id, contactUserId, getContact, loadContacts]);
 
-  // Apply contact's background using CSS variables and classes
-  useEffect(() => {
-    if (!contactProfile) {
-      return;
-    }
-
-    // Always hide user background when on contact page
-    document.body.classList.remove('has-user-background');
-
-    if (contactProfile.backgroundImage) {
-      // Set CSS variable for contact background
-      const cleanedUrl = contactProfile.backgroundImage.replace(/[\n\r\t]/g, '').trim();
-      document.documentElement.style.setProperty('--contact-background-image', `url("${cleanedUrl}")`);
-
-      // Show contact background via CSS class
-      document.body.classList.add('show-contact-background');
-    } else {
-      // No contact background, remove class (will show green pattern)
-      document.body.classList.remove('show-contact-background');
-    }
-
-    // Cleanup function - restore user background when leaving
-    return () => {
-      document.body.classList.remove('show-contact-background');
-      document.body.classList.add('has-user-background');
-
-      // Remove CSS variable after transition completes (1s to match CSS transition)
-      setTimeout(() => {
-        document.documentElement.style.removeProperty('--contact-background-image');
-      }, 1000);
-    };
-    // Only re-run when backgroundImage changes, not on other contactProfile changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactProfile?.backgroundImage]);
-
   // Liquid Glass: Override global color with contact's color
   useEffect(() => {
     if (contactProfile?.backgroundColors) {

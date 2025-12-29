@@ -54,7 +54,7 @@
     --glass-tint-color: 113, 228, 84; /* Bright lime green from logo */
 
     /* Core color palette - using hex for consistency */
-    --background: transparent;  /* No background - let body::before handle it */
+    --background: transparent;  /* No background - let ParticleNetwork handle it */
     --foreground: #ffffff;    /* White text for light theme */
     
     /* Primary colors */
@@ -170,26 +170,15 @@ body {
    ============================================================================
 
    Layer -1: Canvas (ParticleNetwork)
-     - Dark green gradient with animated particles
-     - Shown when signed out or when signed in with real photo but no background
-     - Controlled by body.show-particles class
+     - Personalized gradient with animated particles
+     - Colors extracted from profile images
+     - Shown for all users with fallback to theme colors
      - Extends to full screen height (852px on iPhone 14)
 
    Layer 1: Default Background (body::after)
      - Static background image (DefaultBackgroundImage.png)
-     - Shown when user has initials avatar but no custom background
+     - Fallback for users with prefers-reduced-motion
      - Controlled by body.show-default-background class
-
-   Layer 2: User Background (body::before)
-     - User's custom background image
-     - Controlled by body.has-user-background class
-     - Uses --user-background-image CSS variable
-
-   Layer 3: Contact Background (.contact-background-overlay)
-     - Contact's background image when viewing contact page
-     - Controlled by body.show-contact-background class
-     - Uses --contact-background-image CSS variable
-     - Allows crossfade transitions between user and contact backgrounds
 
    Layer 10: Page Content
      - All UI elements, text, buttons, etc.

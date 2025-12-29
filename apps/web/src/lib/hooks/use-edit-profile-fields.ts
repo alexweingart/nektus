@@ -11,8 +11,8 @@ import type { ContactEntry, FieldSection, UserProfile } from '@/types/profile';
 interface UseEditProfileFieldsProps {
   profile?: UserProfile | null; // Firebase profile object
   session?: Session | null; // Session for fallback values
-  initialImages?: { profileImage: string; backgroundImage: string };
-  onFieldsChange?: (fields: ContactEntry[], images: { profileImage: string; backgroundImage: string }) => void;
+  initialImages?: { profileImage: string };
+  onFieldsChange?: (fields: ContactEntry[], images: { profileImage: string }) => void;
 }
 
 export interface UseEditProfileFieldsReturn {
@@ -21,8 +21,8 @@ export interface UseEditProfileFieldsReturn {
   setFieldValue: (fieldType: string, value: string) => void;
 
   // Image access
-  getImageValue: (type: 'profileImage' | 'backgroundImage') => string;
-  setImageValue: (type: 'profileImage' | 'backgroundImage', value: string) => void;
+  getImageValue: (type: 'profileImage') => string;
+  setImageValue: (type: 'profileImage', value: string) => void;
 
   // Field filtering functions
   getFieldsBySection: (section: FieldSection) => ContactEntry[];
@@ -53,12 +53,12 @@ export interface UseEditProfileFieldsReturn {
 }
 
 /**
- * Custom hook for handling image uploads (profile and background)
+ * Custom hook for handling profile image uploads
  */
 export const useImageUpload = () => {
   const handleImageUpload = useCallback(async (
     file: File,
-    uploadType: 'profile' | 'background',
+    uploadType: 'profile',
     onSuccess: (imageData: string) => void
   ) => {
     const reader = new FileReader();
@@ -68,8 +68,8 @@ export const useImageUpload = () => {
       // Show immediate preview with base64 (temporary)
       onSuccess(imageData);
 
-      // Call the appropriate API endpoint and wait for permanent URL
-      const endpoint = uploadType === 'profile' ? 'profile-image' : 'background-image';
+      // Call the profile image API endpoint and wait for permanent URL
+      const endpoint = 'profile-image';
       try {
         const response = await fetch(`/api/profile/generate/${endpoint}`, {
           method: 'POST',
@@ -100,7 +100,7 @@ export const useImageUpload = () => {
   }, []);
 
   const createUploadHandler = useCallback((
-    uploadType: 'profile' | 'background',
+    uploadType: 'profile',
     onSuccess: (imageData: string) => void
   ) => {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,10 +171,10 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLDivElement |
   };
 };
 
-export const useEditProfileFields = ({ 
+export const useEditProfileFields = ({
   profile,
   session,
-  initialImages = { profileImage: '', backgroundImage: '' },
+  initialImages = { profileImage: '' },
   onFieldsChange
 }: UseEditProfileFieldsProps): UseEditProfileFieldsReturn => {
 
@@ -207,9 +207,9 @@ export const useEditProfileFields = ({
       setFields(newInitialFields);
     }
   }, [profile?.contactEntries, calculateInitialFields]);
-  
+
   // Image state (separate from text fields)
-  const [images, setImages] = useState<{ profileImage: string; backgroundImage: string }>(initialImages);
+  const [images, setImages] = useState<{ profileImage: string }>(initialImages);
   const imagesRef = useRef(images);
   const fieldsRef = useRef(fields);
 
@@ -225,10 +225,10 @@ export const useEditProfileFields = ({
     // Use ref to avoid dependency
     onFieldsChange?.(newFields, imagesRef.current);
   }, [onFieldsChange]);
-  
+
 
   // Update images and notify
-  const updateImages = useCallback((newImages: { profileImage: string; backgroundImage: string }) => {
+  const updateImages = useCallback((newImages: { profileImage: string }) => {
     setImages(newImages);
     // Use ref to avoid dependency on fields
     onFieldsChange?.(fieldsRef.current, newImages);
@@ -293,12 +293,12 @@ export const useEditProfileFields = ({
   }, [fields, updateFields]);
   
   // Get image value
-  const getImageValue = useCallback((type: 'profileImage' | 'backgroundImage'): string => {
+  const getImageValue = useCallback((type: 'profileImage'): string => {
     return images[type];
   }, [images]);
-  
+
   // Set image value
-  const setImageValue = useCallback((type: 'profileImage' | 'backgroundImage', value: string) => {
+  const setImageValue = useCallback((type: 'profileImage', value: string) => {
     updateImages({ ...images, [type]: value });
   }, [images, updateImages]);
   

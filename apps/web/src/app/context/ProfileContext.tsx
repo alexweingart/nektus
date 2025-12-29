@@ -30,8 +30,6 @@ type ProfileContextType = {
   setNavigatingFromSetup: (navigating: boolean) => void;
   // Streaming states for immediate UI feedback during generation
   streamingSocialContacts: UserProfile['contactEntries'] | null;
-  streamingBackgroundImage: string | null;
-  setStreamingBackgroundImage: (imageUrl: string | null) => void;
   streamingProfileImage: string | null;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
@@ -60,7 +58,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Separate streaming state for immediate updates during generation
   const [streamingSocialContacts, setStreamingSocialContacts] = useState<UserProfile['contactEntries'] | null>(null);
-  const [streamingBackgroundImage, setStreamingBackgroundImage] = useState<string | null>(null);
   const [streamingProfileImage, setStreamingProfileImage] = useState<string | null>(null);
 
   // Track if current profile image is Google auto-generated initials
@@ -495,8 +492,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         getLatestProfile,
         setNavigatingFromSetup,
         streamingSocialContacts,
-        streamingBackgroundImage,
-        setStreamingBackgroundImage,
         streamingProfileImage,
         isGoogleInitials,
         isCheckingGoogleImage,

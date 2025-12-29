@@ -23,11 +23,10 @@ import { SelectedSections } from './SelectedSections';
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, isSaving: isProfileSaving, setStreamingBackgroundImage } = useProfile();
+  const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
   const router = useRouter();
 
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const backgroundInputRef = useRef<HTMLInputElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   // Inline add link state
@@ -47,8 +46,7 @@ const EditProfileView: React.FC = () => {
 
   // Initial images setup
   const initialImages = {
-    profileImage: getOptimalProfileImageUrl(profile?.profileImage || '', 400),
-    backgroundImage: profile?.backgroundImage || ''
+    profileImage: getOptimalProfileImageUrl(profile?.profileImage || '', 400)
   };
 
   // Unified field management hook - this is our single source of truth
@@ -91,13 +89,6 @@ const EditProfileView: React.FC = () => {
     loadFromStorage();
   }, [loadFromStorage]);
 
-  // Clear streaming background image on unmount
-  React.useEffect(() => {
-    return () => {
-      setStreamingBackgroundImage(null);
-    };
-  }, [setStreamingBackgroundImage]);
-
   // Handle mode change - update both carousel and local state
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     handleCarouselModeChange(mode);
@@ -108,13 +99,6 @@ const EditProfileView: React.FC = () => {
   const handleProfileImageUpload = createUploadHandler('profile', (imageData) =>
     fieldSectionManager.setImageValue('profileImage', imageData)
   );
-
-  const handleBackgroundImageUpload = createUploadHandler('background', (imageData) => {
-    // Update local state
-    fieldSectionManager.setImageValue('backgroundImage', imageData);
-    // Update ProfileContext for immediate visual feedback
-    setStreamingBackgroundImage(imageData);
-  });
 
   // Handle field input change
   const handleFieldChange = (fieldType: string, value: string, section: FieldSection) => {
@@ -231,25 +215,6 @@ const EditProfileView: React.FC = () => {
             isEmpty={false}
             emptyText=""
             className="w-full"
-            bottomButton={
-              <div className="text-center">
-                <SecondaryButton
-                  className="cursor-pointer"
-                  onClick={() => {
-                    backgroundInputRef.current?.click();
-                  }}
-                >
-                  Edit Background
-                </SecondaryButton>
-                <input
-                  ref={backgroundInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleBackgroundImageUpload}
-                />
-              </div>
-            }
           >
             {/* Name Input with Profile Image */}
             <div className="w-full max-w-md mx-auto">
