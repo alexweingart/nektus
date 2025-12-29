@@ -13,11 +13,11 @@ interface ContactProfile {
 
 // Theme color constants
 const COLORS = {
-  // Darker emerald green (solid, no opacity) - balanced with reduced brightness
-  emeraldGreenDark: 'rgb(29, 150, 67)',
+  // Theme green - darker emerald (solid, no opacity) for gradients and safe areas
+  themeGreen: 'rgb(29, 150, 67)',
 
-  // Dark background
-  dark: 'rgb(10, 15, 26)',
+  // Theme dark background
+  themeDark: 'rgb(10, 15, 26)',
 
   // Particle colors
   particleLight: 'rgba(200, 255, 200, 0.6)',
@@ -56,23 +56,23 @@ function convertToParticleColors(backgroundColors: string[]) {
 }
 
 /**
- * Default colors for signed-out homepage (dark → dark emerald green → dark)
+ * Default colors for signed-out homepage (dark → theme green → dark)
  */
 const DEFAULT_COLORS = {
   particle: COLORS.particleLight,
   connection: COLORS.connectionSubtle,
-  gradientStart: COLORS.emeraldGreenDark,
-  gradientEnd: COLORS.dark,
+  gradientStart: COLORS.themeGreen,
+  gradientEnd: COLORS.themeDark,
 };
 
 /**
- * Inverted colors for contacts without custom backgrounds (dark emerald green → dark → dark emerald green)
+ * Inverted colors for contacts without custom backgrounds (theme green → dark → theme green)
  */
 const DEFAULT_COLORS_INVERTED = {
   particle: COLORS.particleBright,
   connection: COLORS.connectionMedium,
-  gradientStart: COLORS.dark,
-  gradientEnd: COLORS.emeraldGreenDark,
+  gradientStart: COLORS.themeDark,
+  gradientEnd: COLORS.themeGreen,
 };
 
 /**
@@ -169,11 +169,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-color', dominant);
       console.log('[LayoutBackground] Setting contact safe area color:', dominant);
     } else if (isOnContactPage && (!contactColors || contactColors.length < 3)) {
-      // On contact page with default theme - use dark emerald green to match gradient edges
-      document.documentElement.style.backgroundColor = COLORS.emeraldGreenDark;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.emeraldGreenDark);
-      sessionStorage.setItem('last-safe-area-color', COLORS.emeraldGreenDark);
-      console.log('[LayoutBackground] Setting dark emerald green safe area color for contact page');
+      // On contact page with default theme - use theme green to match gradient edges
+      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
+      console.log('[LayoutBackground] Setting theme green safe area color for contact page');
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Left contact page - reset to user's dominant color
       const [dominant] = userColors;
