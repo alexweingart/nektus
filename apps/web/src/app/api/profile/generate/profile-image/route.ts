@@ -7,6 +7,7 @@ import { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/lib/client/profile/transforms';
 import { generateInitialsAvatar, dataUrlToBuffer } from '@/lib/client/profile/avatar';
 import { getOpenAIClient } from '@/lib/config/openai';
+import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/lib/server/profile/colors';
 
 /**
  * Extract initials from a name string
@@ -189,19 +190,54 @@ export async function POST(req: NextRequest) {
     // Add cache-busting timestamp to the URL without changing the filename
     const cacheBustedUrl = `${newImageUrl}?t=${Date.now()}`;
 
-    // Save the cache-busted URL to the profile
-    await AdminProfileService.updateProfile(userId, {
+    // Extract background colors for user-uploaded images
+    let backgroundColors: string[] | undefined;
+    if (imageData) {
+      console.log('[API/PROFILE-IMAGE] Extracting background colors from user-uploaded image');
+      try {
+        // Fetch the image to extract colors
+        const imageResponse = await fetch(cacheBustedUrl);
+        if (imageResponse.ok) {
+          const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+          const palette = await getColorPalette(imageBuffer, 5);
+          console.log('[API/PROFILE-IMAGE] Generated color palette:', palette);
+
+          // Filter chromatic colors and pick dominant + accents
+          const chromaticPalette = filterChromaticColors(palette);
+          console.log('[API/PROFILE-IMAGE] Filtered to chromatic colors:', chromaticPalette);
+
+          const dominantColor = chromaticPalette[0];
+          const accentColors = pickAccentColors(chromaticPalette.slice(1));
+          backgroundColors = [dominantColor, ...accentColors];
+
+          console.log('[API/PROFILE-IMAGE] Extracted background colors:', backgroundColors);
+        }
+      } catch (error) {
+        console.error('[API/PROFILE-IMAGE] Error extracting background colors:', error);
+        // Don't fail the whole request if color extraction fails
+      }
+    }
+
+    // Save the cache-busted URL and colors to the profile
+    const updateData: Partial<UserProfile> = {
       profileImage: cacheBustedUrl,
       aiGeneration: {
         bioGenerated: currentProfile?.aiGeneration?.bioGenerated || false,
-        avatarGenerated: true,
+        avatarGenerated: !imageData, // Only mark as AI-generated if no user upload
         backgroundImageGenerated: currentProfile?.aiGeneration?.backgroundImageGenerated || false
       }
-    });
-    // Log profile image generation complete and saved to Firestore with response
-    console.log('[API/PROFILE-IMAGE] Profile image complete & saved to Firestore', { userId, imageUrl: cacheBustedUrl });
+    };
 
-    return NextResponse.json({ imageUrl: cacheBustedUrl });
+    // Include background colors if extracted
+    if (backgroundColors) {
+      updateData.backgroundColors = backgroundColors;
+    }
+
+    await AdminProfileService.updateProfile(userId, updateData);
+    // Log profile image generation complete and saved to Firestore with response
+    console.log('[API/PROFILE-IMAGE] Profile image complete & saved to Firestore', { userId, imageUrl: cacheBustedUrl, backgroundColors });
+
+    return NextResponse.json({ imageUrl: cacheBustedUrl, backgroundColors });
 
   } catch (error) {
     console.error(`[API/PROFILE-IMAGE] Error processing profile image for user ${userId}:`, error);

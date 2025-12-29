@@ -57,7 +57,11 @@ const EditProfileView: React.FC = () => {
   });
 
   // Custom hooks
-  const { createUploadHandler } = useImageUpload();
+  const { createUploadHandler } = useImageUpload((colors) => {
+    // Update profile context with extracted colors immediately
+    console.log('[EditProfileView] Updating profile with extracted colors:', colors);
+    saveProfile({ backgroundColors: colors }, { skipUIUpdate: false });
+  });
   const { loadFromStorage, handleModeChange: handleCarouselModeChange } = useProfileViewMode(carouselRef);
 
   // Calendar and location management

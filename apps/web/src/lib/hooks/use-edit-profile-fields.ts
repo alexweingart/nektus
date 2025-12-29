@@ -55,7 +55,7 @@ export interface UseEditProfileFieldsReturn {
 /**
  * Custom hook for handling profile image uploads
  */
-export const useImageUpload = () => {
+export const useImageUpload = (onColorsExtracted?: (colors: string[]) => void) => {
   const handleImageUpload = useCallback(async (
     file: File,
     uploadType: 'profile',
@@ -89,6 +89,12 @@ export const useImageUpload = () => {
         } else {
           throw new Error('No image URL returned from server');
         }
+
+        // If colors were extracted, update the local state immediately
+        if (data.backgroundColors && onColorsExtracted) {
+          console.log('[useImageUpload] Background colors extracted:', data.backgroundColors);
+          onColorsExtracted(data.backgroundColors);
+        }
       } catch (error) {
         console.error(`Error uploading ${uploadType} image:`, error);
         alert(`Failed to upload ${uploadType} image. Please try again.`);
@@ -97,7 +103,7 @@ export const useImageUpload = () => {
       }
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [onColorsExtracted]);
 
   const createUploadHandler = useCallback((
     uploadType: 'profile',
