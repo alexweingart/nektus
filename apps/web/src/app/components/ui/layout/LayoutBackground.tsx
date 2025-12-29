@@ -176,6 +176,17 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const contactColors = contactProfile?.backgroundColors;
     const userColors = profile?.backgroundColors;
 
+    console.log('[LayoutBackground] Safe area effect running:', {
+      pathname,
+      isOnContactPage,
+      hasContactProfile: !!contactProfile,
+      contactColors: contactColors?.length,
+      hasProfile: !!profile,
+      userColors: userColors?.length,
+      isLoading,
+      mounted
+    });
+
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
       // On contact page with contact colors - use contact's dominant color
       const [dominant] = contactColors;
@@ -220,6 +231,19 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         isLoading,
         userColors,
         backgroundColors: profile?.backgroundColors
+      });
+    } else {
+      console.log('[LayoutBackground] ⚠️ NO SAFE AREA PATH MATCHED:', {
+        isOnContactPage,
+        hasContactProfile: !!contactProfile,
+        contactColorsLength: contactColors?.length,
+        hasProfile: !!profile,
+        userColorsLength: userColors?.length,
+        isLoading,
+        'condition1_contact+colors': isOnContactPage && contactColors && contactColors.length >= 3,
+        'condition2_contact+noColors': isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3),
+        'condition3_profile+colors': !isOnContactPage && userColors && userColors.length >= 3,
+        'condition4_profile+noColors': !isOnContactPage && profile && !isLoading
       });
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading]);
