@@ -184,8 +184,22 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       hasProfile: !!profile,
       userColors: userColors?.length,
       isLoading,
-      mounted
+      mounted,
+      status,
+      hasSession: !!session
     });
+
+    // Handle signed-out state FIRST - always use themeDark
+    if (status !== 'authenticated') {
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+      document.documentElement.style.backgroundColor = COLORS.themeDark;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      updateThemeColorMeta(COLORS.themeDark);
+      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
+      sessionStorage.removeItem('last-safe-area-userId');
+      console.log('[LayoutBackground] Setting themeDark for signed-out state');
+      return;
+    }
 
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
       // On contact page with contact colors - use contact's dominant color
@@ -262,7 +276,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         'condition4_profile+noColors': !isOnContactPage && profile && !isLoading
       });
     }
-  }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading]);
+  }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading, session, status]);
 
   // On mount, restore last safe area color and particle colors if available (prevents flash on refresh)
   useEffect(() => {
@@ -270,6 +284,16 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const lastUserId = sessionStorage.getItem('last-safe-area-userId');
     const lastParticleColors = sessionStorage.getItem('last-particle-colors');
     const currentUserId = params?.userId as string | undefined;
+
+    // If signed out, always use themeDark and don't restore cached colors
+    if (status !== 'authenticated') {
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+      document.documentElement.style.backgroundColor = COLORS.themeDark;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      updateThemeColorMeta(COLORS.themeDark);
+      console.log('[LayoutBackground] Mount: Setting themeDark for signed-out state (not restoring cache)');
+      return;
+    }
 
     // Only restore if we're on the same contact/page as when saved
     // For non-contact pages (no userId), always restore
@@ -304,7 +328,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Clear cached colors if userId doesn't match
       setCachedParticleColors(null);
     }
-  }, [params?.userId]);
+  }, [params?.userId, session, status]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
