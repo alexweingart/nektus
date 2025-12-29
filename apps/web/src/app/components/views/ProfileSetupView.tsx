@@ -8,8 +8,10 @@ import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { Heading, Text } from '../ui/Typography';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
-import type { UserProfile } from '@/types/profile';
+import type { UserProfile, ContactEntry } from '@/types/profile';
 import type { Country } from '../ui/inputs/DropdownPhoneInput';
+import { SecondaryButton } from '../ui/buttons/SecondaryButton';
+import { InlineAddLink } from '../ui/modules/InlineAddLink';
 import { formatPhoneNumber } from '@/lib/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
@@ -26,7 +28,9 @@ function ProfileSetupView() {
 
   // Component state
   const [digits, setDigits] = useState('');
-  
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
+
   // Keep selectedCountry for phone number formatting
   const [selectedCountry] = useState<Country>({
     name: 'United States',
@@ -38,6 +42,25 @@ function ProfileSetupView() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   
   const adminModeProps = useAdminModeActivator();
+
+  // Handle link added - duplicate to both personal and work sections
+  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
+    // For setup, we want links in both sections like we do with phone
+    const duplicatedEntries: ContactEntry[] = [];
+    entries.forEach(entry => {
+      // Add to personal
+      duplicatedEntries.push({ ...entry, section: 'personal' });
+      // Add to work
+      duplicatedEntries.push({ ...entry, section: 'work' });
+    });
+    setAddedLinks(duplicatedEntries);
+    // Don't hide immediately - let the form submission happen first
+  }, []);
+
+  // Handle cancel add link
+  const handleCancelAddLink = useCallback(() => {
+    setShowAddLink(false);
+  }, []);
 
   // Platform-specific delayed focus for keyboard tray behavior
   useEffect(() => {
@@ -87,25 +110,30 @@ function ProfileSetupView() {
       const phoneResult = formatPhoneNumber(digits, selectedCountry.code as CountryCode);
       internationalPhone = phoneResult.internationalPhone;
     }
+
+    // Build contact entries array with phone and any added links
+    const contactEntries: ContactEntry[] = [
+      {
+        fieldType: 'phone',
+        section: 'personal',
+        value: internationalPhone,
+        order: 0,
+        isVisible: true,
+        confirmed: true
+      },
+      {
+        fieldType: 'phone',
+        section: 'work',
+        value: internationalPhone,
+        order: 0,
+        isVisible: true,
+        confirmed: true
+      },
+      ...addedLinks // Add any links the user added
+    ];
+
     const phoneUpdateData: Partial<UserProfile> = {
-      contactEntries: [
-        {
-          fieldType: 'phone',
-          section: 'personal',
-          value: internationalPhone,
-          order: 0,
-          isVisible: true,
-          confirmed: true
-        },
-        {
-          fieldType: 'phone',
-          section: 'work',
-          value: internationalPhone,
-          order: 0,
-          isVisible: true,
-          confirmed: true
-        }
-      ]
+      contactEntries
     };
 
     setNavigatingFromSetup(true);
@@ -130,7 +158,7 @@ function ProfileSetupView() {
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+  }, [digits, addedLinks, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
 
 
   if (sessionStatus === 'loading') {
@@ -186,6 +214,17 @@ function ProfileSetupView() {
                   }}
                 />
 
+                {/* Inline Add Link - appears above Save button when active */}
+                {showAddLink && (
+                  <InlineAddLink
+                    section="personal"
+                    onLinkAdded={handleLinkAdded}
+                    nextOrder={1}
+                    onCancel={handleCancelAddLink}
+                    showDuplicateToggle={false}
+                  />
+                )}
+
                 <Button
                   type="submit"
                   variant="white"
@@ -205,6 +244,18 @@ function ProfileSetupView() {
                   ) : 'Save'}
                 </Button>
               </form>
+
+              {/* Add Socials Button - appears below Save when not in add mode */}
+              {!showAddLink && addedLinks.length === 0 && (
+                <div className="mt-4 text-center">
+                  <SecondaryButton
+                    className="cursor-pointer"
+                    onClick={() => setShowAddLink(true)}
+                  >
+                    Add Socials
+                  </SecondaryButton>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -20,19 +20,21 @@ interface InlineAddLinkProps {
   onLinkAdded: (entries: ContactEntry[]) => void;
   nextOrder: number;
   onCancel: () => void;
+  showDuplicateToggle?: boolean;
 }
 
 export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
   section,
   onLinkAdded,
   nextOrder,
-  onCancel
+  onCancel,
+  showDuplicateToggle = true
 }) => {
   // Link type toggle
   const [linkType, setLinkType] = useState<LinkType>('Social');
 
   // Social link state
-  const [socialPlatform, setSocialPlatform] = useState('facebook');
+  const [socialPlatform, setSocialPlatform] = useState('instagram');
   const [socialUsername, setSocialUsername] = useState('');
 
   // Custom link state
@@ -137,12 +139,18 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
 
   const handleBlur = (e: React.FocusEvent) => {
     // Check if focus is leaving the entire component
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      if (isValid) {
-        handleSave();
-      } else {
-        onCancel();
-      }
+    const relatedTarget = e.relatedTarget as Node;
+
+    // If clicking within the component (like toggle buttons), don't trigger blur
+    if (e.currentTarget.contains(relatedTarget)) {
+      return;
+    }
+
+    // Focus has left the component
+    if (isValid) {
+      handleSave();
+    } else {
+      onCancel();
     }
   };
 
@@ -197,12 +205,14 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
         </Text>
       )}
 
-      {/* Duplicate to Other Profile Toggle */}
-      <ToggleSetting
-        label={`Add to ${otherSection} too`}
-        enabled={duplicateToOther}
-        onChange={setDuplicateToOther}
-      />
+      {/* Duplicate to Other Profile Toggle - only show if prop is true */}
+      {showDuplicateToggle && (
+        <ToggleSetting
+          label={`Add to ${otherSection} too`}
+          enabled={duplicateToOther}
+          onChange={setDuplicateToOther}
+        />
+      )}
     </div>
   );
 };

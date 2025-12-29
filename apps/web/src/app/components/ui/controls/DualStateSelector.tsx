@@ -45,6 +45,7 @@ export function DualStateSelector<T extends string>({
       {options.map((option) => (
         <button
           key={option}
+          type="button"
           onClick={() => onOptionChange(option)}
           className={cn(
             "relative z-10 px-3 py-1 text-sm font-bold rounded-full flex-1 text-center",
