@@ -274,30 +274,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.style.setProperty('--glass-tint-color', rgbString);
       }
 
-      // Also set gradient colors for ParticleNetwork (Option A mapping)
+      // Set safe area color for profile pages (LayoutBackground handles particle colors)
       if (dominant && accent1 && accent2) {
-        // Helper to convert hex to rgba
-        const hexToRgba = (hex: string, alpha: number): string => {
-          const rgb = hexToRgb(hex);
-          return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-        };
-
-        const gradientStart = hexToRgba(accent1, 0.4);  // Bright accent at top
-        const gradientEnd = dominant;                    // Main color fills background
-        const particle = hexToRgba(accent2, 0.6);       // Bright particles
-        const connection = hexToRgba(accent2, 0.15);    // Subtle connections
-
-        console.log('[ProfileContext] Setting gradient colors:', {
-          gradientStart,
-          gradientEnd,
-          particle,
-          connection
-        });
-
-        document.documentElement.style.setProperty('--gradient-start-color', gradientStart);
-        document.documentElement.style.setProperty('--gradient-end-color', gradientEnd);
-        document.documentElement.style.setProperty('--particle-color', particle);
-        document.documentElement.style.setProperty('--connection-color', connection);
+        const gradientEnd = dominant;  // Main color fills background
 
         // Set :root background-color to gradientEnd for safe areas
         // BUT skip on contact pages - LayoutBackground handles those
@@ -312,13 +291,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.log('[ProfileContext] No backgroundColors, using default green');
       document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
 
-      // Clear gradient colors (will use ParticleNetwork defaults)
-      document.documentElement.style.removeProperty('--gradient-start-color');
-      document.documentElement.style.removeProperty('--gradient-end-color');
-      document.documentElement.style.removeProperty('--particle-color');
-      document.documentElement.style.removeProperty('--connection-color');
-
-      // Reset :root background-color to default dark
+      // Reset :root background-color to default dark (LayoutBackground handles particle colors)
       // BUT skip on contact pages - LayoutBackground handles those
       const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
       if (!isOnContactPage) {

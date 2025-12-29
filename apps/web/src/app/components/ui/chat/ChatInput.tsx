@@ -9,6 +9,7 @@ interface ChatInputProps {
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
   disabled: boolean;
+  sendDisabled?: boolean;
   placeholder?: string;
 }
 
@@ -17,11 +18,13 @@ export default function ChatInput({
   onChange,
   onSend,
   disabled,
+  sendDisabled = false,
   placeholder = "What would you like to do?"
 }: ChatInputProps) {
+  console.log('[ChatInput] Component rendered/recreated at', Date.now());
+
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [initialHeight] = useState(() => window.innerHeight);
+  const lastFocusTimeRef = useRef(0);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !disabled) {
@@ -30,53 +33,42 @@ export default function ChatInput({
     }
   };
 
-  // Background tester v2: Use absolute from bottom (no ResizeObserver needed!)
+  // Background tester v4: Blur input on scroll to close keyboard
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    const updatePosition = () => {
-      if (!keyboardOpen) return;
-      const scrollY = window.scrollY || window.pageYOffset;
-      const vpHeight = window.visualViewport?.height || window.innerHeight;
-      const bodyHeight = document.body.scrollHeight;
+    const handleScroll = () => {
+      const input = wrapper.querySelector('textarea');
+      if (!input) return;
 
-      // Position bottom edge at visual viewport bottom
-      const bottomValue = bodyHeight - scrollY - vpHeight;
-      wrapper.style.bottom = `${bottomValue}px`;
-    };
+      // Don't blur if this is a programmatic scroll (from new messages)
+      if ((window as any).__programmaticScroll) return;
 
-    const handleViewportChange = () => {
-      const vpHeight = window.visualViewport?.height || window.innerHeight;
-      const isKeyboardOpen = vpHeight < initialHeight - 100;
-      setKeyboardOpen(isKeyboardOpen);
+      // Ignore scroll events within 1000ms of focus (auto-scroll from keyboard opening)
+      const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
+      const isInputFocused = document.activeElement === input;
 
-      if (isKeyboardOpen) {
-        wrapper.style.position = 'absolute';
-        wrapper.style.top = 'auto';
-        updatePosition();
-      } else {
-        wrapper.style.position = 'fixed';
-        wrapper.style.bottom = '0';
-        wrapper.style.top = 'auto';
+      console.log('[ChatInput] scroll event:', {
+        timeSinceFocus,
+        isInputFocused,
+        lastFocusTime: lastFocusTimeRef.current,
+        willBlur: isInputFocused && timeSinceFocus > 1000,
+        scrollY: window.scrollY,
+      });
+
+      if (isInputFocused && timeSinceFocus > 1000) {
+        console.log('[ChatInput] BLURRING input due to scroll');
+        input.blur(); // Close keyboard
       }
     };
 
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', updatePosition);
-    }
-    window.addEventListener('scroll', updatePosition, { passive: true });
-    handleViewportChange();
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportChange);
-        window.visualViewport.removeEventListener('scroll', updatePosition);
-      }
-      window.removeEventListener('scroll', updatePosition);
+      window.removeEventListener('scroll', handleScroll);
     };
-  }, [keyboardOpen, initialHeight]);
+  }, []);
 
   return (
     <div
@@ -98,6 +90,14 @@ export default function ChatInput({
             value={value}
             onChange={onChange}
             onKeyPress={handleKeyPress}
+            onFocus={() => {
+              const now = Date.now();
+              console.log('[ChatInput] FOCUS event fired at', now);
+              lastFocusTimeRef.current = now;
+            }}
+            onBlur={() => {
+              console.log('[ChatInput] BLUR event fired at', Date.now(), 'Stack trace:', new Error().stack);
+            }}
             placeholder={placeholder}
             disabled={disabled}
             variant="white"
@@ -105,7 +105,7 @@ export default function ChatInput({
           />
           <Button
             onClick={onSend}
-            disabled={!value.trim() || disabled}
+            disabled={!value.trim() || sendDisabled}
             variant="circle"
             size="icon"
             className="w-14 h-14 shrink-0 mt-0"

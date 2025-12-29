@@ -33,8 +33,8 @@ function convertToParticleColors(backgroundColors: string[]) {
   return {
     gradientStart: hexToRgba(accent1, 0.4),      // Bright accent at top
     gradientEnd: dominant,                       // Main color fills background
-    particle: hexToRgba(accent2, 0.6),          // Bright particles
-    connection: hexToRgba(accent2, 0.15)        // Subtle connections (same hue as particles)
+    particle: hexToRgba(accent2, 0.8),          // Bright particles
+    connection: hexToRgba(accent2, 0.4)         // Subtle connections (same hue as particles)
   };
 }
 
@@ -43,8 +43,8 @@ function convertToParticleColors(backgroundColors: string[]) {
  * Used for contacts without custom backgrounds
  */
 const DEFAULT_COLORS_INVERTED = {
-  particle: 'rgba(200, 255, 200, 0.6)',
-  connection: 'rgba(34, 197, 94, 0.15)',
+  particle: 'rgba(200, 255, 200, 0.8)',
+  connection: 'rgba(34, 197, 94, 0.4)',
   gradientStart: '#0a0f1a',                 // Dark at top
   gradientEnd: 'rgba(34, 197, 94, 0.3)'     // Light green at bottom
 };

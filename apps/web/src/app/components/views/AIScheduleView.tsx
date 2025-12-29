@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -40,13 +40,12 @@ export default function AIScheduleView() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Pre-fetched common time slots
-  const [commonTimeSlots, setCommonTimeSlots] = useState<TimeSlot[]>([]);
+  // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
+  const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
   const hasFetchedSlotsRef = useRef(false);
 
   // Portal for fixed input - must be before early returns
   const [mounted, setMounted] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -117,7 +116,7 @@ export default function AIScheduleView() {
         if (response.ok) {
           const data = await response.json();
           const slots = data.slots || [];
-          setCommonTimeSlots(slots);
+          commonTimeSlotsRef.current = slots;
           console.log(`✅ Pre-fetched ${slots.length} common time slots`);
         } else {
           console.error(`❌ Failed to pre-fetch common times: ${response.status} ${response.statusText}`);
@@ -166,12 +165,19 @@ And if you don't know any of those things, and just want me to suggest based off
     // Only auto-scroll when new messages are added, not when existing messages are updated
     // Skip auto-scroll for the initial greeting message (messages.length === 1)
     if (messages.length > prevMessagesLengthRef.current && messages.length > 1) {
+      // Signal that this is a programmatic scroll (don't blur input)
+      (window as any).__programmaticScroll = true;
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+      // Clear flag after scroll completes (~500ms for smooth scroll)
+      setTimeout(() => {
+        (window as any).__programmaticScroll = false;
+      }, 600);
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
 
     if (!input.trim() || isProcessing || !currentUserProfile || !contactProfile || !session) return;
 
@@ -253,7 +259,7 @@ And if you don't know any of those things, and just want me to suggest based off
           user2Coordinates: contactCoordinates,
           calendarType: contactType,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          availableTimeSlots: commonTimeSlots, // Pass pre-fetched slots
+          availableTimeSlots: commonTimeSlotsRef.current, // Pass pre-fetched slots
         }),
       });
 
@@ -277,7 +283,7 @@ And if you don't know any of those things, and just want me to suggest based off
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse]);
 
   const handleScheduleEvent = (event: Event) => {
     if (!event.calendar_urls?.google) {
@@ -301,27 +307,20 @@ And if you don't know any of those things, and just want me to suggest based off
     return () => setMounted(false);
   }, []);
 
-  // Handle keyboard appearance - adjust scroll to keep messages visible
+  // Track keyboard appearance for debugging (no state updates to avoid re-render issues)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
 
     const handleViewportResize = () => {
       if (!window.visualViewport) return;
-
-      // Calculate keyboard height as the difference between window height and visual viewport height
       const keyboardHeight = window.innerHeight - window.visualViewport.height;
-      setKeyboardHeight(keyboardHeight);
-
-      // If keyboard is visible and we have messages, scroll to keep last message visible
-      if (keyboardHeight > 0 && messagesContainerRef.current) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-          if (messagesEndRef.current && messagesContainerRef.current) {
-            // Scroll messages container to show the last message
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          }
-        });
-      }
+      console.log('[AIScheduleView] Visual viewport resize:', {
+        keyboardHeight,
+        visualViewportHeight: window.visualViewport.height,
+        windowInnerHeight: window.innerHeight,
+        keyboardOpen: keyboardHeight > 0,
+      });
+      // Note: Not updating state to avoid re-renders that break iOS fixed positioning
     };
 
     window.visualViewport.addEventListener('resize', handleViewportResize);
@@ -329,7 +328,23 @@ And if you don't know any of those things, and just want me to suggest based off
     return () => {
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
     };
-  }, [messages]);
+  }, []);
+
+  // Memoize handlers to prevent ChatInput recreation
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  }, []);
+
+  // Memoize ChatInput to prevent recreation on re-renders (e.g., from commonTimeSlots updates)
+  const chatInputElement = useMemo(() => (
+    <ChatInput
+      value={input}
+      onChange={handleInputChange}
+      onSend={handleSend}
+      disabled={false}
+      sendDisabled={isProcessing}
+    />
+  ), [input, handleInputChange, handleSend, isProcessing]);
 
   if (loading || !contactProfile || !currentUserProfile) {
     return null;
@@ -357,15 +372,7 @@ And if you don't know any of those things, and just want me to suggest based off
       </div>
 
       {/* Input - rendered via portal to be fixed to viewport */}
-      {mounted && createPortal(
-        <ChatInput
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onSend={handleSend}
-          disabled={isProcessing}
-        />,
-        document.body
-      )}
+      {mounted && createPortal(chatInputElement, document.body)}
     </>
   );
 }
