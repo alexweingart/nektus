@@ -18,25 +18,9 @@ interface ParticleColors {
 }
 
 export interface ParticleNetworkProps {
-  colors?: ParticleColors;
+  colors: ParticleColors;  // Now required - always passed from LayoutBackground
   context?: 'signed-out' | 'profile' | 'profile-default' | 'connect' | 'contact';
 }
-
-// Default nekt green colors (for signed-out)
-const DEFAULT_COLORS: ParticleColors = {
-  particle: 'rgba(200, 255, 200, 0.6)',
-  connection: 'rgba(34, 197, 94, 0.15)',
-  gradientStart: 'rgba(34, 197, 94, 0.3)', // Light green at top
-  gradientEnd: '#0a0f1a'                    // Dark at bottom
-};
-
-// Inverted gradient for signed-in users without custom colors (profile-default)
-const DEFAULT_COLORS_INVERTED: ParticleColors = {
-  particle: 'rgba(200, 255, 200, 0.6)',
-  connection: 'rgba(34, 197, 94, 0.15)',
-  gradientStart: '#0a0f1a',                 // Dark at top
-  gradientEnd: 'rgba(34, 197, 94, 0.3)'     // Light green at bottom
-};
 
 // Context-specific configuration
 interface ContextConfig {
@@ -177,60 +161,18 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [cssColors, setCssColors] = useState<ParticleColors | null>(null);
 
   // Transition state for smooth color interpolation
   const transitionRef = useRef({
-    fromColors: DEFAULT_COLORS,
-    toColors: DEFAULT_COLORS,
+    fromColors: colors,
+    toColors: colors,
     startTime: 0,
     duration: 1000, // 1 second
     isTransitioning: false
   });
 
-  // Helper to get colors from CSS variables (set by ProfileContext)
-  const getColorsFromCSSVariables = (): ParticleColors | null => {
-    if (typeof window === 'undefined') return null;
-
-    const gradientStart = getComputedStyle(document.documentElement).getPropertyValue('--gradient-start-color').trim();
-    const gradientEnd = getComputedStyle(document.documentElement).getPropertyValue('--gradient-end-color').trim();
-    const particle = getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim();
-    const connection = getComputedStyle(document.documentElement).getPropertyValue('--connection-color').trim();
-
-    // Only use CSS variables if all are set
-    if (gradientStart && gradientEnd && particle && connection) {
-      return {
-        gradientStart,
-        gradientEnd,
-        particle,
-        connection
-      };
-    }
-
-    return null;
-  };
-
-  // Watch for CSS variable changes (when ProfileContext sets them)
-  useEffect(() => {
-    const checkCssColors = () => {
-      const newCssColors = getColorsFromCSSVariables();
-      if (newCssColors) {
-        setCssColors(newCssColors);
-      }
-    };
-
-    // Check immediately
-    checkCssColors();
-
-    // Also check periodically in case CSS variables change
-    const interval = setInterval(checkCssColors, 100);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Detect color changes and start transition
-  // Priority: 1) colors prop, 2) CSS variables (from ProfileContext), 3) defaults
-  const newColors = colors || cssColors || (context === 'profile-default' ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS);
+  const newColors = colors;
   if (!colorsEqual(newColors, transitionRef.current.toColors)) {
     // Get current interpolated colors as starting point
     const now = performance.now();

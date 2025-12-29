@@ -11,6 +11,24 @@ interface ContactProfile {
   backgroundColors?: string[];
 }
 
+// Theme color constants
+const COLORS = {
+  // Emerald green (used in default gradients)
+  emeraldGreen: 'rgb(34, 197, 94)',
+  emeraldGreenTransparent: 'rgba(34, 197, 94, 0.3)',
+
+  // Dark background
+  dark: '#0a0f1a',
+
+  // Particle colors
+  particleLight: 'rgba(200, 255, 200, 0.6)',
+  particleBright: 'rgba(200, 255, 200, 0.8)',
+
+  // Connection colors
+  connectionSubtle: 'rgba(34, 197, 94, 0.15)',
+  connectionMedium: 'rgba(34, 197, 94, 0.4)',
+} as const;
+
 /**
  * Helper function to convert hex color to rgba with alpha
  */
@@ -39,14 +57,23 @@ function convertToParticleColors(backgroundColors: string[]) {
 }
 
 /**
- * Default inverted colors for profile-style backgrounds (dark at top, light at bottom)
- * Used for contacts without custom backgrounds
+ * Default colors for signed-out homepage (dark → emerald green → dark)
+ */
+const DEFAULT_COLORS = {
+  particle: COLORS.particleLight,
+  connection: COLORS.connectionSubtle,
+  gradientStart: COLORS.emeraldGreenTransparent,
+  gradientEnd: COLORS.dark,
+};
+
+/**
+ * Inverted colors for contacts without custom backgrounds (emerald green → dark → emerald green)
  */
 const DEFAULT_COLORS_INVERTED = {
-  particle: 'rgba(200, 255, 200, 0.8)',
-  connection: 'rgba(34, 197, 94, 0.4)',
-  gradientStart: '#0a0f1a',                 // Dark at top
-  gradientEnd: 'rgba(34, 197, 94, 0.3)'     // Light green at bottom
+  particle: COLORS.particleBright,
+  connection: COLORS.connectionMedium,
+  gradientStart: COLORS.dark,
+  gradientEnd: COLORS.emeraldGreen,
 };
 
 /**
@@ -142,6 +169,12 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       console.log('[LayoutBackground] Setting contact safe area color:', dominant);
+    } else if (isOnContactPage && (!contactColors || contactColors.length < 3)) {
+      // On contact page with default theme - use emerald green
+      document.documentElement.style.backgroundColor = COLORS.emeraldGreen;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.emeraldGreen);
+      sessionStorage.setItem('last-safe-area-color', COLORS.emeraldGreen);
+      console.log('[LayoutBackground] Setting default emerald green safe area color for contact page');
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Left contact page - reset to user's dominant color
       const [dominant] = userColors;
@@ -168,23 +201,35 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     // Wait for INITIAL session check only
     // Ignore status 'loading' if we already have a session (prevents flash during session refresh)
     if (status === 'loading' && !session) {
-      return { context: 'signed-out' };
+      return {
+        colors: DEFAULT_COLORS,
+        context: 'signed-out'
+      };
     }
 
     // Signed out
     if (!session) {
-      return { context: 'signed-out' };
+      return {
+        colors: DEFAULT_COLORS,
+        context: 'signed-out'
+      };
     }
 
     // Special case: setup page should use inverted gradient like profile
     if (pathname === '/setup') {
-      return { context: 'profile-default' };
+      return {
+        colors: DEFAULT_COLORS_INVERTED,
+        context: 'profile-default'
+      };
     }
 
     // Signed in - wait for profile to load
     // UNLESS navigating from setup (prevent flash during profile load)
     if (isLoading && !isNavigatingFromSetup) {
-      return { context: 'signed-out' };
+      return {
+        colors: DEFAULT_COLORS,
+        context: 'signed-out'
+      };
     }
 
     // Determine if on contact page
@@ -219,6 +264,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         };
       } else {
         return {
+          colors: DEFAULT_COLORS_INVERTED,
           context: 'profile-default'
         };
       }
