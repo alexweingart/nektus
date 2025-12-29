@@ -6,7 +6,6 @@ import { Button } from '../ui/buttons/Button';
 import { DropdownPhoneInput } from '../ui/inputs/DropdownPhoneInput';
 import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { Heading, Text } from '../ui/Typography';
-import Avatar from '../ui/elements/Avatar';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile } from '@/types/profile';
@@ -15,7 +14,6 @@ import { formatPhoneNumber } from '@/lib/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
 import { detectPlatform } from '@/lib/client/platform-detection';
-import { getOptimalProfileImageUrl } from '@/lib/client/profile/image';
 
 function ProfileSetupView() {
   // Session and authentication
@@ -23,7 +21,7 @@ function ProfileSetupView() {
     required: true,
   });
   
-  const { saveProfile, profile, isSaving: isProfileSaving, isLoading: isProfileLoading, setNavigatingFromSetup, isGoogleInitials, isCheckingGoogleImage, streamingProfileImage } = useProfile();
+  const { saveProfile, isSaving: isProfileSaving, setNavigatingFromSetup } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -142,28 +140,6 @@ function ProfileSetupView() {
       </div>
     );
   }
-
-  // For new users, profile might not exist yet - that's OK for setup
-
-  // ProfileContext now handles all initialization automatically
-  // No manual initialization needed - it will create profile and generate assets normally
-
-  // Don't wait for profile - show form immediately for new users
-
-  // When we have a streaming image, use it as src (for crossfade)
-  // When we have Google initials (confirmed by async check), use undefined (to show our custom initials)
-  // While checking Google image, hide it (src=undefined) to prevent flash
-  const profileImageUrl = streamingProfileImage || profile?.profileImage;
-  const isGoogleUrl = profileImageUrl?.includes('googleusercontent.com');
-
-  const avatarSrc = streamingProfileImage
-    ? getOptimalProfileImageUrl(streamingProfileImage, 400)
-    : isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)
-      ? undefined  // Hide Google image while checking or if confirmed initials
-      : getOptimalProfileImageUrl(profileImageUrl, 400);
-
-  // Show initials if: confirmed Google initials, OR checking a Google image (prevents flash)
-  const avatarShowInitials = isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
 
   // Render form content without outer wrapper
   return (
