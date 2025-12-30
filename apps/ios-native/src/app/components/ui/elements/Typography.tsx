@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     fontSize: 24, // text-2xl (1.5rem = 24px)
     fontWeight: "700", // font-bold
     color: "#ffffff",
-    marginBottom: 8,
+    // No marginBottom - spacing should be controlled by parent containers
   },
   body: {
     fontSize: 16,

@@ -1,68 +1,182 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
-import { SocialIcon } from "../elements/SocialIcon";
-import type { ContactEntry } from "../../../../app/context/ProfileContext";
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import SocialIcon from '../elements/SocialIcon';
+import type { ContactEntry } from '../../../../app/context/ProfileContext';
+
+type FieldSection = 'universal' | 'personal' | 'work';
 
 interface SocialIconsListProps {
   contactEntries: ContactEntry[];
-  excludeTypes?: string[];
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'white';
 }
 
-// Field types to display as icons (exclude name, bio, etc.)
-const ICON_FIELD_TYPES = [
-  "phone",
-  "email",
-  "instagram",
-  "facebook",
-  "linkedin",
-  "x",
-  "snapchat",
-  "tiktok",
-  "github",
-  "whatsapp",
-  "website",
-];
+// Define the platforms and their default sections and orders
+const PLATFORM_CONFIG = {
+  // Universal section
+  phone: { section: 'universal', defaultOrder: 0 },
+  email: { section: 'universal', defaultOrder: 1 },
 
-export function SocialIconsList({
+  // Personal section
+  facebook: { section: 'personal', defaultOrder: 2 },
+  instagram: { section: 'personal', defaultOrder: 3 },
+  x: { section: 'personal', defaultOrder: 4 },
+  snapchat: { section: 'personal', defaultOrder: 5 },
+  whatsapp: { section: 'personal', defaultOrder: 6 },
+  telegram: { section: 'personal', defaultOrder: 7 },
+  wechat: { section: 'personal', defaultOrder: 8 },
+
+  // Work section
+  linkedin: { section: 'work', defaultOrder: 9 },
+} as const;
+
+// Define platform types
+type PlatformType = keyof typeof PLATFORM_CONFIG;
+
+interface SocialItem {
+  platform: PlatformType;
+  username: string;
+  url: string;
+  section: FieldSection;
+  order: number;
+  customIcon?: string;  // For custom links with favicons
+  linkType?: 'default' | 'custom';
+}
+
+export const SocialIconsList: React.FC<SocialIconsListProps> = ({
   contactEntries,
-  excludeTypes = ["name", "bio"],
-}: SocialIconsListProps) {
-  // Filter to only visible contact entries that should show as icons
-  const visibleEntries = contactEntries.filter(
-    (entry) =>
-      entry.isVisible &&
-      entry.value?.trim() &&
-      !excludeTypes.includes(entry.fieldType) &&
-      (ICON_FIELD_TYPES.includes(entry.fieldType) ||
-        entry.linkType === "custom")
-  );
+  size = 'md',
+  variant = 'default'
+}) => {
+  // Helper function to get URL for platform
+  const getUrlForPlatform = (platform: PlatformType, username: string): string => {
+    switch (platform) {
+      case 'phone':
+        return `sms:${username}`;
+      case 'email':
+        return `mailto:${username}`;
+      case 'facebook':
+        return `https://facebook.com/${username}`;
+      case 'instagram':
+        return `https://instagram.com/${username}`;
+      case 'x':
+        return `https://x.com/${username}`;
+      case 'linkedin':
+        return `https://www.linkedin.com/in/${username}`;
+      case 'snapchat':
+        return `https://www.snapchat.com/add/${username}`;
+      case 'whatsapp':
+        return `https://wa.me/${username}`;
+      case 'telegram':
+        return `https://t.me/${username}`;
+      case 'wechat':
+        return `weixin://dl/chat?${username}`;
+      default:
+        return '';
+    }
+  };
 
-  // Sort by order
-  const sortedEntries = [...visibleEntries].sort((a, b) => a.order - b.order);
+  // Transform contact entries into social items
+  const socialItems: SocialItem[] = [];
 
-  if (sortedEntries.length === 0) {
+  if (contactEntries?.length) {
+    contactEntries.forEach((entry, index) => {
+      // Skip name and bio - these are not social icons
+      if (entry.fieldType === 'name' || entry.fieldType === 'bio') {
+        return;
+      }
+
+      // Only include if has content and is visible
+      const hasContent = entry.fieldType === 'phone' ? !!entry.value :
+                         entry.fieldType === 'email' ? !!entry.value :
+                         !!entry.value?.trim();
+
+      const isVisible = entry.isVisible !== false;
+
+      if (hasContent && isVisible) {
+        const username = entry.value;
+
+        // For custom links, the value IS the URL
+        const url = entry.linkType === 'custom' ? entry.value :
+                    entry.fieldType === 'phone' ? `sms:${entry.value}` :
+                    entry.fieldType === 'email' ? `mailto:${entry.value}` :
+                    getUrlForPlatform(entry.fieldType as PlatformType, entry.value);
+
+        const config = PLATFORM_CONFIG[entry.fieldType as keyof typeof PLATFORM_CONFIG];
+
+        socialItems.push({
+          platform: entry.fieldType as PlatformType,
+          username,
+          url,
+          section: entry.section as FieldSection,
+          order: entry.order ?? config?.defaultOrder ?? index,
+          customIcon: entry.icon,
+          linkType: entry.linkType
+        });
+      }
+    });
+  }
+
+  // Sort items by section order, then by order within section
+  const sectionOrder: Record<FieldSection, number> = {
+    universal: 0,
+    personal: 1,
+    work: 2
+  };
+
+  socialItems.sort((a, b) => {
+    const sectionDiff = sectionOrder[a.section] - sectionOrder[b.section];
+    if (sectionDiff !== 0) return sectionDiff;
+
+    return a.order - b.order;
+  });
+
+  if (socialItems.length === 0) {
     return null;
   }
 
+  const handlePress = async (item: SocialItem) => {
+    try {
+      const canOpen = await Linking.canOpenURL(item.url);
+      if (canOpen) {
+        await Linking.openURL(item.url);
+      } else {
+        Alert.alert('Error', `Cannot open ${item.platform}`);
+      }
+    } catch (error) {
+      console.error(`Failed to open ${item.platform}:`, error);
+      Alert.alert('Error', `Failed to open ${item.platform}`);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {sortedEntries.map((entry, index) => (
-        <SocialIcon
-          key={`${entry.fieldType}-${entry.section}-${index}`}
-          fieldType={entry.fieldType}
-          value={entry.value}
-        />
+      {socialItems.map((item, index) => (
+        <TouchableOpacity
+          key={`${item.platform}-${item.section}-${index}`}
+          onPress={() => handlePress(item)}
+          activeOpacity={0.7}
+        >
+          <SocialIcon
+            platform={item.platform}
+            username={item.username}
+            size={size}
+            variant={variant}
+            customIcon={item.customIcon}
+            linkType={item.linkType}
+          />
+        </TouchableOpacity>
       ))}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    // No padding - web uses gap-4 for spacing between icons only
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16, // Match web gap-4 (16px)
   },
 });
 

@@ -35,6 +35,13 @@ export interface ContactEntry {
   icon?: string;
 }
 
+export interface UserLocation {
+  section: "personal" | "work";
+  city: string;
+  region: string;
+  country?: string;
+}
+
 export interface UserProfile {
   userId: string;
   profileImage: string;
@@ -42,6 +49,7 @@ export interface UserProfile {
   backgroundColors?: string[];
   lastUpdated: number;
   contactEntries: ContactEntry[];
+  locations?: UserLocation[];
   aiGeneration?: {
     avatarGenerated?: boolean;
     backgroundImageGenerated?: boolean;

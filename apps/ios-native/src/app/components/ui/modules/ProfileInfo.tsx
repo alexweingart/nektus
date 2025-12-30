@@ -1,63 +1,137 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Animated,
-  PanResponder,
   StyleSheet,
-  Dimensions,
-} from "react-native";
-// TODO: Uncomment after rebuild - import { BlurView } from "@react-native-community/blur";
-import Svg, { Path } from "react-native-svg";
-import { Avatar } from "../elements/Avatar";
-import { Heading, BodyText } from "../elements/Typography";
-import { ProfileViewSelector } from "../controls/ProfileViewSelector";
-import { SocialIconsList } from "./SocialIconsList";
-import type { UserProfile } from "../../../../app/context/ProfileContext";
-import type { Session } from "../../../../app/providers/SessionProvider";
+  PanResponder,
+  LayoutChangeEvent,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path } from 'react-native-svg';
+import Avatar from '../elements/Avatar';
+import { SocialIconsList } from './SocialIconsList';
+import { ProfileViewSelector } from '../controls/ProfileViewSelector';
+import { Heading, BodyText } from '../elements/Typography';
+import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 
-type ViewMode = "personal" | "work";
+type ProfileViewMode = 'Personal' | 'Work';
+type SharingCategory = 'Personal' | 'Work';
 
 interface ProfileInfoProps {
-  profile: UserProfile | null;
-  session: Session | null;
+  profile: UserProfile;
+  profileImageSrc?: string;
+  bioContent: string;
+  isLoadingProfile?: boolean;
+  isGoogleInitials?: boolean; // Whether Google profile has auto-generated initials
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = 50;
-const CONTAINER_PADDING = 24; // paddingHorizontal from container
-const CARD_WIDTH = SCREEN_WIDTH - (CONTAINER_PADDING * 2); // Account for padding
+/**
+ * Get a field value from ContactEntry array by fieldType
+ */
+const getFieldValue = (contactEntries: ContactEntry[] | undefined, fieldType: string): string => {
+  if (!contactEntries) return '';
+  const entry = contactEntries.find(e => e.fieldType === fieldType);
+  return entry?.value || '';
+};
 
-export function ProfileInfo({ profile, session }: ProfileInfoProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("personal");
+/**
+ * Filter profile by category (Personal or Work)
+ */
+const filterProfileByCategory = (profile: UserProfile, category: SharingCategory): UserProfile => {
+  if (!profile.contactEntries) {
+    return { ...profile, contactEntries: [] };
+  }
+
+  const filteredEntries = profile.contactEntries.filter(entry => {
+    // Universal entries appear in both views
+    if (entry.section === 'universal') return true;
+    // Match section to category (case-insensitive)
+    return entry.section?.toLowerCase() === category.toLowerCase();
+  });
+
+  return {
+    ...profile,
+    contactEntries: filteredEntries,
+  };
+};
+
+export const ProfileInfo: React.FC<ProfileInfoProps> = ({
+  profile,
+  profileImageSrc,
+  bioContent,
+  isLoadingProfile = false,
+  isGoogleInitials = false
+}) => {
+  const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
 
-  // Get the name from profile or session
-  const name =
-    profile?.contactEntries?.find((e) => e.fieldType === "name")?.value ||
-    session?.user?.name ||
-    "User";
+  // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
+  // This enables the Avatar component to crossfade from initials to the generated image
+  const showInitialsValue = isGoogleInitials;
 
-  // Get bio (with placeholder fallback like web)
-  const profileBio = profile?.contactEntries?.find(
-    (e) => e.fieldType === "bio" && e.isVisible
-  )?.value;
-  const bio = profileBio || "My bio is going to be awesome once I create it.";
+  // Load selected mode from AsyncStorage on mount
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const savedCategory = await AsyncStorage.getItem('nekt-sharing-category') as SharingCategory;
+        if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
+          setSelectedMode(savedCategory);
+        }
+        setHasLoadedFromStorage(true);
+      } catch (error) {
+        console.warn('Failed to load sharing category from AsyncStorage:', error);
+        setHasLoadedFromStorage(true);
+      }
+    };
+    loadCategory();
+  }, []);
 
-  // Filter contact entries by section
-  const getFilteredEntries = (mode: ViewMode) => {
-    if (!profile?.contactEntries) return [];
-    return profile.contactEntries.filter(
-      (e) => e.section === mode || e.section === "universal"
-    );
+  // Save selected mode to AsyncStorage when it changes
+  useEffect(() => {
+    if (!hasLoadedFromStorage) return;
+
+    const saveCategory = async () => {
+      try {
+        await AsyncStorage.setItem('nekt-sharing-category', selectedMode);
+      } catch (error) {
+        console.warn('Failed to save sharing category to AsyncStorage:', error);
+      }
+    };
+    saveCategory();
+  }, [selectedMode, hasLoadedFromStorage]);
+
+  // Filter contact entries based on selected mode
+  const filteredContactEntries = React.useMemo(() => {
+    if (profile?.contactEntries && hasLoadedFromStorage) {
+      const filteredProfile = filterProfileByCategory(profile, selectedMode);
+      return filteredProfile.contactEntries;
+    }
+    return profile?.contactEntries || [];
+  }, [profile, selectedMode, hasLoadedFromStorage]);
+
+  // Handle layout to measure container width
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
   };
 
-  // Get locations from profile
-  const personalLocation = profile?.locations?.find(loc => loc.section === "personal");
-  const workLocation = profile?.locations?.find(loc => loc.section === "work");
+  // Handle mode change from selector
+  const handleModeChange = (mode: ProfileViewMode) => {
+    if (mode === selectedMode || !containerWidth) return;
 
-  // Filter entries by section
-  const personalEntries = getFilteredEntries("personal");
-  const workEntries = getFilteredEntries("work");
+    setSelectedMode(mode);
+
+    // Animate carousel - use measured container width
+    const targetX = mode === 'Work' ? -containerWidth : 0;
+    Animated.spring(translateX, {
+      toValue: targetX,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 9,
+    }).start();
+  };
 
   // Pan responder for swipe gestures
   const panResponder = useRef(
@@ -66,60 +140,66 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
         return Math.abs(gestureState.dx) > 10;
       },
       onPanResponderMove: (_, gestureState) => {
-        // Limit the swipe distance
-        const limitedDx = Math.max(
-          Math.min(gestureState.dx, CARD_WIDTH / 2),
-          -CARD_WIDTH / 2
-        );
-        translateX.setValue(limitedDx);
+        if (!containerWidth) return;
+        const currentOffset = selectedMode === 'Work' ? -containerWidth : 0;
+        translateX.setValue(currentOffset + gestureState.dx);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -SWIPE_THRESHOLD && viewMode === "personal") {
-          // Swipe left: go to work
-          setViewMode("work");
-        } else if (gestureState.dx > SWIPE_THRESHOLD && viewMode === "work") {
-          // Swipe right: go to personal
-          setViewMode("personal");
+        if (!containerWidth) return;
+        const SWIPE_THRESHOLD = 50;
+
+        if (gestureState.dx < -SWIPE_THRESHOLD && selectedMode === 'Personal') {
+          // Swipe left from Personal to Work
+          handleModeChange('Work');
+        } else if (gestureState.dx > SWIPE_THRESHOLD && selectedMode === 'Work') {
+          // Swipe right from Work to Personal
+          handleModeChange('Personal');
+        } else {
+          // Snap back to current position
+          const targetX = selectedMode === 'Work' ? -containerWidth : 0;
+          Animated.spring(translateX, {
+            toValue: targetX,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 9,
+          }).start();
         }
-        // Animate back to center
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 9,
-        }).start();
       },
     })
   ).current;
 
+  // Update carousel position when mode changes
+  useEffect(() => {
+    if (!containerWidth) return;
+    const targetX = selectedMode === 'Work' ? -containerWidth : 0;
+    Animated.spring(translateX, {
+      toValue: targetX,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 9,
+    }).start();
+  }, [selectedMode, translateX, containerWidth]);
+
   return (
     <View style={styles.container}>
-      {/* 1. Avatar - OUTSIDE the box, centered */}
-      <View style={styles.avatarWrapper}>
-        <View style={styles.avatarContainer}>
+      {/* Profile Image */}
+      <View style={styles.profileImageContainer}>
+        <View style={styles.avatarBorder}>
           <Avatar
-            src={profile?.profileImage}
-            alt={name}
+            src={profileImageSrc}
+            alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
             size="lg"
-            isLoading={!profile}
+            isLoading={isLoadingProfile}
+            showInitials={showInitialsValue}
           />
         </View>
       </View>
 
-      {/* 2. Frosted glass box */}
-      <View style={styles.cardContainer}>
-        {/* TODO: Uncomment BlurView after rebuild */}
-        {/* <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType="dark"
-          blurAmount={10}
-          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
-        /> */}
-
-        {/* Swipeable content with PanResponder */}
+      {/* Carousel Container - Full width background */}
+      <View style={styles.cardContainer} onLayout={handleLayout}>
         <Animated.View
           style={[
-            styles.swipeableContent,
+            styles.carouselContainer,
             {
               transform: [{ translateX }],
             },
@@ -127,135 +207,174 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
           {...panResponder.panHandlers}
         >
           {/* Personal View */}
-          <View style={styles.viewContent}>
-            {/* Name */}
-            <Heading style={styles.name}>{name}</Heading>
+          <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
+            {/* Profile Name */}
+            <View style={styles.nameContainer}>
+              <Heading style={styles.name}>
+                {getFieldValue(profile?.contactEntries, 'name')}
+              </Heading>
+            </View>
 
-            {/* Location with SVG pin icon */}
-            {personalLocation && (
-              <View style={styles.locationRow}>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-                  <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </Svg>
-                <BodyText style={styles.locationText}>
-                  {personalLocation.city}, {personalLocation.region}
-                </BodyText>
-              </View>
-            )}
+            {/* Location Display */}
+            {(() => {
+              const personalLocation = profile?.locations?.find(loc => loc.section === 'personal');
+              if (personalLocation) {
+                return (
+                  <View style={styles.locationRow}>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                      <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </Svg>
+                    <BodyText style={styles.locationText}>
+                      {personalLocation.city}, {personalLocation.region}
+                    </BodyText>
+                  </View>
+                );
+              }
+              return null;
+            })()}
 
-            {/* Bio (always shown with placeholder fallback) */}
-            <BodyText style={styles.bio}>{bio}</BodyText>
+            {/* Bio */}
+            <View style={styles.bioContainer}>
+              <BodyText style={styles.bioText}>{bioContent}</BodyText>
+            </View>
 
-            {/* Social Icons */}
-            <SocialIconsList contactEntries={personalEntries} />
+            {/* Contact Icons */}
+            <View style={styles.iconsContainer}>
+              {filteredContactEntries && (
+                <SocialIconsList
+                  contactEntries={filteredContactEntries}
+                />
+              )}
+            </View>
           </View>
 
           {/* Work View */}
-          <View style={styles.viewContent}>
-            {/* Name */}
-            <Heading style={styles.name}>{name}</Heading>
+          <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
+            {/* Profile Name */}
+            <View style={styles.nameContainer}>
+              <Heading style={styles.name}>
+                {getFieldValue(profile?.contactEntries, 'name')}
+              </Heading>
+            </View>
 
-            {/* Location with SVG pin icon */}
-            {workLocation && (
-              <View style={styles.locationRow}>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-                  <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </Svg>
-                <BodyText style={styles.locationText}>
-                  {workLocation.city}, {workLocation.region}
-                </BodyText>
-              </View>
-            )}
+            {/* Location Display */}
+            {(() => {
+              const workLocation = profile?.locations?.find(loc => loc.section === 'work');
+              if (workLocation) {
+                return (
+                  <View style={styles.locationRow}>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                      <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </Svg>
+                    <BodyText style={styles.locationText}>
+                      {workLocation.city}, {workLocation.region}
+                    </BodyText>
+                  </View>
+                );
+              }
+              return null;
+            })()}
 
-            {/* Bio (always shown with placeholder fallback) */}
-            <BodyText style={styles.bio}>{bio}</BodyText>
+            {/* Bio */}
+            <View style={styles.bioContainer}>
+              <BodyText style={styles.bioText}>{bioContent}</BodyText>
+            </View>
 
-            {/* Social Icons */}
-            <SocialIconsList contactEntries={workEntries} />
+            {/* Contact Icons */}
+            <View style={styles.iconsContainer}>
+              {filteredContactEntries && (
+                <SocialIconsList
+                  contactEntries={filteredContactEntries}
+                />
+              )}
+            </View>
           </View>
         </Animated.View>
 
-        {/* View Selector - AT BOTTOM, INSIDE BOX */}
-        <View style={styles.selectorWrapper}>
+        {/* Profile View Selector */}
+        <View style={styles.selectorContainer}>
           <ProfileViewSelector
-            selected={viewMode}
-            onSelect={setViewMode}
-            tintColor={profile?.backgroundColors?.[2]} // Use accent2 color (matches web)
+            selected={selectedMode}
+            onSelect={handleModeChange}
+            tintColor={profile?.backgroundColors?.[2]}
           />
         </View>
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-    width: "100%",
+    alignItems: 'center',
+    width: '100%',
+    // No padding - should come from parent like web version
   },
-  avatarWrapper: {
+  profileImageContainer: {
     marginBottom: 16,
-    alignItems: "center",
-    width: "100%",
+    alignItems: 'center',
   },
-  avatarContainer: {
-    alignSelf: "center",
+  avatarBorder: {
     borderWidth: 4,
-    borderColor: "#ffffff",
-    borderRadius: 68,
-    shadowColor: "#000",
+    borderColor: '#ffffff',
+    borderRadius: 68, // (128 + 8) / 2
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   cardContainer: {
-    width: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.6)", // Fallback
-    borderRadius: 16, // rounded-2xl
-    overflow: "hidden",
-    paddingBottom: 16,
+    width: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    paddingVertical: 16,
   },
-  swipeableContent: {
-    flexDirection: "row",
-    width: CARD_WIDTH * 2, // Two views side by side (accounting for container padding)
+  carouselContainer: {
+    flexDirection: 'row',
   },
-  viewContent: {
-    width: CARD_WIDTH, // Each view takes card width (not full screen)
+  viewContainer: {
     paddingHorizontal: 24,
-    paddingTop: 16,
-    alignItems: "center",
+    alignItems: 'center',
+  },
+  nameContainer: {
+    marginBottom: 12,
+    alignItems: 'center',
   },
   name: {
-    textAlign: "center",
-    marginBottom: 12,
-    width: "100%", // Ensure full width for proper centering
+    textAlign: 'center',
   },
   locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
     marginBottom: 8,
   },
   locationText: {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
   },
-  bio: {
-    textAlign: "center",
-    marginBottom: 16, // mb-4 (match web)
-    paddingHorizontal: 16,
-    color: "#ffffff",
-    fontSize: 14, // text-sm (match web variant="small")
-    lineHeight: 22, // leading-relaxed (~1.57)
+  bioContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
   },
-  selectorWrapper: {
-    alignItems: "center",
-    paddingHorizontal: 24,
+  bioText: {
+    textAlign: 'center',
+    color: '#ffffff',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  iconsContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  selectorContainer: {
     marginTop: 16,
+    alignItems: 'center',
+    // No horizontal padding - centered via flexbox like web version
   },
 });
 

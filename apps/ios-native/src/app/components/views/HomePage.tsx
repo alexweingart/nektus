@@ -12,7 +12,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { NektLogo } from "../ui/elements/NektLogo";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
-import { Button } from "../ui/inputs/Button";
+import { Button } from "../ui/buttons/Button";
 import type { RootStackParamList } from "../../../../App";
 
 type HomePageNavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;

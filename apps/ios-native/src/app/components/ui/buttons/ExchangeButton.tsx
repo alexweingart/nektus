@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert, Text } from "react-native";
-import { Button } from "../inputs/Button";
+import { Button } from "./Button";
 
 interface ExchangeButtonProps {
   onPress?: () => void;
