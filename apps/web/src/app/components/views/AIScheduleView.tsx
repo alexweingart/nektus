@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStreamingAI, type ChatMessage } from '@/lib/hooks/use-streaming-ai';
@@ -43,9 +42,6 @@ export default function AIScheduleView() {
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
   const hasFetchedSlotsRef = useRef(false);
-
-  // Portal for fixed input - must be before early returns
-  const [mounted, setMounted] = useState(false);
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -166,12 +162,12 @@ And if you don't know any of those things, and just want me to suggest based off
     // Skip auto-scroll for the initial greeting message (messages.length === 1)
     if (messages.length > prevMessagesLengthRef.current && messages.length > 1) {
       // Signal that this is a programmatic scroll (don't blur input)
-      (window as any).__programmaticScroll = true;
+      (window as Window & { __programmaticScroll?: boolean }).__programmaticScroll = true;
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
       // Clear flag after scroll completes (~500ms for smooth scroll)
       setTimeout(() => {
-        (window as any).__programmaticScroll = false;
+        (window as Window & { __programmaticScroll?: boolean }).__programmaticScroll = false;
       }, 600);
     }
     prevMessagesLengthRef.current = messages.length;

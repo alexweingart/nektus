@@ -11,7 +11,6 @@ import { useCalendarLocationManagement } from '@/lib/hooks/use-calendar-location
 import { getOptimalProfileImageUrl } from '@/lib/client/profile/image';
 import { StaticInput } from '../ui/inputs/StaticInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
-import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
 import { FieldList } from '../ui/layout/FieldList';
 import { ProfileField } from '../ui/elements/ProfileField';

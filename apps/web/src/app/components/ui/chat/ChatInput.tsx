@@ -85,7 +85,7 @@ export default function ChatInput({
       if (!input) return;
 
       // Don't blur if this is a programmatic scroll (from new messages)
-      if ((window as any).__programmaticScroll) return;
+      if ((window as Window & { __programmaticScroll?: boolean }).__programmaticScroll) return;
 
       // Ignore scroll events within 1000ms of focus (auto-scroll from keyboard opening)
       const timeSinceFocus = Date.now() - lastFocusTimeRef.current;

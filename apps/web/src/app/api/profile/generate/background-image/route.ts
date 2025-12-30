@@ -40,7 +40,7 @@ async function extractBackgroundColors(profileImage: string, palette: string[]):
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
