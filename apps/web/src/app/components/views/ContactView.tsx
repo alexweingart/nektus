@@ -127,6 +127,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
     // Exchange state already persists the completion status
+
+    // iOS Safari fix: Remove focus from any active element to prevent
+    // the schedule button from appearing pressed/highlighted
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   };
 
   const handleUpsellAccept = async () => {
@@ -141,17 +147,22 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   const handleUpsellDecline = () => {
     setShowUpsellModal(false);
-    
+
     // For iOS Safari/Chrome/Edge, use global tracking
     const exchangeState = getExchangeState(token);
     const iosNonEmbedded = exchangeState?.platform === 'ios' && !isEmbeddedBrowser();
-    
+
     if (iosNonEmbedded) {
       // Mark globally for iOS non-embedded browsers
       markUpsellDismissedGlobally();
     } else {
       // Use per-token tracking for other platforms
       markUpsellShown(token);
+    }
+
+    // iOS Safari fix: Remove focus from any active element
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
     }
   };
 
@@ -169,6 +180,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     // Exchange state already persists the completion status
     setShowSuccessModal(false);
+
+    // iOS Safari fix: Remove focus from any active element to prevent
+    // the schedule button from appearing pressed/highlighted
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   };
 
   // Handle messaging for historical contacts
