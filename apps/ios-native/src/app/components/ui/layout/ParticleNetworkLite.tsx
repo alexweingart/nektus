@@ -44,31 +44,31 @@ interface ContextConfig {
 const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
   "signed-out": {
     particleCount: 30,
-    particleSpeed: 0.5, // Increased from 0.3
+    particleSpeed: 0.6, // 2x web speed (0.3)
     connectionDistance: 150,
     connectionOpacity: 0.25,
   },
   profile: {
     particleCount: 25,
-    particleSpeed: 0.5, // Increased from 0.3
+    particleSpeed: 0.6, // 2x web speed (0.3)
     connectionDistance: 100,
     connectionOpacity: 0.2,
   },
   "profile-default": {
     particleCount: 20,
-    particleSpeed: 0.5, // Increased from 0.3
+    particleSpeed: 0.6, // 2x web speed (0.3)
     connectionDistance: 110,
     connectionOpacity: 0.2,
   },
   connect: {
     particleCount: 20,
-    particleSpeed: 1.2, // Increased from 0.8
+    particleSpeed: 1.6, // 2x web speed (0.8)
     connectionDistance: 120,
     connectionOpacity: 0.25,
   },
   contact: {
     particleCount: 25,
-    particleSpeed: 0.3, // Increased from 0.15
+    particleSpeed: 0.3, // 2x web speed (0.15)
     connectionDistance: 90,
     connectionOpacity: 0.3,
   },
@@ -159,12 +159,21 @@ export function ParticleNetworkLite({
 
             if (distance < config.connectionDistance) {
               const distanceFactor = 1 - distance / config.connectionDistance;
+
+              // Parse base opacity from connection color (matching web behavior)
+              const baseColor = renderColors.connection;
+              const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+              const baseOpacity = match ? parseFloat(match[4] || '1') : 0.15;
+
+              // Add distance-based opacity to base (matching web)
+              const finalOpacity = baseOpacity + (distanceFactor * config.connectionOpacity);
+
               newConnections.push({
                 x1: particles[i].currentX,
                 y1: particles[i].currentY,
                 x2: particles[j].currentX,
                 y2: particles[j].currentY,
-                opacity: distanceFactor * config.connectionOpacity,
+                opacity: finalOpacity,
               });
             }
           }

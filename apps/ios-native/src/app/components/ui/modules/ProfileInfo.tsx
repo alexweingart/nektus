@@ -7,6 +7,7 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from '@react-native-community/blur';
 import Svg, { Path } from 'react-native-svg';
 import Avatar from '../elements/Avatar';
 import { SocialIconsList } from './SocialIconsList';
@@ -197,6 +198,13 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
       {/* Carousel Container - Full width background */}
       <View style={styles.cardContainer} onLayout={handleLayout}>
+        {/* Backdrop blur matching web */}
+        <BlurView
+          style={StyleSheet.absoluteFillObject}
+          blurType="dark"
+          blurAmount={16}
+          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+        />
         <Animated.View
           style={[
             styles.carouselContainer,
@@ -328,7 +336,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'transparent', // BlurView now handles background
     borderRadius: 16,
     overflow: 'hidden',
     paddingVertical: 16,

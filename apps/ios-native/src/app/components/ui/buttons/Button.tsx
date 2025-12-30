@@ -14,6 +14,7 @@ import {
   TextStyle,
   View,
 } from "react-native";
+import { BlurView } from "@react-native-community/blur";
 import { RadialGradient } from "react-native-gradients";
 
 type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary";
@@ -123,9 +124,17 @@ export function Button({
       disabled={isDisabled}
       activeOpacity={0.7}
     >
-      {/* Radial gradient background matching web */}
+      {/* Backdrop blur + radial gradient background matching web */}
       {hasGradient && (
         <View style={StyleSheet.absoluteFillObject}>
+          {/* Backdrop blur (matches web's backdrop-blur-lg) */}
+          <BlurView
+            style={StyleSheet.absoluteFillObject}
+            blurType="light"
+            blurAmount={16}
+            reducedTransparencyFallbackColor="white"
+          />
+          {/* Radial gradient overlay */}
           <RadialGradient
             x="50%"
             y="50%"
