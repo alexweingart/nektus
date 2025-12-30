@@ -9,6 +9,9 @@ import type { UserProfile } from '@/types/profile';
 // Re-export for backwards compatibility
 export { isRedisAvailable };
 
+// Time window for pending matches (ms)
+const PENDING_MATCH_WINDOW = 1500; // 1.5 seconds - both eligibility and isolation window
+
 // Exchange data interface
 interface ExchangeData {
   userId: string;
@@ -20,6 +23,8 @@ interface ExchangeData {
   vector?: string;
   sessionId: string;
   sharingCategory?: string;
+  pendingMatchWith?: string; // Session ID of pending match partner
+  pendingMatchCreatedAt?: number; // Server timestamp when pending match was created
 }
 
 // Match data interface
@@ -160,6 +165,49 @@ export async function atomicExchangeAndMatch(
     // Double-check that our session was added to the bucket
     const postStoreBucket = await redis!.smembers(globalBucketKey) as string[];
     console.log(`✅ Post-store bucket now contains ${postStoreBucket.length} candidates:`, postStoreBucket);
+
+    // Check for pending matches that should be cancelled due to this new exchange
+    if (currentServerTimestamp) {
+      console.log(`🔍 Checking if new exchange ${sessionId} cancels any pending matches`);
+      for (const candidateSessionId of currentCandidates) {
+        if (candidateSessionId === sessionId) continue;
+
+        const candidateKey = `pending_exchange:${candidateSessionId}`;
+        const candidateDataStr = await redis!.get(candidateKey);
+        if (!candidateDataStr) continue;
+
+        const candidateData = typeof candidateDataStr === 'string' ? JSON.parse(candidateDataStr) : candidateDataStr;
+
+        // Check if this candidate has a pending match
+        if (candidateData.pendingMatchWith) {
+          const candidateTimestamp = candidateData.serverTimestamp || candidateData.timestamp;
+          if (!candidateTimestamp) continue;
+
+          // Check if our new exchange is within 1.5s of this pending exchange
+          const timeDiff = Math.abs(currentServerTimestamp - candidateTimestamp);
+          if (timeDiff <= PENDING_MATCH_WINDOW) {
+            console.log(`❌ Cancelling pending match for ${candidateSessionId} ↔ ${candidateData.pendingMatchWith} (new exchange within ${timeDiff}ms)`);
+
+            // Cancel pending match for both partners
+            const partnerKey = `pending_exchange:${candidateData.pendingMatchWith}`;
+            const partnerDataStr = await redis!.get(partnerKey);
+
+            if (partnerDataStr) {
+              const partnerData = typeof partnerDataStr === 'string' ? JSON.parse(partnerDataStr) : partnerDataStr;
+              delete partnerData.pendingMatchWith;
+              delete partnerData.pendingMatchCreatedAt;
+              await redis!.setex(partnerKey, ttlSeconds, JSON.stringify(partnerData));
+            }
+
+            delete candidateData.pendingMatchWith;
+            delete candidateData.pendingMatchCreatedAt;
+            await redis!.setex(candidateKey, ttlSeconds, JSON.stringify(candidateData));
+
+            console.log(`🚫 Pending match cancelled`);
+          }
+        }
+      }
+    }
   }
 
   // Now check for matches among the candidates that existed before our addition
@@ -317,6 +365,101 @@ export async function atomicExchangeAndMatch(
           };
         }
       }
+    }
+  }
+
+  // No immediate match found - check for pending match candidates
+  if (!sessionAlreadyExists && currentServerTimestamp && currentLocation) {
+    console.log(`🔍 Checking for pending match candidates (within ${PENDING_MATCH_WINDOW}ms but outside immediate window)`);
+
+    let bestPendingCandidate: { sessionId: string; data: ExchangeData; timeDiff: number } | null = null;
+
+    for (const candidateSessionId of currentCandidates) {
+      if (candidateSessionId === sessionId) continue;
+
+      const candidateKey = `pending_exchange:${candidateSessionId}`;
+      const candidateDataStr = await redis!.get(candidateKey);
+      if (!candidateDataStr) continue;
+
+      const candidateData = typeof candidateDataStr === 'string' ? JSON.parse(candidateDataStr) : candidateDataStr;
+      const candidateServerTimestamp = candidateData.serverTimestamp || candidateData.timestamp;
+      if (!candidateServerTimestamp || !candidateData.location) continue;
+
+      const timeDiff = Math.abs(currentServerTimestamp - candidateServerTimestamp);
+
+      // Check if within pending match window
+      if (timeDiff <= PENDING_MATCH_WINDOW) {
+        // Check geographic compatibility
+        const { getMatchConfidence } = await import('@/lib/server/location/ip-geolocation');
+        const matchInfo = getMatchConfidence(currentLocation, candidateData.location);
+
+        if (matchInfo.confidence !== 'no_match' && timeDiff > matchInfo.timeWindow) {
+          // This is a pending match candidate (geographic match but outside immediate window)
+          if (!bestPendingCandidate || timeDiff < bestPendingCandidate.timeDiff) {
+            bestPendingCandidate = { sessionId: candidateSessionId, data: candidateData, timeDiff };
+          }
+        }
+      }
+    }
+
+    if (bestPendingCandidate) {
+      console.log(`🕐 Found pending match candidate: ${bestPendingCandidate.sessionId} (time diff: ${bestPendingCandidate.timeDiff}ms)`);
+
+      // Verify isolation: no other exchanges within 1.5s of EITHER exchange
+      const candidateTimestamp = bestPendingCandidate.data.serverTimestamp || bestPendingCandidate.data.timestamp;
+      const laterTimestamp = Math.max(currentServerTimestamp, candidateTimestamp!);
+      const earlierTimestamp = Math.min(currentServerTimestamp, candidateTimestamp!);
+
+      let isolationViolation = false;
+      for (const otherSessionId of currentCandidates) {
+        if (otherSessionId === sessionId || otherSessionId === bestPendingCandidate.sessionId) continue;
+
+        const otherKey = `pending_exchange:${otherSessionId}`;
+        const otherDataStr = await redis!.get(otherKey);
+        if (!otherDataStr) continue;
+
+        const otherData = typeof otherDataStr === 'string' ? JSON.parse(otherDataStr) : otherDataStr;
+        const otherTimestamp = otherData.serverTimestamp || otherData.timestamp;
+        if (!otherTimestamp) continue;
+
+        // Check if other exchange is within 1.5s of EITHER our exchange or the candidate
+        const diffFromCurrent = Math.abs(otherTimestamp - currentServerTimestamp);
+        const diffFromCandidate = Math.abs(otherTimestamp - candidateTimestamp!);
+
+        if (diffFromCurrent <= PENDING_MATCH_WINDOW || diffFromCandidate <= PENDING_MATCH_WINDOW) {
+          console.log(`❌ Isolation violation: exchange ${otherSessionId} is within 1.5s (${Math.min(diffFromCurrent, diffFromCandidate)}ms)`);
+          isolationViolation = true;
+          break;
+        }
+      }
+
+      if (!isolationViolation) {
+        // Create pending match!
+        console.log(`✅ Creating pending match between ${sessionId} and ${bestPendingCandidate.sessionId}`);
+        console.log(`⏰ Pending match will be eligible for promotion at ${laterTimestamp + PENDING_MATCH_WINDOW}ms`);
+
+        // Update both exchanges with pending match info
+        const updatedExchangeData = {
+          ...exchangeData,
+          pendingMatchWith: bestPendingCandidate.sessionId,
+          pendingMatchCreatedAt: laterTimestamp
+        };
+
+        const updatedCandidateData = {
+          ...bestPendingCandidate.data,
+          pendingMatchWith: sessionId,
+          pendingMatchCreatedAt: laterTimestamp
+        };
+
+        await redis!.setex(exchangeKey, ttlSeconds, JSON.stringify(updatedExchangeData));
+        await redis!.setex(`pending_exchange:${bestPendingCandidate.sessionId}`, ttlSeconds, JSON.stringify(updatedCandidateData));
+
+        console.log(`💑 Pending match created - waiting for ${PENDING_MATCH_WINDOW}ms from later timestamp`);
+      } else {
+        console.log(`❌ Cannot create pending match due to isolation violation`);
+      }
+    } else {
+      console.log(`🔍 No suitable pending match candidates found`);
     }
   }
 

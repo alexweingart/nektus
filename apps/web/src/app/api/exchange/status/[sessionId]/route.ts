@@ -43,8 +43,87 @@ export async function GET(
     }
 
     const sessionMatch = await redis.get(`exchange_session:${sessionId}`);
-    
+
     if (!sessionMatch) {
+      // No confirmed match yet - check for pending match that's ready to promote
+      console.log(`🔍 No confirmed match, checking for pending match for session ${sessionId}`);
+
+      const pendingExchangeData = await redis.get(`pending_exchange:${sessionId}`);
+      if (pendingExchangeData) {
+        const exchangeData = typeof pendingExchangeData === 'string' ? JSON.parse(pendingExchangeData) : pendingExchangeData;
+
+        if (exchangeData.pendingMatchWith && exchangeData.pendingMatchCreatedAt) {
+          console.log(`🕐 Found pending match: ${sessionId} ↔ ${exchangeData.pendingMatchWith}`);
+
+          // Check if other exchange still exists and has matching pending
+          const otherExchangeData = await redis.get(`pending_exchange:${exchangeData.pendingMatchWith}`);
+          if (otherExchangeData) {
+            const otherData = typeof otherExchangeData === 'string' ? JSON.parse(otherExchangeData) : otherExchangeData;
+
+            // Verify both still point to each other (not cancelled)
+            if (otherData.pendingMatchWith === sessionId) {
+              // Check if 1.5s has elapsed from pendingMatchCreatedAt
+              const { getRedisTime } = await import('@/lib/server/contacts/redis-time');
+              const currentServerTime = await getRedisTime();
+              const elapsed = currentServerTime - exchangeData.pendingMatchCreatedAt;
+
+              console.log(`⏰ Pending match age: ${elapsed}ms (threshold: 1500ms)`);
+
+              if (elapsed >= 1500) {
+                // Promote to confirmed match!
+                console.log(`✅ Promoting pending match to confirmed match`);
+
+                // Generate token
+                const token = Array.from({ length: 32 }, () =>
+                  Math.random().toString(36)[2] || '0'
+                ).join('');
+
+                // Import storeExchangeMatch
+                const { storeExchangeMatch } = await import('@/lib/server/contacts/matching');
+
+                // Store the match
+                await storeExchangeMatch(
+                  token,
+                  sessionId,
+                  exchangeData.pendingMatchWith,
+                  exchangeData.profile,
+                  otherData.profile,
+                  exchangeData.sharingCategory,
+                  otherData.sharingCategory
+                );
+
+                // Clean up both pending exchanges
+                await redis.del(`pending_exchange:${sessionId}`);
+                await redis.del(`pending_exchange:${exchangeData.pendingMatchWith}`);
+                await redis.srem('geo_bucket:global', sessionId);
+                await redis.srem('geo_bucket:global', exchangeData.pendingMatchWith);
+
+                console.log(`🎉 Pending match promoted: ${sessionId} ↔ ${exchangeData.pendingMatchWith}, token: ${token}`);
+
+                // Get the full match data
+                const matchData = await getExchangeMatch(token);
+
+                return NextResponse.json({
+                  success: true,
+                  hasMatch: true,
+                  match: {
+                    token,
+                    youAre: 'A', // First to poll gets 'A'
+                    matchData
+                  }
+                });
+              } else {
+                console.log(`⏳ Pending match not ready yet (${1500 - elapsed}ms remaining)`);
+              }
+            } else {
+              console.log(`❌ Pending match cancelled (other exchange no longer points back)`);
+            }
+          } else {
+            console.log(`❌ Pending match partner no longer exists`);
+          }
+        }
+      }
+
       console.log(`❌ No match found for session ${sessionId}`);
       return NextResponse.json({
         success: true,
