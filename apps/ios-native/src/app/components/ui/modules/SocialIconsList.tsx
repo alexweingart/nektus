@@ -136,16 +136,36 @@ export const SocialIconsList: React.FC<SocialIconsListProps> = ({
   }
 
   const handlePress = async (item: SocialItem) => {
+    console.log(`[SocialIconsList] Attempting to open:`, {
+      platform: item.platform,
+      url: item.url,
+      username: item.username
+    });
+
     try {
-      const canOpen = await Linking.canOpenURL(item.url);
-      if (canOpen) {
+      // For standard schemes (tel, mailto, http, https), skip canOpenURL check
+      // as it can sometimes fail even when the URL is valid
+      const isStandardScheme = item.url.startsWith('tel:') ||
+                               item.url.startsWith('mailto:') ||
+                               item.url.startsWith('http:') ||
+                               item.url.startsWith('https:');
+
+      if (isStandardScheme) {
+        console.log(`[SocialIconsList] Opening standard scheme directly:`, item.url);
         await Linking.openURL(item.url);
       } else {
-        Alert.alert('Error', `Cannot open ${item.platform}`);
+        const canOpen = await Linking.canOpenURL(item.url);
+        console.log(`[SocialIconsList] canOpenURL result:`, canOpen);
+        if (canOpen) {
+          await Linking.openURL(item.url);
+        } else {
+          console.error(`[SocialIconsList] Cannot open URL:`, item.url);
+          Alert.alert('Error', `Cannot open ${item.platform}`);
+        }
       }
     } catch (error) {
-      console.error(`Failed to open ${item.platform}:`, error);
-      Alert.alert('Error', `Failed to open ${item.platform}`);
+      console.error(`[SocialIconsList] Failed to open ${item.platform}:`, error);
+      Alert.alert('Error', `Failed to open ${item.platform}: ${error}`);
     }
   };
 

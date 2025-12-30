@@ -14,7 +14,7 @@ import {
   TextStyle,
   View,
 } from "react-native";
-import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Rect } from "react-native-svg";
+import { RadialGradient } from "react-native-gradients";
 
 type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary";
 type ButtonSize = "md" | "lg" | "xl" | "icon";
@@ -46,11 +46,14 @@ export function Button({
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
-  // Generate unique ID for gradient to avoid conflicts between multiple buttons
-  const gradientId = React.useMemo(() => `btnGrad-${Math.random().toString(36).substr(2, 9)}`, []);
-
   // Determine if variant has radial gradient (white, circle, theme, primary)
   const hasGradient = variant === "white" || variant === "circle" || variant === "theme" || variant === "primary";
+
+  // Color list for radial gradient matching web: radial-gradient(circle, rgb(255 255 255 / 1), rgb(255 255 255 / 0.6))
+  const gradientColorList = [
+    { offset: "0%", color: "#ffffff", opacity: "1" },
+    { offset: "100%", color: "#ffffff", opacity: "0.6" }
+  ];
 
   // Size configurations matching web
   const sizeConfig = {
@@ -122,15 +125,15 @@ export function Button({
     >
       {/* Radial gradient background matching web */}
       {hasGradient && (
-        <Svg width="100%" height="100%" style={StyleSheet.absoluteFillObject}>
-          <Defs>
-            <SvgRadialGradient id={gradientId} cx={0.5} cy={0.5} r={1.0}>
-              <Stop offset={0} stopColor="#ffffff" stopOpacity={1} />
-              <Stop offset={1} stopColor="#ffffff" stopOpacity={0.6} />
-            </SvgRadialGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId})`} />
-        </Svg>
+        <View style={StyleSheet.absoluteFillObject}>
+          <RadialGradient
+            x="50%"
+            y="50%"
+            rx="71%"
+            ry="71%"
+            colorList={gradientColorList}
+          />
+        </View>
       )}
       <View style={styles.contentRow}>{content}</View>
     </TouchableOpacity>
