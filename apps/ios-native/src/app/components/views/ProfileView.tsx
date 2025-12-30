@@ -7,8 +7,8 @@ import type { RootStackParamList } from "../../../../App";
 import { ProfileInfo } from "../ui/modules/ProfileInfo";
 import { Button } from "../ui/inputs/Button";
 import { ExchangeButton } from "../ui/buttons/ExchangeButton";
-import { useSession } from "../../../modules/providers/SessionProvider";
-import { useProfile } from "../../../modules/context/ProfileContext";
+import { useSession } from "../../../app/providers/SessionProvider";
+import { useProfile } from "../../../app/context/ProfileContext";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 
@@ -45,7 +45,6 @@ export function ProfileView() {
     <LayoutBackground
       showParticles={true}
       particleContext="profile"
-      backgroundColor="#004D40"
     >
       <PullToRefresh
         contentContainerStyle={styles.scrollContent}

@@ -41,14 +41,17 @@ export async function GET(request: NextRequest) {
 
       // Get the auth state to retrieve the original returnUrl
       const state = url.searchParams.get('state');
-      let returnUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      let denialUrl = new URL('/', baseUrl);
 
       if (state) {
         try {
           const stateData = await getIncrementalAuthState(state);
           if (stateData && stateData.returnUrl) {
-            returnUrl = stateData.returnUrl;
-            console.log(`📍 Using stored return URL for denial: ${returnUrl}`);
+            // Extract path and query from original returnUrl, use NEXTAUTH_URL as base
+            const originalReturnUrl = new URL(stateData.returnUrl);
+            denialUrl = new URL(originalReturnUrl.pathname + originalReturnUrl.search, baseUrl);
+            console.log(`📍 Using stored return URL for denial: ${denialUrl.toString()}`);
             // Clean up auth state after denial
             await deleteIncrementalAuthState(state);
           }
@@ -57,8 +60,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Build return URL with denial parameter
-      const denialUrl = new URL(returnUrl);
+      // Add denial parameter
       denialUrl.searchParams.set('incremental_auth', 'denied');
 
       console.log(`🔙 Redirecting to original page after denial: ${denialUrl.toString()}`);
@@ -191,13 +193,16 @@ export async function GET(request: NextRequest) {
     await deleteIncrementalAuthState(state);
 
     // Build return URL with success parameters
-    const returnUrl = new URL(stateData.returnUrl);
+    // Use NEXTAUTH_URL as base to ensure consistent redirects regardless of how user accessed the site
+    const baseUrl = process.env.NEXTAUTH_URL || `http://localhost:3000`;
+    const originalReturnUrl = new URL(stateData.returnUrl);
+    const returnUrl = new URL(originalReturnUrl.pathname + originalReturnUrl.search, baseUrl);
     returnUrl.searchParams.set('incremental_auth', 'success');
     returnUrl.searchParams.set('contact_save_token', stateData.contactSaveToken);
     returnUrl.searchParams.set('profile_id', stateData.profileId);
 
     console.log(`✅ Incremental auth successful for user ${session.user.id}, redirecting to: ${returnUrl.toString()}`);
-    
+
     return NextResponse.redirect(returnUrl.toString());
     
   } catch (error) {

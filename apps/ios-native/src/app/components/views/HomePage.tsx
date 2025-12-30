@@ -9,7 +9,7 @@ import {
 import Svg, { Path } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSession } from "../../../modules/providers/SessionProvider";
+import { useSession } from "../../../app/providers/SessionProvider";
 import { NektLogo } from "../ui/elements/NektLogo";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { Button } from "../ui/inputs/Button";

@@ -6,11 +6,14 @@ type ViewMode = "personal" | "work";
 interface ProfileViewSelectorProps {
   selected: ViewMode;
   onSelect: (mode: ViewMode) => void;
+  /** Tint color for the slider (from profile.backgroundColors[2]) */
+  tintColor?: string;
 }
 
 export function ProfileViewSelector({
   selected,
   onSelect,
+  tintColor,
 }: ProfileViewSelectorProps) {
   // Animated value for slider position (0 = left/personal, 1 = right/work)
   const slideAnim = React.useRef(new Animated.Value(selected === "work" ? 1 : 0)).current;
@@ -30,6 +33,24 @@ export function ProfileViewSelector({
     outputRange: ["0%", "50%"],
   });
 
+  // Convert hex color to rgba with opacity - matches web's glass tint logic
+  const getSliderBackground = () => {
+    if (!tintColor) {
+      // Default green (matches web default: 113, 228, 84)
+      return "rgba(34, 197, 94, 0.25)";
+    }
+
+    // Parse hex color
+    const hex = tintColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Web uses layered gradients with 0.30 and 0.20 opacity
+    // iOS approximates with single color at ~0.25 opacity (average)
+    return `rgba(${r}, ${g}, ${b}, 0.25)`;
+  };
+
   return (
     <View style={styles.container}>
       {/* Background slider (selected state indicator) */}
@@ -38,6 +59,7 @@ export function ProfileViewSelector({
           styles.slider,
           {
             left: sliderLeft,
+            backgroundColor: getSliderBackground(),
           },
         ]}
       />
@@ -91,12 +113,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "50%",
     borderRadius: 9999,
-    // Layered gradients: white overlay + theme color tint
-    // Web uses: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))
-    //           + linear-gradient(135deg, rgba(tint-color, 0.30), rgba(tint-color, 0.20))
-    // For iOS, we approximate with a semi-transparent white with green tint
-    backgroundColor: "rgba(34, 197, 94, 0.25)", // Green theme color with transparency
-    // Note: For true gradient, would need LinearGradient from expo-linear-gradient
+    // backgroundColor set dynamically via inline style to use profile color
+    // Web uses layered gradients, iOS approximates with single color at 0.25 opacity
   },
   button: {
     position: "relative",

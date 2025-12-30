@@ -13,6 +13,7 @@ import React, {
   useCallback,
   ReactNode,
 } from "react";
+import { Alert } from "react-native";
 import { User as FirebaseUser } from "firebase/auth";
 import {
   restoreSession,
@@ -131,15 +132,21 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
     setIsSigningIn(true);
     try {
+      console.log("[SessionProvider] Starting sign in...");
+
       // Step 1: Get Google tokens
       const googleResult = await googleSignIn();
+      console.log("[SessionProvider] Google sign in result:", googleResult);
 
       if (!googleResult.success) {
-        throw new Error(googleResult.error || "Failed to get Google token");
+        const errorMsg = googleResult.error || "Failed to get Google token";
+        console.error("[SessionProvider] Google sign in failed:", errorMsg);
+        Alert.alert("Sign In Failed", errorMsg);
+        return;
       }
 
       // Step 2: Exchange for Firebase token via our backend
-      // Token exchange now happens client-side, so we get tokens directly
+      console.log("[SessionProvider] Exchanging tokens with backend...");
       let serverResponse: MobileTokenResponse;
       if (googleResult.idToken) {
         console.log("[SessionProvider] Using ID token flow");
@@ -148,8 +155,13 @@ export function SessionProvider({ children }: SessionProviderProps) {
         console.log("[SessionProvider] Using access token flow");
         serverResponse = await exchangeGoogleAccessTokenForFirebase(googleResult.accessToken);
       } else {
-        throw new Error("No tokens received from Google");
+        const errorMsg = "No tokens received from Google";
+        console.error("[SessionProvider]", errorMsg);
+        Alert.alert("Sign In Failed", errorMsg);
+        return;
       }
+
+      console.log("[SessionProvider] Backend response received, signing into Firebase...");
 
       // Step 3: Sign in to Firebase with the custom token
       const user = await signInWithToken(
@@ -162,10 +174,11 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setSession(newSession);
       setStatus("authenticated");
 
-      console.log("[SessionProvider] Sign in successful");
+      console.log("[SessionProvider] Sign in successful!");
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("[SessionProvider] Sign in failed:", error);
-      throw error;
+      alert(`Sign in failed: ${errorMsg}`);
     } finally {
       setIsSigningIn(false);
     }

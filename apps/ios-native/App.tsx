@@ -5,13 +5,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreenModule from "expo-splash-screen";
-import { SessionProvider, useSession } from "./src/modules/providers/SessionProvider";
-import { ProfileProvider, useProfile } from "./src/modules/context/ProfileContext";
-import { HomePage } from "./src/ui/components/views/HomePage";
-import { ProfileSetupView } from "./src/ui/components/views/ProfileSetupView";
-import { ProfileView } from "./src/ui/components/views/ProfileView";
-import { PrivacyView } from "./src/ui/components/views/PrivacyView";
-import { TermsView } from "./src/ui/components/views/TermsView";
+import { SessionProvider, useSession } from "./src/app/providers/SessionProvider";
+import { ProfileProvider, useProfile } from "./src/app/context/ProfileContext";
+import { HomePage } from "./src/app/components/views/HomePage";
+import { ProfileSetupView } from "./src/app/components/views/ProfileSetupView";
+import { ProfileView } from "./src/app/components/views/ProfileView";
+import { PrivacyView } from "./src/app/components/views/PrivacyView";
+import { TermsView } from "./src/app/components/views/TermsView";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();

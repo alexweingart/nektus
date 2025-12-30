@@ -96,3 +96,43 @@ The geographic matching time windows in `src/lib/services/server/ipGeolocationSe
 - Octet: 300ms
 
 **DO NOT modify these values without explicit user permission.** These windows are precisely calibrated and any changes must solve timing issues through proper clock synchronization, not by expanding the windows.
+## Environment Variables Management
+
+### CRITICAL: Vercel CLI Environment Variables
+
+When adding environment variables via Vercel CLI, **always use `printf` instead of `echo`** to avoid adding trailing newline characters (`\n`).
+
+**WRONG (adds newlines):**
+```bash
+echo "value" | vercel env add VAR_NAME production
+```
+
+**CORRECT (no newlines):**
+```bash
+printf "value" | vercel env add VAR_NAME production
+```
+
+**Why this matters:**
+- Trailing newlines in OAuth credentials (client_id, client_secret) cause 401 "invalid_client" errors
+- Google/Microsoft OAuth providers receive malformed credentials
+- The newlines are invisible in the Vercel dashboard but break authentication
+
+**To update multiple variables:**
+```bash
+# Remove old variable and add new one without newlines
+vercel env rm VAR_NAME production --yes
+printf "actual_value" | vercel env add VAR_NAME production
+```
+
+**To verify variables are correct:**
+```bash
+vercel env pull .env.production.local --environment=production
+cat .env.production.local | grep VAR_NAME
+# Should NOT see \n at the end of values
+```
+
+This issue was discovered in December 2024 when OAuth integrations were failing in production due to trailing newlines in:
+- GOOGLE_CALENDAR_CLIENT_ID
+- GOOGLE_CALENDAR_CLIENT_SECRET
+- NEXT_PUBLIC_BASE_URL
+- And other OAuth-related credentials

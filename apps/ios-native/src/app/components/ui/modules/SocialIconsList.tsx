@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { SocialIcon } from "../elements/SocialIcon";
-import type { ContactEntry } from "../../../../modules/context/ProfileContext";
+import type { ContactEntry } from "../../../../app/context/ProfileContext";
 
 interface SocialIconsListProps {
   contactEntries: ContactEntry[];

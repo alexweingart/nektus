@@ -17,7 +17,6 @@ interface ParticleColors {
   particle: string;
   connection: string;
   gradientStart: string;
-  gradientMiddle: string;
   gradientEnd: string;
 }
 
@@ -26,13 +25,12 @@ export interface ParticleNetworkProps {
   context?: "signed-out" | "profile" | "profile-default" | "connect" | "contact";
 }
 
-// Default nekt green colors (for signed-out)
+// Default nekt green colors (for signed-out) - matches web
 const DEFAULT_COLORS: ParticleColors = {
   particle: "rgba(200, 255, 200, 0.6)",
   connection: "rgba(34, 197, 94, 0.15)",
-  gradientStart: "rgba(34, 197, 94, 0.3)",
-  gradientMiddle: "rgba(34, 197, 94, 0.12)",
-  gradientEnd: "#0a0f1a",
+  gradientStart: "rgba(34, 197, 94, 0.3)",  // Accent color (middle of gradient)
+  gradientEnd: "#0a0f1a",                   // Dark color (top and bottom of gradient)
 };
 
 // Context-specific configuration
@@ -116,7 +114,7 @@ export function ParticleNetworkLite({
         y: new Animated.Value(startY),
         vx: (Math.random() - 0.5) * config.particleSpeed,
         vy: (Math.random() - 0.5) * config.particleSpeed,
-        size: Math.random() * 2 + 1,
+        size: Math.random() * 4 + 2, // Increased from (2 + 1) to (4 + 2) for better visibility
         currentX: startX,
         currentY: startY,
       });
@@ -184,14 +182,14 @@ export function ParticleNetworkLite({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Background gradient */}
+      {/* Background gradient - matches web's symmetric pattern */}
       <LinearGradient
         colors={[
-          renderColors.gradientStart,
-          renderColors.gradientMiddle,
-          renderColors.gradientEnd,
+          renderColors.gradientEnd,    // dominant at top (matches safe area)
+          renderColors.gradientStart,  // accent in middle
+          renderColors.gradientEnd,    // dominant at bottom (matches safe area)
         ]}
-        locations={[0, 0.4, 1]}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
 

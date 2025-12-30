@@ -12,8 +12,8 @@ import { Avatar } from "../elements/Avatar";
 import { Heading, BodyText } from "../elements/Typography";
 import { ProfileViewSelector } from "../controls/ProfileViewSelector";
 import { SocialIconsList } from "./SocialIconsList";
-import type { UserProfile } from "../../../../modules/context/ProfileContext";
-import type { Session } from "../../../../modules/providers/SessionProvider";
+import type { UserProfile } from "../../../../app/context/ProfileContext";
+import type { Session } from "../../../../app/providers/SessionProvider";
 
 type ViewMode = "personal" | "work";
 
@@ -179,7 +179,11 @@ export function ProfileInfo({ profile, session }: ProfileInfoProps) {
 
         {/* View Selector - AT BOTTOM, INSIDE BOX */}
         <View style={styles.selectorWrapper}>
-          <ProfileViewSelector selected={viewMode} onSelect={setViewMode} />
+          <ProfileViewSelector
+            selected={viewMode}
+            onSelect={setViewMode}
+            tintColor={profile?.backgroundColors?.[2]} // Use accent2 color (matches web)
+          />
         </View>
       </View>
     </View>
