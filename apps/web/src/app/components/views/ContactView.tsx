@@ -46,7 +46,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   isHistoricalContact = false
 }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [scheduleButtonDisabled, setScheduleButtonDisabled] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const { profile: userProfile } = useProfile();
@@ -128,20 +127,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
     // Exchange state already persists the completion status
-
-    // iOS Safari fix: Temporarily disable schedule button to prevent it
-    // from receiving focus/active state when modal closes
-    setScheduleButtonDisabled(true);
-
-    // Re-enable after modal close animation completes
-    setTimeout(() => {
-      setScheduleButtonDisabled(false);
-
-      // Also blur any focused element
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    }, 300);
   };
 
   const handleUpsellAccept = async () => {
@@ -168,11 +153,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // Use per-token tracking for other platforms
       markUpsellShown(token);
     }
-
-    // iOS Safari fix: Remove focus from any active element
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
   };
 
   const handleSayHi = () => {
@@ -189,15 +169,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     // Exchange state already persists the completion status
     setShowSuccessModal(false);
-
-    // iOS Safari fix: Temporarily disable schedule button
-    setScheduleButtonDisabled(true);
-    setTimeout(() => {
-      setScheduleButtonDisabled(false);
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    }, 300);
   };
 
   // Handle messaging for historical contacts
@@ -428,18 +399,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
                 {/* Phase 6: Smart Schedule CTA - shown when contact is saved (Done state) */}
                 {isSuccess && (
-                  <div
-                    className="flex justify-center"
-                    style={{
-                      pointerEvents: scheduleButtonDisabled ? 'none' : 'auto',
-                      opacity: scheduleButtonDisabled ? 0.5 : 1,
-                      transition: 'opacity 0.2s ease'
-                    }}
-                  >
+                  <div className="flex justify-center">
                     <SecondaryButton
                       variant="dark"
                       onClick={handleScheduleMeetUp}
-                      tabIndex={scheduleButtonDisabled ? -1 : 0}
                     >
                       Schedule next meet up now!
                     </SecondaryButton>
