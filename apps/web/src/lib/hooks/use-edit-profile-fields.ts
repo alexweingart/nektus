@@ -124,19 +124,51 @@ export const useImageUpload = (onColorsExtracted?: (colors: string[]) => void) =
  */
 export const useProfileViewMode = (carouselRef: React.RefObject<HTMLDivElement | null>) => {
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
+  const containerWidthRef = useRef<number>(0);
 
   // Animate carousel to match selected mode
   const animateCarousel = useCallback((mode: 'Personal' | 'Work') => {
     if (carouselRef.current) {
+      // Use cached width instead of recalculating to prevent shifts during input focus
+      const containerWidth = containerWidthRef.current || carouselRef.current.parentElement?.offsetWidth || 0;
+
       if (mode === 'Work') {
-        const container = carouselRef.current.parentElement;
-        const containerWidth = container?.offsetWidth || 0;
         const translateAmount = -(containerWidth + 16); // Add gap
         carouselRef.current.style.transform = `translateX(${translateAmount}px)`;
       } else {
         carouselRef.current.style.transform = 'translateX(0)';
       }
     }
+  }, [carouselRef]);
+
+  // Initialize and update cached width only on mount and actual window resize
+  useEffect(() => {
+    let initialHeight = window.innerHeight;
+
+    const updateWidth = () => {
+      // Ignore resize events caused by virtual keyboard (height changes on mobile)
+      // Only update if width actually changed (orientation/window resize)
+      const heightChange = Math.abs(window.innerHeight - initialHeight);
+      const isLikelyKeyboard = heightChange > 150; // Virtual keyboard causes significant height change
+
+      if (!isLikelyKeyboard && carouselRef.current?.parentElement) {
+        containerWidthRef.current = carouselRef.current.parentElement.offsetWidth;
+      }
+
+      // Update initial height for next comparison
+      if (!isLikelyKeyboard) {
+        initialHeight = window.innerHeight;
+      }
+    };
+
+    // Initialize on mount
+    if (carouselRef.current?.parentElement) {
+      containerWidthRef.current = carouselRef.current.parentElement.offsetWidth;
+    }
+
+    // Update only on actual window resize, not on virtual keyboard open
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
   }, [carouselRef]);
 
   // Load from localStorage on mount
