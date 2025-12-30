@@ -415,7 +415,7 @@ export function ParticleNetwork({ colors, context = 'signed-out' }: ParticleNetw
         ref={canvasRef}
         className="particle-network-canvas"
         style={{
-          zIndex: 0
+          zIndex: -1
         }}
       />
     </>
