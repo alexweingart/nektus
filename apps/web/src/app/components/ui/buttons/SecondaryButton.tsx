@@ -26,7 +26,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   };
 
   // iOS fix: Force clear active state on touch end
-  const handleTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
+  const handleTouchEnd = () => {
     // Blur immediately to remove focus/active state
     if (buttonRef.current) {
       buttonRef.current.blur();
