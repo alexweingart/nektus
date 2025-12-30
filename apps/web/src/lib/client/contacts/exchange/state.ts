@@ -123,7 +123,7 @@ export function markUpsellDismissedGlobally(): void {
 export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded: boolean = false): boolean {
   const state = getExchangeState(token);
   if (!state) return false;
-  
+
   // Only show upsell if contact was saved to Firebase but not Google
   if (state.state !== 'completed_firebase_only') return false;
   

@@ -374,15 +374,20 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Contact page logic
       const contactColors = contactProfile?.backgroundColors;
 
-      if (contactColors && contactColors.length >= 3) {
-        // Use contact's colors
+      // Check if colors exist and are custom (not all the same)
+      const hasCustomColors = contactColors &&
+                             contactColors.length >= 3 &&
+                             !(contactColors[0] === contactColors[1] && contactColors[1] === contactColors[2]);
+
+      if (hasCustomColors) {
+        // Use contact's custom colors
         const particleColors = convertToParticleColors(contactColors);
         return {
           colors: particleColors,
           context: pathname === '/connect' ? 'connect' : 'contact'
         };
       } else {
-        // No contact colors - use default inverted gradient (profile-style)
+        // No contact colors or all colors are the same - use default inverted gradient (profile-style)
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: pathname === '/connect' ? 'connect' : 'contact'

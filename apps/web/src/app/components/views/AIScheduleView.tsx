@@ -300,11 +300,6 @@ And if you don't know any of those things, and just want me to suggest based off
     router.push(`/contact/${contactUserId}/smart-schedule${queryString}`);
   };
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
   // Track keyboard appearance for debugging (no state updates to avoid re-render issues)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
