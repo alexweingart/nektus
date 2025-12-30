@@ -244,6 +244,10 @@ button {
   filter: brightness(1);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
               filter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* iOS fix: Ensure active state doesn't persist */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .button-release:active {
@@ -251,6 +255,21 @@ button {
   filter: brightness(1.1);
   transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1),
               filter 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* iOS Safari fix: Force active state to clear after touch ends */
+@supports (-webkit-touch-callout: none) {
+  .button-release {
+    /* Reset to normal state immediately when not actively being pressed */
+    animation: ios-active-reset 0s 0.1s forwards;
+  }
+
+  @keyframes ios-active-reset {
+    to {
+      transform: scale(1);
+      filter: brightness(1);
+    }
+  }
 }
 
 /* Animation utility classes for modals */

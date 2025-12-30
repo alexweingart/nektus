@@ -118,20 +118,77 @@ export function markUpsellDismissedGlobally(): void {
 }
 
 /**
+ * Check if user has completed their first contact save (iOS non-embedded only)
+ */
+export function hasCompletedFirstSave(): boolean {
+  try {
+    return localStorage.getItem('google_contacts_first_save_completed') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark that user has completed their first contact save (iOS non-embedded only)
+ */
+export function markFirstSaveCompleted(): void {
+  try {
+    localStorage.setItem('google_contacts_first_save_completed', 'true');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Check if this is a first-time save (no exchange state exists)
+ */
+export function isFirstTimeSave(token: string): boolean {
+  return getExchangeState(token) === null;
+}
+
+/**
+ * Check if user has ever successfully authorized Google Contacts (global across all contacts)
+ */
+export function hasGoogleContactsPermission(): boolean {
+  try {
+    return localStorage.getItem('google_contacts_permission_granted') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark that user has successfully authorized Google Contacts (global)
+ */
+export function markGoogleContactsPermissionGranted(): void {
+  try {
+    localStorage.setItem('google_contacts_permission_granted', 'true');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
  * Check if upsell should be shown based on exchange state and platform rules
  */
 export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded: boolean = false): boolean {
   const state = getExchangeState(token);
-  if (!state) return false;
+
+  // For first-time saves (no state yet), check if user has permission globally
+  if (!state) {
+    // If user already has Google Contacts permission globally, don't show upsell
+    // (they can save successfully, just no exchange state for this token yet)
+    return !hasGoogleContactsPermission();
+  }
 
   // Only show upsell if contact was saved to Firebase but not Google
   if (state.state !== 'completed_firebase_only') return false;
-  
+
   // iOS non-embedded browsers (Safari/Chrome/Edge): show only if never dismissed globally
   if (iosNonEmbedded) {
     return !hasUserDismissedUpsellGlobally();
   }
-  
+
   // All other platforms: show every time (for now - simplified as requested)
   return true;
 }
@@ -148,14 +205,23 @@ export function shouldShowSuccess(token: string): boolean {
  * Check if we're returning from auth flow
  */
 export function isReturningFromAuth(token: string): boolean {
+  // First check URL params (handles both modal-triggered and fast-path auth)
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authResult = urlParams.get('incremental_auth');
+    if (authResult === 'success' || authResult === 'denied') {
+      return true;
+    }
+  }
+
+  // Also check for recent auth_in_progress state (fallback for fast-path)
   const state = getExchangeState(token);
   if (!state) return false;
-  
-  // Check if we have recent auth_in_progress state
+
   if (state.state === 'auth_in_progress') {
     const age = Date.now() - state.timestamp;
     return age <= 2 * 60 * 1000; // Within 2 minutes
   }
-  
+
   return false;
 }

@@ -13,7 +13,10 @@ import {
   setExchangeState,
   clearExchangeState,
   shouldShowUpsell,
-  isReturningFromAuth
+  isReturningFromAuth,
+  hasCompletedFirstSave,
+  markFirstSaveCompleted,
+  markGoogleContactsPermissionGranted
 } from '@/lib/client/contacts/exchange/state';
 
 export interface ContactSaveFlowResult {
@@ -168,7 +171,16 @@ export async function saveContactFlow(
             profileId: profile.userId || '',
             timestamp: Date.now()
           });
-          
+
+          // Mark that user has Google Contacts permission globally
+          markGoogleContactsPermissionGranted();
+
+          // Mark first save as completed for iOS non-embedded (if not already)
+          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+          if (iosNonEmbedded && !hasCompletedFirstSave()) {
+            markFirstSaveCompleted();
+          }
+
           return {
             success: true,
             firebase: { success: true },
@@ -178,49 +190,81 @@ export async function saveContactFlow(
           };
         } else {
           // Firebase saved, Google failed
-          return createFirebaseOnlyResult(
+          const result = createFirebaseOnlyResult(
             token,
             platform,
             profile.userId || '',
             { success: true },
             googleSaveResult.google
           );
+
+          // Mark first save as completed for iOS non-embedded even if Google failed
+          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+          if (iosNonEmbedded && !hasCompletedFirstSave()) {
+            markFirstSaveCompleted();
+          }
+
+          return result;
         }
       } catch (error) {
         console.error('❌ Google Contacts save failed after auth:', error);
-        
-        return createFirebaseOnlyResult(
+
+        const result = createFirebaseOnlyResult(
           token,
           platform,
           profile.userId || '',
           { success: true },
           { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' }
         );
+
+        // Mark first save as completed for iOS non-embedded even on error
+        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+        if (iosNonEmbedded && !hasCompletedFirstSave()) {
+          markFirstSaveCompleted();
+        }
+
+        return result;
       }
     } else if (authResult === 'denied') {
       console.log('🚫 User denied Google Contacts permission');
-      
+
       // Clean up URL
       cleanupAuthURLParams();
-      
-      return createFirebaseOnlyResult(
+
+      const result = createFirebaseOnlyResult(
         token,
         platform,
         profile.userId || '',
         { success: true },
         { success: false, error: 'User denied permission' }
       );
+
+      // Mark first save as completed for iOS non-embedded even when denied
+      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+      if (iosNonEmbedded && !hasCompletedFirstSave()) {
+        markFirstSaveCompleted();
+      }
+
+      return result;
     } else {
       // User likely tapped back without completing auth
       console.log('🔙 User returned from auth without completing (likely tapped back)');
-      
-      return createFirebaseOnlyResult(
+
+      const result = createFirebaseOnlyResult(
         token,
         platform,
         profile.userId || '',
         { success: true },
         { success: false, error: 'User cancelled Google auth' }
       );
+
+      // Mark first save as completed for iOS non-embedded even when cancelled
+      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+      if (iosNonEmbedded && !hasCompletedFirstSave()) {
+        markFirstSaveCompleted();
+      }
+
+      return result;
     }
   } else {
     console.log('🔍 Flow: Not returning from incremental auth, proceeding with normal flow');
@@ -230,9 +274,17 @@ export async function saveContactFlow(
     // Smart permission check to avoid unnecessary API calls
     const likelyHasPermission = likelyHasGoogleContactsPermission(platform, token);
     console.log('🔍 Permission check: User likely has Google Contacts permission:', likelyHasPermission);
-    
+
+    // Check if this is iOS non-embedded (Safari/Chrome/Edge)
+    const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
+    const isIOSSubsequentSave = iosNonEmbedded && hasCompletedFirstSave();
+
     // If we know they don't have permission and can do incremental auth, skip Google attempt
-    if (!likelyHasPermission && (platform === 'android' || platform === 'ios')) {
+    // Exception: iOS non-embedded NEVER uses fast path (always shows vCard first, even first-time)
+    const shouldUseFastPath = !likelyHasPermission &&
+                              (platform === 'android' || (platform === 'ios' && !iosNonEmbedded));
+
+    if (shouldUseFastPath) {
       console.log('🚀 Fast path: Skipping Google attempt, going straight to incremental auth');
       
       // Set state to auth_in_progress
@@ -311,7 +363,6 @@ export async function saveContactFlow(
       });
 
     // NOW show vCard (after API calls have started)
-    const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
     if (iosNonEmbedded) {
       // Show vCard immediately (API calls already started, won't be cancelled)
       try {
@@ -343,7 +394,9 @@ export async function saveContactFlow(
 
     // For iOS, we already showed vCard, now show modal
     if (iosNonEmbedded) {
-      
+      // Check if this is a subsequent save (user already completed first save)
+      const isSubsequentSave = hasCompletedFirstSave();
+
       if (googleResult.success) {
         // Both Firebase and Google successful
         setExchangeState(token, {
@@ -352,7 +405,15 @@ export async function saveContactFlow(
           profileId: profile.userId || '',
           timestamp: Date.now()
         });
-        
+
+        // Mark that user has Google Contacts permission globally
+        markGoogleContactsPermissionGranted();
+
+        // Mark first save as completed (if not already)
+        if (!isSubsequentSave) {
+          markFirstSaveCompleted();
+        }
+
         return {
           success: true,
           firebase: firebaseResult.firebase,
@@ -361,14 +422,38 @@ export async function saveContactFlow(
           platform
         };
       } else {
-        // Firebase saved, Google failed - iOS non-embedded shows upsell once ever
-        return createFirebaseOnlyResult(
-          token,
-          platform,
-          profile.userId || '',
-          firebaseResult.firebase,
-          googleResult
-        );
+        // Firebase saved, Google failed
+        if (isSubsequentSave) {
+          // Subsequent saves: Always show success modal (never upsell, never redirect to auth)
+          setExchangeState(token, {
+            state: 'completed_firebase_only',
+            platform,
+            profileId: profile.userId || '',
+            timestamp: Date.now()
+          });
+
+          return {
+            success: true,
+            firebase: firebaseResult.firebase,
+            google: googleResult,
+            showSuccessModal: true, // Always success modal for subsequent saves
+            platform
+          };
+        } else {
+          // First-time save: Show upsell once ever
+          const result = createFirebaseOnlyResult(
+            token,
+            platform,
+            profile.userId || '',
+            firebaseResult.firebase,
+            googleResult
+          );
+
+          // Mark first save as completed even if Google failed
+          markFirstSaveCompleted();
+
+          return result;
+        }
       }
     }
 
@@ -381,7 +466,10 @@ export async function saveContactFlow(
         profileId: profile.userId || '',
         timestamp: Date.now()
       });
-      
+
+      // Mark that user has Google Contacts permission globally
+      markGoogleContactsPermissionGranted();
+
       return {
         success: true,
         firebase: firebaseResult.firebase,

@@ -55,18 +55,11 @@ export function useContactExchangeState(
           // Show success modal immediately - we know auth succeeded!
           setShowSuccessModal(true);
 
-          // Clean up URL parameters
-          cleanUrlParams(['incremental_auth', 'contact_save_token', 'profile_id']);
-
-          // Update exchange state to completed_success immediately
-          setExchangeState(token, {
-            state: 'completed_success',
-            platform: exchangeState?.platform || 'android',
-            profileId: profile.userId || '',
-            timestamp: Date.now()
-          });
+          // DON'T clean URL params here - let saveContactFlow handle it
+          // so it can detect isReturningFromAuth correctly
 
           // Make Google API call in background (don't wait for it)
+          // saveContactFlow will detect auth return via URL params and handle the Google save
           saveContactFlow(profile, token).catch(() => {
             // Could optionally show a toast notification if the background save fails
           });
