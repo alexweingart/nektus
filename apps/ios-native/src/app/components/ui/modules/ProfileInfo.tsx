@@ -10,9 +10,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from '@react-native-community/blur';
 import Svg, { Path } from 'react-native-svg';
 import Avatar from '../elements/Avatar';
-import { SocialIconsList } from './SocialIconsList';
+import { SocialIconsList } from '../elements/SocialIconsList';
 import { ProfileViewSelector } from '../controls/ProfileViewSelector';
-import { Heading, BodyText } from '../elements/Typography';
+import { Heading, BodyText } from '../Typography';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 
 type ProfileViewMode = 'Personal' | 'Work';
@@ -137,8 +137,16 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Pan responder for swipe gestures
   const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
+      // Capture horizontal gestures before ScrollView can claim them
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        // Capture if horizontal movement significantly exceeds vertical
+        return Math.abs(gestureState.dx) > 5 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
+      },
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 10;
+        // Claim gesture if horizontal movement exceeds vertical
+        return Math.abs(gestureState.dx) > 5 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
       },
       onPanResponderMove: (_, gestureState) => {
         if (!containerWidth) return;

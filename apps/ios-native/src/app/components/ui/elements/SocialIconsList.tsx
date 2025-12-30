@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    alignItems: 'center', // Vertically center icons
     gap: 16, // Match web gap-4 (16px)
   },
 });

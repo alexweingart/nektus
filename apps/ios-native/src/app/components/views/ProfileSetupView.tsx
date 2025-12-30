@@ -7,12 +7,12 @@ import {
   StyleSheet,
 } from "react-native";
 import Avatar from "../ui/elements/Avatar";
-import { Heading } from "../ui/elements/Typography";
+import { Heading } from "../ui/Typography";
 import { Button } from "../ui/buttons/Button";
 import { Input } from "../ui/inputs/Input";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
-import { formatPhoneNumber } from "@nektus/shared-utils";
+import { formatPhoneNumber } from "@nektus/shared-lib";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 

@@ -25,6 +25,18 @@
               "com.googleusercontent.apps.597818194511-6scsdrns5bvp33444u1l133730hgcnhp"
             ]
           }
+        ],
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "sms",
+          "https",
+          "http",
+          "instagram",
+          "fb",
+          "twitter",
+          "whatsapp",
+          "tg"
         ]
       }
     },

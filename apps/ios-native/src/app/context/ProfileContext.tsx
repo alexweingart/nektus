@@ -22,40 +22,16 @@ import {
   getCollection,
 } from "../../lib/client/firestore/rest";
 import { useSession } from "../providers/SessionProvider";
+import {
+  profileHasPhone,
+  profileNeedsSetup,
+  UserProfile,
+  ContactEntry,
+  UserLocation,
+} from "@nektus/shared-lib";
 
-// Types
-export interface ContactEntry {
-  fieldType: string;
-  value: string;
-  section: "universal" | "personal" | "work";
-  order: number;
-  isVisible: boolean;
-  confirmed: boolean;
-  linkType?: "default" | "custom";
-  icon?: string;
-}
-
-export interface UserLocation {
-  section: "personal" | "work";
-  city: string;
-  region: string;
-  country?: string;
-}
-
-export interface UserProfile {
-  userId: string;
-  profileImage: string;
-  backgroundImage: string;
-  backgroundColors?: string[];
-  lastUpdated: number;
-  contactEntries: ContactEntry[];
-  locations?: UserLocation[];
-  aiGeneration?: {
-    avatarGenerated?: boolean;
-    backgroundImageGenerated?: boolean;
-    bioGenerated?: boolean;
-  };
-}
+// Re-export types for convenience
+export type { UserProfile, ContactEntry, UserLocation };
 
 export interface SavedContact {
   odtId: string;
@@ -292,13 +268,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   );
 
   // Check if profile needs setup (no phone number configured)
-  const needsSetup = useMemo(() => {
-    if (!profile) return true;
-    const hasPhone = profile.contactEntries?.some(
-      (e) => e.fieldType === "phone" && e.value?.trim()
-    );
-    return !hasPhone;
-  }, [profile]);
+  const needsSetup = useMemo(() => profileNeedsSetup(profile), [profile]);
 
   return (
     <ProfileContext.Provider
@@ -329,13 +299,5 @@ export function useProfile() {
   return context;
 }
 
-/**
- * Check if a profile has a phone number configured
- */
-export function profileHasPhone(profile: UserProfile | null): boolean {
-  if (!profile?.contactEntries) return false;
-  const phoneEntry = profile.contactEntries.find(
-    (e) => e.fieldType === "phone"
-  );
-  return !!(phoneEntry?.value && phoneEntry.value.trim() !== "");
-}
+// profileHasPhone is now imported from @nektus/shared-lib
+export { profileHasPhone };

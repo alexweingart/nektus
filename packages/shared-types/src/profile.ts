@@ -163,6 +163,7 @@ export interface Event {
   preferredPlaces?: Place[]; // Array of possible places for in-person events
   explicitUserTimes?: boolean; // User specified exact times
   explicitUserPlace?: boolean; // User specified exact place
+  specificPlaceName?: string; // Specific place name requested by user
   hasExplicitTimeRequest?: boolean; // User requested specific time
 
   status?: 'template' | 'scheduled' | 'cancelled' | 'completed';

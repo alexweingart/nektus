@@ -86,6 +86,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
     // Handle custom links - username contains the full URL
     if (linkType === 'custom' && username) {
+      console.log('[SocialIcon] Opening custom link:', username);
       try {
         const canOpen = await Linking.canOpenURL(username);
         if (canOpen) {
@@ -103,19 +104,41 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     // Handle default platform behavior
     if (username) {
       const url = getPlatformUrl(platform, username);
+      console.log(`[SocialIcon] Opening ${platform}:`, { username, url });
       if (url) {
         try {
-          const canOpen = await Linking.canOpenURL(url);
-          if (canOpen) {
+          // For standard schemes (tel, sms, mailto, http, https), skip canOpenURL check
+          // as it can sometimes fail even when the URL is valid
+          const isStandardScheme = url.startsWith('tel:') ||
+                                   url.startsWith('sms:') ||
+                                   url.startsWith('mailto:') ||
+                                   url.startsWith('http:') ||
+                                   url.startsWith('https:');
+
+          if (isStandardScheme) {
+            console.log(`[SocialIcon] Opening standard scheme directly:`, url);
             await Linking.openURL(url);
+            console.log(`[SocialIcon] Successfully opened ${platform}`);
           } else {
-            Alert.alert('Error', `Cannot open ${platform}`);
+            const canOpen = await Linking.canOpenURL(url);
+            console.log(`[SocialIcon] canOpenURL for ${platform}:`, canOpen);
+            if (canOpen) {
+              await Linking.openURL(url);
+              console.log(`[SocialIcon] Successfully opened ${platform}`);
+            } else {
+              console.error(`[SocialIcon] Cannot open ${platform}, url:`, url);
+              Alert.alert('Error', `Cannot open ${platform}`);
+            }
           }
         } catch (error) {
           console.error(`Failed to open ${platform}:`, error);
           Alert.alert('Error', `Failed to open ${platform}`);
         }
+      } else {
+        console.error(`[SocialIcon] No URL generated for ${platform}`);
       }
+    } else {
+      console.error(`[SocialIcon] No username provided for ${platform}`);
     }
   };
 
@@ -141,7 +164,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       case 'email':
         return (
           <Svg width={iconSize} height={iconSize} viewBox="0 0 512 512" fill={color}>
-            <Path d="M502.3 190.8c3.9-3.1 9.7-.2 9.7 4.7V400c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V195.6c0-5 5.7-7.8 9.7-4.7 22.4 17.4 52.1 39.5 154.1 113.6 21.1 15.4 56.7 47.8 92.2 47.6 35.7.3 72-32.8 92.3-47.6 102-74.1 131.6-96.3 154-113.7zM256 320c23.2.4 56.6-29.2 73.4-41.4 132.7-96.3 142.8-104.7 173.4-128.7 5.8-4.5 9.2-11.5 9.2-18.9v-19c0-26.5-21.5-48-48-48H48C21.5 64 0 85.5 0 112v19c0 7.4 3.4 14.3 9.2 18.9 30.6 23.9 40.7 32.4 173.4 128.7 16.8 12.2 50.2 41.8 73.4 41.4z" />
+            <Path d="M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" />
           </Svg>
         );
       case 'facebook':
