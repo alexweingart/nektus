@@ -6,9 +6,8 @@
 import { useState, useEffect } from 'react';
 import type { UserProfile } from '@/types/profile';
 import { saveContactFlow } from '@/lib/client/contacts/save';
-import { getExchangeState, setExchangeState, shouldShowUpsell } from '@/lib/client/contacts/exchange/state';
+import { getExchangeState, shouldShowUpsell } from '@/lib/client/contacts/exchange/state';
 import { isEmbeddedBrowser } from '@/lib/client/platform-detection';
-import { cleanUrlParams } from '@/lib/client/contacts/url-utils';
 
 interface UseContactExchangeStateResult {
   showSuccessModal: boolean;

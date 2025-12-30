@@ -277,7 +277,6 @@ export async function saveContactFlow(
 
     // Check if this is iOS non-embedded (Safari/Chrome/Edge)
     const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-    const isIOSSubsequentSave = iosNonEmbedded && hasCompletedFirstSave();
 
     // If we know they don't have permission and can do incremental auth, skip Google attempt
     // Exception: iOS non-embedded NEVER uses fast path (always shows vCard first, even first-time)
