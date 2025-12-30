@@ -91,7 +91,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           state: encodeURIComponent(JSON.stringify({
             userEmail,
             section,
-            returnUrl: window.location.pathname
+            returnUrl: window.location.pathname + window.location.search // Preserve query params like ?token=...
           }))
         });
 
@@ -109,7 +109,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           state: encodeURIComponent(JSON.stringify({
             userEmail,
             section,
-            returnUrl: window.location.pathname
+            returnUrl: window.location.pathname + window.location.search // Preserve query params like ?token=...
           }))
         });
 

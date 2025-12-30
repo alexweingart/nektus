@@ -24,7 +24,6 @@
     "preview": {
       "extends": "base",
       "distribution": "internal",
-      "installCommand": "bun install",
       "ios": {
         "resourceClass": "m-medium",
         "image": "macos-sequoia-15.4-xcode-16.3"
