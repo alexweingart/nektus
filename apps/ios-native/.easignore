@@ -1,8 +1,10 @@
 # Ignore other apps but keep monorepo structure
 ../../apps/web
 ../../.git
+../../node_modules
 
 # Ignore iOS build artifacts and dependencies
 ios/Pods
 ios/build
 ios/.xcode.env.local
+.expo
