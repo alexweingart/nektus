@@ -13,9 +13,12 @@ import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/lib/consta
 
 export async function GET(request: NextRequest) {
   try {
+    // Use NEXTAUTH_URL as base for all redirects to ensure consistency
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.redirect(new URL('/sign-in?error=unauthorized', request.url));
+      return NextResponse.redirect(new URL('/sign-in?error=unauthorized', baseUrl));
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -35,12 +38,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Google OAuth] Error:', error);
-      return NextResponse.redirect(new URL(`${returnUrl}?error=google_oauth_failed`, request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=google_oauth_failed`, baseUrl));
     }
 
     if (!code || !state || !stateData) {
       console.error('[Google OAuth] Missing code or state');
-      return NextResponse.redirect(new URL(`${returnUrl}?error=missing_parameters`, request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=missing_parameters`, baseUrl));
     }
 
     const { section, userEmail, retry } = stateData;
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error('[Google OAuth] Token exchange failed:', tokenResponse.statusText);
-      return NextResponse.redirect(new URL(`${returnUrl}?error=token_exchange_failed`, request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=token_exchange_failed`, baseUrl));
     }
 
     const tokenData = await tokenResponse.json();
@@ -76,13 +79,13 @@ export async function GET(request: NextRequest) {
     // Get current profile
     const profile = await AdminProfileService.getProfile(session.user.id);
     if (!profile) {
-      return NextResponse.redirect(new URL(`${returnUrl}?error=profile_not_found`, request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=profile_not_found`, baseUrl));
     }
 
     // Check if calendar already exists for this section
     const existingCalendar = profile.calendars?.find(cal => cal.section === section);
     if (existingCalendar) {
-      return NextResponse.redirect(new URL(`${returnUrl}?error=calendar_already_exists`, request.url));
+      return NextResponse.redirect(new URL(`${returnUrl}?error=calendar_already_exists`, baseUrl));
     }
 
     // Check if we received a refresh token
@@ -92,7 +95,7 @@ export async function GET(request: NextRequest) {
       // If this is already a retry with consent, give up and show error
       if (retry) {
         console.error('[Google OAuth] Still no refresh token after consent retry');
-        return NextResponse.redirect(new URL(`${returnUrl}?error=no_refresh_token_after_consent`, request.url));
+        return NextResponse.redirect(new URL(`${returnUrl}?error=no_refresh_token_after_consent`, baseUrl));
       }
 
       // First attempt failed - retry with consent to force Google to issue refresh token
@@ -152,12 +155,13 @@ export async function GET(request: NextRequest) {
     console.log(`[Google OAuth] Calendar added for ${session.user.id} (${section})`);
 
     // Redirect back to the return URL (or /edit by default)
-    return NextResponse.redirect(new URL(`${returnUrl}?calendar=added`, request.url));
+    return NextResponse.redirect(new URL(`${returnUrl}?calendar=added`, baseUrl));
 
   } catch (error) {
     console.error('[Google OAuth] Callback error:', error);
     // Use /edit as fallback if returnUrl is not available
     const fallbackUrl = '/edit';
-    return NextResponse.redirect(new URL(`${fallbackUrl}?error=callback_error`, request.url));
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    return NextResponse.redirect(new URL(`${fallbackUrl}?error=callback_error`, baseUrl));
   }
 }
