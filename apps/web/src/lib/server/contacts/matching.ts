@@ -408,7 +408,6 @@ export async function atomicExchangeAndMatch(
       // Verify isolation: no other exchanges within 1.5s of EITHER exchange
       const candidateTimestamp = bestPendingCandidate.data.serverTimestamp || bestPendingCandidate.data.timestamp;
       const laterTimestamp = Math.max(currentServerTimestamp, candidateTimestamp!);
-      const earlierTimestamp = Math.min(currentServerTimestamp, candidateTimestamp!);
 
       let isolationViolation = false;
       for (const otherSessionId of currentCandidates) {
