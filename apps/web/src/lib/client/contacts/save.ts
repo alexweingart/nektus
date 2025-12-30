@@ -371,7 +371,7 @@ export async function saveContactFlow(
         console.log('📱 Displaying vCard (saves already in progress)...');
         displayVCardInlineForIOS(profile, {
           contactUrl,
-          skipPhotoFetch: true
+          skipPhotoFetch: false // Include photo for better contact quality
         }).then(() => {
           console.log('📱 vCard dismissed by user');
         }).catch(error => {
