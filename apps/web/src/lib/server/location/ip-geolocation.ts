@@ -179,6 +179,22 @@ function detectVPN(data: IPLocationData): boolean {
     return true;
   }
 
+  // Detect Tailscale and other CGNAT/private networks (100.64.0.0/10)
+  // Tailscale uses this range and should be treated as VPN for matching purposes
+  if (data.ip) {
+    const octets = data.ip.split('.').map(Number);
+    if (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127) {
+      console.log(`🔍 Detected Tailscale/CGNAT IP: ${data.ip}`);
+      return true;
+    }
+  }
+
+  // Detect bogon (private/reserved) IPs as VPN-like for matching
+  if (data.bogon === true) {
+    console.log(`🔍 Detected bogon (private) IP: ${data.ip}`);
+    return true;
+  }
+
   // Check organization name for VPN patterns
   if (data.org) {
     const orgLower = data.org.toLowerCase();

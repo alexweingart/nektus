@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserProfile, UserLocation, Calendar } from '@/types/profile';
 
@@ -12,6 +12,26 @@ export function useCalendarLocationManagement({
   saveProfile
 }: UseCalendarLocationManagementProps) {
   const router = useRouter();
+
+  // Detect successful OAuth calendar addition on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const calendarAdded = urlParams.get('calendar');
+
+    if (calendarAdded === 'added') {
+      console.log('[useCalendarLocationManagement] Calendar added via OAuth, reloading...');
+
+      // Clean up URL parameter
+      urlParams.delete('calendar');
+      const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : '');
+      window.history.replaceState({}, '', newUrl);
+
+      // Reload to fetch updated profile with new calendar
+      window.location.reload();
+    }
+  }, []);
 
   // Modal state
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);

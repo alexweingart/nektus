@@ -77,9 +77,11 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
 
       if (provider === 'google') {
         // Redirect to Google OAuth using incremental authorization
+        // Use NEXT_PUBLIC_BASE_URL to ensure consistent OAuth redirect regardless of how user accessed the site
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
         const params = new URLSearchParams({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID!,
-          redirect_uri: `${window.location.origin}/api/calendar-connections/google/callback`,
+          redirect_uri: `${baseUrl}/api/calendar-connections/google/callback`,
           response_type: 'code',
           scope: 'https://www.googleapis.com/auth/calendar.readonly',
           access_type: 'offline',
@@ -96,9 +98,11 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
         window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
       } else if (provider === 'microsoft') {
         // Redirect to Microsoft OAuth
+        // Use NEXT_PUBLIC_BASE_URL to ensure consistent OAuth redirect regardless of how user accessed the site
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
         const params = new URLSearchParams({
           client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
-          redirect_uri: `${window.location.origin}/api/calendar-connections/microsoft/callback`,
+          redirect_uri: `${baseUrl}/api/calendar-connections/microsoft/callback`,
           response_type: 'code',
           scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access',
           prompt: 'select_account',

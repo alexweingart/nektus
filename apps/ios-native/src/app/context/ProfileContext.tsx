@@ -16,11 +16,6 @@ import React, {
   useMemo,
   ReactNode,
 } from "react";
-import {
-  getDocument,
-  setDocument,
-  getCollection,
-} from "../../lib/client/firestore/rest";
 import { useSession } from "../providers/SessionProvider";
 import {
   profileHasPhone,
@@ -28,7 +23,12 @@ import {
   UserProfile,
   ContactEntry,
   UserLocation,
+  ProfileSaveService,
 } from "@nektus/shared-lib";
+import {
+  ClientProfileService,
+  initializeFirebaseServices,
+} from "../../lib/client/firebase";
 
 // Re-export types for convenience
 export type { UserProfile, ContactEntry, UserLocation };
@@ -79,8 +79,17 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
 
   const loadingRef = useRef(false);
   const profileRef = useRef<UserProfile | null>(null);
+  const initializedRef = useRef(false);
 
   const CONTACTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Initialize Firebase services once
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializeFirebaseServices();
+      initializedRef.current = true;
+    }
+  }, []);
 
   // Load profile when authenticated
   useEffect(() => {
@@ -95,9 +104,9 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         setIsLoading(true);
 
         try {
-          // Use REST API to load profile
-          const profileData = await getDocument<UserProfile>(
-            `profiles/${session.user.id}`
+          // Use Firebase SDK to load profile
+          const profileData = await ClientProfileService.getProfile(
+            session.user.id
           );
 
           if (profileData) {
@@ -138,7 +147,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     profileRef.current = profile;
   }, [profile]);
 
-  // Save profile using REST API
+  // Save profile using ProfileSaveService
   const saveProfile = useCallback(
     async (
       data: Partial<UserProfile>,
@@ -157,26 +166,26 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       setIsSaving(true);
 
       try {
-        const merged: UserProfile = {
-          ...profileRef.current,
-          ...data,
-          lastUpdated: Date.now(),
-        };
+        // Use ProfileSaveService for consistent business logic
+        const saveResult = await ProfileSaveService.saveProfile(
+          session.user.id,
+          profileRef.current,
+          data,
+          { directUpdate: options.directUpdate }
+        );
 
-        // Handle contactEntries merge
-        if (data.contactEntries && profileRef.current.contactEntries) {
-          merged.contactEntries = data.contactEntries;
+        if (saveResult.success && saveResult.profile) {
+          profileRef.current = saveResult.profile;
+          if (!options.directUpdate) {
+            setProfile(saveResult.profile);
+          }
+
+          console.log("[ProfileContext] Profile saved");
+          return saveResult.profile;
+        } else {
+          console.error("[ProfileContext] Save failed:", saveResult.error);
+          return null;
         }
-
-        await setDocument(`profiles/${session.user.id}`, merged);
-
-        profileRef.current = merged;
-        if (!options.directUpdate) {
-          setProfile(merged);
-        }
-
-        console.log("[ProfileContext] Profile saved");
-        return merged;
       } catch (error) {
         console.error("[ProfileContext] Failed to save profile:", error);
         throw error;
@@ -192,13 +201,13 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     return profileRef.current;
   }, []);
 
-  // Refresh profile using REST API
+  // Refresh profile using Firebase SDK
   const refreshProfile = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
-      const profileData = await getDocument<UserProfile>(
-        `profiles/${session.user.id}`
+      const profileData = await ClientProfileService.getProfile(
+        session.user.id
       );
 
       if (profileData) {
@@ -210,7 +219,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     }
   }, [session?.user?.id]);
 
-  // Load contacts using REST API
+  // Load contacts using Firebase SDK
   const loadContacts = useCallback(
     async (force: boolean = false): Promise<SavedContact[]> => {
       if (!session?.user?.id) return [];
@@ -224,23 +233,18 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       }
 
       try {
-        const docs = await getCollection<{
-          odtName?: string;
-          userId?: string;
-          addedAt?: number;
-          profileImage?: string;
-          phone?: string;
-          email?: string;
-        }>(`profiles/${session.user.id}/contacts`);
+        const firebaseContacts = await ClientProfileService.getContacts(
+          session.user.id
+        );
 
-        const loadedContacts: SavedContact[] = docs.map((doc) => ({
-          odtId: doc._id,
-          odtName: doc.odtName || "",
-          userId: doc.userId || "",
-          addedAt: doc.addedAt || Date.now(),
-          profileImage: doc.profileImage,
-          phone: doc.phone,
-          email: doc.email,
+        const loadedContacts: SavedContact[] = firebaseContacts.map((contact) => ({
+          odtId: contact.userId, // Use userId as odtId for consistency
+          odtName: contact.odtName || "",
+          userId: contact.userId || "",
+          addedAt: contact.addedAt || Date.now(),
+          profileImage: contact.profileImage,
+          phone: contact.phone,
+          email: contact.email,
         }));
 
         // Sort by addedAt (newest first)

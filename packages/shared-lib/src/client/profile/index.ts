@@ -12,3 +12,9 @@ export * from './image';
 
 // Phone formatting utilities
 export * from './phone-formatter';
+
+// Profile save service
+export * from './save';
+
+// Google image detection
+export * from './google-image';

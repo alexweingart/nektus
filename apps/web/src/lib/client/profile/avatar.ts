@@ -1,6 +1,12 @@
 /**
  * Generates an SVG initials avatar
  * Used for profile images when user hasn't uploaded their own photo
+ *
+ * TODO: Refactor to re-export shared functions from @nektus/shared-lib
+ * Pattern:
+ *   1. Re-export: export { getInitials, stringToColor } from '@nektus/shared-lib';
+ *   2. Keep only web-specific functions here: generateInitialsAvatar, dataUrlToBuffer
+ *   3. These web-specific functions use Node.js Buffer, which won't work on iOS
  */
 
 /**
