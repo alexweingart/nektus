@@ -349,8 +349,8 @@ And if you don't know any of those things, and just want me to suggest based off
         </div>
       </div>
 
-      {/* Input - rendered directly (no memoization to avoid stale positioning) */}
-      <ChatInput
+      {/* Input - TEMPORARILY COMMENTED OUT FOR DEBUGGING */}
+      {/* <ChatInput
         value={input}
         onChange={(e) => {
           const newValue = e.target.value;
@@ -364,7 +364,7 @@ And if you don't know any of those things, and just want me to suggest based off
         onSend={handleSend}
         disabled={false}
         sendDisabled={isProcessing}
-      />
+      /> */}
     </>
   );
 }
