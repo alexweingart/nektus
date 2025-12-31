@@ -11,7 +11,7 @@ import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { ProfileInfo } from '../ui/modules/ProfileInfo';
-import { useExchangeQRDisplay } from '@/lib/hooks/use-exchange-qr-display';
+import { useExchangeQRDisplay } from '@/client/hooks/use-exchange-qr-display';
 
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/client/contacts/messaging';
