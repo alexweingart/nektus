@@ -48,6 +48,8 @@ export function PullToRefresh({
           enabled={!disabled}
         />
       }
+      directionalLockEnabled={true}
+      scrollEventThrottle={16}
     >
       {children}
     </ScrollView>

@@ -182,13 +182,16 @@ export async function exchangeGoogleTokenForFirebase(
   googleIdToken: string
 ): Promise<MobileTokenResponse> {
   const apiBaseUrl = getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/api/auth/mobile-token`, {
+  const url = `${apiBaseUrl}/api/auth/mobile-token`;
+  console.log('[exchangeGoogleTokenForFirebase] Calling:', url);
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ googleIdToken }),
   });
+  console.log('[exchangeGoogleTokenForFirebase] Response status:', response.status);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));

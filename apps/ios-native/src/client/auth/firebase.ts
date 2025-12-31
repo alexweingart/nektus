@@ -20,8 +20,8 @@ export function getApiBaseUrl(): string {
   if (apiUrl) {
     return apiUrl;
   }
-  // Default to production
-  return "https://nekt.us";
+  // Default to production (with www subdomain)
+  return "https://www.nekt.us";
 }
 
 

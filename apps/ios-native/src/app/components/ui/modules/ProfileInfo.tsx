@@ -66,6 +66,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
+  const containerWidthRef = useRef(0);
+  const selectedModeRef = useRef<ProfileViewMode>('Personal');
   const translateX = useRef(new Animated.Value(0)).current;
 
   // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
@@ -79,6 +81,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         const savedCategory = await AsyncStorage.getItem('nekt-sharing-category') as SharingCategory;
         if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
           setSelectedMode(savedCategory);
+          selectedModeRef.current = savedCategory;
         }
         setHasLoadedFromStorage(true);
       } catch (error) {
@@ -115,17 +118,20 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Handle layout to measure container width
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    setContainerWidth(width);
+    console.log('[ProfileInfo] Layout measured, width:', width);
+    containerWidthRef.current = width;
+    setContainerWidth(width); // For rendering
   };
 
   // Handle mode change from selector
   const handleModeChange = (mode: ProfileViewMode) => {
-    if (mode === selectedMode || !containerWidth) return;
+    if (mode === selectedModeRef.current || !containerWidthRef.current) return;
 
     setSelectedMode(mode);
+    selectedModeRef.current = mode;
 
     // Animate carousel - use measured container width
-    const targetX = mode === 'Work' ? -containerWidth : 0;
+    const targetX = mode === 'Work' ? -containerWidthRef.current : 0;
     Animated.spring(translateX, {
       toValue: targetX,
       useNativeDriver: true,
@@ -137,35 +143,42 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Pan responder for swipe gestures
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => false,
-      // Capture horizontal gestures before ScrollView can claim them
+      onStartShouldSetPanResponder: () => false,
+      // Aggressively capture horizontal gestures in capture phase
       onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-        // Capture if horizontal movement significantly exceeds vertical
-        return Math.abs(gestureState.dx) > 5 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
+        // Very low threshold, prioritize horizontal over vertical
+        const absX = Math.abs(gestureState.dx);
+        const absY = Math.abs(gestureState.dy);
+        return absX > 3 && absX > absY;
       },
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Claim gesture if horizontal movement exceeds vertical
-        return Math.abs(gestureState.dx) > 5 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
+      onPanResponderGrant: () => {
+        console.log('[ProfileInfo] Pan responder granted, containerWidth:', containerWidthRef.current, 'mode:', selectedModeRef.current);
       },
       onPanResponderMove: (_, gestureState) => {
-        if (!containerWidth) return;
-        const currentOffset = selectedMode === 'Work' ? -containerWidth : 0;
+        const containerWidth = containerWidthRef.current;
+        if (!containerWidth) {
+          console.log('[ProfileInfo] Pan move blocked - no containerWidth');
+          return;
+        }
+        const currentOffset = selectedModeRef.current === 'Work' ? -containerWidth : 0;
         translateX.setValue(currentOffset + gestureState.dx);
       },
       onPanResponderRelease: (_, gestureState) => {
+        const containerWidth = containerWidthRef.current;
+        const currentMode = selectedModeRef.current;
+        console.log('[ProfileInfo] Pan release - dx:', gestureState.dx, 'mode:', currentMode, 'containerWidth:', containerWidth);
         if (!containerWidth) return;
         const SWIPE_THRESHOLD = 50;
 
-        if (gestureState.dx < -SWIPE_THRESHOLD && selectedMode === 'Personal') {
-          // Swipe left from Personal to Work
+        if (gestureState.dx < -SWIPE_THRESHOLD && currentMode === 'Personal') {
+          console.log('[ProfileInfo] Swiping left to Work');
           handleModeChange('Work');
-        } else if (gestureState.dx > SWIPE_THRESHOLD && selectedMode === 'Work') {
-          // Swipe right from Work to Personal
+        } else if (gestureState.dx > SWIPE_THRESHOLD && currentMode === 'Work') {
+          console.log('[ProfileInfo] Swiping right to Personal');
           handleModeChange('Personal');
         } else {
-          // Snap back to current position
-          const targetX = selectedMode === 'Work' ? -containerWidth : 0;
+          console.log('[ProfileInfo] Snapping back to current position');
+          const targetX = currentMode === 'Work' ? -containerWidth : 0;
           Animated.spring(translateX, {
             toValue: targetX,
             useNativeDriver: true,
@@ -179,15 +192,15 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
   // Update carousel position when mode changes
   useEffect(() => {
-    if (!containerWidth) return;
-    const targetX = selectedMode === 'Work' ? -containerWidth : 0;
+    if (!containerWidthRef.current) return;
+    const targetX = selectedMode === 'Work' ? -containerWidthRef.current : 0;
     Animated.spring(translateX, {
       toValue: targetX,
       useNativeDriver: true,
       tension: 50,
       friction: 9,
     }).start();
-  }, [selectedMode, translateX, containerWidth]);
+  }, [selectedMode, translateX]);
 
   return (
     <View style={styles.container}>
