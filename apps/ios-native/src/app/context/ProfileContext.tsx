@@ -29,6 +29,11 @@ import {
   ClientProfileService,
   initializeFirebaseServices,
 } from "../../client/firebase";
+import {
+  generateProfileAssets,
+  createAssetGenerationState,
+  type AssetGenerationState,
+} from "../../client/profile/asset-generation";
 
 // Re-export types for convenience
 export type { UserProfile, ContactEntry, UserLocation };
@@ -58,6 +63,8 @@ interface ProfileContextType {
   contacts: SavedContact[] | null;
   loadContacts: (force?: boolean) => Promise<SavedContact[]>;
   getContact: (contactUserId: string) => SavedContact | null;
+  // Asset generation state
+  assetGeneration: AssetGenerationState;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -77,9 +84,15 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
   const [contactsLoadedAt, setContactsLoadedAt] = useState<number | null>(null);
 
+  // Asset generation state
+  const [assetGeneration, setAssetGeneration] = useState<AssetGenerationState>(
+    createAssetGenerationState()
+  );
+
   const loadingRef = useRef(false);
   const profileRef = useRef<UserProfile | null>(null);
   const initializedRef = useRef(false);
+  const assetGenerationTriggeredRef = useRef(false);
 
   const CONTACTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -146,6 +159,36 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  // Trigger asset generation after profile loads
+  useEffect(() => {
+    if (
+      profile &&
+      session?.user?.id &&
+      !assetGenerationTriggeredRef.current &&
+      !isLoading
+    ) {
+      assetGenerationTriggeredRef.current = true;
+
+      console.log("[ProfileContext] Triggering asset generation");
+
+      generateProfileAssets({
+        userId: session.user.id,
+        profile,
+        session,
+        currentState: assetGeneration,
+        onStateChange: (updates) =>
+          setAssetGeneration((prev) => ({ ...prev, ...updates })),
+        onProfileUpdate: (updatedProfile) => {
+          setProfile(updatedProfile);
+          profileRef.current = updatedProfile;
+        },
+      }).catch((error) => {
+        console.error("[ProfileContext] Asset generation failed:", error);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, session?.user?.id, isLoading]);
 
   // Save profile using ProfileSaveService
   const saveProfile = useCallback(
@@ -287,6 +330,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         contacts,
         loadContacts,
         getContact,
+        assetGeneration,
       }}
     >
       {children}
