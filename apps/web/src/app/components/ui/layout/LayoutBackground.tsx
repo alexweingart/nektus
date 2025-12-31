@@ -231,20 +231,27 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
       console.log('[LayoutBackground] ✅ Setting contact safe area color:', dominant, 'userId:', params?.userId);
     } else if (isOnContactPage && !contactProfile) {
-      // On contact page but contact not loaded yet - keep current color or use black during initial load
-      // This prevents showing theme green while waiting for contact to load
+      // On contact page but contact not loaded yet - use last color if available
+      // This prevents flash/transition while waiting for contact to load
       const lastColor = sessionStorage.getItem('last-safe-area-color');
-      if (lastColor && status === 'authenticated') {
-        // On refresh, keep the last color briefly while contact loads
-        console.log('[LayoutBackground] ⏳ Contact page loading, keeping last color:', lastColor);
-        // Don't update - let the restoration effect or next run handle it
+      const lastUserId = sessionStorage.getItem('last-safe-area-userId');
+      const currentUserId = (params?.userId as string) || '';
+
+      // Only use last color if it's for the SAME contact (matching userId)
+      if (lastColor && lastUserId === currentUserId && status === 'authenticated') {
+        // Same contact - restore their color immediately to avoid transition
+        document.documentElement.style.setProperty('--safe-area-bg', lastColor);
+        document.documentElement.style.backgroundColor = lastColor;
+        document.documentElement.style.setProperty('--safe-area-color', lastColor);
+        updateThemeColorMeta(lastColor);
+        console.log('[LayoutBackground] ⏳ Contact page loading, using cached color for same contact:', lastColor);
       } else {
-        // First time on this contact or signed out - use black while loading
+        // Different contact or first time - use black while loading
         document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
         document.documentElement.style.backgroundColor = COLORS.themeDark;
         document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
         updateThemeColorMeta(COLORS.themeDark);
-        console.log('[LayoutBackground] ⏳ Contact page loading (no cache), using themeDark');
+        console.log('[LayoutBackground] ⏳ Contact page loading (no cache or different contact), using themeDark');
       }
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
       // On contact page where contact is loaded but has no colors - use theme green
