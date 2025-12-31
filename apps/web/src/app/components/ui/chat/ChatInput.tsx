@@ -11,6 +11,7 @@ interface ChatInputProps {
   disabled: boolean;
   sendDisabled?: boolean;
   placeholder?: string;
+  fadeIn?: boolean;
 }
 
 export default function ChatInput({
@@ -19,7 +20,8 @@ export default function ChatInput({
   onSend,
   disabled,
   sendDisabled = false,
-  placeholder = "What would you like to do?"
+  placeholder = "What would you like to do?",
+  fadeIn = false
 }: ChatInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const backgroundExtensionRef = useRef<HTMLDivElement>(null);
@@ -118,7 +120,10 @@ export default function ChatInput({
       >
 
       {/* Content layer */}
-      <div className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3">
+      <div
+        className="relative max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3"
+        style={fadeIn ? { animation: 'crossfadeEnter 500ms ease-out' } : undefined}
+      >
           <div className="relative w-[80%]">
             <ExpandingInput
               value={value}

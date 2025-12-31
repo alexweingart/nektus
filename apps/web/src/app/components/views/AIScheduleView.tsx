@@ -38,6 +38,7 @@ export default function AIScheduleView() {
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [showChatInput, setShowChatInput] = useState(false);
 
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
@@ -300,6 +301,16 @@ And if you don't know any of those things, and just want me to suggest based off
     router.push(`/contact/${contactUserId}/smart-schedule${queryString}`);
   };
 
+  // Wait 1.5 seconds before showing ChatInput (allows background transition to complete)
+  // This prevents backdrop-blur from caching black background on page refresh
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowChatInput(true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Track keyboard appearance for debugging (no state updates to avoid re-render issues)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
@@ -349,22 +360,25 @@ And if you don't know any of those things, and just want me to suggest based off
         </div>
       </div>
 
-      {/* Input - TEMPORARILY COMMENTED OUT FOR DEBUGGING */}
-      {/* <ChatInput
-        value={input}
-        onChange={(e) => {
-          const newValue = e.target.value;
-          // Ensure we always have at least the zero-width space
-          if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
-            setInput('\u200B');
-          } else {
-            setInput(newValue);
-          }
-        }}
-        onSend={handleSend}
-        disabled={false}
-        sendDisabled={isProcessing}
-      /> */}
+      {/* Chat Input - appears at 1.5s, content fades in */}
+      {showChatInput && (
+        <ChatInput
+          value={input}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            // Ensure we always have at least the zero-width space
+            if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
+              setInput('\u200B');
+            } else {
+              setInput(newValue);
+            }
+          }}
+          onSend={handleSend}
+          disabled={false}
+          sendDisabled={isProcessing}
+          fadeIn={true}
+        />
+      )}
     </>
   );
 }
