@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { redis } from '@/lib/config/redis';
+import { redis } from '@/server/config/redis';
 
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access

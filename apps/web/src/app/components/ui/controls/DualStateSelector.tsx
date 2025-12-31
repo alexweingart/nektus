@@ -6,7 +6,7 @@
 'use client';
 
 import React from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@/client/utils/cn';
 
 interface DualStateSelectorProps<T extends string> {
   options: [T, T]; // Exactly two options

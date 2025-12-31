@@ -1,6 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
 import type { DefaultSession, User } from "next-auth";
-import { createCustomTokenWithCorrectSub } from "@/lib/config/firebase/admin";
+import { createCustomTokenWithCorrectSub } from "@/server/config/firebase";
 
 
 // Set NEXTAUTH_URL if not set
@@ -174,7 +174,7 @@ export const authOptions: NextAuthOptions = {
         const userId = user?.id || token.sub;
         if (userId) {
           try {
-            const { ServerProfileService } = await import('@/lib/server/profile/create');
+            const { ServerProfileService } = await import('@/server/profile/create');
             const { profile, needsSetup } = await ServerProfileService.getOrCreateProfile(userId, {
               name: user?.name,
               email: user?.email,

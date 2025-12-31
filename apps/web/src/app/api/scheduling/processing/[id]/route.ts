@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processingStateManager } from '@/lib/server/ai-scheduling/processing';
+import { processingStateManager } from '@/server/ai-scheduling/processing';
 
 export async function GET(
   request: NextRequest,

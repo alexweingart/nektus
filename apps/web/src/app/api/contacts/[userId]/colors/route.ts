@@ -6,8 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getFirebaseAdmin } from '@/lib/config/firebase/admin';
-import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/lib/server/profile/colors';
+import { getFirebaseAdmin } from '@/server/config/firebase';
+import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/server/profile/colors';
 
 /**
  * Extract background colors from image buffer

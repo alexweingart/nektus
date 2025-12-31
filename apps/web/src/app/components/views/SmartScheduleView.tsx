@@ -4,18 +4,18 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { getEventTemplate, getEventTimeFromSlotWithBuffer } from '@/lib/server/calendar/event-templates';
-import { getSuggestedTimes } from '@/lib/server/calendar/scheduling';
-import { composeAndOpenCalendarEvent } from '@/lib/server/calendar/events';
-import { formatSmartDay } from '@/lib/server/calendar/time';
-import { fetchPlacesForChips } from '@/lib/server/places/helpers';
+import { getEventTemplate, getEventTimeFromSlotWithBuffer } from '@/server/calendar/event-templates';
+import { getSuggestedTimes } from '@/server/calendar/scheduling';
+import { composeAndOpenCalendarEvent } from '@/server/calendar/events';
+import { formatSmartDay } from '@/server/calendar/time';
+import { fetchPlacesForChips } from '@/server/places/helpers';
 import type { UserProfile, TimeSlot, SuggestionChip } from '@/types/profile';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
-import { auth } from '@/lib/config/firebase/client';
+import { auth } from '@/client/config/firebase';
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },

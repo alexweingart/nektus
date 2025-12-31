@@ -72,3 +72,24 @@ npm run build:ios
 - Prefer incremental builds unless user explicitly requests clean build
 - If suggesting rebuild, recommend incremental approach first
 - Only suggest clean builds for dependency changes or build errors
+
+## Development Architecture Principle
+
+**iOS-First Architecture Design**
+
+When building new features or refactoring shared code:
+- **iOS**: Build the architecture we want now (greenfield, get it right)
+  - Use dependency injection patterns from shared-lib
+  - Create platform-specific helpers in iOS-specific files
+  - Keep business logic in shared-lib, implementation in platform files
+- **Web**: Add TODOs for refactoring (production code, be careful)
+  - Web currently has mixed shared + web-specific code
+  - Will be refactored later to match iOS architecture
+- **Shared-lib**: Only pure business logic, no platform-specific code
+  - Use dependency injection for platform implementations
+  - No React, NextAuth, or platform-specific types
+
+**File Structure Pattern:**
+- `packages/shared-lib/src/.../feature.ts` - Core business logic with dependency injection
+- `apps/ios-native/src/lib/.../feature-helpers.ts` - iOS-specific helpers using shared service
+- `apps/web/src/lib/.../feature.ts` - Web-specific + shared (temporary, will refactor to match iOS pattern)

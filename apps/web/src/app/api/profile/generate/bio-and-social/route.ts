@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import type { ContactEntry } from '@/types/profile';
-import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
-import { BioAndSocialGenerationService } from '@/lib/server/profile/bio-and-social-generation';
+import { AdminProfileService } from '@/server/profile/firebase-admin';
+import { BioAndSocialGenerationService } from '@/server/profile/bio-and-social-generation';
 
 export async function POST(request: NextRequest) {
   try {

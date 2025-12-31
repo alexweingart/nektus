@@ -6,8 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getExchangeMatch } from '@/lib/server/contacts/matching';
-import { redis } from '@/lib/config/redis';
+import { getExchangeMatch } from '@/server/contacts/matching';
+import { redis } from '@/server/config/redis';
 
 export async function GET(
   request: NextRequest,
@@ -63,7 +63,7 @@ export async function GET(
             // Verify both still point to each other (not cancelled)
             if (otherData.pendingMatchWith === sessionId) {
               // Check if 1.5s has elapsed from pendingMatchCreatedAt
-              const { getRedisTime } = await import('@/lib/server/contacts/redis-time');
+              const { getRedisTime } = await import('@/server/contacts/redis-time');
               const currentServerTime = await getRedisTime();
               const elapsed = currentServerTime - exchangeData.pendingMatchCreatedAt;
 
@@ -79,7 +79,7 @@ export async function GET(
                 ).join('');
 
                 // Import storeExchangeMatch
-                const { storeExchangeMatch } = await import('@/lib/server/contacts/matching');
+                const { storeExchangeMatch } = await import('@/server/contacts/matching');
 
                 // Store the match
                 await storeExchangeMatch(

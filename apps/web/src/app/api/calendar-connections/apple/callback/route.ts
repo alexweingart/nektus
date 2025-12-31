@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { testAppleConnection } from '@/lib/client/calendar/providers/apple';
-import { AdminProfileService } from '@/lib/server/profile/firebase-admin';
-import { encryptCalendarTokens } from '@/lib/client/calendar/providers/tokens';
+import { testAppleConnection } from '@/client/calendar/providers/apple';
+import { AdminProfileService } from '@/server/profile/firebase-admin';
+import { encryptCalendarTokens } from '@/client/calendar/providers/tokens';
 import { Calendar } from '@/types/profile';
-import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/lib/constants';
+import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/shared/constants';
 
 // Force Node.js runtime for tsdav library
 export const runtime = 'nodejs';

@@ -13,11 +13,11 @@ import { StandardModal } from '../ui/modals/StandardModal';
 import { ProfileInfo } from '../ui/modules/ProfileInfo';
 
 import { useRouter } from 'next/navigation';
-import { generateMessageText, openMessagingApp } from '@/lib/client/contacts/messaging';
-import { usePWAInstall } from '@/lib/hooks/use-pwa-install';
+import { generateMessageText, openMessagingApp } from '@/client/contacts/messaging';
+import { usePWAInstall } from '@/client/hooks/use-pwa-install';
 import type { UserProfile } from '@/types/profile';
-import { getFieldValue } from '@/lib/client/profile/transforms';
-import { getOptimalProfileImageUrl } from '@/lib/client/profile/image';
+import { getFieldValue } from '@/client/profile/transforms';
+import { getOptimalProfileImageUrl } from '@/client/profile/image';
 
 type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
 

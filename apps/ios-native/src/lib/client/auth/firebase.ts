@@ -1,70 +1,16 @@
 /**
  * Firebase authentication for iOS
  *
- * This module handles:
- * - Firebase initialization with shared config
- * - Custom token sign-in (after Google OAuth)
- * - Token persistence using SecureStore (iOS Keychain)
+ * This module provides a thin wrapper around React Native Firebase SDK:
+ * - Sign in with custom tokens (from backend OAuth exchange)
+ * - Session restoration (handled automatically by Firebase SDK)
  * - Auth state management
+ *
+ * Note: Firebase SDK handles all token management, persistence, and refresh automatically
  */
 
-import * as SecureStore from "expo-secure-store";
-import type { User, Auth, FirebaseApp, AuthStateCallback } from "../../../types/firebase";
-
-// Firebase configuration - using environment variables with Expo prefix
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-};
-
-// Storage keys for SecureStore
-const STORAGE_KEYS = {
-  FIREBASE_TOKEN: "nekt_firebase_token",
-  REFRESH_TOKEN: "nekt_refresh_token",
-  ID_TOKEN: "nekt_id_token",
-  USER_ID: "nekt_user_id",
-  TOKEN_CREATED_AT: "nekt_token_created_at",
-} as const;
-
-// Token refresh threshold (50 minutes)
-const TOKEN_REFRESH_THRESHOLD = 50 * 60 * 1000;
-
-// Singleton Firebase app instance (mock - we use REST APIs only)
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-
-/**
- * Get or initialize the Firebase app (mock - REST only)
- */
-export function getFirebaseApp(): FirebaseApp {
-  if (!app) {
-    app = {
-      name: "[DEFAULT]",
-      options: firebaseConfig,
-      automaticDataCollectionEnabled: false,
-    };
-  }
-  return app;
-}
-
-/**
- * Get the Firebase Auth instance (mock - REST only)
- */
-export function getFirebaseAuth(): Auth {
-  if (!auth) {
-    auth = {
-      currentUser: null,
-      app: getFirebaseApp(),
-      name: "[DEFAULT]",
-      config: firebaseConfig,
-    };
-  }
-  return auth;
-}
+import auth from '@react-native-firebase/auth';
+import type { User, AuthStateCallback } from "../../../types/firebase";
 
 /**
  * Get the API base URL for backend calls
@@ -78,232 +24,29 @@ export function getApiBaseUrl(): string {
   return "https://nekt.us";
 }
 
-/**
- * Store authentication tokens securely
- */
-async function storeAuthTokens(
-  firebaseToken: string,
-  userId: string,
-  refreshToken?: string,
-  idToken?: string
-): Promise<void> {
-  try {
-    const promises = [
-      SecureStore.setItemAsync(STORAGE_KEYS.FIREBASE_TOKEN, firebaseToken),
-      SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, userId),
-      SecureStore.setItemAsync(
-        STORAGE_KEYS.TOKEN_CREATED_AT,
-        Date.now().toString()
-      ),
-    ];
-    if (refreshToken) {
-      promises.push(SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken));
-    }
-    if (idToken) {
-      promises.push(SecureStore.setItemAsync(STORAGE_KEYS.ID_TOKEN, idToken));
-    }
-    await Promise.all(promises);
-  } catch (error) {
-    console.error("[firebase] Failed to store auth tokens:", error);
-    throw error;
-  }
-}
-
-/**
- * Get stored authentication tokens
- */
-async function getStoredAuthTokens(): Promise<{
-  firebaseToken: string | null;
-  refreshToken: string | null;
-  userId: string | null;
-  tokenCreatedAt: number | null;
-}> {
-  try {
-    const [firebaseToken, refreshToken, userId, tokenCreatedAtStr] = await Promise.all([
-      SecureStore.getItemAsync(STORAGE_KEYS.FIREBASE_TOKEN),
-      SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-      SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
-      SecureStore.getItemAsync(STORAGE_KEYS.TOKEN_CREATED_AT),
-    ]);
-
-    return {
-      firebaseToken,
-      refreshToken,
-      userId,
-      tokenCreatedAt: tokenCreatedAtStr ? parseInt(tokenCreatedAtStr, 10) : null,
-    };
-  } catch (error) {
-    console.error("[firebase] Failed to get stored auth tokens:", error);
-    return { firebaseToken: null, refreshToken: null, userId: null, tokenCreatedAt: null };
-  }
-}
-
-/**
- * Refresh ID token using refresh token
- */
-async function refreshIdToken(refreshToken: string): Promise<{
-  idToken: string;
-  refreshToken: string;
-}> {
-  const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) {
-    throw new Error("Firebase API key not configured");
-  }
-
-  const response = await fetch(
-    `https://securetoken.googleapis.com/v1/token?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-Ios-Bundle-Identifier": "com.nektus.app",
-      },
-      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("[firebase] Token refresh failed:", error);
-    throw new Error(error.error?.message || "Token refresh failed");
-  }
-
-  const data = await response.json();
-  return {
-    idToken: data.id_token,
-    refreshToken: data.refresh_token,
-  };
-}
-
-/**
- * Clear stored authentication tokens
- */
-async function clearAuthTokens(): Promise<void> {
-  try {
-    await Promise.all([
-      SecureStore.deleteItemAsync(STORAGE_KEYS.FIREBASE_TOKEN),
-      SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-      SecureStore.deleteItemAsync(STORAGE_KEYS.ID_TOKEN),
-      SecureStore.deleteItemAsync(STORAGE_KEYS.USER_ID),
-      SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN_CREATED_AT),
-    ]);
-  } catch (error) {
-    console.error("[firebase] Failed to clear auth tokens:", error);
-  }
-}
-
-/**
- * Check if the stored token needs refresh
- */
-function tokenNeedsRefresh(tokenCreatedAt: number | null): boolean {
-  if (!tokenCreatedAt) return true;
-  const tokenAge = Date.now() - tokenCreatedAt;
-  return tokenAge > TOKEN_REFRESH_THRESHOLD;
-}
-
-/**
- * Sign in to Firebase using a custom token via REST API
- * This bypasses the JS SDK's referer issues on React Native
- */
-async function signInWithCustomTokenREST(customToken: string): Promise<{
-  idToken: string;
-  refreshToken: string;
-  expiresIn: string;
-}> {
-  const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) {
-    throw new Error("Firebase API key not configured");
-  }
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Include bundle ID header for iOS API key restriction
-        "X-Ios-Bundle-Identifier": "com.nektus.app",
-      },
-      body: JSON.stringify({
-        token: customToken,
-        returnSecureToken: true,
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("[firebase] REST sign-in failed:", error);
-    throw new Error(error.error?.message || "Sign in failed");
-  }
-
-  return response.json();
-}
-
-// Store REST auth result for API calls
-let restAuthResult: {
-  idToken: string;
-  refreshToken: string;
-  localId?: string;
-} | null = null;
-
-/**
- * Get the current REST auth tokens (for direct API calls)
- */
-export function getRestAuthTokens() {
-  return restAuthResult;
-}
 
 /**
  * Sign in to Firebase using a custom token
- * Uses REST API to properly support iOS bundle ID restrictions
+ * Uses React Native Firebase SDK which handles all token management and persistence
  */
 export async function signInWithToken(
   firebaseToken: string,
-  userId: string
+  _userId: string // Not needed, kept for API compatibility
 ): Promise<User> {
   try {
-    // Use REST API which properly handles iOS bundle ID header
-    const result = await signInWithCustomTokenREST(firebaseToken);
-    console.log("[firebase] REST sign-in successful");
+    // Sign in to Firebase SDK - it handles token management and persistence automatically
+    const userCredential = await auth().signInWithCustomToken(firebaseToken);
+    const firebaseUser = userCredential.user;
 
-    // Store the REST auth result for direct API calls
-    restAuthResult = {
-      idToken: result.idToken,
-      refreshToken: result.refreshToken,
-      localId: userId,
-    };
+    console.log("[firebase] Firebase Auth SDK sign-in successful, UID:", firebaseUser.uid);
 
-    // Store tokens for persistence (including refresh token for session restore)
-    await storeAuthTokens(firebaseToken, userId, result.refreshToken, result.idToken);
-
-    // Create a mock user object since we're not using the SDK for auth
-    // This matches the User interface shape that the rest of the app expects
-    const mockUser = {
-      uid: userId,
-      email: null,
-      displayName: null,
-      photoURL: null,
-      emailVerified: false,
-      isAnonymous: false,
-      metadata: {},
-      providerData: [],
-      refreshToken: result.refreshToken,
-      tenantId: null,
-      delete: async () => {},
-      getIdToken: async () => result.idToken,
-      getIdTokenResult: async () => ({ token: result.idToken } as any),
-      reload: async () => {},
-      toJSON: () => ({ uid: userId }),
-      providerId: "firebase",
-    } as unknown as User;
-
-    console.log("[firebase] Successfully signed in user:", userId);
+    // Firebase SDK automatically persists the session
+    // No need for manual token storage or refresh
 
     // Notify auth state listeners
-    notifyAuthStateChange(mockUser);
+    notifyAuthStateChange(firebaseUser);
 
-    return mockUser;
+    return firebaseUser;
   } catch (error) {
     console.error("[firebase] Sign in failed:", error);
     throw error;
@@ -311,8 +54,8 @@ export async function signInWithToken(
 }
 
 /**
- * Attempt to restore a previous session from stored tokens
- * Uses refresh token to get a new ID token
+ * Attempt to restore a previous session from Firebase SDK
+ * Firebase SDK automatically persists and restores sessions
  */
 export async function restoreSession(): Promise<{
   restored: boolean;
@@ -320,75 +63,37 @@ export async function restoreSession(): Promise<{
   needsRefresh: boolean;
 }> {
   try {
-    const { refreshToken, userId } = await getStoredAuthTokens();
+    // Check if Firebase SDK has a persisted session
+    const sdkUser = auth().currentUser;
 
-    if (!refreshToken || !userId) {
-      console.log("[firebase] No stored session to restore");
-      return { restored: false, user: null, needsRefresh: false };
+    if (sdkUser) {
+      console.log("[firebase] Firebase SDK session restored for user:", sdkUser.uid);
+
+      // Notify auth state listeners
+      notifyAuthStateChange(sdkUser);
+
+      return { restored: true, user: sdkUser, needsRefresh: false };
     }
 
-    // Use refresh token to get a new ID token
-    console.log("[firebase] Restoring session with refresh token...");
-    const result = await refreshIdToken(refreshToken);
-    console.log("[firebase] Session refresh successful");
-
-    // Store the REST auth result for direct API calls
-    restAuthResult = {
-      idToken: result.idToken,
-      refreshToken: result.refreshToken,
-      localId: userId,
-    };
-
-    // Update stored refresh token if it changed
-    await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, result.refreshToken);
-    await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN_CREATED_AT, Date.now().toString());
-
-    // Create a mock user object
-    const mockUser = {
-      uid: userId,
-      email: null,
-      displayName: null,
-      photoURL: null,
-      emailVerified: false,
-      isAnonymous: false,
-      metadata: {},
-      providerData: [],
-      refreshToken: result.refreshToken,
-      tenantId: null,
-      delete: async () => {},
-      getIdToken: async () => result.idToken,
-      getIdTokenResult: async () => ({ token: result.idToken } as any),
-      reload: async () => {},
-      toJSON: () => ({ uid: userId }),
-      providerId: "firebase",
-    } as unknown as User;
-
-    console.log("[firebase] Session restored for user:", userId);
-
-    // Notify auth state listeners
-    notifyAuthStateChange(mockUser);
-
-    return { restored: true, user: mockUser, needsRefresh: false };
+    console.log("[firebase] No persisted session found");
+    return { restored: false, user: null, needsRefresh: false };
   } catch (error) {
     console.error("[firebase] Failed to restore session:", error);
-    // Clear invalid tokens
-    await clearAuthTokens();
     return { restored: false, user: null, needsRefresh: false };
   }
 }
 
 /**
- * Sign out and clear all stored tokens
+ * Sign out from Firebase SDK
+ * Firebase SDK automatically clears all persisted session data
  */
 export async function signOut(): Promise<void> {
   try {
-    // Clear REST auth state
-    restAuthResult = null;
-    // Clear stored tokens
-    await clearAuthTokens();
+    await auth().signOut();
+    console.log("[firebase] Signed out from Firebase SDK");
+
     // Notify auth state listeners
     notifyAuthStateChange(null);
-    console.log("[firebase] User signed out");
   } catch (error) {
     console.error("[firebase] Sign out failed:", error);
     throw error;
@@ -399,15 +104,14 @@ export async function signOut(): Promise<void> {
  * Get the current Firebase user (synchronous)
  */
 export function getCurrentUser(): User | null {
-  const authInstance = getFirebaseAuth();
-  return authInstance.currentUser;
+  return auth().currentUser;
 }
 
 /**
  * Get the current user's ID token for API calls
  */
 export async function getIdToken(): Promise<string | null> {
-  const user = getCurrentUser();
+  const user = auth().currentUser;
   if (!user) return null;
 
   try {
@@ -418,12 +122,14 @@ export async function getIdToken(): Promise<string | null> {
   }
 }
 
-// Auth state listeners
+// Auth state listeners (for app-level state management)
 const authStateListeners = new Set<AuthStateCallback>();
 let currentAuthUser: User | null = null;
 
 /**
  * Subscribe to auth state changes
+ * Note: Firebase SDK has its own onAuthStateChanged listener
+ * This is for additional app-level listeners
  */
 export function subscribeToAuthState(
   callback: AuthStateCallback
@@ -444,8 +150,6 @@ export function subscribeToAuthState(
  */
 function notifyAuthStateChange(user: User | null) {
   currentAuthUser = user;
-  const authInstance = getFirebaseAuth();
-  authInstance.currentUser = user;
 
   authStateListeners.forEach((callback) => {
     callback(user);

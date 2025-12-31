@@ -7,7 +7,7 @@ import { ContactView } from '../components/views/ContactView';
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { ClientProfileService } from '@/lib/client/profile/firebase-save';
+import { ClientProfileService } from '@/client/profile/firebase-save';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';

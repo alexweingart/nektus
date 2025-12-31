@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { deleteUserProfile } from '@/lib/config/firebase/admin';
-import { cleanupUserStorage } from '@/lib/client/profile/firebase-storage';
+import { deleteUserProfile } from '@/server/config/firebase';
+import { cleanupUserStorage } from '@/client/profile/firebase-storage';
 
 /**
  * API route to handle account deletion
@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest) {
       // First, revoke all OAuth tokens before deleting the profile
       // This ensures Google/Microsoft know the app no longer has permission
       try {
-        const { AdminProfileService } = await import('@/lib/server/profile/firebase-admin');
+        const { AdminProfileService } = await import('@/server/profile/firebase-admin');
         const profile = await AdminProfileService.getProfile(userId);
 
         if (profile?.calendars && profile.calendars.length > 0) {

@@ -15,9 +15,10 @@ import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber } from "@nektus/shared-lib";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
+import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 
 export function ProfileSetupView() {
-  const { data: session } = useSession();
+  const { data: session, signOut } = useSession();
   const { saveProfile, isSaving, profile } = useProfile();
 
   const [phoneDigits, setPhoneDigits] = useState("");
@@ -99,6 +100,15 @@ export function ProfileSetupView() {
     // Nothing to refresh on setup screen
   }, []);
 
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+      console.log("[ProfileSetupView] User signed out");
+    } catch (error) {
+      console.error("[ProfileSetupView] Sign out failed:", error);
+    }
+  }, [signOut]);
+
   return (
     <LayoutBackground showParticles={false} backgroundColor="#004D40">
       <KeyboardAvoidingView
@@ -146,6 +156,13 @@ export function ProfileSetupView() {
           >
             Save
           </Button>
+
+          {/* Sign Out Button */}
+          <View style={styles.signOutContainer}>
+            <SecondaryButton variant="destructive" onPress={handleSignOut}>
+              Sign Out
+            </SecondaryButton>
+          </View>
         </PullToRefresh>
       </KeyboardAvoidingView>
     </LayoutBackground>
@@ -176,6 +193,11 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     marginTop: 24,
     marginBottom: 16,
+  },
+  signOutContainer: {
+    width: "100%",
+    maxWidth: 320,
+    marginTop: 24,
   },
 });
 

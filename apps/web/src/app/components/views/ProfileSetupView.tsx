@@ -12,10 +12,10 @@ import type { UserProfile, ContactEntry } from '@/types/profile';
 import type { Country } from '../ui/inputs/DropdownPhoneInput';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
-import { formatPhoneNumber } from '@/lib/client/profile/phone-formatter';
+import { formatPhoneNumber } from '@/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
-import { detectPlatform } from '@/lib/client/platform-detection';
+import { detectPlatform } from '@/client/platform-detection';
 
 function ProfileSetupView() {
   // Session and authentication

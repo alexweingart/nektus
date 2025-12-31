@@ -14,11 +14,11 @@ import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
 import { useProfile } from '@/app/context/ProfileContext';
-import { getFieldValue } from '@/lib/client/profile/transforms';
+import { getFieldValue } from '@/client/profile/transforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
-import { auth } from '@/lib/config/firebase/client';
-import { useCalendarLocationManagement } from '@/lib/hooks/use-calendar-location-management';
+import { auth } from '@/client/config/firebase';
+import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
 
 // Module-level tracking that persists across component mounts
 let lastPreFetchTime = 0;

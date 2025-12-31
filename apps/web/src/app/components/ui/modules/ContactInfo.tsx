@@ -11,7 +11,7 @@ import SocialIconsList from '../elements/SocialIconsList';
 import ReactMarkdown from 'react-markdown';
 import { Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
-import { getFieldValue } from '@/lib/client/profile/transforms';
+import { getFieldValue } from '@/client/profile/transforms';
 
 interface ContactInfoProps {
   profile: UserProfile;

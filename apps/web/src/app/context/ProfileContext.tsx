@@ -3,15 +3,15 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import { ClientProfileService as ProfileService } from '@/lib/client/profile/firebase-save';
-import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/lib/client/profile/save';
+import { ClientProfileService as ProfileService } from '@/client/profile/firebase-save';
+import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/client/profile/save';
 import { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { firebaseAuth } from '@/lib/client/auth/firebase';
-import { isAndroidPlatform } from '@/lib/client/platform-detection';
-import { syncTimezone, type SessionPhoneEntry } from '@/lib/client/profile/utils';
-import { generateProfileAssets } from '@/lib/client/profile/asset-generation';
-import { hexToRgb } from '@/lib/cn';
+import { firebaseAuth } from '@/client/auth/firebase';
+import { isAndroidPlatform } from '@/client/platform-detection';
+import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
+import { generateProfileAssets } from '@/client/profile/asset-generation';
+import { hexToRgb } from '@/client/utils/cn';
 
 // Types
 interface SessionProfile {
@@ -511,5 +511,5 @@ export function useProfile() {
 }
 
 // Re-export utility function for backwards compatibility
-export { profileHasPhone } from '@/lib/client/profile/utils';
+export { profileHasPhone } from '@/client/profile/utils';
 

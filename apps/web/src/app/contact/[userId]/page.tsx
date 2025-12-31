@@ -7,7 +7,7 @@ import { ContactView } from '../../components/views/ContactView';
 import { Button } from '../../components/ui/buttons/Button';
 import type { SavedContact } from '@/types/contactExchange';
 import { useProfile } from '@/app/context/ProfileContext';
-import { getFieldValue } from '@/lib/client/profile/transforms';
+import { getFieldValue } from '@/client/profile/transforms';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';

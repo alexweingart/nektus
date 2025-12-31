@@ -4,6 +4,7 @@
  */
 
 import type { UserProfile } from '@nektus/shared-types';
+import { ClientProfileService } from './save';
 
 /**
  * Checks if a profile needs initial setup (phone number required)
@@ -33,4 +34,34 @@ export function profileHasPhone(profile: UserProfile | null): boolean {
   );
 
   return !!(phoneEntry?.value && phoneEntry.value.trim() !== '');
+}
+
+/**
+ * Auto-detect and update timezone if different from browser timezone
+ * Returns updated profile with new timezone
+ */
+export async function syncTimezone(
+  profile: UserProfile,
+  _userId: string
+): Promise<UserProfile> {
+  const browserTimezone = typeof Intl !== 'undefined'
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : null;
+
+  if (browserTimezone && profile.timezone !== browserTimezone) {
+    console.log(`[ProfileUtils] Updating timezone from ${profile.timezone || 'undefined'} to ${browserTimezone}`);
+
+    // Update timezone in Firebase (silent update)
+    await ClientProfileService.saveProfile({
+      ...profile,
+      timezone: browserTimezone
+    });
+
+    // Return updated profile
+    const updatedProfile = { ...profile, timezone: browserTimezone };
+    console.log(`[ProfileUtils] Timezone updated successfully`);
+    return updatedProfile;
+  }
+
+  return profile;
 }

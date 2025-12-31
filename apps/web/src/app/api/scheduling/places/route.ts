@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { geocodeAddress } from '@/lib/server/location/geocoding';
-import { calculateMidpoint, calculateDistance } from '@/lib/server/location/location';
-import { searchPlacesByType } from '@/lib/server/places/foursquare';
+import { geocodeAddress } from '@/server/location/geocoding';
+import { calculateMidpoint, calculateDistance } from '@/server/location/location';
+import { searchPlacesByType } from '@/server/places/foursquare';
 import {
   PlaceSearchRequest,
   PlacesResponse,

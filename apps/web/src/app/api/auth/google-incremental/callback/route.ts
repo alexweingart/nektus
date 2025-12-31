@@ -10,7 +10,7 @@ import {
   getIncrementalAuthState, 
   deleteIncrementalAuthState, 
   storeContactsAccessToken 
-} from '@/lib/server/auth/google-incremental';
+} from '@/server/auth/google-incremental';
 
 export async function GET(request: NextRequest) {
   try {

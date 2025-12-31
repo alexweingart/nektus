@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import { createCustomTokenWithCorrectSub } from "@/lib/config/firebase/admin";
-import { ServerProfileService } from "@/lib/server/profile/create";
+import { createCustomTokenWithCorrectSub } from "@/server/config/firebase";
+import { ServerProfileService } from "@/server/profile/create";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
