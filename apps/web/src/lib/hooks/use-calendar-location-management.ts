@@ -40,7 +40,8 @@ export function useCalendarLocationManagement({
         window.location.reload();
       }
     }
-  }, [onCalendarAddedViaOAuth]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount to detect OAuth return
 
   // Modal state
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
