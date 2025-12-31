@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { UserProfile, UserLocation, Calendar } from '@/types/profile';
 
 interface UseCalendarLocationManagementProps {
@@ -14,18 +14,17 @@ export function useCalendarLocationManagement({
   onCalendarAddedViaOAuth
 }: UseCalendarLocationManagementProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Detect successful OAuth calendar addition on mount
+  // Detect successful OAuth calendar addition when URL changes
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const calendarAdded = urlParams.get('calendar');
+    const calendarAdded = searchParams.get('calendar');
 
     if (calendarAdded === 'added') {
       console.log('[useCalendarLocationManagement] Calendar added via OAuth');
 
       // Clean up URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
       urlParams.delete('calendar');
       const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : '');
       window.history.replaceState({}, '', newUrl);
@@ -40,8 +39,7 @@ export function useCalendarLocationManagement({
         window.location.reload();
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only on mount to detect OAuth return
+  }, [searchParams, onCalendarAddedViaOAuth]);
 
   // Modal state
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
