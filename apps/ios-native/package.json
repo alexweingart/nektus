@@ -13,7 +13,7 @@
     "clean": "rm -rf node_modules .expo"
   },
   "dependencies": {
-    "@nektus/shared-lib": "workspace:*",
+    "@nektus/shared-client": "workspace:*",
     "@nektus/shared-types": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/blur": "^4.4.1",

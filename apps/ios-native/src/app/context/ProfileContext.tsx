@@ -24,11 +24,11 @@ import {
   ContactEntry,
   UserLocation,
   ProfileSaveService,
-} from "@nektus/shared-lib";
+} from "@nektus/shared-client";
 import {
   ClientProfileService,
   initializeFirebaseServices,
-} from "../../lib/client/firebase";
+} from "../../client/firebase";
 
 // Re-export types for convenience
 export type { UserProfile, ContactEntry, UserLocation };
@@ -303,5 +303,5 @@ export function useProfile() {
   return context;
 }
 
-// profileHasPhone is now imported from @nektus/shared-lib
+// profileHasPhone is now imported from @nektus/shared-client
 export { profileHasPhone };

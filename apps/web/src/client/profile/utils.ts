@@ -1,6 +1,6 @@
 /**
  * TODO: Refactor to match iOS architecture pattern
- * - Import profileNeedsSetup, profileHasPhone, syncTimezone from @nektus/shared-lib
+ * - Import profileNeedsSetup, profileHasPhone, syncTimezone from @nektus/shared-client
  * - Keep only NextAuth-specific SessionPhoneEntry and createSessionPhoneEntry here
  * - This file will become web-specific helpers only
  */

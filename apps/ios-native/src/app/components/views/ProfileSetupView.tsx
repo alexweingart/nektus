@@ -12,7 +12,7 @@ import { Button } from "../ui/buttons/Button";
 import { Input } from "../ui/inputs/Input";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
-import { formatPhoneNumber } from "@nektus/shared-lib";
+import { formatPhoneNumber } from "@nektus/shared-client";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";

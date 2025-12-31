@@ -4,7 +4,7 @@
  */
 
 import type { UserProfile, ContactEntry } from '@nektus/shared-types';
-import { ProfileSaveService } from '@nektus/shared-lib';
+import { ProfileSaveService } from '@nektus/shared-client';
 import { ClientProfileService } from '../firebase/firebase-save';
 
 /**

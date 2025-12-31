@@ -3,8 +3,8 @@
  * Handles conversion between form state and saved profile data
  *
  * TODO: Replace with shared-lib version
- * - This file is nearly identical to @nektus/shared-lib/src/client/profile/transforms.ts
- * - Delete this file and import from @nektus/shared-lib instead
+ * - This file is nearly identical to @nektus/shared-client/src/client/profile/transforms.ts
+ * - Delete this file and import from @nektus/shared-client instead
  */
 
 import type { UserProfile, ContactEntry } from '@/types/profile';

@@ -3,7 +3,7 @@
  * Sets up the shared-lib ProfileSaveService with iOS ClientProfileService implementation
  */
 
-import { setClientProfileService } from '@nektus/shared-lib';
+import { setClientProfileService } from '@nektus/shared-client';
 import { ClientProfileService } from './firebase-save';
 
 /**

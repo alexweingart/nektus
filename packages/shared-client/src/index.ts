@@ -1,7 +1,7 @@
 /**
- * Shared library for Nektus - platform-agnostic utilities and services
+ * Shared client library for Nektus - platform-agnostic client utilities
  *
- * This package contains utilities and services that work across web and mobile platforms.
+ * This package contains client utilities that work across web and mobile platforms.
  */
 
 // Re-export types for convenience
@@ -23,10 +23,10 @@ export {
 // ============================================================================
 
 // Profile utilities
-export * from './client/profile';
+export * from './profile';
 
 // Platform detection utilities
-export * from './client/platform-detection';
+export * from './platform-detection';
 
 // ============================================================================
 // CONSTANTS
@@ -39,4 +39,4 @@ export * from './constants';
 // VERSION
 // ============================================================================
 
-export const SHARED_LIB_VERSION = '0.1.0';
+export const SHARED_CLIENT_VERSION = '0.1.0';

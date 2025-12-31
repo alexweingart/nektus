@@ -1,7 +1,7 @@
 /**
  * TODO: Replace with shared-lib version
- * - This file is identical to @nektus/shared-lib/src/client/profile/phone-formatter.ts
- * - Delete this file and import from @nektus/shared-lib instead
+ * - This file is identical to @nektus/shared-client/src/client/profile/phone-formatter.ts
+ * - Delete this file and import from @nektus/shared-client instead
  */
 
 import { parsePhoneNumberFromString, CountryCode } from 'libphonenumber-js';

@@ -3,9 +3,9 @@
  * Centralized service for saving profile data with consistent behavior
  *
  * TODO: Refactor to match iOS architecture pattern
- * - Core ProfileSaveService already exists in @nektus/shared-lib (lines 1-293 are identical)
+ * - Core ProfileSaveService already exists in @nektus/shared-client (lines 1-293 are identical)
  * - Keep web-specific helpers here: generateWhatsAppFromPhone, syncProfileToSession, silentSaveToFirebase
- * - Import ProfileSaveService from @nektus/shared-lib instead of duplicating it
+ * - Import ProfileSaveService from @nektus/shared-client instead of duplicating it
  * - This file will become web-specific helpers only (like iOS save-helpers.ts)
  */
 

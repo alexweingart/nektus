@@ -2,8 +2,8 @@
  * Utility functions for handling image URLs and optimizations
  *
  * TODO: Replace with shared-lib version
- * - This file is nearly identical to @nektus/shared-lib/src/client/profile/image.ts
- * - Delete this file and import from @nektus/shared-lib instead
+ * - This file is nearly identical to @nektus/shared-client/src/client/profile/image.ts
+ * - Delete this file and import from @nektus/shared-client instead
  */
 
 /**
