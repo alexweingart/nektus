@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '@/app/context/ProfileContext';
 import type { SavedContact } from '@/types/contactExchange';
-import { hexToRgb } from '@/client/utils/cn';
+import { hexToRgb } from '@/client/cn';
 
 /**
  * Layout for contact pages - applies contact's background image

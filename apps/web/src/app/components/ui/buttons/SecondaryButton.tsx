@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { cn } from '@/client/utils/cn';
+import { cn } from '@/client/cn';
 
 interface SecondaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;

@@ -11,7 +11,7 @@ import { firebaseAuth } from '@/client/auth/firebase';
 import { isAndroidPlatform } from '@/client/platform-detection';
 import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
 import { generateProfileAssets } from '@/client/profile/asset-generation';
-import { hexToRgb } from '@/client/utils/cn';
+import { hexToRgb } from '@/client/cn';
 
 // Types
 interface SessionProfile {
