@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { ContactButton } from '../ui/buttons/ContactButton';
@@ -14,7 +14,6 @@ import { ContactInfo } from '../ui/modules/ContactInfo';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import { getFieldValue, getPhoneNumber, getFirstName } from '@/lib/client/profile/transforms';
-import { cleanUrlParams } from '@/lib/client/contacts/url-utils';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Text } from "../ui/Typography";

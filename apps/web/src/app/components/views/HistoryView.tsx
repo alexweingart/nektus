@@ -5,7 +5,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
@@ -26,7 +26,6 @@ const PRE_FETCH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown between pre-fetc
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache } = useProfile();
   const contacts = getContacts();
