@@ -37,6 +37,8 @@ interface MatchData {
   status: string;                // 'waiting' | 'matched' | 'pending'
   sharingCategoryA?: string;
   sharingCategoryB?: string | null;
+  scanStatus?: 'pending_auth' | 'completed' | null;  // QR scan status
+  previewAccessedAt?: number;    // Timestamp when preview was accessed
 }
 
 

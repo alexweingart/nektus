@@ -161,7 +161,7 @@ export async function GET(
 
       // Update the match with scanner's data
       waitingMatch.sessionB = `scan_${Date.now()}`;
-      waitingMatch.userB = scannerProfile;
+      waitingMatch.userB = scannerProfile as unknown as UserProfile;
       waitingMatch.sharingCategoryB = scannerSharingCategory;
       waitingMatch.status = 'matched';
       waitingMatch.scanStatus = 'completed'; // Mark scan as completed (signed-in user)
@@ -192,11 +192,20 @@ export async function GET(
 
     console.log(`📋 Match data found:`, matchData);
 
+    // Check if match is complete (userB exists)
+    if (!matchData.userB) {
+      console.log(`❌ Match not yet complete (waiting for scan) for token: ${token}`);
+      return NextResponse.json(
+        { success: false, message: 'Exchange not yet complete' },
+        { status: 400 }
+      );
+    }
+
     // Determine which user this is and get the other user's profile and sharing category
     const isUserA = matchData.userA.userId === session.user.id; // Compare with user ID
     const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
     const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
-    
+
     console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}, otherUserSharingCategory: ${otherUserSharingCategory}`);
     
     if (!otherUserId) {
@@ -306,10 +315,18 @@ export async function POST(
       );
     }
 
+    // Check if match is complete
+    if (!matchData.userB) {
+      return NextResponse.json(
+        { success: false, message: 'Exchange not yet complete' },
+        { status: 400 }
+      );
+    }
+
     // Verify user is part of this exchange (compare user IDs, not emails)
     const isUserA = matchData.userA.userId === session.user.id;
     const isUserB = matchData.userB.userId === session.user.id;
-    
+
     if (!isUserA && !isUserB) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized for this exchange' },

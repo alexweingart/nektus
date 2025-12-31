@@ -80,13 +80,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // For Google-only saves, we expect the profile to be stored in session state or passed directly
       // For now, we'll still verify the exchange but won't require it to be active
       const matchData = await getExchangeMatch(token);
-      if (matchData) {
+      if (matchData && matchData.userB) {  // Check userB exists (not in waiting state)
         const isUserA = matchData.userA.userId === session.user.id;
         const isUserB = matchData.userB.userId === session.user.id;
-        
+
         if (isUserA || isUserB) {
           const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
-          otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+          otherUserSharingCategory = isUserA ? (matchData.sharingCategoryB ?? undefined) : matchData.sharingCategoryA;
           const rawProfile = await getProfile(otherUserId);
 
           // Filter the profile based on the sharing category the other user selected
@@ -111,10 +111,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
+      // Check if match is complete (not in waiting state)
+      if (!matchData.userB) {
+        return NextResponse.json(
+          { success: false, message: 'Exchange not yet complete' },
+          { status: 400 }
+        );
+      }
+
       // Verify user is part of this exchange
       const isUserA = matchData.userA.userId === session.user.id;
       const isUserB = matchData.userB.userId === session.user.id;
-      
+
       if (!isUserA && !isUserB) {
         return NextResponse.json(
           { success: false, message: 'Unauthorized for this exchange' },
@@ -124,7 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Get the other user's profile
       const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
-      otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+      otherUserSharingCategory = isUserA ? (matchData.sharingCategoryB ?? undefined) : matchData.sharingCategoryA;
       const rawProfile = await getProfile(otherUserId);
 
       // Filter the profile based on the sharing category the other user selected

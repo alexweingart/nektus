@@ -74,8 +74,8 @@ export async function GET(
             hasMatch: true,
             scanStatus: 'completed',
             match: {
-              token: mappedToken,
-              youAre: 'A',  // Original user (QR code shower) is always A
+              token: mappedToken as string,
+              youAre: 'A' as const,  // Original user (QR code shower) is always A
               matchData: match
             }
           });
@@ -202,8 +202,9 @@ export async function GET(
       }
     } else {
       // Already an object
-      token = sessionMatch.token;
-      youAre = sessionMatch.youAre || 'A';
+      const matchObj = sessionMatch as { token: string; youAre?: 'A' | 'B' };
+      token = matchObj.token;
+      youAre = matchObj.youAre || 'A';
     }
     
     if (!token) {
