@@ -53,14 +53,15 @@ export default function ChatInput({
       const keyboardHeight = window.innerHeight - window.visualViewport.height;
 
       if (keyboardHeight > 0) {
-        // Keyboard is open - expand to cover keyboard + safe area
+        // Keyboard is open - show background extension below viewport
         // Add extra height and offset to overlap and hide the seam
         bgExtension.style.height = `${keyboardHeight + 2}px`;
         bgExtension.style.bottom = `-${keyboardHeight - 1}px`; // Overlap by 1px
+        bgExtension.style.display = 'block';
       } else {
-        // Keyboard is closed - reset to just safe area height
-        bgExtension.style.height = 'env(safe-area-inset-bottom, 0px)';
-        bgExtension.style.bottom = '0px';
+        // Keyboard is closed - hide background extension
+        bgExtension.style.display = 'none';
+        bgExtension.style.bottom = '0px'; // Reset position
       }
     };
 
@@ -153,7 +154,7 @@ export default function ChatInput({
       </div>
       </div>
 
-      {/* Background extension - always visible for safe area, expands when keyboard opens */}
+      {/* Background extension that appears behind keyboard */}
       <div
         ref={backgroundExtensionRef}
         style={{
@@ -161,8 +162,8 @@ export default function ChatInput({
           left: 0,
           right: 0,
           bottom: 0,
-          height: 'env(safe-area-inset-bottom, 0px)', // Default to safe area height
           zIndex: 99, // Below ChatInput
+          display: 'none', // Hidden by default, shown by JS when keyboard opens
           pointerEvents: 'none',
           backgroundColor: 'var(--safe-area-color)', // Use contact's theme color
         }}
