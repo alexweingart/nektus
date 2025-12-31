@@ -127,7 +127,7 @@ const HomePage: React.FC = () => {
         <Button
           variant="white"
           size="xl"
-          className="w-full mb-2 text-gray-700 font-medium"
+          className="w-full mb-2"
           onClick={handleSignIn}
           icon={<GoogleIcon />}
         >

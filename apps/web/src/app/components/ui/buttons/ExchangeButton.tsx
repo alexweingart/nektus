@@ -23,6 +23,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const [status, setStatus] = useState<ExchangeStatus>('idle');
   const [exchangeService, setExchangeService] = useState<{ disconnect: () => Promise<void>; startExchange: (permissionGranted?: boolean, sharingCategory?: "All" | "Personal" | "Work") => Promise<void> } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('Personal');
+  const [qrToken, setQrToken] = useState<string | null>(null);
 
   // Load selected category from localStorage on mount and listen for changes
   useEffect(() => {
@@ -105,6 +106,11 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         console.log('🎯 ExchangeButton received state change:', state.status, state);
         setStatus(state.status);
 
+        // Save QR token for qr-scan-matched state
+        if (state.qrToken) {
+          setQrToken(state.qrToken);
+        }
+
         // Emit start-floating event when waiting for bump
         if (state.status === 'waiting-for-bump') {
           console.log('🎯 ExchangeButton: Emitting start-floating event');
@@ -117,9 +123,10 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           window.dispatchEvent(new CustomEvent('bump-detected'));
         }
 
-        // Navigate to connect page only when we have a match
+        // Navigate to connect page only for BUMP matches (not QR scan matches)
+        // QR scan matches should show "Match Found!" button instead
         if (state.status === 'matched' && state.match) {
-          console.log('🎯 ExchangeButton: Match found, fetching contact background');
+          console.log('🎯 ExchangeButton: Bump match found, fetching contact background');
 
           // Store token for use in setTimeout callback
           const matchToken = state.match.token;
@@ -152,6 +159,12 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
             // Reset status to idle after successful match
             setStatus('idle');
           }, 100);
+        }
+
+        // For QR scan matches, don't auto-navigate - button becomes tappable "Match Found!"
+        if (state.status === 'qr-scan-matched') {
+          console.log('🎯 ExchangeButton: QR scan match - showing tappable button');
+          // Button will show "Match Found!" and user can tap to navigate
         }
         
         // Handle timeout - service has already disconnected itself, just manage UI
@@ -254,6 +267,18 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   };
 
   const handleButtonClick = () => {
+    // Handle QR scan matched state - navigate to contact view
+    if (status === 'qr-scan-matched' && qrToken) {
+      console.log('🎯 ExchangeButton: Navigating to QR match contact');
+      router.push(`/connect?token=${qrToken}`);
+      // Reset state
+      setStatus('idle');
+      setQrToken(null);
+      setExchangeService(null);
+      return;
+    }
+
+    // Normal exchange start
     handleExchangeStart();
   };
 
@@ -281,7 +306,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <div className="animate-pulse w-4 h-4 bg-current rounded-full"></div>
-            <span>Waiting for Bump...</span>
+            <span>Waiting for Bump or Scan...</span>
           </div>
         );
       
@@ -292,7 +317,20 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
             <span>Waiting for Match...</span>
           </div>
         );
-      
+
+      case 'qr-scan-pending':
+        return (
+          <div className="flex items-center space-x-2">
+            <div className="animate-pulse w-4 h-4 bg-current rounded-full"></div>
+            <span>Waiting for Match...</span>
+          </div>
+        );
+
+      case 'qr-scan-matched':
+        return (
+          <span className="text-xl font-bold">Match Found!</span>
+        );
+
       case 'timeout':
         return (
           <div className="flex items-center space-x-2">
@@ -330,22 +368,59 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   };
 
   // Determine if button should be disabled and active state
-  const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing', 'timeout', 'error'].includes(status);
+  const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing', 'qr-scan-pending', 'timeout', 'error'].includes(status);
   const isActive = status !== 'idle';
 
   return (
-    <Button
-      onClick={handleButtonClick}
-      disabled={isDisabled}
-      variant={getButtonVariant()}
-      size="xl"
-      className={`
-        w-full font-semibold
-        ${isActive ? 'animate-pulse' : ''}
-        ${className || ''}
-      `}
-    >
-      {getButtonContent()}
-    </Button>
+    <>
+      <style>{`
+        @keyframes shine {
+          0% {
+            left: -150%;
+          }
+          50% {
+            left: 150%;
+          }
+          100% {
+            left: 150%;
+          }
+        }
+        .shine-effect {
+          position: relative;
+          overflow: hidden;
+        }
+        .shine-effect::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -150%;
+          width: 150%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            transparent 20%,
+            rgba(255, 255, 255, 0.8) 50%,
+            transparent 80%,
+            transparent 100%
+          );
+          animation: shine 1.5s ease-in-out infinite;
+        }
+      `}</style>
+      <Button
+        onClick={handleButtonClick}
+        disabled={isDisabled}
+        variant={getButtonVariant()}
+        size="xl"
+        className={`
+          w-full
+          ${status === 'qr-scan-matched' ? 'shine-effect' : ''}
+          ${isActive && status !== 'qr-scan-matched' ? 'animate-pulse' : ''}
+          ${className || ''}
+        `}
+      >
+        {getButtonContent()}
+      </Button>
+    </>
   );
 };

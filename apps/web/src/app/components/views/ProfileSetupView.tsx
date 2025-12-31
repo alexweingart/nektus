@@ -229,7 +229,7 @@ function ProfileSetupView() {
                   type="submit"
                   variant="white"
                   size="xl"
-                  className="w-full font-medium"
+                  className="w-full"
                   disabled={isProfileSaving || (digits.replace(/\D/g, '').length < 10)}
                   aria-busy={isProfileSaving}
                 >

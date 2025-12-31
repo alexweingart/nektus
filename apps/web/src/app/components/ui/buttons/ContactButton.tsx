@@ -44,7 +44,7 @@ export const ContactButton: React.FC<ContactButtonProps> = ({
     <Button
       variant="white"
       size="xl"
-      className={`w-full font-bold ${className || ''}`}
+      className={`w-full ${className || ''}`}
       onClick={onClick}
       disabled={isDisabled}
     >

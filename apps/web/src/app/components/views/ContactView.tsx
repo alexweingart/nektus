@@ -361,7 +361,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                 <Button
                   variant="white"
                   size="xl"
-                  className="w-full font-bold"
+                  className="w-full"
                   onClick={handleHistoricalCalendarClick}
                 >
                   Meet Up 🤝

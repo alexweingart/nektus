@@ -12,6 +12,7 @@ interface StandardModalProps {
   title: string;
   subtitle?: string;
   primaryButtonText?: string;
+  primaryButtonIcon?: React.ReactNode;
   onPrimaryButtonClick?: () => void;
   primaryButtonDisabled?: boolean;
   secondaryButtonText?: string;
@@ -28,6 +29,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
   title,
   subtitle,
   primaryButtonText,
+  primaryButtonIcon,
   onPrimaryButtonClick,
   primaryButtonDisabled = false,
   secondaryButtonText = "Maybe later",
@@ -87,8 +89,9 @@ export const StandardModal: React.FC<StandardModalProps> = ({
                 onClick={handlePrimaryClick}
                 variant="white"
                 size="xl"
-                className="w-full font-semibold"
+                className="w-full"
                 disabled={primaryButtonDisabled}
+                icon={primaryButtonIcon}
               >
                 {primaryButtonText}
               </Button>
