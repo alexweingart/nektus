@@ -17,6 +17,7 @@ interface AddCalendarModalProps {
   section: FieldSection;  // 'personal' | 'work'
   userEmail: string;
   onCalendarAdded: () => void;
+  redirectTo?: string; // Optional: where to redirect after OAuth success (defaults to current page)
 }
 
 export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
@@ -24,7 +25,8 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
   onClose,
   section,
   userEmail,
-  onCalendarAdded
+  onCalendarAdded,
+  redirectTo
 }) => {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
@@ -79,6 +81,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
         // Redirect to Google OAuth using incremental authorization
         // Use NEXT_PUBLIC_BASE_URL to ensure consistent OAuth redirect regardless of how user accessed the site
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+        const currentUrl = window.location.pathname + window.location.search;
         const params = new URLSearchParams({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID!,
           redirect_uri: `${baseUrl}/api/calendar-connections/google/callback`,
@@ -91,7 +94,8 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           state: encodeURIComponent(JSON.stringify({
             userEmail,
             section,
-            returnUrl: window.location.pathname + window.location.search // Preserve query params like ?token=...
+            returnUrl: currentUrl, // Fallback for errors
+            redirectTo: redirectTo || currentUrl // Where to go on success
           }))
         });
 
@@ -100,6 +104,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
         // Redirect to Microsoft OAuth
         // Use NEXT_PUBLIC_BASE_URL to ensure consistent OAuth redirect regardless of how user accessed the site
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+        const currentUrl = window.location.pathname + window.location.search;
         const params = new URLSearchParams({
           client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
           redirect_uri: `${baseUrl}/api/calendar-connections/microsoft/callback`,
@@ -109,7 +114,8 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           state: encodeURIComponent(JSON.stringify({
             userEmail,
             section,
-            returnUrl: window.location.pathname + window.location.search // Preserve query params like ?token=...
+            returnUrl: currentUrl, // Fallback for errors
+            redirectTo: redirectTo || currentUrl // Where to go on success
           }))
         });
 

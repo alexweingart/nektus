@@ -23,14 +23,16 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    // Parse state to get section and returnUrl
+    // Parse state to get section, returnUrl, and redirectTo
     const stateData = state ? JSON.parse(decodeURIComponent(state)) as {
       userEmail: string;
       section: 'personal' | 'work';
       returnUrl?: string;
+      redirectTo?: string;
     } : null;
 
     const returnUrl = stateData?.returnUrl || '/edit';
+    const redirectTo = stateData?.redirectTo || returnUrl;
 
     if (error) {
       console.error('[Microsoft OAuth] Error:', error);
@@ -133,8 +135,8 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Microsoft OAuth] Calendar added for ${session.user.id} (${section})`);
 
-    // Redirect back to the return URL (or /edit by default)
-    return NextResponse.redirect(new URL(`${returnUrl}?calendar=added`, request.url));
+    // Redirect to the final destination (smart-schedule page, or original page if not specified)
+    return NextResponse.redirect(new URL(redirectTo, request.url));
 
   } catch (error) {
     console.error('[Microsoft OAuth] Callback error:', error);

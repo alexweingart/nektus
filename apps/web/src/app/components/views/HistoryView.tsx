@@ -442,6 +442,7 @@ export const HistoryView: React.FC = () => {
           section={selectedContact.contactType}
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
+          redirectTo={`/contact/${selectedContact.userId}/smart-schedule?from=history`}
         />
       )}
 

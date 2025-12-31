@@ -453,6 +453,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
+          redirectTo={`/contact/${profile.userId}/smart-schedule`}
         />
       </div>
   );

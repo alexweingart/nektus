@@ -26,15 +26,17 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    // Parse state to get section, returnUrl, and retry flag
+    // Parse state to get section, returnUrl, redirectTo, and retry flag
     const stateData = state ? JSON.parse(decodeURIComponent(state)) as {
       userEmail: string;
       section: 'personal' | 'work';
       returnUrl?: string;
+      redirectTo?: string;
       retry?: boolean;
     } : null;
 
     const returnUrl = stateData?.returnUrl || '/edit';
+    const redirectTo = stateData?.redirectTo || returnUrl;
 
     if (error) {
       console.error('[Google OAuth] Error:', error);
@@ -113,6 +115,7 @@ export async function GET(request: NextRequest) {
           userEmail,
           section,
           returnUrl,
+          redirectTo,
           retry: true // Mark this as a retry
         }))
       });
@@ -154,8 +157,8 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Google OAuth] Calendar added for ${session.user.id} (${section})`);
 
-    // Redirect back to the return URL (or /edit by default)
-    return NextResponse.redirect(new URL(`${returnUrl}?calendar=added`, baseUrl));
+    // Redirect to the final destination (smart-schedule page, or original page if not specified)
+    return NextResponse.redirect(new URL(redirectTo, baseUrl));
 
   } catch (error) {
     console.error('[Google OAuth] Callback error:', error);
