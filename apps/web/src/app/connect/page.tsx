@@ -66,7 +66,7 @@ function ConnectPageContent() {
 
         // Always dispatch match-found event to signal loading complete
         window.dispatchEvent(new CustomEvent('match-found', {
-          detail: mockProfile.backgroundColors ? { backgroundColors: mockProfile.backgroundColors, loaded: true } : { loaded: true }
+          detail: mockProfile.backgroundColors ? { backgroundColors: mockProfile.backgroundColors } : {}
         }));
 
         setContactProfile(mockProfile);
@@ -90,7 +90,7 @@ function ConnectPageContent() {
           if (contact) {
             // Always dispatch match-found event to signal loading complete
             window.dispatchEvent(new CustomEvent('match-found', {
-              detail: contact.backgroundColors ? { backgroundColors: contact.backgroundColors, loaded: true } : { loaded: true }
+              detail: contact.backgroundColors ? { backgroundColors: contact.backgroundColors } : {}
             }));
 
             setContactProfile(contact);
@@ -110,7 +110,7 @@ function ConnectPageContent() {
           if (result.success && result.profile) {
             // Always dispatch match-found event to signal loading complete
             window.dispatchEvent(new CustomEvent('match-found', {
-              detail: result.profile.backgroundColors ? { backgroundColors: result.profile.backgroundColors, loaded: true } : { loaded: true }
+              detail: result.profile.backgroundColors ? { backgroundColors: result.profile.backgroundColors } : {}
             }));
 
             setContactProfile(result.profile);

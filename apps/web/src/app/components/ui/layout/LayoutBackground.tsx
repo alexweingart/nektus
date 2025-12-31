@@ -7,6 +7,10 @@ import { useProfile } from '../../../context/ProfileContext';
 import { ParticleNetwork } from './ParticleNetwork';
 import type { ParticleNetworkProps } from './ParticleNetwork';
 
+// Track first page load to prevent cache restoration on refresh
+// Resets on page refresh (module reload), persists during SPA navigation
+let isFirstPageLoad = true;
+
 interface ContactProfile {
   backgroundColors?: string[];
 }
@@ -88,6 +92,16 @@ const DEFAULT_COLORS_INVERTED = {
   connection: COLORS.connectionMedium,
   gradientStart: COLORS.themeDark,
   gradientEnd: COLORS.themeGreen,
+};
+
+/**
+ * Black colors for first page load (to crossfade from black → actual colors)
+ */
+const BLACK_COLORS = {
+  particle: 'rgba(0, 0, 0, 0)',      // Transparent particles
+  connection: 'rgba(0, 0, 0, 0)',    // Transparent connections
+  gradientStart: COLORS.themeDark,   // Black gradient start
+  gradientEnd: COLORS.themeDark,     // Black gradient end
 };
 
 /**
@@ -215,7 +229,23 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
-      console.log('[LayoutBackground] Setting contact safe area color:', dominant, 'userId:', params?.userId);
+      console.log('[LayoutBackground] ✅ Setting contact safe area color:', dominant, 'userId:', params?.userId);
+    } else if (isOnContactPage && !contactProfile) {
+      // On contact page but contact not loaded yet - keep current color or use black during initial load
+      // This prevents showing theme green while waiting for contact to load
+      const lastColor = sessionStorage.getItem('last-safe-area-color');
+      if (lastColor && status === 'authenticated') {
+        // On refresh, keep the last color briefly while contact loads
+        console.log('[LayoutBackground] ⏳ Contact page loading, keeping last color:', lastColor);
+        // Don't update - let the restoration effect or next run handle it
+      } else {
+        // First time on this contact or signed out - use black while loading
+        document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+        document.documentElement.style.backgroundColor = COLORS.themeDark;
+        document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+        updateThemeColorMeta(COLORS.themeDark);
+        console.log('[LayoutBackground] ⏳ Contact page loading (no cache), using themeDark');
+      }
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
       // On contact page where contact is loaded but has no colors - use theme green
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
@@ -236,8 +266,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
       console.log('[LayoutBackground] Setting profile safe area color:', dominant);
-    } else if (!isOnContactPage && profile && !isLoading) {
-      // Fallback: profile loaded with no colors - use theme green
+    } else if (!isOnContactPage && profile) {
+      // Fallback: profile loaded with no colors - use theme green (even while loading)
       console.log('[LayoutBackground] 🟢 ABOUT TO SET THEME GREEN for profile (no colors)');
       console.log('[LayoutBackground] Before setting - backgroundColor:', document.documentElement.style.backgroundColor);
       console.log('[LayoutBackground] Before setting - --safe-area-bg:', document.documentElement.style.getPropertyValue('--safe-area-bg'));
@@ -277,18 +307,17 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         'condition1_contact+colors': isOnContactPage && contactColors && contactColors.length >= 3,
         'condition2_contact+noColors': isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3),
         'condition3_profile+colors': !isOnContactPage && userColors && userColors.length >= 3,
-        'condition4_profile+noColors': !isOnContactPage && profile && !isLoading
+        'condition4_profile+noColors': !isOnContactPage && profile
       });
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading, session, status]);
 
-  // On mount, restore last safe area color and particle colors if available (prevents flash on refresh)
+  // On mount, restore last safe area color and particle colors if available (prevents flash on navigation)
   useEffect(() => {
     const lastColor = sessionStorage.getItem('last-safe-area-color');
     const lastUserId = sessionStorage.getItem('last-safe-area-userId');
     const lastParticleColors = sessionStorage.getItem('last-particle-colors');
     const currentUserId = params?.userId as string | undefined;
-    const isConnectPage = pathname === '/connect';
 
     // If signed out, always use themeDark and don't restore cached colors
     if (status !== 'authenticated') {
@@ -300,14 +329,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // For /connect page, don't restore - use theme green while contact loads
-    if (isConnectPage) {
-      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-      updateThemeColorMeta(COLORS.themeGreen);
-      console.log('[LayoutBackground] Mount: Setting theme green for /connect page (waiting for contact)');
-      setCachedParticleColors(null); // Clear cached particle colors
+    // On first page load (refresh or direct URL), don't restore - start from black
+    // On subsequent navigation, restore for smooth transitions
+    if (isFirstPageLoad) {
+      isFirstPageLoad = false;
+      console.log('[LayoutBackground] First page load detected - not restoring colors, will start from black');
       return;
     }
 
@@ -344,7 +370,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Clear cached colors if userId doesn't match
       setCachedParticleColors(null);
     }
-  }, [params?.userId, session, status, pathname]);
+  }, [params?.userId, session, status]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
@@ -352,12 +378,13 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     // Ignore status 'loading' if we already have a session (prevents flash during session refresh)
     if (status === 'loading' && !session) {
       return {
-        colors: cachedParticleColors || DEFAULT_COLORS,
+        // On first page load, start from black; on navigation, use cached colors
+        colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
         context: 'signed-out'
       };
     }
 
-    // Signed out
+    // Signed out - always use default colors (not black, since signed-out pages don't refresh often)
     if (!session) {
       return {
         colors: DEFAULT_COLORS,
@@ -373,18 +400,21 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       };
     }
 
+    // Determine if on contact page FIRST (before loading check)
+    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+
     // Signed in - wait for profile to load
     // UNLESS navigating from setup (prevent flash during profile load)
-    // Use cached colors if available to prevent flash on refresh
+    // Use cached colors if available, or black on first page load
     if (isLoading && !isNavigatingFromSetup) {
+      // On contact pages, use INVERTED colors while loading (green bottom matches contact style)
+      // On profile pages, use regular DEFAULT (black bottom)
+      const loadingColors = isOnContactPage ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS;
       return {
-        colors: cachedParticleColors || DEFAULT_COLORS,
-        context: 'signed-out'
+        colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : loadingColors),
+        context: isOnContactPage ? 'contact' : 'signed-out'
       };
     }
-
-    // Determine if on contact page
-    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
 
     if (isOnContactPage) {
       // Contact page logic
@@ -477,6 +507,18 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   }
 
   const particleProps = getParticleNetworkProps();
+
+  // Debug logging for particle colors
+  console.log('[LayoutBackground] Rendering with particle colors:', {
+    pathname,
+    gradientEnd: particleProps.colors.gradientEnd,
+    gradientStart: particleProps.colors.gradientStart,
+    htmlBackground: document.documentElement.style.backgroundColor,
+    safeAreaBg: document.documentElement.style.getPropertyValue('--safe-area-bg'),
+    hasContactProfile: !!contactProfile,
+    contactColors: contactProfile?.backgroundColors,
+    isFirstPageLoad
+  });
 
   // V2: No wrapper div - ParticleNetwork is fixed, children scroll naturally
   return (
