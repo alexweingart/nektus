@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../components/views/ContactView';
+import { AnonContactView } from '../components/views/AnonContactView';
 import { Button } from '../components/ui/buttons/Button';
 import type { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
@@ -23,16 +24,13 @@ function ConnectPageContent() {
   const isHistoricalMode = mode === 'historical';
 
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
+  const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
+  const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchMatchedProfile() {
       if (status === 'loading') return; // Still loading auth
-
-      if (!session) {
-        router.push('/');
-        return;
-      }
 
       if (!token) {
         router.push('/');
@@ -73,60 +71,92 @@ function ConnectPageContent() {
         return;
       }
 
-      // Check if we already have this profile cached to avoid re-fetch on back navigation
-      if (contactProfile && contactProfile.userId) {
+      // Check if we already have profile cached to avoid re-fetch on back navigation
+      if (session && contactProfile && contactProfile.userId) {
+        return;
+      }
+      if (!session && previewProfile && previewProfile.userId) {
         return;
       }
 
       try {
+        if (session) {
+          // Authenticated user - fetch full profile
+          if (isHistoricalMode) {
+            // For historical mode, fetch from saved contacts
+            const contacts = await ClientProfileService.getContacts(session.user.id);
 
-        if (isHistoricalMode) {
-          // For historical mode, fetch from saved contacts
-          const contacts = await ClientProfileService.getContacts(session.user.id);
+            // Find the contact with matching token
+            const contact = contacts.find((c: SavedContact) => c.matchToken === token);
 
-          // Find the contact with matching token
-          const contact = contacts.find((c: SavedContact) => c.matchToken === token);
+            if (contact) {
+              // Always dispatch match-found event to signal loading complete
+              window.dispatchEvent(new CustomEvent('match-found', {
+                detail: contact.backgroundColors ? { backgroundColors: contact.backgroundColors } : {}
+              }));
 
-          if (contact) {
-            // Always dispatch match-found event to signal loading complete
-            window.dispatchEvent(new CustomEvent('match-found', {
-              detail: contact.backgroundColors ? { backgroundColors: contact.backgroundColors } : {}
-            }));
-
-            setContactProfile(contact);
+              setContactProfile(contact);
+            } else {
+              throw new Error('Historical contact not found');
+            }
           } else {
-            throw new Error('Historical contact not found');
+            // For active exchanges, use the exchange API
+            const response = await fetch(`/api/exchange/pair/${token}`);
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch matched profile');
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.profile) {
+              // Always dispatch match-found event to signal loading complete
+              window.dispatchEvent(new CustomEvent('match-found', {
+                detail: result.profile.backgroundColors ? { backgroundColors: result.profile.backgroundColors } : {}
+              }));
+
+              setContactProfile(result.profile);
+            } else {
+              throw new Error('Invalid profile response');
+            }
           }
         } else {
-          // For active exchanges, use the exchange API
-          const response = await fetch(`/api/exchange/pair/${token}`);
+          // Unauthenticated user - fetch preview
+          const response = await fetch(`/api/exchange/preview/${token}`);
 
           if (!response.ok) {
-            throw new Error('Failed to fetch matched profile');
+            throw new Error('Failed to fetch profile preview');
           }
 
           const result = await response.json();
 
           if (result.success && result.profile) {
-            // Always dispatch match-found event to signal loading complete
-            window.dispatchEvent(new CustomEvent('match-found', {
-              detail: result.profile.backgroundColors ? { backgroundColors: result.profile.backgroundColors } : {}
-            }));
+            setPreviewProfile(result.profile);
+            setSocialIconTypes(result.socialIconTypes || []);
 
-            setContactProfile(result.profile);
+            // Dispatch match-found event so LayoutBackground uses contact colors
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: {
+                backgroundColors: result.profile.backgroundColors,
+                loaded: true
+              }
+            }));
           } else {
-            throw new Error('Invalid profile response');
+            throw new Error('Invalid preview response');
           }
         }
 
       } catch (error) {
-        console.error('Failed to load matched profile:', error);
-        setError(isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile');
+        console.error('Failed to load profile:', error);
+        setError(session
+          ? (isHistoricalMode ? 'Failed to load historical contact' : 'Failed to load contact profile')
+          : 'Failed to load profile preview'
+        );
       }
     }
 
     fetchMatchedProfile();
-  }, [session, status, router, token, isHistoricalMode, contactProfile]);
+  }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile]);
 
 
   // Show loading only while checking auth
@@ -150,6 +180,17 @@ function ConnectPageContent() {
           </Button>
         </div>
       </div>
+    );
+  }
+
+  // Show unauthenticated preview view
+  if (!session && previewProfile && token) {
+    return (
+      <AnonContactView
+        profile={previewProfile}
+        socialIconTypes={socialIconTypes}
+        token={token}
+      />
     );
   }
 

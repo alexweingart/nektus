@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
+import QRCode from 'react-qr-code';
 
 interface ProfileInfoProps {
   profile: UserProfile;
@@ -17,6 +18,8 @@ interface ProfileInfoProps {
   className?: string;
   isLoadingProfile?: boolean;
   isGoogleInitials?: boolean; // Whether Google profile has auto-generated initials
+  showQRCode?: boolean; // Whether to show QR code instead of profile details
+  matchToken?: string; // Token for QR code URL
 }
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({
@@ -25,7 +28,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   bioContent,
   className,
   isLoadingProfile = false,
-  isGoogleInitials = false
+  isGoogleInitials = false,
+  showQRCode = false,
+  matchToken
 }) => {
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
@@ -138,6 +143,25 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }
   }, [selectedMode]);
 
+  // QR Code Display Component - maintains same dimensions as profile content
+  const QRCodeDisplay = ({ token }: { token: string }) => {
+    // Use NEXT_PUBLIC_BASE_URL for cross-device QR scanning (tailscale, production, etc.)
+    // Falls back to window.location.origin for same-device testing
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
+    return (
+      <div className="w-full flex items-center justify-center" style={{ minHeight: '200px' }}>
+        <QRCode
+          value={`${baseUrl}/connect?token=${token}`}
+          size={180}
+          level="M"
+          fgColor="#FFFFFF"
+          bgColor="transparent"
+        />
+      </div>
+    );
+  };
+
   return (
     <div className={className}>
       {/* Profile Image */}
@@ -152,10 +176,13 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           />
         </div>
       </div>
-      
+
       {/* Carousel Container - Full width background */}
       <div className="w-full bg-black/60 backdrop-blur-lg py-4 rounded-2xl overflow-hidden">
-          <div 
+        {showQRCode && matchToken ? (
+          <QRCodeDisplay token={matchToken} />
+        ) : (
+          <div
             ref={carouselRef}
             className="flex transition-transform duration-300 ease-out"
             onTouchStart={handleTouchStart}
@@ -278,16 +305,19 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               )}
             </div>
           </div>
-        </div>
-        
-        {/* Profile View Selector */}
-        <div className="mt-4 flex justify-center">
-          <ProfileViewSelector
-            selectedMode={selectedMode}
-            onModeChange={handleModeChange}
-            className="w-48"
-          />
-        </div>
+          </div>
+        )}
+
+        {/* Profile View Selector - only show when not showing QR code */}
+        {!showQRCode && (
+          <div className="mt-4 flex justify-center">
+            <ProfileViewSelector
+              selectedMode={selectedMode}
+              onModeChange={handleModeChange}
+              className="w-48"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

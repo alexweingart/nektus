@@ -42,6 +42,58 @@ export async function GET(
       );
     }
 
+    // First check for QR scan matches (waiting exchange that got scanned)
+    const sessionMapKey = `exchange_session:${sessionId}`;
+    const mappedToken = await redis.get(sessionMapKey);
+
+    if (mappedToken) {
+      console.log(`🔍 Found session mapping to token: ${mappedToken}`);
+      const matchKey = `exchange_match:${mappedToken}`;
+      const matchDataStr = await redis.get(matchKey);
+
+      if (matchDataStr) {
+        const match = typeof matchDataStr === 'string' ? JSON.parse(matchDataStr) : matchDataStr;
+        console.log(`📋 Found match data with status: ${match.status}, scanStatus: ${match.scanStatus}`);
+
+        // Check for QR scan with different states
+        if (match.scanStatus === 'pending_auth') {
+          // Someone scanned but hasn't signed in yet
+          console.log(`⏳ QR scanned, waiting for User B to complete sign-in`);
+          return NextResponse.json({
+            success: true,
+            hasMatch: false,
+            scanStatus: 'pending_auth', // User B is signing in
+            match: null
+          });
+        }
+
+        if (match.status === 'matched' && match.userB !== null && match.scanStatus === 'completed') {
+          console.log(`✅ QR scan match completed!`);
+          return NextResponse.json({
+            success: true,
+            hasMatch: true,
+            scanStatus: 'completed',
+            match: {
+              token: mappedToken,
+              youAre: 'A',  // Original user (QR code shower) is always A
+              matchData: match
+            }
+          });
+        }
+
+        // If still waiting (no scan, no bump match), return no match
+        if (match.status === 'waiting') {
+          console.log(`⏳ Still waiting for bump or scan`);
+          return NextResponse.json({
+            success: true,
+            hasMatch: false,
+            match: null
+          });
+        }
+      }
+    }
+
+    // Check for regular bump matches
     const sessionMatch = await redis.get(`exchange_session:${sessionId}`);
 
     if (!sessionMatch) {
@@ -133,14 +185,26 @@ export async function GET(
     }
     
     // Parse session data to get token
-    let sessionData;
+    let token: string;
+    let youAre: 'A' | 'B' = 'A'; // Default to A
+
     if (typeof sessionMatch === 'string') {
-      sessionData = JSON.parse(sessionMatch);
+      // Check if it's a plain token string or JSON
+      if (sessionMatch.startsWith('{')) {
+        // It's JSON with {token, youAre}
+        const sessionData = JSON.parse(sessionMatch);
+        token = sessionData.token;
+        youAre = sessionData.youAre || 'A';
+      } else {
+        // It's a plain token string (QR scan case)
+        token = sessionMatch;
+        youAre = 'A'; // Original user is always A in QR scan
+      }
     } else {
-      sessionData = sessionMatch;
+      // Already an object
+      token = sessionMatch.token;
+      youAre = sessionMatch.youAre || 'A';
     }
-    
-    const { token, youAre } = sessionData;
     
     if (!token) {
       console.log(`❌ No token found for session ${sessionId}`);

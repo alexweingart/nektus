@@ -207,8 +207,22 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       hasSession: !!session
     });
 
-    // Handle signed-out state FIRST - always use themeDark
+    // Handle signed-out state - check for contact colors first
     if (status !== 'authenticated') {
+      // If on contact page with colors, use contact's dominant color
+      if (isOnContactPage && contactColors && contactColors.length >= 3) {
+        const [dominant, , accent2] = contactColors;
+        document.documentElement.style.setProperty('--safe-area-bg', dominant);
+        document.documentElement.style.backgroundColor = dominant;
+        document.documentElement.style.setProperty('--safe-area-color', dominant);
+        document.documentElement.style.setProperty('--particle-color', accent2);
+        updateThemeColorMeta(dominant);
+        sessionStorage.setItem('last-safe-area-color', dominant);
+        console.log('[LayoutBackground] ✅ Setting contact safe area color (signed-out):', dominant, 'particle:', accent2);
+        return;
+      }
+
+      // Default signed-out: use themeDark
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
       document.documentElement.style.backgroundColor = COLORS.themeDark;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
@@ -221,15 +235,16 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
       // On contact page with contact colors - use contact's dominant color
-      const [dominant] = contactColors;
+      const [dominant, , accent2] = contactColors;
       document.documentElement.style.setProperty('--safe-area-bg', dominant);
       document.documentElement.style.backgroundColor = dominant; // Force update
       document.documentElement.style.setProperty('--safe-area-color', dominant);
+      document.documentElement.style.setProperty('--particle-color', accent2);
       updateThemeColorMeta(dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
-      console.log('[LayoutBackground] ✅ Setting contact safe area color:', dominant, 'userId:', params?.userId);
+      console.log('[LayoutBackground] ✅ Setting contact safe area color:', dominant, 'particle:', accent2, 'userId:', params?.userId);
     } else if (isOnContactPage && !contactProfile) {
       // On contact page but contact not loaded yet - use last color if available
       // This prevents flash/transition while waiting for contact to load
@@ -264,15 +279,16 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       console.log('[LayoutBackground] Setting theme green safe area color for contact page (no custom colors), userId:', params?.userId);
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       // Not on contact page - use profile's dominant color (custom or default theme green)
-      const [dominant] = userColors;
+      const [dominant, , accent2] = userColors;
       document.documentElement.style.setProperty('--safe-area-bg', dominant);
       document.documentElement.style.backgroundColor = dominant; // Force update
       document.documentElement.style.setProperty('--safe-area-color', dominant);
+      document.documentElement.style.setProperty('--particle-color', accent2);
       updateThemeColorMeta(dominant);
       // Persist for page refreshes
       sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId'); // Clear userId for non-contact pages
-      console.log('[LayoutBackground] Setting profile safe area color:', dominant);
+      console.log('[LayoutBackground] Setting profile safe area color:', dominant, 'particle:', accent2);
     } else if (!isOnContactPage && profile) {
       // Fallback: profile loaded with no colors - use theme green (even while loading)
       console.log('[LayoutBackground] 🟢 ABOUT TO SET THEME GREEN for profile (no colors)');
@@ -391,8 +407,41 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // Signed out - always use default colors (not black, since signed-out pages don't refresh often)
+    // Signed out - check if on contact page with colors
     if (!session) {
+      const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+
+      if (isOnContactPage) {
+        const contactColors = contactProfile?.backgroundColors;
+
+        // Check if colors exist and are custom (not all the same)
+        const hasCustomColors = contactColors &&
+                               contactColors.length >= 3 &&
+                               !(contactColors[0] === contactColors[1] && contactColors[1] === contactColors[2]);
+
+        if (hasCustomColors) {
+          // Use contact's custom colors
+          const particleColors = convertToParticleColors(contactColors);
+          return {
+            colors: particleColors,
+            context: 'connect'
+          };
+        } else if (contactProfile) {
+          // Contact loaded but no custom colors - use default inverted
+          return {
+            colors: DEFAULT_COLORS_INVERTED,
+            context: 'connect'
+          };
+        } else {
+          // On contact page but profile not loaded yet - use black on first load
+          return {
+            colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS_INVERTED),
+            context: 'connect'
+          };
+        }
+      }
+
+      // Default signed-out colors
       return {
         colors: DEFAULT_COLORS,
         context: 'signed-out'

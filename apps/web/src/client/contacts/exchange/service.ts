@@ -24,6 +24,7 @@ export class RealTimeContactExchangeService {
   private waitingForBumpTimeout: NodeJS.Timeout | null = null;
   private matchPollingInterval: NodeJS.Timeout | null = null;
   private motionDetector?: typeof import('@/client/contacts/motion').MotionDetector;
+  private matchToken: string | null = null;
 
   constructor(sessionId: string, onStateChange?: (state: ContactExchangeState) => void) {
     this.sessionId = sessionId;
@@ -50,6 +51,13 @@ export class RealTimeContactExchangeService {
   }
 
   /**
+   * Get current match token (for QR code display)
+   */
+  getMatchToken(): string | null {
+    return this.matchToken;
+  }
+
+  /**
    * Start the contact exchange process with single timeout control
    */
   async startExchange(
@@ -72,6 +80,30 @@ export class RealTimeContactExchangeService {
       }).catch(() => {});
 
       // Note: Old user exchanges are now cleaned up server-side in the /api/exchange/hit endpoint
+
+      // Initialize exchange and get token for QR code display
+      const initiateResponse = await fetch('/api/exchange/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: this.sessionId,
+          sharingCategory
+        })
+      });
+
+      if (!initiateResponse.ok) {
+        throw new Error('Failed to initiate exchange');
+      }
+
+      const { token } = await initiateResponse.json();
+      this.matchToken = token;
+
+      // Emit event with token for ProfileView to show QR code
+      window.dispatchEvent(new CustomEvent('exchange-initiated', {
+        detail: { token }
+      }));
+
+      console.log(`🎫 Exchange initiated with token: ${token.substring(0, 8)}...`);
 
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
@@ -109,14 +141,19 @@ export class RealTimeContactExchangeService {
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
       console.log('👂 Waiting for bump (10s timeout)...');
-      
-            // Set single 10-second timeout for entire exchange process
+
+      // Start polling immediately for QR scan matches (not just after motion detected)
+      this.startMatchPolling();
+      console.log('🔄 Started polling for QR scan matches');
+
+      // Set single 10-second timeout for entire exchange process
+      // Will be extended to 60s if QR scan detected (User B signing in)
       this.waitingForBumpTimeout = setTimeout(async () => {
         console.log('⏰ Exchange timed out after 10 seconds');
-        
+
         // Stop motion detection and polling immediately
         await this.disconnect();
-        
+
         // Only show timeout if we haven't found a match
         if (this.state.status !== 'matched') {
           console.log('⏰ Showing timeout UI');
@@ -196,6 +233,12 @@ export class RealTimeContactExchangeService {
    * Start polling for matches after sending hit - no separate timeout
    */
   private async startMatchPolling(): Promise<void> {
+    // Don't start polling if already running
+    if (this.matchPollingInterval) {
+      console.log('🔄 Polling already running, skipping duplicate start');
+      return;
+    }
+
     // Poll every 1 second - controlled by main exchange timeout
     this.matchPollingInterval = setInterval(async () => {
               // Check if exchange has been cancelled/timed out
@@ -220,18 +263,58 @@ export class RealTimeContactExchangeService {
         }
 
         const result = await response.json();
-        
-        if (result.success && result.hasMatch && result.match) {
-          console.log('🎉 Match found!');
-          
-          // Clear polling
-          this.clearPolling();
-          
-          // Handle the match
-          await this.handleMatch(result.match.token, result.match.youAre);
+
+        // Check for QR scan status updates
+        if (result.success && result.scanStatus === 'pending_auth') {
+          console.log('⏳ QR scanned - User B is signing in...');
+
+          // Extend timeout to 60 seconds to give User B time to complete OAuth
+          if (this.waitingForBumpTimeout) {
+            clearTimeout(this.waitingForBumpTimeout);
+            console.log('⏰ Extending timeout to 60 seconds for OAuth sign-in');
+            this.waitingForBumpTimeout = setTimeout(async () => {
+              console.log('⏰ Exchange timed out after 60 seconds (QR scan)');
+              await this.disconnect();
+              if (this.state.status !== 'matched') {
+                this.updateState({ status: 'timeout' });
+              }
+            }, 60000);
+          }
+
+          this.updateState({ status: 'qr-scan-pending' });
+          // Continue polling for completion
           return;
         }
-        
+
+        if (result.success && result.hasMatch && result.match) {
+          console.log('🎉 Match found!');
+
+          // Check if this is a QR scan match
+          if (result.scanStatus === 'completed') {
+            console.log('📱 QR scan match completed!');
+
+            // Clear timeout - match found!
+            if (this.waitingForBumpTimeout) {
+              clearTimeout(this.waitingForBumpTimeout);
+              this.waitingForBumpTimeout = null;
+              console.log('⏰ Cleared timeout - QR scan match found');
+            }
+
+            // Clear polling - no need to keep polling
+            this.clearPolling();
+
+            this.updateState({ status: 'qr-scan-matched', qrToken: result.match.token });
+          } else {
+            // Regular bump match
+            // Clear polling
+            this.clearPolling();
+
+            // Handle the match
+            await this.handleMatch(result.match.token, result.match.youAre);
+          }
+          return;
+        }
+
         // No match yet, continue polling (controlled by main timeout)
         
       } catch (error) {

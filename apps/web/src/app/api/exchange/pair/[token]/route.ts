@@ -12,6 +12,8 @@ import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { getExchangeMatch } from '@/server/contacts/matching';
 import { filterProfileByCategory } from '@/client/profile/filtering';
+import { redis } from '@/server/config/redis';
+import { getProfile } from '@/server/config/firebase';
 
 /**
  * Creates a mock profile for development/testing purposes
@@ -120,7 +122,66 @@ export async function GET(
     console.log(`👤 User ${session.user.email} requesting pair data for token: ${token}`);
 
     // Get match data from Redis
-    const matchData = await getExchangeMatch(token);
+    let matchData = await getExchangeMatch(token);
+
+    // Check if this is a waiting exchange (QR scan scenario)
+    if (matchData && matchData.status === 'waiting' && matchData.userB === null && redis) {
+      console.log(`🔍 Found waiting exchange, checking if this is User B scanning...`);
+      const matchKey = `exchange_match:${token}`;
+
+      // This is a QR scan - User B is creating the match
+      const waitingMatch = matchData;
+
+      // IMPORTANT: Check if current user is User A (original QR shower)
+      // If so, they should NOT create the match - they're just viewing their own QR result
+      const isUserA = waitingMatch.userA.userId === session.user.id;
+
+      if (isUserA) {
+        console.log(`⚠️ User A (${session.user.id}) is viewing their own waiting exchange - not creating match`);
+        // Return waiting status - no match yet
+        return NextResponse.json(
+          { success: false, message: 'Waiting for someone to scan your QR code' },
+          { status: 404 }
+        );
+      }
+
+      console.log(`🔓 QR scan detected! User B (${session.user.id}) is creating match`);
+
+      // Scanner is creating the match - get scanner's profile
+      const scannerProfile = await getProfile(session.user.id);
+      if (!scannerProfile) {
+        console.error(`❌ Scanner profile not found for user: ${session.user.id}`);
+        return NextResponse.json(
+          { success: false, message: 'Scanner profile not found' },
+          { status: 404 }
+        );
+      }
+
+      const scannerSharingCategory = 'All'; // Default for QR scan
+
+      // Update the match with scanner's data
+      waitingMatch.sessionB = `scan_${Date.now()}`;
+      waitingMatch.userB = scannerProfile;
+      waitingMatch.sharingCategoryB = scannerSharingCategory;
+      waitingMatch.status = 'matched';
+      waitingMatch.scanStatus = 'completed'; // Mark scan as completed (signed-in user)
+
+      // Save updated match
+      await redis.setex(matchKey, 600, JSON.stringify(waitingMatch));
+      console.log(`✅ Updated match in Redis for token: ${token}`);
+
+      // Update session mapping for original user's polling to discover match
+      await redis.setex(
+        `exchange_session:${waitingMatch.sessionA}`,
+        600,
+        token
+      );
+      console.log(`✅ Updated session mapping for original user to discover match`);
+
+      // Use updated match data
+      matchData = waitingMatch;
+    }
+
     if (!matchData) {
       console.log(`❌ No match data found for token: ${token}`);
       return NextResponse.json(

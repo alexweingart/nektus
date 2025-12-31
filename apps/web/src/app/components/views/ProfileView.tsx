@@ -11,6 +11,7 @@ import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { ProfileInfo } from '../ui/modules/ProfileInfo';
+import { useExchangeQRDisplay } from '@/lib/hooks/use-exchange-qr-display';
 
 import { useRouter } from 'next/navigation';
 import { generateMessageText, openMessagingApp } from '@/client/contacts/messaging';
@@ -41,14 +42,18 @@ const ProfileView: React.FC = () => {
 
   // Admin mode activation props
   const adminModeProps = useAdminModeActivator();
-  
+
   // PWA install hook
   const { isInstallable, installPWA, showIOSModal, closeIOSModal } = usePWAInstall();
-  
+
+  // QR code display hook
+  const { showQRCode, matchToken } = useExchangeQRDisplay();
+
   const router = useRouter();
 
   // Animation state
   const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
+  const [isExchanging, setIsExchanging] = useState(false);
   const profileInfoRef = useRef<HTMLDivElement>(null);
   const topButtonsRef = useRef<HTMLDivElement>(null);
   const nektButtonRef = useRef<HTMLDivElement>(null);
@@ -98,10 +103,12 @@ const ProfileView: React.FC = () => {
     const handleStartFloating = () => {
       setShouldStopFloating(false);
       setAnimationPhase('floating');
+      setIsExchanging(true);
     };
 
     const handleStopFloating = () => {
       setShouldStopFloating(true);
+      setIsExchanging(false);
       // Don't change animation phase yet - let animation iteration event handle it
     };
 
@@ -350,6 +357,8 @@ const ProfileView: React.FC = () => {
               className="w-full flex flex-col items-center"
               isLoadingProfile={isProfileLoading}
               isGoogleInitials={shouldShowInitials}
+              showQRCode={showQRCode}
+              matchToken={matchToken || undefined}
             />
           )}
         </div>
@@ -370,8 +379,8 @@ const ProfileView: React.FC = () => {
             <ExchangeButton />
           </div>
 
-          {/* PWA Install Button */}
-          {isInstallable && (
+          {/* PWA Install Button / Cancel Button */}
+          {(isInstallable || isExchanging) && (
             <div
               ref={pwaButtonRef}
               className={`flex justify-center ${
@@ -384,8 +393,17 @@ const ProfileView: React.FC = () => {
                 animationDelay: animationPhase === 'entering' ? '100ms' : '0ms'
               }}
             >
-              <SecondaryButton onClick={installPWA}>
-                Add to home screen
+              <SecondaryButton
+                onClick={() => {
+                  if (isExchanging) {
+                    // Emit cancel event for ExchangeButton to handle
+                    window.dispatchEvent(new CustomEvent('cancel-exchange'));
+                  } else {
+                    installPWA();
+                  }
+                }}
+              >
+                {isExchanging ? 'Cancel' : 'Add to home screen'}
               </SecondaryButton>
             </div>
           )}

@@ -5,13 +5,11 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { Button } from '../ui/buttons/Button';
-import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { Text } from '../ui/Typography';
 import { StandardModal } from '../ui/modals/StandardModal';
-import { ParticleNetwork } from '../ui/layout/ParticleNetwork';
 import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import type { UserProfile } from '@/types/profile';
@@ -32,31 +30,6 @@ const GoogleIcon = () => (
     <path d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
   </svg>
 );
-
-/**
- * Convert hex color to rgba with alpha
- */
-function hexToRgba(hex: string, alpha: number): string {
-  const cleanHex = hex.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16);
-  const g = parseInt(cleanHex.substring(2, 4), 16);
-  const b = parseInt(cleanHex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/**
- * Convert background colors to ParticleNetwork colors
- */
-function convertToParticleColors(backgroundColors: string[]) {
-  const [dominant, accent1, accent2] = backgroundColors;
-
-  return {
-    gradientStart: hexToRgba(accent1, 0.4),
-    gradientEnd: dominant,
-    particle: hexToRgba(accent2, 0.8),
-    connection: hexToRgba(accent2, 0.4)
-  };
-}
 
 // Map icon type to display name
 const getSocialDisplayName = (type: string) => {
@@ -89,26 +62,6 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
   const name = getFieldValue(profile.contactEntries, 'name') || 'User';
   const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
 
-  // Convert profile background colors to particle colors
-  const particleColors = useMemo(() => {
-    console.log('🎨 AnonContactView backgroundColors:', profile.backgroundColors);
-
-    if (profile.backgroundColors && profile.backgroundColors.length >= 3) {
-      const colors = convertToParticleColors(profile.backgroundColors);
-      console.log('🎨 Using profile colors:', colors);
-      return colors;
-    }
-
-    // Fallback colors if none provided
-    console.log('🎨 Using fallback green colors');
-    return {
-      gradientStart: 'rgba(34, 197, 94, 0.4)',
-      gradientEnd: 'rgb(29, 150, 67)',
-      particle: 'rgba(200, 255, 200, 0.8)',
-      connection: 'rgba(34, 197, 94, 0.4)'
-    };
-  }, [profile.backgroundColors]);
-
   const handleSocialIconClick = (iconType: string) => {
     setClickedSocial(iconType);
     setShowEagerBeaverModal(true);
@@ -121,47 +74,8 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
     });
   };
 
-  // Update safe area colors to match gradient
-  useEffect(() => {
-    let safeAreaColor = 'rgb(29, 150, 67)'; // Fallback dark green
-
-    if (profile.backgroundColors && profile.backgroundColors.length >= 3) {
-      const [dominant] = profile.backgroundColors;
-      safeAreaColor = dominant;
-    }
-
-    // Set safe area background (used by globals.css)
-    document.documentElement.style.setProperty('--safe-area-bg', safeAreaColor);
-    document.documentElement.style.backgroundColor = safeAreaColor;
-
-    // Update theme-color meta tag for iOS Safari safe areas
-    let metaTag = document.querySelector('meta[name="theme-color"]');
-    if (!metaTag) {
-      metaTag = document.createElement('meta');
-      metaTag.setAttribute('name', 'theme-color');
-      document.head.appendChild(metaTag);
-    }
-    metaTag.setAttribute('content', safeAreaColor);
-
-    console.log('🎨 AnonContactView set safe area color:', safeAreaColor);
-
-    // Cleanup: restore default black on unmount
-    return () => {
-      document.documentElement.style.setProperty('--safe-area-bg', '#000000');
-      document.documentElement.style.backgroundColor = '#000000';
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) {
-        meta.setAttribute('content', '#000000');
-      }
-    };
-  }, [profile.backgroundColors]);
-
   return (
     <div className="flex flex-col items-center px-4 py-2 relative z-[1001]">
-      {/* Particle background with contact's colors */}
-      <div className="fixed inset-0 -z-10">
-        <ParticleNetwork colors={particleColors} context="contact" />
-      </div>
 
       {/* Fixed Content Area - matches ContactView structure */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center justify-center flex-1 overflow-hidden">

@@ -291,6 +291,32 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     };
   }, [exchangeService]);
 
+  // Listen for cancel event from ProfileView
+  useEffect(() => {
+    const handleCancel = async () => {
+      console.log('🚫 ExchangeButton: Cancel exchange requested');
+
+      // Disconnect the service
+      if (exchangeService && exchangeService.disconnect) {
+        await exchangeService.disconnect();
+      }
+
+      // Reset state
+      setExchangeService(null);
+      setStatus('idle');
+      setQrToken(null);
+
+      // Dispatch stop-floating event to exit animations
+      console.log('🚫 ExchangeButton: Emitting stop-floating event');
+      window.dispatchEvent(new CustomEvent('stop-floating'));
+    };
+
+    window.addEventListener('cancel-exchange', handleCancel);
+    return () => {
+      window.removeEventListener('cancel-exchange', handleCancel);
+    };
+  }, [exchangeService]);
+
   // Get button content with animations
   const getButtonContent = () => {
     switch (status) {
@@ -369,58 +395,21 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 
   // Determine if button should be disabled and active state
   const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing', 'qr-scan-pending', 'timeout', 'error'].includes(status);
-  const isActive = status !== 'idle';
+  const shouldPulse = status === 'qr-scan-matched';
 
   return (
-    <>
-      <style>{`
-        @keyframes shine {
-          0% {
-            left: -150%;
-          }
-          50% {
-            left: 150%;
-          }
-          100% {
-            left: 150%;
-          }
-        }
-        .shine-effect {
-          position: relative;
-          overflow: hidden;
-        }
-        .shine-effect::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -150%;
-          width: 150%;
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            transparent 20%,
-            rgba(255, 255, 255, 0.8) 50%,
-            transparent 80%,
-            transparent 100%
-          );
-          animation: shine 1.5s ease-in-out infinite;
-        }
-      `}</style>
-      <Button
-        onClick={handleButtonClick}
-        disabled={isDisabled}
-        variant={getButtonVariant()}
-        size="xl"
-        className={`
-          w-full
-          ${status === 'qr-scan-matched' ? 'shine-effect' : ''}
-          ${isActive && status !== 'qr-scan-matched' ? 'animate-pulse' : ''}
-          ${className || ''}
-        `}
-      >
-        {getButtonContent()}
-      </Button>
-    </>
+    <Button
+      onClick={handleButtonClick}
+      disabled={isDisabled}
+      variant={getButtonVariant()}
+      size="xl"
+      className={`
+        w-full
+        ${shouldPulse ? 'animate-color-pulse' : ''}
+        ${className || ''}
+      `}
+    >
+      {getButtonContent()}
+    </Button>
   );
 };

@@ -19,13 +19,13 @@ import {
   restoreSession,
   signInWithToken,
   signOut as firebaseSignOut,
-} from "../../lib/client/auth/firebase";
+} from "../../client/auth/firebase";
 import {
   useGoogleAuth,
   exchangeGoogleTokenForFirebase,
   exchangeGoogleAccessTokenForFirebase,
   MobileTokenResponse,
-} from "../../lib/client/auth/google";
+} from "../../client/auth/google";
 
 // Session user type matching web app's session.user structure
 export interface SessionUser {

@@ -27,16 +27,16 @@ interface ExchangeData {
   pendingMatchCreatedAt?: number; // Server timestamp when pending match was created
 }
 
-// Match data interface
+// Match data interface - supports both waiting and matched states
 interface MatchData {
   sessionA: string;
-  sessionB: string;
+  sessionB: string | null;      // null when waiting for scan
   userA: UserProfile;
-  userB: UserProfile;
+  userB: UserProfile | null;    // null when waiting for scan
   timestamp: number;
-  status: string;
+  status: string;                // 'waiting' | 'matched' | 'pending'
   sharingCategoryA?: string;
-  sharingCategoryB?: string;
+  sharingCategoryB?: string | null;
 }
 
 

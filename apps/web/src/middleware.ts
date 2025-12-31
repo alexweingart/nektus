@@ -12,7 +12,9 @@ const PUBLIC_PATHS = [
   '/api/auth/_log',
   '/_next',
   '/privacy',
-  '/terms'
+  '/terms',
+  '/connect',  // Allow unauthenticated access for QR code scanning
+  '/api/exchange/preview'  // Preview endpoint for unauthenticated users
 ];
 
 export async function middleware(request: NextRequest) {

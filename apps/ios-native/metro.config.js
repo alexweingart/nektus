@@ -16,6 +16,13 @@ config.resolver = {
     path.resolve(projectRoot, "node_modules"),
     path.resolve(monorepoRoot, "node_modules"),
   ],
+  // Explicitly map workspace packages to their source directories
+  extraNodeModules: {
+    "@nektus/shared-client": path.resolve(monorepoRoot, "packages/shared-client"),
+    "@nektus/shared-types": path.resolve(monorepoRoot, "packages/shared-types"),
+    "@nektus/shared-lib": path.resolve(monorepoRoot, "packages/shared-lib"),
+    "@nektus/shared-utils": path.resolve(monorepoRoot, "packages/shared-utils"),
+  },
   disableHierarchicalLookup: false,
 };
 
