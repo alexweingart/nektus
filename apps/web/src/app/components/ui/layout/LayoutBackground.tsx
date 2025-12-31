@@ -113,10 +113,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleMatchFound = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { backgroundColors } = customEvent.detail || {};
+      const { backgroundColors, loaded } = customEvent.detail || {};
 
+      // Update contactProfile if contact has colors OR if contact is loaded without colors
       if (backgroundColors) {
         setContactProfile({ backgroundColors });
+      } else if (loaded) {
+        // Contact loaded but has no colors - set empty contactProfile to trigger theme green
+        setContactProfile({ backgroundColors: [] });
       }
     };
 
@@ -284,6 +288,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const lastUserId = sessionStorage.getItem('last-safe-area-userId');
     const lastParticleColors = sessionStorage.getItem('last-particle-colors');
     const currentUserId = params?.userId as string | undefined;
+    const isConnectPage = pathname === '/connect';
 
     // If signed out, always use themeDark and don't restore cached colors
     if (status !== 'authenticated') {
@@ -292,6 +297,17 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
       updateThemeColorMeta(COLORS.themeDark);
       console.log('[LayoutBackground] Mount: Setting themeDark for signed-out state (not restoring cache)');
+      return;
+    }
+
+    // For /connect page, don't restore - use theme green while contact loads
+    if (isConnectPage) {
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
+      document.documentElement.style.backgroundColor = COLORS.themeGreen;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
+      updateThemeColorMeta(COLORS.themeGreen);
+      console.log('[LayoutBackground] Mount: Setting theme green for /connect page (waiting for contact)');
+      setCachedParticleColors(null); // Clear cached particle colors
       return;
     }
 
@@ -328,7 +344,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Clear cached colors if userId doesn't match
       setCachedParticleColors(null);
     }
-  }, [params?.userId, session, status]);
+  }, [params?.userId, session, status, pathname]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {

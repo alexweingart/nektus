@@ -44,12 +44,12 @@ export default function ContactLayout({
           // Always dispatch match-found event to signal loading complete
           if (savedContact.backgroundColors) {
             window.dispatchEvent(new CustomEvent('match-found', {
-              detail: { backgroundColors: savedContact.backgroundColors }
+              detail: { backgroundColors: savedContact.backgroundColors, loaded: true }
             }));
           } else {
-            // No colors - dispatch empty event to signal completion
+            // No colors - dispatch event with loaded flag to trigger theme green
             window.dispatchEvent(new CustomEvent('match-found', {
-              detail: {}
+              detail: { loaded: true }
             }));
 
             // Try color extraction in background (non-blocking)
@@ -62,7 +62,7 @@ export default function ContactLayout({
               if (data?.success && data?.backgroundColors) {
                 // Update with extracted colors
                 window.dispatchEvent(new CustomEvent('match-found', {
-                  detail: { backgroundColors: data.backgroundColors }
+                  detail: { backgroundColors: data.backgroundColors, loaded: true }
                 }));
               }
             })

@@ -18,6 +18,7 @@ import { getFieldValue } from '@/lib/client/profile/transforms';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/lib/config/firebase/client';
+import { useCalendarLocationManagement } from '@/lib/hooks/use-calendar-location-management';
 
 // Module-level tracking that persists across component mounts
 let lastPreFetchTime = 0;
@@ -39,29 +40,20 @@ export const HistoryView: React.FC = () => {
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const hasFetchedSlotsRef = useRef(false);
 
-  // Handle calendar OAuth callback - show success modal when calendar is added
-  useEffect(() => {
-    const calendarAdded = searchParams.get('calendar');
-    if (calendarAdded === 'added' && contacts.length > 0) {
-      // Clean up URL parameter
-      const url = new URL(window.location.href);
-      url.searchParams.delete('calendar');
-      window.history.replaceState({}, document.title, url.toString());
-
+  // Calendar/location management with OAuth callback for smart-schedule navigation
+  useCalendarLocationManagement({
+    profile: userProfile,
+    saveProfile: async () => null, // Not needed for HistoryView
+    onCalendarAddedViaOAuth: () => {
       // Get the contact that was being scheduled from sessionStorage
       const contactIdForScheduling = sessionStorage.getItem('calendar-contact-id');
 
       if (contactIdForScheduling) {
-        const contact = contacts.find(c => c.userId === contactIdForScheduling);
-
-        if (contact) {
-          setSelectedContact(contact);
-          // Show success modal
-          setShowCalendarAddedModal(true);
-        }
+        sessionStorage.removeItem('calendar-contact-id');
+        router.push(`/contact/${contactIdForScheduling}/smart-schedule?from=history`);
       }
     }
-  }, [searchParams, contacts]);
+  });
 
 
   // Fetch contacts on component mount using ProfileContext cache

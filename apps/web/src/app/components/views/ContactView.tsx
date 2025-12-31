@@ -29,6 +29,7 @@ import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { useContactExchangeState } from '@/lib/hooks/use-contact-exchange-state';
 import { useSchedulingPreFetch } from '@/lib/hooks/use-scheduling-pre-fetch';
 import { useContactBackNavigation } from '@/lib/hooks/use-contact-back-navigation';
+import { useCalendarLocationManagement } from '@/lib/hooks/use-calendar-location-management';
 
 interface ContactViewProps {
   profile: UserProfile;
@@ -73,20 +74,19 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Additional modals not managed by the hook
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
-  const [showCalendarAddedModal, setShowCalendarAddedModal] = useState(false);
 
   // Back navigation with animation handling
   const { isExiting, handleBack } = useContactBackNavigation(isHistoricalMode, profile, onReject);
 
-
-  // Handle calendar OAuth callback - show success modal when calendar is added
-  useEffect(() => {
-    const calendarAdded = searchParams.get('calendar');
-    if (calendarAdded === 'added') {
-      cleanUrlParams(['calendar']);
-      setShowCalendarAddedModal(true);
+  // Calendar/location management with OAuth callback for smart-schedule navigation
+  useCalendarLocationManagement({
+    profile: userProfile,
+    saveProfile: async () => null, // Not needed for ContactView
+    onCalendarAddedViaOAuth: () => {
+      // Navigate directly to smart-schedule after OAuth calendar addition
+      router.push(`/contact/${profile.userId}/smart-schedule`);
     }
-  }, [searchParams]);
+  });
 
   const handleSaveContact = async () => {
     try {
@@ -235,13 +235,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     // After calendar is added, navigate to smart-schedule
-    router.push(`/contact/${profile.userId}/smart-schedule`);
-  };
-
-  // Handle calendar added success modal CTA
-  const handleCalendarAddedContinue = () => {
-    setShowCalendarAddedModal(false);
-    // Navigate to smart-schedule page
     router.push(`/contact/${profile.userId}/smart-schedule`);
   };
 
@@ -461,18 +454,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
-        />
-
-        {/* Calendar Added Success Modal */}
-        <StandardModal
-          isOpen={showCalendarAddedModal}
-          onClose={() => setShowCalendarAddedModal(false)}
-          title="Calendar Connected! 🎉"
-          subtitle="Your calendar has been connected successfully. Let's find a time to meet up!"
-          primaryButtonText="Find a time"
-          onPrimaryButtonClick={handleCalendarAddedContinue}
-          showSecondaryButton={false}
-          showCloseButton={false}
         />
       </div>
   );

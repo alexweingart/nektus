@@ -5,11 +5,13 @@ import type { UserProfile, UserLocation, Calendar } from '@/types/profile';
 interface UseCalendarLocationManagementProps {
   profile: UserProfile | null;
   saveProfile: (data: Partial<UserProfile>) => Promise<UserProfile | null>;
+  onCalendarAddedViaOAuth?: () => void; // Optional callback after OAuth success
 }
 
 export function useCalendarLocationManagement({
   profile,
-  saveProfile
+  saveProfile,
+  onCalendarAddedViaOAuth
 }: UseCalendarLocationManagementProps) {
   const router = useRouter();
 
@@ -21,17 +23,24 @@ export function useCalendarLocationManagement({
     const calendarAdded = urlParams.get('calendar');
 
     if (calendarAdded === 'added') {
-      console.log('[useCalendarLocationManagement] Calendar added via OAuth, reloading...');
+      console.log('[useCalendarLocationManagement] Calendar added via OAuth');
 
       // Clean up URL parameter
       urlParams.delete('calendar');
       const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : '');
       window.history.replaceState({}, '', newUrl);
 
-      // Reload to fetch updated profile with new calendar
-      window.location.reload();
+      // Call the provided callback if available (e.g., navigate to smart-schedule)
+      if (onCalendarAddedViaOAuth) {
+        console.log('[useCalendarLocationManagement] Calling onCalendarAddedViaOAuth callback');
+        onCalendarAddedViaOAuth();
+      } else {
+        // Fallback: just reload to fetch updated profile
+        console.log('[useCalendarLocationManagement] No callback provided, reloading page');
+        window.location.reload();
+      }
     }
-  }, []);
+  }, [onCalendarAddedViaOAuth]);
 
   // Modal state
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
