@@ -14,6 +14,7 @@ interface IPLocationData {
   hosting?: boolean;
   vpn?: boolean;
   tor?: boolean;
+  bogon?: boolean;
   loc?: string; // "lat,lng"
 }
 
