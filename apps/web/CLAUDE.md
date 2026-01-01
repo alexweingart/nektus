@@ -20,6 +20,29 @@ Nektus is a Next.js 15 contact exchange application that enables real-time conta
 - `npm run dev:local:https` - Local HTTPS development
 - `npm run dev:ngrok` - Development with ngrok tunneling
 
+### Tailscale Development (Preferred for Testing)
+When starting the dev server for testing with auth, use the Tailscale URL `https://nekt.tail768878.ts.net`:
+
+1. Start the dev server bound to all interfaces:
+   ```bash
+   npm run dev:local
+   ```
+
+2. Ensure NEXTAUTH_URL in `.env.local` is set to:
+   ```
+   NEXTAUTH_URL=https://nekt.tail768878.ts.net
+   ```
+   Note: `npm run dev:local` will overwrite this to `http://local.nekt.us:3000`, so you may need to manually fix it after starting.
+
+3. Run `tailscale serve` in a separate terminal (foreground) to proxy HTTPS:
+   ```bash
+   tailscale serve http://localhost:3000
+   ```
+
+4. Access the app at: `https://nekt.tail768878.ts.net`
+
+This setup provides valid HTTPS certificates via Tailscale and is configured in Google OAuth console for authentication.
+
 ## Architecture Overview
 
 ### Core Components

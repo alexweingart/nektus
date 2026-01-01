@@ -229,7 +229,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               <div className="bio-content text-white">
                 <ReactMarkdown 
                   components={{
-                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
+                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
                     a: ({ node: _node, ...props }) => (
                       <a {...props} target="_blank" rel="noopener noreferrer" />
                     )
@@ -283,7 +283,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               <div className="bio-content text-white">
                 <ReactMarkdown 
                   components={{
-                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed" {...props} />,
+                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
                     a: ({ node: _node, ...props }) => (
                       <a {...props} target="_blank" rel="noopener noreferrer" />
                     )
