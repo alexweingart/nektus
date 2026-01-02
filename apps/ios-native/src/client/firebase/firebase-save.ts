@@ -150,7 +150,7 @@ export const ClientProfileService = {
         .doc(userId)
         .onSnapshot(
           (snap) => {
-            if (snap.exists) {
+            if (snap.exists()) {
               callback(snap.data() as UserProfile);
             } else {
               callback(null);
@@ -245,6 +245,36 @@ export const ClientProfileService = {
       } else {
         console.error('Failed to get contacts:', error);
         return [];
+      }
+    }
+  },
+
+  /**
+   * Gets a single contact by ID from the user's contacts collection
+   */
+  async getContactById(userId: string, contactUserId: string): Promise<SavedContact | null> {
+    try {
+      const doc = await firestore()
+        .collection('profiles')
+        .doc(userId)
+        .collection('contacts')
+        .doc(contactUserId)
+        .get();
+
+      if (!doc.exists) {
+        console.warn('Contact not found:', contactUserId);
+        return null;
+      }
+
+      return doc.data() as SavedContact;
+    } catch (error) {
+      const firestoreError = error as { code?: string };
+      if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+        console.warn('Permission denied when getting contact.');
+        return null;
+      } else {
+        console.error('Failed to get contact:', error);
+        return null;
       }
     }
   },

@@ -73,7 +73,7 @@ export function LayoutBackground({
     }
 
     // For profile context, use profile's background colors if available
-    if (particleContext === "profile" && profile?.backgroundColors?.length >= 3) {
+    if (particleContext === "profile" && profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
       const converted = convertToParticleColors(profile.backgroundColors);
       console.log('[LayoutBackground] Using profile colors:', {
         original: profile.backgroundColors,
@@ -95,13 +95,13 @@ export function LayoutBackground({
 
   // Use dominant color as background for proper gradient blending
   const effectiveBackgroundColor = useMemo(() => {
-    if (particleContext === "profile" && profile?.backgroundColors?.length >= 3) {
+    if (particleContext === "profile" && profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
       // Use dominant color (backgroundColors[0]) as container background
       // This ensures semi-transparent gradient colors blend correctly
       return profile.backgroundColors[0];
     }
     return backgroundColor;
-  }, [particleContext, profile?.backgroundColors, backgroundColor]);
+  }, [particleContext, profile, backgroundColor]);
 
   return (
     <View style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}>

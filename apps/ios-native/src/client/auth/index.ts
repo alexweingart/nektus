@@ -14,8 +14,6 @@ export {
 
 // Firebase Auth
 export {
-  getFirebaseApp,
-  getFirebaseAuth,
   getApiBaseUrl,
   signInWithToken,
   restoreSession,

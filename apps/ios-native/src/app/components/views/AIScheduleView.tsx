@@ -1,0 +1,404 @@
+/**
+ * AIScheduleView for iOS
+ * Adapted from: apps/web/src/app/components/views/AIScheduleView.tsx
+ *
+ * Changes from web:
+ * - Replaced Next.js navigation with React Navigation
+ * - Replaced useSession from next-auth with iOS SessionProvider
+ * - Replaced window.open with Linking.openURL
+ * - Replaced div/className with View/StyleSheet
+ * - Replaced ref scroll with ScrollView scrollToEnd
+ * - Added KeyboardAvoidingView for proper keyboard handling
+ * - Removed visualViewport handling (iOS handles keyboard natively)
+ * - Uses getApiBaseUrl for API calls
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Linking,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../../App';
+import { useSession } from '../../providers/SessionProvider';
+import { useProfile, type UserProfile, type SavedContact } from '../../context/ProfileContext';
+import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
+import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
+import type { Event, TimeSlot } from '@nektus/shared-types';
+import { LayoutBackground } from '../ui/layout/LayoutBackground';
+import { PageHeader } from '../ui/layout/PageHeader';
+import { MessageList } from '../ui/chat/MessageList';
+import { ChatInput } from '../ui/chat/ChatInput';
+
+type AIScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AISchedule'>;
+type AIScheduleViewRouteProp = RouteProp<RootStackParamList, 'AISchedule'>;
+
+interface AIMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+// Helper: Generate unique message IDs
+function generateMessageId(offset = 0): string {
+  return (Date.now() + offset).toString();
+}
+
+export function AIScheduleView() {
+  const navigation = useNavigation<AIScheduleViewNavigationProp>();
+  const route = useRoute<AIScheduleViewRouteProp>();
+  const { contactUserId } = route.params;
+
+  const { data: session } = useSession();
+  const { profile: currentUserProfile, getContact } = useProfile();
+  const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
+  const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const contactType = savedContact?.contactType || 'personal';
+  const apiBaseUrl = getApiBaseUrl();
+
+  // Chat interface state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('\u200B'); // Zero-width space to prevent iOS positioning bug
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [showChatInput, setShowChatInput] = useState(false);
+
+  // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
+  const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
+  const hasFetchedSlotsRef = useRef(false);
+  const prevMessagesLengthRef = useRef(messages.length);
+
+  // Initialize streaming AI hook
+  const { handleStreamingResponse } = useStreamingAI({
+    onUpdateMessages: setMessages,
+    onUpdateConversationHistory: setConversationHistory,
+  });
+
+  // Load contact profile
+  const loadProfiles = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      // Get contact from cache
+      const contact = getContact(contactUserId);
+
+      if (contact) {
+        // Build a profile-like object from saved contact
+        // Using 'unknown' cast since we only need subset of UserProfile fields
+        setContactProfile({
+          id: contact.userId,
+          userId: contact.userId,
+          contactEntries: [
+            { fieldType: 'name', value: contact.odtName },
+            ...(contact.email ? [{ fieldType: 'email', value: contact.email }] : []),
+            ...(contact.phone ? [{ fieldType: 'phone', value: contact.phone }] : []),
+          ],
+          profileImage: contact.profileImage,
+        } as unknown as UserProfile);
+        setSavedContact(contact);
+      }
+    } catch (error) {
+      console.error('Error loading profiles:', error);
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  }, [contactUserId, session?.user?.id, navigation, getContact]);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  // Pre-fetch common time slots when profiles are loaded (only once)
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchCommonTimeSlots = async () => {
+      const currentUser = getCurrentUser();
+      if (!session?.user?.id || !contactUserId || !currentUser) return;
+      if (hasFetchedSlotsRef.current) return;
+
+      hasFetchedSlotsRef.current = true;
+
+      try {
+        console.log('Pre-fetching common time slots for AI scheduling...');
+
+        const idToken = await getIdToken();
+
+        const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            user1Id: session.user.id,
+            user2Id: contactUserId,
+            duration: 30,
+            calendarType: contactType,
+          }),
+          signal: abortController.signal,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const slots = data.slots || [];
+          commonTimeSlotsRef.current = slots;
+          console.log(`Pre-fetched ${slots.length} common time slots`);
+        } else {
+          console.error(`Failed to pre-fetch common times: ${response.status}`);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Pre-fetch cancelled (component unmounted)');
+        } else {
+          console.error('Error pre-fetching common times:', error);
+        }
+      }
+    };
+
+    if (contactProfile && currentUserProfile) {
+      fetchCommonTimeSlots();
+    }
+
+    return () => {
+      abortController.abort();
+    };
+  }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType, apiBaseUrl]);
+
+  // Initialize chat with AI greeting when component mounts
+  useEffect(() => {
+    if (contactProfile && messages.length === 0) {
+      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'this contact';
+      setMessages([{
+        id: '1',
+        type: 'ai',
+        content: `I'll help you find the perfect time & place to meet with **${contactName}**. Can you let me know:
+
+- How long you want to meet
+- Days or times you're free
+- What type of place you'd like to meet at
+
+And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!`,
+      }]);
+    }
+  }, [contactProfile, messages.length]);
+
+  // Auto-scroll when new messages are added
+  useEffect(() => {
+    if (messages.length > prevMessagesLengthRef.current && messages.length > 1) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages]);
+
+  const handleSend = useCallback(async () => {
+    const actualInput = input.replace(/\u200B/g, '').trim();
+
+    if (!actualInput || isProcessing || !currentUserProfile || !contactProfile || !session) return;
+
+    const userMessage: ChatMessage = {
+      id: generateMessageId(),
+      type: 'user',
+      content: actualInput,
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // Add typing indicator immediately
+    const typingIndicatorId = generateMessageId(1);
+    setMessages(prev => [...prev, {
+      id: typingIndicatorId,
+      type: 'ai',
+      content: '',
+      isProcessing: true,
+    }]);
+
+    // Add user message to conversation history
+    const newUserAIMessage: AIMessage = {
+      role: 'user',
+      content: actualInput,
+      timestamp: new Date(),
+    };
+
+    setInput('\u200B');
+    setIsProcessing(true);
+
+    try {
+      // Get user locations from the locations array
+      const currentUserLoc = currentUserProfile.locations?.find(
+        loc => loc.section === contactType
+      );
+      const currentUserLocation = currentUserLoc
+        ? currentUserLoc.address
+          ? `${currentUserLoc.address}, ${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+          : `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
+        : '';
+
+      const contactLoc = contactProfile.locations?.find(
+        loc => loc.section === contactType
+      );
+      const contactLocation = contactLoc
+        ? contactLoc.address
+          ? `${contactLoc.address}, ${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+          : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
+        : '';
+
+      const currentUserCoordinates = currentUserLoc?.coordinates;
+      const contactCoordinates = contactLoc?.coordinates;
+
+      const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
+      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
+
+      const idToken = await getIdToken();
+
+      const response = await fetch(`${apiBaseUrl}/api/scheduling/ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          userMessage: actualInput,
+          conversationHistory,
+          user1Id: session.user.id,
+          user2Id: contactUserId,
+          user2Name: contactName,
+          user2Email: contactEmail,
+          user1Location: currentUserLocation,
+          user2Location: contactLocation,
+          user1Coordinates: currentUserCoordinates,
+          user2Coordinates: contactCoordinates,
+          calendarType: contactType,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          availableTimeSlots: commonTimeSlotsRef.current,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI scheduling failed: ${response.statusText}`);
+      }
+
+      // Handle streaming response
+      await handleStreamingResponse(response, newUserAIMessage, generateMessageId);
+
+    } catch (error) {
+      console.error('Error processing AI request:', error);
+
+      const errorMessage: ChatMessage = {
+        id: generateMessageId(1),
+        type: 'ai',
+        content: 'Sorry, I had trouble processing your request. Please try again with a different approach.',
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse, apiBaseUrl]);
+
+  const handleScheduleEvent = useCallback((event: Event) => {
+    if (!event.calendar_urls?.google) {
+      return;
+    }
+
+    // Open the pre-generated calendar URL
+    Linking.openURL(event.calendar_urls.google);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  // Wait 1.5 seconds before showing ChatInput
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowChatInput(true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading || !contactProfile || !currentUserProfile) {
+    return (
+      <LayoutBackground showParticles={false}>
+        <View style={styles.container}>
+          <PageHeader title="Find a Time" onBack={handleBack} />
+        </View>
+      </LayoutBackground>
+    );
+  }
+
+  return (
+    <LayoutBackground showParticles={false}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.container}>
+          <PageHeader title="Find a Time" onBack={handleBack} />
+
+          {/* Messages */}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
+          </ScrollView>
+
+          {/* Chat Input - appears at 1.5s, content fades in */}
+          {showChatInput && (
+            <ChatInput
+              value={input}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
+                  setInput('\u200B');
+                } else {
+                  setInput(newValue);
+                }
+              }}
+              onSend={handleSend}
+              disabled={false}
+              sendDisabled={isProcessing}
+              fadeIn={true}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </LayoutBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 16,
+    paddingBottom: 200, // Extra padding for fixed input
+  },
+});
+
+export default AIScheduleView;

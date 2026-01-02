@@ -73,6 +73,24 @@ npm run build:ios
 - If suggesting rebuild, recommend incremental approach first
 - Only suggest clean builds for dependency changes or build errors
 
+## CRITICAL: Dependency Version Constraints
+
+### react-native-svg Version
+**MUST use version 15.12.1** - This is the version compatible with Expo SDK 54.
+
+If you see the error `Tried to register two views with the same name RNSVGCircle`, it means there are multiple versions of react-native-svg being bundled. The fix is:
+
+1. Ensure `react-native-svg` in package.json is exactly `15.12.1` (no caret)
+2. Ensure root package.json has an override: `"overrides": { "react-native-svg": "15.12.1" }`
+3. Clear bun cache and reinstall:
+   ```bash
+   rm -rf ~/.bun/install/cache
+   rm -rf node_modules apps/*/node_modules packages/*/node_modules bun.lock
+   bun install
+   ```
+
+**DO NOT** upgrade to 15.15.1 or other versions - they are not compatible with this Expo SDK version.
+
 ## Development Architecture Principle
 
 **iOS-First Architecture Design**

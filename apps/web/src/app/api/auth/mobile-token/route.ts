@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
+import { jwtVerify, createRemoteJWKSet } from "jose";
 import { createCustomTokenWithCorrectSub } from "@/server/config/firebase";
 import { ServerProfileService } from "@/server/profile/create";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Apple's JWKS endpoint for verifying identity tokens
+const appleJWKS = createRemoteJWKSet(
+  new URL("https://appleid.apple.com/auth/keys")
+);
 
 interface GoogleUserInfo {
   sub: string;
@@ -89,7 +95,8 @@ async function exchangeCodeForTokens(
  *
  * This endpoint handles authentication for the iOS app:
  * 1. Receives a Google ID token OR access token from expo-auth-session
- * 2. Verifies the token with Google
+ *    OR an Apple identity token from Sign in with Apple
+ * 2. Verifies the token with Google or Apple
  * 3. Creates a Firebase custom token for the user
  * 4. Creates/retrieves the user's profile
  * 5. Returns both the Firebase token and profile data
@@ -97,11 +104,21 @@ async function exchangeCodeForTokens(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { googleIdToken, googleAccessToken, googleAuthorizationCode, codeVerifier, redirectUri } = body;
+    const {
+      googleIdToken,
+      googleAccessToken,
+      googleAuthorizationCode,
+      codeVerifier,
+      redirectUri,
+      // Apple Sign-in parameters
+      appleIdentityToken,
+      appleFullName,
+      appleEmail,
+    } = body;
 
-    if (!googleIdToken && !googleAccessToken && !googleAuthorizationCode) {
+    if (!googleIdToken && !googleAccessToken && !googleAuthorizationCode && !appleIdentityToken) {
       return NextResponse.json(
-        { error: "Missing googleIdToken, googleAccessToken, or googleAuthorizationCode" },
+        { error: "Missing authentication token (Google or Apple)" },
         { status: 400 }
       );
     }
@@ -223,6 +240,49 @@ export async function POST(req: NextRequest) {
         console.error("[mobile-token] Failed to exchange authorization code:", codeError);
         return NextResponse.json(
           { error: "Failed to exchange authorization code" },
+          { status: 401 }
+        );
+      }
+    } else if (appleIdentityToken) {
+      // Verify Apple identity token
+      try {
+        console.log("[mobile-token] Verifying Apple identity token");
+
+        // Verify the JWT signature against Apple's JWKS
+        const { payload } = await jwtVerify(appleIdentityToken, appleJWKS, {
+          issuer: "https://appleid.apple.com",
+          audience: "com.nektus.app", // Main app bundle ID
+        });
+
+        if (!payload.sub) {
+          return NextResponse.json(
+            { error: "Invalid Apple token - no user ID" },
+            { status: 401 }
+          );
+        }
+
+        // Apple uses the sub claim as the unique user identifier
+        // Prefix with "apple_" to distinguish from Google users
+        userId = `apple_${payload.sub}`;
+
+        // Build user name from provided fullName (Apple only provides on first sign-in)
+        let userName: string | null = null;
+        if (appleFullName) {
+          const parts = [appleFullName.givenName, appleFullName.familyName].filter(Boolean);
+          userName = parts.length > 0 ? parts.join(" ") : null;
+        }
+
+        userInfo = {
+          name: userName,
+          email: appleEmail || (payload.email as string) || null,
+          image: null, // Apple doesn't provide profile images
+        };
+
+        console.log("[mobile-token] Verified Apple token for user:", userId);
+      } catch (appleError) {
+        console.error("[mobile-token] Failed to verify Apple identity token:", appleError);
+        return NextResponse.json(
+          { error: "Invalid Apple identity token" },
           { status: 401 }
         );
       }

@@ -9,14 +9,23 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from '@react-native-community/blur';
 import Svg, { Path } from 'react-native-svg';
+import QRCode from 'react-native-qrcode-svg';
 import Avatar from '../elements/Avatar';
 import { SocialIconsList } from '../elements/SocialIconsList';
 import { ProfileViewSelector } from '../controls/ProfileViewSelector';
 import { Heading, BodyText } from '../Typography';
+import { getApiBaseUrl } from '@nektus/shared-client';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 
 type ProfileViewMode = 'Personal' | 'Work';
 type SharingCategory = 'Personal' | 'Work';
+
+interface ProfileAnimatedValues {
+  scale: Animated.Value;
+  translateY: Animated.Value;
+  opacity: Animated.Value;
+  rotation: Animated.Value;
+}
 
 interface ProfileInfoProps {
   profile: UserProfile;
@@ -24,6 +33,9 @@ interface ProfileInfoProps {
   bioContent: string;
   isLoadingProfile?: boolean;
   isGoogleInitials?: boolean; // Whether Google profile has auto-generated initials
+  showQRCode?: boolean; // Whether to show QR code instead of profile details
+  matchToken?: string; // Token for QR code URL
+  animatedValues?: ProfileAnimatedValues; // Animation values from useProfileAnimations
 }
 
 /**
@@ -61,11 +73,19 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   profileImageSrc,
   bioContent,
   isLoadingProfile = false,
-  isGoogleInitials = false
+  isGoogleInitials = false,
+  showQRCode = false,
+  matchToken,
+  animatedValues,
 }) => {
+  // Get base URL for QR code
+  const apiBaseUrl = getApiBaseUrl();
+  // Convert API base URL to web URL (remove /api if present, use web domain)
+  const webBaseUrl = apiBaseUrl.replace('/api', '').replace('api.', '');
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0); // Track content height for stable QR transition
   const containerWidthRef = useRef(0);
   const selectedModeRef = useRef<ProfileViewMode>('Personal');
   const translateX = useRef(new Animated.Value(0)).current;
@@ -115,12 +135,16 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     return profile?.contactEntries || [];
   }, [profile, selectedMode, hasLoadedFromStorage]);
 
-  // Handle layout to measure container width
+  // Handle layout to measure container width and content height
   const handleLayout = (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    console.log('[ProfileInfo] Layout measured, width:', width);
+    const { width, height } = event.nativeEvent.layout;
+    console.log('[ProfileInfo] Layout measured, width:', width, 'height:', height);
     containerWidthRef.current = width;
     setContainerWidth(width); // For rendering
+    // Only capture height when not showing QR code (to maintain stable size)
+    if (!showQRCode && height > 0) {
+      setContentHeight(height);
+    }
   };
 
   // Handle mode change from selector
@@ -202,8 +226,26 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }).start();
   }, [selectedMode, translateX]);
 
+  // Build rotation interpolation for the profile card wobble effect
+  const rotationInterpolation = animatedValues?.rotation.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-2deg', '0deg', '2deg'],
+  });
+
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={[
+        styles.container,
+        animatedValues && {
+          opacity: animatedValues.opacity,
+          transform: [
+            { scale: animatedValues.scale },
+            { translateY: animatedValues.translateY },
+            { rotate: rotationInterpolation || '0deg' },
+          ],
+        },
+      ]}
+    >
       {/* Profile Image */}
       <View style={styles.profileImageContainer}>
         <View style={styles.avatarBorder}>
@@ -218,7 +260,16 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
       </View>
 
       {/* Carousel Container - Full width background */}
-      <View style={styles.cardContainer} onLayout={handleLayout}>
+      {/* Use py-6 (24px) padding for QR mode, py-4 (16px) for normal - matching web */}
+      <View
+        style={[
+          styles.cardContainer,
+          { paddingVertical: showQRCode ? 24 : 16 },
+          // Maintain stable height when showing QR code
+          showQRCode && contentHeight > 0 ? { minHeight: contentHeight } : undefined,
+        ]}
+        onLayout={handleLayout}
+      >
         {/* Backdrop blur matching web */}
         <BlurView
           style={StyleSheet.absoluteFillObject}
@@ -226,6 +277,22 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           blurAmount={16}
           reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
         />
+
+        {/* QR Code Display - shows when exchange is active */}
+        {showQRCode && matchToken ? (
+          <View style={[
+            styles.qrCodeContainer,
+            // Use measured height minus padding difference (24-16=8px each side = 16px total)
+            contentHeight > 0 ? { height: contentHeight - 16 } : undefined,
+          ]}>
+            <QRCode
+              value={`${webBaseUrl}/connect?token=${matchToken}`}
+              size={Math.min(containerWidth - 48, contentHeight > 0 ? contentHeight - 32 : 260)} // Match web's sizing logic
+              color="#FFFFFF"
+              backgroundColor="transparent"
+            />
+          </View>
+        ) : (
         <Animated.View
           style={[
             styles.carouselContainer,
@@ -321,17 +388,20 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             </View>
           </View>
         </Animated.View>
+        )}
 
-        {/* Profile View Selector */}
-        <View style={styles.selectorContainer}>
-          <ProfileViewSelector
-            selected={selectedMode}
-            onSelect={handleModeChange}
-            tintColor={profile?.backgroundColors?.[2]}
-          />
-        </View>
+        {/* Profile View Selector - only show when not showing QR code */}
+        {!showQRCode && (
+          <View style={styles.selectorContainer}>
+            <ProfileViewSelector
+              selected={selectedMode}
+              onSelect={handleModeChange}
+              tintColor={profile?.backgroundColors?.[2]}
+            />
+          </View>
+        )}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -360,10 +430,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent', // BlurView now handles background
     borderRadius: 16,
     overflow: 'hidden',
-    paddingVertical: 16,
+    // paddingVertical is set dynamically: 24 for QR mode, 16 for normal (matching web py-6/py-4)
   },
   carouselContainer: {
     flexDirection: 'row',
+  },
+  qrCodeContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24, // Match web's px-6
   },
   viewContainer: {
     paddingHorizontal: 24,

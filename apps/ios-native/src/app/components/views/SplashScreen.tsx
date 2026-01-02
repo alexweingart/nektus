@@ -9,7 +9,7 @@ export function SplashScreen() {
     "rgba(34, 197, 94, 0.3)",
     "rgba(34, 197, 94, 0.12)",
     "#0a0f1a",
-  ];
+  ] as const;
 
   return (
     <View style={styles.container}>

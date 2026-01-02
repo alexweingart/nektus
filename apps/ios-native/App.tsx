@@ -12,6 +12,13 @@ import { ProfileSetupView } from "./src/app/components/views/ProfileSetupView";
 import { ProfileView } from "./src/app/components/views/ProfileView";
 import { PrivacyView } from "./src/app/components/views/PrivacyView";
 import { TermsView } from "./src/app/components/views/TermsView";
+import { EditProfileView } from "./src/app/components/views/EditProfileView";
+import { ContactView } from "./src/app/components/views/ContactView";
+import { HistoryView } from "./src/app/components/views/HistoryView";
+import { CalendarView } from "./src/app/components/views/CalendarView";
+import { LocationView } from "./src/app/components/views/LocationView";
+import { SmartScheduleView } from "./src/app/components/views/SmartScheduleView";
+import { AIScheduleView } from "./src/app/components/views/AIScheduleView";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();
@@ -23,6 +30,14 @@ export type RootStackParamList = {
   Terms: undefined;
   ProfileSetup: undefined;
   Profile: undefined;
+  EditProfile: undefined;
+  Contact: { userId: string; token: string; isHistoricalMode?: boolean };
+  History: undefined;
+  // Phase 2: Scheduling
+  Calendar: { section: 'personal' | 'work' };
+  Location: { section: 'personal' | 'work' };
+  SmartSchedule: { contactUserId: string };
+  AISchedule: { contactUserId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -68,7 +83,8 @@ function AppContent() {
       initialRouteName={getInitialRouteName()}
       screenOptions={{
         headerShown: false,
-        animation: "slide_from_right",
+        animation: "fade", // Crossfade transition matching web
+        animationDuration: 300,
         contentStyle: { backgroundColor: "transparent" },
       }}
     >
@@ -76,22 +92,29 @@ function AppContent() {
         // Unauthenticated screens
         <>
           <Stack.Screen name="Home" component={HomePage} />
-          <Stack.Screen name="Privacy" component={PrivacyView} />
-          <Stack.Screen name="Terms" component={TermsView} />
+          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
         </>
       ) : needsSetup ? (
         // Profile setup screens
         <>
           <Stack.Screen name="ProfileSetup" component={ProfileSetupView} />
-          <Stack.Screen name="Privacy" component={PrivacyView} />
-          <Stack.Screen name="Terms" component={TermsView} />
+          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
         </>
       ) : (
         // Authenticated screens
         <>
           <Stack.Screen name="Profile" component={ProfileView} />
-          <Stack.Screen name="Privacy" component={PrivacyView} />
-          <Stack.Screen name="Terms" component={TermsView} />
+          <Stack.Screen name="EditProfile" component={EditProfileView} options={{ animation: "slide_from_bottom" }} />
+          <Stack.Screen name="Contact" component={ContactView} />
+          <Stack.Screen name="History" component={HistoryView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Calendar" component={CalendarView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Location" component={LocationView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="SmartSchedule" component={SmartScheduleView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="AISchedule" component={AIScheduleView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
         </>
       )}
     </Stack.Navigator>

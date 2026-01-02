@@ -2,9 +2,10 @@
  * Button component - adapted from web
  * Supports white, circle, theme, and destructive variants
  * Includes radial gradient effect for white/circle/theme variants
+ * Features spring animation on press (scale 0.96 → 1 with spring easing)
  */
 
-import React, { ReactNode } from "react";
+import React, { ReactNode, useRef, useCallback, useMemo } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -13,6 +14,7 @@ import {
   ViewStyle,
   TextStyle,
   View,
+  Animated,
 } from "react-native";
 import { BlurView } from "@react-native-community/blur";
 import { RadialGradient } from "react-native-gradients";
@@ -47,6 +49,31 @@ export function Button({
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
+  // Spring animation for press effect
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = useCallback(() => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.96,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [scaleAnim]);
+
+  const handlePressOut = useCallback(() => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 4,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [scaleAnim]);
+
+  const handlePress = useCallback(() => {
+    console.log('[Button] onPress called, variant:', variant);
+    onPress();
+  }, [onPress, variant]);
+
   // Determine if variant has radial gradient (white, circle, theme, primary)
   const hasGradient = variant === "white" || variant === "circle" || variant === "theme" || variant === "primary";
 
@@ -58,10 +85,10 @@ export function Button({
 
   // Size configurations matching web
   const sizeConfig = {
-    md: { height: 48, paddingHorizontal: 24, fontSize: 16, minWidth: 200 }, // h-12 px-6 text-base
-    lg: { height: 56, paddingHorizontal: 32, fontSize: 18, minWidth: 200 }, // h-14 px-8 text-lg
-    xl: { height: 64, paddingHorizontal: 40, fontSize: 20, minWidth: 200 }, // h-16 px-10 text-xl
-    icon: { height: 56, paddingHorizontal: 0, fontSize: 14, minWidth: 56 }, // h-14 w-14 p-0 text-sm (web uses w-14 h-14)
+    md: { height: 48, paddingHorizontal: 24, fontSize: 16, fontWeight: '500' as const, minWidth: 200 }, // h-12 px-6 text-base
+    lg: { height: 56, paddingHorizontal: 32, fontSize: 18, fontWeight: '500' as const, minWidth: 200 }, // h-14 px-8 text-lg
+    xl: { height: 64, paddingHorizontal: 40, fontSize: 20, fontWeight: '600' as const, minWidth: 200 }, // h-16 px-10 text-xl font-semibold
+    icon: { height: 56, paddingHorizontal: 0, fontSize: 14, fontWeight: '500' as const, minWidth: 56 }, // h-14 w-14 p-0 text-sm
   };
 
   const currentSize = sizeConfig[size];
@@ -80,17 +107,17 @@ export function Button({
       paddingHorizontal: currentSize.paddingHorizontal,
     },
     styles[variant],
-    isDisabled && styles.disabled,
+    isDisabled ? styles.disabled : undefined,
     style,
-  ];
+  ].filter((s): s is ViewStyle => Boolean(s));
 
   // Text styles
   const textStyles: TextStyle[] = [
     styles.text,
-    { fontSize: currentSize.fontSize },
+    { fontSize: currentSize.fontSize, fontWeight: currentSize.fontWeight },
     styles[`${variant}Text` as keyof typeof styles] as TextStyle,
     textStyle,
-  ];
+  ].filter((s): s is TextStyle => s !== undefined);
 
   const content = (
     <>
@@ -118,34 +145,38 @@ export function Button({
   );
 
   return (
-    <TouchableOpacity
-      style={containerStyles}
-      onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.7}
-    >
-      {/* Backdrop blur + radial gradient background matching web */}
-      {hasGradient && (
-        <View style={StyleSheet.absoluteFillObject}>
-          {/* Backdrop blur (matches web's backdrop-blur-lg) */}
-          <BlurView
-            style={StyleSheet.absoluteFillObject}
-            blurType="light"
-            blurAmount={16}
-            reducedTransparencyFallbackColor="white"
-          />
-          {/* Radial gradient overlay */}
-          <RadialGradient
-            x="50%"
-            y="50%"
-            rx="71%"
-            ry="71%"
-            colorList={gradientColorList}
-          />
-        </View>
-      )}
-      <View style={styles.contentRow}>{content}</View>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={containerStyles}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        activeOpacity={1} // We handle visual feedback via scale animation
+      >
+        {/* Backdrop blur + radial gradient background matching web */}
+        {hasGradient && (
+          <View style={StyleSheet.absoluteFillObject}>
+            {/* Backdrop blur (matches web's backdrop-blur-lg) */}
+            <BlurView
+              style={StyleSheet.absoluteFillObject}
+              blurType="light"
+              blurAmount={16}
+              reducedTransparencyFallbackColor="white"
+            />
+            {/* Radial gradient overlay */}
+            <RadialGradient
+              x="50%"
+              y="50%"
+              rx="71%"
+              ry="71%"
+              colorList={gradientColorList}
+            />
+          </View>
+        )}
+        <View style={styles.contentRow}>{content}</View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -208,9 +239,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Text styles
+  // Text styles - matching web's Tailwind typography
   text: {
-    fontWeight: "500",
+    fontFamily: 'System', // San Francisco on iOS, matches web's system font
+    letterSpacing: 0.2, // Slight letter spacing for better readability
   },
   whiteText: {
     color: "#111827", // gray-900

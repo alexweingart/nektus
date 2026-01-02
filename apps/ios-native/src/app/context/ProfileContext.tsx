@@ -24,7 +24,9 @@ import {
   ContactEntry,
   UserLocation,
   ProfileSaveService,
+  getFieldValue,
 } from "@nektus/shared-client";
+import type { SavedContact as SharedSavedContact } from "@nektus/shared-types";
 import {
   ClientProfileService,
   initializeFirebaseServices,
@@ -46,6 +48,7 @@ export interface SavedContact {
   profileImage?: string;
   phone?: string;
   email?: string;
+  contactType?: 'personal' | 'work';
 }
 
 interface ProfileContextType {
@@ -65,6 +68,10 @@ interface ProfileContextType {
   getContact: (contactUserId: string) => SavedContact | null;
   // Asset generation state
   assetGeneration: AssetGenerationState;
+  // Streaming states for immediate UI feedback (extracted from assetGeneration for convenience)
+  streamingProfileImage: string | null;
+  isGoogleInitials: boolean;
+  isCheckingGoogleImage: boolean;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -188,7 +195,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, session?.user?.id, isLoading]);
+  }, [profile?.userId, session?.user?.id, isLoading]);
 
   // Save profile using ProfileSaveService
   const saveProfile = useCallback(
@@ -276,18 +283,20 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       }
 
       try {
-        const firebaseContacts = await ClientProfileService.getContacts(
+        const sharedContacts: SharedSavedContact[] = await ClientProfileService.getContacts(
           session.user.id
         );
 
-        const loadedContacts: SavedContact[] = firebaseContacts.map((contact) => ({
-          odtId: contact.userId, // Use userId as odtId for consistency
-          odtName: contact.odtName || "",
-          userId: contact.userId || "",
-          addedAt: contact.addedAt || Date.now(),
+        // Transform shared-types SavedContact to local SavedContact format
+        const loadedContacts: SavedContact[] = sharedContacts.map((contact) => ({
+          odtId: contact.userId,
+          odtName: getFieldValue(contact.contactEntries, 'name') || '',
+          userId: contact.userId,
+          addedAt: contact.addedAt,
           profileImage: contact.profileImage,
-          phone: contact.phone,
-          email: contact.email,
+          phone: getFieldValue(contact.contactEntries, 'phone'),
+          email: getFieldValue(contact.contactEntries, 'email'),
+          contactType: contact.contactType,
         }));
 
         // Sort by addedAt (newest first)
@@ -331,6 +340,10 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         loadContacts,
         getContact,
         assetGeneration,
+        // Expose streaming states for convenience (matching web API)
+        streamingProfileImage: assetGeneration.streamingProfileImage,
+        isGoogleInitials: assetGeneration.isGoogleInitials,
+        isCheckingGoogleImage: assetGeneration.isCheckingGoogleImage,
       }}
     >
       {children}

@@ -64,12 +64,14 @@ export interface MotionDetectionResult {
 }
 
 // Exchange flow state management
-export type ExchangeStatus = 
+export type ExchangeStatus =
   | 'idle'
   | 'requesting-permission'
   | 'waiting-for-bump'
   | 'processing'
   | 'matched'
+  | 'qr-scan-pending'   // QR scanned, User B signing in
+  | 'qr-scan-matched'   // QR scan completed, ready to view
   | 'accepted'
   | 'rejected'
   | 'timeout'
@@ -79,6 +81,7 @@ export interface ContactExchangeState {
   status: ExchangeStatus;
   sessionId?: string;
   match?: ContactExchangeMatch & { profile: UserProfile };
+  qrToken?: string;  // Token from QR scan match
   error?: string;
 }
 

@@ -1,17 +1,20 @@
-import React, { useCallback, useMemo } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { View, Animated, StyleSheet, Alert } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useNavigation, CommonActions } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../../../App";
+import type { ExchangeStatus } from "@nektus/shared-types";
 import { ProfileInfo } from "../ui/modules/ProfileInfo";
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
-import { ExchangeButton } from "../ui/buttons/ExchangeButton";
+import { ExchangeButton, MatchResult } from "../ui/buttons/ExchangeButton";
+import { StandardModal } from "../ui/modals/StandardModal";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
+import { useProfileAnimations } from "../../../client/hooks/use-profile-animations";
 
 type ProfileViewNavigationProp = NativeStackNavigationProp<RootStackParamList, "Profile">;
 
@@ -26,8 +29,69 @@ const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): st
 
 export function ProfileView() {
   const { data: session, signOut } = useSession();
-  const { profile, refreshProfile } = useProfile();
+  const {
+    profile,
+    refreshProfile,
+    streamingProfileImage,
+    isGoogleInitials,
+    isCheckingGoogleImage,
+  } = useProfile();
   const navigation = useNavigation<ProfileViewNavigationProp>();
+
+  // Animation state
+  const {
+    animationPhase,
+    isExchanging: isAnimationExchanging,
+    animatedValues,
+    resetAnimations,
+    triggerEnterAnimation,
+  } = useProfileAnimations();
+
+  // Exchange state
+  const [exchangeStatus, setExchangeStatus] = useState<ExchangeStatus>("idle");
+  const [matchToken, setMatchToken] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastMatch, setLastMatch] = useState<MatchResult | null>(null);
+
+  // Determine if we're in an active exchange state
+  const isExchanging = ["waiting-for-bump", "processing", "qr-scan-pending"].includes(exchangeStatus);
+
+  // Determine if QR code should be shown
+  const showQRCode = isExchanging && matchToken !== null;
+
+  // Handle exchange status changes from ExchangeButton
+  const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
+    console.log("[ProfileView] Exchange status changed:", status);
+    setExchangeStatus(status);
+
+    // Clear QR token when exchange ends
+    if (["idle", "error", "timeout", "matched", "qr-scan-matched"].includes(status)) {
+      setMatchToken(null);
+    }
+  }, []);
+
+  // Handle match token changes (for QR code display)
+  const handleMatchTokenChange = useCallback((token: string | null) => {
+    console.log("[ProfileView] Match token changed:", token ? token.substring(0, 8) + "..." : null);
+    setMatchToken(token);
+  }, []);
+
+  // Handle successful match - show success modal
+  const handleMatch = useCallback((match: MatchResult) => {
+    const matchName = getFieldValue(match.profile.contactEntries, 'name') || 'New Contact';
+    console.log("[ProfileView] Match received:", matchName, "via", match.matchType);
+    setLastMatch(match);
+    setShowSuccessModal(true);
+  }, []);
+
+  // Handle cancel exchange
+  const handleCancelExchange = useCallback(() => {
+    console.log("[ProfileView] Cancel exchange requested");
+    // The ExchangeButton will handle the actual cancellation via its own state management
+    // This just resets our local state
+    setExchangeStatus("idle");
+    setMatchToken(null);
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -57,10 +121,27 @@ export function ProfileView() {
     return profileBio || 'My bio is going to be awesome once I create it.';
   }, [profile?.contactEntries]);
 
-  // Get profile image source
+  // Get profile image source - prioritize streaming image for immediate feedback
   const profileImageSrc = useMemo(() => {
-    return profile?.profileImage || session?.user?.image || undefined;
-  }, [profile?.profileImage, session?.user?.image]);
+    // Use streaming image if available (during generation)
+    if (streamingProfileImage) {
+      return streamingProfileImage;
+    }
+    // Hide Google image while checking or if confirmed as initials
+    const baseImageUrl = profile?.profileImage || session?.user?.image;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
+    if (isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)) {
+      return undefined;
+    }
+    return baseImageUrl || undefined;
+  }, [profile?.profileImage, session?.user?.image, streamingProfileImage, isGoogleInitials, isCheckingGoogleImage]);
+
+  // Calculate if we should show initials - true for confirmed Google initials or while checking
+  const shouldShowInitials = useMemo(() => {
+    const baseImageUrl = streamingProfileImage || profile?.profileImage || session?.user?.image;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
+    return isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
+  }, [streamingProfileImage, profile?.profileImage, session?.user?.image, isGoogleInitials, isCheckingGoogleImage]);
 
   // If no profile, show nothing (let loading state handle it)
   if (!profile) {
@@ -81,13 +162,21 @@ export function ProfileView() {
         showsVerticalScrollIndicator={false}
         onRefresh={handleRefresh}
       >
-        {/* Top Navigation Buttons */}
-        <View style={styles.headerButtons}>
+        {/* Top Navigation Buttons - Animated */}
+        <Animated.View
+          style={[
+            styles.headerButtons,
+            {
+              opacity: animatedValues.topButtonsOpacity,
+              transform: [{ translateY: animatedValues.topButtonsTranslateY }],
+            },
+          ]}
+        >
           {/* History Button (Clock Icon) */}
           <Button
             variant="circle"
             size="icon"
-            onPress={() => Alert.alert("History", "Navigation coming soon!")}
+            onPress={() => navigation.navigate("History")}
           >
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
               <Path
@@ -102,34 +191,93 @@ export function ProfileView() {
           <Button
             variant="circle"
             size="icon"
-            onPress={() => Alert.alert("Edit Profile", "Navigation coming soon!")}
+            onPress={() => navigation.navigate("EditProfile")}
           >
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
               <Path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
             </Svg>
           </Button>
-        </View>
+        </Animated.View>
 
-        {/* Profile Info with carousel */}
+        {/* Profile Info with carousel - shows QR code during exchange */}
         <ProfileInfo
           profile={profile}
           profileImageSrc={profileImageSrc}
           bioContent={bioContent}
           isLoadingProfile={false}
+          isGoogleInitials={shouldShowInitials}
+          showQRCode={showQRCode}
+          matchToken={matchToken || undefined}
+          animatedValues={{
+            scale: animatedValues.profileScale,
+            translateY: animatedValues.profileTranslateY,
+            opacity: animatedValues.profileOpacity,
+            rotation: animatedValues.profileRotation,
+          }}
         />
 
-        {/* Nekt Button */}
-        <View style={styles.nektButtonContainer}>
-          <ExchangeButton />
-        </View>
+        {/* Action Buttons - Animated */}
+        <Animated.View
+          style={[
+            styles.actionButtonsContainer,
+            {
+              opacity: animatedValues.actionButtonsOpacity,
+              transform: [{ scale: animatedValues.actionButtonsScale }],
+            },
+          ]}
+        >
+          {/* Nekt Button */}
+          <ExchangeButton
+            onStateChange={handleExchangeStatusChange}
+            onMatchTokenChange={handleMatchTokenChange}
+            onMatch={handleMatch}
+          />
 
-        {/* Sign Out Button */}
-        <View style={styles.footer}>
-          <SecondaryButton variant="destructive" onPress={handleSignOut}>
-            Sign Out
-          </SecondaryButton>
-        </View>
+          {/* Cancel Button - shows during exchange */}
+          {isExchanging && (
+            <View style={styles.cancelButtonContainer}>
+              <SecondaryButton onPress={handleCancelExchange}>
+                Cancel
+              </SecondaryButton>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Sign Out Button - hide during exchange */}
+        {!isExchanging && (
+          <View style={styles.footer}>
+            <SecondaryButton variant="destructive" onPress={handleSignOut}>
+              Sign Out
+            </SecondaryButton>
+          </View>
+        )}
       </PullToRefresh>
+
+      {/* Success Modal - shows after contact exchange */}
+      <StandardModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          setLastMatch(null);
+        }}
+        title={lastMatch ? `Connected with ${getFieldValue(lastMatch.profile.contactEntries, 'name') || 'someone new'}!` : "All set - new friend saved!"}
+        subtitle="Shoot them a quick text before you forget"
+        primaryButtonText="Say hey"
+        onPrimaryButtonClick={() => {
+          setShowSuccessModal(false);
+          // Navigate to Contact view to see full profile and say hi
+          if (lastMatch) {
+            navigation.navigate("Contact", {
+              userId: lastMatch.profile.userId,
+              token: lastMatch.token,
+              isHistoricalMode: false,
+            });
+          }
+          setLastMatch(null);
+        }}
+        secondaryButtonText="Maybe later"
+        showCloseButton={false}
+      />
     </LayoutBackground>
   );
 }
@@ -148,10 +296,13 @@ const styles = StyleSheet.create({
     width: "100%",
     // No horizontal padding - comes from scrollContent
   },
-  nektButtonContainer: {
+  actionButtonsContainer: {
     paddingTop: 16,
     width: "100%",
-    // No horizontal padding - comes from scrollContent
+    gap: 12,
+  },
+  cancelButtonContainer: {
+    alignItems: "center",
   },
   footer: {
     paddingTop: 24,

@@ -14,7 +14,7 @@ import React, {
   ReactNode,
 } from "react";
 import { Alert } from "react-native";
-import { User as FirebaseUser } from "firebase/auth";
+import type { User as FirebaseUser } from "../../types/firebase";
 import {
   restoreSession,
   signInWithToken,
@@ -26,6 +26,11 @@ import {
   exchangeGoogleAccessTokenForFirebase,
   MobileTokenResponse,
 } from "../../client/auth/google";
+import {
+  retrieveHandoffSession,
+  clearHandoffSession,
+  isFullApp,
+} from "../../client/auth/session-handoff";
 
 // Session user type matching web app's session.user structure
 export interface SessionUser {
@@ -54,6 +59,10 @@ interface SessionContextValue {
   signOut: () => Promise<void>;
   update: () => Promise<Session | null>;
   isSigningIn: boolean;
+  /** True if user just came from App Clip and needs to complete onboarding step 3 */
+  fromHandoff: boolean;
+  /** Call this after completing post-handoff onboarding */
+  clearHandoffFlag: () => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -66,8 +75,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [fromHandoff, setFromHandoff] = useState(false);
 
   const { signIn: googleSignIn, isReady: googleReady } = useGoogleAuth();
+
+  // Clear handoff flag after completing post-handoff onboarding
+  const clearHandoffFlag = useCallback(() => {
+    setFromHandoff(false);
+  }, []);
 
   // Convert Firebase user + server response to Session object
   const createSession = useCallback(
@@ -102,12 +117,61 @@ export function SessionProvider({ children }: SessionProviderProps) {
   useEffect(() => {
     const initSession = async () => {
       try {
+        // First, try to restore existing Firebase session
         const { restored, user, needsRefresh } = await restoreSession();
 
         if (restored && user) {
           setSession(createSession(user));
           setStatus("authenticated");
-        } else if (needsRefresh) {
+          return;
+        }
+
+        // If in full app, check for handoff session from App Clip
+        if (isFullApp()) {
+          console.log("[SessionProvider] Checking for handoff session...");
+          const handoff = await retrieveHandoffSession();
+
+          if (handoff) {
+            console.log("[SessionProvider] Found handoff session, signing in...");
+
+            try {
+              // Sign in with the handoff token
+              const user = await signInWithToken(
+                handoff.firebaseToken,
+                handoff.userId
+              );
+
+              // Create session from handoff data
+              const newSession: Session = {
+                user: {
+                  id: handoff.userId,
+                  name: handoff.userName,
+                  email: handoff.userEmail,
+                  image: null,
+                  backgroundImage: null,
+                },
+                firebaseToken: handoff.firebaseToken,
+              };
+
+              setSession(newSession);
+              setStatus("authenticated");
+
+              // Mark that we came from handoff (need to complete step 3)
+              setFromHandoff(true);
+
+              // Clear handoff after successful migration
+              await clearHandoffSession();
+
+              console.log("[SessionProvider] Handoff sign-in successful");
+              return;
+            } catch (handoffError) {
+              console.error("[SessionProvider] Handoff sign-in failed:", handoffError);
+              // Fall through to unauthenticated state
+            }
+          }
+        }
+
+        if (needsRefresh) {
           // Token expired, need to re-authenticate
           setStatus("unauthenticated");
         } else {
@@ -211,6 +275,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
     signOut,
     update,
     isSigningIn,
+    fromHandoff,
+    clearHandoffFlag,
   };
 
   return (

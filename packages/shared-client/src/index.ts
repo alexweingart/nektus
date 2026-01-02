@@ -28,6 +28,9 @@ export * from './profile';
 // Platform detection utilities
 export * from './platform-detection';
 
+// Contact utilities (vCard, etc.)
+export * from './contacts';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================

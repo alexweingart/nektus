@@ -10,7 +10,7 @@
  */
 
 import auth from '@react-native-firebase/auth';
-import type { User, AuthStateCallback } from "../../../types/firebase";
+import type { User, AuthStateCallback } from "../../types/firebase";
 
 /**
  * Get the API base URL for backend calls

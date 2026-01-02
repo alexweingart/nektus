@@ -1,10 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { Heading, Text } from '../ui/Typography';
+
+/**
+ * Check if the current device is iOS (iPhone, iPad, iPod)
+ */
+function isIOSDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+/**
+ * Open the App Clip for iOS users
+ * Uses the Smart App Banner meta tag approach or direct URL
+ */
+function openAppClip() {
+  // The App Clip is triggered via Smart App Banner or Universal Link
+  // For direct invocation, we use the app clip URL
+  // Note: This will open Safari/App Clip experience
+  window.location.href = 'https://nekt.us';
+}
 
 // Footer component exported separately so it can be rendered as a sibling to HomePage
 export const HomeFooter: React.FC = () => {
@@ -47,13 +66,19 @@ const GoogleIcon = () => (
 // Component handles just the welcome screen
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
+  const [isIOS, setIsIOS] = useState(false);
+
+  // Detect iOS on client-side
+  useEffect(() => {
+    setIsIOS(isIOSDevice());
+  }, []);
 
   const handleSignIn = async () => {
     // Check iOS PWA on every click (more reliable than state)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isIOSDeviceCheck = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    if (isStandalone && isIOSDevice) {
+    if (isStandalone && isIOSDeviceCheck) {
       // For iOS PWA: Navigate directly to Google OAuth, bypassing NextAuth sign-in page
       // This avoids the external redirect issue in PWA context
       const callbackUrl = `${window.location.origin}/api/auth/callback/google`;
@@ -73,6 +98,11 @@ const HomePage: React.FC = () => {
 
     // Standard sign-in for non-PWA
     signIn('google');
+  };
+
+  const handleGetStarted = () => {
+    // Trigger App Clip for iOS users
+    openAppClip();
   };
 
   return (
@@ -124,18 +154,31 @@ const HomePage: React.FC = () => {
           Exchange contacts & socials and schedule meetings in seconds
         </Text>
 
-        <Button
-          variant="white"
-          size="xl"
-          className="w-full mb-2"
-          onClick={handleSignIn}
-          icon={<GoogleIcon />}
-        >
-          Sign in with Google
-        </Button>
+        {isIOS ? (
+          // iOS: Show "Get Started" button that triggers App Clip
+          <Button
+            variant="white"
+            size="xl"
+            className="w-full mb-2"
+            onClick={handleGetStarted}
+          >
+            Get Started
+          </Button>
+        ) : (
+          // Non-iOS: Show Google Sign-in button
+          <Button
+            variant="white"
+            size="xl"
+            className="w-full mb-2"
+            onClick={handleSignIn}
+            icon={<GoogleIcon />}
+          >
+            Sign in with Google
+          </Button>
+        )}
 
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
-          to start nekt&apos;ing
+          {isIOS ? 'to get the app' : 'to start nekt\'ing'}
         </p>
         </div>
       </div>
