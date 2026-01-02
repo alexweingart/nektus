@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
       "associatedDomains": [
@@ -91,7 +91,6 @@
             "expo-dev-client",
             "expo-auth-session",
             "expo-web-browser",
-            "@react-native-community/blur",
             "react-native-qrcode-svg",
             "react-native-markdown-display",
             "react-native-gradients"
