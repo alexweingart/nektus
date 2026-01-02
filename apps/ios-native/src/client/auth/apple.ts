@@ -10,7 +10,7 @@
  */
 
 import * as AppleAuthentication from "expo-apple-authentication";
-import { getApiBaseUrl } from "./firebase";
+import { getApiBaseUrl } from "../config";
 
 export interface AppleAuthResult {
   success: boolean;

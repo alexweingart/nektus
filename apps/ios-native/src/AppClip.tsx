@@ -13,11 +13,10 @@
 
 import React from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { OnboardingView } from "./app/components/views/OnboardingView";
+import { AppClipOnboardingView } from "./app/components/views/AppClipOnboardingView";
 
 export default function AppClip() {
-  // App Clip doesn't need complex navigation or Firebase
-  // It just shows the onboarding flow and hands off to the full app
+  // App Clip uses minimal onboarding without Firebase SDK or expo-contacts
 
   const handleComplete = () => {
     // Onboarding complete in App Clip means user has:
@@ -29,11 +28,7 @@ export default function AppClip() {
 
   return (
     <SafeAreaProvider>
-      <OnboardingView
-        initialStep={1}
-        onComplete={handleComplete}
-        // No onSaveProfile - that happens in the full app
-      />
+      <AppClipOnboardingView onComplete={handleComplete} />
     </SafeAreaProvider>
   );
 }

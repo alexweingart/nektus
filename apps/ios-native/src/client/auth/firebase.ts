@@ -12,17 +12,8 @@
 import auth from '@react-native-firebase/auth';
 import type { User, AuthStateCallback } from "../../types/firebase";
 
-/**
- * Get the API base URL for backend calls
- */
-export function getApiBaseUrl(): string {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (apiUrl) {
-    return apiUrl;
-  }
-  // Default to production (with www subdomain)
-  return "https://www.nekt.us";
-}
+// Re-export for backwards compatibility
+export { getApiBaseUrl } from "../config";
 
 
 /**

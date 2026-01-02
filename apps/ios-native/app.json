@@ -79,7 +79,23 @@
           "targetSdkVersion": "15.1",
           "groupIdentifier": "group.com.nektus.app",
           "appleSignin": true,
-          "entryPoint": "./src/AppClip.tsx"
+          "entryPoint": "./src/AppClip.tsx",
+          "excludedPackages": [
+            "@react-native-firebase/app",
+            "@react-native-firebase/auth",
+            "@react-native-firebase/firestore",
+            "@react-native-firebase/storage",
+            "expo-contacts",
+            "expo-location",
+            "expo-sensors",
+            "expo-dev-client",
+            "expo-auth-session",
+            "expo-web-browser",
+            "@react-native-community/blur",
+            "react-native-qrcode-svg",
+            "react-native-markdown-display",
+            "react-native-gradients"
+          ]
         }
       ]
     ],
