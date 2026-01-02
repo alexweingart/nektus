@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
 import type { ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import { getExchangeMatch } from '@/server/contacts/matching';
@@ -101,9 +100,10 @@ export async function GET(
   try {
     const { token } = await context.params;
     console.log(`🔍 Pair GET request for token: ${token}`);
-    
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+
+    // Authenticate user (supports both NextAuth sessions and Firebase Bearer tokens)
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       console.log(`❌ Authentication required for token: ${token}`);
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -119,7 +119,7 @@ export async function GET(
       );
     }
 
-    console.log(`👤 User ${session.user.email} requesting pair data for token: ${token}`);
+    console.log(`👤 User ${user.id} (${user.source}) requesting pair data for token: ${token}`);
 
     // Get match data from Redis
     let matchData = await getExchangeMatch(token);
@@ -134,10 +134,10 @@ export async function GET(
 
       // IMPORTANT: Check if current user is User A (original QR shower)
       // If so, they should NOT create the match - they're just viewing their own QR result
-      const isUserA = waitingMatch.userA.userId === session.user.id;
+      const isUserA = waitingMatch.userA.userId === user.id;
 
       if (isUserA) {
-        console.log(`⚠️ User A (${session.user.id}) is viewing their own waiting exchange - not creating match`);
+        console.log(`⚠️ User A (${user.id}) is viewing their own waiting exchange - not creating match`);
         // Return waiting status - no match yet
         return NextResponse.json(
           { success: false, message: 'Waiting for someone to scan your QR code' },
@@ -145,12 +145,12 @@ export async function GET(
         );
       }
 
-      console.log(`🔓 QR scan detected! User B (${session.user.id}) is creating match`);
+      console.log(`🔓 QR scan detected! User B (${user.id}) is creating match`);
 
       // Scanner is creating the match - get scanner's profile
-      const scannerProfile = await getProfile(session.user.id);
+      const scannerProfile = await getProfile(user.id);
       if (!scannerProfile) {
-        console.error(`❌ Scanner profile not found for user: ${session.user.id}`);
+        console.error(`❌ Scanner profile not found for user: ${user.id}`);
         return NextResponse.json(
           { success: false, message: 'Scanner profile not found' },
           { status: 404 }
@@ -202,11 +202,11 @@ export async function GET(
     }
 
     // Determine which user this is and get the other user's profile and sharing category
-    const isUserA = matchData.userA.userId === session.user.id; // Compare with user ID
-    const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
-    const otherUserSharingCategory = isUserA ? matchData.sharingCategoryB : matchData.sharingCategoryA;
+    const isUserA2 = matchData.userA.userId === user.id; // Compare with user ID
+    const otherUserId = isUserA2 ? matchData.userB.userId : matchData.userA.userId;
+    const otherUserSharingCategory = isUserA2 ? matchData.sharingCategoryB : matchData.sharingCategoryA;
 
-    console.log(`🔍 Current user: ${session.user.email} (ID: ${session.user.id}), isUserA: ${isUserA}, otherUserId: ${otherUserId}, otherUserSharingCategory: ${otherUserSharingCategory}`);
+    console.log(`🔍 Current user: ${user.id} (${user.source}), isUserA: ${isUserA2}, otherUserId: ${otherUserId}, otherUserSharingCategory: ${otherUserSharingCategory}`);
     
     if (!otherUserId) {
       console.log(`❌ Other user not found in match data for token: ${token}`);
@@ -219,7 +219,7 @@ export async function GET(
     try {
       // Get the other user's profile from the match data (already available)
       console.log(`🔥 Getting profile for userId: ${otherUserId}`);
-      const otherUserProfile = isUserA ? matchData.userB : matchData.userA;
+      const otherUserProfile = isUserA2 ? matchData.userB : matchData.userA;
       
       console.log(`🔥 Profile result:`, otherUserProfile ? 'Profile found' : 'Profile not found');
       
@@ -289,8 +289,10 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { token } = await context.params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+
+    // Authenticate user (supports both NextAuth sessions and Firebase Bearer tokens)
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
@@ -323,9 +325,9 @@ export async function POST(
       );
     }
 
-    // Verify user is part of this exchange (compare user IDs, not emails)
-    const isUserA = matchData.userA.userId === session.user.id;
-    const isUserB = matchData.userB.userId === session.user.id;
+    // Verify user is part of this exchange (compare user IDs)
+    const isUserA = matchData.userA.userId === user.id;
+    const isUserB = matchData.userB.userId === user.id;
 
     if (!isUserA && !isUserB) {
       return NextResponse.json(
@@ -343,7 +345,7 @@ export async function POST(
       try {
 
         if (otherUserProfile) {
-          console.log(`User ${session.user.email} accepted exchange with ${otherUserId} (sharing: ${otherUserSharingCategory})`);
+          console.log(`User ${user.id} accepted exchange with ${otherUserId} (sharing: ${otherUserSharingCategory})`);
 
           // Filter the profile based on the sharing category the other user selected
           const category = (otherUserSharingCategory === 'All' || !otherUserSharingCategory) ? 'Personal' : otherUserSharingCategory as 'Personal' | 'Work';
@@ -374,10 +376,10 @@ export async function POST(
           message: 'Exchange accepted (using mock profile)'
         } as ContactExchangeResponse);
       }
-      
+
     } else {
       // User rejected
-      console.log(`User ${session.user.email} rejected exchange with token ${token}`);
+      console.log(`User ${user.id} rejected exchange with token ${token}`);
       
       return NextResponse.json({
         success: true,

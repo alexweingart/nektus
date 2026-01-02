@@ -4,8 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
 import type { ContactExchangeRequest, ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import {
@@ -48,26 +47,25 @@ export async function POST(request: NextRequest) {
   try {
     // Get client IP for location matching
     const clientIP = getClientIP(request);
-    
-    // Get session for user authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+
+    // Authenticate user (supports both NextAuth sessions and Firebase Bearer tokens)
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
+    console.log(`✅ Hit authenticated via ${user.source}: ${user.id}`);
 
     // Clean up old exchanges for this user to prevent stale session matches
     // This happens once per hit, ensuring fresh exchange state
-    if (session.user.id) {
-      try {
-        await cleanupUserExchanges(session.user.id);
-        console.log(`🧹 Cleaned up old exchanges for user ${session.user.id}`);
-      } catch (cleanupError) {
-        console.warn('⚠️ Failed to cleanup old exchanges:', cleanupError);
-        // Continue anyway - cleanup failure shouldn't block exchange
-      }
+    try {
+      await cleanupUserExchanges(user.id);
+      console.log(`🧹 Cleaned up old exchanges for user ${user.id}`);
+    } catch (cleanupError) {
+      console.warn('⚠️ Failed to cleanup old exchanges:', cleanupError);
+      // Continue anyway - cleanup failure shouldn't block exchange
     }
 
     // Parse request
@@ -99,7 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get user profile from Firebase
-    const userProfile = await getProfile(session.user.id);
+    const userProfile = await getProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { success: false, message: 'User profile not found' },
@@ -109,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare exchange data with server timestamp
     const exchangeData = {
-      userId: session.user.id,
+      userId: user.id,
       profile: userProfile as unknown as UserProfile,
       timestamp: exchangeRequest.ts || tReceived, // Use client timestamp if provided, otherwise server timestamp
       serverTimestamp: tReceived, // Add server receive timestamp for matching
@@ -120,7 +118,7 @@ export async function POST(request: NextRequest) {
       sharingCategory: exchangeRequest.sharingCategory || 'All'
     };
 
-    console.log(`📨 Hit from ${session.user.email} (session: ${exchangeRequest.session}):`, {
+    console.log(`📨 Hit from ${user.id} (session: ${exchangeRequest.session}):`, {
       serverTimestamp: tReceived,
       clientTimestamp: exchangeRequest.ts || 'N/A',
       magnitude: exchangeRequest.mag,

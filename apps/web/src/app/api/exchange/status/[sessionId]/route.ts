@@ -4,8 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
 import { getExchangeMatch } from '@/server/contacts/matching';
 import { redis } from '@/server/config/redis';
 
@@ -14,9 +13,9 @@ export async function GET(
   context: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    // Get session for user authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    // Authenticate user (supports both NextAuth sessions and Firebase Bearer tokens)
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
@@ -24,7 +23,7 @@ export async function GET(
     }
 
     const { sessionId } = await context.params;
-    
+
     if (!sessionId) {
       return NextResponse.json(
         { success: false, message: 'Session ID required' },
@@ -32,7 +31,7 @@ export async function GET(
       );
     }
 
-    console.log(`🔍 Polling for match status: session=${sessionId}, user=${session.user.email}`);
+    console.log(`🔍 Polling for match status: session=${sessionId}, user=${user.id} (${user.source})`);
 
     // Check if this session has a match by looking up the token
     if (!redis) {

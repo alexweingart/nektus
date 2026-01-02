@@ -4,8 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
 import { redis } from '@/server/config/redis';
 import { getProfile } from '@/server/config/firebase';
 
@@ -25,14 +24,16 @@ export async function POST(request: NextRequest) {
   console.log(`🎯 === INITIATE ENDPOINT CALLED ===`);
 
   try {
-    // Authenticate user
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    // Authenticate user (supports both NextAuth sessions and Firebase Bearer tokens)
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      console.log(`❌ Authentication failed - no valid session or token`);
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
+    console.log(`✅ Authenticated via ${user.source}: ${user.id}`);
 
     // Parse request body
     const body = await request.json();
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's profile from Firebase
-    const userProfile = await getProfile(session.user.id);
+    const userProfile = await getProfile(user.id);
     if (!userProfile) {
       return NextResponse.json(
         { success: false, message: 'Profile not found' },
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Generate token
     const token = generateExchangeToken();
-    console.log(`🔑 Generated token: ${token} for user ${session.user.id}`);
+    console.log(`🔑 Generated token: ${token} for user ${user.id}`);
 
     // Create waiting MatchData
     const matchData = {
