@@ -35,8 +35,22 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number>(0);
   const isDraggingRef = useRef<boolean>(false);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [contentHeight, setContentHeight] = useState<number>(0);
+
+  // Measure container width and content height (carousel + selector)
+  useEffect(() => {
+    if (containerRef.current) {
+      setContainerWidth(containerRef.current.offsetWidth);
+    }
+    if (contentRef.current && !showQRCode) {
+      setContentHeight(contentRef.current.offsetHeight);
+    }
+  }, [profile, showQRCode, selectedMode]);
 
   // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
   // This enables the Avatar component to crossfade from initials to the generated image
@@ -143,17 +157,29 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }
   }, [selectedMode]);
 
-  // QR Code Display Component - maintains same dimensions as profile content
+  // QR Code Display Component - expands to fill available width
   const QRCodeDisplay = ({ token }: { token: string }) => {
     // Use NEXT_PUBLIC_BASE_URL for cross-device QR scanning (tailscale, production, etc.)
     // Falls back to window.location.origin for same-device testing
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
+    // Calculate QR size: use the smaller of width or content height
+    // Subtract 16px to account for py-6 vs py-4 padding difference (8px each side)
+    const maxWidth = containerWidth > 100 ? containerWidth - 48 : 260;
+    const adjustedHeight = contentHeight > 0 ? contentHeight - 16 : 0;
+    const maxHeight = adjustedHeight > 0 ? adjustedHeight : maxWidth;
+    const qrSize = Math.min(maxWidth, maxHeight);
+    const finalSize = Math.max(qrSize, 180);
+    const qrValue = `${baseUrl}/connect?token=${token}`;
+
     return (
-      <div className="w-full flex items-center justify-center" style={{ minHeight: '200px' }}>
+      <div
+        className="w-full flex items-center justify-center px-6"
+        style={adjustedHeight > 0 ? { height: adjustedHeight } : undefined}
+      >
         <QRCode
-          value={`${baseUrl}/connect?token=${token}`}
-          size={180}
+          value={qrValue}
+          size={finalSize}
           level="M"
           fgColor="#FFFFFF"
           bgColor="transparent"
@@ -178,17 +204,21 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
       </div>
 
       {/* Carousel Container - Full width background */}
-      <div className="w-full bg-black/60 backdrop-blur-lg py-4 rounded-2xl overflow-hidden">
+      <div
+        ref={containerRef}
+        className={`w-full bg-black/60 backdrop-blur-lg rounded-2xl overflow-hidden ${showQRCode ? 'py-6' : 'py-4'}`}
+      >
         {showQRCode && matchToken ? (
           <QRCodeDisplay token={matchToken} />
         ) : (
-          <div
-            ref={carouselRef}
-            className="flex transition-transform duration-300 ease-out"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          <div ref={contentRef}>
+            <div
+              ref={carouselRef}
+              className="flex transition-transform duration-300 ease-out"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
           {/* Personal View - Full container width with internal padding */}
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
@@ -306,16 +336,14 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             </div>
           </div>
           </div>
-        )}
-
-        {/* Profile View Selector - only show when not showing QR code */}
-        {!showQRCode && (
-          <div className="mt-4 flex justify-center">
-            <ProfileViewSelector
-              selectedMode={selectedMode}
-              onModeChange={handleModeChange}
-              className="w-48"
-            />
+            {/* Profile View Selector */}
+            <div className="mt-4 flex justify-center">
+              <ProfileViewSelector
+                selectedMode={selectedMode}
+                onModeChange={handleModeChange}
+                className="w-48"
+              />
+            </div>
           </div>
         )}
       </div>
