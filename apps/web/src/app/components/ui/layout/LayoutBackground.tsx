@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePathname, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '../../../context/ProfileContext';
 import { ParticleNetwork } from './ParticleNetwork';
 import type { ParticleNetworkProps } from './ParticleNetwork';
+import { PullToRefresh } from './PullToRefresh';
 
 // Track first page load to prevent cache restoration on refresh
 // Resets on page refresh (module reload), persists during SPA navigation
@@ -115,7 +117,15 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   const { profile, isLoading, isNavigatingFromSetup, getContact } = useProfile();
   const pathname = usePathname();
   const params = useParams();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    router.refresh();
+    // Small delay to ensure the refresh animation feels complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }, [router]);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
   const [cachedParticleColors, setCachedParticleColors] = useState<ParticleNetworkProps['colors'] | null>(null);
 
@@ -577,10 +587,13 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   });
 
   // V2: No wrapper div - ParticleNetwork is fixed, children scroll naturally
+  // PullToRefresh wraps children for PWA pull-to-refresh support
   return (
     <>
       <ParticleNetwork {...particleProps} />
-      {children}
+      <PullToRefresh onRefresh={handleRefresh}>
+        {children}
+      </PullToRefresh>
     </>
   );
 }
