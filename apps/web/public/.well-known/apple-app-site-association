@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["V4R5CSCQ2J.com.nektus.app"],
+        "components": [
+          {
+            "/": "*",
+            "comment": "Matches all paths for Universal Links"
+          }
+        ]
+      }
+    ]
+  },
+  "appclips": {
+    "apps": ["V4R5CSCQ2J.com.nektus.app.Clip"]
+  }
+}
