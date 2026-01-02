@@ -78,7 +78,8 @@
           "bundleIdentifier": "com.nektus.app.Clip",
           "targetSdkVersion": "15.1",
           "groupIdentifier": "group.com.nektus.app",
-          "appleSignin": true
+          "appleSignin": true,
+          "entryPoint": "./src/AppClip.tsx"
         }
       ]
     ],
