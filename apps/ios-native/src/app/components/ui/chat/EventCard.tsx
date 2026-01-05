@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { Button } from '../buttons/Button';
 import type { Event } from '@nektus/shared-types';
 
@@ -64,9 +64,8 @@ export function EventCard({ event, showCreateButton = false, onCreateEvent }: Ev
     <View style={styles.container}>
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType="dark"
-        blurAmount={16}
-        reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+        tint="dark"
+        intensity={50}
       />
       <View style={styles.content}>
         <View style={styles.textContainer}>

@@ -19,7 +19,7 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 
 interface ExpandingInputProps extends Omit<TextInputProps, 'onChange'> {
   value?: string;
@@ -72,11 +72,8 @@ export function ExpandingInput({
       {/* Backdrop blur */}
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType={isWhiteVariant ? 'light' : 'dark'}
-        blurAmount={16}
-        reducedTransparencyFallbackColor={
-          isWhiteVariant ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)'
-        }
+        tint={isWhiteVariant ? 'light' : 'dark'}
+        intensity={50}
       />
 
       {/* Border overlay */}

@@ -15,7 +15,7 @@ import {
   StyleSheet,
   TextInputProps,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 
 // Country type for phone input components
@@ -157,9 +157,8 @@ export function DropdownPhoneInput({
     <View style={styles.container}>
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType="dark"
-        blurAmount={16}
-        reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.4)"
+        tint="dark"
+        intensity={50}
       />
 
       {/* Border overlay */}

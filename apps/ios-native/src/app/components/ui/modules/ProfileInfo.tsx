@@ -5,9 +5,10 @@ import {
   StyleSheet,
   PanResponder,
   LayoutChangeEvent,
+  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import Avatar from '../elements/Avatar';
@@ -16,6 +17,7 @@ import { ProfileViewSelector } from '../controls/ProfileViewSelector';
 import { Heading, BodyText } from '../Typography';
 import { getApiBaseUrl } from '@nektus/shared-client';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
+import { useAdminModeActivator } from '../banners/AdminBanner';
 
 type ProfileViewMode = 'Personal' | 'Work';
 type SharingCategory = 'Personal' | 'Work';
@@ -93,6 +95,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
   // This enables the Avatar component to crossfade from initials to the generated image
   const showInitialsValue = isGoogleInitials;
+
+  // Admin mode activator - double-tap on avatar to toggle
+  const adminActivator = useAdminModeActivator();
 
   // Load selected mode from AsyncStorage on mount
   useEffect(() => {
@@ -246,8 +251,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         },
       ]}
     >
-      {/* Profile Image */}
-      <View style={styles.profileImageContainer}>
+      {/* Profile Image - double-tap to toggle admin mode */}
+      <TouchableOpacity
+        style={styles.profileImageContainer}
+        onPress={adminActivator.onPress}
+        activeOpacity={1}
+      >
         <View style={styles.avatarBorder}>
           <Avatar
             src={profileImageSrc}
@@ -257,7 +266,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             showInitials={showInitialsValue}
           />
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Carousel Container - Full width background */}
       {/* Use py-6 (24px) padding for QR mode, py-4 (16px) for normal - matching web */}
@@ -273,9 +282,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         {/* Backdrop blur matching web */}
         <BlurView
           style={StyleSheet.absoluteFillObject}
-          blurType="dark"
-          blurAmount={16}
-          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+          tint="dark"
+          intensity={50}
         />
 
         {/* QR Code Display - shows when exchange is active */}

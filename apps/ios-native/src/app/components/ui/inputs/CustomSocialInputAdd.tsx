@@ -14,7 +14,7 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import SocialIcon from '../elements/SocialIcon';
 
@@ -52,9 +52,8 @@ export function CustomSocialInputAdd({
     <View style={styles.container}>
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType="dark"
-        blurAmount={16}
-        reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.4)"
+        tint="dark"
+        intensity={50}
       />
 
       {/* Border overlay */}

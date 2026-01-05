@@ -13,7 +13,7 @@ import {
   TouchableWithoutFeedback,
   Animated,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 import { Heading, BodyText } from '../Typography';
 import { Button } from '../buttons/Button';
@@ -129,9 +129,8 @@ export const StandardModal: React.FC<StandardModalProps> = ({
               {/* Backdrop blur */}
               <BlurView
                 style={StyleSheet.absoluteFillObject}
-                blurType="dark"
-                blurAmount={20}
-                reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+                tint="dark"
+                intensity={60}
               />
 
               {/* Content wrapper */}

@@ -10,7 +10,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Keyboard } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { DualStateSelector } from '../controls/DualStateSelector';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
@@ -138,9 +138,8 @@ export function InlineAddLink({
     <View style={styles.container}>
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType="dark"
-        blurAmount={16}
-        reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+        tint="dark"
+        intensity={50}
       />
 
       <View style={styles.content}>

@@ -18,7 +18,7 @@ import {
   StyleSheet,
   TextInputProps,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { EyeIcon } from '../icons/EyeIcon';
 
 interface StaticInputProps extends Omit<TextInputProps, 'style'> {
@@ -48,9 +48,8 @@ export function StaticInput({
       <View style={[styles.inputContainer, isFocused && styles.inputContainerFocused]}>
         <BlurView
           style={StyleSheet.absoluteFillObject}
-          blurType="dark"
-          blurAmount={16}
-          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.4)"
+          tint="dark"
+          intensity={50}
         />
 
         {/* Border overlay */}

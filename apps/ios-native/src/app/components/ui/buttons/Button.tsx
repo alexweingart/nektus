@@ -16,7 +16,7 @@ import {
   View,
   Animated,
 } from "react-native";
-import { BlurView } from "@react-native-community/blur";
+import { BlurView } from "expo-blur";
 import { RadialGradient } from "react-native-gradients";
 
 type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary";
@@ -160,9 +160,8 @@ export function Button({
             {/* Backdrop blur (matches web's backdrop-blur-lg) */}
             <BlurView
               style={StyleSheet.absoluteFillObject}
-              blurType="light"
-              blurAmount={16}
-              reducedTransparencyFallbackColor="white"
+              tint="light"
+              intensity={50}
             />
             {/* Radial gradient overlay */}
             <RadialGradient

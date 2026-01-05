@@ -76,7 +76,7 @@
         {
           "name": "Nekt Clip",
           "bundleIdentifier": "com.nektus.app.Clip",
-          "targetSdkVersion": "15.1",
+          "targetSdkVersion": "17.0",
           "groupIdentifier": "group.com.nektus.app",
           "appleSignin": true,
           "entryPoint": "./src/AppClip.tsx",
@@ -85,15 +85,27 @@
             "@react-native-firebase/auth",
             "@react-native-firebase/firestore",
             "@react-native-firebase/storage",
+            "react-native-reanimated",
+            "react-native-worklets",
+            "react-native-svg",
+            "react-native-screens",
+            "expo-blur",
             "expo-contacts",
             "expo-location",
             "expo-sensors",
             "expo-dev-client",
             "expo-auth-session",
             "expo-web-browser",
+            "expo-linear-gradient",
+            "expo-crypto",
+            "expo-file-system",
+            "expo-font",
+            "expo-keep-awake",
+            "expo-asset",
             "react-native-qrcode-svg",
             "react-native-markdown-display",
-            "react-native-gradients"
+            "react-native-gradients",
+            "@react-native-async-storage/async-storage"
           ]
         }
       ]

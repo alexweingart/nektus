@@ -18,7 +18,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 
 export interface DropdownOption {
@@ -95,9 +95,8 @@ export function DropdownSelector({
           <View style={styles.modalContent}>
             <BlurView
               style={StyleSheet.absoluteFillObject}
-              blurType="dark"
-              blurAmount={16}
-              reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+              tint="dark"
+              intensity={50}
             />
             <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
               {options.map((option) => (

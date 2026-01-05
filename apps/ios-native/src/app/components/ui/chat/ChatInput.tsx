@@ -19,7 +19,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import { Button } from '../buttons/Button';
@@ -75,9 +75,8 @@ export function ChatInput({
       {/* Backdrop blur */}
       <BlurView
         style={StyleSheet.absoluteFillObject}
-        blurType="light"
-        blurAmount={16}
-        reducedTransparencyFallbackColor="rgba(255, 255, 255, 0.2)"
+        tint="light"
+        intensity={50}
       />
 
       {/* Border overlay */}

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 
 interface FieldSectionProps {
   title?: string;
@@ -50,9 +50,8 @@ export function FieldSection({
         <View style={styles.emptyContainer}>
           <BlurView
             style={StyleSheet.absoluteFillObject}
-            blurType="dark"
-            blurAmount={16}
-            reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.6)"
+            tint="dark"
+            intensity={50}
           />
           <View style={styles.emptyContent}>
             <Text style={styles.emptyText}>{emptyText}</Text>

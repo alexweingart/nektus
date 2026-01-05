@@ -11,7 +11,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, ActivityIndicator } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Markdown from 'react-native-markdown-display';
 import { EventCard } from './EventCard';
 import type { Event } from '@nektus/shared-types';
@@ -154,11 +154,8 @@ export function MessageList({ messages, onCreateEvent }: MessageListProps) {
           {/* Backdrop blur */}
           <BlurView
             style={StyleSheet.absoluteFillObject}
-            blurType={message.type === 'user' ? 'dark' : 'light'}
-            blurAmount={16}
-            reducedTransparencyFallbackColor={
-              message.type === 'user' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)'
-            }
+            tint={message.type === 'user' ? 'dark' : 'light'}
+            intensity={50}
           />
 
           <View style={styles.messageContent}>
