@@ -5,14 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { Heading, Text } from '../ui/Typography';
-
-/**
- * Check if the current device is iOS (iPhone, iPad, iPod)
- */
-function isIOSDevice(): boolean {
-  if (typeof window === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
+import { isIOS17OrHigher } from '@/client/platform-detection';
 
 /**
  * Open the App Clip for iOS users
@@ -66,11 +59,13 @@ const GoogleIcon = () => (
 // Component handles just the welcome screen
 const HomePage: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
-  const [isIOS, setIsIOS] = useState(false);
+  const [showAppClip, setShowAppClip] = useState(false);
 
-  // Detect iOS on client-side
+  // Detect iOS 17+ on client-side (only iOS 17+ supports 50MB App Clip digital invocation)
+  // Only show App Clip flow on dev - production (nekt.us) should use Google sign-in
   useEffect(() => {
-    setIsIOS(isIOSDevice());
+    const isProduction = window.location.hostname === 'nekt.us';
+    setShowAppClip(isIOS17OrHigher() && !isProduction);
   }, []);
 
   const handleSignIn = async () => {
@@ -154,8 +149,8 @@ const HomePage: React.FC = () => {
           Exchange contacts & socials and schedule meetings in seconds
         </Text>
 
-        {isIOS ? (
-          // iOS: Show "Get Started" button that triggers App Clip
+        {showAppClip ? (
+          // iOS 17+ on dev: Show "Get Started" button that triggers App Clip
           <Button
             variant="white"
             size="xl"
@@ -165,7 +160,7 @@ const HomePage: React.FC = () => {
             Get Started
           </Button>
         ) : (
-          // Non-iOS: Show Google Sign-in button
+          // Production or non-iOS: Show Google Sign-in button
           <Button
             variant="white"
             size="xl"
@@ -178,7 +173,7 @@ const HomePage: React.FC = () => {
         )}
 
         <p className="text-center text-sm text-muted-foreground mt-1 mb-5">
-          {isIOS ? 'to get the app' : 'to start nekt\'ing'}
+          {showAppClip ? 'to get the app' : 'to start nekt\'ing'}
         </p>
         </div>
       </div>
