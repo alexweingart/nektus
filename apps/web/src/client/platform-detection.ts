@@ -30,6 +30,36 @@ export const isAndroidPlatform = () => detectPlatform().isAndroid;
 export const isMobilePlatform = () => detectPlatform().isMobile;
 
 /**
+ * Get the iOS version from user agent
+ * Returns null if not iOS or version cannot be determined
+ */
+export const getIOSVersion = (): number | null => {
+  if (typeof window === 'undefined') return null;
+
+  const userAgent = navigator.userAgent;
+
+  // Check if it's iOS
+  if (!/iPad|iPhone|iPod/.test(userAgent)) return null;
+
+  // Extract version from "OS X_Y_Z" pattern (e.g., "OS 17_0_1")
+  const match = userAgent.match(/OS (\d+)[_.](\d+)/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+
+  return null;
+};
+
+/**
+ * Check if device is iOS 17 or higher
+ * Returns false for non-iOS devices or if version cannot be determined
+ */
+export const isIOS17OrHigher = (): boolean => {
+  const version = getIOSVersion();
+  return version !== null && version >= 17;
+};
+
+/**
  * Check if we're in an embedded browser (like in-app browsers)
  */
 export const isEmbeddedBrowser = (): boolean => {
