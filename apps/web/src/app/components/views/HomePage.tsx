@@ -64,7 +64,8 @@ const HomePage: React.FC = () => {
   // Detect iOS 17+ on client-side (only iOS 17+ supports 50MB App Clip digital invocation)
   // Only show App Clip flow on dev - production (nekt.us) should use Google sign-in
   useEffect(() => {
-    const isProduction = window.location.hostname === 'nekt.us';
+    const hostname = window.location.hostname;
+    const isProduction = hostname === 'nekt.us' || hostname === 'www.nekt.us' || hostname.endsWith('.vercel.app');
     setShowAppClip(isIOS17OrHigher() && !isProduction);
   }, []);
 
