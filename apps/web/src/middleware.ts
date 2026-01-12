@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   '/api/auth/callback/google',
   '/api/auth/_log',
   '/_next',
+  '/about',
   '/privacy',
   '/terms',
   '/connect',  // Allow unauthenticated access for QR code scanning

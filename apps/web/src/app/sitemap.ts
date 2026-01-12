@@ -9,6 +9,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
+      url: 'https://nekt.us/about',
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
       url: 'https://nekt.us/privacy',
       lastModified: new Date(),
       changeFrequency: 'monthly',

@@ -31,6 +31,10 @@ export const HomeFooter: React.FC = () => {
       }}
     >
     <div className="mb-2">
+      <Link href="/about" className="font-bold hover:text-gray-300 transition-colors">
+        About
+      </Link>
+      <span className="mx-2">|</span>
       <Link href="/privacy" className="font-bold hover:text-gray-300 transition-colors">
         Privacy
       </Link>
