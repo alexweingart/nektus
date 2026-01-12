@@ -62,13 +62,13 @@ export default function AboutPage() {
           <PhoneExchangeIcon />
           <Heading as="h2" className="mb-4 text-center">The Perfect End to a Great First Meeting</Heading>
           <Text className="mb-4">
-            You've just had an amazing conversation with someone new. You want to keep in touch, but what happens next is often awkward: fumbling with phone numbers, hoping you both have iPhones to bump, searching for their Snapchat, or scanning their LinkedIn QR code. It's clunky. It kills the moment.
+            You&apos;ve just had an amazing conversation with someone new. You want to keep in touch, but what happens next is often awkward: fumbling with phone numbers, hoping you both have iPhones to bump, searching for their Snapchat, or scanning their LinkedIn QR code. It&apos;s clunky. It kills the moment.
           </Text>
           <Text className="mb-4">
             What if it was easy and fun? What if the end of a great first meeting made you <em>excited</em> to ask them to keep in touch?
           </Text>
           <Text>
-            That's what Nekt does. Simply <strong>bump phones or scan a QR code</strong> to instantly exchange contact information and social profiles—whether personal or professional. <strong>One action, both people connected.</strong>
+            That&apos;s what Nekt does. Simply <strong>bump phones or scan a QR code</strong> to instantly exchange contact information and social profiles—whether personal or professional. <strong>One action, both people connected.</strong>
           </Text>
         </section>
 
@@ -76,13 +76,13 @@ export default function AboutPage() {
           <SectionIcon icon={CalendarCheck} />
           <Heading as="h2" className="mb-4 text-center">From Contact to Connection</Heading>
           <Text className="mb-4">
-            Getting someone's contact information isn't enough. True friendships and meaningful professional relationships require spending time together. But finding a time and place to meet is surprisingly hard—there's usually endless back-and-forth to find a good time, and then you need to figure out what to do together.
+            Getting someone&apos;s contact information isn&apos;t enough. True friendships and meaningful professional relationships require spending time together. But finding a time and place to meet is surprisingly hard—there&apos;s usually endless back-and-forth to find a good time, and then you need to figure out what to do together.
           </Text>
           <Text className="mb-4">
             What if you could do that instantly?
           </Text>
           <Text>
-            Nekt automatically suggests common activities—lunch, dinner, drinks—and finds an <strong>optimal time based on your calendar</strong> and an optimal place based on your location. Want something more specific, like "tennis this weekend"? Just tell Nektbot. Our AI understands exactly what you mean and creates the event for both of you. It will even help you plan something when you don't have a clear idea of what you want to do.
+            Nekt automatically suggests common activities—lunch, dinner, drinks—and finds an <strong>optimal time based on your calendar</strong> and an optimal place based on your location. Want something more specific, like &quot;tennis this weekend&quot;? Just tell Nektbot. Our AI understands exactly what you mean and creates the event for both of you. It will even help you plan something when you don&apos;t have a clear idea of what you want to do.
           </Text>
         </section>
 
@@ -105,7 +105,7 @@ export default function AboutPage() {
               icon={Users}
               title="Personal & Professional"
             >
-              Keep your connections organized. Choose to share personal contact info, professional details, or both—<strong>you're always in control</strong> of what you share.
+              Keep your connections organized. Choose to share personal contact info, professional details, or both—<strong>you&apos;re always in control</strong> of what you share.
             </FeatureCard>
           </div>
         </section>
@@ -114,14 +114,14 @@ export default function AboutPage() {
           <SectionIcon icon={Sparkles} />
           <Heading as="h2" className="mb-4 text-center">Our Mission</Heading>
           <Text className="text-center">
-            Nekt is about bringing people together and turning promising first conversations into amazing friendships. In a world where our phones often keep us apart, we're using technology to do what it should: make real human connection easier and just more <strong>fun</strong>.
+            Nekt is about bringing people together and turning promising first conversations into amazing friendships. In a world where our phones often keep us apart, we&apos;re using technology to do what it should: make real human connection easier and just more <strong>fun</strong>.
           </Text>
         </section>
 
         <section>
           <Heading as="h2" className="mb-4 text-center">Contact Us</Heading>
           <Text className="text-center">
-            Have questions or feedback? We'd love to hear from you. Reach out to <a href="mailto:alex@nekt.us" className="underline hover:text-gray-300 transition-colors">alex@nekt.us</a>.
+            Have questions or feedback? We&apos;d love to hear from you. Reach out to <a href="mailto:alex@nekt.us" className="underline hover:text-gray-300 transition-colors">alex@nekt.us</a>.
           </Text>
         </section>
       </div>
