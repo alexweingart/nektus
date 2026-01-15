@@ -44,7 +44,7 @@ export const HomeFooter: React.FC = () => {
       </Link>
     </div>
     <div className="text-xs text-gray-300">
-      © 2025 Cardamore, Inc. All rights reserved.
+      © 2025 Nekt, Inc. All rights reserved.
     </div>
   </div>
   );

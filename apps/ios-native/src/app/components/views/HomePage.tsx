@@ -54,7 +54,7 @@ const HomeFooter = () => {
           <Text style={styles.footerLink}>Terms</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.copyright}>© 2025 Cardamore, Inc. All rights reserved.</Text>
+      <Text style={styles.copyright}>© 2025 Nekt, Inc. All rights reserved.</Text>
     </View>
   );
 };
