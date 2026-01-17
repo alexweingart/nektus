@@ -14,6 +14,12 @@
     ]
   },
   "appclips": {
-    "apps": ["V4R5CSCQ2J.com.nektus.app.Clip"]
+    "apps": ["V4R5CSCQ2J.com.nektus.app.Clip"],
+    "details": [
+      {
+        "appID": "V4R5CSCQ2J.com.nektus.app.Clip",
+        "paths": ["*", "/", "/?*"]
+      }
+    ]
   }
 }
