@@ -3,10 +3,21 @@
  * Adapted from: apps/web/src/client/calendar/providers/tokens.ts
  *
  * Changes from web:
- * - Uses @react-native-firebase/firestore instead of web firebase
+ * - Uses Firebase JS SDK instead of modular firebase imports
  */
 
-import firestore from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  query,
+  where,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import { db } from '../../firebase/firebase-init';
 
 export interface CalendarTokens {
   email: string;
@@ -26,15 +37,16 @@ const TOKENS_COLLECTION = 'calendarTokens';
  */
 export async function getCalendarTokens(userEmail: string): Promise<CalendarTokens[]> {
   try {
-    const querySnapshot = await firestore()
-      .collection(TOKENS_COLLECTION)
-      .where('userEmail', '==', userEmail)
-      .get();
+    const q = query(
+      collection(db, TOKENS_COLLECTION),
+      where('userEmail', '==', userEmail)
+    );
+    const querySnapshot = await getDocs(q);
 
     const tokens: CalendarTokens[] = [];
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       const tokenData: CalendarTokens = {
         email: data.email,
         provider: data.provider,
@@ -77,7 +89,7 @@ export async function saveCalendarTokens(
       email: tokens.email,
       provider: tokens.provider,
       accessToken: tokens.accessToken,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
     // Only add refreshToken if it exists (some providers might not have one)
@@ -87,7 +99,7 @@ export async function saveCalendarTokens(
 
     // Only add expiresAt if it exists (not for Apple CalDAV)
     if (tokens.expiresAt) {
-      tokenData.expiresAt = firestore.Timestamp.fromDate(tokens.expiresAt);
+      tokenData.expiresAt = Timestamp.fromDate(tokens.expiresAt);
     }
 
     // Only add Apple-specific fields if they exist and have valid values
@@ -106,7 +118,7 @@ export async function saveCalendarTokens(
       tokenData.appSpecificPassword = tokens.appSpecificPassword;
     }
 
-    await firestore().collection(TOKENS_COLLECTION).doc(docId).set(tokenData);
+    await setDoc(doc(db, TOKENS_COLLECTION, docId), tokenData);
 
     console.log(`[tokens] Saved calendar tokens for ${tokens.provider}: ${tokens.email}`);
   } catch (error) {
@@ -125,7 +137,7 @@ export async function removeCalendarTokens(
 ): Promise<void> {
   try {
     const docId = `${userEmail}_${provider}_${email}`;
-    await firestore().collection(TOKENS_COLLECTION).doc(docId).delete();
+    await deleteDoc(doc(db, TOKENS_COLLECTION, docId));
 
     console.log(`[tokens] Removed calendar tokens for ${provider}: ${email}`);
   } catch (error) {

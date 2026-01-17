@@ -15,7 +15,8 @@ const PUBLIC_PATHS = [
   '/privacy',
   '/terms',
   '/connect',  // Allow unauthenticated access for QR code scanning
-  '/api/exchange/preview'  // Preview endpoint for unauthenticated users
+  '/api/exchange/preview',  // Preview endpoint for unauthenticated users
+  '/onboarding'  // App Clip trigger page (same as home, different URL for iOS)
 ];
 
 export async function middleware(request: NextRequest) {

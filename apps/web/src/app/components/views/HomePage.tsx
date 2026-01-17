@@ -12,10 +12,10 @@ import { isIOS17OrHigher } from '@/client/platform-detection';
  * Uses the Smart App Banner meta tag approach or direct URL
  */
 function openAppClip() {
-  // The App Clip is triggered via Smart App Banner or Universal Link
-  // For direct invocation, we use the app clip URL
-  // Note: This will open Safari/App Clip experience
-  window.location.href = 'https://nekt.us';
+  // Navigate to /onboarding to trigger the App Clip card
+  // iOS shows the App Clip card when navigating to a new URL
+  // The /onboarding page shows identical content, so the transition is seamless
+  window.location.href = '/onboarding';
 }
 
 // Footer component exported separately so it can be rendered as a sibling to HomePage

@@ -16,13 +16,16 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "5",
+      "buildNumber": "8",
+      "deploymentTarget": "17.0",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:nekt.us",
         "applinks:www.nekt.us",
-        "appclips:nekt.us"
+        "appclips:nekt.us",
+        "appclips:www.nekt.us",
+        "appclips:nekt.tail768878.ts.net?mode=developer"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -60,31 +63,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-firebase/app",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static",
-            "buildReactNativeFromSource": true
-          }
-        }
-      ],
       "expo-apple-authentication",
       [
         "react-native-app-clip",
         {
           "name": "Nekt Clip",
           "bundleIdentifier": "com.nektus.app.Clip",
-          "targetSdkVersion": "17.0",
+          "deploymentTarget": "17.0",
           "groupIdentifier": "group.com.nektus.app",
           "appleSignin": true,
           "entryPoint": "./src/AppClip.tsx",
           "excludedPackages": [
-            "@react-native-firebase/app",
-            "@react-native-firebase/auth",
-            "@react-native-firebase/firestore",
-            "@react-native-firebase/storage",
+            "firebase",
             "react-native-reanimated",
             "react-native-worklets",
             "react-native-svg",

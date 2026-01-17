@@ -1,9 +1,19 @@
 /**
  * iOS Firebase Firestore Service
- * Uses React Native Firebase SDK for native iOS Firebase operations
+ * Uses Firebase JS SDK for Firestore operations
  */
 
-import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  Unsubscribe,
+} from 'firebase/firestore';
+import { db } from './firebase-init';
 import { UserProfile, SavedContact } from '@nektus/shared-types';
 
 // Error codes for Firebase operations
@@ -52,10 +62,11 @@ export const ClientProfileService = {
       }) as Partial<UserProfile>;
 
       // Add timeout to Firestore operation to prevent hanging
-      const savePromise = firestore()
-        .collection('profiles')
-        .doc(profile.userId)
-        .set(profileData, { merge: true });
+      const savePromise = setDoc(
+        doc(db, 'profiles', profile.userId),
+        profileData,
+        { merge: true }
+      );
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Firestore save timeout')), 15000)
@@ -90,10 +101,7 @@ export const ClientProfileService = {
       };
 
       console.log('Updating profile:', { userId });
-      await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .update(updateData);
+      await updateDoc(doc(db, 'profiles', userId), updateData);
     } catch (error) {
       const firestoreError = error as { code?: string };
       if (firestoreError.code === ERROR_CODES.UNAVAILABLE) {
@@ -112,12 +120,9 @@ export const ClientProfileService = {
    */
   async getProfile(userId: string): Promise<UserProfile | null> {
     try {
-      const profileDoc = await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .get();
+      const profileDoc = await getDoc(doc(db, 'profiles', userId));
 
-      if (!profileDoc.exists) {
+      if (!profileDoc.exists()) {
         return null;
       }
 
@@ -141,30 +146,28 @@ export const ClientProfileService = {
    * @param callback Function to call when the profile updates
    * @returns Unsubscribe function
    */
-  subscribeToProfile(userId: string, callback: (profile: UserProfile | null) => void): () => void {
+  subscribeToProfile(userId: string, callback: (profile: UserProfile | null) => void): Unsubscribe {
     try {
       console.log('Setting up profile subscription for user:', userId);
 
-      const unsubscribe = firestore()
-        .collection('profiles')
-        .doc(userId)
-        .onSnapshot(
-          (snap) => {
-            if (snap.exists()) {
-              callback(snap.data() as UserProfile);
-            } else {
-              callback(null);
-            }
-          },
-          (error) => {
-            console.error('Error in profile subscription:', error);
-            const firestoreError = error as { code?: string };
-            if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
-              console.warn('Permission denied for profile subscription. User may need to sign in.');
-            }
+      const unsubscribe = onSnapshot(
+        doc(db, 'profiles', userId),
+        (snap) => {
+          if (snap.exists()) {
+            callback(snap.data() as UserProfile);
+          } else {
             callback(null);
           }
-        );
+        },
+        (error) => {
+          console.error('Error in profile subscription:', error);
+          const firestoreError = error as { code?: string };
+          if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+            console.warn('Permission denied for profile subscription. User may need to sign in.');
+          }
+          callback(null);
+        }
+      );
 
       return unsubscribe;
     } catch (error) {
@@ -180,10 +183,7 @@ export const ClientProfileService = {
    */
   async deleteProfile(userId: string): Promise<void> {
     try {
-      await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .delete();
+      await deleteDoc(doc(db, 'profiles', userId));
       console.log('Deleted profile for user:', userId);
     } catch (error) {
       const firestoreError = error as { code?: string };
@@ -202,12 +202,10 @@ export const ClientProfileService = {
   async saveContact(userId: string, contact: SavedContact): Promise<void> {
     try {
       // Use the contact's userId as the document ID to prevent duplicates
-      await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .collection('contacts')
-        .doc(contact.userId)
-        .set(contact);
+      await setDoc(
+        doc(db, 'profiles', userId, 'contacts', contact.userId),
+        contact
+      );
       console.log('Saved contact for user:', userId);
     } catch (error) {
       const firestoreError = error as { code?: string };
@@ -225,11 +223,9 @@ export const ClientProfileService = {
    */
   async getContacts(userId: string): Promise<SavedContact[]> {
     try {
-      const snapshot = await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .collection('contacts')
-        .get();
+      // Note: For getting all docs in a subcollection, we need to use getDocs with collection
+      const { getDocs } = await import('firebase/firestore');
+      const snapshot = await getDocs(collection(db, 'profiles', userId, 'contacts'));
 
       const contacts = snapshot.docs.map(doc => {
         const data = doc.data() as SavedContact;
@@ -254,19 +250,14 @@ export const ClientProfileService = {
    */
   async getContactById(userId: string, contactUserId: string): Promise<SavedContact | null> {
     try {
-      const doc = await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .get();
+      const docSnap = await getDoc(doc(db, 'profiles', userId, 'contacts', contactUserId));
 
-      if (!doc.exists) {
+      if (!docSnap.exists()) {
         console.warn('Contact not found:', contactUserId);
         return null;
       }
 
-      return doc.data() as SavedContact;
+      return docSnap.data() as SavedContact;
     } catch (error) {
       const firestoreError = error as { code?: string };
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
@@ -287,12 +278,7 @@ export const ClientProfileService = {
    */
   async deleteContact(userId: string, contactUserId: string): Promise<void> {
     try {
-      await firestore()
-        .collection('profiles')
-        .doc(userId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .delete();
+      await deleteDoc(doc(db, 'profiles', userId, 'contacts', contactUserId));
       console.log('Deleted contact for user:', userId, 'contactUserId:', contactUserId);
     } catch (error) {
       const firestoreError = error as { code?: string };

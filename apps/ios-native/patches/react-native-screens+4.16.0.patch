@@ -1,0 +1,33 @@
+diff --git a/ios/conversion/RNSConversions.h b/ios/conversion/RNSConversions.h
+index 1234567..abcdefg 100644
+--- a/ios/conversion/RNSConversions.h
++++ b/ios/conversion/RNSConversions.h
+@@ -2,7 +2,9 @@
+
+ #if defined(__cplusplus)
+ #import <React/RCTImageSource.h>
++#if RCT_NEW_ARCH_ENABLED
+ #import <react/renderer/components/rnscreens/Props.h>
++#endif // RCT_NEW_ARCH_ENABLED
+ #import "RNSDefines.h"
+ #import "RNSEnums.h"
+
+@@ -10,7 +12,9 @@
+ #import <folly/dynamic.h>
+ #endif // RCT_NEW_ARCH_ENABLED
+
+-namespace rnscreens::conversion {
++namespace rnscreens::conversion {
++
++#if RCT_NEW_ARCH_ENABLED
+
+ namespace react = facebook::react;
+
+@@ -29,8 +33,6 @@ UIBlurEffect *RNSUIBlurEffectFromRNSBlurEffectStyle(RNSBlurEffectStyle blurEffec
+
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
+
+-#if RCT_NEW_ARCH_ENABLED
+ API_AVAILABLE(ios(26.0))
+ UITabBarMinimizeBehavior UITabBarMinimizeBehaviorFromRNSBottomTabsTabBarMinimizeBehavior(
+     react::RNSBottomTabsTabBarMinimizeBehavior tabBarMinimizeBehavior);

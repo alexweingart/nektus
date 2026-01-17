@@ -1,7 +1,7 @@
 /**
  * Firebase authentication for iOS
  *
- * This module provides a thin wrapper around React Native Firebase SDK:
+ * This module provides a thin wrapper around Firebase JS SDK:
  * - Sign in with custom tokens (from backend OAuth exchange)
  * - Session restoration (handled automatically by Firebase SDK)
  * - Auth state management
@@ -9,7 +9,8 @@
  * Note: Firebase SDK handles all token management, persistence, and refresh automatically
  */
 
-import auth from '@react-native-firebase/auth';
+import { signInWithCustomToken, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase/firebase-init';
 import type { User, AuthStateCallback } from "../../types/firebase";
 
 // Re-export for backwards compatibility
@@ -18,7 +19,7 @@ export { getApiBaseUrl } from "../config";
 
 /**
  * Sign in to Firebase using a custom token
- * Uses React Native Firebase SDK which handles all token management and persistence
+ * Uses Firebase JS SDK which handles all token management and persistence
  */
 export async function signInWithToken(
   firebaseToken: string,
@@ -26,7 +27,7 @@ export async function signInWithToken(
 ): Promise<User> {
   try {
     // Sign in to Firebase SDK - it handles token management and persistence automatically
-    const userCredential = await auth().signInWithCustomToken(firebaseToken);
+    const userCredential = await signInWithCustomToken(auth, firebaseToken);
     const firebaseUser = userCredential.user;
 
     console.log("[firebase] Firebase Auth SDK sign-in successful, UID:", firebaseUser.uid);
@@ -55,7 +56,7 @@ export async function restoreSession(): Promise<{
 }> {
   try {
     // Check if Firebase SDK has a persisted session
-    const sdkUser = auth().currentUser;
+    const sdkUser = auth.currentUser;
 
     if (sdkUser) {
       console.log("[firebase] Firebase SDK session restored for user:", sdkUser.uid);
@@ -80,7 +81,7 @@ export async function restoreSession(): Promise<{
  */
 export async function signOut(): Promise<void> {
   try {
-    await auth().signOut();
+    await firebaseSignOut(auth);
     console.log("[firebase] Signed out from Firebase SDK");
 
     // Notify auth state listeners
@@ -95,14 +96,14 @@ export async function signOut(): Promise<void> {
  * Get the current Firebase user (synchronous)
  */
 export function getCurrentUser(): User | null {
-  return auth().currentUser;
+  return auth.currentUser;
 }
 
 /**
  * Get the current user's ID token for API calls
  */
 export async function getIdToken(): Promise<string | null> {
-  const user = auth().currentUser;
+  const user = auth.currentUser;
   if (!user) return null;
 
   try {
@@ -116,6 +117,11 @@ export async function getIdToken(): Promise<string | null> {
 // Auth state listeners (for app-level state management)
 const authStateListeners = new Set<AuthStateCallback>();
 let currentAuthUser: User | null = null;
+
+// Set up Firebase auth state listener
+onAuthStateChanged(auth, (user) => {
+  notifyAuthStateChange(user);
+});
 
 /**
  * Subscribe to auth state changes

@@ -1,9 +1,16 @@
 /**
  * iOS Firebase Storage Service
- * Uses React Native Firebase SDK for native iOS storage operations
+ * Uses Firebase JS SDK for storage operations
  */
 
-import storage from '@react-native-firebase/storage';
+import {
+  ref,
+  uploadString,
+  getDownloadURL,
+  listAll,
+  deleteObject,
+} from 'firebase/storage';
+import { storage } from './firebase-init';
 
 /**
  * Uploads an image to Firebase Storage
@@ -20,25 +27,30 @@ export async function uploadImageToStorage(
   try {
     console.log(`[Storage] Uploading ${imageType} image for user:`, userId);
 
-    // Convert base64 to blob-compatible format
-    const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
-
     // Create storage reference with timestamp to avoid overwriting
     const timestamp = Date.now();
     const imagePath = `users/${userId}/${imageType}-image-${timestamp}.png`;
-    const imageRef = storage().ref(imagePath);
+    const imageRef = ref(storage, imagePath);
 
     console.log(`[Storage] Uploading to path: ${imagePath}`);
 
-    // Upload the base64 string directly (React Native Firebase handles this)
-    await imageRef.putString(base64WithoutPrefix, 'base64', {
-      contentType: 'image/png',
-    });
+    // Check if the base64 has a data URI prefix
+    const hasPrefix = base64Data.startsWith('data:');
+
+    if (hasPrefix) {
+      // Upload with data_url format (includes the data:image/...;base64, prefix)
+      await uploadString(imageRef, base64Data, 'data_url');
+    } else {
+      // Upload as base64 only
+      await uploadString(imageRef, base64Data, 'base64', {
+        contentType: 'image/png',
+      });
+    }
 
     console.log(`[Storage] Upload successful`);
 
     // Get download URL
-    const downloadURL = await imageRef.getDownloadURL();
+    const downloadURL = await getDownloadURL(imageRef);
     console.log(`[Storage] Download URL generated:`, downloadURL);
 
     return downloadURL;
@@ -63,16 +75,16 @@ export async function cleanupUserStorage(userId: string): Promise<void> {
   try {
     console.log(`[Storage] Cleaning up storage files for user:`, userId);
 
-    const userFolderRef = storage().ref(`users/${userId}`);
+    const userFolderRef = ref(storage, `users/${userId}`);
 
     try {
-      const listResult = await userFolderRef.listAll();
+      const listResult = await listAll(userFolderRef);
       console.log(`[Storage] Found ${listResult.items.length} files to delete for user ${userId}`);
 
       // Delete all files in parallel
       const deletePromises = listResult.items.map(async (itemRef) => {
         try {
-          await itemRef.delete();
+          await deleteObject(itemRef);
           console.log(`[Storage] Deleted file: ${itemRef.fullPath}`);
         } catch (error) {
           console.error(`[Storage] Failed to delete file ${itemRef.fullPath}:`, error);
@@ -133,21 +145,18 @@ export async function rehostGoogleProfileImage(googleUrl: string, userId: string
     // Create storage reference
     const timestamp = Date.now();
     const imagePath = `users/${userId}/profile-image-${timestamp}.png`;
-    const imageRef = storage().ref(imagePath);
+    const imageRef = ref(storage, imagePath);
 
     // Upload to Firebase Storage
     console.log('[Storage] Uploading to Firebase Storage...');
 
-    // Extract base64 part (remove data:image/...;base64, prefix)
-    const base64WithoutPrefix = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
-    await imageRef.putString(base64WithoutPrefix, 'base64', {
-      contentType: 'image/png',
-    });
+    // Upload with data_url format (the readAsDataURL result includes the prefix)
+    await uploadString(imageRef, base64Data, 'data_url');
 
     console.log('[Storage] Upload successful');
 
     // Get the download URL
-    const downloadURL = await imageRef.getDownloadURL();
+    const downloadURL = await getDownloadURL(imageRef);
     console.log('[Storage] New Firebase URL:', downloadURL);
 
     return downloadURL;
