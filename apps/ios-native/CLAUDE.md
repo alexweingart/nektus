@@ -124,7 +124,31 @@ No special steps needed - incremental builds work normally.
 
 ### Clean Builds (After prebuild --clean, branch switch, or deleting ios/build)
 
-When you need a clean build, follow these steps:
+**Recommended: Use the automated script:**
+```bash
+cd apps/ios-native
+./scripts/clean-prebuild.sh
+```
+
+This script:
+1. Runs `expo prebuild --clean`
+2. Restores the Podfile from `Podfile.backup` (contains all customizations)
+3. Runs `pod install`
+
+**Manual Alternative (if script fails):**
+
+```bash
+# 1. Run expo prebuild (if needed)
+npx expo prebuild --clean
+
+# 2. Restore Podfile customizations from backup
+cp Podfile.backup ios/Podfile
+
+# 3. Run pod install
+cd ios && pod install
+```
+
+**If Podfile.backup is missing**, follow these manual steps:
 
 ```bash
 # 1. Run expo prebuild (if needed)
