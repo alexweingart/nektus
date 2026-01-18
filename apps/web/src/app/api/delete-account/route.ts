@@ -1,27 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
-import { deleteUserProfile } from '@/server/config/firebase';
+import { deleteUserProfile, getFirebaseAdmin } from '@/server/config/firebase';
 import { cleanupUserStorage } from '@/client/profile/firebase-storage';
 
 /**
- * API route to handle account deletion
+ * Get user ID from either NextAuth session or Firebase ID token
+ * This allows both web (NextAuth) and mobile (Firebase) clients to delete accounts
  */
-export async function POST(_req: NextRequest) {
+async function getUserId(req: NextRequest): Promise<string | null> {
+  // First try NextAuth session (web clients)
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    console.log('[DELETE-ACCOUNT] Authenticated via NextAuth session');
+    return session.user.id;
+  }
+
+  // Fall back to Firebase ID token (mobile clients)
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const idToken = authHeader.replace('Bearer ', '');
+      const { auth } = await getFirebaseAdmin();
+      const decodedToken = await auth.verifyIdToken(idToken);
+      if (decodedToken.uid) {
+        console.log('[DELETE-ACCOUNT] Authenticated via Firebase ID token');
+        return decodedToken.uid;
+      }
+    } catch (error) {
+      console.error('[DELETE-ACCOUNT] Failed to verify Firebase ID token:', error);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * API route to handle account deletion
+ * Supports both NextAuth session (web) and Firebase ID token (mobile)
+ */
+export async function POST(req: NextRequest) {
   console.log('[DELETE-ACCOUNT] API called');
-  
+
   try {
-    // Get the session to verify the user is authenticated
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    // Get user ID from session or Firebase token
+    const userId = await getUserId(req);
+    if (!userId) {
       console.error('[DELETE-ACCOUNT] No authenticated session found');
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
-
-    const userId = session.user.id;
     console.log(`[DELETE-ACCOUNT] Starting deletion for user: ${userId}`);
 
     try {

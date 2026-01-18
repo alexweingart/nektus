@@ -14,6 +14,7 @@ import { getApiBaseUrl } from "../config";
 
 export interface AppleAuthResult {
   success: boolean;
+  cancelled?: boolean;
   identityToken?: string;
   authorizationCode?: string;
   user?: string;
@@ -77,7 +78,7 @@ export async function signInWithApple(): Promise<AppleAuthResult> {
 
     if (errorWithCode.code === "ERR_REQUEST_CANCELED") {
       console.log("[apple] SIWA cancelled by user");
-      return { success: false, error: "Sign-in was cancelled" };
+      return { success: false, cancelled: true };
     }
 
     console.error("[apple] SIWA failed:", error);

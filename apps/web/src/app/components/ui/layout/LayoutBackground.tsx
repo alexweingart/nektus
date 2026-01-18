@@ -82,7 +82,7 @@ function updateThemeColorMeta(color: string) {
 const DEFAULT_COLORS = {
   particle: COLORS.particleLight,
   connection: COLORS.connectionSubtle,
-  gradientStart: COLORS.themeGreen,
+  gradientStart: 'rgba(34, 197, 94, 0.3)',  // Bright emerald at 30% opacity (matches iOS)
   gradientEnd: COLORS.themeDark,
 };
 

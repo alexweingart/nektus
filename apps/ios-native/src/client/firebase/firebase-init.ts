@@ -8,9 +8,11 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
-// Firebase configuration from GoogleService-Info.plist
+// Firebase configuration for JS SDK
+// Using iOS API key with "None" application restrictions (configured in Google Cloud Console)
+// The JS SDK can't satisfy bundle ID or referer restrictions, so the key must be unrestricted
 const firebaseConfig = {
-  apiKey: 'AIzaSyDRiHhiaBHGwrZIqBaxacTfVURXAg3fHZs',
+  apiKey: 'AIzaSyDRiHhiaBHGwrZIqBaxacTfVURXAg3fHZs', // iOS API key (unrestricted)
   authDomain: 'indigo-idea-400116.firebaseapp.com',
   projectId: 'indigo-idea-400116',
   storageBucket: 'indigo-idea-400116.firebasestorage.app',

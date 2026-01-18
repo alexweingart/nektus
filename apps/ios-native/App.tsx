@@ -78,8 +78,13 @@ function AppContent() {
     return "Profile";
   };
 
+  // Compute navigator key based on auth state to force remount on state changes
+  // This prevents React Navigation from trying to reconcile invalid routes
+  const navigatorKey = status === "unauthenticated" ? "unauth" : needsSetup ? "setup" : "auth";
+
   return (
     <Stack.Navigator
+      key={navigatorKey}
       initialRouteName={getInitialRouteName()}
       screenOptions={{
         headerShown: false,

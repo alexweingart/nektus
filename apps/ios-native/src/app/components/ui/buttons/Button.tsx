@@ -29,6 +29,7 @@ interface ButtonProps {
   size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
+  loadingText?: string;
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: ReactNode;
@@ -42,6 +43,7 @@ export function Button({
   size = "md",
   disabled = false,
   loading = false,
+  loadingText,
   style,
   textStyle,
   icon,
@@ -122,10 +124,15 @@ export function Button({
   const content = (
     <>
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === "destructive" || variant === "black" ? "#ffffff" : "#374151"}
-        />
+        <>
+          <ActivityIndicator
+            size="small"
+            color={variant === "destructive" || variant === "black" ? "#ffffff" : "#374151"}
+          />
+          {loadingText && (
+            <Text style={[textStyles, styles.loadingText]}>{loadingText}</Text>
+          )}
+        </>
       ) : (
         <>
           {icon && iconPosition === "left" && (
@@ -203,6 +210,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   iconRight: {
+    marginLeft: 8,
+  },
+  loadingText: {
     marginLeft: 8,
   },
 

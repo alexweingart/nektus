@@ -10,6 +10,8 @@ import {
 import { useAdminMode } from '../../../providers/AdminModeProvider';
 import { useSession } from '../../../providers/SessionProvider';
 import { SecondaryButton } from '../buttons/SecondaryButton';
+import { getIdToken, signOut as firebaseSignOut } from '../../../../client/auth/firebase';
+import { getApiBaseUrl } from '../../../../client/config';
 
 // Event name for simulating a Nekt (bump)
 export const ADMIN_SIMULATE_NEKT_EVENT = 'admin-simulate-nekt';
@@ -47,18 +49,27 @@ export default function AdminBanner() {
                 hasUserEmail: !!userEmail,
               });
 
-              // Call the delete account API
+              // Get Firebase ID token for authentication
+              const idToken = await getIdToken();
+              if (!idToken) {
+                console.error('[AdminBanner] No Firebase ID token available');
+                Alert.alert('Error', 'Not authenticated. Please sign in again.');
+                setDeleteStatus('error');
+                return;
+              }
+
+              // Call the delete account API with Firebase ID token
               try {
+                const baseUrl = getApiBaseUrl();
                 const response = await fetch(
-                  `${process.env.EXPO_PUBLIC_WEB_URL || 'https://nekt.us'}/api/delete-account`,
+                  `${baseUrl}/api/delete-account`,
                   {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${idToken}`,
                     },
                     body: JSON.stringify({
-                      userId,
-                      email: userEmail,
                       timestamp: new Date().getTime(),
                     }),
                   }
@@ -67,14 +78,24 @@ export default function AdminBanner() {
                 if (response.ok) {
                   console.log('[AdminBanner] Account deletion API call successful');
                 } else {
-                  console.warn('[AdminBanner] Account deletion API returned:', response.status);
+                  const errorData = await response.json().catch(() => ({}));
+                  console.warn('[AdminBanner] Account deletion API returned:', response.status, errorData);
+                  // If unauthorized, the server couldn't verify our token
+                  if (response.status === 401) {
+                    Alert.alert('Error', 'Authentication failed. Please sign in again.');
+                    setDeleteStatus('error');
+                    return;
+                  }
                 }
               } catch (apiError) {
                 console.error('[AdminBanner] Error calling delete account API:', apiError);
                 // Continue with local cleanup even if API fails
               }
 
-              // Sign out locally
+              // Sign out from Firebase
+              await firebaseSignOut();
+
+              // Also call the session signOut to clear local state
               await signOut();
 
               setDeleteStatus('success');

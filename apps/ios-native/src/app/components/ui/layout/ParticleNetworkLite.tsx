@@ -30,7 +30,7 @@ const DEFAULT_COLORS: ParticleColors = {
   particle: "rgba(200, 255, 200, 0.6)",
   connection: "rgba(34, 197, 94, 0.15)",
   gradientStart: "rgba(34, 197, 94, 0.3)",  // Accent color (middle of gradient)
-  gradientEnd: "#0a0f1a",                   // Dark color (top and bottom of gradient)
+  gradientEnd: "rgb(10, 15, 26)",           // Dark color (top and bottom of gradient)
 };
 
 // Context-specific configuration

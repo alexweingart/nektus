@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Animated, StyleSheet, Alert } from "react-native";
+import { View, Animated, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../../../App";
 import type { ExchangeStatus } from "@nektus/shared-types";
@@ -10,6 +10,7 @@ import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { ExchangeButton, MatchResult } from "../ui/buttons/ExchangeButton";
 import { StandardModal } from "../ui/modals/StandardModal";
+import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
 import { LayoutBackground } from "../ui/layout/LayoutBackground";
@@ -37,6 +38,7 @@ export function ProfileView() {
     isCheckingGoogleImage,
   } = useProfile();
   const navigation = useNavigation<ProfileViewNavigationProp>();
+  const adminModeProps = useAdminModeActivator();
 
   // Animation state
   const {
@@ -96,13 +98,8 @@ export function ProfileView() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Reset navigation stack to Home screen after successful sign out
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        })
-      );
+      // Navigation is handled automatically by the conditional navigator in App.tsx
+      // when session status changes to "unauthenticated"
     } catch (error) {
       console.error("[ProfileView] Sign out failed:", error);
     }
@@ -200,21 +197,27 @@ export function ProfileView() {
         </Animated.View>
 
         {/* Profile Info with carousel - shows QR code during exchange */}
-        <ProfileInfo
-          profile={profile}
-          profileImageSrc={profileImageSrc}
-          bioContent={bioContent}
-          isLoadingProfile={false}
-          isGoogleInitials={shouldShowInitials}
-          showQRCode={showQRCode}
-          matchToken={matchToken || undefined}
-          animatedValues={{
-            scale: animatedValues.profileScale,
-            translateY: animatedValues.profileTranslateY,
-            opacity: animatedValues.profileOpacity,
-            rotation: animatedValues.profileRotation,
-          }}
-        />
+        {/* Double-tap on profile area activates admin mode */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={adminModeProps.onPress}
+        >
+          <ProfileInfo
+            profile={profile}
+            profileImageSrc={profileImageSrc}
+            bioContent={bioContent}
+            isLoadingProfile={false}
+            isGoogleInitials={shouldShowInitials}
+            showQRCode={showQRCode}
+            matchToken={matchToken || undefined}
+            animatedValues={{
+              scale: animatedValues.profileScale,
+              translateY: animatedValues.profileTranslateY,
+              opacity: animatedValues.profileOpacity,
+              rotation: animatedValues.profileRotation,
+            }}
+          />
+        </TouchableOpacity>
 
         {/* Action Buttons - Animated */}
         <Animated.View
@@ -278,6 +281,9 @@ export function ProfileView() {
         secondaryButtonText="Maybe later"
         showCloseButton={false}
       />
+
+      {/* Admin Banner - appears when admin mode is activated */}
+      <AdminBanner />
     </LayoutBackground>
   );
 }

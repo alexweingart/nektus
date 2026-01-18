@@ -207,6 +207,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
       console.log("[SessionProvider] Apple sign in result:", appleResult.success);
 
       if (!appleResult.success) {
+        // User cancelled - silently return without showing error
+        if (appleResult.cancelled) {
+          return;
+        }
         const errorMsg = appleResult.error || "Apple sign-in failed";
         console.error("[SessionProvider] Apple sign in failed:", errorMsg);
         Alert.alert("Sign In Failed", errorMsg);
