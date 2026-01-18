@@ -249,19 +249,9 @@ const HomePage: React.FC = () => {
       console.error('[HomePage] Apple sign-in failed:', error);
       // Only reset loading state on error/cancellation
       setIsAppleSigningIn(false);
-      // User cancelled or error occurred - don't show alert for cancellation
-      // Apple uses various error indicators: "popup_closed_by_user", "user_cancelled_authorize", etc.
-      const errorStr = String(error).toLowerCase();
-      const errorMsg = error instanceof Error ? error.message.toLowerCase() : '';
-      const isCancellation = errorStr.includes('cancel') ||
-                             errorStr.includes('popup_closed') ||
-                             errorStr.includes('user_denied') ||
-                             errorMsg.includes('cancel') ||
-                             errorMsg.includes('popup_closed') ||
-                             errorMsg.includes('user_denied');
-      if (!isCancellation) {
-        alert(`Sign in failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      // Don't show alert for user cancellation or Apple-side errors
+      // User can see they're still on the sign-in page and try again
+      // Only log to console for debugging
     }
   }, [isAppleSigningIn]);
 
