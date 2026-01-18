@@ -48,11 +48,14 @@ const HomeFooter = () => {
 
 export function HomePage() {
   const { signIn, isSigningIn } = useSession();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const adminModeProps = useAdminModeActivator();
 
   // 10vh spacing matching web's pt-[10vh]
   const topSpacing = height * 0.1;
+
+  // Calculate logo width to match button width (full width minus padding, capped at 448)
+  const logoWidth = Math.min(width - 32, 448);
 
   return (
     <LayoutBackground particleContext="signed-out">
@@ -64,7 +67,7 @@ export function HomePage() {
           activeOpacity={1}
           onPress={adminModeProps.onPress}
         >
-          <NektLogo width={320} />
+          <NektLogo width={logoWidth} />
         </TouchableOpacity>
 
         {/* Heading */}
