@@ -30,7 +30,6 @@ import { useProfile, type UserProfile, type SavedContact } from '../../context/P
 import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import type { Event, TimeSlot } from '@nektus/shared-types';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { MessageList } from '../ui/chat/MessageList';
 import { ChatInput } from '../ui/chat/ChatInput';
@@ -331,17 +330,14 @@ And if you don't know any of those things, and just want me to suggest based off
 
   if (loading || !contactProfile || !currentUserProfile) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Find a Time" onBack={handleBack} />
-        </View>
-      </LayoutBackground>
+      <View style={styles.container}>
+        <PageHeader title="Find a Time" onBack={handleBack} />
+      </View>
     );
   }
 
   return (
-    <LayoutBackground showParticles={false}>
-      <KeyboardAvoidingView
+    <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
@@ -380,7 +376,6 @@ And if you don't know any of those things, and just want me to suggest based off
           )}
         </View>
       </KeyboardAvoidingView>
-    </LayoutBackground>
   );
 }
 

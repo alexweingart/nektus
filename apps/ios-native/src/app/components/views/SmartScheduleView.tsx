@@ -21,7 +21,6 @@ import type { UserProfile, TimeSlot } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
@@ -272,21 +271,19 @@ export function SmartScheduleView() {
   // Loading state
   if (loading || !contactProfile) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Meet Up" onBack={handleBack} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ffffff" />
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="Meet Up" onBack={handleBack} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ffffff" />
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   const contactName = getFieldValue(contactProfile.contactEntries, 'name');
 
   return (
-    <LayoutBackground showParticles={true} particleContext="profile">
+    <>
       <View style={styles.container}>
         <PageHeader title="Meet Up" onBack={handleBack} />
 
@@ -344,7 +341,7 @@ export function SmartScheduleView() {
           </Button>
         </ScrollView>
       </View>
-    </LayoutBackground>
+    </>
   );
 }
 

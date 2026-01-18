@@ -12,7 +12,6 @@ import type { SavedContact } from '../../context/ProfileContext';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
@@ -184,45 +183,41 @@ export function HistoryView() {
   // Loading state
   if (isLoading) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="History" onBack={handleBack} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ffffff" />
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="History" onBack={handleBack} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ffffff" />
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="History" onBack={handleBack} />
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Button
-              variant="white"
-              size="xl"
-              onPress={() => {
-                setError(null);
-                setIsLoading(true);
-                loadContacts().then(() => setIsLoading(false));
-              }}
-              style={styles.retryButton}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </Button>
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="History" onBack={handleBack} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button
+            variant="white"
+            size="xl"
+            onPress={() => {
+              setError(null);
+              setIsLoading(true);
+              loadContacts().then(() => setIsLoading(false));
+            }}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </Button>
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   return (
-    <LayoutBackground showParticles={false}>
+    <>
       <View style={styles.container}>
         <PageHeader title="History" onBack={handleBack} />
 
@@ -271,7 +266,7 @@ export function HistoryView() {
           showCloseButton={false}
         />
       )}
-    </LayoutBackground>
+    </>
   );
 }
 
@@ -308,15 +303,16 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 24,
+    paddingTop: 48, // Match web's py-12
   },
   emptyIconContainer: {
     marginBottom: 24,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '500', // Match web's font-medium
     color: '#ffffff',
     marginBottom: 8,
   },
@@ -325,6 +321,7 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     textAlign: 'center',
     marginBottom: 24,
+    maxWidth: 384, // Match web's max-w-sm
   },
   startButton: {
     width: '100%',

@@ -13,7 +13,6 @@ import { StandardModal } from "../ui/modals/StandardModal";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
-import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { useProfileAnimations } from "../../../client/hooks/use-profile-animations";
 
@@ -142,18 +141,11 @@ export function ProfileView() {
 
   // If no profile, show nothing (let loading state handle it)
   if (!profile) {
-    return (
-      <LayoutBackground showParticles={false} backgroundColor="#004D40">
-        <View style={styles.scrollContent} />
-      </LayoutBackground>
-    );
+    return <View style={styles.scrollContent} />;
   }
 
   return (
-    <LayoutBackground
-      showParticles={true}
-      particleContext="profile"
-    >
+    <>
       <PullToRefresh
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -284,7 +276,7 @@ export function ProfileView() {
 
       {/* Admin Banner - appears when admin mode is activated */}
       <AdminBanner />
-    </LayoutBackground>
+    </>
   );
 }
 
@@ -292,7 +284,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 16, // Match web px-4 (applies to all children)
-    paddingTop: 16, // Additional spacing after safe area
     paddingBottom: 32,
   },
   headerButtons: {

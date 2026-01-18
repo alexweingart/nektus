@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 
 export function TermsView() {
@@ -18,8 +17,7 @@ export function TermsView() {
   }, []);
 
   return (
-    <LayoutBackground particleContext="signed-out">
-      <PullToRefresh
+    <PullToRefresh
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onRefresh={handleRefresh}
@@ -217,7 +215,6 @@ export function TermsView() {
           </View>
         </View>
       </PullToRefresh>
-    </LayoutBackground>
   );
 }
 

@@ -17,7 +17,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
 import type { SchedulableHours, Calendar } from '@nektus/shared-types';
 import { useProfile } from '../../context/ProfileContext';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { SchedulableHoursEditor } from '../ui/calendar/SchedulableHoursEditor';
@@ -152,34 +151,29 @@ export function CalendarView() {
   // Loading state
   if (profileLoading) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Edit Calendar" onBack={handleBack} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ffffff" />
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="Edit Calendar" onBack={handleBack} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ffffff" />
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   // Calendar not found
   if (!calendar) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Edit Calendar" onBack={handleBack} />
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Calendar not found</Text>
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="Edit Calendar" onBack={handleBack} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Calendar not found</Text>
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   return (
-    <LayoutBackground showParticles={false}>
-      <View style={styles.container}>
+    <View style={styles.container}>
         <PageHeader
           title="Edit Calendar"
           onBack={handleBack}
@@ -216,7 +210,6 @@ export function CalendarView() {
           </SecondaryButton>
         </View>
       </View>
-    </LayoutBackground>
   );
 }
 

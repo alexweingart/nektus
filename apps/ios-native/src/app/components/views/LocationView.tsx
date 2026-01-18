@@ -20,7 +20,6 @@ import type { RootStackParamList } from '../../../../App';
 import type { UserLocation } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
 import { useProfile } from '../../context/ProfileContext';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { ValidatedInput } from '../ui/inputs/ValidatedInput';
@@ -162,34 +161,29 @@ export function LocationView() {
   // Loading state
   if (profileLoading) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Location" onBack={handleBack} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ffffff" />
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="Location" onBack={handleBack} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ffffff" />
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   // Location not found
   if (!location || !editedLocation) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.container}>
-          <PageHeader title="Location" onBack={handleBack} />
-          <View style={styles.errorContainer}>
-            <Text style={styles.notFoundText}>Location not found</Text>
-          </View>
+      <View style={styles.container}>
+        <PageHeader title="Location" onBack={handleBack} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.notFoundText}>Location not found</Text>
         </View>
-      </LayoutBackground>
+      </View>
     );
   }
 
   return (
-    <LayoutBackground showParticles={false}>
-      <KeyboardAvoidingView
+    <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
@@ -277,7 +271,6 @@ export function LocationView() {
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
-    </LayoutBackground>
   );
 }
 

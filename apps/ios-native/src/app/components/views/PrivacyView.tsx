@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 
 export function PrivacyView() {
@@ -18,8 +17,7 @@ export function PrivacyView() {
   }, []);
 
   return (
-    <LayoutBackground particleContext="signed-out">
-      <PullToRefresh
+    <PullToRefresh
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onRefresh={handleRefresh}
@@ -165,7 +163,6 @@ export function PrivacyView() {
           </View>
         </View>
       </PullToRefresh>
-    </LayoutBackground>
   );
 }
 

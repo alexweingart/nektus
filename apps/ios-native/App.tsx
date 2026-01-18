@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreenModule from "expo-splash-screen";
 import { SessionProvider, useSession } from "./src/app/providers/SessionProvider";
 import { ProfileProvider, useProfile } from "./src/app/context/ProfileContext";
+import { RouteContext } from "./src/app/context/RouteContext";
+import AdminModeProvider from "./src/app/providers/AdminModeProvider";
+import { LayoutBackground } from "./src/app/components/ui/layout/LayoutBackground";
 import { HomePage } from "./src/app/components/views/HomePage";
 import { ProfileSetupView } from "./src/app/components/views/ProfileSetupView";
 import { ProfileView } from "./src/app/components/views/ProfileView";
@@ -83,59 +86,82 @@ function AppContent() {
   const navigatorKey = status === "unauthenticated" ? "unauth" : needsSetup ? "setup" : "auth";
 
   return (
-    <Stack.Navigator
-      key={navigatorKey}
-      initialRouteName={getInitialRouteName()}
-      screenOptions={{
-        headerShown: false,
-        animation: "fade", // Crossfade transition matching web
-        animationDuration: 300,
-        contentStyle: { backgroundColor: "transparent" },
-      }}
-    >
-      {status === "unauthenticated" ? (
-        // Unauthenticated screens
-        <>
-          <Stack.Screen name="Home" component={HomePage} />
-          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
-        </>
-      ) : needsSetup ? (
-        // Profile setup screens
-        <>
-          <Stack.Screen name="ProfileSetup" component={ProfileSetupView} />
-          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
-        </>
-      ) : (
-        // Authenticated screens
-        <>
-          <Stack.Screen name="Profile" component={ProfileView} />
-          <Stack.Screen name="EditProfile" component={EditProfileView} options={{ animation: "slide_from_bottom" }} />
-          <Stack.Screen name="Contact" component={ContactView} />
-          <Stack.Screen name="History" component={HistoryView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Calendar" component={CalendarView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Location" component={LocationView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="SmartSchedule" component={SmartScheduleView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="AISchedule" component={AIScheduleView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Privacy" component={PrivacyView} options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="Terms" component={TermsView} options={{ animation: "slide_from_right" }} />
-        </>
-      )}
-    </Stack.Navigator>
+    <LayoutBackground>
+      <Stack.Navigator
+        key={navigatorKey}
+        initialRouteName={getInitialRouteName()}
+        screenOptions={{
+          headerShown: false,
+          animation: "fade", // Crossfade transition matching web
+          animationDuration: 300,
+          contentStyle: { backgroundColor: "transparent" },
+        }}
+      >
+        {status === "unauthenticated" ? (
+          // Unauthenticated screens
+          <>
+            <Stack.Screen name="Home" component={HomePage} />
+            <Stack.Screen name="Privacy" component={PrivacyView} />
+            <Stack.Screen name="Terms" component={TermsView} />
+          </>
+        ) : needsSetup ? (
+          // Profile setup screens
+          <>
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupView} />
+            <Stack.Screen name="Privacy" component={PrivacyView} />
+            <Stack.Screen name="Terms" component={TermsView} />
+          </>
+        ) : (
+          // Authenticated screens - all use fade (crossfade) to keep background static
+          <>
+            <Stack.Screen name="Profile" component={ProfileView} />
+            <Stack.Screen name="EditProfile" component={EditProfileView} />
+            <Stack.Screen name="Contact" component={ContactView} />
+            <Stack.Screen name="History" component={HistoryView} />
+            <Stack.Screen name="Calendar" component={CalendarView} />
+            <Stack.Screen name="Location" component={LocationView} />
+            <Stack.Screen name="SmartSchedule" component={SmartScheduleView} />
+            <Stack.Screen name="AISchedule" component={AIScheduleView} />
+            <Stack.Screen name="Privacy" component={PrivacyView} />
+            <Stack.Screen name="Terms" component={TermsView} />
+          </>
+        )}
+      </Stack.Navigator>
+    </LayoutBackground>
   );
 }
 
 // Root app with providers
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+  const [currentRoute, setCurrentRoute] = useState<string | null>(null);
+
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <SessionProvider>
-          <ProfileProvider>
-            <AppContent />
-          </ProfileProvider>
-        </SessionProvider>
+      <NavigationContainer
+        ref={navigationRef}
+        onStateChange={() => {
+          const route = navigationRef.getCurrentRoute();
+          if (route?.name) {
+            setCurrentRoute(route.name);
+          }
+        }}
+        onReady={() => {
+          const route = navigationRef.getCurrentRoute();
+          if (route?.name) {
+            setCurrentRoute(route.name);
+          }
+        }}
+      >
+        <RouteContext.Provider value={currentRoute}>
+          <SessionProvider>
+            <ProfileProvider>
+              <AdminModeProvider>
+                <AppContent />
+              </AdminModeProvider>
+            </ProfileProvider>
+          </SessionProvider>
+        </RouteContext.Provider>
       </NavigationContainer>
       <StatusBar style="light" />
     </SafeAreaProvider>

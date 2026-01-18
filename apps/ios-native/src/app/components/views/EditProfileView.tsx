@@ -17,7 +17,6 @@ import type { ContactEntry, FieldSection, Calendar, UserLocation } from '@nektus
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { useEditProfileFields, useProfileViewMode } from '../../../client/hooks/use-edit-profile-fields';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
 import Avatar from '../ui/elements/Avatar';
@@ -199,7 +198,7 @@ export function EditProfileView() {
   };
 
   return (
-    <LayoutBackground showParticles={false}>
+    <>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -390,7 +389,7 @@ export function EditProfileView() {
           setShowAddLocationModal(false);
         }}
       />
-    </LayoutBackground>
+    </>
   );
 }
 

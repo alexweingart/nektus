@@ -13,7 +13,6 @@ import { Input } from "../ui/inputs/Input";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber } from "@nektus/shared-client";
-import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 
@@ -110,8 +109,7 @@ export function ProfileSetupView() {
   }, [signOut]);
 
   return (
-    <LayoutBackground showParticles={false} backgroundColor="#004D40">
-      <KeyboardAvoidingView
+    <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
@@ -165,7 +163,6 @@ export function ProfileSetupView() {
           </View>
         </PullToRefresh>
       </KeyboardAvoidingView>
-    </LayoutBackground>
   );
 }
 

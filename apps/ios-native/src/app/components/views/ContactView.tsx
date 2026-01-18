@@ -12,7 +12,6 @@ import type { UserProfile } from '@nektus/shared-types';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { useSession } from '../../providers/SessionProvider';
-import { LayoutBackground } from '../ui/layout/LayoutBackground';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ContactInfo } from '../ui/modules/ContactInfo';
 import { Button } from '../ui/buttons/Button';
@@ -162,23 +161,21 @@ export function ContactView() {
   // Loading state
   if (isLoading) {
     return (
-      <LayoutBackground showParticles={false}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
-        </View>
-      </LayoutBackground>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
     );
   }
 
   // No profile state
   if (!profile) {
     return (
-      <LayoutBackground showParticles={false}>
+      <>
         <PageHeader title="Contact" onBack={handleBack} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Contact not found</Text>
         </View>
-      </LayoutBackground>
+      </>
     );
   }
 
@@ -186,7 +183,7 @@ export function ContactView() {
   const contactName = getFieldValue(profile.contactEntries, 'name');
 
   return (
-    <LayoutBackground showParticles={true} particleContext="contact">
+    <>
       <View style={styles.container}>
         {/* Header with back button */}
         <PageHeader onBack={handleBack} />
@@ -260,7 +257,7 @@ export function ContactView() {
         secondaryButtonText="Nah, they'll text me"
         showCloseButton={false}
       />
-    </LayoutBackground>
+    </>
   );
 }
 

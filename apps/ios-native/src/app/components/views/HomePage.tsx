@@ -11,9 +11,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { NektLogo } from "../ui/elements/NektLogo";
-import { LayoutBackground } from "../ui/layout/LayoutBackground";
 import { Button } from "../ui/buttons/Button";
-import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import type { RootStackParamList } from "../../../../App";
 
 type HomePageNavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -49,7 +47,6 @@ const HomeFooter = () => {
 export function HomePage() {
   const { signIn, isSigningIn } = useSession();
   const { width, height } = useWindowDimensions();
-  const adminModeProps = useAdminModeActivator();
 
   // 10vh spacing matching web's pt-[10vh]
   const topSpacing = height * 0.1;
@@ -58,17 +55,13 @@ export function HomePage() {
   const logoWidth = Math.min(width - 32, 448);
 
   return (
-    <LayoutBackground particleContext="signed-out">
+    <>
       {/* Main content */}
       <View style={[styles.content, { paddingTop: topSpacing }]}>
-        {/* Logo - double-tap to activate admin mode */}
-        <TouchableOpacity
-          style={styles.logoContainer}
-          activeOpacity={1}
-          onPress={adminModeProps.onPress}
-        >
+        {/* Logo */}
+        <View style={styles.logoContainer}>
           <NektLogo width={logoWidth} />
-        </TouchableOpacity>
+        </View>
 
         {/* Heading */}
         <Text style={styles.heading}>Conversations → Friendships</Text>
@@ -100,10 +93,7 @@ export function HomePage() {
 
       {/* Footer */}
       <HomeFooter />
-
-      {/* Admin Banner - appears when admin mode is activated */}
-      <AdminBanner />
-    </LayoutBackground>
+    </>
   );
 }
 

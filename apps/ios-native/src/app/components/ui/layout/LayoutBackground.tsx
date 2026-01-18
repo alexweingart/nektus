@@ -3,6 +3,8 @@ import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ParticleNetworkLite as ParticleNetwork, ParticleNetworkProps } from "./ParticleNetworkLite";
 import { useProfile } from "../../../../app/context/ProfileContext";
+import { useSession } from "../../../../app/providers/SessionProvider";
+import { useCurrentRoute } from "../../../../app/context/RouteContext";
 
 // Helper function to convert hex to rgba
 function hexToRgba(hex: string, alpha: number): string {
@@ -25,23 +27,50 @@ function convertToParticleColors(backgroundColors: string[]) {
   };
 }
 
-// Default colors for profile context (inverted signed-out colors) - matches web
-const DEFAULT_PROFILE_COLORS = {
-  gradientStart: '#0a0f1a',                   // Dark in middle (inverted)
-  gradientEnd: 'rgba(34, 197, 94, 0.3)',     // Green at top/bottom (symmetric)
+// Default colors for signed-out context - matches web
+const DEFAULT_SIGNED_OUT_COLORS = {
+  gradientStart: 'rgba(34, 197, 94, 0.3)',   // Green in middle
+  gradientEnd: 'rgb(10, 15, 26)',            // Dark at top/bottom
   particle: 'rgba(200, 255, 200, 0.6)',
   connection: 'rgba(34, 197, 94, 0.15)'
 };
 
+// Default colors for profile/contact context (inverted signed-out colors) - matches web
+const DEFAULT_PROFILE_COLORS = {
+  gradientStart: 'rgb(10, 15, 26)',          // Dark in middle (inverted)
+  gradientEnd: 'rgba(34, 197, 94, 0.3)',     // Green at top/bottom (symmetric)
+  particle: 'rgba(200, 255, 200, 0.8)',      // Brighter particles
+  connection: 'rgba(34, 197, 94, 0.4)'       // More visible connections
+};
+
+// Map route names to particle contexts
+const ROUTE_TO_CONTEXT: Record<string, ParticleNetworkProps["context"]> = {
+  // Unauthenticated
+  Home: "signed-out",
+  Privacy: "signed-out",
+  Terms: "signed-out",
+  // Setup
+  ProfileSetup: "profile-default",
+  // Authenticated
+  Profile: "profile",
+  EditProfile: "profile",
+  Contact: "contact",
+  History: "profile",
+  Calendar: "profile",
+  Location: "profile",
+  SmartSchedule: "contact",
+  AISchedule: "contact",
+};
+
 interface LayoutBackgroundProps {
   children: React.ReactNode;
-  /** ParticleNetwork context for background styling */
+  /** Override ParticleNetwork context (auto-detected from route if not provided) */
   particleContext?: ParticleNetworkProps["context"];
-  /** Custom ParticleNetwork colors */
+  /** Custom ParticleNetwork colors (auto-detected from profile if not provided) */
   particleColors?: ParticleNetworkProps["colors"];
   /** Whether to show ParticleNetwork background (default: true) */
   showParticles?: boolean;
-  /** Background color when particles are hidden */
+  /** Background color fallback */
   backgroundColor?: string;
   /** Apply safe area padding to content (default: true) */
   applySafeArea?: boolean;
@@ -51,53 +80,72 @@ interface LayoutBackgroundProps {
  * LayoutBackground - wrapper component that handles:
  * - ParticleNetwork positioned as absolute background (edge-to-edge, behind notch)
  * - Safe area padding for content (top, left, right)
+ * - Auto-detects route to set appropriate particle context (like web)
  * - Matches web's LayoutBackground pattern
  */
 export function LayoutBackground({
   children,
-  particleContext = "signed-out",
+  particleContext: overrideContext,
   particleColors,
   showParticles = true,
   backgroundColor = "#0a0f1a",
   applySafeArea = true,
 }: LayoutBackgroundProps) {
   const insets = useSafeAreaInsets();
-  const { profile } = useProfile(); // Get profile from context (like web)
+  const { profile } = useProfile();
+  const { status } = useSession();
 
-  // Determine colors to use
+  // Get current route name from context (tracked at NavigationContainer level)
+  const currentRouteName = useCurrentRoute();
+
+  // Determine particle context from route (or use override)
+  const particleContext = useMemo(() => {
+    if (overrideContext) return overrideContext;
+    if (!currentRouteName) return "signed-out";
+    return ROUTE_TO_CONTEXT[currentRouteName] || "signed-out";
+  }, [overrideContext, currentRouteName]);
+
+  // Determine colors to use based on context and profile
   const effectiveColors = useMemo(() => {
     // If colors explicitly provided, use those
     if (particleColors) {
-      console.log('[LayoutBackground] Using explicitly provided colors:', particleColors);
       return particleColors;
     }
 
-    // For profile context, use profile's background colors if available
-    if (particleContext === "profile" && profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
-      const converted = convertToParticleColors(profile.backgroundColors);
-      console.log('[LayoutBackground] Using profile colors:', {
-        original: profile.backgroundColors,
-        converted
-      });
-      return converted;
+    // For signed-out context
+    if (particleContext === "signed-out" || status === "unauthenticated") {
+      return DEFAULT_SIGNED_OUT_COLORS;
     }
 
-    // Use default profile colors for profile context without custom colors
-    if (particleContext === "profile") {
-      console.log('[LayoutBackground] Using default profile colors (no custom colors found)');
+    // For profile context with custom colors
+    if ((particleContext === "profile" || particleContext === "profile-default") &&
+        profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
+      // Check if colors are custom (not all the same)
+      const [c1, c2, c3] = profile.backgroundColors;
+      const hasCustomColors = !(c1 === c2 && c2 === c3);
+      if (hasCustomColors) {
+        return convertToParticleColors(profile.backgroundColors);
+      }
+    }
+
+    // For contact context - use default profile colors (inverted)
+    if (particleContext === "contact" || particleContext === "connect") {
       return DEFAULT_PROFILE_COLORS;
     }
 
-    // For other contexts, use undefined (ParticleNetwork will use context defaults)
-    console.log('[LayoutBackground] Using context defaults for:', particleContext);
-    return undefined;
-  }, [particleColors, particleContext, profile?.backgroundColors]);
+    // Default for profile contexts without custom colors
+    if (particleContext === "profile" || particleContext === "profile-default") {
+      return DEFAULT_PROFILE_COLORS;
+    }
+
+    // Fallback
+    return DEFAULT_SIGNED_OUT_COLORS;
+  }, [particleColors, particleContext, profile, status]);
 
   // Use dominant color as background for proper gradient blending
   const effectiveBackgroundColor = useMemo(() => {
-    if (particleContext === "profile" && profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
-      // Use dominant color (backgroundColors[0]) as container background
-      // This ensures semi-transparent gradient colors blend correctly
+    if ((particleContext === "profile" || particleContext === "profile-default") &&
+        profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
       return profile.backgroundColors[0];
     }
     return backgroundColor;
