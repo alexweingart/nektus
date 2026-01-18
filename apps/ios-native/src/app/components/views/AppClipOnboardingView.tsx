@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Button } from "../ui/buttons/Button";
-import { Heading, Body } from "../ui/Typography";
+import { Heading, BodyText } from "../ui/Typography";
 import {
   signInWithApple,
   exchangeAppleTokenForFirebase,
@@ -252,10 +252,10 @@ export function AppClipOnboardingView({
         {currentStep === 2 && (
           <View style={styles.stepContent}>
             <Heading>Get the Full Experience</Heading>
-            <Body style={styles.stepBody}>
+            <BodyText style={styles.stepBody}>
               Install the Nekt app for the best experience with all features
               including contact sync, history, and more.
-            </Body>
+            </BodyText>
             <Button variant="primary" onPress={handleContinue}>
               Continue
             </Button>

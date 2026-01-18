@@ -27,7 +27,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Button } from "../ui/buttons/Button";
 import { Input } from "../ui/inputs/Input";
-import { Heading, Body } from "../ui/Typography";
+import { Heading, BodyText } from "../ui/Typography";
 import {
   signInWithApple,
   exchangeAppleTokenForFirebase,
@@ -402,10 +402,10 @@ export function OnboardingView({
           {currentStep === 2 && (
             <View style={styles.stepContent}>
               <Heading>Get the Full Experience</Heading>
-              <Body style={styles.stepBody}>
+              <BodyText style={styles.stepBody}>
                 Install the Nekt app for the best experience with all features
                 including contact sync, history, and more.
-              </Body>
+              </BodyText>
               <Button variant="primary" onPress={handleContinueToStep3}>
                 Continue
               </Button>
@@ -418,10 +418,10 @@ export function OnboardingView({
               {!showPhoneInput ? (
                 <>
                   <Heading>Quick Setup</Heading>
-                  <Body style={styles.stepBody}>
+                  <BodyText style={styles.stepBody}>
                     Allow contacts access to auto-fill your phone number and
                     save new connections directly to your contacts.
-                  </Body>
+                  </BodyText>
                   {isLoading ? (
                     <ActivityIndicator size="large" color="#22c55e" />
                   ) : (

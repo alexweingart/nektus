@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path } from 'react-native-svg';
@@ -16,6 +16,7 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { StandardModal } from '../ui/modals/StandardModal';
+import { Heading, BodyText } from '../ui/Typography';
 import Avatar from '../ui/elements/Avatar';
 
 type HistoryViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -57,7 +58,7 @@ const formatMatchDate = (timestamp: number): string => {
   }
 };
 
-// Empty state icon
+// Empty state icon (gray to match web's text-gray-400)
 const EmptyIcon = () => (
   <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth={1.5}>
     <Path
@@ -198,7 +199,7 @@ export function HistoryView() {
       <View style={styles.container}>
         <PageHeader title="History" onBack={handleBack} />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <BodyText style={styles.errorText}>{error}</BodyText>
           <Button
             variant="white"
             size="xl"
@@ -209,7 +210,7 @@ export function HistoryView() {
             }}
             style={styles.retryButton}
           >
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            Try Again
           </Button>
         </View>
       </View>
@@ -227,17 +228,17 @@ export function HistoryView() {
             <View style={styles.emptyIconContainer}>
               <EmptyIcon />
             </View>
-            <Text style={styles.emptyTitle}>No contacts yet</Text>
-            <Text style={styles.emptySubtitle}>
+            <Heading variant="h3" style={styles.emptyTitle}>No contacts yet</Heading>
+            <BodyText variant="small" muted style={styles.emptySubtitle}>
               When you nekt with someone, they'll appear here so you can easily reconnect later.
-            </Text>
+            </BodyText>
             <Button
               variant="white"
               size="xl"
               onPress={handleBack}
               style={styles.startButton}
             >
-              <Text style={styles.startButtonText}>Start Nekt'ing</Text>
+              Start Nekt'ing
             </Button>
           </View>
         ) : (
@@ -295,11 +296,6 @@ const styles = StyleSheet.create({
   retryButton: {
     width: '100%',
   },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -311,25 +307,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '500', // Match web's font-medium
-    color: '#ffffff',
-    marginBottom: 8,
+    marginBottom: 8, // Match web's mb-2
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#D1D5DB',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 24, // Match web's mb-6
     maxWidth: 384, // Match web's max-w-sm
   },
   startButton: {
     width: '100%',
-  },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
   },
   listContent: {
     paddingVertical: 16,
