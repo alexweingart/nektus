@@ -4,9 +4,12 @@
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeAuth, getAuth, Auth } from 'firebase/auth';
+// @ts-ignore: getReactNativePersistence exists in the RN bundle but is missing from TypeScript definitions
+import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase configuration for JS SDK
 // Using iOS API key with "None" application restrictions (configured in Google Cloud Console)
@@ -38,7 +41,19 @@ function initializeFirebase(): FirebaseApp {
 
 // Initialize on module load
 app = initializeFirebase();
-auth = getAuth(app);
+
+// Initialize auth with AsyncStorage persistence for React Native
+// This ensures auth state survives app restarts and force closes
+// Note: initializeAuth can only be called once per app, so we check if already initialized
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (error) {
+  // Auth already initialized, get the existing instance
+  auth = getAuth(app);
+}
+
 db = getFirestore(app);
 storage = getStorage(app);
 

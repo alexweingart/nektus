@@ -3,10 +3,11 @@
  *
  * This module provides a thin wrapper around Firebase JS SDK:
  * - Sign in with custom tokens (from backend OAuth exchange)
- * - Session restoration (handled automatically by Firebase SDK)
+ * - Session restoration (persisted to AsyncStorage via firebase-init.ts)
  * - Auth state management
  *
- * Note: Firebase SDK handles all token management, persistence, and refresh automatically
+ * Note: Firebase SDK handles token refresh automatically. Persistence is configured
+ * in firebase-init.ts using AsyncStorage for React Native.
  */
 
 import { signInWithCustomToken, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
@@ -19,21 +20,17 @@ export { getApiBaseUrl } from "../config";
 
 /**
  * Sign in to Firebase using a custom token
- * Uses Firebase JS SDK which handles all token management and persistence
+ * The session is automatically persisted to AsyncStorage (configured in firebase-init.ts)
  */
 export async function signInWithToken(
   firebaseToken: string,
   _userId: string // Not needed, kept for API compatibility
 ): Promise<User> {
   try {
-    // Sign in to Firebase SDK - it handles token management and persistence automatically
     const userCredential = await signInWithCustomToken(auth, firebaseToken);
     const firebaseUser = userCredential.user;
 
     console.log("[firebase] Firebase Auth SDK sign-in successful, UID:", firebaseUser.uid);
-
-    // Firebase SDK automatically persists the session
-    // No need for manual token storage or refresh
 
     // Notify auth state listeners
     notifyAuthStateChange(firebaseUser);
@@ -47,7 +44,7 @@ export async function signInWithToken(
 
 /**
  * Attempt to restore a previous session from Firebase SDK
- * Firebase SDK automatically persists and restores sessions
+ * With AsyncStorage persistence, we need to wait for Firebase to load the persisted state
  */
 export async function restoreSession(): Promise<{
   restored: boolean;
@@ -55,16 +52,19 @@ export async function restoreSession(): Promise<{
   needsRefresh: boolean;
 }> {
   try {
-    // Check if Firebase SDK has a persisted session
-    const sdkUser = auth.currentUser;
+    // Wait for Firebase to load persisted auth state from AsyncStorage
+    // This is necessary because auth.currentUser is null until Firebase finishes loading
+    const user = await new Promise<User | null>((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        unsubscribe();
+        resolve(user);
+      });
+    });
 
-    if (sdkUser) {
-      console.log("[firebase] Firebase SDK session restored for user:", sdkUser.uid);
-
-      // Notify auth state listeners
-      notifyAuthStateChange(sdkUser);
-
-      return { restored: true, user: sdkUser, needsRefresh: false };
+    if (user) {
+      console.log("[firebase] Firebase SDK session restored for user:", user.uid);
+      notifyAuthStateChange(user);
+      return { restored: true, user, needsRefresh: false };
     }
 
     console.log("[firebase] No persisted session found");
