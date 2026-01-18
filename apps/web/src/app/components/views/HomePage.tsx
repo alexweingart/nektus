@@ -178,18 +178,17 @@ const HomePage: React.FC = () => {
       // Initialize Apple JS SDK
       const clientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.nektus.web.signin';
 
-      // Build redirectURI - for usePopup: true, Apple requires just the origin/hostname
-      // NOT the full callback path. The popup handles the response via JS, not redirect.
-      // See: https://developer.apple.com/forums/thread/128788
+      // Build redirectURI - must match exactly what's registered in Apple Developer Portal
       const hostname = window.location.hostname;
       const port = window.location.port;
       const protocol = window.location.protocol;
 
       // Construct origin explicitly to handle port correctly
-      let redirectURI = `${protocol}//${hostname}`;
+      let origin = `${protocol}//${hostname}`;
       if (port && port !== '443' && port !== '80') {
-        redirectURI += `:${port}`;
+        origin += `:${port}`;
       }
+      const redirectURI = `${origin}/api/auth/apple-callback`;
 
       console.log('[Apple Sign-In] Initializing with:', { clientId, redirectURI });
 
