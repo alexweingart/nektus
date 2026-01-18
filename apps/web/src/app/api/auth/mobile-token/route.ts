@@ -249,9 +249,15 @@ export async function POST(req: NextRequest) {
         console.log("[mobile-token] Verifying Apple identity token");
 
         // Verify the JWT signature against Apple's JWKS
+        // Accept both native app bundle ID and web Services ID
+        const validAppleAudiences = [
+          "com.nektus.app", // iOS native app bundle ID
+          process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "com.nektus.web.signin", // Web Services ID
+        ];
+
         const { payload } = await jwtVerify(appleIdentityToken, appleJWKS, {
           issuer: "https://appleid.apple.com",
-          audience: "com.nektus.app", // Main app bundle ID
+          audience: validAppleAudiences,
         });
 
         if (!payload.sub) {
@@ -261,10 +267,6 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Apple uses the sub claim as the unique user identifier
-        // Prefix with "apple_" to distinguish from Google users
-        userId = `apple_${payload.sub}`;
-
         // Build user name from provided fullName (Apple only provides on first sign-in)
         let userName: string | null = null;
         if (appleFullName) {
@@ -272,9 +274,27 @@ export async function POST(req: NextRequest) {
           userName = parts.length > 0 ? parts.join(" ") : null;
         }
 
+        const appleUserEmail = appleEmail || (payload.email as string) || null;
+
+        // Email-based user matching: Check if user already exists with this email (from Google sign-in)
+        // This allows users who previously signed in with Google to sign in with Apple using same email
+        if (appleUserEmail) {
+          const existingProfile = await ServerProfileService.findProfileByEmail(appleUserEmail);
+          if (existingProfile) {
+            console.log("[mobile-token] Found existing profile by email, using existing userId:", existingProfile.userId);
+            userId = existingProfile.userId;
+          } else {
+            // No existing profile with this email - create new Apple user ID
+            userId = `apple_${payload.sub}`;
+          }
+        } else {
+          // No email provided - use Apple user ID
+          userId = `apple_${payload.sub}`;
+        }
+
         userInfo = {
           name: userName,
-          email: appleEmail || (payload.email as string) || null,
+          email: appleUserEmail,
           image: null, // Apple doesn't provide profile images
         };
 

@@ -52,6 +52,35 @@ export class ServerProfileService {
   }
 
   /**
+   * Find a profile by email address
+   * Used for linking Apple accounts to existing Google accounts by email
+   */
+  static async findProfileByEmail(email: string): Promise<{ userId: string; profile: UserProfile } | null> {
+    try {
+      const { db } = await getFirebaseAdmin();
+      // Query profiles where any contactEntry has the matching email
+      const profilesRef = db.collection('profiles');
+      const snapshot = await profilesRef.get();
+
+      for (const doc of snapshot.docs) {
+        const profile = doc.data() as UserProfile;
+        const emailEntry = profile.contactEntries?.find(
+          e => e.fieldType === 'email' && e.value?.toLowerCase() === email.toLowerCase()
+        );
+        if (emailEntry) {
+          console.log('[ServerProfileService] Found existing profile by email:', doc.id);
+          return { userId: doc.id, profile };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[ServerProfileService] Error finding profile by email:', error);
+      return null;
+    }
+  }
+
+  /**
    * Check if a profile has a phone number (for redirect decisions)
    */
   static async profileHasPhone(userId: string): Promise<boolean> {

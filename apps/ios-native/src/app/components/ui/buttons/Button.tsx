@@ -19,7 +19,7 @@ import {
 import { BlurView } from "expo-blur";
 import { RadialGradient } from "react-native-gradients";
 
-type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary";
+type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary" | "black";
 type ButtonSize = "md" | "lg" | "xl" | "icon";
 
 interface ButtonProps {
@@ -124,7 +124,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === "destructive" ? "#ffffff" : "#374151"}
+          color={variant === "destructive" || variant === "black" ? "#ffffff" : "#374151"}
         />
       ) : (
         <>
@@ -233,6 +233,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#dc2626", // red-600
   },
+  black: {
+    backgroundColor: "#000000", // Apple Sign-in branding
+    borderWidth: 0,
+  },
 
   disabled: {
     opacity: 0.5,
@@ -256,6 +260,9 @@ const styles = StyleSheet.create({
     color: "#004D40", // theme color
   },
   destructiveText: {
+    color: "#ffffff",
+  },
+  blackText: {
     color: "#ffffff",
   },
 });

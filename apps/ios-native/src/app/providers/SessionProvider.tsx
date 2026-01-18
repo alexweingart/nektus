@@ -21,11 +21,11 @@ import {
   signOut as firebaseSignOut,
 } from "../../client/auth/firebase";
 import {
-  useGoogleAuth,
-  exchangeGoogleTokenForFirebase,
-  exchangeGoogleAccessTokenForFirebase,
-  MobileTokenResponse,
-} from "../../client/auth/google";
+  signInWithApple,
+  exchangeAppleTokenForFirebase,
+  isAppleAuthAvailable,
+  AppleMobileTokenResponse,
+} from "../../client/auth/apple";
 import {
   retrieveHandoffSession,
   clearHandoffSession,
@@ -76,8 +76,12 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [fromHandoff, setFromHandoff] = useState(false);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(true);
 
-  const { signIn: googleSignIn, isReady: googleReady } = useGoogleAuth();
+  // Check Apple auth availability on mount
+  useEffect(() => {
+    isAppleAuthAvailable().then(setAppleAuthAvailable);
+  }, []);
 
   // Clear handoff flag after completing post-handoff onboarding
   const clearHandoffFlag = useCallback(() => {
@@ -88,7 +92,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const createSession = useCallback(
     (
       firebaseUser: FirebaseUser,
-      serverData?: MobileTokenResponse
+      serverData?: AppleMobileTokenResponse
     ): Session => {
       return {
         user: {
@@ -190,40 +194,39 @@ export function SessionProvider({ children }: SessionProviderProps) {
   // for authentication (to properly support iOS API key restrictions).
   // Session state is managed directly via setSession/setStatus.
 
-  // Sign in with Google
+  // Sign in with Apple
   const signIn = useCallback(async () => {
-    if (!googleReady || isSigningIn) return;
+    if (!appleAuthAvailable || isSigningIn) return;
 
     setIsSigningIn(true);
     try {
-      console.log("[SessionProvider] Starting sign in...");
+      console.log("[SessionProvider] Starting Apple sign in...");
 
-      // Step 1: Get Google tokens
-      const googleResult = await googleSignIn();
-      console.log("[SessionProvider] Google sign in result:", googleResult);
+      // Step 1: Trigger Sign in with Apple modal
+      const appleResult = await signInWithApple();
+      console.log("[SessionProvider] Apple sign in result:", appleResult.success);
 
-      if (!googleResult.success) {
-        const errorMsg = googleResult.error || "Failed to get Google token";
-        console.error("[SessionProvider] Google sign in failed:", errorMsg);
+      if (!appleResult.success) {
+        const errorMsg = appleResult.error || "Apple sign-in failed";
+        console.error("[SessionProvider] Apple sign in failed:", errorMsg);
         Alert.alert("Sign In Failed", errorMsg);
         return;
       }
 
-      // Step 2: Exchange for Firebase token via our backend
-      console.log("[SessionProvider] Exchanging tokens with backend...");
-      let serverResponse: MobileTokenResponse;
-      if (googleResult.idToken) {
-        console.log("[SessionProvider] Using ID token flow");
-        serverResponse = await exchangeGoogleTokenForFirebase(googleResult.idToken);
-      } else if (googleResult.accessToken) {
-        console.log("[SessionProvider] Using access token flow");
-        serverResponse = await exchangeGoogleAccessTokenForFirebase(googleResult.accessToken);
-      } else {
-        const errorMsg = "No tokens received from Google";
+      if (!appleResult.identityToken) {
+        const errorMsg = "No identity token received from Apple";
         console.error("[SessionProvider]", errorMsg);
         Alert.alert("Sign In Failed", errorMsg);
         return;
       }
+
+      // Step 2: Exchange Apple token for Firebase token via our backend
+      console.log("[SessionProvider] Exchanging Apple token with backend...");
+      const serverResponse = await exchangeAppleTokenForFirebase(
+        appleResult.identityToken,
+        appleResult.fullName,
+        appleResult.email
+      );
 
       console.log("[SessionProvider] Backend response received, signing into Firebase...");
 
@@ -238,15 +241,15 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setSession(newSession);
       setStatus("authenticated");
 
-      console.log("[SessionProvider] Sign in successful!");
+      console.log("[SessionProvider] Apple sign in successful!");
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("[SessionProvider] Sign in failed:", error);
-      alert(`Sign in failed: ${errorMsg}`);
+      Alert.alert("Sign In Failed", `Sign in failed: ${errorMsg}`);
     } finally {
       setIsSigningIn(false);
     }
-  }, [googleReady, googleSignIn, createSession, isSigningIn]);
+  }, [appleAuthAvailable, createSession, isSigningIn]);
 
   // Sign out
   const signOut = useCallback(async () => {

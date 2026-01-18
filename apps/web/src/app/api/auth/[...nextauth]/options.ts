@@ -1,4 +1,5 @@
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import type { DefaultSession, User } from "next-auth";
 import { createCustomTokenWithCorrectSub } from "@/server/config/firebase";
 
@@ -105,6 +106,34 @@ if (hasGoogleCredentials) {
   );
 }
 
+// Add Apple credentials provider for iOS Safari Sign in with Apple
+providers.push(
+  CredentialsProvider({
+    id: "apple",
+    name: "Apple",
+    credentials: {
+      firebaseToken: { label: "Firebase Token", type: "text" },
+      userId: { label: "User ID", type: "text" },
+      name: { label: "Name", type: "text" },
+      email: { label: "Email", type: "text" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.firebaseToken || !credentials?.userId) {
+        return null;
+      }
+
+      // Return user object that will be encoded into the JWT
+      return {
+        id: credentials.userId,
+        name: credentials.name || null,
+        email: credentials.email || null,
+        image: null,
+        firebaseToken: credentials.firebaseToken,
+      };
+    },
+  })
+);
+
 export const authOptions: NextAuthOptions = {
   // Configure authentication providers
   providers,
@@ -130,17 +159,24 @@ export const authOptions: NextAuthOptions = {
     },
     
     async jwt({ token, account, user, trigger, session }) {
-      // Initial sign in
-      if (account?.id_token) {
+      // Initial sign in - handle both Google OAuth and Apple credentials
+      const isGoogleSignIn = account?.id_token;
+      const isAppleCredentialsSignIn = account?.provider === 'apple' && user;
+
+      if (isGoogleSignIn || isAppleCredentialsSignIn) {
         // Ensure we have the user ID in the token FIRST
         if (user?.id) {
           token.sub = user.id;
         }
-        
-        // Generate Firebase custom token for client authentication
-        // Use user.id directly to ensure we have the correct user ID
+
         const userId = user?.id || token.sub;
-        if (userId) {
+
+        // For Apple credentials sign-in, use the Firebase token passed from the client
+        if (isAppleCredentialsSignIn && (user as { firebaseToken?: string }).firebaseToken) {
+          token.firebaseToken = (user as { firebaseToken?: string }).firebaseToken;
+          token.firebaseTokenCreatedAt = Date.now();
+        } else if (isGoogleSignIn && userId) {
+          // For Google sign-in, generate Firebase custom token
           try {
             const firebaseToken = await createCustomTokenWithCorrectSub(userId);
             token.firebaseToken = firebaseToken;
@@ -170,7 +206,7 @@ export const authOptions: NextAuthOptions = {
         
       // Server-side profile management - create/check profile and determine redirects
       // This happens once during authentication - result cached in JWT
-      if (account?.id_token) {
+      if (isGoogleSignIn || isAppleCredentialsSignIn) {
         const userId = user?.id || token.sub;
         if (userId) {
           try {
