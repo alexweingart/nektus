@@ -99,6 +99,12 @@ export function Button({
   const isCircle = variant === "circle";
   const containerWidth = isCircle || size === "icon" ? currentSize.height : undefined;
 
+  // Extract width-related styles for wrapper (needed because Animated.View wraps the button)
+  const wrapperStyle: ViewStyle = {};
+  if (style?.width) wrapperStyle.width = style.width;
+  if (style?.flex) wrapperStyle.flex = style.flex;
+  if (style?.alignSelf) wrapperStyle.alignSelf = style.alignSelf;
+
   // Button container styles
   const containerStyles: ViewStyle[] = [
     styles.base,
@@ -152,7 +158,7 @@ export function Button({
   );
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, wrapperStyle]}>
       <TouchableOpacity
         style={containerStyles}
         onPress={handlePress}
