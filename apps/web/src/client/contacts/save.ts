@@ -134,14 +134,81 @@ async function callSaveContactAPI(token: string, options: { skipGoogleContacts?:
  * Main contact save flow with all platform logic
  */
 export async function saveContactFlow(
-  profile: UserProfile, 
+  profile: UserProfile,
   token: string
 ): Promise<ContactSaveFlowResult> {
   console.log('🔍 Starting saveContactFlow for:', getFieldValue(profile.contactEntries, 'name'));
-  
+
   const platform = detectPlatform();
+
+  // iOS simplified flow: Firebase + vCard only, no Google Contacts
+  // This avoids the Google Contacts upsell on iOS devices
+  if (platform === 'ios') {
+    console.log('📱 iOS detected: Using simplified flow (Firebase + vCard, no Google Contacts)');
+
+    const iosNonEmbedded = !isEmbeddedBrowser();
+
+    try {
+      // Start Firebase save
+      const firebaseResult = await callSaveContactAPI(token, { skipGoogleContacts: true });
+
+      if (!firebaseResult.firebase.success) {
+        console.error('❌ iOS: Firebase save failed');
+        return {
+          success: false,
+          firebase: firebaseResult.firebase,
+          google: { success: false, error: 'Skipped on iOS' },
+          platform
+        };
+      }
+
+      console.log('✅ iOS: Firebase save successful');
+
+      // Show vCard for iOS non-embedded browsers (Safari/Chrome)
+      if (iosNonEmbedded) {
+        try {
+          const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/contact/${profile.userId}`;
+          console.log('📱 iOS: Displaying vCard...');
+          displayVCardInlineForIOS(profile, {
+            contactUrl,
+            skipPhotoFetch: false
+          }).catch(error => {
+            console.warn('Failed to display vCard:', error);
+          });
+        } catch (error) {
+          console.warn('Failed to trigger vCard display:', error);
+        }
+      }
+
+      // Update exchange state
+      setExchangeState(token, {
+        state: 'completed_success',
+        platform,
+        profileId: profile.userId || '',
+        timestamp: Date.now()
+      });
+
+      // Always show success modal on iOS (never upsell)
+      return {
+        success: true,
+        firebase: firebaseResult.firebase,
+        google: { success: false, error: 'Skipped on iOS' },
+        showSuccessModal: true,
+        platform
+      };
+    } catch (error) {
+      console.error('❌ iOS: Contact save flow failed:', error);
+      return {
+        success: false,
+        firebase: { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+        google: { success: false, error: 'Skipped on iOS' },
+        platform
+      };
+    }
+  }
+
   const isReturning = isReturningFromAuth(token);
-  
+
   if (isReturning) {
     console.log('🔍 Flow: Returning from incremental auth, processing auth result...');
     
@@ -175,12 +242,6 @@ export async function saveContactFlow(
           // Mark that user has Google Contacts permission globally
           markGoogleContactsPermissionGranted();
 
-          // Mark first save as completed for iOS non-embedded (if not already)
-          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-          if (iosNonEmbedded && !hasCompletedFirstSave()) {
-            markFirstSaveCompleted();
-          }
-
           return {
             success: true,
             firebase: { success: true },
@@ -198,12 +259,6 @@ export async function saveContactFlow(
             googleSaveResult.google
           );
 
-          // Mark first save as completed for iOS non-embedded even if Google failed
-          const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-          if (iosNonEmbedded && !hasCompletedFirstSave()) {
-            markFirstSaveCompleted();
-          }
-
           return result;
         }
       } catch (error) {
@@ -216,12 +271,6 @@ export async function saveContactFlow(
           { success: true },
           { success: false, error: error instanceof Error ? error.message : 'Google save failed after auth' }
         );
-
-        // Mark first save as completed for iOS non-embedded even on error
-        const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-        if (iosNonEmbedded && !hasCompletedFirstSave()) {
-          markFirstSaveCompleted();
-        }
 
         return result;
       }
@@ -239,12 +288,6 @@ export async function saveContactFlow(
         { success: false, error: 'User denied permission' }
       );
 
-      // Mark first save as completed for iOS non-embedded even when denied
-      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-      if (iosNonEmbedded && !hasCompletedFirstSave()) {
-        markFirstSaveCompleted();
-      }
-
       return result;
     } else {
       // User likely tapped back without completing auth
@@ -258,12 +301,6 @@ export async function saveContactFlow(
         { success: false, error: 'User cancelled Google auth' }
       );
 
-      // Mark first save as completed for iOS non-embedded even when cancelled
-      const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-      if (iosNonEmbedded && !hasCompletedFirstSave()) {
-        markFirstSaveCompleted();
-      }
-
       return result;
     }
   } else {
@@ -275,13 +312,9 @@ export async function saveContactFlow(
     const likelyHasPermission = likelyHasGoogleContactsPermission(platform, token);
     console.log('🔍 Permission check: User likely has Google Contacts permission:', likelyHasPermission);
 
-    // Check if this is iOS non-embedded (Safari/Chrome/Edge)
-    const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-
     // If we know they don't have permission and can do incremental auth, skip Google attempt
-    // Exception: iOS non-embedded NEVER uses fast path (always shows vCard first, even first-time)
-    const shouldUseFastPath = !likelyHasPermission &&
-                              (platform === 'android' || (platform === 'ios' && !iosNonEmbedded));
+    // Note: iOS is handled separately above with early return
+    const shouldUseFastPath = !likelyHasPermission && platform === 'android';
 
     if (shouldUseFastPath) {
       console.log('🚀 Fast path: Skipping Google attempt, going straight to incremental auth');
@@ -361,26 +394,6 @@ export async function saveContactFlow(
         console.error('❌ Background Google save error:', error?.message || error);
       });
 
-    // NOW show vCard (after API calls have started)
-    if (iosNonEmbedded) {
-      // Show vCard immediately (API calls already started, won't be cancelled)
-      try {
-        const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/contact/${profile.userId}`;
-
-        console.log('📱 Displaying vCard (saves already in progress)...');
-        displayVCardInlineForIOS(profile, {
-          contactUrl,
-          skipPhotoFetch: false // Include photo for better contact quality
-        }).then(() => {
-          console.log('📱 vCard dismissed by user');
-        }).catch(error => {
-          console.warn('Failed to display vCard:', error);
-        });
-      } catch (error) {
-        console.warn('Failed to trigger vCard display:', error);
-      }
-    }
-
     // Check permission for UI display
     const userHasPermission = likelyHasGoogleContactsPermission(platform, token);
 
@@ -391,72 +404,7 @@ export async function saveContactFlow(
       error: userHasPermission ? undefined : 'Saving in background'
     };
 
-    // For iOS, we already showed vCard, now show modal
-    if (iosNonEmbedded) {
-      // Check if this is a subsequent save (user already completed first save)
-      const isSubsequentSave = hasCompletedFirstSave();
-
-      if (googleResult.success) {
-        // Both Firebase and Google successful
-        setExchangeState(token, {
-          state: 'completed_success',
-          platform,
-          profileId: profile.userId || '',
-          timestamp: Date.now()
-        });
-
-        // Mark that user has Google Contacts permission globally
-        markGoogleContactsPermissionGranted();
-
-        // Mark first save as completed (if not already)
-        if (!isSubsequentSave) {
-          markFirstSaveCompleted();
-        }
-
-        return {
-          success: true,
-          firebase: firebaseResult.firebase,
-          google: googleResult,
-          showSuccessModal: true,
-          platform
-        };
-      } else {
-        // Firebase saved, Google failed
-        if (isSubsequentSave) {
-          // Subsequent saves: Always show success modal (never upsell, never redirect to auth)
-          setExchangeState(token, {
-            state: 'completed_firebase_only',
-            platform,
-            profileId: profile.userId || '',
-            timestamp: Date.now()
-          });
-
-          return {
-            success: true,
-            firebase: firebaseResult.firebase,
-            google: googleResult,
-            showSuccessModal: true, // Always success modal for subsequent saves
-            platform
-          };
-        } else {
-          // First-time save: Show upsell once ever
-          const result = createFirebaseOnlyResult(
-            token,
-            platform,
-            profile.userId || '',
-            firebaseResult.firebase,
-            googleResult
-          );
-
-          // Mark first save as completed even if Google failed
-          markFirstSaveCompleted();
-
-          return result;
-        }
-      }
-    }
-
-    // All other platforms (Android, iOS Embedded, Web/Desktop) - unified logic
+    // Android and Web platforms - unified logic (iOS handled separately above)
     if (googleResult.success) {
       // Both Firebase and Google Contacts saved successfully
       setExchangeState(token, {
@@ -480,8 +428,8 @@ export async function saveContactFlow(
       // Check if this is a permission error
       const isPermError = isPermissionError(googleResult.error);
       
-      if (isPermError && (platform === 'android' || platform === 'ios')) {
-        // Only Android and iOS embedded can do incremental auth
+      if (isPermError && platform === 'android') {
+        // Only Android can do incremental auth (iOS handled separately above)
         console.log(`⚠️ ${platform}: Permission error detected, redirecting to auth`);
         
         // Set state to auth_in_progress

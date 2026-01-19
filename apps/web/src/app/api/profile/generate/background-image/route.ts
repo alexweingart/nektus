@@ -1,9 +1,40 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/server/profile/colors';
-import { NextRequest } from 'next/server';
+import { getFirebaseAdmin } from '@/server/config/firebase';
+
+/**
+ * Get user ID from either NextAuth session or Firebase ID token
+ * This allows both web (NextAuth) and mobile (Firebase) clients to use this API
+ */
+async function getUserId(req: NextRequest): Promise<string | null> {
+  // First try NextAuth session (web clients)
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    console.log('[API/BACKGROUND] Authenticated via NextAuth session');
+    return session.user.id;
+  }
+
+  // Fall back to Firebase ID token (mobile clients)
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const idToken = authHeader.replace('Bearer ', '');
+      const { auth } = await getFirebaseAdmin();
+      const decodedToken = await auth.verifyIdToken(idToken);
+      if (decodedToken.uid) {
+        console.log('[API/BACKGROUND] Authenticated via Firebase ID token');
+        return decodedToken.uid;
+      }
+    } catch (error) {
+      console.error('[API/BACKGROUND] Failed to verify Firebase ID token:', error);
+    }
+  }
+
+  return null;
+}
 
 /**
  * Extracts colors from the user's profile image for ParticleNetwork backgrounds
@@ -40,13 +71,11 @@ async function extractBackgroundColors(profileImage: string, palette: string[]):
   }
 }
 
-export async function POST(_req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+export async function POST(req: NextRequest) {
+  const userId = await getUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const userId = session.user.id;
 
   try {
     // Extract colors from profile image for ParticleNetwork backgrounds
