@@ -1,63 +1,98 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  TouchableOpacity,
+  Pressable,
+  Keyboard,
 } from "react-native";
-import Avatar from "../ui/elements/Avatar";
-import { Heading } from "../ui/Typography";
+import { Heading, BodyText } from "../ui/Typography";
 import { Button } from "../ui/buttons/Button";
-import { Input } from "../ui/inputs/Input";
+import { DropdownPhoneInput } from "../ui/inputs/DropdownPhoneInput";
+import { SecondaryButton } from "../ui/buttons/SecondaryButton";
+import { InlineAddLink, InlineAddLinkRef } from "../ui/modules/InlineAddLink";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber } from "@nektus/shared-client";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
-import { SecondaryButton } from "../ui/buttons/SecondaryButton";
+import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
+import type { ContactEntry } from "@nektus/shared-types";
+
+// Helper to get field value from contact entries
+const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
+  if (!contactEntries) return '';
+  const entry = contactEntries.find(e => e.fieldType === fieldType);
+  return entry?.value || '';
+};
 
 export function ProfileSetupView() {
-  const { data: session, signOut } = useSession();
+  const { data: session } = useSession();
   const { saveProfile, isSaving, profile } = useProfile();
+  const adminModeProps = useAdminModeActivator();
+  const inlineAddLinkRef = useRef<InlineAddLinkRef>(null);
 
   const [phoneDigits, setPhoneDigits] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const phoneInputRef = useRef<TextInput>(null);
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
 
-  // Format phone number as user types (for display)
-  const formatDisplayPhone = (digits: string): string => {
-    const cleaned = digits.replace(/\D/g, "");
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+  // Get user's first name from profile or session
+  const userName = getFieldValue(profile?.contactEntries, 'name') || session?.user?.name;
+  const firstName = userName?.split(" ")[0] || "there";
 
-  const handlePhoneChange = (text: string) => {
-    // Only keep digits
-    const digits = text.replace(/\D/g, "");
-    setPhoneDigits(digits.slice(0, 10)); // Limit to 10 digits
-    setError(null);
-  };
+  // Handle link added - duplicate to both personal and work sections
+  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
+    // For setup, we want links in both sections like we do with phone
+    const duplicatedEntries: ContactEntry[] = [];
+    entries.forEach(entry => {
+      // Add to personal
+      duplicatedEntries.push({ ...entry, section: 'personal' });
+      // Add to work
+      duplicatedEntries.push({ ...entry, section: 'work' });
+    });
+    setAddedLinks(duplicatedEntries);
+    setShowAddLink(false);
+  }, []);
+
+  // Handle cancel add link
+  const handleCancelAddLink = useCallback(() => {
+    setShowAddLink(false);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
 
+    // Validate phone FIRST, before touching InlineAddLink state
     const cleanDigits = phoneDigits.replace(/\D/g, "");
     if (cleanDigits.length < 10) {
       setError("Please enter a valid 10-digit phone number");
       return;
     }
 
-    try {
-      const { internationalPhone, isValid } = formatPhoneNumber(
-        cleanDigits,
-        "US"
-      );
+    const { internationalPhone, isValid } = formatPhoneNumber(
+      cleanDigits,
+      "US"
+    );
 
-      if (!isValid || !internationalPhone) {
-        setError("Please enter a valid phone number");
-        return;
+    if (!isValid || !internationalPhone) {
+      setError("Please enter a valid phone number");
+      return;
+    }
+
+    // Phone is valid - now save InlineAddLink content if open
+    let newLinks: ContactEntry[] = [];
+    if (showAddLink && inlineAddLinkRef.current) {
+      const savedEntries = inlineAddLinkRef.current.save();
+      if (savedEntries) {
+        newLinks = savedEntries;
       }
+    }
+
+    try {
+      // Combine previously added links with any new links from InlineAddLink
+      const allLinks = [...addedLinks, ...newLinks];
 
       const phoneUpdateData: Partial<UserProfile> = {
         contactEntries: [
@@ -80,6 +115,7 @@ export function ProfileSetupView() {
             isVisible: true,
             confirmed: true,
           },
+          ...allLinks, // Add all links (previously added + newly saved)
         ],
       };
 
@@ -89,7 +125,7 @@ export function ProfileSetupView() {
       console.error("[ProfileSetupView] Save failed:", err);
       setError("Failed to save. Please try again.");
     }
-  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries]);
+  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, addedLinks, showAddLink]);
 
   const isButtonDisabled =
     isSaving || phoneDigits.replace(/\D/g, "").length < 10;
@@ -99,17 +135,9 @@ export function ProfileSetupView() {
     // Nothing to refresh on setup screen
   }, []);
 
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut();
-      console.log("[ProfileSetupView] User signed out");
-    } catch (error) {
-      console.error("[ProfileSetupView] Sign out failed:", error);
-    }
-  }, [signOut]);
-
   return (
-    <KeyboardAvoidingView
+    <>
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
@@ -118,51 +146,82 @@ export function ProfileSetupView() {
           keyboardShouldPersistTaps="handled"
           onRefresh={handleRefresh}
         >
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            <Avatar
-              src={session?.user?.image || profile?.profileImage}
-              alt={session?.user?.name || "User"}
-              size="lg"
-            />
+          {/* Welcome Section - matches web layout */}
+          <View style={styles.welcomeSection}>
+            {/* Name - double-tap to activate admin mode */}
+            <TouchableOpacity activeOpacity={1} onPress={adminModeProps.onPress}>
+              <Heading style={styles.welcomeHeading}>
+                Welcome, {firstName}!
+              </Heading>
+            </TouchableOpacity>
+            <BodyText style={styles.subtitle}>
+              Your new friends will want your number
+            </BodyText>
           </View>
 
-          {/* Name */}
-          <Heading>{session?.user?.name || "Welcome"}</Heading>
-
-          {/* Phone Input */}
-          <View style={styles.inputContainer}>
-            <Input
-              ref={phoneInputRef}
-              value={formatDisplayPhone(phoneDigits)}
-              onChangeText={handlePhoneChange}
-              placeholder="(555) 123-4567"
-              keyboardType="phone-pad"
+          {/* Phone Input Section - matches web layout */}
+          <View style={styles.formSection}>
+            <DropdownPhoneInput
+              value={phoneDigits}
+              onChange={(digits) => {
+                setPhoneDigits(digits);
+                setError(null);
+              }}
               autoFocus
-              error={error || undefined}
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
             />
-          </View>
 
-          {/* Save Button */}
-          <Button
-            onPress={handleSave}
-            loading={isSaving}
-            disabled={isButtonDisabled}
-            variant="primary"
-          >
-            Save
-          </Button>
+            {error && <BodyText style={styles.errorText}>{error}</BodyText>}
 
-          {/* Sign Out Button */}
-          <View style={styles.signOutContainer}>
-            <SecondaryButton variant="destructive" onPress={handleSignOut}>
-              Sign Out
-            </SecondaryButton>
+            {/* Inline Add Link - appears above Save button when active */}
+            {showAddLink && (
+              <>
+                {/* Backdrop to dismiss when tapping outside */}
+                <Pressable
+                  style={styles.addLinkBackdrop}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    handleCancelAddLink();
+                  }}
+                />
+                <InlineAddLink
+                  ref={inlineAddLinkRef}
+                  section="personal"
+                  onLinkAdded={handleLinkAdded}
+                  nextOrder={1}
+                  onCancel={handleCancelAddLink}
+                  showDuplicateToggle={false}
+                />
+              </>
+            )}
+
+            {/* Save Button - higher zIndex when InlineAddLink is showing */}
+            <View style={showAddLink ? styles.saveButtonAboveBackdrop : undefined}>
+              <Button
+                onPress={handleSave}
+                loading={isSaving}
+                disabled={isButtonDisabled}
+                variant="white"
+                size="xl"
+              >
+                Save
+              </Button>
+            </View>
+
+            {/* Add Socials CTA - appears below Save when not in add mode */}
+            {!showAddLink && addedLinks.length === 0 && (
+              <View style={styles.addSocialsContainer}>
+                <SecondaryButton onPress={() => setShowAddLink(true)}>
+                  Add Socials
+                </SecondaryButton>
+              </View>
+            )}
           </View>
         </PullToRefresh>
       </KeyboardAvoidingView>
+
+      {/* Admin Banner - appears when admin mode is activated */}
+      <AdminBanner />
+    </>
   );
 }
 
@@ -173,28 +232,48 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 24, // Reduced - safe area handled by LayoutBackground
+    // Content starts from top, not centered (matches web)
+    paddingHorizontal: 16,
+    paddingTop: 8, // py-2 on web
+    paddingBottom: 24,
   },
-  avatarContainer: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    marginBottom: 16,
+  welcomeSection: {
+    alignItems: "center",
+    marginBottom: 24,
   },
-  inputContainer: {
+  welcomeHeading: {
+    textAlign: "center",
+  },
+  subtitle: {
+    marginTop: 8,
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+  },
+  formSection: {
     width: "100%",
-    maxWidth: 320,
-    marginTop: 24,
-    marginBottom: 16,
+    maxWidth: 448, // Match web's --max-content-width
+    gap: 16,
   },
-  signOutContainer: {
-    width: "100%",
-    maxWidth: 320,
-    marginTop: 24,
+  errorText: {
+    color: "#ef4444",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: -8,
+  },
+  addSocialsContainer: {
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addLinkBackdrop: {
+    position: "absolute",
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+    zIndex: 40,
+  },
+  saveButtonAboveBackdrop: {
+    zIndex: 60, // Above backdrop (40) and InlineAddLink (50)
   },
 });
 

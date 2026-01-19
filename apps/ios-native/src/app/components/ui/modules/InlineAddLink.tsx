@@ -4,13 +4,11 @@
  *
  * Changes from web:
  * - Uses React Native components
- * - Uses iOS input components
- * - Replaced DOM events with React Native patterns
+ * - Uses iOS input components (CustomSocialInputAdd, ExpandingInput)
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Keyboard } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { View, Text, StyleSheet, Keyboard, ScrollView } from 'react-native';
 import { DualStateSelector } from '../controls/DualStateSelector';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
@@ -18,6 +16,11 @@ import { ExpandingInput } from '../inputs/ExpandingInput';
 import type { ContactEntry, FieldSection } from '@nektus/shared-types';
 
 type LinkType = 'Social' | 'Custom';
+
+export interface InlineAddLinkRef {
+  /** Save current input if valid, returns the entries if saved or null if nothing to save */
+  save: () => ContactEntry[] | null;
+}
 
 interface InlineAddLinkProps {
   section: 'personal' | 'work';
@@ -27,13 +30,13 @@ interface InlineAddLinkProps {
   showDuplicateToggle?: boolean;
 }
 
-export function InlineAddLink({
+export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(function InlineAddLink({
   section,
   onLinkAdded,
   nextOrder,
   onCancel,
   showDuplicateToggle = true,
-}: InlineAddLinkProps) {
+}, ref) {
   // Link type toggle
   const [linkType, setLinkType] = useState<LinkType>('Social');
 
@@ -50,6 +53,12 @@ export function InlineAddLink({
   const [error, setError] = useState('');
 
   const otherSection = section === 'personal' ? 'work' : 'personal';
+
+  // Handle mode switch
+  const handleModeChange = useCallback((newType: LinkType) => {
+    if (newType === linkType) return;
+    setLinkType(newType);
+  }, [linkType]);
 
   // Utility function to extract domain for fieldType
   const extractDomainForFieldType = (url: string): string => {
@@ -74,10 +83,10 @@ export function InlineAddLink({
 
   const isValid = linkType === 'Social' ? socialUsername.trim() : customLinkUrl.trim();
 
-  const handleSave = () => {
+  // Save current input, returns entries if saved or null if nothing to save
+  const handleSave = useCallback((): ContactEntry[] | null => {
     if (!isValid) {
-      setError('Please enter a link');
-      return;
+      return null; // Nothing to save
     }
 
     setError('');
@@ -128,31 +137,39 @@ export function InlineAddLink({
       }
 
       onLinkAdded(entries);
+      return entries;
     } catch (err) {
       console.error('[InlineAddLink] Save error:', err);
       setError('Failed to save link. Please check the URL and try again.');
+      return null;
     }
-  };
+  }, [isValid, linkType, socialPlatform, socialUsername, customLinkUrl, nextOrder, section, duplicateToOther, otherSection, onLinkAdded]);
+
+  // Expose save method to parent via ref
+  useImperativeHandle(ref, () => ({
+    save: handleSave,
+  }), [handleSave]);
 
   return (
     <View style={styles.container}>
-      <BlurView
-        style={StyleSheet.absoluteFillObject}
-        tint="dark"
-        intensity={50}
-      />
+      {/* bg-black/60 to match web */}
+      <View style={styles.containerOverlay} />
 
-      <View style={styles.content}>
-        {/* Toggle: Social | Custom */}
-        <View style={styles.selectorContainer}>
-          <DualStateSelector
-            options={['Social', 'Custom']}
-            selectedOption={linkType}
-            onOptionChange={setLinkType}
-          />
-        </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="always"
+        scrollEnabled={false}
+      >
+        {/* Toggle: Social | Custom - centered, not full width like web */}
+        <DualStateSelector
+          options={['Social', 'Custom']}
+          selectedOption={linkType}
+          onOptionChange={handleModeChange}
+          minWidth={100}
+        />
 
-        {/* Input field based on link type */}
+        {/* Conditionally render input based on mode (matches web) */}
         {linkType === 'Social' ? (
           <CustomSocialInputAdd
             platform={socialPlatform}
@@ -166,6 +183,7 @@ export function InlineAddLink({
             value={customLinkUrl}
             onChange={setCustomLinkUrl}
             placeholder="https://example.com"
+            autoFocus
           />
         )}
 
@@ -182,22 +200,27 @@ export function InlineAddLink({
             />
           </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
     borderRadius: 16,
     overflow: 'hidden',
+    zIndex: 50,
+  },
+  containerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // bg-black/60 to match web
+  },
+  scrollView: {
+    flexGrow: 0,
   },
   content: {
     padding: 24,
     gap: 16,
-  },
-  selectorContainer: {
-    alignItems: 'center',
   },
   error: {
     fontSize: 14,

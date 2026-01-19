@@ -8,15 +8,18 @@
  * - Uses SocialIcon component for icons
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   View,
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import SocialIcon from '../elements/SocialIcon';
+
+export interface CustomSocialInputAddRef {
+  focus: () => void;
+}
 
 interface CustomSocialInputAddProps {
   platform: string;
@@ -38,33 +41,39 @@ const SOCIAL_NETWORK_OPTIONS: DropdownOption[] = [
   { label: 'WeChat', value: 'wechat', icon: <SocialIcon platform="wechat" size="sm" /> },
 ];
 
-export function CustomSocialInputAdd({
+export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSocialInputAddProps>(({
   platform,
   username,
   onPlatformChange,
   onUsernameChange,
   autoFocus = false,
-}: CustomSocialInputAddProps) {
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  // Expose focus method to parent
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }));
+
   return (
-    <View style={styles.container}>
-      <BlurView
-        style={StyleSheet.absoluteFillObject}
-        tint="dark"
-        intensity={50}
-      />
+    <View style={[styles.glowWrapper, isFocused && styles.glowWrapperFocused]}>
+      <View style={styles.container}>
+        {/* Base bg-black/40 overlay to match web */}
+        <View style={styles.baseOverlay} />
 
-      {/* Border overlay */}
-      <View
-        style={[
-          styles.borderOverlay,
-          isFocused && styles.borderOverlayFocused,
-        ]}
-      />
+        {/* Focus darkening overlay - adds 10% to reach bg-black/50 */}
+        {isFocused && <View style={styles.focusOverlay} />}
 
-      <View style={styles.content}>
+        {/* Border overlay */}
+        <View
+          style={[
+            styles.borderOverlay,
+            isFocused && styles.borderOverlayFocused,
+          ]}
+        />
+
+        <View style={styles.content}>
         {/* Social Network Selector */}
         <DropdownSelector
           options={SOCIAL_NETWORK_OPTIONS}
@@ -88,17 +97,36 @@ export function CustomSocialInputAdd({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
+        </View>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
+  glowWrapper: {
+    borderRadius: 28,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 20,
+  },
+  glowWrapperFocused: {
+    shadowOpacity: 0.15,
+  },
   container: {
     height: 56,
     minHeight: 56,
     borderRadius: 28,
     overflow: 'hidden',
+  },
+  baseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // bg-black/40 to match web unfocused
+  },
+  focusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // +10% to reach bg-black/50 on focus
   },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -121,6 +149,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '500',
+    textAlignVertical: 'center',
   },
 });
 

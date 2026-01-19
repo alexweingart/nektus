@@ -18,6 +18,8 @@ interface DualStateSelectorProps<T extends string> {
   options: [T, T]; // Exactly two options
   selectedOption: T;
   onOptionChange: (option: T) => void;
+  /** Called on press in (before press completes) - useful for focus management */
+  onWillChange?: (option: T) => void;
   style?: ViewStyle;
   minWidth?: number;
   /** Tint color for the slider (from profile colors) */
@@ -28,6 +30,7 @@ export function DualStateSelector<T extends string>({
   options,
   selectedOption,
   onOptionChange,
+  onWillChange,
   style,
   minWidth = 80,
   tintColor,
@@ -56,7 +59,7 @@ export function DualStateSelector<T extends string>({
   const getSliderBackground = () => {
     if (!tintColor) {
       // Default green (matches web default: 113, 228, 84)
-      return "rgba(34, 197, 94, 0.25)";
+      return "rgba(34, 197, 94, 0.30)";
     }
 
     // Parse hex color
@@ -65,13 +68,16 @@ export function DualStateSelector<T extends string>({
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
 
-    // Web uses layered gradients with 0.30 and 0.20 opacity
-    // iOS approximates with single color at ~0.25 opacity (average)
-    return `rgba(${r}, ${g}, ${b}, 0.25)`;
+    // Web uses layered gradients with 0.30 and 0.20 opacity for tint
+    // Use 0.30 (higher end) for more vibrant color, less washed out look
+    return `rgba(${r}, ${g}, ${b}, 0.30)`;
   };
 
+  // Calculate total width based on minWidth (2 buttons)
+  const totalWidth = minWidth * 2;
+
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, { width: totalWidth }, style]}>
       {/* Background slider (selected state indicator) */}
       <Animated.View
         style={[
@@ -81,13 +87,22 @@ export function DualStateSelector<T extends string>({
             backgroundColor: getSliderBackground(),
           },
         ]}
-      />
+      >
+        {/* White overlay to match web's layered gradient look */}
+        <View style={styles.sliderOverlay} />
+      </Animated.View>
 
       {/* Option buttons */}
       {options.map((option) => (
         <TouchableOpacity
           key={option}
           style={[styles.button, { minWidth }]}
+          onPressIn={() => {
+            // Call onWillChange BEFORE the press completes (before blur)
+            if (option !== selectedOption) {
+              onWillChange?.(option);
+            }
+          }}
           onPress={() => onOptionChange(option)}
           activeOpacity={0.7}
         >
@@ -113,6 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)", // bg-black/60 backdrop-blur-lg
     borderRadius: 9999, // rounded-full
     flexDirection: "row",
+    alignSelf: "center", // Don't stretch to full width, shrink to content
   },
   slider: {
     position: "absolute",
@@ -123,10 +139,15 @@ const styles = StyleSheet.create({
     // backgroundColor set dynamically via inline style to use profile color
     // Matches web's layered gradient approach with approximated opacity
   },
+  sliderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 9999,
+    backgroundColor: "rgba(255, 255, 255, 0.08)", // White overlay (lower end of web's 0.15-0.08 gradient)
+  },
   button: {
     position: "relative",
     zIndex: 10,
-    flex: 1, // Equal width (flex-1)
+    flex: 1, // Equal width buttons so 50% slider covers exactly one button
     paddingVertical: 4, // py-1
     paddingHorizontal: 12, // px-3
     borderRadius: 9999,
