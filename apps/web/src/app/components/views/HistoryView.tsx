@@ -377,11 +377,11 @@ export const HistoryView: React.FC = () => {
           <div className="flex items-center justify-center h-full py-12">
             <div className="text-center max-w-sm">
               <div className="mb-6">
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-16 w-16 mx-auto text-gray-400" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-16 w-16 mx-auto text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
                   <path 
@@ -393,7 +393,7 @@ export const HistoryView: React.FC = () => {
                 </svg>
               </div>
               <Heading as="h2" className="text-lg font-medium mb-2">No contacts yet</Heading>
-              <Text variant="small" className="text-gray-300 mb-6">
+              <Text variant="small" className="mb-6">
                 When you nekt with someone, they&apos;ll appear here so you can easily reconnect later.
               </Text>
               <Button

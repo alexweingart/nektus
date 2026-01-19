@@ -58,9 +58,9 @@ const formatMatchDate = (timestamp: number): string => {
   }
 };
 
-// Empty state icon (gray to match web's text-gray-400)
+// Empty state icon (white)
 const EmptyIcon = () => (
-  <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth={1.5}>
+  <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.5}>
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -229,7 +229,7 @@ export function HistoryView() {
               <EmptyIcon />
             </View>
             <Heading variant="h3" style={styles.emptyTitle}>No contacts yet</Heading>
-            <BodyText variant="small" muted style={styles.emptySubtitle}>
+            <BodyText variant="small" style={styles.emptySubtitle}>
               When you nekt with someone, they'll appear here so you can easily reconnect later.
             </BodyText>
             <Button
