@@ -8,16 +8,15 @@ import {
   View,
   Text,
   StyleSheet,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { StandardModal } from './StandardModal';
 import { ValidatedInput } from '../inputs/ValidatedInput';
-import type { FieldSection, UserLocation } from '@nektus/shared-types';
+import { ToggleSetting } from '../controls/ToggleSetting';
+import type { FieldSection, UserLocation, AddressValidation } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
+import { validateCompleteAddress } from '../../../../client/location/address-validation';
 
 interface AddLocationModalProps {
   isOpen: boolean;
@@ -48,6 +47,7 @@ export function AddLocationModal({
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [validation, setValidation] = useState<AddressValidation | null>(null);
 
   const otherSection = section === 'personal' ? 'work' : 'personal';
 
@@ -62,7 +62,20 @@ export function AddLocationModal({
     setRadarPlaceId(undefined);
     setDuplicateToOther(false);
     setValidationError('');
+    setValidation(null);
   }, []);
+
+  // Validate on blur (matching web behavior)
+  const handleInputBlur = useCallback(() => {
+    const newValidation = validateCompleteAddress({
+      address,
+      city,
+      region,
+      zip,
+      country,
+    });
+    setValidation(newValidation);
+  }, [address, city, region, zip, country]);
 
   // Request device location on modal open
   useEffect(() => {
@@ -274,80 +287,73 @@ export function AddLocationModal({
       secondaryButtonText="Cancel"
       showCloseButton={false}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.fieldsContainer}>
-            <ValidatedInput
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Address"
-              editable={!isLoadingLocation}
-              isRequired={false}
-              saveAttempted={isSaving}
-            />
+        <View style={styles.fieldsContainer}>
+          <ValidatedInput
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Address"
+            editable={!isLoadingLocation}
+            isRequired={false}
+            saveAttempted={isSaving}
+            returnKeyType="done"
+            onBlur={handleInputBlur}
+            validation={validation?.address}
+          />
 
-            <ValidatedInput
-              value={city}
-              onChangeText={setCity}
-              placeholder="City"
-              editable={!isLoadingLocation}
-              isRequired={true}
-              saveAttempted={isSaving}
-            />
+          <ValidatedInput
+            value={city}
+            onChangeText={setCity}
+            placeholder="City"
+            editable={!isLoadingLocation}
+            isRequired={true}
+            saveAttempted={isSaving}
+            returnKeyType="done"
+            onBlur={handleInputBlur}
+            validation={validation?.city}
+          />
 
-            <ValidatedInput
-              value={region}
-              onChangeText={setRegion}
-              placeholder="State/Region"
-              editable={!isLoadingLocation}
-              isRequired={true}
-              saveAttempted={isSaving}
-            />
+          <ValidatedInput
+            value={region}
+            onChangeText={setRegion}
+            placeholder="State/Region"
+            editable={!isLoadingLocation}
+            isRequired={true}
+            saveAttempted={isSaving}
+            returnKeyType="done"
+            onBlur={handleInputBlur}
+            validation={validation?.region}
+          />
 
-            <ValidatedInput
-              value={zip}
-              onChangeText={setZip}
-              placeholder="Postal Code"
-              editable={!isLoadingLocation}
-              isRequired={false}
-              saveAttempted={isSaving}
-            />
+          <ValidatedInput
+            value={zip}
+            onChangeText={setZip}
+            placeholder="Postal"
+            editable={!isLoadingLocation}
+            isRequired={false}
+            saveAttempted={isSaving}
+            returnKeyType="done"
+            onBlur={handleInputBlur}
+            validation={validation?.zip}
+          />
 
-            <ValidatedInput
-              value={country}
-              onChangeText={setCountry}
-              placeholder="Country"
-              editable={!isLoadingLocation}
-              isRequired={true}
-              saveAttempted={isSaving}
-            />
+          {/* Duplicate to Other Section Toggle */}
+          <ToggleSetting
+            label={`Use location for ${otherSection} too`}
+            enabled={duplicateToOther}
+            onChange={setDuplicateToOther}
+            disabled={isLoadingLocation}
+          />
 
-            {/* Duplicate to Other Section Toggle */}
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>
-                Use location for {otherSection} too
-              </Text>
-              <Switch
-                value={duplicateToOther}
-                onValueChange={setDuplicateToOther}
-                disabled={isLoadingLocation}
-                trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#4ADE80' }}
-                thumbColor={duplicateToOther ? '#ffffff' : '#f4f3f4'}
-              />
-            </View>
-
-            {/* Validation Error */}
-            {validationError && (
-              <Text style={styles.errorText}>{validationError}</Text>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {/* Validation Error */}
+          {validationError && (
+            <Text style={styles.errorText}>{validationError}</Text>
+          )}
+        </View>
+      </ScrollView>
     </StandardModal>
   );
 }
@@ -355,17 +361,6 @@ export function AddLocationModal({
 const styles = StyleSheet.create({
   fieldsContainer: {
     gap: 16,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  toggleLabel: {
-    color: '#ffffff',
-    fontSize: 14,
-    flex: 1,
   },
   errorText: {
     color: '#F87171',

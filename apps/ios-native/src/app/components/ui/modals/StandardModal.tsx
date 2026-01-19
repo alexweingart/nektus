@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
@@ -114,8 +116,12 @@ export const StandardModal: React.FC<StandardModalProps> = ({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, { opacity: backdropOpacityAnim }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <Animated.View style={[styles.overlay, { opacity: backdropOpacityAnim }]}>
           <TouchableWithoutFeedback>
             <Animated.View
               style={[
@@ -173,8 +179,8 @@ export const StandardModal: React.FC<StandardModalProps> = ({
                       onPress={handlePrimaryClick}
                       disabled={primaryButtonDisabled}
                       style={styles.fullWidthButton}
+                      icon={primaryButtonIcon}
                     >
-                      {primaryButtonIcon}
                       {primaryButtonText}
                     </Button>
                   </View>
@@ -191,13 +197,17 @@ export const StandardModal: React.FC<StandardModalProps> = ({
               </View>
             </Animated.View>
           </TouchableWithoutFeedback>
-        </Animated.View>
-      </TouchableWithoutFeedback>
+          </Animated.View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
