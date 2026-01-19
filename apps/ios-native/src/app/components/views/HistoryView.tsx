@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 24,
     paddingTop: 48, // Match web's py-12
+    // No extra paddingHorizontal - inherits from container's paddingHorizontal: 16
   },
   emptyIconContainer: {
     marginBottom: 24,
