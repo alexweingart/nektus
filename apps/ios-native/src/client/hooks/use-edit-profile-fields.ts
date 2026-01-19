@@ -38,6 +38,7 @@ export interface UseEditProfileFieldsReturn {
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
   updateFieldValue: (fieldType: string, value: string, section: FieldSection) => void;
   addFields: (newFields: ContactEntry[]) => void;
+  updateFieldOrder: (section: 'personal' | 'work', newOrder: ContactEntry[]) => void;
 
   // Get field data
   getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
@@ -153,6 +154,19 @@ export const useEditProfileFields = ({
     updateFields(updatedFields);
   }, [fields, updateFields]);
 
+  // Update field order (for drag-and-drop reordering)
+  const updateFieldOrder = useCallback((section: 'personal' | 'work', newOrder: ContactEntry[]) => {
+    // Update order numbers based on new position
+    const reorderedFields = newOrder.map((field, index) => ({
+      ...field,
+      order: index,
+    }));
+
+    // Replace section fields with reordered ones
+    const otherFields = fields.filter(f => f.section !== section);
+    updateFields([...otherFields, ...reorderedFields]);
+  }, [fields, updateFields]);
+
   // Get image value
   const getImageValue = useCallback((type: 'profileImage'): string => {
     return images[type];
@@ -263,6 +277,7 @@ export const useEditProfileFields = ({
     toggleFieldVisibility,
     updateFieldValue,
     addFields,
+    updateFieldOrder,
     getFieldData,
     isFieldHidden,
     markChannelAsConfirmed,
@@ -276,16 +291,18 @@ export const useEditProfileFields = ({
 export const useProfileViewMode = () => {
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
 
-  // Load from AsyncStorage on mount
-  const loadFromStorage = useCallback(async () => {
+  // Load from AsyncStorage on mount - returns the loaded mode
+  const loadFromStorage = useCallback(async (): Promise<'Personal' | 'Work'> => {
     try {
       const savedCategory = await AsyncStorage.getItem('nekt-sharing-category');
       if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
         setSelectedMode(savedCategory as 'Personal' | 'Work');
+        return savedCategory as 'Personal' | 'Work';
       }
     } catch (error) {
       console.warn('[iOS] Failed to load sharing category:', error);
     }
+    return 'Personal';
   }, []);
 
   // Save to AsyncStorage

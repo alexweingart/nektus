@@ -92,10 +92,16 @@ export function EditProfileView() {
     onCalendarAddedViaOAuth: refreshProfile,
   });
 
-  // Load saved mode on mount
+  // Load saved mode on mount and sync carousel position
   useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
+    const loadAndSyncCarousel = async () => {
+      const loadedMode = await loadFromStorage();
+      // Snap carousel to match the loaded mode (no animation on initial load)
+      const toValue = loadedMode === 'Personal' ? 0 : -CAROUSEL_WIDTH;
+      carouselAnimValue.setValue(toValue);
+    };
+    loadAndSyncCarousel();
+  }, [loadFromStorage, carouselAnimValue]);
 
   // Handle mode change with carousel animation
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
