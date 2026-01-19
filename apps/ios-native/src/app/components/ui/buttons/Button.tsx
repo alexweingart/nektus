@@ -176,14 +176,16 @@ export function Button({
               tint="light"
               intensity={50}
             />
-            {/* Radial gradient overlay */}
-            <RadialGradient
-              x="50%"
-              y="50%"
-              rx="71%"
-              ry="71%"
-              colorList={gradientColorList}
-            />
+            {/* Radial gradient overlay - must fill container */}
+            <View style={StyleSheet.absoluteFillObject}>
+              <RadialGradient
+                x="50%"
+                y="50%"
+                rx="100%"
+                ry="100%"
+                colorList={gradientColorList}
+              />
+            </View>
           </View>
         )}
         <View style={styles.contentRow}>{content}</View>
