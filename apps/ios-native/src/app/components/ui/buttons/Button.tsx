@@ -17,7 +17,6 @@ import {
   Animated,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import { RadialGradient } from "react-native-gradients";
 
 type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary" | "black";
 type ButtonSize = "md" | "lg" | "xl" | "icon";
@@ -76,14 +75,8 @@ export function Button({
     onPress();
   }, [onPress, variant]);
 
-  // Determine if variant has radial gradient (white, circle, theme, primary)
+  // Determine if variant has glass effect (white, circle, theme, primary)
   const hasGradient = variant === "white" || variant === "circle" || variant === "theme" || variant === "primary";
-
-  // Color list for radial gradient matching web: radial-gradient(circle, rgb(255 255 255 / 1), rgb(255 255 255 / 0.6))
-  const gradientColorList = [
-    { offset: "0%", color: "#ffffff", opacity: "1" },
-    { offset: "100%", color: "#ffffff", opacity: "0.6" }
-  ];
 
   // Size configurations matching web
   const sizeConfig = {
@@ -167,25 +160,15 @@ export function Button({
         disabled={isDisabled}
         activeOpacity={1} // We handle visual feedback via scale animation
       >
-        {/* Backdrop blur + radial gradient background matching web */}
+        {/* Backdrop blur + white background matching web */}
         {hasGradient && (
-          <View style={StyleSheet.absoluteFillObject}>
+          <View style={[StyleSheet.absoluteFillObject, styles.gradientBackground]}>
             {/* Backdrop blur (matches web's backdrop-blur-lg) */}
             <BlurView
               style={StyleSheet.absoluteFillObject}
               tint="light"
               intensity={50}
             />
-            {/* Radial gradient overlay - use 150% to cover wide rectangular buttons */}
-            <View style={StyleSheet.absoluteFillObject}>
-              <RadialGradient
-                x="50%"
-                y="50%"
-                rx="150%"
-                ry="150%"
-                colorList={gradientColorList}
-              />
-            </View>
           </View>
         )}
         <View style={styles.contentRow}>{content}</View>
@@ -222,6 +205,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
+  },
+
+  gradientBackground: {
+    backgroundColor: "rgba(255, 255, 255, 0.85)", // White background for glass effect
   },
 
   // Variant styles
