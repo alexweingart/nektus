@@ -70,6 +70,7 @@ export function StaticInput({
             variant === 'hideable' && styles.inputHideable,
           ]}
           placeholderTextColor="rgba(255, 255, 255, 0.4)"
+          returnKeyType="done"
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}

@@ -13,6 +13,7 @@ import {
   Animated,
   ViewStyle,
 } from "react-native";
+import { BlurView } from "expo-blur";
 
 interface DualStateSelectorProps<T extends string> {
   options: [T, T]; // Exactly two options
@@ -78,6 +79,13 @@ export function DualStateSelector<T extends string>({
 
   return (
     <View style={[styles.container, { width: totalWidth }, style]}>
+      {/* Blur background to match web's backdrop-blur-lg */}
+      <BlurView
+        style={StyleSheet.absoluteFillObject}
+        tint="dark"
+        intensity={50}
+      />
+
       {/* Background slider (selected state indicator) */}
       <Animated.View
         style={[
@@ -125,10 +133,10 @@ export function DualStateSelector<T extends string>({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    backgroundColor: "rgba(0, 0, 0, 0.6)", // bg-black/60 backdrop-blur-lg
     borderRadius: 9999, // rounded-full
     flexDirection: "row",
     alignSelf: "center", // Don't stretch to full width, shrink to content
+    overflow: "hidden", // Required for BlurView to clip to border radius
   },
   slider: {
     position: "absolute",

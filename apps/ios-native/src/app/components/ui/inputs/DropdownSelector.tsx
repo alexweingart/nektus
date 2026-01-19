@@ -4,19 +4,21 @@
  *
  * Changes from web:
  * - Replaced DOM elements with React Native components
- * - Uses ActionSheet instead of dropdown portal
+ * - Uses positioned dropdown below the button (like web portal)
  * - Uses react-native-svg for chevron icons
+ * - Doesn't dismiss keyboard when opening
  */
 
-import React, { useState, ReactNode } from 'react';
+import React, { useState, useRef, ReactNode, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
   ScrollView,
   StyleSheet,
   Pressable,
+  Modal,
+  Keyboard,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
@@ -35,7 +37,13 @@ interface DropdownSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   onAfterChange?: () => void;
+  /** Called before dropdown opens - use to mark internal interaction */
+  onBeforeOpen?: () => void;
 }
+
+const ITEM_HEIGHT = 44;
+const MAX_VISIBLE_ITEMS = 5;
+const DROPDOWN_MAX_HEIGHT = ITEM_HEIGHT * MAX_VISIBLE_ITEMS + 16; // 5 items + padding
 
 export function DropdownSelector({
   options,
@@ -44,9 +52,32 @@ export function DropdownSelector({
   placeholder = 'Select...',
   disabled = false,
   onAfterChange,
+  onBeforeOpen,
 }: DropdownSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPositionReady, setIsPositionReady] = useState(false);
+  const [buttonLayout, setButtonLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const buttonRef = useRef<View>(null);
   const selectedOption = options.find((opt) => opt.value === value);
+
+  // Measure position after modal opens and scroll animations have completed
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      setIsPositionReady(false);
+      // Delay to ensure keyboard dismiss + scroll animations have completed
+      const measureTimer = setTimeout(() => {
+        buttonRef.current?.measureInWindow((x, y, width, height) => {
+          if (x !== undefined && y !== undefined) {
+            setButtonLayout({ x, y, width, height });
+            setIsPositionReady(true);
+          }
+        });
+      }, 300);
+      return () => clearTimeout(measureTimer);
+    } else {
+      setIsPositionReady(false);
+    }
+  }, [isOpen]);
 
   const renderIcon = (icon: string | ReactNode) => {
     if (typeof icon === 'string') {
@@ -61,13 +92,32 @@ export function DropdownSelector({
     onAfterChange?.();
   };
 
+  const handleButtonPress = useCallback(() => {
+    if (disabled) return;
+
+    // Notify parent that dropdown is about to open (for internal interaction tracking)
+    onBeforeOpen?.();
+
+    // Dismiss keyboard first - this triggers auto-scroll
+    Keyboard.dismiss();
+
+    // Open modal immediately - the useEffect will handle position measurement
+    // after keyboard dismiss and scroll animations complete
+    setIsOpen(true);
+  }, [disabled, onBeforeOpen]);
+
+  const handleOverlayPress = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={buttonRef}>
       {/* Selector Button */}
       <TouchableOpacity
         style={[styles.button, disabled && styles.buttonDisabled]}
-        onPress={() => !disabled && setIsOpen(true)}
+        onPress={handleButtonPress}
         disabled={disabled}
+        activeOpacity={0.7}
       >
         {selectedOption?.icon ? (
           <View style={styles.selectedIcon}>{renderIcon(selectedOption.icon)}</View>
@@ -84,38 +134,60 @@ export function DropdownSelector({
         </View>
       </TouchableOpacity>
 
-      {/* Dropdown Modal */}
+      {/* Dropdown rendered in Modal to escape overflow:hidden clipping */}
       <Modal
         visible={isOpen}
         transparent
-        animationType="fade"
-        onRequestClose={() => setIsOpen(false)}
+        animationType="none"
+        onRequestClose={handleOverlayPress}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
-          <View style={styles.modalContent}>
-            <BlurView
-              style={StyleSheet.absoluteFillObject}
-              tint="dark"
-              intensity={50}
-            />
-            <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
-              {options.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.option,
-                    option.value === value && styles.optionSelected,
-                  ]}
-                  onPress={() => handleSelect(option.value)}
-                >
-                  {option.icon && (
-                    <View style={styles.optionIcon}>{renderIcon(option.icon)}</View>
-                  )}
-                  <Text style={styles.optionLabel}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+        {/* Invisible overlay to capture taps outside */}
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleOverlayPress}
+        >
+          {/* Dropdown menu positioned below button - only show when position is measured */}
+          {isPositionReady && (
+            <View
+              style={[
+                styles.dropdownContainer,
+                {
+                  position: 'absolute',
+                  top: buttonLayout.y + buttonLayout.height + 8,
+                  left: buttonLayout.x,
+                }
+              ]}
+            >
+              <BlurView
+                style={StyleSheet.absoluteFillObject}
+                tint="dark"
+                intensity={50}
+              />
+              <ScrollView
+                style={styles.optionsList}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+                nestedScrollEnabled
+              >
+                {options.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.option,
+                      option.value === value && styles.optionSelected,
+                    ]}
+                    onPress={() => handleSelect(option.value)}
+                    activeOpacity={0.7}
+                  >
+                    {option.icon && (
+                      <View style={styles.optionIcon}>{renderIcon(option.icon)}</View>
+                    )}
+                    <Text style={styles.optionLabel}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </Pressable>
       </Modal>
     </View>
@@ -158,13 +230,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  modalContent: {
-    width: '80%',
-    maxHeight: '60%',
+  dropdownContainer: {
+    width: 240, // w-60 on web
+    maxHeight: DROPDOWN_MAX_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -176,8 +245,10 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
+    height: ITEM_HEIGHT,
   },
   optionSelected: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

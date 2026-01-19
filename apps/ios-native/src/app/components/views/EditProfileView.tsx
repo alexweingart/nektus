@@ -1,110 +1,66 @@
-import React, { useCallback, useEffect, useState } from 'react';
+/**
+ * EditProfileView for iOS
+ * Adapted from: apps/web/src/app/components/views/EditProfileView.tsx
+ *
+ * Changes from web:
+ * - Uses React Native components (ScrollView, KeyboardAvoidingView)
+ * - Uses React Navigation instead of Next.js router
+ * - Uses Animated.View for carousel instead of CSS transform
+ * - Uses expo-image-picker for profile image upload
+ */
+
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  Animated,
+  Dimensions,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
-import type { ContactEntry, FieldSection, Calendar, UserLocation } from '@nektus/shared-types';
+import type { ContactEntry, FieldSection } from '@nektus/shared-types';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { useEditProfileFields, useProfileViewMode } from '../../../client/hooks/use-edit-profile-fields';
+import { useCalendarLocationManagement } from '../../../client/hooks/use-calendar-location-management';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
-import Avatar from '../ui/elements/Avatar';
-import SocialIcon from '../ui/elements/SocialIcon';
+import { StaticInput } from '../ui/inputs/StaticInput';
+import { ExpandingInput } from '../ui/inputs/ExpandingInput';
+import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
+import { FieldList } from '../ui/layout/FieldList';
+import { ProfileField } from '../ui/elements/ProfileField';
+import { ProfileImageIcon } from '../ui/elements/ProfileImageIcon';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { AddLocationModal } from '../ui/modals/AddLocationModal';
-import { ItemChip } from '../ui/modules/ItemChip';
+import { SelectedSections } from './SelectedSections';
 
 type EditProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EditProfile'>;
 
-/**
- * Get field display name
- */
-const getFieldDisplayName = (fieldType: string): string => {
-  const displayNames: Record<string, string> = {
-    name: 'Name',
-    bio: 'Bio',
-    phone: 'Phone',
-    email: 'Email',
-    instagram: 'Instagram',
-    twitter: 'Twitter',
-    linkedin: 'LinkedIn',
-    facebook: 'Facebook',
-    tiktok: 'TikTok',
-    snapchat: 'Snapchat',
-    whatsapp: 'WhatsApp',
-    telegram: 'Telegram',
-  };
-  return displayNames[fieldType] || fieldType.charAt(0).toUpperCase() + fieldType.slice(1);
-};
-
-// Calendar icon
-const CalendarIcon = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2}>
-    <Path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-    />
-  </Svg>
-);
-
-// Location icon
-const LocationIcon = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2}>
-    <Path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-    />
-    <Path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  </Svg>
-);
-
-// Plus icon
-const PlusIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth={2}>
-    <Path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-  </Svg>
-);
-
-/**
- * Get provider display name
- */
-const getProviderName = (provider: string): string => {
-  switch (provider) {
-    case 'google': return 'Google Calendar';
-    case 'microsoft': return 'Microsoft Calendar';
-    case 'apple': return 'Apple Calendar';
-    default: return 'Calendar';
-  }
-};
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CONTENT_PADDING = 16;
+const CAROUSEL_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 export function EditProfileView() {
   const navigation = useNavigation<EditProfileNavigationProp>();
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving, refreshProfile } = useProfile();
 
-  // Profile view mode (Personal/Work)
-  const { selectedMode, loadFromStorage, handleModeChange } = useProfileViewMode();
+  // Carousel animation
+  const carouselAnimValue = useRef(new Animated.Value(0)).current;
 
-  // Modal state
-  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
-  const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+  // Profile view mode (Personal/Work)
+  const { selectedMode, loadFromStorage, handleModeChange: baseModeChange } = useProfileViewMode();
+
+  // Inline add link state
+  const [showInlineAddLink, setShowInlineAddLink] = useState<{ personal: boolean; work: boolean }>({
+    personal: false,
+    work: false,
+  });
 
   // Field management
   const fieldManager = useEditProfileFields({
@@ -113,19 +69,45 @@ export function EditProfileView() {
     initialImages: { profileImage: profile?.profileImage || '' },
   });
 
+  // Calendar and location management
+  const {
+    isCalendarModalOpen,
+    isLocationModalOpen,
+    modalSection,
+    setIsCalendarModalOpen,
+    setIsLocationModalOpen,
+    isDeletingCalendar,
+    isDeletingLocation,
+    getCalendarForSection,
+    getLocationForSection,
+    handleOpenCalendarModal,
+    handleOpenLocationModal,
+    handleCalendarAdded,
+    handleLocationAdded,
+    handleDeleteCalendar,
+    handleDeleteLocation,
+  } = useCalendarLocationManagement({
+    profile,
+    saveProfile,
+    onCalendarAddedViaOAuth: refreshProfile,
+  });
+
   // Load saved mode on mount
   useEffect(() => {
     loadFromStorage();
   }, [loadFromStorage]);
 
-  // Get calendars and locations for current section
-  const currentSection = selectedMode.toLowerCase() as 'personal' | 'work';
-  const sectionCalendars = (profile?.calendars || []).filter(
-    (cal: Calendar) => cal.section === currentSection
-  );
-  const sectionLocations = (profile?.locations || []).filter(
-    (loc: UserLocation) => loc.section === currentSection
-  );
+  // Handle mode change with carousel animation
+  const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
+    const toValue = mode === 'Personal' ? 0 : -CAROUSEL_WIDTH;
+    Animated.spring(carouselAnimValue, {
+      toValue,
+      useNativeDriver: true,
+      friction: 20,
+      tension: 100,
+    }).start();
+    baseModeChange(mode);
+  }, [baseModeChange, carouselAnimValue]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -149,53 +131,62 @@ export function EditProfileView() {
     }
   }, [session, fieldManager, profile, saveProfile, navigation]);
 
-  // Get fields for current view
+  // Handle profile image upload
+  const handleProfileImageUpload = useCallback((uri: string) => {
+    fieldManager.setImageValue('profileImage', uri);
+  }, [fieldManager]);
+
+  // Handle field input change
+  const handleFieldChange = useCallback((fieldType: string, value: string, section: FieldSection) => {
+    fieldManager.markChannelAsConfirmed(fieldType);
+    fieldManager.updateFieldValue(fieldType, value, section);
+  }, [fieldManager]);
+
+  // Toggle inline add link
+  const handleToggleInlineAddLink = useCallback((section: 'personal' | 'work') => {
+    setShowInlineAddLink(prev => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  }, []);
+
+  // Handle link added
+  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
+    fieldManager.addFields(entries);
+    entries.forEach(entry => {
+      fieldManager.markChannelAsConfirmed(entry.fieldType);
+    });
+    setShowInlineAddLink({ personal: false, work: false });
+  }, [fieldManager]);
+
+  // Get field value using unified state
+  const getFieldValue = useCallback((fieldType: string, section?: FieldSection): string => {
+    if (section) {
+      const field = fieldManager.getFieldData(fieldType, section);
+      return field?.value || '';
+    }
+    return fieldManager.getFieldValue(fieldType);
+  }, [fieldManager]);
+
+  // Get fields for view
+  const getFieldsForView = useCallback((viewMode: 'Personal' | 'Work') => {
+    const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
+    return {
+      visibleFields: fieldManager.getVisibleFields(sectionName),
+      hiddenFields: fieldManager.getHiddenFieldsForView(viewMode),
+    };
+  }, [fieldManager]);
+
+  // Calculate next order for section
+  const getNextOrderForSection = useCallback((sectionName: 'personal' | 'work') => {
+    const { visibleFields } = getFieldsForView(sectionName === 'personal' ? 'Personal' : 'Work');
+    const maxOrder = Math.max(0, ...visibleFields.map(f => f.order || 0));
+    return maxOrder + 1;
+  }, [getFieldsForView]);
+
+  // Get universal fields for the top section
   const universalFields = fieldManager.getFieldsBySection('universal');
-  const currentSectionFields = fieldManager.getVisibleFields(
-    selectedMode.toLowerCase() as 'personal' | 'work'
-  );
-
-  // Filter out name and bio from universal (they have dedicated inputs)
-  const universalContactFields = universalFields.filter(
-    f => !['name', 'bio'].includes(f.fieldType)
-  );
-
-  // Render a field input
-  const renderField = (field: ContactEntry, index: number) => {
-    const isUniversal = field.section === 'universal';
-
-    return (
-      <View key={`${field.section}-${field.fieldType}-${index}`} style={styles.fieldContainer}>
-        <View style={styles.fieldRow}>
-          <View style={styles.fieldIcon}>
-            <SocialIcon platform={field.fieldType} size="sm" />
-          </View>
-          <View style={styles.fieldInputContainer}>
-            <Text style={styles.fieldLabel}>{getFieldDisplayName(field.fieldType)}</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={field.value}
-              onChangeText={(value) => {
-                if (isUniversal) {
-                  fieldManager.setFieldValue(field.fieldType, value);
-                } else {
-                  fieldManager.updateFieldValue(field.fieldType, value, field.section);
-                }
-                fieldManager.markChannelAsConfirmed(field.fieldType);
-              }}
-              placeholder={`Enter ${getFieldDisplayName(field.fieldType).toLowerCase()}`}
-              placeholderTextColor="#9CA3AF"
-              autoCapitalize={field.fieldType === 'email' ? 'none' : 'words'}
-              keyboardType={
-                field.fieldType === 'email' ? 'email-address' :
-                field.fieldType === 'phone' ? 'phone-pad' : 'default'
-              }
-            />
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const universalContactFields = universalFields.filter(field => !['name', 'bio'].includes(field.fieldType));
 
   return (
     <>
@@ -208,6 +199,7 @@ export function EditProfileView() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           {/* Header */}
           <PageHeader
@@ -217,137 +209,118 @@ export function EditProfileView() {
             isSaving={isSaving}
           />
 
-          {/* Profile Image */}
-          <View style={styles.avatarSection}>
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={() => {
-                // TODO: Implement image picker
-                console.log('[EditProfileView] Profile image tap');
-              }}
+          <View style={styles.content}>
+            {/* Universal Section */}
+            <FieldSectionComponent
+              isEmpty={false}
+              emptyText=""
             >
-              <Avatar
-                src={fieldManager.getImageValue('profileImage') || profile?.profileImage}
-                alt={fieldManager.getFieldValue('name')}
-                size="lg"
-              />
-              <View style={styles.editBadge}>
-                <Text style={styles.editBadgeText}>Edit</Text>
+              {/* Name Input with Profile Image */}
+              <View style={styles.nameInputContainer}>
+                <StaticInput
+                  value={fieldManager.getFieldValue('name')}
+                  onChangeText={(value) => fieldManager.setFieldValue('name', value)}
+                  placeholder="Full Name"
+                  icon={
+                    <ProfileImageIcon
+                      imageUrl={fieldManager.getImageValue('profileImage')}
+                      onUpload={handleProfileImageUpload}
+                      size={32}
+                    />
+                  }
+                />
               </View>
-            </TouchableOpacity>
-          </View>
 
-          {/* Name Input */}
-          <View style={styles.nameSection}>
-            <TextInput
-              style={styles.nameInput}
-              value={fieldManager.getFieldValue('name')}
-              onChangeText={(value) => fieldManager.setFieldValue('name', value)}
-              placeholder="Full Name"
-              placeholderTextColor="#9CA3AF"
-              autoCapitalize="words"
-            />
-          </View>
+              {/* Bio Input */}
+              <View style={styles.bioInputContainer}>
+                <ExpandingInput
+                  value={fieldManager.getFieldValue('bio')}
+                  onChange={(value) => fieldManager.setFieldValue('bio', value)}
+                  placeholder="Add a short bio..."
+                  maxLength={280}
+                />
+              </View>
 
-          {/* Bio Input */}
-          <View style={styles.bioSection}>
-            <TextInput
-              style={styles.bioInput}
-              value={fieldManager.getFieldValue('bio')}
-              onChangeText={(value) => fieldManager.setFieldValue('bio', value)}
-              placeholder="Add a short bio..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              maxLength={280}
-              textAlignVertical="top"
-            />
-            <Text style={styles.charCount}>
-              {fieldManager.getFieldValue('bio').length}/280
-            </Text>
-          </View>
+              {/* Universal Fields List */}
+              {universalContactFields.length > 0 && (
+                <FieldList>
+                  {universalContactFields.map((field, index) => (
+                    <ProfileField
+                      key={`universal-${field.fieldType}-${index}`}
+                      profile={field}
+                      fieldSectionManager={fieldManager}
+                      getValue={getFieldValue}
+                      onChange={handleFieldChange}
+                      isUnconfirmed={fieldManager.isChannelUnconfirmed}
+                      onConfirm={fieldManager.markChannelAsConfirmed}
+                      currentViewMode={selectedMode}
+                    />
+                  ))}
+                </FieldList>
+              )}
+            </FieldSectionComponent>
 
-          {/* Universal Contact Fields */}
-          {universalContactFields.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contact Info</Text>
-              {universalContactFields.map((field, index) => renderField(field, index))}
-            </View>
-          )}
-
-          {/* Section-specific Fields */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {selectedMode} Links
-            </Text>
-            {currentSectionFields.length > 0 ? (
-              currentSectionFields.map((field, index) => renderField(field, index))
-            ) : (
-              <Text style={styles.emptyText}>
-                No {selectedMode.toLowerCase()} links yet. Add some to share with your contacts.
-              </Text>
-            )}
-          </View>
-
-          {/* Calendars Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {selectedMode} Calendars
-            </Text>
-            {sectionCalendars.map((calendar: Calendar) => (
-              <ItemChip
-                key={calendar.id}
-                icon={
-                  <View style={styles.chipIconContainer}>
-                    <CalendarIcon />
-                  </View>
-                }
-                title={getProviderName(calendar.provider)}
-                subtitle={calendar.email}
-                onClick={() => navigation.navigate('Calendar', { section: currentSection })}
-                actionIcon="chevron"
-              />
-            ))}
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowAddCalendarModal(true)}
-            >
-              <PlusIcon />
-              <Text style={styles.addButtonText}>Add Calendar</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Locations Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {selectedMode} Location
-            </Text>
-            {sectionLocations.map((location: UserLocation) => (
-              <ItemChip
-                key={location.id}
-                icon={
-                  <View style={styles.chipIconContainer}>
-                    <LocationIcon />
-                  </View>
-                }
-                title={location.city}
-                subtitle={`${location.region}${location.country ? ', ' + location.country : ''}`}
-                onClick={() => navigation.navigate('Location', { section: currentSection })}
-                actionIcon="chevron"
-              />
-            ))}
-            {sectionLocations.length === 0 && (
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => setShowAddLocationModal(true)}
+            {/* Carousel Container */}
+            <View style={styles.carouselContainer}>
+              <Animated.View
+                style={[
+                  styles.carousel,
+                  {
+                    transform: [{ translateX: carouselAnimValue }],
+                  },
+                ]}
               >
-                <PlusIcon />
-                <Text style={styles.addButtonText}>Add Location</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                {/* Personal View */}
+                <View style={[styles.carouselSlide, { width: CAROUSEL_WIDTH }]}>
+                  <SelectedSections
+                    viewMode="Personal"
+                    fieldSectionManager={fieldManager}
+                    getCalendarForSection={getCalendarForSection}
+                    getLocationForSection={getLocationForSection}
+                    handleOpenCalendarModal={handleOpenCalendarModal}
+                    handleOpenLocationModal={handleOpenLocationModal}
+                    handleDeleteCalendar={handleDeleteCalendar}
+                    handleDeleteLocation={handleDeleteLocation}
+                    isDeletingCalendar={isDeletingCalendar}
+                    isDeletingLocation={isDeletingLocation}
+                    showInlineAddLink={showInlineAddLink}
+                    handleToggleInlineAddLink={handleToggleInlineAddLink}
+                    handleLinkAdded={handleLinkAdded}
+                    getNextOrderForSection={getNextOrderForSection}
+                    getFieldValue={getFieldValue}
+                    handleFieldChange={handleFieldChange}
+                    getFieldsForView={getFieldsForView}
+                  />
+                </View>
 
-          {/* Bottom spacing for selector */}
-          <View style={styles.bottomSpacer} />
+                {/* Work View */}
+                <View style={[styles.carouselSlide, { width: CAROUSEL_WIDTH }]}>
+                  <SelectedSections
+                    viewMode="Work"
+                    fieldSectionManager={fieldManager}
+                    getCalendarForSection={getCalendarForSection}
+                    getLocationForSection={getLocationForSection}
+                    handleOpenCalendarModal={handleOpenCalendarModal}
+                    handleOpenLocationModal={handleOpenLocationModal}
+                    handleDeleteCalendar={handleDeleteCalendar}
+                    handleDeleteLocation={handleDeleteLocation}
+                    isDeletingCalendar={isDeletingCalendar}
+                    isDeletingLocation={isDeletingLocation}
+                    showInlineAddLink={showInlineAddLink}
+                    handleToggleInlineAddLink={handleToggleInlineAddLink}
+                    handleLinkAdded={handleLinkAdded}
+                    getNextOrderForSection={getNextOrderForSection}
+                    getFieldValue={getFieldValue}
+                    handleFieldChange={handleFieldChange}
+                    getFieldsForView={getFieldsForView}
+                  />
+                </View>
+              </Animated.View>
+            </View>
+
+            {/* Bottom spacing for selector */}
+            <View style={styles.bottomSpacer} />
+          </View>
         </ScrollView>
 
         {/* Sticky Profile View Selector */}
@@ -361,33 +334,20 @@ export function EditProfileView() {
 
       {/* Add Calendar Modal */}
       <AddCalendarModal
-        isOpen={showAddCalendarModal}
-        onClose={() => setShowAddCalendarModal(false)}
-        section={currentSection}
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        section={modalSection}
         userEmail={session?.user?.email || ''}
-        onCalendarAdded={() => {
-          setShowAddCalendarModal(false);
-          refreshProfile();
-        }}
+        onCalendarAdded={handleCalendarAdded}
       />
 
       {/* Add Location Modal */}
       <AddLocationModal
-        isOpen={showAddLocationModal}
-        onClose={() => setShowAddLocationModal(false)}
-        section={currentSection}
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        section={modalSection}
         userId={session?.user?.id || ''}
-        onLocationAdded={async (locations) => {
-          // Save locations to profile
-          const existingLocations = profile?.locations || [];
-          // Filter out any locations with the same ID (replacing)
-          const locationIds = locations.map(l => l.id);
-          const filteredLocations = existingLocations.filter(
-            (l: UserLocation) => !locationIds.includes(l.id)
-          );
-          await saveProfile({ locations: [...filteredLocations, ...locations] });
-          setShowAddLocationModal(false);
-        }}
+        onLocationAdded={handleLocationAdded}
       />
     </>
   );
@@ -402,109 +362,32 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 100, // Space for selector
+    paddingHorizontal: CONTENT_PADDING,
+    paddingBottom: 120, // Space for selector
   },
-  avatarSection: {
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  editBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  editBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  nameSection: {
-    marginBottom: 12,
-  },
-  nameInput: {
-    backgroundColor: '#ffffff',
-    borderRadius: 9999,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    textAlign: 'center',
-  },
-  bioSection: {
-    marginBottom: 24,
-  },
-  bioInput: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: '#000000',
-    minHeight: 100,
-  },
-  charCount: {
-    textAlign: 'right',
-    marginTop: 4,
-    marginRight: 8,
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-  },
-  fieldContainer: {
-    marginBottom: 8,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  fieldIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  fieldInputContainer: {
+  content: {
     flex: 1,
+    gap: 20,
   },
-  fieldLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
+  nameInputContainer: {
+    width: '100%',
+    maxWidth: 448,
+    alignSelf: 'center',
   },
-  fieldInput: {
-    fontSize: 16,
-    color: '#000000',
-    padding: 0,
+  bioInputContainer: {
+    width: '100%',
+    maxWidth: 448,
+    alignSelf: 'center',
   },
-  emptyText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    paddingVertical: 20,
+  carouselContainer: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  carousel: {
+    flexDirection: 'row',
+  },
+  carouselSlide: {
+    flexShrink: 0,
   },
   bottomSpacer: {
     height: 40,
@@ -515,30 +398,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-  },
-  chipIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    borderStyle: 'dashed',
-    marginTop: 8,
-  },
-  addButtonText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
-    marginLeft: 8,
   },
 });
 

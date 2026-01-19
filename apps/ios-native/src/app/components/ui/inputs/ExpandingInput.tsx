@@ -33,6 +33,12 @@ interface ExpandingInputProps extends Omit<TextInputProps, 'onChange'> {
   onToggleHide?: () => void;
   icon?: ReactNode;
   maxHeight?: number;
+  /** When provided, pressing return submits instead of adding newline */
+  onSubmit?: () => void;
+  /** Called when input loses focus */
+  onInputBlur?: () => void;
+  /** If true, uses single line mode (no expanding) */
+  singleLine?: boolean;
 }
 
 /**
@@ -51,12 +57,20 @@ export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>
   onToggleHide,
   icon,
   maxHeight = 200,
+  onSubmit,
+  onInputBlur,
+  singleLine = false,
   ...props
 }, ref) => {
   // Start with 0 - let content size determine actual height
   const [contentHeight, setContentHeight] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false);
+    onInputBlur?.();
+  }, [onInputBlur]);
 
   const isWhiteVariant = variant === 'white';
   const hasIconOrToggle = icon || (variant === 'hideable' && onToggleHide);
@@ -133,14 +147,17 @@ export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>
               ]}
               value={value}
               onChangeText={handleChangeText}
-              onContentSizeChange={handleContentSizeChange}
+              onContentSizeChange={singleLine ? undefined : handleContentSizeChange}
               placeholder={placeholder}
               placeholderTextColor={isWhiteVariant ? '#9CA3AF' : 'rgba(255, 255, 255, 0.4)'}
-              cursorColor={isWhiteVariant ? 'dark' : 'light'}
-              multiline
+              colorTheme={isWhiteVariant ? 'dark' : 'light'}
+              multiline={!singleLine}
               scrollEnabled={false}
+              returnKeyType={onSubmit ? 'done' : undefined}
+              onSubmitEditing={onSubmit}
+              blurOnSubmit={!!onSubmit}
               onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onBlur={handleBlur}
               {...props}
             />
 
@@ -243,7 +260,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   inputNoExtras: {
-    paddingHorizontal: 24,
+    // No extra padding needed - contentWrapper already provides paddingHorizontal: 24
   },
   whiteText: {
     color: '#111827', // text-gray-900

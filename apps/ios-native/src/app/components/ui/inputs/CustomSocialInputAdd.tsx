@@ -28,6 +28,10 @@ interface CustomSocialInputAddProps {
   onPlatformChange: (platform: string) => void;
   onUsernameChange: (username: string) => void;
   autoFocus?: boolean;
+  onSubmit?: () => void;
+  onBlur?: () => void;
+  /** Called when dropdown is about to open - use to mark internal interaction */
+  onDropdownOpen?: () => void;
 }
 
 // Social network options with icons
@@ -48,6 +52,9 @@ export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSo
   onPlatformChange,
   onUsernameChange,
   autoFocus = false,
+  onSubmit,
+  onBlur,
+  onDropdownOpen,
 }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -56,6 +63,11 @@ export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSo
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
   }));
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    onBlur?.();
+  };
 
   return (
     <View style={[styles.glowWrapper, isFocused && styles.glowWrapperFocused]}>
@@ -81,6 +93,7 @@ export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSo
           value={platform}
           onChange={onPlatformChange}
           placeholder="Select"
+          onBeforeOpen={onDropdownOpen}
           onAfterChange={() => inputRef.current?.focus()}
         />
 
@@ -95,8 +108,11 @@ export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSo
           autoFocus={autoFocus}
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={onSubmit}
+          blurOnSubmit={true}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={handleBlur}
         />
         </View>
       </View>

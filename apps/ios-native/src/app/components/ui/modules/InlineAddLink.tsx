@@ -7,7 +7,7 @@
  * - Uses iOS input components (CustomSocialInputAdd, ExpandingInput)
  */
 
-import React, { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, useRef } from 'react';
 import { View, Text, StyleSheet, Keyboard, ScrollView } from 'react-native';
 import { DualStateSelector } from '../controls/DualStateSelector';
 import { ToggleSetting } from '../controls/ToggleSetting';
@@ -52,13 +52,27 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
 
   const [error, setError] = useState('');
 
+  // Track if an internal interaction is in progress (dropdown open, toggle tapped, etc.)
+  // This prevents blur from triggering cancel when user is interacting with controls
+  const internalInteractionRef = useRef(false);
+
   const otherSection = section === 'personal' ? 'work' : 'personal';
 
-  // Handle mode switch
+  // Mark as internal interaction - prevents blur from triggering save/cancel
+  const markInternalInteraction = useCallback(() => {
+    internalInteractionRef.current = true;
+    // Reset after a delay longer than the blur handler's delay
+    setTimeout(() => {
+      internalInteractionRef.current = false;
+    }, 500);
+  }, []);
+
+  // Handle mode switch - mark as internal interaction to prevent blur-cancel
   const handleModeChange = useCallback((newType: LinkType) => {
     if (newType === linkType) return;
+    markInternalInteraction();
     setLinkType(newType);
-  }, [linkType]);
+  }, [linkType, markInternalInteraction]);
 
   // Utility function to extract domain for fieldType
   const extractDomainForFieldType = (url: string): string => {
@@ -83,14 +97,11 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
 
   const isValid = linkType === 'Social' ? socialUsername.trim() : customLinkUrl.trim();
 
-  // Save current input, returns entries if saved or null if nothing to save
-  const handleSave = useCallback((): ContactEntry[] | null => {
+  // Internal save logic - builds entries without calling onLinkAdded
+  const buildEntries = useCallback((): ContactEntry[] | null => {
     if (!isValid) {
-      return null; // Nothing to save
+      return null;
     }
-
-    setError('');
-    Keyboard.dismiss();
 
     try {
       const entries: ContactEntry[] = [];
@@ -136,14 +147,69 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
         });
       }
 
-      onLinkAdded(entries);
       return entries;
     } catch (err) {
-      console.error('[InlineAddLink] Save error:', err);
+      console.error('[InlineAddLink] Build entries error:', err);
       setError('Failed to save link. Please check the URL and try again.');
       return null;
     }
-  }, [isValid, linkType, socialPlatform, socialUsername, customLinkUrl, nextOrder, section, duplicateToOther, otherSection, onLinkAdded]);
+  }, [isValid, linkType, socialPlatform, socialUsername, customLinkUrl, nextOrder, section, duplicateToOther, otherSection]);
+
+  // Handle submit (Enter key) - save the link
+  const handleSubmit = useCallback(() => {
+    if (!isValid) return;
+
+    setError('');
+    Keyboard.dismiss();
+
+    const entries = buildEntries();
+    if (entries) {
+      onLinkAdded(entries);
+    }
+  }, [isValid, buildEntries, onLinkAdded]);
+
+  // Handle blur - save if valid, cancel if empty
+  // Check internalInteractionRef to avoid triggering when tapping internal controls
+  const handleBlur = useCallback(() => {
+    // Delay to allow for tapping internal elements (dropdown, toggle, etc.)
+    setTimeout(() => {
+      // If an internal interaction is in progress, don't do anything
+      if (internalInteractionRef.current) {
+        return;
+      }
+
+      // Check if current input has value
+      const currentValue = linkType === 'Social' ? socialUsername.trim() : customLinkUrl.trim();
+
+      if (currentValue) {
+        // Has value - auto-save
+        setError('');
+        const entries = buildEntries();
+        if (entries) {
+          onLinkAdded(entries);
+        }
+      } else {
+        // Empty - cancel
+        onCancel();
+      }
+    }, 300);
+  }, [socialUsername, customLinkUrl, linkType, buildEntries, onLinkAdded, onCancel]);
+
+  // Save method exposed via ref
+  const handleSave = useCallback((): ContactEntry[] | null => {
+    if (!isValid) {
+      return null;
+    }
+
+    setError('');
+    Keyboard.dismiss();
+
+    const entries = buildEntries();
+    if (entries) {
+      onLinkAdded(entries);
+    }
+    return entries;
+  }, [isValid, buildEntries, onLinkAdded]);
 
   // Expose save method to parent via ref
   useImperativeHandle(ref, () => ({
@@ -176,6 +242,9 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
             username={socialUsername}
             onPlatformChange={setSocialPlatform}
             onUsernameChange={setSocialUsername}
+            onSubmit={handleSubmit}
+            onBlur={handleBlur}
+            onDropdownOpen={markInternalInteraction}
             autoFocus
           />
         ) : (
@@ -183,6 +252,9 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
             value={customLinkUrl}
             onChange={setCustomLinkUrl}
             placeholder="https://example.com"
+            onSubmit={handleSubmit}
+            onInputBlur={handleBlur}
+            singleLine
             autoFocus
           />
         )}
@@ -196,7 +268,10 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
             <ToggleSetting
               label={`Add to ${otherSection} too`}
               enabled={duplicateToOther}
-              onChange={setDuplicateToOther}
+              onChange={(value) => {
+                markInternalInteraction();
+                setDuplicateToOther(value);
+              }}
             />
           </View>
         )}
@@ -213,7 +288,7 @@ const styles = StyleSheet.create({
   },
   containerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // bg-black/60 to match web
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // bg-black/30 so input backgrounds (bg-black/40) are visible
   },
   scrollView: {
     flexGrow: 0,

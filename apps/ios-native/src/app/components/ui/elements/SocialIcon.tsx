@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, StyleSheet, Linking, Alert, Image } from 'react-native';
+import { TouchableOpacity, View, StyleSheet, Linking, Alert, Image } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 // Custom X logo component (formerly Twitter)
@@ -218,19 +218,32 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
   if (!iconElement) return null;
 
+  // Only make interactive if there's a reason to press (username or custom onPress)
+  const isInteractive = !disabled && (!!username || !!onPress);
+
+  const containerStyle = [
+    styles.container,
+    { width: containerSize, height: containerSize },
+    disabled && styles.disabled,
+    isActive && styles.active
+  ];
+
+  // Use View for display-only icons, TouchableOpacity for interactive ones
+  if (!isInteractive) {
+    return (
+      <View style={containerStyle}>
+        {iconElement}
+      </View>
+    );
+  }
+
   return (
     <TouchableOpacity
-      style={[
-        styles.container,
-        { width: containerSize, height: containerSize },
-        disabled && styles.disabled,
-        isActive && styles.active
-      ]}
+      style={containerStyle}
       onPress={handlePress}
-      onPressIn={() => !disabled && setIsActive(true)}
-      onPressOut={() => !disabled && setIsActive(false)}
+      onPressIn={() => setIsActive(true)}
+      onPressOut={() => setIsActive(false)}
       activeOpacity={0.7}
-      disabled={disabled}
     >
       {iconElement}
     </TouchableOpacity>
