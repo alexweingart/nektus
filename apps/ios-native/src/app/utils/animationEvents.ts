@@ -9,13 +9,15 @@ type AnimationEventType =
   | 'start-floating'
   | 'stop-floating'
   | 'bump-detected'
-  | 'match-found';
+  | 'match-found'
+  | 'cancel-exchange';
 
 type AnimationEventData = {
   'start-floating': undefined;
   'stop-floating': undefined;
   'bump-detected': undefined;
   'match-found': { backgroundColors?: string[] };
+  'cancel-exchange': undefined;
 };
 
 type AnimationEventListener<T extends AnimationEventType> = (
@@ -81,3 +83,4 @@ export const emitStopFloating = () => animationEvents.emit('stop-floating');
 export const emitBumpDetected = () => animationEvents.emit('bump-detected');
 export const emitMatchFound = (backgroundColors?: string[]) =>
   animationEvents.emit('match-found', { backgroundColors });
+export const emitCancelExchange = () => animationEvents.emit('cancel-exchange');

@@ -15,6 +15,7 @@ import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { useProfileAnimations } from "../../../client/hooks/use-profile-animations";
+import { emitCancelExchange } from "../../utils/animationEvents";
 
 type ProfileViewNavigationProp = NativeStackNavigationProp<RootStackParamList, "Profile">;
 
@@ -54,8 +55,16 @@ export function ProfileView() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastMatch, setLastMatch] = useState<MatchResult | null>(null);
 
-  // Determine if we're in an active exchange state
-  const isExchanging = ["waiting-for-bump", "processing", "qr-scan-pending"].includes(exchangeStatus);
+  // Determine if we're in an active exchange state (includes BLE states)
+  const isExchanging = [
+    "waiting-for-bump",
+    "processing",
+    "qr-scan-pending",
+    "ble-scanning",
+    "ble-discovered",
+    "ble-connecting",
+    "ble-exchanging",
+  ].includes(exchangeStatus);
 
   // Determine if QR code should be shown
   const showQRCode = isExchanging && matchToken !== null;
@@ -88,8 +97,9 @@ export function ProfileView() {
   // Handle cancel exchange
   const handleCancelExchange = useCallback(() => {
     console.log("[ProfileView] Cancel exchange requested");
-    // The ExchangeButton will handle the actual cancellation via its own state management
-    // This just resets our local state
+    // Emit cancel event for ExchangeButton to handle (stops services)
+    emitCancelExchange();
+    // Reset local state
     setExchangeStatus("idle");
     setMatchToken(null);
   }, []);
