@@ -31,11 +31,13 @@ export function PageHeader({ onBack, onSave, isSaving = false, title }: PageHead
         size="icon"
         onPress={handleBack}
       >
-        <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
+        <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
           <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+            d="M10 5L4 10L10 15M4 10H16"
+            stroke="#374151"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </Svg>
       </Button>
@@ -58,8 +60,14 @@ export function PageHeader({ onBack, onSave, isSaving = false, title }: PageHead
           {isSaving ? (
             <ActivityIndicator size="small" color="#374151" />
           ) : (
-            <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
-              <Path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+            <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+              <Path
+                d="M3 10L8 15L17 4"
+                stroke="#374151"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </Svg>
           )}
         </Button>
