@@ -1,1 +1,4 @@
 .vercel
+
+# Apple Sign in with Apple keys
+secrets/

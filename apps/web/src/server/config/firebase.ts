@@ -331,6 +331,22 @@ export async function deleteUserProfile(userId: string): Promise<void> {
       if (verifyDoc.exists) {
         throw new Error(`[deleteUserProfile] Profile ${userId} still exists after deletion attempt`);
       }
+
+      // Delete the Firebase Auth user if it exists
+      try {
+        const { auth } = await getFirebaseAdmin();
+        await auth.deleteUser(userId);
+        console.log(`[deleteUserProfile] Firebase Auth user ${userId} deleted`);
+      } catch (authError: unknown) {
+        // User might not exist in Firebase Auth (e.g., custom token users)
+        // or might already be deleted - this is not a fatal error
+        const errorCode = (authError as { code?: string })?.code;
+        if (errorCode === 'auth/user-not-found') {
+          console.log(`[deleteUserProfile] Firebase Auth user ${userId} not found (already deleted or never existed)`);
+        } else {
+          console.warn(`[deleteUserProfile] Failed to delete Firebase Auth user ${userId}:`, authError);
+        }
+      }
     },
     `deleteUserProfile(${userId})`,
     3

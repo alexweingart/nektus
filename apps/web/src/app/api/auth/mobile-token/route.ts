@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify, createRemoteJWKSet, SignJWT, importPKCS8 } from "jose";
 import { createCustomTokenWithCorrectSub } from "@/server/config/firebase";
 import { ServerProfileService } from "@/server/profile/create";
 
@@ -10,6 +10,90 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const appleJWKS = createRemoteJWKSet(
   new URL("https://appleid.apple.com/auth/keys")
 );
+
+interface AppleTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token: string;
+  id_token: string;
+}
+
+/**
+ * Generate Apple client secret JWT
+ * Required for Apple's token endpoint
+ */
+async function generateAppleClientSecret(): Promise<string | null> {
+  const teamId = process.env.APPLE_TEAM_ID;
+  const keyId = process.env.APPLE_KEY_ID;
+  const privateKey = process.env.APPLE_PRIVATE_KEY;
+  const clientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "com.nektus.web.signin";
+
+  if (!teamId || !keyId || !privateKey) {
+    console.log("[mobile-token] Apple credentials not configured for token exchange");
+    return null;
+  }
+
+  try {
+    const key = await importPKCS8(privateKey, "ES256");
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = await new SignJWT({})
+      .setProtectedHeader({ alg: "ES256", kid: keyId })
+      .setIssuer(teamId)
+      .setSubject(clientId)
+      .setAudience("https://appleid.apple.com")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60 * 60 * 24 * 180)
+      .sign(key);
+    return jwt;
+  } catch (error) {
+    console.error("[mobile-token] Failed to generate Apple client secret:", error);
+    return null;
+  }
+}
+
+/**
+ * Exchange Apple authorization code for tokens
+ * Returns refresh_token which can be used for revocation on account deletion
+ */
+async function exchangeAppleCodeForTokens(
+  authorizationCode: string
+): Promise<AppleTokenResponse | null> {
+  const clientSecret = await generateAppleClientSecret();
+  if (!clientSecret) {
+    return null;
+  }
+
+  const clientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "com.nektus.web.signin";
+
+  try {
+    const response = await fetch("https://appleid.apple.com/auth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: authorizationCode,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[mobile-token] Apple token exchange failed:", response.status, errorText);
+      return null;
+    }
+
+    const tokens = await response.json();
+    console.log("[mobile-token] Apple token exchange successful");
+    return tokens;
+  } catch (error) {
+    console.error("[mobile-token] Apple token exchange error:", error);
+    return null;
+  }
+}
 
 interface GoogleUserInfo {
   sub: string;
@@ -112,6 +196,7 @@ export async function POST(req: NextRequest) {
       redirectUri,
       // Apple Sign-in parameters
       appleIdentityToken,
+      appleAuthorizationCode, // For token exchange to get refresh_token
       appleFullName,
       appleEmail,
     } = body;
@@ -125,6 +210,7 @@ export async function POST(req: NextRequest) {
 
     let userId: string;
     let userInfo: { name: string | null; email: string | null; image: string | null };
+    let appleRefreshToken: string | null = null; // For account deletion/revocation
 
     // Try ID token first (preferred), then access token, then authorization code
     if (googleIdToken) {
@@ -299,6 +385,21 @@ export async function POST(req: NextRequest) {
         };
 
         console.log("[mobile-token] Verified Apple token for user:", userId);
+
+        // Try to exchange authorization code for refresh token (for account deletion)
+        // This is optional - only works if Apple credentials are configured
+        if (appleAuthorizationCode) {
+          try {
+            const appleTokens = await exchangeAppleCodeForTokens(appleAuthorizationCode);
+            if (appleTokens?.refresh_token) {
+              appleRefreshToken = appleTokens.refresh_token;
+              console.log("[mobile-token] Obtained Apple refresh token for revocation support");
+            }
+          } catch (tokenExchangeError) {
+            console.warn("[mobile-token] Apple token exchange failed (non-critical):", tokenExchangeError);
+            // Continue without refresh token - revocation will require manual steps
+          }
+        }
       } catch (appleError) {
         console.error("[mobile-token] Failed to verify Apple identity token:", appleError);
         return NextResponse.json(
@@ -340,6 +441,7 @@ export async function POST(req: NextRequest) {
         needsSetup: true,
         userId,
         user: userInfo,
+        appleRefreshToken, // For account deletion - client should store securely
       });
     }
 
@@ -351,6 +453,7 @@ export async function POST(req: NextRequest) {
       needsSetup,
       userId,
       user: userInfo,
+      appleRefreshToken, // For account deletion - client should store securely
     });
   } catch (error) {
     console.error("[mobile-token] Unexpected error:", error);
