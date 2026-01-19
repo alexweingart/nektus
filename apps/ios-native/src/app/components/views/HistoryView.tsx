@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
+    width: '100%', // Needed so children with width: 100% can fill properly
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: 48, // Match web's py-12
