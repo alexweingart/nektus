@@ -17,6 +17,7 @@ import {
   Animated,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import { RadialGradient } from "react-native-gradients";
 
 type ButtonVariant = "white" | "circle" | "theme" | "destructive" | "primary" | "black";
 type ButtonSize = "md" | "lg" | "xl" | "icon";
@@ -75,8 +76,14 @@ export function Button({
     onPress();
   }, [onPress, variant]);
 
-  // Determine if variant has glass effect (white, circle, theme, primary)
+  // Determine if variant has radial gradient (white, circle, theme, primary)
   const hasGradient = variant === "white" || variant === "circle" || variant === "theme" || variant === "primary";
+
+  // Color list for radial gradient matching web: radial-gradient(circle, rgb(255 255 255 / 1), rgb(255 255 255 / 0.6))
+  const gradientColorList = [
+    { offset: "0%", color: "#ffffff", opacity: "1" },
+    { offset: "100%", color: "#ffffff", opacity: "0.6" }
+  ];
 
   // Size configurations matching web
   const sizeConfig = {
@@ -91,12 +98,6 @@ export function Button({
   // For circle variant with icon size, ensure perfect square
   const isCircle = variant === "circle";
   const containerWidth = isCircle || size === "icon" ? currentSize.height : undefined;
-
-  // Extract width-related styles for wrapper (needed because Animated.View wraps the button)
-  const wrapperStyle: ViewStyle = {};
-  if (style?.width) wrapperStyle.width = style.width;
-  if (style?.flex) wrapperStyle.flex = style.flex;
-  if (style?.alignSelf) wrapperStyle.alignSelf = style.alignSelf;
 
   // Button container styles
   const containerStyles: ViewStyle[] = [
@@ -151,7 +152,7 @@ export function Button({
   );
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, wrapperStyle]}>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
         style={containerStyles}
         onPress={handlePress}
@@ -160,14 +161,22 @@ export function Button({
         disabled={isDisabled}
         activeOpacity={1} // We handle visual feedback via scale animation
       >
-        {/* Backdrop blur + white background matching web */}
+        {/* Backdrop blur + radial gradient background matching web */}
         {hasGradient && (
-          <View style={[StyleSheet.absoluteFillObject, styles.gradientBackground]}>
+          <View style={StyleSheet.absoluteFillObject}>
             {/* Backdrop blur (matches web's backdrop-blur-lg) */}
             <BlurView
               style={StyleSheet.absoluteFillObject}
               tint="light"
               intensity={50}
+            />
+            {/* Radial gradient overlay */}
+            <RadialGradient
+              x="50%"
+              y="50%"
+              rx="71%"
+              ry="71%"
+              colorList={gradientColorList}
             />
           </View>
         )}
@@ -205,10 +214,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
-  },
-
-  gradientBackground: {
-    backgroundColor: "rgba(255, 255, 255, 0.85)", // White background for glass effect
   },
 
   // Variant styles
