@@ -6,10 +6,8 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
@@ -184,17 +182,12 @@ export function AddCalendarModal({
           size="lg"
           onPress={() => handleAddCalendar('google')}
           disabled={isConnecting === 'google'}
+          loading={isConnecting === 'google'}
+          loadingText="Connecting..."
+          icon={<GoogleIcon />}
           style={styles.providerButton}
         >
-          <View style={styles.buttonContent}>
-            <GoogleIcon />
-            <Text style={styles.buttonText}>
-              {isConnecting === 'google' ? 'Connecting...' : 'Google Calendar'}
-            </Text>
-            {isConnecting === 'google' && (
-              <ActivityIndicator size="small" color="#374151" />
-            )}
-          </View>
+          Google Calendar
         </Button>
 
         {/* Microsoft Calendar */}
@@ -203,17 +196,12 @@ export function AddCalendarModal({
           size="lg"
           onPress={() => handleAddCalendar('microsoft')}
           disabled={isConnecting === 'microsoft'}
+          loading={isConnecting === 'microsoft'}
+          loadingText="Connecting..."
+          icon={<MicrosoftIcon />}
           style={styles.providerButton}
         >
-          <View style={styles.buttonContent}>
-            <MicrosoftIcon />
-            <Text style={styles.buttonText}>
-              {isConnecting === 'microsoft' ? 'Connecting...' : 'Microsoft Calendar'}
-            </Text>
-            {isConnecting === 'microsoft' && (
-              <ActivityIndicator size="small" color="#374151" />
-            )}
-          </View>
+          Microsoft Calendar
         </Button>
 
         {/* Apple Calendar */}
@@ -222,17 +210,12 @@ export function AddCalendarModal({
           size="lg"
           onPress={() => handleAddCalendar('apple')}
           disabled={isConnecting === 'apple'}
+          loading={isConnecting === 'apple'}
+          loadingText="Connecting..."
+          icon={<AppleIcon />}
           style={styles.providerButton}
         >
-          <View style={styles.buttonContent}>
-            <AppleIcon />
-            <Text style={styles.buttonText}>
-              {isConnecting === 'apple' ? 'Connecting...' : 'Apple Calendar'}
-            </Text>
-            {isConnecting === 'apple' && (
-              <ActivityIndicator size="small" color="#374151" />
-            )}
-          </View>
+          Apple Calendar
         </Button>
       </View>
     </StandardModal>
@@ -245,17 +228,6 @@ const styles = StyleSheet.create({
   },
   providerButton: {
     width: '100%',
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  buttonText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
   },
 });
 
