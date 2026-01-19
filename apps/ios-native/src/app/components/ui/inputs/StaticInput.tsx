@@ -18,8 +18,8 @@ import {
   StyleSheet,
   TextInputProps,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { EyeIcon } from '../icons/EyeIcon';
+import { ThemedTextInput } from './ThemedTextInput';
 
 interface StaticInputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -45,24 +45,25 @@ export function StaticInput({
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={[styles.inputContainer, isFocused && styles.inputContainerFocused]}>
-        <BlurView
-          style={StyleSheet.absoluteFillObject}
-          tint="dark"
-          intensity={50}
-        />
+      <View style={[styles.glowWrapper, isFocused && styles.glowWrapperFocused]}>
+        <View style={styles.inputContainer}>
+          {/* Base bg-black/40 overlay to match other inputs */}
+          <View style={styles.baseOverlay} />
 
-        {/* Border overlay */}
-        <View
-          style={[
-            styles.borderOverlay,
-            isFocused && styles.borderOverlayFocused,
-          ]}
-        />
+          {/* Focus darkening overlay - adds 10% to reach bg-black/50 */}
+          {isFocused && <View style={styles.focusOverlay} />}
+
+          {/* Border overlay */}
+          <View
+            style={[
+              styles.borderOverlay,
+              isFocused ? styles.borderOverlayFocused : null,
+            ]}
+          />
 
         {icon && <View style={styles.iconContainer}>{icon}</View>}
 
-        <TextInput
+        <ThemedTextInput
           style={[
             styles.input,
             icon ? styles.inputWithIcon : styles.inputNoIcon,
@@ -84,6 +85,7 @@ export function StaticInput({
             <EyeIcon isOpen={isHidden} size={20} color="rgba(255, 255, 255, 0.6)" />
           </TouchableOpacity>
         )}
+        </View>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -101,6 +103,16 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 4,
   },
+  glowWrapper: {
+    borderRadius: 28,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 20,
+  },
+  glowWrapperFocused: {
+    shadowOpacity: 0.15,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -109,8 +121,13 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
   },
-  inputContainerFocused: {
-    // Focus styles handled by border overlay
+  baseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // bg-black/40
+  },
+  focusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // +10% to reach bg-black/50 on focus
   },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,

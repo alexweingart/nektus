@@ -14,9 +14,15 @@ import {
   TextInput,
   StyleSheet,
   TextInputProps,
+  InputAccessoryView,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
+import { ThemedTextInput } from './ThemedTextInput';
+
+// Unique ID for input accessory view to hide keyboard "Done" button
+const INPUT_ACCESSORY_VIEW_ID = 'dropdownPhoneInputAccessory';
 
 // Country type for phone input components
 export interface Country {
@@ -90,11 +96,12 @@ const countryOptions: DropdownOption[] = countries.map((country) => ({
   metadata: { dialCode: country.dialCode },
 }));
 
-interface DropdownPhoneInputProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> {
+interface DropdownPhoneInputProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange' | 'autoFocus'> {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   isDisabled?: boolean;
+  autoFocus?: boolean;
 }
 
 export function DropdownPhoneInput({
@@ -102,12 +109,23 @@ export function DropdownPhoneInput({
   onChange,
   placeholder = 'Enter phone number',
   isDisabled = false,
+  autoFocus = false,
   ...props
 }: DropdownPhoneInputProps) {
   const [phoneInput, setPhoneInput] = useState('');
   const [selectedCountryCode, setSelectedCountryCode] = useState('US');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  // Handle autoFocus with slight delay for reliable keyboard appearance
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
 
   // Format phone number with parentheses and dash
   const formatPhoneNumber = (digits: string): string => {
@@ -154,56 +172,87 @@ export function DropdownPhoneInput({
   };
 
   return (
-    <View style={styles.container}>
-      <BlurView
-        style={StyleSheet.absoluteFillObject}
-        tint="dark"
-        intensity={50}
-      />
+    <View style={[styles.glowWrapper, isFocused && styles.glowWrapperFocused]}>
+      <View style={styles.container}>
+        {/* Base bg-black/40 overlay to match web */}
+        <View style={styles.baseOverlay} />
 
-      {/* Border overlay */}
-      <View
-        style={[
-          styles.borderOverlay,
-          isFocused && styles.borderOverlayFocused,
-        ]}
-      />
+        {/* Focus darkening overlay - adds 10% to reach bg-black/50 */}
+        {isFocused && <View style={styles.focusOverlay} />}
 
-      <View style={styles.content}>
-        {/* Country selector */}
-        <DropdownSelector
-          options={countryOptions}
-          value={selectedCountryCode}
-          onChange={handleCountrySelect}
-          disabled={isDisabled}
+        {/* Border overlay */}
+        <View
+          style={[
+            styles.borderOverlay,
+            isFocused && styles.borderOverlayFocused,
+          ]}
         />
 
-        {/* Phone input */}
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          value={phoneInput}
-          onChangeText={handlePhoneChange}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(255, 255, 255, 0.4)"
-          keyboardType="phone-pad"
-          maxLength={14}
-          editable={!isDisabled}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          {...props}
-        />
+        <View style={styles.content}>
+          {/* Country selector */}
+          <DropdownSelector
+            options={countryOptions}
+            value={selectedCountryCode}
+            onChange={handleCountrySelect}
+            disabled={isDisabled}
+          />
+
+          {/* Phone input */}
+          <ThemedTextInput
+            ref={inputRef}
+            style={styles.input}
+            value={phoneInput}
+            onChangeText={handlePhoneChange}
+            placeholder={placeholder}
+            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+            keyboardType="number-pad"
+            textContentType="telephoneNumber"
+            maxLength={14}
+            editable={!isDisabled}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            inputAccessoryViewID={Platform.OS === 'ios' ? INPUT_ACCESSORY_VIEW_ID : undefined}
+            {...props}
+          />
+        </View>
+
+        {/* Empty InputAccessoryView to hide iOS keyboard Done button */}
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID={INPUT_ACCESSORY_VIEW_ID}>
+            <View style={{ height: 0 }} />
+          </InputAccessoryView>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  glowWrapper: {
+    borderRadius: 28,
+    // Shadow always defined but invisible when not focused
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 20,
+  },
+  glowWrapperFocused: {
+    // Make shadow visible on focus
+    shadowOpacity: 0.15,
+  },
   container: {
     height: 56,
     minHeight: 56,
     borderRadius: 28,
     overflow: 'hidden',
+  },
+  baseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // bg-black/40
+  },
+  focusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // +10% to reach bg-black/50 on focus
   },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,

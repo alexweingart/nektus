@@ -7,6 +7,7 @@ import {
   TextInputProps,
   ViewStyle,
 } from "react-native";
+import { ThemedTextInput } from "./ThemedTextInput";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -19,7 +20,7 @@ export const Input = forwardRef<TextInput, InputProps>(
     return (
       <View style={[styles.container, containerStyle]}>
         {label && <Text style={styles.label}>{label}</Text>}
-        <TextInput
+        <ThemedTextInput
           ref={ref}
           style={[styles.input, error && styles.inputError, style]}
           placeholderTextColor="#666"

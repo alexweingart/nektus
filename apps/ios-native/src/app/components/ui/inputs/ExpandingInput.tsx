@@ -1,23 +1,23 @@
 /**
- * ExpandingInput - Auto-expanding TextInput for iOS
- * Adapted from: apps/web/src/app/components/ui/inputs/ExpandingInput.tsx
+ * ExpandingInput - Auto-expanding textarea with optional icon and visibility toggle
+ * Unified component for bio fields, custom links, and other expanding text inputs
  *
- * Web approach:
- * - Uses textarea with rows={1} to start single line
- * - min-h-[56px] container with py-3 px-6 (12px/24px padding)
- * - Textarea has lineHeight: '1' and minimal padding
- * - Expands via onInput setting height to scrollHeight
+ * Adapted from: apps/web/src/app/components/ui/inputs/ExpandingInput.tsx
  */
 
-import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, ReactNode } from 'react';
 import {
   View,
+  Text,
   TextInput,
+  TouchableOpacity,
   StyleSheet,
   TextInputProps,
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
 } from 'react-native';
+import { EyeIcon } from '../icons/EyeIcon';
+import { ThemedTextInput } from './ThemedTextInput';
 
 export interface ExpandingInputRef {
   focus: () => void;
@@ -26,28 +26,40 @@ export interface ExpandingInputRef {
 interface ExpandingInputProps extends Omit<TextInputProps, 'onChange'> {
   value?: string;
   onChange?: (text: string) => void;
-  onChangeEvent?: (e: { target: { value: string } }) => void;
+  label?: string;
   placeholder?: string;
-  variant?: 'default' | 'white';
-  disabled?: boolean;
+  variant?: 'default' | 'hideable' | 'white';
+  isHidden?: boolean;
+  onToggleHide?: () => void;
+  icon?: ReactNode;
   maxHeight?: number;
 }
 
+/**
+ * Auto-resizing textarea component
+ * - Basic usage: Simple expanding textarea for bio, etc.
+ * - With icon: Add icon on the left side
+ * - With visibility toggle: Add eye icon on the right for hide/show
+ */
 export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>(({
   value,
   onChange,
-  onChangeEvent,
+  label,
   placeholder,
   variant = 'default',
-  disabled = false,
+  isHidden = false,
+  onToggleHide,
+  icon,
   maxHeight = 200,
   ...props
 }, ref) => {
   // Start with 0 - let content size determine actual height
   const [contentHeight, setContentHeight] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
-  const isWhiteVariant = variant === 'white';
   const inputRef = useRef<TextInput>(null);
+
+  const isWhiteVariant = variant === 'white';
+  const hasIconOrToggle = icon || (variant === 'hideable' && onToggleHide);
 
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
@@ -67,57 +79,82 @@ export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>
       if (onChange) {
         onChange(text);
       }
-      if (onChangeEvent) {
-        onChangeEvent({ target: { value: text } });
-      }
     },
-    [onChange, onChangeEvent]
+    [onChange]
   );
 
   // Calculate container height: content + padding, min 56px
   const containerHeight = Math.max(56, contentHeight + 24);
 
   return (
-    <View style={[styles.glowWrapper, isFocused && styles.glowWrapperFocused]}>
-      <View style={[styles.container, { minHeight: containerHeight }]}>
-        {/* Base bg-black/40 overlay to match web */}
-        <View style={[
-          styles.baseOverlay,
-          isWhiteVariant && styles.whiteBaseOverlay,
-        ]} />
+    <View style={styles.wrapper}>
+      {label && <Text style={styles.label}>{label}</Text>}
 
-        {/* Focus darkening overlay - adds 10% to reach bg-black/50 */}
-        {isFocused && !isWhiteVariant && <View style={styles.focusOverlay} />}
+      <View style={[styles.glowWrapper, isFocused && !isWhiteVariant && styles.glowWrapperFocused]}>
+        <View style={[styles.container, { minHeight: containerHeight }]}>
+          {/* Base background overlay */}
+          <View style={[
+            styles.baseOverlay,
+            isWhiteVariant && styles.whiteBaseOverlay,
+          ]} />
 
-        {/* Border overlay */}
-        <View
-          style={[
-            styles.borderOverlay,
-            isWhiteVariant ? styles.whiteBorder : styles.darkBorder,
-            isFocused && (isWhiteVariant ? styles.whiteBorderFocused : styles.darkBorderFocused),
-          ]}
-        />
+          {/* Focus darkening overlay - adds 10% to reach bg-black/50 */}
+          {isFocused && !isWhiteVariant && <View style={styles.focusOverlay} />}
 
-        {/* Content wrapper for vertical centering */}
-        <View style={styles.contentWrapper}>
-          <TextInput
-            ref={inputRef}
+          {/* Border overlay */}
+          <View
             style={[
-              styles.input,
-              isWhiteVariant ? styles.whiteText : styles.darkText,
+              styles.borderOverlay,
+              isWhiteVariant ? styles.whiteBorder : styles.darkBorder,
+              isFocused && (isWhiteVariant ? styles.whiteBorderFocused : styles.darkBorderFocused),
             ]}
-            value={value}
-            onChangeText={handleChangeText}
-            onContentSizeChange={handleContentSizeChange}
-            placeholder={placeholder}
-            placeholderTextColor={isWhiteVariant ? '#9CA3AF' : 'rgba(255, 255, 255, 0.4)'}
-            multiline
-            scrollEnabled={false}
-            editable={!disabled}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            {...props}
           />
+
+          {/* Content wrapper */}
+          <View style={[
+            styles.contentWrapper,
+            hasIconOrToggle ? styles.contentWrapperWithExtras : null,
+          ]}>
+            {/* Icon on the left */}
+            {icon && (
+              <View style={styles.iconContainer}>
+                {icon}
+              </View>
+            )}
+
+            {/* TextInput */}
+            <ThemedTextInput
+              ref={inputRef}
+              style={[
+                styles.input,
+                isWhiteVariant ? styles.whiteText : styles.darkText,
+                icon ? styles.inputWithIcon : null,
+                !icon && !hasIconOrToggle ? styles.inputNoExtras : null,
+              ]}
+              value={value}
+              onChangeText={handleChangeText}
+              onContentSizeChange={handleContentSizeChange}
+              placeholder={placeholder}
+              placeholderTextColor={isWhiteVariant ? '#9CA3AF' : 'rgba(255, 255, 255, 0.4)'}
+              cursorColor={isWhiteVariant ? 'dark' : 'light'}
+              multiline
+              scrollEnabled={false}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              {...props}
+            />
+
+            {/* Hide/Show toggle on the right */}
+            {onToggleHide && variant === 'hideable' && (
+              <TouchableOpacity
+                onPress={onToggleHide}
+                style={styles.eyeButton}
+                accessibilityLabel={isHidden ? 'Show field' : 'Hide field'}
+              >
+                <EyeIcon isOpen={isHidden} size={20} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -125,6 +162,15 @@ export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>
 });
 
 const styles = StyleSheet.create({
+  wrapper: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 4,
+  },
   glowWrapper: {
     borderRadius: 28,
     shadowColor: '#ffffff',
@@ -142,14 +188,14 @@ const styles = StyleSheet.create({
   },
   baseOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // bg-black/40 to match web
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // bg-black/40
   },
   whiteBaseOverlay: {
     backgroundColor: 'rgba(255, 255, 255, 1)', // white background for white variant
   },
   focusOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)', // +10% to reach bg-black/50
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // +10% to reach bg-black/50 on focus
   },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -157,36 +203,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   whiteBorder: {
-    borderColor: 'rgba(229, 231, 235, 1)',
+    borderColor: 'rgba(229, 231, 235, 1)', // border-gray-200
   },
   whiteBorderFocused: {
-    borderColor: 'rgba(209, 213, 219, 1)',
+    borderColor: 'rgba(209, 213, 219, 1)', // border-gray-300
   },
   darkBorder: {
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.2)', // border-white/20
   },
   darkBorderFocused: {
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.4)', // border-white/40
   },
   contentWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 24, // px-6 on web
     paddingVertical: 12, // py-3 on web
   },
+  contentWrapperWithExtras: {
+    paddingHorizontal: 0, // Icon/eye handle their own padding
+  },
+  iconContainer: {
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 16,
+    paddingRight: 8,
+  },
   input: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    lineHeight: 20, // Approximate single line height
-    padding: 0, // Minimal padding like web's padding: '2px'
+    lineHeight: 20,
+    padding: 0,
     textAlignVertical: 'center',
   },
+  inputWithIcon: {
+    paddingRight: 8,
+  },
+  inputNoExtras: {
+    paddingHorizontal: 24,
+  },
   whiteText: {
-    color: '#111827',
+    color: '#111827', // text-gray-900
   },
   darkText: {
     color: '#ffffff',
   },
+  eyeButton: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 16,
+  },
 });
+
+ExpandingInput.displayName = 'ExpandingInput';
 
 export default ExpandingInput;

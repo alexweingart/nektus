@@ -355,6 +355,7 @@ select {
     background-color: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     color: var(--foreground);
+    caret-color: white;
   }
   
   input:focus, textarea:focus, select:focus {

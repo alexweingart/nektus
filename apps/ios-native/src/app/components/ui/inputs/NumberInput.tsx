@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
+import { ThemedTextInput } from './ThemedTextInput';
 
 interface NumberInputProps {
   value: string;
@@ -98,7 +99,7 @@ export function NumberInput({
   const displayValue = isFocused ? inputValue : originalValue;
 
   return (
-    <TextInput
+    <ThemedTextInput
       ref={inputRef}
       value={displayValue}
       onChangeText={handleChange}

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { ValidationResult } from '@nektus/shared-types';
+import { ThemedTextInput } from './ThemedTextInput';
 
 interface ValidatedInputProps extends Omit<TextInputProps, 'style'> {
   validation?: ValidationResult;
@@ -72,7 +73,7 @@ export function ValidatedInput({
           { borderColor: getBorderColor() },
         ]}
       >
-        <TextInput
+        <ThemedTextInput
           style={styles.input}
           placeholderTextColor="rgba(255, 255, 255, 0.4)"
           value={value as string}
