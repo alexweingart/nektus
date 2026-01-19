@@ -151,8 +151,11 @@ export function Button({
     </>
   );
 
+  // Extract width for outer wrapper (needed for alignItems: center containers)
+  const wrapperWidth = style?.width;
+
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, wrapperWidth ? { width: wrapperWidth } : undefined]}>
       <TouchableOpacity
         style={containerStyles}
         onPress={handlePress}
