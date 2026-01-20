@@ -93,7 +93,7 @@ const DEFAULT_COLORS_INVERTED = {
   particle: COLORS.particleBright,
   connection: COLORS.connectionMedium,
   gradientStart: COLORS.themeDark,
-  gradientEnd: COLORS.themeGreen,
+  gradientEnd: 'rgba(34, 197, 94, 0.3)',
 };
 
 /**
