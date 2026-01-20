@@ -346,14 +346,22 @@ const styles = StyleSheet.create({
   },
   draggableItem: {
     opacity: 1,
+    borderRadius: 28,
   },
   draggableItemActive: {
     opacity: 0.95,
-    shadowColor: '#fff',
+    // White glow effect (shadow-[0_0_20px_rgba(255,255,255,0.15)])
+    shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 10,
+    // White ring/border (border-white/40)
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 28,
+    // Darker background overlay effect
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
 });
 
