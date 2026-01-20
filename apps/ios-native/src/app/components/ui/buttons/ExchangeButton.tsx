@@ -33,6 +33,7 @@ import {
 } from "../../../utils/animationEvents";
 import { useSession } from "../../../providers/SessionProvider";
 import { useProfile } from "../../../context/ProfileContext";
+import { getIdToken } from "../../../../client/auth/firebase";
 
 type SharingCategory = "Personal" | "Work";
 
@@ -59,6 +60,8 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [bleAvailable, setBleAvailable] = useState<boolean | null>(null);
   const apiBaseUrl = getApiBaseUrl();
+  // Use user's own theme color for the glow (matches web behavior)
+  const glowColor = profile?.backgroundColors?.[2] || "#10B981";
   const prevStatusRef = useRef<ExchangeStatus>("idle");
 
   // Pulse animation for "Match Found!" state
@@ -247,19 +250,20 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         sessionId,
         async (state: ContactExchangeState) => {
           console.log("🎯 [iOS] ExchangeButton received state change:", state.status);
-          setStatus(state.status);
 
           // Save QR token for qr-scan-matched state
           if (state.qrToken) {
             setQrToken(state.qrToken);
           }
 
+          // Update status
+          setStatus(state.status);
+
           // Handle bump match - notify parent and reset
           if (state.status === "matched" && state.match) {
             console.log("🎯 [iOS] Bump match found!");
             // Emit match-found animation event with contact's background colors
             emitMatchFound(state.match.profile.backgroundColors);
-
             const matchResult: MatchResult = {
               token: state.match.token,
               profile: state.match.profile,
@@ -321,6 +325,20 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
+    // Read fresh category from AsyncStorage to avoid stale state
+    // (ProfileInfo updates AsyncStorage when user swipes, but this component's
+    // state may not have been updated yet)
+    let currentCategory: SharingCategory = "Personal";
+    try {
+      const savedCategory = await AsyncStorage.getItem("nekt-sharing-category");
+      if (savedCategory && ["Personal", "Work"].includes(savedCategory)) {
+        currentCategory = savedCategory as SharingCategory;
+      }
+      console.log(`📋 [iOS] Using sharing category: ${currentCategory}`);
+    } catch (error) {
+      console.warn("[iOS] Failed to read sharing category, using default:", error);
+    }
+
     let permissionGranted = false;
 
     // Request motion permission - gracefully handle simulator/no accelerometer
@@ -363,7 +381,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         await service.start(
           session.user.id,
           profile,
-          selectedCategory,
+          currentCategory,
           permissionGranted
         );
       } else {
@@ -373,26 +391,31 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         if (!service) return;
 
         // Start the exchange process with the selected sharing category
-        await service.startExchange(permissionGranted, selectedCategory);
+        await service.startExchange(permissionGranted, currentCategory);
       }
     } catch (error) {
       console.error("[iOS] Failed to start exchange:", error);
       setStatus("error");
     }
-  }, [status, exchangeService, hybridService, initializeService, initializeHybridService, selectedCategory, profile, session?.user?.id]);
+  }, [status, exchangeService, hybridService, initializeService, initializeHybridService, profile, session?.user?.id]);
 
   const handleButtonPress = useCallback(async () => {
     // Handle QR scan matched state - fetch profile and notify parent
     if (status === "qr-scan-matched" && qrToken) {
       console.log("🎯 [iOS] QR scan match - fetching profile...");
       try {
-        const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${qrToken}`);
+        const idToken = await getIdToken();
+        const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${qrToken}`, {
+          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch matched profile');
         }
         const result = await response.json();
         if (result.success && result.profile) {
           console.log(`👤 [iOS] QR matched with: ${result.profile.name}`);
+          // Set glow color to matched contact's theme color FIRST
+          setMatchedGlowColor(result.profile.backgroundColors?.[2] ?? null);
           // Emit match-found animation event with contact's background colors
           emitMatchFound(result.profile.backgroundColors);
 
@@ -598,6 +621,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         style={[
           styles.pulseContainer,
           {
+            shadowColor: glowColor, // Use user's own theme color (matches web)
             shadowOpacity: animatedShadowOpacity,
             shadowRadius: animatedShadowRadius,
           },
@@ -636,7 +660,7 @@ const styles = StyleSheet.create({
   pulseContainer: {
     width: "100%",
     borderRadius: 9999,
-    shadowColor: "#10B981", // Emerald/green glow color matching theme
+    // shadowColor is set dynamically to use matched contact's theme color
     shadowOffset: { width: 0, height: 0 },
     // shadowOpacity and shadowRadius are animated
   },
