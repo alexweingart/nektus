@@ -17,6 +17,7 @@ import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber } from "@nektus/shared-client";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
+import { ScreenTransition } from "../ui/layout/ScreenTransition";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import type { ContactEntry } from "@nektus/shared-types";
 
@@ -86,7 +87,12 @@ export function ProfileSetupView() {
     if (showAddLink && inlineAddLinkRef.current) {
       const savedEntries = inlineAddLinkRef.current.save();
       if (savedEntries) {
-        newLinks = savedEntries;
+        // Duplicate to both sections for setup (handleLinkAdded's setAddedLinks is async,
+        // so we need to duplicate here directly)
+        savedEntries.forEach(entry => {
+          newLinks.push({ ...entry, section: 'personal' });
+          newLinks.push({ ...entry, section: 'work' });
+        });
       }
     }
 
@@ -136,7 +142,7 @@ export function ProfileSetupView() {
   }, []);
 
   return (
-    <>
+    <ScreenTransition>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
@@ -221,7 +227,7 @@ export function ProfileSetupView() {
 
       {/* Admin Banner - appears when admin mode is activated */}
       <AdminBanner />
-    </>
+    </ScreenTransition>
   );
 }
 

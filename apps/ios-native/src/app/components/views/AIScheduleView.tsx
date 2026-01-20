@@ -21,7 +21,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  RefreshControl,
 } from 'react-native';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -31,6 +33,7 @@ import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-stre
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import type { Event, TimeSlot } from '@nektus/shared-types';
 import { PageHeader } from '../ui/layout/PageHeader';
+import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { MessageList } from '../ui/chat/MessageList';
 import { ChatInput } from '../ui/chat/ChatInput';
 
@@ -51,6 +54,7 @@ function generateMessageId(offset = 0): string {
 export function AIScheduleView() {
   const navigation = useNavigation<AIScheduleViewNavigationProp>();
   const route = useRoute<AIScheduleViewRouteProp>();
+  const goBackWithFade = useGoBackWithFade();
   const { contactUserId } = route.params;
 
   const { data: session } = useSession();
@@ -74,6 +78,49 @@ export function AIScheduleView() {
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
   const hasFetchedSlotsRef = useRef(false);
   const prevMessagesLengthRef = useRef(messages.length);
+
+  // Function to fetch common time slots (extracted for reuse)
+  const fetchCommonTimeSlots = useCallback(async () => {
+    const currentUser = getCurrentUser();
+    if (!session?.user?.id || !contactUserId || !currentUser) return;
+
+    try {
+      console.log('Fetching common time slots for AI scheduling...');
+      const idToken = await getIdToken();
+
+      const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          user1Id: session.user.id,
+          user2Id: contactUserId,
+          duration: 30,
+          calendarType: contactType,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const slots = data.slots || [];
+        commonTimeSlotsRef.current = slots;
+        console.log(`Fetched ${slots.length} common time slots`);
+      } else {
+        console.error(`Failed to fetch common times: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error fetching common times:', error);
+    }
+  }, [session?.user?.id, contactUserId, contactType, apiBaseUrl]);
+
+  // Pull-to-refresh - re-fetches common time slots
+  const { refreshControl } = useScreenRefresh({
+    onRefresh: async () => {
+      await fetchCommonTimeSlots();
+    },
+  });
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -106,11 +153,11 @@ export function AIScheduleView() {
       }
     } catch (error) {
       console.error('Error loading profiles:', error);
-      navigation.goBack();
+      goBackWithFade();
     } finally {
       setLoading(false);
     }
-  }, [contactUserId, session?.user?.id, navigation, getContact]);
+  }, [contactUserId, session?.user?.id, goBackWithFade, getContact]);
 
   useEffect(() => {
     loadProfiles();
@@ -118,60 +165,11 @@ export function AIScheduleView() {
 
   // Pre-fetch common time slots when profiles are loaded (only once)
   useEffect(() => {
-    const abortController = new AbortController();
-
-    const fetchCommonTimeSlots = async () => {
-      const currentUser = getCurrentUser();
-      if (!session?.user?.id || !contactUserId || !currentUser) return;
-      if (hasFetchedSlotsRef.current) return;
-
+    if (contactProfile && currentUserProfile && !hasFetchedSlotsRef.current) {
       hasFetchedSlotsRef.current = true;
-
-      try {
-        console.log('Pre-fetching common time slots for AI scheduling...');
-
-        const idToken = await getIdToken();
-
-        const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            user1Id: session.user.id,
-            user2Id: contactUserId,
-            duration: 30,
-            calendarType: contactType,
-          }),
-          signal: abortController.signal,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const slots = data.slots || [];
-          commonTimeSlotsRef.current = slots;
-          console.log(`Pre-fetched ${slots.length} common time slots`);
-        } else {
-          console.error(`Failed to pre-fetch common times: ${response.status}`);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log('Pre-fetch cancelled (component unmounted)');
-        } else {
-          console.error('Error pre-fetching common times:', error);
-        }
-      }
-    };
-
-    if (contactProfile && currentUserProfile) {
       fetchCommonTimeSlots();
     }
-
-    return () => {
-      abortController.abort();
-    };
-  }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType, apiBaseUrl]);
+  }, [contactProfile, currentUserProfile, fetchCommonTimeSlots]);
 
   // Initialize chat with AI greeting when component mounts
   useEffect(() => {
@@ -316,8 +314,8 @@ And if you don't know any of those things, and just want me to suggest based off
   }, []);
 
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Wait 1.5 seconds before showing ChatInput
   useEffect(() => {
@@ -330,14 +328,17 @@ And if you don't know any of those things, and just want me to suggest based off
 
   if (loading || !contactProfile || !currentUserProfile) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Find a Time" onBack={handleBack} />
-      </View>
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Find a Time" onBack={handleBack} />
+        </View>
+      </ScreenTransition>
     );
   }
 
   return (
-    <KeyboardAvoidingView
+    <ScreenTransition>
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
@@ -352,6 +353,7 @@ And if you don't know any of those things, and just want me to suggest based off
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            refreshControl={refreshControl}
           >
             <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
           </ScrollView>
@@ -376,6 +378,7 @@ And if you don't know any of those things, and just want me to suggest based off
           )}
         </View>
       </KeyboardAvoidingView>
+    </ScreenTransition>
   );
 }
 

@@ -11,13 +11,16 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
 import type { SchedulableHours, Calendar } from '@nektus/shared-types';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
+import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { SchedulableHoursEditor } from '../ui/calendar/SchedulableHoursEditor';
 
@@ -59,14 +62,25 @@ const getCalendarUrl = (provider: string) => {
 export function CalendarView() {
   const navigation = useNavigation<CalendarViewNavigationProp>();
   const route = useRoute<CalendarViewRouteProp>();
+  const goBackWithFade = useGoBackWithFade();
   const { section } = route.params;
-  const { profile, saveProfile, isLoading: profileLoading } = useProfile();
+  const { profile, saveProfile, refreshProfile, isLoading: profileLoading } = useProfile();
 
   const [isSaving, setIsSaving] = useState(false);
   const [editedHours, setEditedHours] = useState<SchedulableHours | null>(null);
 
   // Find the calendar for this section
   const calendar = profile?.calendars?.find((cal: Calendar) => cal.section === section);
+
+  // Pull-to-refresh - reloads profile and resets edits
+  const { refreshControl } = useScreenRefresh({
+    onRefresh: async () => {
+      await refreshProfile();
+      // Reset edited hours to reload from fresh profile
+      setEditedHours(calendar?.schedulableHours || null);
+    },
+  });
+
 
   // Initialize edited hours when calendar is loaded
   useEffect(() => {
@@ -77,8 +91,8 @@ export function CalendarView() {
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -94,14 +108,14 @@ export function CalendarView() {
       );
 
       await saveProfile({ calendars: updatedCalendars });
-      navigation.goBack();
+      goBackWithFade();
     } catch (error) {
       console.error('[CalendarView] Error saving calendar:', error);
       Alert.alert('Error', 'Failed to save calendar. Please try again.');
     } finally {
       setIsSaving(false);
     }
-  }, [calendar, editedHours, profile, section, saveProfile, navigation]);
+  }, [calendar, editedHours, profile, section, saveProfile, goBackWithFade]);
 
   // Handle delete
   const handleDelete = useCallback(async () => {
@@ -124,7 +138,7 @@ export function CalendarView() {
               );
 
               await saveProfile({ calendars: updatedCalendars });
-              navigation.goBack();
+              goBackWithFade();
             } catch (error) {
               console.error('[CalendarView] Error deleting calendar:', error);
               Alert.alert('Error', 'Failed to delete calendar. Please try again.');
@@ -135,7 +149,7 @@ export function CalendarView() {
         },
       ]
     );
-  }, [calendar, profile, section, saveProfile, navigation]);
+  }, [calendar, profile, section, saveProfile, goBackWithFade]);
 
   // Handle opening calendar provider
   const handleOpenProvider = useCallback(() => {
@@ -151,36 +165,47 @@ export function CalendarView() {
   // Loading state
   if (profileLoading) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Edit Calendar" onBack={handleBack} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Edit Calendar" onBack={handleBack} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ffffff" />
+          </View>
         </View>
-      </View>
+      </ScreenTransition>
     );
   }
 
   // Calendar not found
   if (!calendar) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Edit Calendar" onBack={handleBack} />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Calendar not found</Text>
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Edit Calendar" onBack={handleBack} />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Calendar not found</Text>
+          </View>
         </View>
-      </View>
+      </ScreenTransition>
     );
   }
 
   return (
-    <View style={styles.container}>
-        <PageHeader
-          title="Edit Calendar"
-          onBack={handleBack}
-          onSave={handleSave}
-          isSaving={isSaving}
-        />
+    <ScreenTransition>
+      <View style={styles.container}>
+      <PageHeader
+        title="Edit Calendar"
+        onBack={handleBack}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
 
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
+      >
         {/* Calendar Info */}
         <View style={styles.calendarInfo}>
           <Text style={styles.providerName} onPress={handleOpenProvider}>
@@ -209,7 +234,9 @@ export function CalendarView() {
             {isSaving ? 'Deleting...' : 'Delete'}
           </SecondaryButton>
         </View>
+      </ScrollView>
       </View>
+    </ScreenTransition>
   );
 }
 
@@ -217,6 +244,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   loadingContainer: {
     flex: 1,

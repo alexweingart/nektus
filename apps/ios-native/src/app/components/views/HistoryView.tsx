@@ -3,11 +3,13 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path } from 'react-native-svg';
 import type { RootStackParamList } from '../../../../App';
+import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/layout/ScreenTransition';
 import type { SavedContact } from '../../context/ProfileContext';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { useSession } from '../../providers/SessionProvider';
@@ -71,6 +73,8 @@ const EmptyIcon = () => (
 
 export function HistoryView() {
   const navigation = useNavigation<HistoryViewNavigationProp>();
+  const goBackWithFade = useGoBackWithFade();
+  const navigateWithFade = useNavigateWithFade();
   const { data: session } = useSession();
   const { contacts, loadContacts } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
@@ -80,6 +84,13 @@ export function HistoryView() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<SavedContact | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+
+  // Pull-to-refresh
+  const { isRefreshing, handleRefresh } = useScreenRefresh({
+    onRefresh: async () => {
+      await loadContacts(true);
+    },
+  });
 
   // Load contacts on mount
   useEffect(() => {
@@ -105,17 +116,17 @@ export function HistoryView() {
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Handle contact tap
   const handleContactTap = useCallback((contact: SavedContact) => {
-    navigation.navigate('Contact', {
+    navigateWithFade('Contact', {
       userId: contact.userId,
       token: '',
       isHistoricalMode: true,
     });
-  }, [navigation]);
+  }, [navigateWithFade]);
 
   // Handle long press for delete
   const handleLongPress = useCallback((contact: SavedContact) => {
@@ -218,7 +229,7 @@ export function HistoryView() {
   }
 
   return (
-    <>
+    <ScreenTransition>
       <View style={styles.container}>
         <PageHeader title="History" onBack={handleBack} />
 
@@ -250,6 +261,13 @@ export function HistoryView() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor="#22c55e"
+              />
+            }
           />
         )}
       </View>
@@ -267,7 +285,7 @@ export function HistoryView() {
           showCloseButton={false}
         />
       )}
-    </>
+    </ScreenTransition>
   );
 }
 

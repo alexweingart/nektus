@@ -119,8 +119,7 @@ function AppContent() {
         initialRouteName={getInitialRouteName()}
         screenOptions={{
           headerShown: false,
-          animation: "fade", // Crossfade transition matching web's View Transitions API
-          animationDuration: 200, // Match web's 200ms View Transitions duration
+          animation: "none", // Disabled - using custom ScreenTransition for sequential fade
           contentStyle: { backgroundColor: "transparent" },
         }}
       >

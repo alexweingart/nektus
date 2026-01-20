@@ -7,9 +7,11 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
+import { ScreenTransition, useGoBackWithFade } from "../ui/layout/ScreenTransition";
 
 export function PrivacyView() {
   const navigation = useNavigation();
+  const goBackWithFade = useGoBackWithFade();
 
   // No-op refresh for static content (gesture still works for consistency)
   const handleRefresh = useCallback(async () => {
@@ -17,7 +19,8 @@ export function PrivacyView() {
   }, []);
 
   return (
-    <PullToRefresh
+    <ScreenTransition>
+      <PullToRefresh
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onRefresh={handleRefresh}
@@ -25,7 +28,7 @@ export function PrivacyView() {
         {/* Back Button */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => goBackWithFade()}
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -163,6 +166,7 @@ export function PrivacyView() {
           </View>
         </View>
       </PullToRefresh>
+    </ScreenTransition>
   );
 }
 

@@ -13,14 +13,17 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
+import { NestableScrollContainer } from 'react-native-draggable-flatlist';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import type { RootStackParamList } from '../../../../App';
 import type { ContactEntry, FieldSection } from '@nektus/shared-types';
 import { useSession } from '../../providers/SessionProvider';
@@ -47,6 +50,7 @@ const CAROUSEL_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 export function EditProfileView() {
   const navigation = useNavigation<EditProfileNavigationProp>();
+  const goBackWithFade = useGoBackWithFade();
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving, refreshProfile } = useProfile();
 
@@ -92,6 +96,14 @@ export function EditProfileView() {
     onCalendarAddedViaOAuth: refreshProfile,
   });
 
+  // Pull-to-refresh - reloads profile and resets form
+  const { isRefreshing, handleRefresh } = useScreenRefresh({
+    onRefresh: async () => {
+      await refreshProfile();
+      // The fieldManager will get fresh profile data on next render
+    },
+  });
+
   // Load saved mode on mount and sync carousel position
   useEffect(() => {
     const loadAndSyncCarousel = async () => {
@@ -117,8 +129,8 @@ export function EditProfileView() {
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -131,11 +143,11 @@ export function EditProfileView() {
       };
 
       await saveProfile(profileData);
-      navigation.goBack();
+      goBackWithFade();
     } catch (error) {
       console.error('[EditProfileView] Save failed:', error);
     }
-  }, [session, fieldManager, profile, saveProfile, navigation]);
+  }, [session, fieldManager, profile, saveProfile, goBackWithFade]);
 
   // Handle profile image upload
   // When backgroundColors are provided (from API), refresh the profile to pick up the new colors
@@ -207,17 +219,23 @@ export function EditProfileView() {
   const universalContactFields = universalFields.filter(field => !['name', 'bio'].includes(field.fieldType));
 
   return (
-    <>
+    <ScreenTransition>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
+        <NestableScrollContainer
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#22c55e"
+            />
+          }
         >
           {/* Header */}
           <PageHeader
@@ -341,7 +359,7 @@ export function EditProfileView() {
             {/* Bottom spacing for selector */}
             <View style={styles.bottomSpacer} />
           </View>
-        </ScrollView>
+        </NestableScrollContainer>
 
         {/* Sticky Profile View Selector */}
         <View style={styles.selectorContainer}>
@@ -370,7 +388,7 @@ export function EditProfileView() {
         userId={session?.user?.id || ''}
         onLocationAdded={handleLocationAdded}
       />
-    </>
+    </ScreenTransition>
   );
 }
 

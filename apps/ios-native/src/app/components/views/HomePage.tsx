@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { NektLogo } from "../ui/elements/NektLogo";
 import { Button } from "../ui/buttons/Button";
+import { ScreenTransition, useNavigateWithFade } from "../ui/layout/ScreenTransition";
 import type { RootStackParamList } from "../../../../App";
 
 type HomePageNavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -25,17 +26,15 @@ const AppleIcon = () => (
 );
 
 // Footer component
-const HomeFooter = () => {
-  const navigation = useNavigation<HomePageNavigationProp>();
-
+const HomeFooter = ({ navigateWithFade }: { navigateWithFade: (screen: keyof RootStackParamList) => void }) => {
   return (
     <View style={styles.footer}>
       <View style={styles.footerLinks}>
-        <TouchableOpacity onPress={() => navigation.navigate("Privacy")}>
+        <TouchableOpacity onPress={() => navigateWithFade("Privacy")}>
           <Text style={styles.footerLink}>Privacy</Text>
         </TouchableOpacity>
         <Text style={styles.footerDivider}>|</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
+        <TouchableOpacity onPress={() => navigateWithFade("Terms")}>
           <Text style={styles.footerLink}>Terms</Text>
         </TouchableOpacity>
       </View>
@@ -46,6 +45,7 @@ const HomeFooter = () => {
 
 export function HomePage() {
   const { signIn, isSigningIn } = useSession();
+  const navigateWithFade = useNavigateWithFade();
   const { width, height } = useWindowDimensions();
 
   // 10vh spacing matching web's pt-[10vh]
@@ -55,7 +55,7 @@ export function HomePage() {
   const logoWidth = Math.min(width - 32, 448);
 
   return (
-    <>
+    <ScreenTransition>
       {/* Main content */}
       <View style={[styles.content, { paddingTop: topSpacing }]}>
         {/* Logo */}
@@ -92,8 +92,8 @@ export function HomePage() {
       </View>
 
       {/* Footer */}
-      <HomeFooter />
-    </>
+      <HomeFooter navigateWithFade={navigateWithFade} />
+    </ScreenTransition>
   );
 }
 

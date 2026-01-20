@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -21,6 +22,7 @@ import type { UserLocation } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
+import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { ValidatedInput } from '../ui/inputs/ValidatedInput';
 
@@ -30,8 +32,9 @@ type LocationViewRouteProp = RouteProp<RootStackParamList, 'Location'>;
 export function LocationView() {
   const navigation = useNavigation<LocationViewNavigationProp>();
   const route = useRoute<LocationViewRouteProp>();
+  const goBackWithFade = useGoBackWithFade();
   const { section } = route.params;
-  const { profile, saveProfile, isLoading: profileLoading } = useProfile();
+  const { profile, saveProfile, refreshProfile, isLoading: profileLoading } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +43,17 @@ export function LocationView() {
 
   // Find the location for this section
   const location = profile?.locations?.find((loc: UserLocation) => loc.section === section);
+
+  // Pull-to-refresh - reloads profile and resets edits
+  const { refreshControl } = useScreenRefresh({
+    onRefresh: async () => {
+      await refreshProfile();
+      // Reset edited location to reload from fresh profile
+      const freshLocation = profile?.locations?.find((loc: UserLocation) => loc.section === section);
+      setEditedLocation(freshLocation ? { ...freshLocation } : null);
+      setValidationError('');
+    },
+  });
 
   // Initialize edited location when location is loaded
   useEffect(() => {
@@ -50,8 +64,8 @@ export function LocationView() {
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -115,14 +129,14 @@ export function LocationView() {
       );
 
       await saveProfile({ locations: updatedLocations });
-      navigation.goBack();
+      goBackWithFade();
     } catch (error) {
       console.error('[LocationView] Error saving location:', error);
       setValidationError('Failed to save location. Please try again.');
     } finally {
       setIsSaving(false);
     }
-  }, [editedLocation, profile, section, apiBaseUrl, saveProfile, navigation]);
+  }, [editedLocation, profile, section, apiBaseUrl, saveProfile, goBackWithFade]);
 
   // Handle delete
   const handleDelete = useCallback(async () => {
@@ -145,7 +159,7 @@ export function LocationView() {
               );
 
               await saveProfile({ locations: updatedLocations });
-              navigation.goBack();
+              goBackWithFade();
             } catch (error) {
               console.error('[LocationView] Error deleting location:', error);
               setValidationError('Failed to delete location. Please try again.');
@@ -156,34 +170,39 @@ export function LocationView() {
         },
       ]
     );
-  }, [location, profile, section, saveProfile, navigation]);
+  }, [location, profile, section, saveProfile, goBackWithFade]);
 
   // Loading state
   if (profileLoading) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Location" onBack={handleBack} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Location" onBack={handleBack} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ffffff" />
+          </View>
         </View>
-      </View>
+      </ScreenTransition>
     );
   }
 
   // Location not found
   if (!location || !editedLocation) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Location" onBack={handleBack} />
-        <View style={styles.errorContainer}>
-          <Text style={styles.notFoundText}>Location not found</Text>
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Location" onBack={handleBack} />
+          <View style={styles.errorContainer}>
+            <Text style={styles.notFoundText}>Location not found</Text>
+          </View>
         </View>
-      </View>
+      </ScreenTransition>
     );
   }
 
   return (
-    <KeyboardAvoidingView
+    <ScreenTransition>
+      <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
@@ -199,6 +218,7 @@ export function LocationView() {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
           >
             {/* Address Fields */}
             <View style={styles.fieldsContainer}>
@@ -271,6 +291,7 @@ export function LocationView() {
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+    </ScreenTransition>
   );
 }
 

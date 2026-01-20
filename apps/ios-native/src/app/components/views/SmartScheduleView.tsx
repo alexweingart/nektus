@@ -13,7 +13,9 @@ import {
   ScrollView,
   Image,
   Linking,
+  RefreshControl,
 } from 'react-native';
+import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -22,6 +24,7 @@ import { getApiBaseUrl } from '@nektus/shared-client';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
+import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/layout/ScreenTransition';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 
@@ -112,6 +115,8 @@ const formatSmartDay = (date: Date): string => {
 export function SmartScheduleView() {
   const navigation = useNavigation<SmartScheduleViewNavigationProp>();
   const route = useRoute<SmartScheduleViewRouteProp>();
+  const goBackWithFade = useGoBackWithFade();
+  const navigateWithFade = useNavigateWithFade();
   const { contactUserId } = route.params;
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
@@ -128,8 +133,8 @@ export function SmartScheduleView() {
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    goBackWithFade();
+  }, [goBackWithFade]);
 
   // Load contact profile
   useEffect(() => {
@@ -217,6 +222,16 @@ export function SmartScheduleView() {
     }
   }, [session, contactProfile, currentUserProfile, section, SUGGESTION_CHIPS, apiBaseUrl]);
 
+  // Pull-to-refresh - refreshes suggested times
+  const { refreshControl } = useScreenRefresh({
+    onRefresh: async () => {
+      if (currentUserProfile && contactProfile) {
+        setSuggestedTimes({});
+        await fetchSuggestedTimes();
+      }
+    },
+  });
+
   // Fetch times when profiles are loaded
   useEffect(() => {
     if (currentUserProfile && contactProfile) {
@@ -265,25 +280,27 @@ export function SmartScheduleView() {
 
   // Navigate to AI Schedule view
   const handleCustomTimePlace = useCallback(() => {
-    navigation.navigate('AISchedule', { contactUserId });
-  }, [navigation, contactUserId]);
+    navigateWithFade('AISchedule', { contactUserId });
+  }, [navigateWithFade, contactUserId]);
 
   // Loading state
   if (loading || !contactProfile) {
     return (
-      <View style={styles.container}>
-        <PageHeader title="Meet Up" onBack={handleBack} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
+      <ScreenTransition>
+        <View style={styles.container}>
+          <PageHeader title="Meet Up" onBack={handleBack} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ffffff" />
+          </View>
         </View>
-      </View>
+      </ScreenTransition>
     );
   }
 
   const contactName = getFieldValue(contactProfile.contactEntries, 'name');
 
   return (
-    <>
+    <ScreenTransition>
       <View style={styles.container}>
         <PageHeader title="Meet Up" onBack={handleBack} />
 
@@ -291,6 +308,7 @@ export function SmartScheduleView() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
         >
           {/* Suggestion Chips */}
           <View style={styles.chipsContainer}>
@@ -341,7 +359,7 @@ export function SmartScheduleView() {
           </Button>
         </ScrollView>
       </View>
-    </>
+    </ScreenTransition>
   );
 }
 

@@ -15,6 +15,7 @@ import { useProfile } from "../../../app/context/ProfileContext";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { useProfileAnimations } from "../../../client/hooks/use-profile-animations";
 import { emitCancelExchange } from "../../utils/animationEvents";
+import { ScreenTransition, useNavigateWithFade } from "../ui/layout/ScreenTransition";
 
 type ProfileViewNavigationProp = NativeStackNavigationProp<RootStackParamList, "Profile">;
 
@@ -37,6 +38,7 @@ export function ProfileView() {
     isCheckingGoogleImage,
   } = useProfile();
   const navigation = useNavigation<ProfileViewNavigationProp>();
+  const navigateWithFade = useNavigateWithFade();
   const adminModeProps = useAdminModeActivator();
 
   // Animation state
@@ -157,7 +159,7 @@ export function ProfileView() {
   }
 
   return (
-    <>
+    <ScreenTransition>
       <PullToRefresh
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -177,7 +179,7 @@ export function ProfileView() {
           <Button
             variant="circle"
             size="icon"
-            onPress={() => navigation.navigate("History")}
+            onPress={() => navigateWithFade("History")}
           >
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
               <Path
@@ -192,7 +194,7 @@ export function ProfileView() {
           <Button
             variant="circle"
             size="icon"
-            onPress={() => navigation.navigate("EditProfile")}
+            onPress={() => navigateWithFade("EditProfile")}
           >
             <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
               <Path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -253,7 +255,7 @@ export function ProfileView() {
 
       {/* Admin Banner - appears when admin mode is activated */}
       <AdminBanner />
-    </>
+    </ScreenTransition>
   );
 }
 
