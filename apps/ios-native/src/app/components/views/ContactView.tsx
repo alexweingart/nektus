@@ -3,8 +3,8 @@
  * Similar to ProfileView but read-only with Save/Message actions
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Easing } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -86,6 +86,17 @@ export function ContactView(props: ContactViewProps = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+
+  // Animation values (matching web's contactEnter animation)
+  // Card: translateY(-200 → 0), scale(0.6 → 1), opacity(0 → 1)
+  // Buttons: translateY(10 → 0), opacity(0 → 1) with 300ms delay
+  const cardTranslateY = useRef(new Animated.Value(-200)).current;
+  const cardScale = useRef(new Animated.Value(0.6)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsTranslateY = useRef(new Animated.Value(10)).current;
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+  const exitOpacity = useRef(new Animated.Value(1)).current;
 
   // Fetch the contact profile (skip if props.profile provided)
   useEffect(() => {
@@ -145,6 +156,79 @@ export function ContactView(props: ContactViewProps = {}) {
     fetchProfile();
   }, [props.profile, userId, token, isHistoricalMode, apiBaseUrl, navigation, session?.user?.id]);
 
+  // Enter animation - runs on mount with 500ms delay (matches web's profile exit duration)
+  useEffect(() => {
+    // Skip animation for historical mode (like web)
+    if (isHistoricalMode) {
+      cardTranslateY.setValue(0);
+      cardScale.setValue(1);
+      cardOpacity.setValue(1);
+      buttonsTranslateY.setValue(0);
+      buttonsOpacity.setValue(1);
+      return;
+    }
+
+    // Delay animation start by 500ms to let ProfileView exit animation complete
+    const enterTimer = setTimeout(() => {
+      // Card animation: translateY(-200 → 0), scale(0.6 → 1), opacity(0 → 1) - 500ms
+      Animated.parallel([
+        Animated.timing(cardTranslateY, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.bezier(0, 0, 0.2, 1), // ease-in
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardScale, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.bezier(0, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Buttons animation with 300ms delay: translateY(10 → 0), opacity(0 → 1) - 200ms
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(buttonsTranslateY, {
+            toValue: 0,
+            duration: 200,
+            easing: Easing.bezier(0, 0, 0.2, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(buttonsOpacity, {
+            toValue: 1,
+            duration: 200,
+            easing: Easing.bezier(0, 0, 0.2, 1),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 300);
+    }, 500);
+
+    return () => clearTimeout(enterTimer);
+  }, [isHistoricalMode, cardTranslateY, cardScale, cardOpacity, buttonsTranslateY, buttonsOpacity]);
+
+  // Exit animation - simple fade out (300ms, matches web's crossfadeExit)
+  const playExitAnimation = useCallback((onComplete: () => void) => {
+    setIsExiting(true);
+    Animated.timing(exitOpacity, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        onComplete();
+      }
+    });
+  }, [exitOpacity]);
+
   // Navigate to web (for App Clip exit)
   const navigateToWeb = useCallback(() => {
     showAppStoreOverlay();
@@ -156,14 +240,16 @@ export function ContactView(props: ContactViewProps = {}) {
     }, 500);
   }, []);
 
-  // Handle back navigation
+  // Handle back navigation with exit animation
   const handleBack = useCallback(() => {
-    if (inAppClip) {
-      navigateToWeb();
-    } else {
-      navigation?.goBack();
-    }
-  }, [inAppClip, navigation, navigateToWeb]);
+    playExitAnimation(() => {
+      if (inAppClip) {
+        navigateToWeb();
+      } else {
+        navigation?.goBack();
+      }
+    });
+  }, [inAppClip, navigation, navigateToWeb, playExitAnimation]);
 
   // Handle Me Card data extraction callback
   const handleMeCardExtracted = useCallback(async (meCardData: MeCardData) => {
@@ -186,12 +272,14 @@ export function ContactView(props: ContactViewProps = {}) {
   // Handle save contact
   const handleSaveContact = useCallback(async () => {
     if (isSaved) {
-      // Already saved - "Done" button tapped
-      if (inAppClip) {
-        navigateToWeb();
-      } else {
-        navigation?.goBack();
-      }
+      // Already saved - "Done" button tapped, animate out
+      playExitAnimation(() => {
+        if (inAppClip) {
+          navigateToWeb();
+        } else {
+          navigation?.goBack();
+        }
+      });
       return;
     }
 
@@ -227,16 +315,18 @@ export function ContactView(props: ContactViewProps = {}) {
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted]);
+  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted, playExitAnimation]);
 
-  // Handle reject/dismiss
+  // Handle reject/dismiss - uses same exit animation as back
   const handleReject = useCallback(() => {
-    if (inAppClip) {
-      navigateToWeb();
-    } else {
-      navigation?.goBack();
-    }
-  }, [inAppClip, navigation, navigateToWeb]);
+    playExitAnimation(() => {
+      if (inAppClip) {
+        navigateToWeb();
+      } else {
+        navigation?.goBack();
+      }
+    });
+  }, [inAppClip, navigation, navigateToWeb, playExitAnimation]);
 
   // Handle say hi (open messaging)
   const handleSayHi = useCallback(() => {
@@ -288,68 +378,86 @@ export function ContactView(props: ContactViewProps = {}) {
 
   return (
     <>
-      <View style={styles.container}>
+      <Animated.View style={[styles.container, { opacity: exitOpacity }]}>
         {/* Header with back button */}
         <PageHeader onBack={handleBack} />
 
         {/* Content area - centers ContactInfo + buttons as a unit (like web) */}
         <View style={styles.content}>
-          {/* Contact Info */}
-          <ContactInfo profile={profile} bioContent={bioContent} />
+          {/* Contact Info - animated entry from top */}
+          <Animated.View
+            style={{
+              opacity: cardOpacity,
+              transform: [
+                { translateY: cardTranslateY },
+                { scale: cardScale },
+              ],
+            }}
+          >
+            <ContactInfo profile={profile} bioContent={bioContent} />
+          </Animated.View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionsContainer}>
-          {isHistoricalMode ? (
-            // Historical mode buttons
-            <>
-              <Button
-                variant="white"
-                size="xl"
-                onPress={handleSayHi}
-                style={styles.fullWidth}
-              >
-                <Text style={styles.buttonText}>Say Hi</Text>
-              </Button>
-              <Button
-                variant="white"
-                size="xl"
-                onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '' })}
-                style={styles.fullWidth}
-              >
-                <Text style={styles.buttonText}>Schedule Meetup</Text>
-              </Button>
-            </>
-          ) : (
-            // New contact mode buttons
-            <>
-              <Button
-                variant="white"
-                size="xl"
-                onPress={handleSaveContact}
-                disabled={isSaving}
-                style={styles.fullWidth}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#374151" />
-                ) : (
-                  <Text style={styles.buttonText}>
-                    {isSaved ? "I'm Done" : 'Save Contact'}
-                  </Text>
+          {/* Action Buttons - animated entry with delay */}
+          <Animated.View
+            style={[
+              styles.actionsContainer,
+              {
+                opacity: buttonsOpacity,
+                transform: [{ translateY: buttonsTranslateY }],
+              },
+            ]}
+          >
+            {isHistoricalMode ? (
+              // Historical mode buttons
+              <>
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={handleSayHi}
+                  style={styles.fullWidth}
+                >
+                  <Text style={styles.buttonText}>Say Hi</Text>
+                </Button>
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '' })}
+                  style={styles.fullWidth}
+                >
+                  <Text style={styles.buttonText}>Schedule Meetup</Text>
+                </Button>
+              </>
+            ) : (
+              // New contact mode buttons
+              <>
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={handleSaveContact}
+                  disabled={isSaving}
+                  style={styles.fullWidth}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#374151" />
+                  ) : (
+                    <Text style={styles.buttonText}>
+                      {isSaved ? "I'm Done" : 'Save Contact'}
+                    </Text>
+                  )}
+                </Button>
+
+                {!isSaved && (
+                  <View style={styles.secondaryButtonContainer}>
+                    <SecondaryButton onPress={handleReject} disabled={isSaving}>
+                      Nah, who this
+                    </SecondaryButton>
+                  </View>
                 )}
-              </Button>
-
-              {!isSaved && (
-                <View style={styles.secondaryButtonContainer}>
-                  <SecondaryButton onPress={handleReject} disabled={isSaving}>
-                    Nah, who this
-                  </SecondaryButton>
-                </View>
-              )}
-            </>
-          )}
-          </View>
+              </>
+            )}
+          </Animated.View>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Success Modal */}
       <StandardModal
