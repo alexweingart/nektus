@@ -214,7 +214,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <div ref={contentRef}>
             <div
               ref={carouselRef}
-              className="flex transition-transform duration-300 ease-out"
+              className="grid grid-flow-col auto-cols-[100%] transition-transform duration-300 ease-out"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
