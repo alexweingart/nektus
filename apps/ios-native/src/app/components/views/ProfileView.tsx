@@ -9,7 +9,6 @@ import { ProfileInfo } from "../ui/modules/ProfileInfo";
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { ExchangeButton, MatchResult } from "../ui/buttons/ExchangeButton";
-import { StandardModal } from "../ui/modals/StandardModal";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
@@ -52,8 +51,6 @@ export function ProfileView() {
   // Exchange state
   const [exchangeStatus, setExchangeStatus] = useState<ExchangeStatus>("idle");
   const [matchToken, setMatchToken] = useState<string | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [lastMatch, setLastMatch] = useState<MatchResult | null>(null);
 
   // Determine if we're in an active exchange state (includes BLE states)
   const isExchanging = [
@@ -66,16 +63,16 @@ export function ProfileView() {
     "ble-exchanging",
   ].includes(exchangeStatus);
 
-  // Determine if QR code should be shown
-  const showQRCode = isExchanging && matchToken !== null;
+  // Determine if QR code should be shown (keep showing during match found state)
+  const showQRCode = (isExchanging || exchangeStatus === "qr-scan-matched" || exchangeStatus === "ble-matched") && matchToken !== null;
 
   // Handle exchange status changes from ExchangeButton
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
     console.log("[ProfileView] Exchange status changed:", status);
     setExchangeStatus(status);
 
-    // Clear QR token when exchange ends
-    if (["idle", "error", "timeout", "matched", "qr-scan-matched"].includes(status)) {
+    // Clear QR token when exchange ends (but keep it during match found state so QR remains visible)
+    if (["idle", "error", "timeout", "matched"].includes(status)) {
       setMatchToken(null);
     }
   }, []);
@@ -86,13 +83,17 @@ export function ProfileView() {
     setMatchToken(token);
   }, []);
 
-  // Handle successful match - show success modal
+  // Handle successful match - navigate directly to Contact view (like web)
   const handleMatch = useCallback((match: MatchResult) => {
     const matchName = getFieldValue(match.profile.contactEntries, 'name') || 'New Contact';
     console.log("[ProfileView] Match received:", matchName, "via", match.matchType);
-    setLastMatch(match);
-    setShowSuccessModal(true);
-  }, []);
+    // Navigate directly to Contact view instead of showing modal
+    navigation.navigate("Contact", {
+      userId: match.profile.userId,
+      token: match.token,
+      isHistoricalMode: false,
+    });
+  }, [navigation]);
 
   // Handle cancel exchange
   const handleCancelExchange = useCallback(() => {
@@ -240,32 +241,6 @@ export function ProfileView() {
           )}
         </Animated.View>
       </PullToRefresh>
-
-      {/* Success Modal - shows after contact exchange */}
-      <StandardModal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false);
-          setLastMatch(null);
-        }}
-        title={lastMatch ? `Connected with ${getFieldValue(lastMatch.profile.contactEntries, 'name') || 'someone new'}!` : "All set - new friend saved!"}
-        subtitle="Shoot them a quick text before you forget"
-        primaryButtonText="Say hey"
-        onPrimaryButtonClick={() => {
-          setShowSuccessModal(false);
-          // Navigate to Contact view to see full profile and say hi
-          if (lastMatch) {
-            navigation.navigate("Contact", {
-              userId: lastMatch.profile.userId,
-              token: lastMatch.token,
-              isHistoricalMode: false,
-            });
-          }
-          setLastMatch(null);
-        }}
-        secondaryButtonText="Maybe later"
-        showCloseButton={false}
-      />
 
       {/* Admin Banner - appears when admin mode is activated */}
       <AdminBanner />

@@ -11,15 +11,31 @@ import type { RootStackParamList } from '../../../../App';
 import type { UserProfile } from '@nektus/shared-types';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
+import { isAppClip } from '../../../client/auth/session-handoff';
 import { useSession } from '../../providers/SessionProvider';
+import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ContactInfo } from '../ui/modules/ContactInfo';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
+import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
+import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 
 type ContactViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Contact'>;
 type ContactViewRouteProp = RouteProp<RootStackParamList, 'Contact'>;
+
+/**
+ * Props for direct use (App Clip) - bypasses React Navigation
+ */
+interface ContactViewProps {
+  /** Direct profile data (App Clip) */
+  profile?: UserProfile;
+  /** Exchange token */
+  token?: string;
+  /** Session user name for "Say hi" message (App Clip) */
+  sessionUserName?: string | null;
+}
 
 /**
  * Get a field value from ContactEntry array by fieldType
@@ -38,21 +54,46 @@ const getFirstName = (name: string): string => {
   return name.split(' ')[0];
 };
 
-export function ContactView() {
-  const navigation = useNavigation<ContactViewNavigationProp>();
-  const route = useRoute<ContactViewRouteProp>();
-  const { userId, token, isHistoricalMode } = route.params;
+export function ContactView(props: ContactViewProps = {}) {
+  const inAppClip = isAppClip();
+
+  // Navigation hooks - always called (Rules of Hooks), but may return stubs in App Clip
+  // In App Clip mode without NavigationContainer, these will fail
+  // So we call them unconditionally but only USE the values when not in App Clip
+  let navigation: NativeStackNavigationProp<RootStackParamList, 'Contact'> | null = null;
+  let route: RouteProp<RootStackParamList, 'Contact'> | null = null;
+
+  if (!inAppClip) {
+    // Only use these hooks in full app mode
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    navigation = useNavigation<ContactViewNavigationProp>();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    route = useRoute<ContactViewRouteProp>();
+  }
+
+  // Get params from props (App Clip) or route (full app)
+  const userId = route?.params?.userId;
+  const token = props.token || route?.params?.token || '';
+  const isHistoricalMode = route?.params?.isHistoricalMode || false;
+
   const { data: session } = useSession();
+  const { saveProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use props.profile directly if provided (App Clip), otherwise fetch
+  const [profile, setProfile] = useState<UserProfile | null>(props.profile || null);
+  const [isLoading, setIsLoading] = useState(!props.profile);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Fetch the contact profile
+  // Fetch the contact profile (skip if props.profile provided)
   useEffect(() => {
+    // Skip fetch if profile provided via props (App Clip)
+    if (props.profile) {
+      return;
+    }
+
     const fetchProfile = async () => {
       try {
         setIsLoading(true);
@@ -61,6 +102,9 @@ export function ContactView() {
           // For historical contacts, fetch from Firestore
           if (!session?.user?.id) {
             throw new Error('Not authenticated');
+          }
+          if (!userId) {
+            throw new Error('No user ID provided');
           }
           const contact = await ClientProfileService.getContactById(session.user.id, userId);
           if (contact) {
@@ -92,49 +136,107 @@ export function ContactView() {
       } catch (error) {
         console.error('[ContactView] Failed to fetch profile:', error);
         Alert.alert('Error', 'Failed to load contact');
-        navigation.goBack();
+        navigation?.goBack();
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProfile();
-  }, [userId, token, isHistoricalMode, apiBaseUrl, navigation, session?.user?.id]);
+  }, [props.profile, userId, token, isHistoricalMode, apiBaseUrl, navigation, session?.user?.id]);
+
+  // Navigate to web (for App Clip exit)
+  const navigateToWeb = useCallback(() => {
+    showAppStoreOverlay();
+    // Small delay to let user see overlay, then navigate to web
+    setTimeout(() => {
+      Linking.openURL('https://nekt.us').catch((err) => {
+        console.error('[ContactView] Failed to open URL:', err);
+      });
+    }, 500);
+  }, []);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    if (inAppClip) {
+      navigateToWeb();
+    } else {
+      navigation?.goBack();
+    }
+  }, [inAppClip, navigation, navigateToWeb]);
+
+  // Handle Me Card data extraction callback
+  const handleMeCardExtracted = useCallback(async (meCardData: MeCardData) => {
+    // Auto-fill user's profile if phone or photo is missing
+    if (!saveProfile) return;
+
+    console.log('[ContactView] Me Card data received, checking if profile needs update');
+
+    // TODO: Check if user's profile is missing phone or has AI-generated photo
+    // For now, just log the data - the actual profile update logic will be added later
+    // This would involve checking the current profile and calling saveProfile with updates
+    if (meCardData.phone) {
+      console.log('[ContactView] Me Card has phone:', meCardData.phone);
+    }
+    if (meCardData.imageBase64) {
+      console.log('[ContactView] Me Card has image');
+    }
+  }, [saveProfile]);
 
   // Handle save contact
   const handleSaveContact = useCallback(async () => {
     if (isSaved) {
-      // Already saved, just go back
-      navigation.goBack();
+      // Already saved - "Done" button tapped
+      if (inAppClip) {
+        navigateToWeb();
+      } else {
+        navigation?.goBack();
+      }
+      return;
+    }
+
+    if (!profile || !token) {
+      Alert.alert('Error', 'Cannot save contact - missing data');
       return;
     }
 
     try {
       setIsSaving(true);
 
-      // TODO: Implement actual contact saving to device
-      // For now, just simulate save and show success
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use the actual save service
+      const result = await saveContactFlow(profile, token, {
+        saveToNative: true,
+        onMeCardExtracted: handleMeCardExtracted,
+      });
 
-      setIsSaved(true);
-      setShowSuccessModal(true);
+      if (result.success) {
+        console.log('[ContactView] Save successful:', {
+          firebase: result.firebase.success,
+          native: result.native.success,
+          usedVCard: result.native.usedVCard,
+        });
+        setIsSaved(true);
+        setShowSuccessModal(true);
+      } else {
+        console.error('[ContactView] Save failed:', result);
+        Alert.alert('Error', 'Failed to save contact. Please try again.');
+      }
     } catch (error) {
       console.error('[ContactView] Save failed:', error);
       Alert.alert('Error', 'Failed to save contact');
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, navigation]);
+  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted]);
 
   // Handle reject/dismiss
   const handleReject = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    if (inAppClip) {
+      navigateToWeb();
+    } else {
+      navigation?.goBack();
+    }
+  }, [inAppClip, navigation, navigateToWeb]);
 
   // Handle say hi (open messaging)
   const handleSayHi = useCallback(() => {
@@ -142,9 +244,12 @@ export function ContactView() {
 
     const phoneNumber = getFieldValue(profile.contactEntries, 'phone');
     const contactName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
-    const senderName = getFirstName(session?.user?.name || '');
+    // Use props.sessionUserName in App Clip, otherwise session.user.name
+    const senderName = getFirstName(props.sessionUserName || session?.user?.name || '');
 
     const message = `Hey ${contactName}! It's ${senderName} - nice meeting you!`;
+
+    setShowSuccessModal(false);
 
     if (phoneNumber) {
       const smsUrl = `sms:${phoneNumber}&body=${encodeURIComponent(message)}`;
@@ -154,9 +259,8 @@ export function ContactView() {
     } else {
       Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
     }
-
-    setShowSuccessModal(false);
-  }, [profile, session]);
+    // Note: SKOverlay is shown when user taps "Done", not after messaging
+  }, [profile, props.sessionUserName, session]);
 
   // Loading state
   if (isLoading) {
@@ -188,13 +292,13 @@ export function ContactView() {
         {/* Header with back button */}
         <PageHeader onBack={handleBack} />
 
-        {/* Contact Info */}
+        {/* Content area - centers ContactInfo + buttons as a unit (like web) */}
         <View style={styles.content}>
+          {/* Contact Info */}
           <ContactInfo profile={profile} bioContent={bioContent} />
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
           {isHistoricalMode ? (
             // Historical mode buttons
             <>
@@ -209,7 +313,7 @@ export function ContactView() {
               <Button
                 variant="white"
                 size="xl"
-                onPress={() => navigation.navigate('SmartSchedule', { contactUserId: userId })}
+                onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '' })}
                 style={styles.fullWidth}
               >
                 <Text style={styles.buttonText}>Schedule Meetup</Text>
@@ -243,6 +347,7 @@ export function ContactView() {
               )}
             </>
           )}
+          </View>
         </View>
       </View>
 
@@ -255,6 +360,7 @@ export function ContactView() {
         primaryButtonText="Say hi"
         onPrimaryButtonClick={handleSayHi}
         secondaryButtonText="Nah, they'll text me"
+        onSecondaryButtonClick={() => setShowSuccessModal(false)}
         showCloseButton={false}
       />
     </>
@@ -281,12 +387,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 24,
+    flexGrow: 1,
+    paddingTop: 8,
   },
   actionsContainer: {
-    paddingBottom: 32,
+    marginTop: 16,
+    marginBottom: 16,
     gap: 12,
   },
   fullWidth: {
