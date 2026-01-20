@@ -35,6 +35,7 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
             src={profile.profileImage}
             alt={name}
             size="lg"
+            showInitials={!profile.profileImage}
           />
         </View>
       </View>

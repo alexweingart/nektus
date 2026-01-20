@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Text, View, ActivityIndicator, StyleSheet, Animated, Easing } from "react-native";
+import { Text, View, ActivityIndicator, StyleSheet, Animated, Easing, DeviceEventEmitter } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -34,6 +34,7 @@ import {
 import { useSession } from "../../../providers/SessionProvider";
 import { useProfile } from "../../../context/ProfileContext";
 import { getIdToken } from "../../../../client/auth/firebase";
+import { ADMIN_SIMULATE_NEKT_EVENT } from "../banners/AdminBanner";
 
 type SharingCategory = "Personal" | "Work";
 
@@ -480,6 +481,49 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
     return unsubscribe;
   }, [hybridService, exchangeService]);
+
+  // Listen for admin simulation trigger (matches web implementation)
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(ADMIN_SIMULATE_NEKT_EVENT, () => {
+      console.log('🧪 [iOS] ExchangeButton: Starting admin simulation');
+
+      // 1. Waiting for bump (floating animation)
+      setStatus('waiting-for-bump');
+      emitStartFloating();
+
+      // 2. After 3 seconds, bump detected
+      setTimeout(() => {
+        console.log('🧪 [iOS] ExchangeButton: Simulating bump detected');
+        setStatus('processing');
+        emitBumpDetected();
+
+        // 3. After 500ms, simulate match and trigger exit animation
+        setTimeout(() => {
+          console.log('🧪 [iOS] ExchangeButton: Simulating match - triggering exit animation');
+          setStatus('matched');
+
+          // Trigger exit animation on ProfileView with demo contact colors
+          const demoColors = ['#FF6F61', '#FFB6C1', '#FF1493']; // Demo coral/pink colors
+          emitMatchFound(demoColors);
+
+          // Wait for exit animation to complete (500ms), then navigate
+          setTimeout(() => {
+            // Navigate to Contact view with test data
+            navigation.navigate('Contact', {
+              userId: 'test-user',
+              token: 'test-animation-token',
+              isHistoricalMode: false,
+            });
+
+            // Reset state after navigation
+            setStatus('idle');
+          }, 500);
+        }, 500);
+      }, 3000);
+    });
+
+    return () => subscription.remove();
+  }, [navigation]);
 
   // Get button content based on status
   const getButtonContent = () => {

@@ -101,6 +101,8 @@ export function LayoutBackground({
 
   // Store contact colors when match-found event fires (for crossfade)
   const [contactColors, setContactColors] = useState<string[] | null>(null);
+  // Track if we've been on Contact screen (to know when we're leaving vs arriving)
+  const [wasOnContactScreen, setWasOnContactScreen] = useState(false);
 
   // Listen for match-found events to capture contact's background colors
   useEffect(() => {
@@ -114,15 +116,24 @@ export function LayoutBackground({
     return () => unsubscribe();
   }, []);
 
-  // Clear contact colors when navigating away from Contact screen
+  // Track Contact screen visits
+  const isOnContactScreen = currentRouteName === 'Contact' || currentRouteName === 'SmartSchedule' || currentRouteName === 'AISchedule';
+
   useEffect(() => {
-    if (currentRouteName !== 'Contact' && currentRouteName !== 'SmartSchedule' && currentRouteName !== 'AISchedule') {
-      if (contactColors) {
-        console.log('[LayoutBackground] Clearing contact colors (left contact screen)');
-        setContactColors(null);
-      }
+    if (isOnContactScreen) {
+      setWasOnContactScreen(true);
     }
-  }, [currentRouteName, contactColors]);
+  }, [isOnContactScreen]);
+
+  // Clear contact colors only when LEAVING Contact screen (not before arriving)
+  useEffect(() => {
+    // Only clear if we were previously on Contact and now we're not
+    if (!isOnContactScreen && wasOnContactScreen && contactColors) {
+      console.log('[LayoutBackground] Clearing contact colors (left contact screen)');
+      setContactColors(null);
+      setWasOnContactScreen(false);
+    }
+  }, [isOnContactScreen, wasOnContactScreen, contactColors]);
 
   // Determine particle context from route (or use override)
   const particleContext = useMemo(() => {

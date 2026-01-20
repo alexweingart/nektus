@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Easing, Image } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -15,12 +15,17 @@ import { isAppClip } from '../../../client/auth/session-handoff';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
+import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { ContactInfo } from '../ui/modules/ContactInfo';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
+
+// Demo robot avatar for test mode simulation
+const demoRobotAvatarAsset = require('../../../../assets/demo-robot-avatar.png');
+const getDemoRobotAvatarUri = () => Image.resolveAssetSource(demoRobotAvatarAsset).uri;
 
 type ContactViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Contact'>;
 type ContactViewRouteProp = RouteProp<RootStackParamList, 'Contact'>;
@@ -62,6 +67,10 @@ export function ContactView(props: ContactViewProps = {}) {
   // So we call them unconditionally but only USE the values when not in App Clip
   let navigation: NativeStackNavigationProp<RootStackParamList, 'Contact'> | null = null;
   let route: RouteProp<RootStackParamList, 'Contact'> | null = null;
+
+  // For ScreenTransition fade navigation (full app only)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const goBackWithFade = !inAppClip ? useGoBackWithFade() : null;
 
   if (!inAppClip) {
     // Only use these hooks in full app mode
@@ -108,6 +117,74 @@ export function ContactView(props: ContactViewProps = {}) {
     const fetchProfile = async () => {
       try {
         setIsLoading(true);
+
+        // SPECIAL HANDLING FOR TEST MODE (matches web implementation)
+        if (token === 'test-animation-token') {
+          // Create mock profile for testing with robot avatar and vibrant colors
+          const mockProfile: UserProfile = {
+            userId: 'mock-user-123',
+            profileImage: getDemoRobotAvatarUri(),
+            backgroundImage: '',
+            lastUpdated: Date.now(),
+            backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'], // Vibrant coral/pink
+            contactEntries: [
+              {
+                fieldType: 'name',
+                value: 'Demo Contact',
+                section: 'personal',
+                order: 0,
+                isVisible: true,
+                confirmed: true
+              },
+              {
+                fieldType: 'bio',
+                value: 'This is a test contact for animation preview. In real usage, you\'ll see the actual contact\'s profile here after a successful bump exchange!',
+                section: 'personal',
+                order: 1,
+                isVisible: true,
+                confirmed: true
+              },
+              {
+                fieldType: 'phone',
+                value: '+1234567890',
+                section: 'personal',
+                order: 2,
+                isVisible: true,
+                confirmed: true
+              },
+              {
+                fieldType: 'email',
+                value: 'demo@example.com',
+                section: 'personal',
+                order: 3,
+                isVisible: true,
+                confirmed: true
+              },
+              {
+                fieldType: 'instagram',
+                value: 'democontact',
+                section: 'personal',
+                order: 4,
+                isVisible: true,
+                confirmed: true
+              },
+              {
+                fieldType: 'x',
+                value: 'democontact',
+                section: 'personal',
+                order: 5,
+                isVisible: true,
+                confirmed: true
+              }
+            ],
+            calendars: []
+          };
+
+          console.log('🧪 [ContactView] Using mock profile for test animation');
+          setProfile(mockProfile);
+          setIsLoading(false);
+          return;
+        }
 
         if (isHistoricalMode) {
           // For historical contacts, fetch from Firestore
@@ -242,14 +319,19 @@ export function ContactView(props: ContactViewProps = {}) {
 
   // Handle back navigation with exit animation
   const handleBack = useCallback(() => {
-    playExitAnimation(() => {
-      if (inAppClip) {
+    if (inAppClip) {
+      // App Clip: use custom exit animation then navigate to web
+      playExitAnimation(() => {
         navigateToWeb();
-      } else {
-        navigation?.goBack();
-      }
-    });
-  }, [inAppClip, navigation, navigateToWeb, playExitAnimation]);
+      });
+    } else if (goBackWithFade) {
+      // Full app: use ScreenTransition fade
+      goBackWithFade();
+    } else {
+      // Fallback
+      navigation?.goBack();
+    }
+  }, [inAppClip, navigation, navigateToWeb, playExitAnimation, goBackWithFade]);
 
   // Handle Me Card data extraction callback
   const handleMeCardExtracted = useCallback(async (meCardData: MeCardData) => {
@@ -272,14 +354,16 @@ export function ContactView(props: ContactViewProps = {}) {
   // Handle save contact
   const handleSaveContact = useCallback(async () => {
     if (isSaved) {
-      // Already saved - "Done" button tapped, animate out
-      playExitAnimation(() => {
-        if (inAppClip) {
+      // Already saved - "Done" button tapped, navigate back
+      if (inAppClip) {
+        playExitAnimation(() => {
           navigateToWeb();
-        } else {
-          navigation?.goBack();
-        }
-      });
+        });
+      } else if (goBackWithFade) {
+        goBackWithFade();
+      } else {
+        navigation?.goBack();
+      }
       return;
     }
 
@@ -315,18 +399,20 @@ export function ContactView(props: ContactViewProps = {}) {
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted, playExitAnimation]);
+  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted, playExitAnimation, goBackWithFade]);
 
-  // Handle reject/dismiss - uses same exit animation as back
+  // Handle reject/dismiss - uses same logic as back
   const handleReject = useCallback(() => {
-    playExitAnimation(() => {
-      if (inAppClip) {
+    if (inAppClip) {
+      playExitAnimation(() => {
         navigateToWeb();
-      } else {
-        navigation?.goBack();
-      }
-    });
-  }, [inAppClip, navigation, navigateToWeb, playExitAnimation]);
+      });
+    } else if (goBackWithFade) {
+      goBackWithFade();
+    } else {
+      navigation?.goBack();
+    }
+  }, [inAppClip, navigation, navigateToWeb, playExitAnimation, goBackWithFade]);
 
   // Handle say hi (open messaging)
   const handleSayHi = useCallback(() => {
@@ -377,8 +463,8 @@ export function ContactView(props: ContactViewProps = {}) {
   const contactName = getFieldValue(profile.contactEntries, 'name');
 
   return (
-    <>
-      <Animated.View style={[styles.container, { opacity: exitOpacity }]}>
+    <ScreenTransition>
+      <Animated.View style={[styles.container, inAppClip ? { opacity: exitOpacity } : undefined]}>
         {/* Header with back button */}
         <PageHeader onBack={handleBack} />
 
@@ -471,7 +557,7 @@ export function ContactView(props: ContactViewProps = {}) {
         onSecondaryButtonClick={() => setShowSuccessModal(false)}
         showCloseButton={false}
       />
-    </>
+    </ScreenTransition>
   );
 }
 
