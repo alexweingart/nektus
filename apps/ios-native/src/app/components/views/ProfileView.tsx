@@ -29,7 +29,7 @@ const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): st
 };
 
 export function ProfileView() {
-  const { data: session, signOut } = useSession();
+  const { data: session } = useSession();
   const {
     profile,
     refreshProfile,
@@ -104,16 +104,6 @@ export function ProfileView() {
     setMatchToken(null);
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      // Navigation is handled automatically by the conditional navigator in App.tsx
-      // when session status changes to "unauthenticated"
-    } catch (error) {
-      console.error("[ProfileView] Sign out failed:", error);
-    }
-  };
-
   const handleRefresh = useCallback(async () => {
     console.log("[ProfileView] Refreshing profile...");
     if (refreshProfile) {
@@ -131,10 +121,12 @@ export function ProfileView() {
   const profileImageSrc = useMemo(() => {
     // Use streaming image if available (during generation)
     if (streamingProfileImage) {
+      console.log('[ProfileView] Using streaming image');
       return streamingProfileImage;
     }
     // Hide Google image while checking or if confirmed as initials
     const baseImageUrl = profile?.profileImage || session?.user?.image;
+    console.log('[ProfileView] Profile image URL:', baseImageUrl?.substring(0, 100), { isGoogleInitials, isCheckingGoogleImage });
     const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
     if (isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)) {
       return undefined;
@@ -247,15 +239,6 @@ export function ProfileView() {
             </View>
           )}
         </Animated.View>
-
-        {/* Sign Out Button - hide during exchange */}
-        {!isExchanging && (
-          <View style={styles.footer}>
-            <SecondaryButton variant="destructive" onPress={handleSignOut}>
-              Sign Out
-            </SecondaryButton>
-          </View>
-        )}
       </PullToRefresh>
 
       {/* Success Modal - shows after contact exchange */}
@@ -310,11 +293,6 @@ const styles = StyleSheet.create({
   },
   cancelButtonContainer: {
     alignItems: "center",
-  },
-  footer: {
-    paddingTop: 24,
-    alignItems: "center",
-    // No horizontal padding - comes from scrollContent
   },
 });
 

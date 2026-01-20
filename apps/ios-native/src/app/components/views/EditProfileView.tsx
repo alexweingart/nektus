@@ -138,9 +138,21 @@ export function EditProfileView() {
   }, [session, fieldManager, profile, saveProfile, navigation]);
 
   // Handle profile image upload
-  const handleProfileImageUpload = useCallback((uri: string) => {
+  // When backgroundColors are provided (from API), refresh the profile to pick up the new colors
+  const handleProfileImageUpload = useCallback((uri: string, backgroundColors?: string[]) => {
     fieldManager.setImageValue('profileImage', uri);
-  }, [fieldManager]);
+
+    // If colors were extracted, refresh profile to pick up the saved colors from Firestore
+    if (backgroundColors && backgroundColors.length > 0) {
+      console.log('[EditProfileView] Background colors extracted, refreshing profile...');
+      refreshProfile();
+    }
+  }, [fieldManager, refreshProfile]);
+
+  // Debug: log profile backgroundColors
+  React.useEffect(() => {
+    console.log('[EditProfileView] profile.backgroundColors:', profile?.backgroundColors);
+  }, [profile?.backgroundColors]);
 
   // Handle field input change
   const handleFieldChange = useCallback((fieldType: string, value: string, section: FieldSection) => {
@@ -296,6 +308,7 @@ export function EditProfileView() {
                     getFieldValue={getFieldValue}
                     handleFieldChange={handleFieldChange}
                     getFieldsForView={getFieldsForView}
+                    tintColor={profile?.backgroundColors?.[2]}
                   />
                 </View>
 
@@ -319,6 +332,7 @@ export function EditProfileView() {
                     getFieldValue={getFieldValue}
                     handleFieldChange={handleFieldChange}
                     getFieldsForView={getFieldsForView}
+                    tintColor={profile?.backgroundColors?.[2]}
                   />
                 </View>
               </Animated.View>
@@ -334,6 +348,7 @@ export function EditProfileView() {
           <ProfileViewSelector
             selected={selectedMode}
             onSelect={handleModeChange}
+            tintColor={profile?.backgroundColors?.[2]}
           />
         </View>
       </KeyboardAvoidingView>

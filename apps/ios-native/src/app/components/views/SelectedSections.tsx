@@ -4,18 +4,23 @@
  *
  * Changes from web:
  * - Uses React Native components
- * - Simplified drag-and-drop (will use react-native-draggable-flatlist later)
+ * - Uses react-native-draggable-flatlist for drag-and-drop
  * - Uses React Navigation instead of Next.js router
  * - Replaced signOut with iOS auth
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import DraggableFlatList, {
+  ScaleDecorator,
+  RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import type { RootStackParamList } from '../../../../App';
 import type { ContactEntry, FieldSection, Calendar, UserLocation } from '@nektus/shared-types';
-import { signOut } from '../../../client/auth/firebase';
+import { useSession } from '../../providers/SessionProvider';
+import { useDragAndDrop } from '../../../client/hooks/use-drag-and-drop';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
@@ -57,6 +62,8 @@ interface SelectedSectionsProps {
     visibleFields: ContactEntry[];
     hiddenFields: ContactEntry[];
   };
+  /** Tint color for the selectors (from profile.backgroundColors[2]) */
+  tintColor?: string;
 }
 
 // Calendar icon component
@@ -108,8 +115,10 @@ export function SelectedSections({
   getFieldValue,
   handleFieldChange,
   getFieldsForView,
+  tintColor,
 }: SelectedSectionsProps) {
   const navigation = useNavigation<NavigationProp>();
+  const { signOut } = useSession();
   const { visibleFields, hiddenFields } = getFieldsForView(viewMode);
   const sectionName = viewMode.toLowerCase() as 'personal' | 'work';
 
@@ -117,14 +126,23 @@ export function SelectedSections({
   const calendar = getCalendarForSection(sectionName);
   const location = getLocationForSection(sectionName);
 
+  // Drag & Drop hook
+  const dragAndDrop = useDragAndDrop({
+    section: sectionName,
+    getVisibleFields: () => fieldSectionManager.getVisibleFields(sectionName),
+    onReorder: (newOrder: ContactEntry[]) => {
+      fieldSectionManager.updateFieldOrder(sectionName, newOrder);
+    },
+  });
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
-      // Navigation will be handled by auth state listener
+      // Navigation will be handled by SessionProvider updating auth state
     } catch (error) {
       console.error('Sign out error:', error);
     }
-  }, []);
+  }, [signOut]);
 
   const handleCalendarPress = useCallback(() => {
     if (calendar) {
@@ -154,7 +172,7 @@ export function SelectedSections({
                 title={`${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
                 subtitle={calendar.email}
                 onPress={handleCalendarPress}
-                onActionPress={() => handleDeleteCalendar(sectionName)}
+                onActionClick={() => handleDeleteCalendar(sectionName)}
                 actionIcon="trash"
                 isActionLoading={isDeletingCalendar[sectionName]}
               />
@@ -177,7 +195,7 @@ export function SelectedSections({
                   title={`${location.city}${location.region ? ', ' + location.region : ''}`}
                   subtitle={location.address}
                   onPress={handleLocationPress}
-                  onActionPress={() => handleDeleteLocation(sectionName)}
+                  onActionClick={() => handleDeleteLocation(sectionName)}
                   actionIcon="trash"
                   isActionLoading={isDeletingLocation[sectionName]}
                 />
@@ -207,6 +225,7 @@ export function SelectedSections({
                   onLinkAdded={handleLinkAdded}
                   nextOrder={getNextOrderForSection(sectionName)}
                   onCancel={() => handleToggleInlineAddLink(sectionName)}
+                  tintColor={tintColor}
                 />
               </View>
             )}
@@ -222,21 +241,38 @@ export function SelectedSections({
           </View>
         }
       >
-        <FieldList>
-          {visibleFields.map((field, index) => (
-            <ProfileField
-              key={`${field.fieldType}-${field.section}-${index}`}
-              profile={field}
-              fieldSectionManager={fieldSectionManager}
-              getValue={getFieldValue}
-              onChange={handleFieldChange}
-              isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-              onConfirm={fieldSectionManager.markChannelAsConfirmed}
-              currentViewMode={viewMode}
-              isDraggable={true}
-            />
-          ))}
-        </FieldList>
+        <DraggableFlatList
+          data={visibleFields}
+          keyExtractor={(item) => `${item.fieldType}-${item.section}`}
+          onDragBegin={dragAndDrop.onDragBegin}
+          onDragEnd={dragAndDrop.onDragEnd}
+          activationDistance={0}
+          dragItemOverflow={true}
+          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+          renderItem={({ item, drag, isActive }: RenderItemParams<ContactEntry>) => (
+            <ScaleDecorator activeScale={1.05}>
+              <View
+                style={[
+                  styles.draggableItem,
+                  isActive && styles.draggableItemActive,
+                ]}
+              >
+                <ProfileField
+                  profile={item}
+                  fieldSectionManager={fieldSectionManager}
+                  getValue={getFieldValue}
+                  onChange={handleFieldChange}
+                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
+                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
+                  currentViewMode={viewMode}
+                  isDraggable={true}
+                  onDragStart={drag}
+                  isBeingDragged={isActive}
+                />
+              </View>
+            </ScaleDecorator>
+          )}
+        />
       </FieldSectionComponent>
 
       {/* Hidden Fields - Always show with Sign Out button */}
@@ -303,6 +339,21 @@ const styles = StyleSheet.create({
   },
   signOutContainer: {
     alignItems: 'center',
+  },
+  // Drag and drop styles
+  itemSeparator: {
+    height: 20, // Match FieldList gap (space-y-5 = 1.25rem = 20px)
+  },
+  draggableItem: {
+    opacity: 1,
+  },
+  draggableItemActive: {
+    opacity: 0.95,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
 });
 

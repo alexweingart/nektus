@@ -89,6 +89,20 @@ export const useEditProfileFields = ({
   const imagesRef = useRef(images);
   const fieldsRef = useRef(fields);
 
+  // Sync profile image when profile changes (handles async profile loading)
+  // Only sync if: profile has an image AND (we have no image OR our image is a remote URL that differs)
+  // Don't overwrite local file:// previews (user just picked an image)
+  useEffect(() => {
+    if (profile?.profileImage) {
+      const currentImage = images.profileImage;
+      const isLocalPreview = currentImage?.startsWith('file://');
+      const shouldSync = !currentImage || (!isLocalPreview && currentImage !== profile.profileImage);
+      if (shouldSync) {
+        setImages({ profileImage: profile.profileImage });
+      }
+    }
+  }, [profile?.profileImage, images.profileImage]);
+
   // Keep refs updated
   useEffect(() => {
     imagesRef.current = images;

@@ -6,7 +6,7 @@
 import type { UserProfile } from '@nektus/shared-client';
 import { isGoogleInitialsImage } from '@nektus/shared-client';
 import { ClientProfileService } from '../firebase';
-import { getApiBaseUrl } from '../auth/firebase';
+import { getApiBaseUrl, getIdToken } from '../auth/firebase';
 
 export interface AssetGenerationState {
   isCheckingGoogleImage: boolean;
@@ -104,12 +104,18 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
       const profileImageGeneration = (async () => {
         console.log('[AssetGeneration] Making profile image API call');
 
+        // Get Firebase ID token for authentication
+        const idToken = await getIdToken();
+        if (!idToken) {
+          throw new Error('No Firebase ID token available');
+        }
+
         return fetch(`${apiBaseUrl}/api/profile/generate/profile-image`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
           },
-          credentials: 'include',
         })
         .then(res => {
           if (!res.ok) {
@@ -188,6 +194,12 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
 
       console.log('[AssetGeneration] Making background color extraction API call');
 
+      // Get Firebase ID token for authentication
+      const idToken = await getIdToken();
+      if (!idToken) {
+        throw new Error('No Firebase ID token available');
+      }
+
       // Get the current bio from profile for background generation
       const bioEntry = profile?.contactEntries?.find(e => e.fieldType === 'bio');
       const bioForBackground = bioEntry?.value || '';
@@ -196,8 +208,8 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
-        credentials: 'include',
         body: JSON.stringify({ streamingBio: bioForBackground }),
       })
         .then(res => {
@@ -250,4 +262,52 @@ export function createAssetGenerationState(): AssetGenerationState {
     profileImageGenerationTriggered: false,
     backgroundGenerationTriggered: false,
   };
+}
+
+/**
+ * Extract background colors from the user's profile image
+ * Called when a user uploads a new profile image
+ * The API reads the profile image from Firestore, so call this AFTER saving the profile
+ * Returns the extracted backgroundColors, or null on failure
+ */
+export async function extractBackgroundColors(
+  userId: string
+): Promise<{ backgroundColors: string[] } | null> {
+  const apiBaseUrl = getApiBaseUrl();
+
+  try {
+    console.log('[AssetGeneration] Extracting background colors for profile image');
+
+    // Get Firebase ID token for authentication
+    const idToken = await getIdToken();
+    if (!idToken) {
+      console.error('[AssetGeneration] No Firebase ID token available');
+      return null;
+    }
+
+    const response = await fetch(`${apiBaseUrl}/api/profile/generate/background-image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ streamingBio: '' }),
+    });
+
+    if (!response.ok) {
+      console.error('[AssetGeneration] Background color extraction API failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.backgroundColors) {
+      console.log('[AssetGeneration] Background colors extracted:', data.backgroundColors);
+      return { backgroundColors: data.backgroundColors };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[AssetGeneration] Background color extraction failed:', error);
+    return null;
+  }
 }

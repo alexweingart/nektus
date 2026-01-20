@@ -28,6 +28,8 @@ interface InlineAddLinkProps {
   nextOrder: number;
   onCancel: () => void;
   showDuplicateToggle?: boolean;
+  /** Tint color for the selector (from profile.backgroundColors[2]) */
+  tintColor?: string;
 }
 
 export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(function InlineAddLink({
@@ -36,6 +38,7 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
   nextOrder,
   onCancel,
   showDuplicateToggle = true,
+  tintColor,
 }, ref) {
   // Link type toggle
   const [linkType, setLinkType] = useState<LinkType>('Social');
@@ -233,6 +236,7 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
           selectedOption={linkType}
           onOptionChange={handleModeChange}
           minWidth={100}
+          tintColor={tintColor}
         />
 
         {/* Conditionally render input based on mode (matches web) */}

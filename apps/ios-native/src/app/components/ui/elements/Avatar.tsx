@@ -46,6 +46,11 @@ const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[Avatar] Props changed:', { src: src?.substring(0, 80), showInitials, isLoading, hasError, imgSrc: imgSrc?.substring(0, 80) });
+  }, [src, showInitials, isLoading, hasError, imgSrc]);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
   const [previouslyShowedInitials, setPreviouslyShowedInitials] = React.useState(false);
 
@@ -56,6 +61,9 @@ const Avatar: React.FC<AvatarProps> = ({
   const fontSize = fontSizeMap[size];
 
   React.useEffect(() => {
+    // Only react to src changes, not hasError changes (prevents infinite loop)
+    if (src === imgSrc) return;
+
     // Track if we're transitioning from initials to image
     const wasShowingInitials = previouslyShowedInitials && !imgSrc;
     const willShowImage = src && !hasError;
@@ -91,7 +99,7 @@ const Avatar: React.FC<AvatarProps> = ({
       fadeAnimInitials.setValue(1);
       fadeAnimImage.setValue(0);
     }
-  }, [src, hasError, previouslyShowedInitials, showInitials, isLoading, imgSrc, fadeAnimInitials, fadeAnimImage]);
+  }, [src]); // Only depend on src to prevent infinite loops
 
   // Track when we start showing initials
   React.useEffect(() => {
@@ -101,6 +109,7 @@ const Avatar: React.FC<AvatarProps> = ({
   }, [showInitials, src]);
 
   const handleError = () => {
+    console.log('[Avatar] Image failed to load:', imgSrc?.substring(0, 80));
     setHasError(true);
   };
 

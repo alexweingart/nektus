@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { NavigationContainer, useNavigationContainerRef, LinkingOptions } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as Linking from "expo-linking";
 import * as SplashScreenModule from "expo-splash-screen";
 import { SessionProvider, useSession } from "./src/app/providers/SessionProvider";
 import { ProfileProvider, useProfile } from "./src/app/context/ProfileContext";
@@ -34,7 +36,7 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   Profile: undefined;
   EditProfile: undefined;
-  Contact: { userId: string; token: string; isHistoricalMode?: boolean };
+  Contact: { userId?: string; token: string; isHistoricalMode?: boolean };
   History: undefined;
   // Phase 2: Scheduling
   Calendar: { section: 'personal' | 'work' };
@@ -44,6 +46,31 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Deep linking configuration for Universal Links
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [
+    'https://nekt.us',
+    'https://www.nekt.us',
+    'nekt://', // Custom scheme
+  ],
+  config: {
+    screens: {
+      Home: '',
+      Privacy: 'privacy',
+      Terms: 'terms',
+      ProfileSetup: 'setup',
+      Profile: 'profile',
+      EditProfile: 'edit-profile',
+      Contact: 'connect',
+      History: 'history',
+      Calendar: 'calendar/:section',
+      Location: 'location/:section',
+      SmartSchedule: 'schedule/:contactUserId',
+      AISchedule: 'ai-schedule/:contactUserId',
+    },
+  },
+};
 
 // Main app content - routes to appropriate view using navigation
 function AppContent() {
@@ -133,38 +160,41 @@ function AppContent() {
 
 // Root app with providers
 export default function App() {
-  const navigationRef = useNavigationContainerRef();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [currentRoute, setCurrentRoute] = useState<string | null>(null);
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer
-        ref={navigationRef}
-        onStateChange={() => {
-          const route = navigationRef.getCurrentRoute();
-          if (route?.name) {
-            setCurrentRoute(route.name);
-          }
-        }}
-        onReady={() => {
-          const route = navigationRef.getCurrentRoute();
-          if (route?.name) {
-            setCurrentRoute(route.name);
-          }
-        }}
-      >
-        <RouteContext.Provider value={currentRoute}>
-          <SessionProvider>
-            <ProfileProvider>
-              <AdminModeProvider>
-                <AppContent />
-              </AdminModeProvider>
-            </ProfileProvider>
-          </SessionProvider>
-        </RouteContext.Provider>
-      </NavigationContainer>
-      <StatusBar style="light" />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onStateChange={() => {
+            const route = navigationRef.getCurrentRoute();
+            if (route?.name) {
+              setCurrentRoute(route.name);
+            }
+          }}
+          onReady={() => {
+            const route = navigationRef.getCurrentRoute();
+            if (route?.name) {
+              setCurrentRoute(route.name);
+            }
+          }}
+        >
+          <RouteContext.Provider value={currentRoute}>
+            <SessionProvider>
+              <ProfileProvider>
+                <AdminModeProvider>
+                  <AppContent />
+                </AdminModeProvider>
+              </ProfileProvider>
+            </SessionProvider>
+          </RouteContext.Provider>
+        </NavigationContainer>
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

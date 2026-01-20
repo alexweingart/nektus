@@ -17,6 +17,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useSession } from "../providers/SessionProvider";
+import { isFullApp } from "../../client/auth/session-handoff";
 import {
   profileHasPhone,
   profileNeedsSetup,
@@ -34,6 +35,7 @@ import {
 import {
   generateProfileAssets,
   createAssetGenerationState,
+  extractBackgroundColors,
   type AssetGenerationState,
 } from "../../client/profile/asset-generation";
 
@@ -225,13 +227,45 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         );
 
         if (saveResult.success && saveResult.profile) {
-          profileRef.current = saveResult.profile;
+          const savedProfile = saveResult.profile;
+
+          // Capture previous profile image BEFORE updating the ref
+          const previousProfileImage = profileRef.current?.profileImage;
+
+          profileRef.current = savedProfile;
           if (!options.directUpdate) {
-            setProfile(saveResult.profile);
+            setProfile(savedProfile);
           }
 
           console.log("[ProfileContext] Profile saved");
-          return saveResult.profile;
+
+          // Check if a new profile image was saved (different from previous)
+          // and it's not an AI-generated avatar - trigger background color extraction
+          const newProfileImage = data.profileImage;
+          const isNewImage = newProfileImage && newProfileImage !== previousProfileImage;
+          const isUserUploadedImage = !savedProfile.aiGeneration?.avatarGenerated;
+
+          if (isNewImage && isUserUploadedImage) {
+            console.log("[ProfileContext] New profile image detected, extracting background colors...");
+            // Run color extraction async (don't block the save)
+            extractBackgroundColors(session.user.id)
+              .then(async (result) => {
+                if (result?.backgroundColors) {
+                  // Reload profile to get the new colors
+                  const updatedProfile = await ClientProfileService.getProfile(session.user.id);
+                  if (updatedProfile) {
+                    setProfile(updatedProfile);
+                    profileRef.current = updatedProfile;
+                    console.log("[ProfileContext] Profile updated with new background colors");
+                  }
+                }
+              })
+              .catch((error) => {
+                console.error("[ProfileContext] Background color extraction failed:", error);
+              });
+          }
+
+          return savedProfile;
         } else {
           console.error("[ProfileContext] Save failed:", saveResult.error);
           return null;
@@ -352,10 +386,37 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
 }
 
 // Hook for using the profile context
-export function useProfile() {
+export function useProfile(): ProfileContextType {
   const context = useContext(ProfileContext);
   if (context === undefined) {
-    throw new Error("useProfile must be used within a ProfileProvider");
+    // In App Clip mode, return default values instead of throwing
+    // This allows ContactView to be used without ProfileProvider
+    if (isFullApp()) {
+      throw new Error("useProfile must be used within a ProfileProvider");
+    }
+    // App Clip fallback - return minimal profile interface
+    return {
+      profile: null,
+      isLoading: false,
+      isSaving: false,
+      needsSetup: false,
+      saveProfile: async () => null,
+      getLatestProfile: () => null,
+      refreshProfile: async () => {},
+      contacts: null,
+      loadContacts: async () => [],
+      getContact: () => null,
+      assetGeneration: {
+        isCheckingGoogleImage: false,
+        isGoogleInitials: false,
+        streamingProfileImage: null,
+        profileImageGenerationTriggered: false,
+        backgroundGenerationTriggered: false,
+      },
+      streamingProfileImage: null,
+      isGoogleInitials: false,
+      isCheckingGoogleImage: false,
+    };
   }
   return context;
 }
