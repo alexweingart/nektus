@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { View, Animated, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../../../App";
 import type { ExchangeStatus } from "@nektus/shared-types";
@@ -141,6 +141,15 @@ export function ProfileView() {
     const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
     return isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
   }, [streamingProfileImage, profile?.profileImage, session?.user?.image, isGoogleInitials, isCheckingGoogleImage]);
+
+  // Reset animations when screen gains focus (e.g., returning from ContactView)
+  useFocusEffect(
+    useCallback(() => {
+      // Reset animations to ensure elements are visible
+      // This handles the case where exit animation played before navigation
+      resetAnimations();
+    }, [resetAnimations])
+  );
 
   // If no profile, show nothing (let loading state handle it)
   if (!profile) {
