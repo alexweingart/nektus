@@ -1,7 +1,54 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { StyleSheet, View, Animated, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Line } from "react-native-svg";
+
+// Helper to parse rgba string to components
+function parseColor(color: string): { r: number; g: number; b: number; a: number } {
+  // Handle rgb/rgba format
+  const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+  if (rgbaMatch) {
+    return {
+      r: parseInt(rgbaMatch[1], 10),
+      g: parseInt(rgbaMatch[2], 10),
+      b: parseInt(rgbaMatch[3], 10),
+      a: parseFloat(rgbaMatch[4] ?? '1'),
+    };
+  }
+  // Handle hex format
+  const hexMatch = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (hexMatch) {
+    return {
+      r: parseInt(hexMatch[1], 16),
+      g: parseInt(hexMatch[2], 16),
+      b: parseInt(hexMatch[3], 16),
+      a: 1,
+    };
+  }
+  // Fallback
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+
+// Helper to interpolate between two colors
+function interpolateColor(
+  from: { r: number; g: number; b: number; a: number },
+  to: { r: number; g: number; b: number; a: number },
+  progress: number
+): string {
+  const r = Math.round(from.r + (to.r - from.r) * progress);
+  const g = Math.round(from.g + (to.g - from.g) * progress);
+  const b = Math.round(from.b + (to.b - from.b) * progress);
+  const a = from.a + (to.a - from.a) * progress;
+  return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+}
+
+// Check if two color objects are equal
+function colorsEqual(a: ParticleColors, b: ParticleColors): boolean {
+  return a.particle === b.particle &&
+         a.connection === b.connection &&
+         a.gradientStart === b.gradientStart &&
+         a.gradientEnd === b.gradientEnd;
+}
 
 interface Particle {
   x: Animated.Value;
@@ -86,13 +133,113 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
  * - LinearGradient background
  * - Configurable speed and connection distance
  */
+// Color transition duration (matches web's 1000ms)
+const COLOR_TRANSITION_DURATION = 1000;
+
 export function ParticleNetworkLite({
   colors,
   context = "signed-out",
 }: ParticleNetworkProps) {
   const { width, height } = Dimensions.get("window");
-  const renderColors = colors || DEFAULT_COLORS;
+  const targetColors = colors || DEFAULT_COLORS;
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS["signed-out"];
+
+  // Track displayed colors (interpolated during transition)
+  const [displayColors, setDisplayColors] = useState<ParticleColors>(targetColors);
+
+  // Transition state ref
+  const transitionRef = useRef<{
+    fromColors: ParticleColors;
+    toColors: ParticleColors;
+    startTime: number;
+    isTransitioning: boolean;
+  }>({
+    fromColors: targetColors,
+    toColors: targetColors,
+    startTime: 0,
+    isTransitioning: false,
+  });
+
+  // Parsed color components for interpolation
+  const parsedColorsRef = useRef<{
+    from: {
+      particle: ReturnType<typeof parseColor>;
+      connection: ReturnType<typeof parseColor>;
+      gradientStart: ReturnType<typeof parseColor>;
+      gradientEnd: ReturnType<typeof parseColor>;
+    };
+    to: {
+      particle: ReturnType<typeof parseColor>;
+      connection: ReturnType<typeof parseColor>;
+      gradientStart: ReturnType<typeof parseColor>;
+      gradientEnd: ReturnType<typeof parseColor>;
+    };
+  } | null>(null);
+
+  // Detect color changes and start transition
+  useEffect(() => {
+    if (!colorsEqual(targetColors, transitionRef.current.toColors)) {
+      console.log('[ParticleNetworkLite] Starting color transition');
+      // Start transition from current display colors to new target
+      transitionRef.current = {
+        fromColors: displayColors,
+        toColors: targetColors,
+        startTime: Date.now(),
+        isTransitioning: true,
+      };
+      // Parse colors for interpolation
+      parsedColorsRef.current = {
+        from: {
+          particle: parseColor(displayColors.particle),
+          connection: parseColor(displayColors.connection),
+          gradientStart: parseColor(displayColors.gradientStart),
+          gradientEnd: parseColor(displayColors.gradientEnd),
+        },
+        to: {
+          particle: parseColor(targetColors.particle),
+          connection: parseColor(targetColors.connection),
+          gradientStart: parseColor(targetColors.gradientStart),
+          gradientEnd: parseColor(targetColors.gradientEnd),
+        },
+      };
+    }
+  }, [targetColors, displayColors]);
+
+  // Color interpolation animation loop
+  useEffect(() => {
+    let animationId: number;
+
+    const animateColors = () => {
+      const transition = transitionRef.current;
+      const parsed = parsedColorsRef.current;
+
+      if (transition.isTransitioning && parsed) {
+        const elapsed = Date.now() - transition.startTime;
+        // Cubic ease-out: 1 - Math.pow(1 - progress, 3)
+        const linearProgress = Math.min(elapsed / COLOR_TRANSITION_DURATION, 1);
+        const progress = 1 - Math.pow(1 - linearProgress, 3);
+
+        if (linearProgress >= 1) {
+          // Transition complete
+          transition.isTransitioning = false;
+          setDisplayColors(transition.toColors);
+        } else {
+          // Interpolate colors
+          setDisplayColors({
+            particle: interpolateColor(parsed.from.particle, parsed.to.particle, progress),
+            connection: interpolateColor(parsed.from.connection, parsed.to.connection, progress),
+            gradientStart: interpolateColor(parsed.from.gradientStart, parsed.to.gradientStart, progress),
+            gradientEnd: interpolateColor(parsed.from.gradientEnd, parsed.to.gradientEnd, progress),
+          });
+        }
+      }
+
+      animationId = requestAnimationFrame(animateColors);
+    };
+
+    animateColors();
+    return () => cancelAnimationFrame(animationId);
+  }, []);
 
   // Track connections for rendering
   const [connections, setConnections] = useState<Array<{
@@ -161,7 +308,7 @@ export function ParticleNetworkLite({
               const distanceFactor = 1 - distance / config.connectionDistance;
 
               // Parse base opacity from connection color (matching web behavior)
-              const baseColor = renderColors.connection;
+              const baseColor = displayColors.connection;
               const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
               const baseOpacity = match ? parseFloat(match[4] || '1') : 0.15;
 
@@ -194,9 +341,9 @@ export function ParticleNetworkLite({
       {/* Background gradient - matches web's symmetric pattern */}
       <LinearGradient
         colors={[
-          renderColors.gradientEnd,    // dominant at top (matches safe area)
-          renderColors.gradientStart,  // accent in middle
-          renderColors.gradientEnd,    // dominant at bottom (matches safe area)
+          displayColors.gradientEnd,    // dominant at top (matches safe area)
+          displayColors.gradientStart,  // accent in middle
+          displayColors.gradientEnd,    // dominant at bottom (matches safe area)
         ]}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
@@ -211,7 +358,7 @@ export function ParticleNetworkLite({
             y1={conn.y1}
             x2={conn.x2}
             y2={conn.y2}
-            stroke={renderColors.connection.replace(/[\d.]+\)$/, `${conn.opacity})`)}
+            stroke={displayColors.connection.replace(/[\d.]+\)$/, `${conn.opacity})`)}
             strokeWidth={1}
           />
         ))}
@@ -226,7 +373,7 @@ export function ParticleNetworkLite({
             {
               width: particle.size,
               height: particle.size,
-              backgroundColor: renderColors.particle,
+              backgroundColor: displayColors.particle,
               transform: [
                 { translateX: particle.x },
                 { translateY: particle.y },

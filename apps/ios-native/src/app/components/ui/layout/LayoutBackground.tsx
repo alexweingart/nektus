@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ParticleNetworkLite as ParticleNetwork, ParticleNetworkProps } from "./ParticleNetworkLite";
 import { useProfile } from "../../../../app/context/ProfileContext";
 import { useSession } from "../../../../app/providers/SessionProvider";
 import { useCurrentRoute } from "../../../../app/context/RouteContext";
+import { animationEvents } from "../../../utils/animationEvents";
 
 // Helper function to convert hex to rgba
 function hexToRgba(hex: string, alpha: number): string {
@@ -98,6 +99,31 @@ export function LayoutBackground({
   // Get current route name from context (tracked at NavigationContainer level)
   const currentRouteName = useCurrentRoute();
 
+  // Store contact colors when match-found event fires (for crossfade)
+  const [contactColors, setContactColors] = useState<string[] | null>(null);
+
+  // Listen for match-found events to capture contact's background colors
+  useEffect(() => {
+    const unsubscribe = animationEvents.on('match-found', (data) => {
+      if (data?.backgroundColors && data.backgroundColors.length >= 3) {
+        console.log('[LayoutBackground] Received contact colors:', data.backgroundColors);
+        setContactColors(data.backgroundColors);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Clear contact colors when navigating away from Contact screen
+  useEffect(() => {
+    if (currentRouteName !== 'Contact' && currentRouteName !== 'SmartSchedule' && currentRouteName !== 'AISchedule') {
+      if (contactColors) {
+        console.log('[LayoutBackground] Clearing contact colors (left contact screen)');
+        setContactColors(null);
+      }
+    }
+  }, [currentRouteName, contactColors]);
+
   // Determine particle context from route (or use override)
   const particleContext = useMemo(() => {
     if (overrideContext) return overrideContext;
@@ -117,6 +143,11 @@ export function LayoutBackground({
       return DEFAULT_SIGNED_OUT_COLORS;
     }
 
+    // For contact context with contact's colors (from match-found event)
+    if ((particleContext === "contact" || particleContext === "connect") && contactColors) {
+      return convertToParticleColors(contactColors);
+    }
+
     // For profile context with custom colors
     if ((particleContext === "profile" || particleContext === "profile-default") &&
         profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
@@ -128,7 +159,7 @@ export function LayoutBackground({
       }
     }
 
-    // For contact context - use default profile colors (inverted)
+    // For contact context without contact colors - use default profile colors
     if (particleContext === "contact" || particleContext === "connect") {
       return DEFAULT_PROFILE_COLORS;
     }
@@ -140,16 +171,21 @@ export function LayoutBackground({
 
     // Fallback
     return DEFAULT_SIGNED_OUT_COLORS;
-  }, [particleColors, particleContext, profile, status]);
+  }, [particleColors, particleContext, profile, status, contactColors]);
 
   // Use dominant color as background for proper gradient blending
   const effectiveBackgroundColor = useMemo(() => {
+    // Contact context with contact colors
+    if ((particleContext === "contact" || particleContext === "connect") && contactColors) {
+      return contactColors[0];
+    }
+    // Profile context with profile colors
     if ((particleContext === "profile" || particleContext === "profile-default") &&
         profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
       return profile.backgroundColors[0];
     }
     return backgroundColor;
-  }, [particleContext, profile, backgroundColor]);
+  }, [particleContext, profile, backgroundColor, contactColors]);
 
   return (
     <View style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}>
