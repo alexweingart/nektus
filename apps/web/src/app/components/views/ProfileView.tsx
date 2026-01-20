@@ -44,7 +44,7 @@ const ProfileView: React.FC = () => {
   const adminModeProps = useAdminModeActivator();
 
   // PWA install hook
-  const { isInstallable, installPWA, showIOSModal, closeIOSModal } = usePWAInstall();
+  const { isInstallable, installPWA, showIOSModal, closeIOSModal, showAndroidModal, closeAndroidModal } = usePWAInstall();
 
   // QR code display hook
   const { showQRCode, matchToken } = useExchangeQRDisplay();
@@ -430,6 +430,18 @@ const ProfileView: React.FC = () => {
         subtitle="Tap the share icon, then select &quot;Add to Home Screen&quot;"
         primaryButtonText="I&apos;ll do that right now!"
         onPrimaryButtonClick={closeIOSModal}
+        showSecondaryButton={false}
+        showCloseButton={false}
+      />
+
+      {/* PWA Install Modal - shows for Android users when prompt unavailable */}
+      <StandardModal
+        isOpen={showAndroidModal}
+        onClose={closeAndroidModal}
+        title="Nekt in a tap"
+        subtitle="Tap the menu (three dots), then select &quot;Add to Home Screen&quot; or &quot;Install app&quot;"
+        primaryButtonText="Got it!"
+        onPrimaryButtonClick={closeAndroidModal}
         showSecondaryButton={false}
         showCloseButton={false}
       />
