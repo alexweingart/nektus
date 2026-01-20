@@ -440,7 +440,7 @@ const ProfileView: React.FC = () => {
         onClose={closeAndroidModal}
         title="Nekt in a tap"
         subtitle="Tap the menu (three dots), then select &quot;Add to Home Screen&quot; or &quot;Install app&quot;"
-        primaryButtonText="Got it!"
+        primaryButtonText="I&apos;ll do that right now!"
         onPrimaryButtonClick={closeAndroidModal}
         showSecondaryButton={false}
         showCloseButton={false}
