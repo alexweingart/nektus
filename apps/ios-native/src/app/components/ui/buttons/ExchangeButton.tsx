@@ -414,8 +414,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         const result = await response.json();
         if (result.success && result.profile) {
           console.log(`👤 [iOS] QR matched with: ${result.profile.name}`);
-          // Set glow color to matched contact's theme color FIRST
-          setMatchedGlowColor(result.profile.backgroundColors?.[2] ?? null);
           // Emit match-found animation event with contact's background colors
           emitMatchFound(result.profile.backgroundColors);
 
@@ -604,14 +602,14 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     "ble-unavailable",
   ].includes(status);
 
-  // Interpolate pulse animation for shadow
+  // Interpolate pulse animation for shadow (matches web's colorPulse intensity)
   const animatedShadowOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
+    outputRange: [0, 0.9],
   });
   const animatedShadowRadius = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [8, 20],
+    outputRange: [0, 25],
   });
 
   // For qr-scan-matched or ble-matched, wrap in animated view with pulsing shadow
