@@ -451,7 +451,7 @@ export function ContactView(props: ContactViewProps = {}) {
   if (!profile) {
     return (
       <>
-        <PageHeader title="Contact" onBack={handleBack} />
+        <PageHeader title="Contact" onBack={isHistoricalMode ? handleBack : undefined} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Contact not found</Text>
         </View>
@@ -465,8 +465,8 @@ export function ContactView(props: ContactViewProps = {}) {
   return (
     <ScreenTransition>
       <Animated.View style={[styles.container, inAppClip ? { opacity: exitOpacity } : undefined]}>
-        {/* Header with back button */}
-        <PageHeader onBack={handleBack} />
+        {/* Header - back button only for historical mode, not for new exchanges */}
+        <PageHeader onBack={isHistoricalMode ? handleBack : undefined} />
 
         {/* Content area - centers ContactInfo + buttons as a unit (like web) */}
         <View style={styles.content}>

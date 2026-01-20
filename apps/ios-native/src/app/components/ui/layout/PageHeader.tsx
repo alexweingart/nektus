@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Button } from '../buttons/Button';
 
 interface PageHeaderProps {
-  onBack: () => void;
+  onBack?: () => void;
   onSave?: () => void;
   isSaving?: boolean;
   title?: string;
@@ -19,28 +19,33 @@ interface PageHeaderProps {
  */
 export function PageHeader({ onBack, onSave, isSaving = false, title }: PageHeaderProps) {
   const handleBack = () => {
+    if (!onBack) return;
     console.log('[PageHeader] Back button pressed');
     onBack();
   };
 
   return (
     <View style={styles.container}>
-      {/* Back button */}
-      <Button
-        variant="circle"
-        size="icon"
-        onPress={handleBack}
-      >
-        <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-          <Path
-            d="M10 5L4 10L10 15M4 10H16"
-            stroke="#374151"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      </Button>
+      {/* Back button (or placeholder if no onBack) */}
+      {onBack ? (
+        <Button
+          variant="circle"
+          size="icon"
+          onPress={handleBack}
+        >
+          <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+            <Path
+              d="M10 5L4 10L10 15M4 10H16"
+              stroke="#374151"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Button>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
 
       {/* Centered title - pointerEvents none so it doesn't block button touches */}
       {title && (
