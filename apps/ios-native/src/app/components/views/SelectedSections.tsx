@@ -10,10 +10,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import DraggableFlatList, {
+import {
+  NestableDraggableFlatList,
   ScaleDecorator,
   RenderItemParams,
 } from 'react-native-draggable-flatlist';
@@ -241,7 +243,7 @@ export function SelectedSections({
           </View>
         }
       >
-        <DraggableFlatList
+        <NestableDraggableFlatList
           data={visibleFields}
           keyExtractor={(item) => `${item.fieldType}-${item.section}`}
           onDragBegin={dragAndDrop.onDragBegin}
@@ -251,7 +253,11 @@ export function SelectedSections({
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({ item, drag, isActive }: RenderItemParams<ContactEntry>) => (
             <ScaleDecorator activeScale={1.05}>
-              <View
+              <TouchableOpacity
+                onLongPress={drag}
+                delayLongPress={1000}
+                activeOpacity={1}
+                disabled={isActive}
                 style={[
                   styles.draggableItem,
                   isActive && styles.draggableItemActive,
@@ -266,10 +272,9 @@ export function SelectedSections({
                   onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={viewMode}
                   isDraggable={true}
-                  onDragStart={drag}
                   isBeingDragged={isActive}
                 />
-              </View>
+              </TouchableOpacity>
             </ScaleDecorator>
           )}
         />

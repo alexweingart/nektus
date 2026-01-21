@@ -75,7 +75,49 @@ export type ExchangeStatus =
   | 'accepted'
   | 'rejected'
   | 'timeout'
-  | 'error';
+  | 'error'
+  // BLE-specific status values
+  | 'ble-scanning'      // Scanning for nearby BLE devices
+  | 'ble-discovered'    // Found a peer device
+  | 'ble-connecting'    // Establishing GATT connection
+  | 'ble-exchanging'    // Exchanging profile data via GATT
+  | 'ble-matched'       // BLE exchange completed successfully
+  | 'ble-unavailable';  // BLE not available (permission denied, hardware unavailable)
+
+// BLE advertisement data (fits in ~29 bytes for BLE advertising)
+export interface BLEAdvertisementData {
+  userId: string;              // First 8 chars of userId
+  sharingCategory: 'P' | 'W';  // 1 char: Personal or Work
+  buttonPressTimestamp: number; // Seconds since midnight UTC (for role determination)
+}
+
+// BLE profile payload for GATT exchange
+export interface BLEProfilePayload {
+  userId: string;
+  profileImage: string;        // URL only (not embedded image)
+  backgroundColors?: string[];
+  contactEntries: import('./profile').ContactEntry[]; // Filtered by sharing category
+}
+
+// BLE exchange state for tracking progress
+export type BLEExchangeState =
+  | 'idle'
+  | 'starting'
+  | 'advertising'
+  | 'scanning'
+  | 'discovered'
+  | 'connecting'
+  | 'exchanging'
+  | 'completed'
+  | 'failed';
+
+// BLE match result (extends server match format)
+export interface BLEMatchResult {
+  token: string;       // "ble-{timestamp}-{randomId}"
+  youAre: 'A' | 'B';   // A = initiator (earlier timestamp), B = responder
+  profile: UserProfile;
+  matchType: 'ble';
+}
 
 export interface ContactExchangeState {
   status: ExchangeStatus;

@@ -12,6 +12,7 @@ import { useSession } from '../../../providers/SessionProvider';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { getIdToken, signOut as firebaseSignOut } from '../../../../client/auth/firebase';
 import { getApiBaseUrl } from '../../../../client/config';
+import { clearAllLocalStorage, getAppleRefreshToken, deleteAppleRefreshToken } from '../../../../client/auth/cleanup';
 
 // Event name for simulating a Nekt (bump)
 export const ADMIN_SIMULATE_NEKT_EVENT = 'admin-simulate-nekt';
@@ -28,10 +29,10 @@ export default function AdminBanner() {
   }, []);
 
   const handleDeleteAccount = useCallback(async () => {
-    // Confirm before deleting
+    // Confirm before deleting with info about Apple credentials
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This will delete all your data.\n\nNote: To fully reset your Apple Sign-in, you\'ll also need to go to Settings → Apple ID → Sign-In & Security → Sign in with Apple → Nekt → Stop Using Apple ID',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -58,7 +59,39 @@ export default function AdminBanner() {
                 return;
               }
 
-              // Call the delete account API with Firebase ID token
+              // Step 1: Try to revoke Apple token if we have one
+              try {
+                const appleRefreshToken = await getAppleRefreshToken(userId || '');
+                if (appleRefreshToken) {
+                  console.log('[AdminBanner] Found Apple refresh token, attempting revocation...');
+                  const baseUrl = getApiBaseUrl();
+                  const revokeResponse = await fetch(
+                    `${baseUrl}/api/auth/apple-revoke`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                      },
+                      body: JSON.stringify({
+                        refreshToken: appleRefreshToken,
+                      }),
+                    }
+                  );
+                  if (revokeResponse.ok) {
+                    console.log('[AdminBanner] Apple token revoked successfully');
+                  } else {
+                    console.warn('[AdminBanner] Apple token revocation failed:', revokeResponse.status);
+                  }
+                  // Delete local token regardless of revocation result
+                  await deleteAppleRefreshToken(userId || '');
+                }
+              } catch (revokeError) {
+                console.error('[AdminBanner] Error revoking Apple token:', revokeError);
+                // Continue with deletion even if revocation fails
+              }
+
+              // Step 2: Call the delete account API with Firebase ID token
               try {
                 const baseUrl = getApiBaseUrl();
                 const response = await fetch(
@@ -92,16 +125,27 @@ export default function AdminBanner() {
                 // Continue with local cleanup even if API fails
               }
 
-              // Sign out from Firebase
+              // Step 3: Clear all local storage (AsyncStorage, SecureStore)
+              console.log('[AdminBanner] Clearing all local storage...');
+              await clearAllLocalStorage();
+
+              // Step 4: Sign out from Firebase
               await firebaseSignOut();
 
-              // Also call the session signOut to clear local state
+              // Step 5: Also call the session signOut to clear local state
               await signOut();
 
               setDeleteStatus('success');
               closeAdminMode();
 
               console.log('[AdminBanner] Account deletion complete');
+
+              // Show success with reminder about Apple
+              Alert.alert(
+                'Account Deleted',
+                'Your account has been deleted.\n\nTo see "Join" instead of "Sign in" next time, revoke Apple access in Settings → Apple ID → Sign-In & Security → Sign in with Apple → Nekt → Stop Using Apple ID',
+                [{ text: 'OK' }]
+              );
             } catch (err) {
               console.error('[AdminBanner] Error deleting account:', err);
               setDeleteStatus('error');

@@ -3,9 +3,10 @@
  * Adapted from: apps/web/src/client/contacts/save.ts
  *
  * Changes from web:
- * - Uses react-native-contacts for native contact saving
+ * - Uses react-native-contacts for native contact saving (full app only)
+ * - Falls back to vCard for App Clip (no contacts access)
  * - Simplified flow (no Google Contacts integration on iOS)
- * - Firebase-only save with optional native contacts
+ * - Me Card extraction when permission is granted
  */
 
 import Contacts, { Contact } from 'react-native-contacts';
@@ -13,11 +14,22 @@ import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import type { UserProfile } from '@nektus/shared-types';
 import { getApiBaseUrl, getIdToken } from '../auth/firebase';
 import { getFieldValue } from '@nektus/shared-client';
+import { isAppClip } from '../auth/session-handoff';
+import { openVCard } from './vcard';
+import { getMeCard, getMeCardImage } from '../native/MeCardWrapper';
 
 export interface ContactSaveResult {
   success: boolean;
   firebase: { success: boolean; error?: string };
-  native: { success: boolean; error?: string };
+  native: { success: boolean; error?: string; usedVCard?: boolean };
+}
+
+export interface MeCardData {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  imageBase64?: string;
 }
 
 /**
@@ -106,13 +118,20 @@ async function saveToFirebase(token: string): Promise<{ success: boolean; error?
 
 /**
  * Main contact save flow
+ *
+ * Flow:
+ * - App Clip: Firebase save + vCard (no native contacts access)
+ * - Full App: Firebase save + request permission + native contacts (vCard fallback if denied)
  */
 export async function saveContactFlow(
   profile: UserProfile,
   token: string,
-  saveToNative: boolean = true
+  options: { saveToNative?: boolean; onMeCardExtracted?: (data: MeCardData) => void } = {}
 ): Promise<ContactSaveResult> {
+  const { saveToNative = true, onMeCardExtracted } = options;
+
   console.log('🔍 Starting iOS contact save flow');
+  console.log(`📱 Running in: ${isAppClip() ? 'App Clip' : 'Full App'}`);
 
   // Save to Firebase first
   const firebaseResult = await saveToFirebase(token);
@@ -125,10 +144,61 @@ export async function saveContactFlow(
     };
   }
 
-  // Optionally save to native contacts
-  let nativeResult: { success: boolean; error?: string } = { success: false, error: 'Skipped' };
-  if (saveToNative) {
-    nativeResult = await saveToNativeContacts(profile);
+  console.log('✅ Firebase save successful');
+
+  // App Clip: Use vCard only (no contacts access available)
+  if (isAppClip()) {
+    console.log('📱 App Clip: Using vCard fallback');
+    const vCardOpened = await openVCard(profile);
+    return {
+      success: true,
+      firebase: firebaseResult,
+      native: {
+        success: vCardOpened,
+        error: vCardOpened ? undefined : 'Failed to open vCard',
+        usedVCard: true,
+      },
+    };
+  }
+
+  // Full App: Try native contacts with permission request
+  if (!saveToNative) {
+    return {
+      success: true,
+      firebase: firebaseResult,
+      native: { success: false, error: 'Skipped by user preference' },
+    };
+  }
+
+  // Request contacts permission
+  const nativeResult = await saveToNativeContacts(profile);
+
+  // If native save succeeded, extract Me Card data for user's profile
+  if (nativeResult.success && onMeCardExtracted) {
+    console.log('📇 Extracting Me Card data...');
+    extractMeCardData().then(meCardData => {
+      if (meCardData) {
+        console.log('📇 Me Card data extracted');
+        onMeCardExtracted(meCardData);
+      }
+    }).catch(err => {
+      console.warn('📇 Failed to extract Me Card:', err);
+    });
+  }
+
+  // If permission denied, fall back to vCard
+  if (!nativeResult.success && nativeResult.error === 'Contacts permission denied') {
+    console.log('📱 Permission denied, falling back to vCard');
+    const vCardOpened = await openVCard(profile);
+    return {
+      success: true,
+      firebase: firebaseResult,
+      native: {
+        success: vCardOpened,
+        error: vCardOpened ? 'Permission denied, used vCard' : 'Failed to open vCard',
+        usedVCard: true,
+      },
+    };
   }
 
   return {
@@ -136,6 +206,39 @@ export async function saveContactFlow(
     firebase: firebaseResult,
     native: nativeResult,
   };
+}
+
+/**
+ * Extract Me Card data for auto-filling user's profile
+ * Only call this after contacts permission has been granted
+ */
+export async function extractMeCardData(): Promise<MeCardData | null> {
+  try {
+    const meCard = await getMeCard();
+    if (!meCard) {
+      return null;
+    }
+
+    const data: MeCardData = {
+      firstName: meCard.firstName,
+      lastName: meCard.lastName,
+      phone: meCard.phoneNumbers?.[0],
+      email: meCard.emails?.[0],
+    };
+
+    // Get image if available
+    if (meCard.hasImage) {
+      const imageBase64 = await getMeCardImage();
+      if (imageBase64) {
+        data.imageBase64 = imageBase64;
+      }
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Failed to extract Me Card data:', error);
+    return null;
+  }
 }
 
 /**

@@ -87,7 +87,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [contentHeight, setContentHeight] = useState(0); // Track content height for stable QR transition
+  const [innerContentHeight, setInnerContentHeight] = useState(0); // Track inner content height (without padding) for stable QR transition
   const containerWidthRef = useRef(0);
   const selectedModeRef = useRef<ProfileViewMode>('Personal');
   const translateX = useRef(new Animated.Value(0)).current;
@@ -140,15 +140,21 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     return profile?.contactEntries || [];
   }, [profile, selectedMode, hasLoadedFromStorage]);
 
-  // Handle layout to measure container width and content height
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    console.log('[ProfileInfo] Layout measured, width:', width, 'height:', height);
+  // Handle layout to measure container width (card container)
+  const handleContainerLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    console.log('[ProfileInfo] Container width measured:', width);
     containerWidthRef.current = width;
-    setContainerWidth(width); // For rendering
+    setContainerWidth(width);
+  };
+
+  // Handle layout to measure inner content height (without card padding) - matches web approach
+  const handleInnerContentLayout = (event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    console.log('[ProfileInfo] Inner content height measured:', height);
     // Only capture height when not showing QR code (to maintain stable size)
     if (!showQRCode && height > 0) {
-      setContentHeight(height);
+      setInnerContentHeight(height);
     }
   };
 
@@ -274,10 +280,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         style={[
           styles.cardContainer,
           { paddingVertical: showQRCode ? 24 : 16 },
-          // Maintain stable height when showing QR code
-          showQRCode && contentHeight > 0 ? { minHeight: contentHeight } : undefined,
         ]}
-        onLayout={handleLayout}
+        onLayout={handleContainerLayout}
       >
         {/* Backdrop blur matching web */}
         <BlurView
@@ -290,17 +294,19 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         {showQRCode && matchToken ? (
           <View style={[
             styles.qrCodeContainer,
-            // Use measured height minus padding difference (24-16=8px each side = 16px total)
-            contentHeight > 0 ? { height: contentHeight - 16 } : undefined,
+            // Use inner content height minus padding difference (24-16=8px each side = 16px total)
+            // This matches web's adjustedHeight = contentHeight - 16 calculation
+            innerContentHeight > 0 ? { height: innerContentHeight - 16 } : undefined,
           ]}>
             <QRCode
               value={`${webBaseUrl}/connect?token=${matchToken}`}
-              size={Math.min(containerWidth - 48, contentHeight > 0 ? contentHeight - 32 : 260)} // Match web's sizing logic
+              size={Math.min(containerWidth - 48, innerContentHeight > 0 ? innerContentHeight - 32 : 260)}
               color="#FFFFFF"
               backgroundColor="transparent"
             />
           </View>
         ) : (
+        <View onLayout={handleInnerContentLayout}>
         <Animated.View
           style={[
             styles.carouselContainer,
@@ -396,17 +402,16 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             </View>
           </View>
         </Animated.View>
-        )}
 
-        {/* Profile View Selector - only show when not showing QR code */}
-        {!showQRCode && (
-          <View style={styles.selectorContainer}>
-            <ProfileViewSelector
-              selected={selectedMode}
-              onSelect={handleModeChange}
-              tintColor={profile?.backgroundColors?.[2]}
-            />
-          </View>
+        {/* Profile View Selector */}
+        <View style={styles.selectorContainer}>
+          <ProfileViewSelector
+            selected={selectedMode}
+            onSelect={handleModeChange}
+            tintColor={profile?.backgroundColors?.[2]}
+          />
+        </View>
+        </View>
         )}
       </View>
     </Animated.View>
@@ -439,6 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     // paddingVertical is set dynamically: 24 for QR mode, 16 for normal (matching web py-6/py-4)
+    // Height is controlled by inner content + padding, not minHeight (matching web approach)
   },
   carouselContainer: {
     flexDirection: 'row',

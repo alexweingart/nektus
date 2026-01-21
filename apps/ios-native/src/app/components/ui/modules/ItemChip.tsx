@@ -1,9 +1,11 @@
 /**
- * ItemChip component - List item with icon, title, subtitle, and optional action
- * Used in HistoryView to display contact list items
+ * ItemChip component - Generalized chip/item component
+ * Used for calendar items, location items, and meeting suggestion chips
+ *
+ * Adapted from: apps/web/src/app/components/ui/modules/ItemChip.tsx
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, ReactNode } from 'react';
 import {
   View,
   Text,
@@ -12,25 +14,36 @@ import {
   ActivityIndicator,
   GestureResponderEvent,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 
 interface ItemChipProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle?: string;
-  truncateTitle?: boolean;
+  actionButton?: ReactNode;  // Optional custom action button (for full control)
+  onActionClick?: (e: GestureResponderEvent) => void;  // Standardized action button handler
+  actionIcon?: 'trash' | 'calendar' | 'chevron' | ReactNode;  // Predefined icons or custom
+  isActionLoading?: boolean;  // Show loading spinner on action button
   onClick?: () => void;
-  onPress?: () => void; // Alias for onClick
-  onActionClick?: (e: GestureResponderEvent) => void;
-  onActionPress?: () => void; // Alias for onActionClick
-  onLongPress?: () => void;
-  actionIcon?: 'calendar' | 'chevron' | 'trash';
-  isActionLoading?: boolean;
+  onPress?: () => void;  // Alias for onClick
+  onLongPress?: () => void;  // Long-press handler (500ms hold)
+  truncateTitle?: boolean;  // Enable text truncation with ellipsis
 }
+
+// Trash icon component (stroke style like web)
+const TrashIcon = () => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2}>
+    <Path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
+  </Svg>
+);
 
 // Calendar icon component
 const CalendarIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 20 20" fill="#374151">
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="#ffffff">
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -41,7 +54,7 @@ const CalendarIcon = () => (
 
 // Chevron icon component
 const ChevronIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 20 20" fill="#9CA3AF">
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="#ffffff">
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -50,13 +63,21 @@ const ChevronIcon = () => (
   </Svg>
 );
 
-// Trash icon component
-const TrashIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 20 20" fill="#EF4444">
+// Loading spinner
+const LoadingSpinner = () => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Circle
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="#ffffff"
+      strokeOpacity={0.25}
+      strokeWidth={4}
+    />
     <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+      fill="#ffffff"
+      fillOpacity={0.75}
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
     />
   </Svg>
 );
@@ -65,19 +86,16 @@ export function ItemChip({
   icon,
   title,
   subtitle,
-  truncateTitle = false,
+  actionButton,
+  onActionClick,
+  actionIcon,
+  isActionLoading = false,
   onClick,
   onPress,
-  onActionClick,
-  onActionPress,
   onLongPress,
-  actionIcon = 'chevron',
-  isActionLoading = false,
+  truncateTitle = false,
 }: ItemChipProps) {
-  // Support both onClick and onPress (alias)
   const handlePress = onClick || onPress;
-  // Support both onActionClick and onActionPress (alias)
-  const handleActionClick = onActionClick || onActionPress;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePressIn = () => {
@@ -97,62 +115,79 @@ export function ItemChip({
 
   const onActionButtonPress = (e: GestureResponderEvent) => {
     e.stopPropagation();
-    if (handleActionClick && !isActionLoading) {
-      if (onActionClick) {
-        onActionClick(e);
-      } else if (onActionPress) {
-        onActionPress();
-      }
+    if (onActionClick && !isActionLoading) {
+      onActionClick(e);
     }
   };
 
-  return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={0.7}
-      delayLongPress={500}
-    >
-      {/* Icon */}
-      <View style={styles.iconContainer}>
-        {icon}
-      </View>
+  // Render predefined icon
+  const renderActionIcon = () => {
+    if (actionIcon === 'trash') {
+      return <TrashIcon />;
+    } else if (actionIcon === 'calendar') {
+      return <CalendarIcon />;
+    } else if (actionIcon === 'chevron') {
+      return <ChevronIcon />;
+    }
+    return actionIcon as ReactNode; // Custom ReactNode
+  };
 
-      {/* Content */}
-      <View style={styles.content}>
-        <Text
-          style={styles.title}
-          numberOfLines={truncateTitle ? 1 : undefined}
-          ellipsizeMode="tail"
-        >
-          {title}
-        </Text>
-        {subtitle && (
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        )}
-      </View>
+  const hasAction = actionButton || onActionClick;
+
+  return (
+    <View style={styles.container}>
+      {/* Clickable area */}
+      <TouchableOpacity
+        style={styles.contentArea}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={handlePress ? 0.7 : 1}
+        delayLongPress={500}
+        disabled={!handlePress}
+      >
+        {/* Icon */}
+        <View style={styles.iconContainer}>
+          {icon}
+        </View>
+
+        {/* Content */}
+        <View style={[styles.content, hasAction ? styles.contentWithAction : null]}>
+          <Text
+            style={styles.title}
+            numberOfLines={truncateTitle ? 1 : undefined}
+            ellipsizeMode="tail"
+          >
+            {title}
+          </Text>
+          {subtitle && (
+            <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
+              {subtitle}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
 
       {/* Action Button */}
-      {handleActionClick && (
+      {actionButton ? (
+        <View style={styles.actionButtonContainer}>
+          {actionButton}
+        </View>
+      ) : onActionClick ? (
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, isActionLoading && styles.actionButtonLoading]}
           onPress={onActionButtonPress}
           activeOpacity={0.7}
+          disabled={isActionLoading}
         >
           {isActionLoading ? (
-            <ActivityIndicator size="small" color="#374151" />
-          ) : actionIcon === 'trash' ? (
-            <TrashIcon />
-          ) : actionIcon === 'calendar' ? (
-            <CalendarIcon />
+            <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <ChevronIcon />
+            renderActionIcon()
           )}
         </TouchableOpacity>
-      )}
-    </TouchableOpacity>
+      ) : null}
+    </View>
   );
 }
 
@@ -160,35 +195,55 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // bg-black/60
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', // border-white/10
+    borderRadius: 16, // rounded-2xl
+  },
+  contentArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
   },
   iconContainer: {
-    marginRight: 12,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
+    marginLeft: 16,
+    minWidth: 0,
+  },
+  contentWithAction: {
+    marginRight: 12,
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '500',
+    color: '#ffffff',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: 'rgba(209, 213, 219, 1)', // text-gray-300
     marginTop: 2,
+  },
+  actionButtonContainer: {
+    flexShrink: 0,
   },
   actionButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // bg-white/10
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)', // border-white/20
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    flexShrink: 0,
+  },
+  actionButtonLoading: {
+    opacity: 0.5,
   },
 });
 

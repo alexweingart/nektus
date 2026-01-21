@@ -11,6 +11,12 @@ import * as SecureStore from "expo-secure-store";
 
 const SESSION_KEY = "nekt_session_handoff";
 
+// Extended options type for iOS keychain access group sharing (App Clip <-> Full App)
+// expo-secure-store doesn't expose this in types but it works at runtime on iOS
+interface SecureStoreOptionsWithAccessGroup extends SecureStore.SecureStoreOptions {
+  keychainAccessGroup?: string;
+}
+
 // Lazy-load isClip to handle when native module isn't available (dev client/simulator)
 let isClipFn: (() => boolean) | null = null;
 try {
@@ -61,7 +67,7 @@ export async function storeSessionForHandoff(
   try {
     await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(data), {
       keychainAccessGroup: APP_GROUP,
-    });
+    } as SecureStoreOptionsWithAccessGroup);
     console.log("[session-handoff] Session stored successfully");
   } catch (error) {
     console.error("[session-handoff] Failed to store session:", error);
@@ -90,7 +96,7 @@ export async function retrieveHandoffSession(): Promise<HandoffSession | null> {
   try {
     const data = await SecureStore.getItemAsync(SESSION_KEY, {
       keychainAccessGroup: APP_GROUP,
-    });
+    } as SecureStoreOptionsWithAccessGroup);
 
     if (!data) {
       console.log("[session-handoff] No handoff session found");
@@ -125,7 +131,7 @@ export async function clearHandoffSession(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(SESSION_KEY, {
       keychainAccessGroup: APP_GROUP,
-    });
+    } as SecureStoreOptionsWithAccessGroup);
     console.log("[session-handoff] Handoff session cleared");
   } catch (error) {
     console.error("[session-handoff] Failed to clear session:", error);

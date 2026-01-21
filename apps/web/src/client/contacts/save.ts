@@ -14,8 +14,6 @@ import {
   clearExchangeState,
   shouldShowUpsell,
   isReturningFromAuth,
-  hasCompletedFirstSave,
-  markFirstSaveCompleted,
   markGoogleContactsPermissionGranted
 } from '@/client/contacts/exchange/state';
 

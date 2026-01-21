@@ -66,6 +66,12 @@ export function ChatInput({
     }
   }, [value, disabled, sendDisabled, onSend]);
 
+  // Convert onChange format: ChatInput expects (e: { target: { value: string } })
+  // but ExpandingInput provides (text: string)
+  const handleInputChange = useCallback((text: string) => {
+    onChange({ target: { value: text } });
+  }, [onChange]);
+
   // Check if send button should be disabled
   const actualContent = value.replace(/\u200B/g, '').trim();
   const isSendDisabled = !actualContent || sendDisabled;
@@ -87,11 +93,11 @@ export function ChatInput({
         <View style={styles.inputWrapper}>
           <ExpandingInput
             value={value}
-            onChangeEvent={onChange}
+            onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder={!isFocused && !actualContent ? placeholder : ''}
-            disabled={disabled}
+            editable={!disabled}
             variant="white"
             returnKeyType="send"
             onSubmitEditing={handleSubmitEditing}

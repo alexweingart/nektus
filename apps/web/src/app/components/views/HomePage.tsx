@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
 import { Heading, Text } from '../ui/Typography';
-import { isIOS17OrHigher, isIOSPlatform } from '@/client/platform-detection';
+import { isIOSPlatform } from '@/client/platform-detection';
 
 // Apple JS SDK type declarations
 declare global {

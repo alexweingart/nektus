@@ -1,136 +1,94 @@
 /**
  * Drag and Drop Hook for iOS
- * NEW file for iOS - web version uses DOM-based drag and drop
+ * Adapted from: apps/web/src/client/hooks/use-drag-and-drop.ts
  *
- * This hook provides drag-and-drop functionality for reordering fields
- * using react-native-draggable-flatlist (to be installed when needed)
- *
- * Note: This is a placeholder implementation. Full drag-and-drop
- * requires react-native-draggable-flatlist or similar library.
+ * Changes from web:
+ * - Uses react-native-draggable-flatlist instead of DOM events
+ * - Much simpler since library handles gestures, animations, and drop detection
+ * - Preserves same interface where possible for consistency
  */
 
 import { useState, useCallback } from 'react';
 import type { ContactEntry } from '@nektus/shared-types';
 
 interface UseDragAndDropProps {
-  items: ContactEntry[];
-  onReorder: (reorderedItems: ContactEntry[]) => void;
-  isEnabled?: boolean;
+  section: 'personal' | 'work';
+  getVisibleFields: () => ContactEntry[];
+  onReorder?: (newList: ContactEntry[]) => void;
 }
 
-interface DragAndDropState {
-  isDragging: boolean;
-  draggedIndex: number | null;
-  targetIndex: number | null;
+interface UseDragAndDropReturn {
+  // State - matches web interface
+  isDragMode: boolean;
+  draggedField: ContactEntry | null;
+  draggedFieldIndex: number | null;
+
+  // Handlers for DraggableFlatList
+  onDragBegin: (index: number) => void;
+  onDragEnd: (data: { data: ContactEntry[]; from: number; to: number }) => void;
+
+  // Accessibility functions (keep from original)
+  moveUp: (index: number) => void;
+  moveDown: (index: number) => void;
 }
 
 export function useDragAndDrop({
-  items,
+  section: _section,
+  getVisibleFields,
   onReorder,
-  isEnabled = true,
-}: UseDragAndDropProps) {
-  const [state, setState] = useState<DragAndDropState>({
-    isDragging: false,
-    draggedIndex: null,
-    targetIndex: null,
-  });
+}: UseDragAndDropProps): UseDragAndDropReturn {
+  const [isDragMode, setIsDragMode] = useState(false);
+  const [draggedField, setDraggedField] = useState<ContactEntry | null>(null);
+  const [draggedFieldIndex, setDraggedFieldIndex] = useState<number | null>(null);
 
   /**
-   * Handle drag start
+   * Called when drag begins
+   * DraggableFlatList triggers this via onDragBegin prop
    */
-  const handleDragStart = useCallback(
+  const onDragBegin = useCallback(
     (index: number) => {
-      if (!isEnabled) return;
+      const visibleFields = getVisibleFields();
+      const field = visibleFields[index];
 
-      setState({
-        isDragging: true,
-        draggedIndex: index,
-        targetIndex: index,
-      });
+      setIsDragMode(true);
+      setDraggedField(field || null);
+      setDraggedFieldIndex(index);
     },
-    [isEnabled]
+    [getVisibleFields]
   );
 
   /**
-   * Handle drag over (updating target position)
+   * Called when drag ends
+   * DraggableFlatList provides the reordered data array
    */
-  const handleDragOver = useCallback(
-    (index: number) => {
-      if (!state.isDragging) return;
+  const onDragEnd = useCallback(
+    ({ data, from, to }: { data: ContactEntry[]; from: number; to: number }) => {
+      // Reset drag state
+      setIsDragMode(false);
+      setDraggedField(null);
+      setDraggedFieldIndex(null);
 
-      setState((prev) => ({
-        ...prev,
-        targetIndex: index,
-      }));
+      // Only call onReorder if position actually changed
+      if (from !== to && onReorder) {
+        // Update order field on each item to match new positions
+        const updatedData = data.map((item, index) => ({
+          ...item,
+          order: index,
+        }));
+        onReorder(updatedData);
+      }
     },
-    [state.isDragging]
+    [onReorder]
   );
 
   /**
-   * Handle drag end - reorder items
-   */
-  const handleDragEnd = useCallback(() => {
-    if (!state.isDragging || state.draggedIndex === null || state.targetIndex === null) {
-      setState({
-        isDragging: false,
-        draggedIndex: null,
-        targetIndex: null,
-      });
-      return;
-    }
-
-    const { draggedIndex, targetIndex } = state;
-
-    // If dropped in same position, no change needed
-    if (draggedIndex === targetIndex) {
-      setState({
-        isDragging: false,
-        draggedIndex: null,
-        targetIndex: null,
-      });
-      return;
-    }
-
-    // Reorder the items
-    const reorderedItems = [...items];
-    const [movedItem] = reorderedItems.splice(draggedIndex, 1);
-    reorderedItems.splice(targetIndex, 0, movedItem);
-
-    // Update order field on each item
-    const updatedItems = reorderedItems.map((item, index) => ({
-      ...item,
-      order: index,
-    }));
-
-    // Call the reorder callback
-    onReorder(updatedItems);
-
-    // Reset state
-    setState({
-      isDragging: false,
-      draggedIndex: null,
-      targetIndex: null,
-    });
-  }, [state, items, onReorder]);
-
-  /**
-   * Handle drag cancel
-   */
-  const handleDragCancel = useCallback(() => {
-    setState({
-      isDragging: false,
-      draggedIndex: null,
-      targetIndex: null,
-    });
-  }, []);
-
-  /**
-   * Move item up in the list
+   * Move item up in the list (for accessibility/button-based reordering)
    */
   const moveUp = useCallback(
     (index: number) => {
-      if (index <= 0) return;
+      if (index <= 0 || !onReorder) return;
 
+      const items = getVisibleFields();
       const reorderedItems = [...items];
       const [movedItem] = reorderedItems.splice(index, 1);
       reorderedItems.splice(index - 1, 0, movedItem);
@@ -143,15 +101,16 @@ export function useDragAndDrop({
 
       onReorder(updatedItems);
     },
-    [items, onReorder]
+    [getVisibleFields, onReorder]
   );
 
   /**
-   * Move item down in the list
+   * Move item down in the list (for accessibility/button-based reordering)
    */
   const moveDown = useCallback(
     (index: number) => {
-      if (index >= items.length - 1) return;
+      const items = getVisibleFields();
+      if (index >= items.length - 1 || !onReorder) return;
 
       const reorderedItems = [...items];
       const [movedItem] = reorderedItems.splice(index, 1);
@@ -165,42 +124,22 @@ export function useDragAndDrop({
 
       onReorder(updatedItems);
     },
-    [items, onReorder]
-  );
-
-  /**
-   * Render callback for use with FlatList/DraggableFlatList
-   * Returns props to be spread onto list items
-   */
-  const getItemProps = useCallback(
-    (index: number) => ({
-      onDragStart: () => handleDragStart(index),
-      onDragOver: () => handleDragOver(index),
-      onDragEnd: handleDragEnd,
-      isDragged: state.draggedIndex === index,
-      isTarget: state.targetIndex === index && state.draggedIndex !== index,
-    }),
-    [handleDragStart, handleDragOver, handleDragEnd, state]
+    [getVisibleFields, onReorder]
   );
 
   return {
     // State
-    isDragging: state.isDragging,
-    draggedIndex: state.draggedIndex,
-    targetIndex: state.targetIndex,
+    isDragMode,
+    draggedField,
+    draggedFieldIndex,
 
-    // Handlers
-    handleDragStart,
-    handleDragOver,
-    handleDragEnd,
-    handleDragCancel,
+    // Handlers for DraggableFlatList
+    onDragBegin,
+    onDragEnd,
 
-    // Simple move functions (for accessibility/buttons)
+    // Accessibility
     moveUp,
     moveDown,
-
-    // Helper for FlatList items
-    getItemProps,
   };
 }
 

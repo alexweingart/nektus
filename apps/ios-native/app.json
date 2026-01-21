@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "deploymentTarget": "17.0",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
@@ -83,7 +83,7 @@
           "deploymentTarget": "17.0",
           "groupIdentifier": "group.com.nektus.app",
           "appleSignin": true,
-          "entryPoint": "./src/AppClip.tsx",
+          "entryPoint": "./AppClip.tsx",
           "excludedPackages": [
             "firebase",
             "react-native-reanimated",

@@ -5,7 +5,7 @@
  * Changes from web:
  * - Uses React Native components
  * - Uses iOS input components (StaticInput, DropdownPhoneInput, ExpandingInput)
- * - Simplified drag-and-drop handling (handled at parent level)
+ * - Drag handle implemented via ref/props instead of data-* attributes
  */
 
 import React from 'react';
@@ -30,6 +30,7 @@ interface ProfileFieldProps {
   onConfirm: (fieldType: string) => void;
   currentViewMode: 'Personal' | 'Work';
   isDraggable?: boolean;
+  isBeingDragged?: boolean;
 }
 
 const getPlaceholder = (fieldType: string): string => {
@@ -58,6 +59,7 @@ export function ProfileField({
   onConfirm,
   currentViewMode,
   isDraggable = false,
+  isBeingDragged = false,
 }: ProfileFieldProps) {
   const fieldType = profile.fieldType;
   const placeholder = getPlaceholder(fieldType);
@@ -66,7 +68,11 @@ export function ProfileField({
 
   // Handle placeholder for drag & drop
   if (fieldType === 'placeholder') {
-    return <View style={styles.placeholder} />;
+    return (
+      <View style={styles.container}>
+        <View style={styles.placeholder} />
+      </View>
+    );
   }
 
   // Phone input
@@ -85,7 +91,7 @@ export function ProfileField({
     );
   }
 
-  // Custom link input (expanding)
+  // Custom link input (expanding with icon and visibility toggle)
   if (profile.linkType === 'custom') {
     return (
       <View style={styles.container}>
@@ -95,13 +101,28 @@ export function ProfileField({
             onChange(fieldType, newValue, profile.section);
           }}
           placeholder={placeholder}
-          variant="default"
+          variant="hideable"
+          isHidden={shouldShowAsHidden}
+          onToggleHide={() => {
+            fieldSectionManager.toggleFieldVisibility(fieldType, currentViewMode);
+          }}
+          icon={
+            <View style={styles.iconWrapper}>
+              <SocialIcon
+                platform={fieldType}
+                username={value}
+                size="sm"
+                customIcon={profile.icon}
+                linkType={profile.linkType}
+              />
+            </View>
+          }
         />
       </View>
     );
   }
 
-  // Standard input with icon
+  // Standard input with icon and visibility toggle
   return (
     <View style={styles.container}>
       <StaticInput
@@ -141,7 +162,7 @@ const styles = StyleSheet.create({
     maxWidth: 448,
   },
   placeholder: {
-    height: 56,
+    height: 56, // 3.5rem
     width: '100%',
   },
   iconWrapper: {
@@ -158,7 +179,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FBBF24',
+    backgroundColor: '#FBBF24', // bg-yellow-400
     borderWidth: 1,
     borderColor: '#ffffff',
   },

@@ -36,6 +36,7 @@ export interface AppleMobileTokenResponse {
     image: string | null;
   };
   profile?: unknown;
+  appleRefreshToken?: string | null; // For account deletion/revocation
 }
 
 /**
@@ -92,11 +93,14 @@ export async function signInWithApple(): Promise<AppleAuthResult> {
 /**
  * Exchange Apple identity token for Firebase custom token
  * This creates/finds the user account on the backend
+ *
+ * Also sends authorization code to get refresh token for account deletion support
  */
 export async function exchangeAppleTokenForFirebase(
   identityToken: string,
   fullName?: { givenName: string | null; familyName: string | null },
-  email?: string | null
+  email?: string | null,
+  authorizationCode?: string | null
 ): Promise<AppleMobileTokenResponse> {
   const apiBaseUrl = getApiBaseUrl();
 
@@ -107,6 +111,7 @@ export async function exchangeAppleTokenForFirebase(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       appleIdentityToken: identityToken,
+      appleAuthorizationCode: authorizationCode, // For refresh token (account deletion)
       appleFullName: fullName,
       appleEmail: email,
     }),
@@ -120,6 +125,10 @@ export async function exchangeAppleTokenForFirebase(
 
   const data = await response.json();
   console.log("[apple] Token exchange successful, userId:", data.userId);
+
+  if (data.appleRefreshToken) {
+    console.log("[apple] Received Apple refresh token for revocation support");
+  }
 
   return data;
 }

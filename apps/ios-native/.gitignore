@@ -44,3 +44,6 @@ yarn-error.*
 
 # Firebase configuration (contains sensitive API keys)
 GoogleService-Info.plist
+
+# Build artifacts
+*.ipa

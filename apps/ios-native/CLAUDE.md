@@ -60,13 +60,14 @@ Only perform clean builds when:
 
 ```bash
 # Standard incremental build (PREFERRED)
-npm run ios
+bun run ios
+# or equivalently: npm run ios, expo run:ios
 
 # Clean (only when necessary)
-npm run clean
+bun run clean
 
 # EAS builds (uses their build servers)
-npm run build:ios
+bun run build:ios
 ```
 
 ## Notes for Claude Code
@@ -116,9 +117,8 @@ No `useFrameworks` setting needed with Firebase JS SDK.
 ### Incremental Builds (Day-to-Day Development)
 For normal development after initial setup, just use:
 ```bash
-npm run ios
-# or
-expo run:ios
+bun run ios
+# or equivalently: npm run ios, expo run:ios
 ```
 No special steps needed - incremental builds work normally.
 
@@ -134,6 +134,16 @@ This script:
 1. Runs `expo prebuild --clean`
 2. Restores the Podfile from `Podfile.backup` (contains all customizations)
 3. Runs `pod install`
+
+**Troubleshooting: If you get codegen header errors after running clean-prebuild.sh:**
+```
+'react/renderer/components/rnscreens/Props.h' file not found
+```
+Run pod install again - the first run generates the codegen, the second run properly configures the header search paths:
+```bash
+cd ios && pod install
+```
+Then build normally with `bun run ios`.
 
 **Manual Alternative (if script fails):**
 

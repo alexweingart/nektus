@@ -26,6 +26,7 @@ import {
   isAppleAuthAvailable,
   AppleMobileTokenResponse,
 } from "../../client/auth/apple";
+import { storeAppleRefreshToken } from "../../client/auth/cleanup";
 import {
   retrieveHandoffSession,
   clearHandoffSession,
@@ -225,12 +226,20 @@ export function SessionProvider({ children }: SessionProviderProps) {
       }
 
       // Step 2: Exchange Apple token for Firebase token via our backend
+      // Also send authorization code to get refresh token for account deletion
       console.log("[SessionProvider] Exchanging Apple token with backend...");
       const serverResponse = await exchangeAppleTokenForFirebase(
         appleResult.identityToken,
         appleResult.fullName,
-        appleResult.email
+        appleResult.email,
+        appleResult.authorizationCode // For refresh token (account deletion)
       );
+
+      // Step 2.5: Store Apple refresh token if received (for account deletion)
+      if (serverResponse.appleRefreshToken && serverResponse.userId) {
+        await storeAppleRefreshToken(serverResponse.userId, serverResponse.appleRefreshToken);
+        console.log("[SessionProvider] Stored Apple refresh token for account deletion");
+      }
 
       console.log("[SessionProvider] Backend response received, signing into Firebase...");
 
@@ -308,7 +317,22 @@ export function useSession(): SessionContextValue {
   const context = useContext(SessionContext);
 
   if (!context) {
-    throw new Error("useSession must be used within a SessionProvider");
+    // In App Clip mode, return default values instead of throwing
+    // This allows ContactView to be used without SessionProvider
+    if (isFullApp()) {
+      throw new Error("useSession must be used within a SessionProvider");
+    }
+    // App Clip fallback - return minimal session interface
+    return {
+      data: null,
+      status: "unauthenticated",
+      signIn: async () => {},
+      signOut: async () => {},
+      update: async () => null,
+      isSigningIn: false,
+      fromHandoff: false,
+      clearHandoffFlag: () => {},
+    };
   }
 
   return context;

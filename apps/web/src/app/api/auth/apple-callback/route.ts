@@ -29,8 +29,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const idToken = formData.get("id_token");
-    const code = formData.get("code");
-    const state = formData.get("state");
     const error = formData.get("error");
 
     if (error) {
