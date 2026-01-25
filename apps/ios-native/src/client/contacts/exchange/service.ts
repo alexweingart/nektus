@@ -124,18 +124,18 @@ export class RealTimeContactExchangeService {
       if (motionPermissionGranted) {
         // Start fresh motion detection session
         MotionDetector.startNewSession();
-        console.log('👂 [iOS] Waiting for bump or scan (10s timeout)...');
+        console.log('👂 [iOS] Waiting for bump or scan (20s timeout)...');
       } else {
-        console.log('📱 [iOS] QR-only mode - waiting for scan (10s timeout)...');
+        console.log('📱 [iOS] QR-only mode - waiting for scan (20s timeout)...');
       }
 
       // Start polling immediately for QR scan matches
       this.startMatchPolling();
       console.log('🔄 [iOS] Started polling for QR scan matches');
 
-      // Set 10-second timeout for entire exchange process
+      // Set 20-second timeout for entire exchange process
       this.waitingForBumpTimeout = setTimeout(async () => {
-        console.log('⏰ [iOS] Exchange timed out after 10 seconds');
+        console.log('⏰ [iOS] Exchange timed out after 20 seconds');
 
         // Stop motion detection and polling
         await this.disconnect();
@@ -147,7 +147,7 @@ export class RealTimeContactExchangeService {
         } else {
           console.log('✅ [iOS] Match found - not showing timeout');
         }
-      }, 10000);
+      }, 20000);
 
       // Only start motion detection if permission was granted
       if (motionPermissionGranted) {

@@ -85,7 +85,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
           // Wait for exit animation to complete (500ms), then navigate
           setTimeout(() => {
             sessionStorage.setItem('test-connect-mode', 'true');
-            router.push('/connect?token=test-animation-token');
+            router.push('/x/test-animation-token');
           }, 500);
         }, 500);
       }, 3000);
@@ -153,7 +153,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 
           // Navigate after a small delay to allow animation to start
           setTimeout(() => {
-            router.push(`/connect?token=${matchToken}`);
+            router.push(`/x/${matchToken}`);
             // Clear service reference immediately - service has already disconnected itself
             setExchangeService(null);
             // Reset status to idle after successful match
@@ -270,7 +270,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     // Handle QR scan matched state - navigate to contact view
     if (status === 'qr-scan-matched' && qrToken) {
       console.log('🎯 ExchangeButton: Navigating to QR match contact');
-      router.push(`/connect?token=${qrToken}`);
+      router.push(`/x/${qrToken}`);
       // Reset state
       setStatus('idle');
       setQrToken(null);
@@ -397,18 +397,34 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   const isDisabled = ['requesting-permission', 'waiting-for-bump', 'processing', 'qr-scan-pending', 'timeout', 'error'].includes(status);
   const shouldPulse = status === 'qr-scan-matched';
 
+  // Calculate animation delay to sync with float animation (3s cycle)
+  const getAnimationDelay = () => {
+    const floatStart = (window as Window & { floatAnimationStart?: number }).floatAnimationStart;
+    if (floatStart) {
+      const elapsed = Date.now() - floatStart;
+      const positionInCycle = elapsed % 3000;
+      return -positionInCycle;
+    }
+    return 0;
+  };
+
+  // Build props conditionally to avoid overriding Button's internal gradient
+  const buttonProps = {
+    onClick: handleButtonClick,
+    disabled: isDisabled,
+    variant: getButtonVariant(),
+    size: "xl" as const,
+    className: `w-full ${shouldPulse ? 'animate-color-pulse' : ''} ${className || ''}`,
+    ...(shouldPulse && {
+      style: {
+        animationDelay: `${getAnimationDelay()}ms`,
+        background: 'radial-gradient(circle, rgb(255 255 255 / 1), rgb(255 255 255 / 0.6))'
+      }
+    })
+  };
+
   return (
-    <Button
-      onClick={handleButtonClick}
-      disabled={isDisabled}
-      variant={getButtonVariant()}
-      size="xl"
-      className={`
-        w-full
-        ${shouldPulse ? 'animate-color-pulse' : ''}
-        ${className || ''}
-      `}
-    >
+    <Button {...buttonProps}>
       {getButtonContent()}
     </Button>
   );

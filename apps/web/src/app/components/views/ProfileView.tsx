@@ -104,6 +104,8 @@ const ProfileView: React.FC = () => {
       setShouldStopFloating(false);
       setAnimationPhase('floating');
       setIsExchanging(true);
+      // Store float animation start time for syncing button pulse
+      (window as Window & { floatAnimationStart?: number }).floatAnimationStart = Date.now();
     };
 
     const handleStopFloating = () => {

@@ -30,6 +30,7 @@ import {
   emitStopFloating,
   emitBumpDetected,
   emitMatchFound,
+  floatAnimationStart,
 } from "../../../utils/animationEvents";
 import { useSession } from "../../../providers/SessionProvider";
 import { useProfile } from "../../../context/ProfileContext";
@@ -69,27 +70,85 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const pulseAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Start/stop pulse animation based on status
+  // Start/stop pulse animation based on status, synced with float animation
   useEffect(() => {
     if (status === "qr-scan-matched" || status === "ble-matched") {
-      // Start pulsing glow animation
-      pulseAnimationRef.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: false, // Shadow needs non-native driver
-          }),
+      const animationDuration = 3000; // 3s cycle to match float
+      const halfDuration = 1500;
+
+      // Calculate starting position to sync with float animation
+      let startValue = 0;
+      let startGoingUp = true; // Whether we're in the 0→1 phase
+
+      if (floatAnimationStart) {
+        const elapsed = Date.now() - floatAnimationStart;
+        const positionInCycle = elapsed % animationDuration;
+
+        if (positionInCycle < halfDuration) {
+          // In first half (0→1), calculate value
+          startValue = positionInCycle / halfDuration;
+          startGoingUp = true;
+        } else {
+          // In second half (1→0), calculate value
+          startValue = 1 - (positionInCycle - halfDuration) / halfDuration;
+          startGoingUp = false;
+        }
+      }
+
+      pulseAnim.setValue(startValue);
+
+      // Create animation sequence starting from current phase
+      const createFullCycle = () => Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: halfDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: halfDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+      ]);
+
+      // First, complete the current phase, then loop
+      const remainingDuration = startGoingUp
+        ? halfDuration * (1 - startValue) // Time to reach 1
+        : halfDuration * startValue; // Time to reach 0
+
+      const firstAnimation = Animated.timing(pulseAnim, {
+        toValue: startGoingUp ? 1 : 0,
+        duration: remainingDuration,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      });
+
+      // If starting going up, after reaching 1 we need to go back to 0 then loop
+      // If starting going down, after reaching 0 we loop from 0
+      if (startGoingUp) {
+        pulseAnimationRef.current = Animated.sequence([
+          firstAnimation,
           Animated.timing(pulseAnim, {
             toValue: 0,
-            duration: 1000,
+            duration: halfDuration,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: false,
           }),
-        ])
-      );
-      pulseAnimationRef.current.start();
+        ]);
+        pulseAnimationRef.current.start(() => {
+          // After first partial cycle, start the full loop
+          pulseAnimationRef.current = Animated.loop(createFullCycle());
+          pulseAnimationRef.current.start();
+        });
+      } else {
+        firstAnimation.start(() => {
+          // After reaching 0, start the full loop
+          pulseAnimationRef.current = Animated.loop(createFullCycle());
+          pulseAnimationRef.current.start();
+        });
+      }
     } else {
       // Stop animation and reset
       pulseAnimationRef.current?.stop();
@@ -646,24 +705,24 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     "ble-unavailable",
   ].includes(status);
 
-  // Interpolate pulse animation for shadow (matches web's colorPulse intensity)
+  // Interpolate pulse animation for white glow (strong)
   const animatedShadowOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0.9],
+    outputRange: [0, 0.95],
   });
   const animatedShadowRadius = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 25],
+    outputRange: [0, 50],
   });
 
-  // For qr-scan-matched or ble-matched, wrap in animated view with pulsing shadow
+  // For qr-scan-matched or ble-matched, wrap in animated view with pulsing white glow
   if (status === "qr-scan-matched" || status === "ble-matched") {
     return (
       <Animated.View
         style={[
           styles.pulseContainer,
           {
-            shadowColor: glowColor, // Use user's own theme color (matches web)
+            shadowColor: '#FFFFFF', // White glow
             shadowOpacity: animatedShadowOpacity,
             shadowRadius: animatedShadowRadius,
           },

@@ -77,8 +77,14 @@ class AnimationEventEmitter {
 // Singleton instance
 export const animationEvents = new AnimationEventEmitter();
 
+// Track when float animation started for syncing button pulse
+export let floatAnimationStart: number | null = null;
+
 // Convenience functions
-export const emitStartFloating = () => animationEvents.emit('start-floating');
+export const emitStartFloating = () => {
+  floatAnimationStart = Date.now();
+  animationEvents.emit('start-floating');
+};
 export const emitStopFloating = () => animationEvents.emit('stop-floating');
 export const emitBumpDetected = () => animationEvents.emit('bump-detected');
 export const emitMatchFound = (backgroundColors?: string[]) =>

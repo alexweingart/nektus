@@ -140,16 +140,16 @@ export class RealTimeContactExchangeService {
 
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
-      console.log('👂 Waiting for bump (10s timeout)...');
+      console.log('👂 Waiting for bump (20s timeout)...');
 
       // Start polling immediately for QR scan matches (not just after motion detected)
       this.startMatchPolling();
       console.log('🔄 Started polling for QR scan matches');
 
-      // Set single 10-second timeout for entire exchange process
+      // Set single 20-second timeout for entire exchange process
       // Will be extended to 60s if QR scan detected (User B signing in)
       this.waitingForBumpTimeout = setTimeout(async () => {
-        console.log('⏰ Exchange timed out after 10 seconds');
+        console.log('⏰ Exchange timed out after 20 seconds');
 
         // Stop motion detection and polling immediately
         await this.disconnect();
@@ -161,7 +161,7 @@ export class RealTimeContactExchangeService {
         } else {
           console.log('✅ Match found - not showing timeout');
         }
-      }, 10000);
+      }, 20000);
       
       // Start the motion detection loop
       await this.waitForBump(true, sharingCategory);
@@ -447,7 +447,7 @@ export class RealTimeContactExchangeService {
         
         // Continue listening for more motion instead of breaking
         // This allows sequential detection to maintain primed states
-        // and enables multiple hits during the 10-second matching window
+        // and enables multiple hits during the 20-second matching window
         
       } catch (error) {
         console.error('❌ Error in waitForBump:', error);
