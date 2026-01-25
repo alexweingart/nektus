@@ -65,8 +65,11 @@ export function ProfileView() {
     "ble-exchanging",
   ].includes(exchangeStatus);
 
+  // Determine if we're in match found state (need cancel button but different UI)
+  const isMatchFound = exchangeStatus === "qr-scan-matched" || exchangeStatus === "ble-matched";
+
   // Determine if QR code should be shown (keep showing during match found state)
-  const showQRCode = (isExchanging || exchangeStatus === "qr-scan-matched" || exchangeStatus === "ble-matched") && matchToken !== null;
+  const showQRCode = (isExchanging || isMatchFound) && matchToken !== null;
 
   // Handle exchange status changes from ExchangeButton
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
@@ -109,10 +112,16 @@ export function ProfileView() {
 
   const handleRefresh = useCallback(async () => {
     console.log("[ProfileView] Refreshing profile...");
+    // Reset exchange state on refresh
+    if (exchangeStatus !== "idle") {
+      emitCancelExchange();
+      setExchangeStatus("idle");
+      setMatchToken(null);
+    }
     if (refreshProfile) {
       await refreshProfile();
     }
-  }, [refreshProfile]);
+  }, [refreshProfile, exchangeStatus]);
 
   // Extract bio content with fallback
   const bioContent = useMemo(() => {
@@ -242,8 +251,8 @@ export function ProfileView() {
             onMatch={handleMatch}
           />
 
-          {/* Cancel Button - shows during exchange */}
-          {isExchanging && (
+          {/* Cancel Button - shows during exchange and match found state */}
+          {(isExchanging || isMatchFound) && (
             <View style={styles.cancelButtonContainer}>
               <SecondaryButton onPress={handleCancelExchange}>
                 Cancel
