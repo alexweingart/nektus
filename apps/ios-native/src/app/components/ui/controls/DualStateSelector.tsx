@@ -42,11 +42,10 @@ export function DualStateSelector<T extends string>({
   ).current;
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
+    Animated.timing(slideAnim, {
       toValue: selectedOption === options[1] ? 1 : 0,
       useNativeDriver: false,
-      tension: 40,
-      friction: 7,
+      duration: 200,
     }).start();
   }, [selectedOption, slideAnim, options]);
 

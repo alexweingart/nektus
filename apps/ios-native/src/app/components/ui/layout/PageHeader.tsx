@@ -90,6 +90,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   titleContainer: {
     position: 'absolute',

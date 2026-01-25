@@ -76,6 +76,7 @@ export function FieldSection({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    overflow: 'visible',
   },
   titleContainer: {
     alignItems: 'center',
@@ -104,6 +105,7 @@ const styles = StyleSheet.create({
   },
   childrenContainer: {
     gap: 20,
+    overflow: 'visible',
   },
   bottomButton: {
     marginTop: 20,

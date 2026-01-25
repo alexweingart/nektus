@@ -18,7 +18,6 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  Keyboard,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
@@ -60,11 +59,11 @@ export function DropdownSelector({
   const buttonRef = useRef<View>(null);
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Measure position after modal opens and scroll animations have completed
+  // Measure position after modal opens
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       setIsPositionReady(false);
-      // Delay to ensure keyboard dismiss + scroll animations have completed
+      // Small delay to ensure layout is stable
       const measureTimer = setTimeout(() => {
         buttonRef.current?.measureInWindow((x, y, width, height) => {
           if (x !== undefined && y !== undefined) {
@@ -72,7 +71,7 @@ export function DropdownSelector({
             setIsPositionReady(true);
           }
         });
-      }, 300);
+      }, 50);
       return () => clearTimeout(measureTimer);
     } else {
       setIsPositionReady(false);
@@ -98,11 +97,8 @@ export function DropdownSelector({
     // Notify parent that dropdown is about to open (for internal interaction tracking)
     onBeforeOpen?.();
 
-    // Dismiss keyboard first - this triggers auto-scroll
-    Keyboard.dismiss();
-
+    // Don't dismiss keyboard - user expects to continue typing after selection
     // Open modal immediately - the useEffect will handle position measurement
-    // after keyboard dismiss and scroll animations complete
     setIsOpen(true);
   }, [disabled, onBeforeOpen]);
 

@@ -46,7 +46,6 @@ type EditProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, '
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CONTENT_PADDING = 16;
-const CAROUSEL_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 export function EditProfileView() {
   const navigation = useNavigation<EditProfileNavigationProp>();
@@ -54,8 +53,11 @@ export function EditProfileView() {
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving, refreshProfile } = useProfile();
 
-  // Carousel animation
-  const carouselAnimValue = useRef(new Animated.Value(0)).current;
+  // Slide animation for view switching (0 = Personal, 1 = Work)
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Ref for scroll container (needed for drag gesture coordination)
+  const scrollRef = useRef(null);
 
   // Profile view mode (Personal/Work)
   const { selectedMode, loadFromStorage, handleModeChange: baseModeChange } = useProfileViewMode();
@@ -65,6 +67,9 @@ export function EditProfileView() {
     personal: false,
     work: false,
   });
+
+  // Drag state - used to toggle carousel overflow during drag
+  const [isDragging, setIsDragging] = useState(false);
 
   // Field management
   const fieldManager = useEditProfileFields({
@@ -104,28 +109,27 @@ export function EditProfileView() {
     },
   });
 
-  // Load saved mode on mount and sync carousel position
+  // Load saved mode on mount
   useEffect(() => {
-    const loadAndSyncCarousel = async () => {
+    const loadMode = async () => {
       const loadedMode = await loadFromStorage();
-      // Snap carousel to match the loaded mode (no animation on initial load)
-      const toValue = loadedMode === 'Personal' ? 0 : -CAROUSEL_WIDTH;
-      carouselAnimValue.setValue(toValue);
+      slideAnim.setValue(loadedMode === 'Personal' ? 0 : 1);
     };
-    loadAndSyncCarousel();
-  }, [loadFromStorage, carouselAnimValue]);
+    loadMode();
+  }, [loadFromStorage, slideAnim]);
 
-  // Handle mode change with carousel animation
+  // Handle mode change with slide animation
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
-    const toValue = mode === 'Personal' ? 0 : -CAROUSEL_WIDTH;
-    Animated.spring(carouselAnimValue, {
+    const toValue = mode === 'Work' ? 1 : 0;
+
+    Animated.timing(slideAnim, {
       toValue,
+      duration: 250,
       useNativeDriver: true,
-      friction: 20,
-      tension: 100,
     }).start();
+
     baseModeChange(mode);
-  }, [baseModeChange, carouselAnimValue]);
+  }, [baseModeChange, slideAnim]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -225,10 +229,12 @@ export function EditProfileView() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <NestableScrollContainer
+          ref={scrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -296,63 +302,84 @@ export function EditProfileView() {
               )}
             </FieldSectionComponent>
 
-            {/* Carousel Container */}
-            <View style={styles.carouselContainer}>
+            {/* Views with slide animation - both always rendered, positioned with transforms */}
+            <View style={{ overflow: 'visible' }}>
+              {/* Personal View */}
               <Animated.View
-                style={[
-                  styles.carousel,
-                  {
-                    transform: [{ translateX: carouselAnimValue }],
-                  },
-                ]}
+                style={{
+                  overflow: 'visible',
+                  transform: [{
+                    translateX: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -SCREEN_WIDTH],
+                    }),
+                  }],
+                }}
+                pointerEvents={selectedMode === 'Personal' ? 'auto' : 'none'}
               >
-                {/* Personal View */}
-                <View style={[styles.carouselSlide, { width: CAROUSEL_WIDTH }]}>
-                  <SelectedSections
-                    viewMode="Personal"
-                    fieldSectionManager={fieldManager}
-                    getCalendarForSection={getCalendarForSection}
-                    getLocationForSection={getLocationForSection}
-                    handleOpenCalendarModal={handleOpenCalendarModal}
-                    handleOpenLocationModal={handleOpenLocationModal}
-                    handleDeleteCalendar={handleDeleteCalendar}
-                    handleDeleteLocation={handleDeleteLocation}
-                    isDeletingCalendar={isDeletingCalendar}
-                    isDeletingLocation={isDeletingLocation}
-                    showInlineAddLink={showInlineAddLink}
-                    handleToggleInlineAddLink={handleToggleInlineAddLink}
-                    handleLinkAdded={handleLinkAdded}
-                    getNextOrderForSection={getNextOrderForSection}
-                    getFieldValue={getFieldValue}
-                    handleFieldChange={handleFieldChange}
-                    getFieldsForView={getFieldsForView}
-                    tintColor={profile?.backgroundColors?.[2]}
-                  />
-                </View>
+                <SelectedSections
+                  viewMode="Personal"
+                  fieldSectionManager={fieldManager}
+                  getCalendarForSection={getCalendarForSection}
+                  getLocationForSection={getLocationForSection}
+                  handleOpenCalendarModal={handleOpenCalendarModal}
+                  handleOpenLocationModal={handleOpenLocationModal}
+                  handleDeleteCalendar={handleDeleteCalendar}
+                  handleDeleteLocation={handleDeleteLocation}
+                  isDeletingCalendar={isDeletingCalendar}
+                  isDeletingLocation={isDeletingLocation}
+                  showInlineAddLink={showInlineAddLink}
+                  handleToggleInlineAddLink={handleToggleInlineAddLink}
+                  handleLinkAdded={handleLinkAdded}
+                  getNextOrderForSection={getNextOrderForSection}
+                  getFieldValue={getFieldValue}
+                  handleFieldChange={handleFieldChange}
+                  getFieldsForView={getFieldsForView}
+                  tintColor={profile?.backgroundColors?.[2]}
+                  onDragStateChange={setIsDragging}
+                  scrollRef={scrollRef}
+                />
+              </Animated.View>
 
-                {/* Work View */}
-                <View style={[styles.carouselSlide, { width: CAROUSEL_WIDTH }]}>
-                  <SelectedSections
-                    viewMode="Work"
-                    fieldSectionManager={fieldManager}
-                    getCalendarForSection={getCalendarForSection}
-                    getLocationForSection={getLocationForSection}
-                    handleOpenCalendarModal={handleOpenCalendarModal}
-                    handleOpenLocationModal={handleOpenLocationModal}
-                    handleDeleteCalendar={handleDeleteCalendar}
-                    handleDeleteLocation={handleDeleteLocation}
-                    isDeletingCalendar={isDeletingCalendar}
-                    isDeletingLocation={isDeletingLocation}
-                    showInlineAddLink={showInlineAddLink}
-                    handleToggleInlineAddLink={handleToggleInlineAddLink}
-                    handleLinkAdded={handleLinkAdded}
-                    getNextOrderForSection={getNextOrderForSection}
-                    getFieldValue={getFieldValue}
-                    handleFieldChange={handleFieldChange}
-                    getFieldsForView={getFieldsForView}
-                    tintColor={profile?.backgroundColors?.[2]}
-                  />
-                </View>
+              {/* Work View - positioned absolute, overlapping Personal */}
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  overflow: 'visible',
+                  transform: [{
+                    translateX: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [SCREEN_WIDTH, 0],
+                    }),
+                  }],
+                }}
+                pointerEvents={selectedMode === 'Work' ? 'auto' : 'none'}
+              >
+                <SelectedSections
+                  viewMode="Work"
+                  fieldSectionManager={fieldManager}
+                  getCalendarForSection={getCalendarForSection}
+                  getLocationForSection={getLocationForSection}
+                  handleOpenCalendarModal={handleOpenCalendarModal}
+                  handleOpenLocationModal={handleOpenLocationModal}
+                  handleDeleteCalendar={handleDeleteCalendar}
+                  handleDeleteLocation={handleDeleteLocation}
+                  isDeletingCalendar={isDeletingCalendar}
+                  isDeletingLocation={isDeletingLocation}
+                  showInlineAddLink={showInlineAddLink}
+                  handleToggleInlineAddLink={handleToggleInlineAddLink}
+                  handleLinkAdded={handleLinkAdded}
+                  getNextOrderForSection={getNextOrderForSection}
+                  getFieldValue={getFieldValue}
+                  handleFieldChange={handleFieldChange}
+                  getFieldsForView={getFieldsForView}
+                  tintColor={profile?.backgroundColors?.[2]}
+                  onDragStateChange={setIsDragging}
+                  scrollRef={scrollRef}
+                />
               </Animated.View>
             </View>
 
@@ -401,12 +428,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: CONTENT_PADDING,
     paddingBottom: 120, // Space for selector
   },
   content: {
     flex: 1,
     gap: 20,
+    paddingHorizontal: CONTENT_PADDING,
+    overflow: 'visible',
   },
   nameInputContainer: {
     width: '100%',
@@ -417,16 +445,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 448,
     alignSelf: 'center',
-  },
-  carouselContainer: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  carousel: {
-    flexDirection: 'row',
-  },
-  carouselSlide: {
-    flexShrink: 0,
   },
   bottomSpacer: {
     height: 40,

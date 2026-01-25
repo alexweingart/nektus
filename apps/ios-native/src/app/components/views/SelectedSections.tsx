@@ -66,6 +66,10 @@ interface SelectedSectionsProps {
   };
   /** Tint color for the selectors (from profile.backgroundColors[2]) */
   tintColor?: string;
+  /** Callback when drag state changes (for parent overflow handling) */
+  onDragStateChange?: (isDragging: boolean) => void;
+  /** Ref to parent scroll container for gesture coordination */
+  scrollRef?: React.RefObject<any>;
 }
 
 // Calendar icon component
@@ -118,6 +122,8 @@ export function SelectedSections({
   handleFieldChange,
   getFieldsForView,
   tintColor,
+  onDragStateChange,
+  scrollRef,
 }: SelectedSectionsProps) {
   const navigation = useNavigation<NavigationProp>();
   const { signOut } = useSession();
@@ -136,6 +142,17 @@ export function SelectedSections({
       fieldSectionManager.updateFieldOrder(sectionName, newOrder);
     },
   });
+
+  // Wrap drag handlers to notify parent of drag state changes
+  const handleDragBegin = useCallback((index: number) => {
+    onDragStateChange?.(true);
+    dragAndDrop.onDragBegin(index);
+  }, [onDragStateChange, dragAndDrop]);
+
+  const handleDragEnd = useCallback((params: { data: ContactEntry[]; from: number; to: number }) => {
+    dragAndDrop.onDragEnd(params);
+    onDragStateChange?.(false);
+  }, [onDragStateChange, dragAndDrop]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -246,10 +263,14 @@ export function SelectedSections({
         <NestableDraggableFlatList
           data={visibleFields}
           keyExtractor={(item) => `${item.fieldType}-${item.section}`}
-          onDragBegin={dragAndDrop.onDragBegin}
-          onDragEnd={dragAndDrop.onDragEnd}
-          activationDistance={0}
+          onDragBegin={handleDragBegin}
+          onDragEnd={handleDragEnd}
+          activationDistance={20}
           dragItemOverflow={true}
+          scrollEnabled={false}
+          simultaneousHandlers={scrollRef}
+          style={{ overflow: 'visible' }}
+          contentContainerStyle={{ overflow: 'visible' }}
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({ item, drag, isActive }: RenderItemParams<ContactEntry>) => (
             <ScaleDecorator activeScale={1.05}>
