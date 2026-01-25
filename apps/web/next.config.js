@@ -182,6 +182,25 @@ const config = process.env.NODE_ENV === 'production'
             ],
           },
         },
+        {
+          // Default handler for navigation requests - never cache errors
+          urlPattern: ({ request }) => request.mode === 'navigate',
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'pages-cache',
+            plugins: [
+              {
+                // Only cache successful responses (2xx status codes)
+                cacheWillUpdate: async ({ response }) => {
+                  if (response && response.status >= 200 && response.status < 400) {
+                    return response;
+                  }
+                  return null; // Don't cache error responses
+                },
+              },
+            ],
+          },
+        },
       ]
     })(nextConfig)
   : nextConfig;

@@ -147,6 +147,19 @@ export async function GET(
 
       console.log(`🔓 QR scan detected! User B (${user.id}) is creating match`);
 
+      // Re-fetch match data to check for race condition (another scanner may have completed first)
+      const freshMatchDataStr = await redis.get(matchKey);
+      if (freshMatchDataStr) {
+        const freshMatchData = typeof freshMatchDataStr === 'string' ? JSON.parse(freshMatchDataStr) : freshMatchDataStr;
+        if (freshMatchData.status !== 'waiting' || freshMatchData.userB !== null) {
+          console.log(`⚠️ Race condition detected - exchange already completed by another scanner`);
+          return NextResponse.json(
+            { success: false, message: 'This QR code was already scanned by someone else', code: 'ALREADY_SCANNED' },
+            { status: 409 }
+          );
+        }
+      }
+
       // Scanner is creating the match - get scanner's profile
       const scannerProfile = await getProfile(user.id);
       if (!scannerProfile) {

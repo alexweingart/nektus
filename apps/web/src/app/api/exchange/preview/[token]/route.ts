@@ -49,10 +49,10 @@ export async function GET(
 
     // Only allow preview for waiting exchanges
     if (matchData.status !== 'waiting' || matchData.userB !== null) {
-      console.log(`❌ Not a waiting exchange for token: ${token}`);
+      console.log(`❌ Not a waiting exchange for token: ${token} (already scanned)`);
       return NextResponse.json(
-        { success: false, message: 'This exchange is no longer available for preview' },
-        { status: 400 }
+        { success: false, message: 'This QR code was already scanned by someone else', code: 'ALREADY_SCANNED' },
+        { status: 409 }
       );
     }
 
