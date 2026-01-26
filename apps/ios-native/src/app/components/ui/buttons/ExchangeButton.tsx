@@ -62,8 +62,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [bleAvailable, setBleAvailable] = useState<boolean | null>(null);
   const apiBaseUrl = getApiBaseUrl();
-  // Use user's own theme color for the glow (matches web behavior)
-  const glowColor = profile?.backgroundColors?.[2] || "#10B981";
   const prevStatusRef = useRef<ExchangeStatus>("idle");
 
   // Pulse animation for "Match Found!" state
@@ -705,29 +703,27 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     "ble-unavailable",
   ].includes(status);
 
-  // Interpolate pulse animation for white glow (strong)
-  const animatedShadowOpacity = pulseAnim.interpolate({
+  // Interpolate pulse animation for white glow effect using RN 0.76+ boxShadow
+  // Animate opacity of glow layers (0 = no glow, 1 = full glow)
+  const glowOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 0.95],
   });
-  const animatedShadowRadius = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 50],
-  });
 
-  // For qr-scan-matched or ble-matched, wrap in animated view with pulsing white glow
+  // For qr-scan-matched or ble-matched, render with pulsing white glow
+  // Using RN 0.76+ boxShadow with multiple layers for proper glow effect
   if (status === "qr-scan-matched" || status === "ble-matched") {
     return (
-      <Animated.View
-        style={[
-          styles.pulseContainer,
-          {
-            shadowColor: '#FFFFFF', // White glow
-            shadowOpacity: animatedShadowOpacity,
-            shadowRadius: animatedShadowRadius,
-          },
-        ]}
-      >
+      <View style={styles.pulseContainer}>
+        {/* Animated glow layer using boxShadow - positioned behind button */}
+        <Animated.View
+          style={[
+            styles.glowLayer,
+            {
+              opacity: glowOpacity,
+            },
+          ]}
+        />
         <Button
           variant={getButtonVariant()}
           size="xl"
@@ -737,7 +733,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         >
           {getButtonContent()}
         </Button>
-      </Animated.View>
+      </View>
     );
   }
 
@@ -760,10 +756,19 @@ const styles = StyleSheet.create({
   },
   pulseContainer: {
     width: "100%",
+    position: "relative",
+  },
+  glowLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 9999,
-    // shadowColor is set dynamically to use matched contact's theme color
-    shadowOffset: { width: 0, height: 0 },
-    // shadowOpacity and shadowRadius are animated
+    backgroundColor: "transparent",
+    // RN 0.76+ boxShadow with multiple layers for proper glow effect
+    // Matches web's: box-shadow: 0 0 50px 20px rgba(255, 255, 255, 0.95)
+    boxShadow: "0 0 20px 5px rgba(255, 255, 255, 1), 0 0 40px 15px rgba(255, 255, 255, 0.8), 0 0 60px 25px rgba(255, 255, 255, 0.5)",
   },
   contentRow: {
     flexDirection: "row",
