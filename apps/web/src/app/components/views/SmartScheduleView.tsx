@@ -37,7 +37,7 @@ export default function SmartScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts, invalidateContactsCache } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, loadContacts, invalidateContactsCache } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
@@ -134,6 +134,13 @@ export default function SmartScheduleView() {
           savedContact = allContacts.find(c => c.shortCode === code) || null;
         }
 
+        // If not found in cache, load contacts from server
+        if (!savedContact) {
+          console.log('📦 [SmartScheduleView] Contact not in cache, loading from server...');
+          const loadedContacts = await loadContacts(session.user.id);
+          savedContact = loadedContacts.find(c => c.shortCode === code || c.userId === code) || null;
+        }
+
         if (savedContact) {
           // Check if we're viewing via userId but contact doesn't have a shortCode yet
           const isViewingViaUserId = code === savedContact.userId && !savedContact.shortCode;
@@ -172,8 +179,9 @@ export default function SmartScheduleView() {
           setSection(savedContact.contactType);
           setContactProfile(savedContact);
         } else {
-          // Contact not loaded yet, wait for ContactLayout to load it
-          console.log('📦 [SmartScheduleView] Waiting for ContactLayout to load contact...');
+          // Contact still not found after loading - redirect to history
+          console.log('📦 [SmartScheduleView] Contact not found, redirecting to history');
+          router.push('/history');
         }
       } catch (error) {
         console.error('Error loading contact:', error);
@@ -184,7 +192,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.code, router, getContact, getContacts, invalidateContactsCache]);
+  }, [session, params.code, router, getContact, getContacts, loadContacts, invalidateContactsCache]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {

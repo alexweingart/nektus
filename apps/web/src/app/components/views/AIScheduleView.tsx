@@ -23,7 +23,7 @@ export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts, invalidateContactsCache } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, loadContacts, invalidateContactsCache } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +64,13 @@ export default function AIScheduleView() {
         contact = allContacts.find(c => c.shortCode === code) || null;
       }
 
+      // If not found in cache, load contacts from server
+      if (!contact) {
+        console.log('📦 [AIScheduleView] Contact not in cache, loading from server...');
+        const loadedContacts = await loadContacts(session.user.id);
+        contact = loadedContacts.find(c => c.shortCode === code || c.userId === code) || null;
+      }
+
       if (contact) {
         // Check if we're viewing via userId but contact doesn't have a shortCode yet
         const isViewingViaUserId = code === contact.userId && !contact.shortCode;
@@ -100,6 +107,10 @@ export default function AIScheduleView() {
 
         setContactProfile(contact);
         setSavedContact(contact);
+      } else {
+        // Contact still not found after loading - redirect to history
+        console.log('📦 [AIScheduleView] Contact not found, redirecting to history');
+        router.push('/history');
       }
 
     } catch (error) {
@@ -108,7 +119,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [code, session?.user?.id, router, getContact, getContacts, invalidateContactsCache]);
+  }, [code, session?.user?.id, router, getContact, getContacts, loadContacts, invalidateContactsCache]);
 
   useEffect(() => {
     loadProfiles();
