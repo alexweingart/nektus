@@ -424,7 +424,9 @@ export function ContactView(props: ContactViewProps = {}) {
     // Use props.sessionUserName in App Clip, otherwise session.user.name
     const senderFirstName = getFirstName(props.sessionUserName || session?.user?.name || '');
 
-    const message = generateMessageText(contactFirstName, senderFirstName, undefined, userProfile?.shortCode);
+    // Use shortCode if available, fall back to userId (both work with /c/ route)
+    const senderProfileId = userProfile?.shortCode || session?.user?.id;
+    const message = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
 
     setShowSuccessModal(false);
 
@@ -437,7 +439,7 @@ export function ContactView(props: ContactViewProps = {}) {
       Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
     }
     // Note: SKOverlay is shown when user taps "Done", not after messaging
-  }, [profile, props.sessionUserName, session, userProfile?.shortCode]);
+  }, [profile, props.sessionUserName, session, userProfile?.shortCode, session?.user?.id]);
 
   // Loading state
   if (isLoading) {

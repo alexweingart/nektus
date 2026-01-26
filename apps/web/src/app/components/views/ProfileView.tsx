@@ -182,7 +182,9 @@ const ProfileView: React.FC = () => {
 
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = contactName.split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, profile?.shortCode);
+    // Use shortCode if available, fall back to userId (both work with /c/ route)
+    const senderProfileId = profile?.shortCode || session.user.id;
+    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
 
     // Try to use phone number if available
     let phoneNumber = '';

@@ -161,7 +161,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     const senderFirstName = getFirstName(session.user.name);
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
-    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, userProfile?.shortCode);
+    // Use shortCode if available, fall back to userId (both work with /c/ route)
+    const senderProfileId = userProfile?.shortCode || session.user.id;
+    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
     const phoneNumber = getPhoneNumber(profile.contactEntries);
 
     openMessagingAppDirectly(messageText, phoneNumber);
@@ -178,7 +180,9 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     const senderFirstName = getFirstName(session.user.name);
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
-    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, userProfile?.shortCode);
+    // Use shortCode if available, fall back to userId (both work with /c/ route)
+    const senderProfileId = userProfile?.shortCode || session.user.id;
+    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
     const phoneNumber = getPhoneNumber(profile.contactEntries);
 
     openMessagingAppDirectly(messageText, phoneNumber);
