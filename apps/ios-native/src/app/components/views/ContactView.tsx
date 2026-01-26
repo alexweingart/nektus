@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Easing, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
@@ -62,6 +63,7 @@ const getFirstName = (name: string): string => {
 
 export function ContactView(props: ContactViewProps = {}) {
   const inAppClip = isAppClip();
+  const insets = useSafeAreaInsets();
 
   // Navigation hooks - always called (Rules of Hooks), but may return stubs in App Clip
   // In App Clip mode without NavigationContainer, these will fail
@@ -468,11 +470,13 @@ export function ContactView(props: ContactViewProps = {}) {
   return (
     <ScreenTransition>
       <Animated.View style={[styles.container, inAppClip ? { opacity: exitOpacity } : undefined]}>
-        {/* Header - back button only for historical mode, not for new exchanges */}
-        <PageHeader onBack={isHistoricalMode ? handleBack : undefined} />
+        {/* Header - positioned absolutely to not affect centering */}
+        <View style={styles.headerContainer}>
+          <PageHeader onBack={isHistoricalMode ? handleBack : undefined} />
+        </View>
 
-        {/* Content area - centers ContactInfo + buttons as a unit (like web) */}
-        <View style={styles.content}>
+        {/* Content area - centered against full page */}
+        <View style={[styles.content, { paddingBottom: insets.bottom }]}>
           {/* Contact Info - animated entry from top */}
           <Animated.View
             style={{
@@ -569,6 +573,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    right: 16,
+    zIndex: 10,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -586,7 +597,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingTop: 8,
   },
   actionsContainer: {
     marginTop: 16,
