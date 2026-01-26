@@ -14,7 +14,6 @@ export function ScrollBehavior() {
   useEffect(() => {
     // Only apply scroll blocking on pages that don't need scrolling
     const nonScrollablePages = [
-      '/',                    // Homepage
       '/setup',               // Setup page
     ];
 
