@@ -12,6 +12,7 @@ import ReactMarkdown from 'react-markdown';
 import { Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
+import { getOptimalProfileImageUrl } from '@/client/profile/image';
 
 interface ContactInfoProps {
   profile: UserProfile;
@@ -40,7 +41,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
       <div className="mb-4">
         <div className="border-4 border-white shadow-lg rounded-full">
           <Avatar
-            src={profile.profileImage}
+            src={getOptimalProfileImageUrl(profile.profileImage, 256)}
             alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
             size="lg"
           />

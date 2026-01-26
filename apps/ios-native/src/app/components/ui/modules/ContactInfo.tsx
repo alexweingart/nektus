@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { UserProfile } from '@nektus/shared-types';
+import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 
@@ -32,7 +33,7 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
       <View style={styles.avatarContainer}>
         <View style={styles.avatarBorder}>
           <Avatar
-            src={profile.profileImage}
+            src={getOptimalProfileImageUrl(profile.profileImage, 256)}
             alt={name}
             size="lg"
             showInitials={!profile.profileImage}

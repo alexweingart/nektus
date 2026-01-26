@@ -12,6 +12,7 @@ import type { RootStackParamList } from '../../../../App';
 import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/layout/ScreenTransition';
 import type { SavedContact } from '../../context/ProfileContext';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
+import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
@@ -175,7 +176,7 @@ export function HistoryView() {
       <ItemChip
         icon={
           <Avatar
-            src={item.profileImage}
+            src={getOptimalProfileImageUrl(item.profileImage, 128)}
             alt={item.odtName}
             size="sm"
           />

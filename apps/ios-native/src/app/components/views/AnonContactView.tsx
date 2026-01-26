@@ -8,7 +8,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import type { UserProfile } from '@nektus/shared-types';
-import { getFieldValue } from '@nektus/shared-client';
+import { getFieldValue, getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import { Button } from '../ui/buttons/Button';
@@ -76,7 +76,7 @@ export function AnonContactView({
           <View style={styles.avatarContainer}>
             <View style={styles.avatarBorder}>
               <Avatar
-                src={profile.profileImage}
+                src={getOptimalProfileImageUrl(profile.profileImage, 256)}
                 size="lg"
               />
             </View>

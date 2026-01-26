@@ -15,6 +15,7 @@ import { StandardModal } from '../ui/modals/StandardModal';
 import { Heading, Text } from '../ui/Typography';
 import { useProfile } from '@/app/context/ProfileContext';
 import { getFieldValue } from '@/client/profile/transforms';
+import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/client/config/firebase';
@@ -422,7 +423,7 @@ export const HistoryView: React.FC = () => {
                 key={contact.userId}
                 icon={
                   <Avatar
-                    src={contact.profileImage}
+                    src={getOptimalProfileImageUrl(contact.profileImage, 128)}
                     alt={getFieldValue(contact.contactEntries, 'name')}
                     size="sm"
                     className="flex-shrink-0 !w-10 !h-10"

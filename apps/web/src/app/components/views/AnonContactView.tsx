@@ -15,6 +15,7 @@ import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
+import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import { isIOSPlatform } from '@/client/platform-detection';
 
 // Apple JS SDK type declarations
@@ -227,7 +228,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
           <div className="mb-4">
             <div className="border-4 border-white shadow-lg rounded-full">
               <Avatar
-                src={profile.profileImage}
+                src={getOptimalProfileImageUrl(profile.profileImage, 256)}
                 alt={name}
                 size="lg"
               />
