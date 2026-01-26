@@ -582,9 +582,9 @@ export function ContactView(props: ContactViewProps = {}) {
       <StandardModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="Contact Saved!"
+        title="Contact Saved! 🎉"
         subtitle={`${contactName}'s contact has been saved successfully!`}
-        primaryButtonText="Say hi"
+        primaryButtonText="Say hi 👋"
         onPrimaryButtonClick={handleSayHi}
         secondaryButtonText="Nah, they'll text me"
         onSecondaryButtonClick={() => setShowSuccessModal(false)}

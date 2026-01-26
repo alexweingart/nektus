@@ -49,9 +49,19 @@ export function isFirebaseConfigValid(): boolean {
   );
 }
 
+// Dev server URL (Tailscale)
+const DEV_API_URL = 'https://nekt.tail768878.ts.net';
+// Production URL
+const PROD_API_URL = 'https://www.nekt.us';
+
 /**
  * API base URL for backend calls
  * Used by mobile app to call Next.js API routes
+ *
+ * Automatically uses:
+ * - Tailscale dev URL when running in dev mode (__DEV__ is true)
+ * - Production URL in release builds
+ * - Can be overridden via EXPO_PUBLIC_API_URL env var
  */
 export function getApiBaseUrl(): string {
   // Web: relative URLs work
@@ -59,12 +69,24 @@ export function getApiBaseUrl(): string {
     return '';
   }
 
-  // Mobile: need full URL
+  // Mobile: check for explicit override first
   const apiUrl = getEnvVar('API_URL');
   if (apiUrl) {
     return apiUrl;
   }
 
+  // Auto-detect based on build mode
+  // __DEV__ is true when running via Metro bundler, false in production builds
+  // Use try-catch in case __DEV__ is not defined (e.g., in web builds)
+  try {
+    // @ts-ignore - __DEV__ is a React Native global
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      return DEV_API_URL;
+    }
+  } catch {
+    // __DEV__ not available, fall through to production
+  }
+
   // Default to production
-  return 'https://nekt.us';
+  return PROD_API_URL;
 }
