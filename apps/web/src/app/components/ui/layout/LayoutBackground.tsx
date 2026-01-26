@@ -19,8 +19,8 @@ interface ContactProfile {
 
 // Theme color constants
 const COLORS = {
-  // Theme green - darker emerald (solid, no opacity) for gradients and safe areas
-  themeGreen: 'rgb(29, 150, 67)',
+  // Theme green - matches gradient green (solid, no opacity) for gradients and safe areas
+  themeGreen: 'rgb(34, 197, 94)',
 
   // Theme dark background
   themeDark: 'rgb(10, 15, 26)',
@@ -133,7 +133,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Listen for match-found event to capture contact profile data (for /connect route)
+  // Listen for match-found event to capture contact profile data (for /x/ and /c/ routes)
   useEffect(() => {
     const handleMatchFound = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -154,9 +154,9 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Load contact colors from URL for contact routes (/contact/[userId]/*)
+  // Load contact colors from URL for contact routes (/c/[userId]/*)
   useEffect(() => {
-    const isContactRoute = pathname?.startsWith('/contact/') && params?.userId;
+    const isContactRoute = pathname?.startsWith('/c/') && params?.userId;
 
     if (isContactRoute && getContact) {
       const userId = params.userId as string;
@@ -173,7 +173,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
   // Clear contact profile when navigating away from contact pages
   useEffect(() => {
-    const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+    const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
 
     if (!isOnContactPage && contactProfile) {
       // Clear after a delay to allow transition
@@ -200,7 +200,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+    const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
     const contactColors = contactProfile?.backgroundColors;
     const userColors = profile?.backgroundColors;
 
@@ -419,7 +419,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
     // Signed out - check if on contact page with colors
     if (!session) {
-      const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+      const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
 
       if (isOnContactPage) {
         const contactColors = contactProfile?.backgroundColors;
@@ -467,7 +467,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     }
 
     // Determine if on contact page FIRST (before loading check)
-    const isOnContactPage = pathname === '/connect' || pathname.startsWith('/contact/');
+    const isOnContactPage = pathname?.startsWith('/x/') || pathname.startsWith('/c/');
 
     // Signed in - wait for profile to load
     // UNLESS navigating from setup (prevent flash during profile load)
@@ -496,13 +496,13 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         const particleColors = convertToParticleColors(contactColors);
         return {
           colors: particleColors,
-          context: pathname === '/connect' ? 'connect' : 'contact'
+          context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       } else {
         // No contact colors or all colors are the same - use default inverted gradient (profile-style)
         return {
           colors: DEFAULT_COLORS_INVERTED,
-          context: pathname === '/connect' ? 'connect' : 'contact'
+          context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       }
     } else {
