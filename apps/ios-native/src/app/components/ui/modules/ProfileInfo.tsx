@@ -304,7 +304,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             innerContentHeight > 0 ? { height: innerContentHeight - 16 } : undefined,
           ]}>
             <QRCode
-              value={`${webBaseUrl}/connect?token=${matchToken}`}
+              value={`${webBaseUrl}/x/${matchToken}`}
               size={Math.min(containerWidth - 48, innerContentHeight > 0 ? innerContentHeight - 32 : 260)}
               color="#FFFFFF"
               backgroundColor="transparent"

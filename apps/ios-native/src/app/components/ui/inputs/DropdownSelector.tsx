@@ -13,12 +13,12 @@ import React, { useState, useRef, ReactNode, useCallback, useEffect } from 'reac
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Pressable,
   Modal,
+  Pressable,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 
@@ -91,14 +91,9 @@ export function DropdownSelector({
     onAfterChange?.();
   };
 
-  const handleButtonPress = useCallback(() => {
+  const handlePress = useCallback(() => {
     if (disabled) return;
-
-    // Notify parent that dropdown is about to open (for internal interaction tracking)
     onBeforeOpen?.();
-
-    // Don't dismiss keyboard - user expects to continue typing after selection
-    // Open modal immediately - the useEffect will handle position measurement
     setIsOpen(true);
   }, [disabled, onBeforeOpen]);
 
@@ -108,12 +103,13 @@ export function DropdownSelector({
 
   return (
     <View style={styles.container} ref={buttonRef}>
-      {/* Selector Button */}
+      {/* Selector Button - exclusive={false} allows parent long press to work */}
       <TouchableOpacity
         style={[styles.button, disabled && styles.buttonDisabled]}
-        onPress={handleButtonPress}
+        onPress={handlePress}
         disabled={disabled}
         activeOpacity={0.7}
+        extraButtonProps={{ exclusive: false }}
       >
         {selectedOption?.icon ? (
           <View style={styles.selectedIcon}>{renderIcon(selectedOption.icon)}</View>

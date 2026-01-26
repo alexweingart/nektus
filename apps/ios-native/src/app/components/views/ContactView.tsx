@@ -24,6 +24,7 @@ import { StandardModal } from '../ui/modals/StandardModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateMessageText } from '../../../client/contacts/messaging';
+import { emitMatchFound } from '../../utils/animationEvents';
 
 // Demo robot avatar for test mode simulation
 const demoRobotAvatarAsset = require('../../../../assets/demo-robot-avatar.png');
@@ -185,6 +186,10 @@ export function ContactView(props: ContactViewProps = {}) {
 
           console.log('🧪 [ContactView] Using mock profile for test animation');
           setProfile(mockProfile);
+          // Emit match-found to update LayoutBackground colors
+          if (mockProfile.backgroundColors) {
+            emitMatchFound(mockProfile.backgroundColors);
+          }
           setIsLoading(false);
           return;
         }
@@ -200,6 +205,10 @@ export function ContactView(props: ContactViewProps = {}) {
           const contact = await ClientProfileService.getContactById(session.user.id, userId);
           if (contact) {
             setProfile(contact);
+            // Emit match-found to update LayoutBackground colors
+            if (contact.backgroundColors) {
+              emitMatchFound(contact.backgroundColors);
+            }
           } else {
             throw new Error('Contact not found');
           }
@@ -218,8 +227,16 @@ export function ContactView(props: ContactViewProps = {}) {
           const result = await response.json();
           if (result.success && result.profile) {
             setProfile(result.profile);
+            // Emit match-found to update LayoutBackground colors
+            if (result.profile.backgroundColors) {
+              emitMatchFound(result.profile.backgroundColors);
+            }
           } else if (result.profile) {
             setProfile(result.profile);
+            // Emit match-found to update LayoutBackground colors
+            if (result.profile.backgroundColors) {
+              emitMatchFound(result.profile.backgroundColors);
+            }
           } else {
             throw new Error('Invalid response');
           }

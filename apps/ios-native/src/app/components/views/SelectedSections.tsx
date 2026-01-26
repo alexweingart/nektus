@@ -279,6 +279,7 @@ export function SelectedSections({
                 delayLongPress={1000}
                 activeOpacity={1}
                 disabled={isActive}
+                extraButtonProps={{ exclusive: false }}
                 style={[
                   styles.draggableItem,
                   isActive && styles.draggableItemActive,

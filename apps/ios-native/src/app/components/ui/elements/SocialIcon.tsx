@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, View, StyleSheet, Linking, Alert, Image } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, Linking, Alert, Image } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
 
 // Custom X logo component (formerly Twitter)
@@ -30,7 +31,6 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   customIcon,
   linkType
 }) => {
-  const [isActive, setIsActive] = useState(false);
 
   // Web version has padding that reduces icon size:
   // sm: w-6 h-6 (24px container, 24px icon, no padding)
@@ -74,9 +74,6 @@ const SocialIcon: React.FC<SocialIconProps> = ({
 
   const handlePress = async () => {
     if (disabled) return;
-
-    setIsActive(true);
-    setTimeout(() => setIsActive(false), 150);
 
     // If there's a custom press handler, use that
     if (onPress) {
@@ -225,7 +222,6 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     styles.container,
     { width: containerSize, height: containerSize },
     disabled && styles.disabled,
-    isActive && styles.active
   ];
 
   // Use View for display-only icons, TouchableOpacity for interactive ones
@@ -241,9 +237,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     <TouchableOpacity
       style={containerStyle}
       onPress={handlePress}
-      onPressIn={() => setIsActive(true)}
-      onPressOut={() => setIsActive(false)}
       activeOpacity={0.7}
+      extraButtonProps={{ exclusive: false }}
     >
       {iconElement}
     </TouchableOpacity>

@@ -52,7 +52,7 @@ function AppClipContent() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Parse token from invocation URL
+  // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
     const getToken = async () => {
       try {
@@ -64,7 +64,14 @@ function AppClipContent() {
           const parsed = Linking.parse(url);
           console.log("[AppClip] Parsed URL:", parsed);
 
-          // Extract token from query params
+          // Extract token from path: /x/{token}
+          const pathParts = parsed.path?.split('/').filter(Boolean) || [];
+          if (pathParts[0] === 'x' && pathParts[1]) {
+            setToken(pathParts[1]);
+            return;
+          }
+
+          // Fallback: try query params for backwards compatibility during transition
           const tokenParam = parsed.queryParams?.token as string | undefined;
           if (tokenParam) {
             setToken(tokenParam);
@@ -237,9 +244,16 @@ function AppClipContent() {
               Linking.getInitialURL().then((url: string | null) => {
                 if (url) {
                   const parsed = Linking.parse(url);
-                  const tokenParam = parsed.queryParams?.token as string | undefined;
-                  if (tokenParam) {
-                    setToken(tokenParam);
+                  // Extract token from path: /x/{token}
+                  const pathParts = parsed.path?.split('/').filter(Boolean) || [];
+                  if (pathParts[0] === 'x' && pathParts[1]) {
+                    setToken(pathParts[1]);
+                  } else {
+                    // Fallback: try query params
+                    const tokenParam = parsed.queryParams?.token as string | undefined;
+                    if (tokenParam) {
+                      setToken(tokenParam);
+                    }
                   }
                 }
                 setIsLoading(false);

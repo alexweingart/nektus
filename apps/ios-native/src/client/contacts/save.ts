@@ -92,6 +92,13 @@ async function saveToFirebase(token: string): Promise<{ success: boolean; error?
     const apiBaseUrl = getApiBaseUrl();
     const idToken = await getIdToken();
 
+    console.log('🔐 [iOS Save] ID Token present:', !!idToken, idToken ? `(length: ${idToken.length})` : '(null)');
+
+    if (!idToken) {
+      console.error('🔐 [iOS Save] No ID token available - user may not be signed into Firebase');
+      return { success: false, error: 'Not authenticated with Firebase' };
+    }
+
     const response = await fetch(`${apiBaseUrl}/api/contacts`, {
       method: 'POST',
       headers: {
@@ -102,13 +109,23 @@ async function saveToFirebase(token: string): Promise<{ success: boolean; error?
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+      // Try to get error details from response body
+      let errorDetails = '';
+      try {
+        const errorBody = await response.json();
+        errorDetails = errorBody.message || JSON.stringify(errorBody);
+        console.error('🔐 [iOS Save] Server error response:', errorBody);
+      } catch {
+        errorDetails = await response.text().catch(() => 'Unknown error');
+      }
+      throw new Error(`API request failed: ${response.status} - ${errorDetails}`);
     }
 
     const result = await response.json();
+    console.log('🔐 [iOS Save] Success:', result);
     return result.firebase || { success: true };
   } catch (error) {
-    console.error('Failed to save to Firebase:', error);
+    console.error('🔐 [iOS Save] Failed to save to Firebase:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

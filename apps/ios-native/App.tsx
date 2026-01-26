@@ -19,6 +19,7 @@ import { PrivacyView } from "./src/app/components/views/PrivacyView";
 import { TermsView } from "./src/app/components/views/TermsView";
 import { EditProfileView } from "./src/app/components/views/EditProfileView";
 import { ContactView } from "./src/app/components/views/ContactView";
+import { ContactProfileView } from "./src/app/components/views/ContactProfileView";
 import { HistoryView } from "./src/app/components/views/HistoryView";
 import { CalendarView } from "./src/app/components/views/CalendarView";
 import { LocationView } from "./src/app/components/views/LocationView";
@@ -37,6 +38,7 @@ export type RootStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
   Contact: { userId?: string; token: string; isHistoricalMode?: boolean };
+  ContactProfile: { code: string };  // View profile via shortCode (/c/:code)
   History: undefined;
   // Phase 2: Scheduling
   Calendar: { section: 'personal' | 'work' };
@@ -62,7 +64,8 @@ const linking: LinkingOptions<RootStackParamList> = {
       ProfileSetup: 'setup',
       Profile: 'profile',
       EditProfile: 'edit-profile',
-      Contact: 'connect',
+      Contact: 'x/:token',
+      ContactProfile: 'c/:code',
       History: 'history',
       Calendar: 'calendar/:section',
       Location: 'location/:section',
@@ -143,6 +146,7 @@ function AppContent() {
             <Stack.Screen name="Profile" component={ProfileView} />
             <Stack.Screen name="EditProfile" component={EditProfileView} />
             <Stack.Screen name="Contact" component={ContactView} />
+            <Stack.Screen name="ContactProfile" component={ContactProfileView} />
             <Stack.Screen name="History" component={HistoryView} />
             <Stack.Screen name="Calendar" component={CalendarView} />
             <Stack.Screen name="Location" component={LocationView} />
