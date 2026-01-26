@@ -37,10 +37,11 @@ export default function SmartScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, invalidateContactsCache } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Get 'from' query parameter to determine where to navigate back to
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
@@ -118,15 +119,55 @@ export default function SmartScheduleView() {
   // Load contact profile
   useEffect(() => {
     async function loadContact() {
-      if (!session?.user?.id || !params.userId) return;
+      const code = params.code as string;
+      if (!session?.user?.id || !code) return;
 
       try {
-        console.log('🔍 [SmartScheduleView] Loading contact:', params.userId);
+        console.log('🔍 [SmartScheduleView] Loading contact:', code);
 
-        // Get contact from cache (ContactLayout loads it)
-        const savedContact = getContact(params.userId as string);
+        // Get contact from cache - try by userId first, then by shortCode
+        let savedContact = getContact(code);
+
+        // If not found by userId, search by shortCode
+        if (!savedContact) {
+          const allContacts = getContacts();
+          savedContact = allContacts.find(c => c.shortCode === code) || null;
+        }
 
         if (savedContact) {
+          // Check if we're viewing via userId but contact doesn't have a shortCode yet
+          const isViewingViaUserId = code === savedContact.userId && !savedContact.shortCode;
+
+          if (isViewingViaUserId) {
+            // Fetch/generate shortCode for the profile, update saved contact, then redirect
+            try {
+              const profileRes = await fetch(`/api/profile/shortcode/${savedContact.userId}`);
+              if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                if (profileData.profile?.shortCode) {
+                  const shortCode = profileData.profile.shortCode;
+
+                  // Update the saved contact with the shortCode
+                  await fetch(`/api/contacts/${savedContact.userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shortCode })
+                  });
+
+                  console.log(`📌 [SmartScheduleView] Updated saved contact with shortCode: ${shortCode}`);
+
+                  // Invalidate cache and redirect to shortCode URL
+                  invalidateContactsCache();
+                  setIsRedirecting(true);
+                  router.replace(`/c/${shortCode}/smart-schedule${window.location.search}`);
+                  return;
+                }
+              }
+            } catch (err) {
+              console.warn('[SmartScheduleView] Failed to migrate to shortCode, continuing with userId:', err);
+            }
+          }
+
           console.log('📦 [SmartScheduleView] Using contact');
           setSection(savedContact.contactType);
           setContactProfile(savedContact);
@@ -143,7 +184,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.userId, router, getContact]);
+  }, [session, params.code, router, getContact, getContacts, invalidateContactsCache]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
@@ -257,7 +298,7 @@ export default function SmartScheduleView() {
   };
 
   // Loading state
-  if (loading || !contactProfile) {
+  if (loading || !contactProfile || isRedirecting) {
     return null;
   }
 
@@ -280,7 +321,7 @@ export default function SmartScheduleView() {
 
                 router.push('/history');
               } else {
-                router.push(`/contact/${params.userId}`);
+                router.push(`/c/${contactProfile?.shortCode ?? params.code}`);
               }
             }}
             title="Meet Up"
@@ -349,7 +390,7 @@ export default function SmartScheduleView() {
             onClick={() => {
               // Preserve the 'from' parameter when navigating to AI schedule
               const queryString = fromParam ? `?from=${fromParam}` : '';
-              router.push(`/contact/${params.userId}/ai-schedule${queryString}`);
+              router.push(`/c/${contactProfile?.shortCode ?? params.code}/ai-schedule${queryString}`);
             }}
           >
             Find Custom Time & Place

@@ -27,7 +27,7 @@ const PRE_FETCH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown between pre-fetc
 export const HistoryView: React.FC = () => {
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache } = useProfile();
+  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache, refreshProfile } = useProfile();
   const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,15 +49,15 @@ export const HistoryView: React.FC = () => {
 
       if (contactIdForScheduling) {
         sessionStorage.removeItem('calendar-contact-id');
-        router.push(`/contact/${contactIdForScheduling}/smart-schedule?from=history`);
+        router.push(`/c/${contactIdForScheduling}/smart-schedule?from=history`);
       }
     }
   });
 
 
-  // Fetch contacts on component mount using ProfileContext cache
+  // Fetch contacts and refresh profile on component mount
   useEffect(() => {
-    const fetchContacts = async () => {
+    const fetchData = async () => {
       if (!session?.user?.id) {
         router.push('/');
         return;
@@ -65,6 +65,8 @@ export const HistoryView: React.FC = () => {
 
       try {
         setError(null);
+        // Refresh profile to ensure we have latest calendar data
+        await refreshProfile();
         await loadContacts(session.user.id);
         setIsLoading(false);
       } catch (error) {
@@ -74,8 +76,8 @@ export const HistoryView: React.FC = () => {
       }
     };
 
-    fetchContacts();
-  }, [session, router, loadContacts]);
+    fetchData();
+  }, [session, router, loadContacts, refreshProfile]);
 
   // Pre-fetch common time slots for recent contacts (truly non-blocking background process)
   useEffect(() => {
@@ -194,7 +196,9 @@ export const HistoryView: React.FC = () => {
   };
 
   const handleContactTap = (contact: SavedContact) => {
-    router.push(`/contact/${contact.userId}`);
+    // Prefer shortCode for cleaner URLs, fall back to userId
+    const code = contact.shortCode || contact.userId;
+    router.push(`/c/${code}`);
   };
 
   const handleCalendarClick = (e: React.MouseEvent, contact: SavedContact) => {
@@ -210,10 +214,12 @@ export const HistoryView: React.FC = () => {
     );
 
     if (userHasCalendar) {
-      router.push(`/contact/${contact.userId}/smart-schedule?from=history`);
+      const code = contact.shortCode || contact.userId;
+      router.push(`/c/${code}/smart-schedule?from=history`);
     } else {
-      // Store contact ID for after calendar is added
-      sessionStorage.setItem('calendar-contact-id', contact.userId);
+      // Store contact code for after calendar is added
+      const code = contact.shortCode || contact.userId;
+      sessionStorage.setItem('calendar-contact-id', code);
       setSelectedContact(contact);
       setShowAddCalendarModal(true);
     }
@@ -222,7 +228,8 @@ export const HistoryView: React.FC = () => {
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     if (selectedContact) {
-      router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
+      const code = selectedContact.shortCode || selectedContact.userId;
+      router.push(`/c/${code}/smart-schedule?from=history`);
     }
   };
 
@@ -231,7 +238,8 @@ export const HistoryView: React.FC = () => {
 
     if (selectedContact) {
       sessionStorage.removeItem('calendar-contact-id');
-      router.push(`/contact/${selectedContact.userId}/smart-schedule?from=history`);
+      const code = selectedContact.shortCode || selectedContact.userId;
+      router.push(`/c/${code}/smart-schedule?from=history`);
     }
   };
 
@@ -442,7 +450,7 @@ export const HistoryView: React.FC = () => {
           section={selectedContact.contactType}
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
-          redirectTo={`/contact/${selectedContact.userId}/smart-schedule?from=history`}
+          redirectTo={`/c/${selectedContact.shortCode ?? selectedContact.userId}/smart-schedule?from=history`}
         />
       )}
 

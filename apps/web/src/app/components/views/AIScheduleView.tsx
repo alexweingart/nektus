@@ -23,12 +23,13 @@ export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, invalidateContactsCache } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const contactUserId = params.userId as string;
+  const code = params.code as string;
   const contactType = savedContact?.contactType || 'personal';
 
   // Chat interface state
@@ -51,15 +52,54 @@ export default function AIScheduleView() {
   });
 
   const loadProfiles = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !code) return;
 
     try {
-      // Get contact from cache (ContactLayout loads it)
-      const savedContact = getContact(contactUserId);
+      // Get contact from cache - try by userId first, then by shortCode
+      let contact = getContact(code);
 
-      if (savedContact) {
-        setContactProfile(savedContact);
-        setSavedContact(savedContact);
+      // If not found by userId, search by shortCode
+      if (!contact) {
+        const allContacts = getContacts();
+        contact = allContacts.find(c => c.shortCode === code) || null;
+      }
+
+      if (contact) {
+        // Check if we're viewing via userId but contact doesn't have a shortCode yet
+        const isViewingViaUserId = code === contact.userId && !contact.shortCode;
+
+        if (isViewingViaUserId) {
+          // Fetch/generate shortCode for the profile, update saved contact, then redirect
+          try {
+            const profileRes = await fetch(`/api/profile/shortcode/${contact.userId}`);
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              if (profileData.profile?.shortCode) {
+                const shortCode = profileData.profile.shortCode;
+
+                // Update the saved contact with the shortCode
+                await fetch(`/api/contacts/${contact.userId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ shortCode })
+                });
+
+                console.log(`📌 [AIScheduleView] Updated saved contact with shortCode: ${shortCode}`);
+
+                // Invalidate cache and redirect to shortCode URL
+                invalidateContactsCache();
+                setIsRedirecting(true);
+                router.replace(`/c/${shortCode}/ai-schedule${window.location.search}`);
+                return;
+              }
+            }
+          } catch (err) {
+            console.warn('[AIScheduleView] Failed to migrate to shortCode, continuing with userId:', err);
+          }
+        }
+
+        setContactProfile(contact);
+        setSavedContact(contact);
       }
 
     } catch (error) {
@@ -68,7 +108,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [contactUserId, session?.user?.id, router, getContact]);
+  }, [code, session?.user?.id, router, getContact, getContacts, invalidateContactsCache]);
 
   useEffect(() => {
     loadProfiles();
@@ -79,7 +119,7 @@ export default function AIScheduleView() {
     const abortController = new AbortController();
 
     const fetchCommonTimeSlots = async () => {
-      if (!session?.user?.id || !contactUserId || !auth?.currentUser) return;
+      if (!session?.user?.id || !savedContact?.userId || !auth?.currentUser) return;
       if (hasFetchedSlotsRef.current) return; // Already fetched
 
       hasFetchedSlotsRef.current = true;
@@ -103,7 +143,7 @@ export default function AIScheduleView() {
           },
           body: JSON.stringify({
             user1Id: session.user.id,
-            user2Id: contactUserId,
+            user2Id: savedContact.userId,
             duration: 30, // Use minimum duration for maximum flexibility
             calendarType: contactType,
           }),
@@ -128,7 +168,7 @@ export default function AIScheduleView() {
       }
     };
 
-    if (contactProfile && currentUserProfile) {
+    if (contactProfile && currentUserProfile && savedContact) {
       fetchCommonTimeSlots();
     }
 
@@ -136,7 +176,7 @@ export default function AIScheduleView() {
     return () => {
       abortController.abort();
     };
-  }, [contactProfile, currentUserProfile, session?.user?.id, contactUserId, contactType]);
+  }, [contactProfile, currentUserProfile, session?.user?.id, savedContact, contactType]);
 
   useEffect(() => {
     // Initialize chat with AI greeting when component mounts
@@ -249,7 +289,7 @@ And if you don't know any of those things, and just want me to suggest based off
           userMessage: actualInput,
           conversationHistory,
           user1Id: session.user.id,
-          user2Id: contactUserId,
+          user2Id: savedContact?.userId,
           user2Name: contactName,
           user2Email: contactEmail,
           user1Location: currentUserLocation,
@@ -282,7 +322,7 @@ And if you don't know any of those things, and just want me to suggest based off
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse]);
+  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
 
   const handleScheduleEvent = (event: Event) => {
     if (!event.calendar_urls?.google) {
@@ -298,7 +338,7 @@ And if you don't know any of those things, and just want me to suggest based off
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const fromParam = searchParams.get('from');
     const queryString = fromParam ? `?from=${fromParam}` : '';
-    router.push(`/contact/${contactUserId}/smart-schedule${queryString}`);
+    router.push(`/c/${savedContact?.shortCode ?? code}/smart-schedule${queryString}`);
   };
 
   // Wait 1.5 seconds before showing ChatInput (allows background transition to complete)
@@ -335,7 +375,7 @@ And if you don't know any of those things, and just want me to suggest based off
   }, []);
 
 
-  if (loading || !contactProfile || !currentUserProfile) {
+  if (loading || !contactProfile || !currentUserProfile || isRedirecting) {
     return null;
   }
 
