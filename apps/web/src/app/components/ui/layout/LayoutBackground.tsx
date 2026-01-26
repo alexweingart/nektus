@@ -18,8 +18,10 @@ interface ContactProfile {
 }
 
 // Theme color constants
+// Note: Safe areas use solid themeGreen while gradientEnd uses 30% opacity,
+// but they blend consistently in practice despite the opacity difference.
 const COLORS = {
-  // Theme green - matches gradient green (solid, no opacity) for gradients and safe areas
+  // Theme green - solid color for safe areas (status bar, notch)
   themeGreen: 'rgb(34, 197, 94)',
 
   // Theme dark background
