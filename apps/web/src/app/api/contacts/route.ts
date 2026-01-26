@@ -17,39 +17,88 @@ import type { UserProfile } from '@/types/profile';
 /**
  * Get Google Contacts access token - try incremental auth first, fallback to session
  */
-async function getGoogleContactsToken(session: { accessToken?: string }, userId: string): Promise<string | null> {
+async function getGoogleContactsToken(userId: string, sessionAccessToken?: string): Promise<string | null> {
   console.log('🔍 Token retrieval: Getting Google Contacts token for user:', userId);
-  
+
   // First try incremental auth token (has contacts permission)
   const incrementalToken = await getContactsAccessToken(userId);
   console.log('🔍 Token retrieval: Incremental token result:', incrementalToken ? 'Found' : 'Not found');
-  
+
   if (incrementalToken) {
     console.log('✅ Token retrieval: Using incremental auth token for Google Contacts');
     return incrementalToken;
   }
-  
+
   // Fallback to session token (if user originally granted contacts permission)
-  console.log('🔍 Token retrieval: Session access token:', session.accessToken ? 'Found' : 'Not found');
-  
-  if (session.accessToken) {
+  console.log('🔍 Token retrieval: Session access token:', sessionAccessToken ? 'Found' : 'Not found');
+
+  if (sessionAccessToken) {
     console.log('ℹ️ Token retrieval: Using session token for Google Contacts (fallback)');
-    return session.accessToken;
+    return sessionAccessToken;
   }
-  
+
   console.log('❌ Token retrieval: No Google Contacts access token available');
+  return null;
+}
+
+/**
+ * Get authenticated user ID from either Bearer token (iOS) or NextAuth session (web)
+ */
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  // First, try Bearer token authentication (iOS app)
+  const authHeader = request.headers.get('Authorization');
+  console.log('🔍 Auth header present:', !!authHeader, authHeader ? `(${authHeader.substring(0, 20)}...)` : '');
+
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const { auth } = await getFirebaseAdmin();
+      const idToken = authHeader.replace('Bearer ', '');
+      console.log('🔍 Token length:', idToken.length, 'starts with:', idToken.substring(0, 20));
+
+      if (!idToken || idToken === 'null' || idToken === 'undefined') {
+        console.warn('⚠️ Bearer token is empty or invalid string');
+        // Fall through to try NextAuth session
+      } else {
+        const decodedToken = await auth.verifyIdToken(idToken);
+        console.log('✅ Authenticated via Bearer token:', decodedToken.uid);
+        return decodedToken.uid;
+      }
+    } catch (error: unknown) {
+      // Log detailed error info for debugging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as { code?: string })?.code || 'unknown';
+      console.warn('⚠️ Bearer token verification failed:', {
+        code: errorCode,
+        message: errorMessage,
+        tokenLength: authHeader?.replace('Bearer ', '').length,
+      });
+      // Fall through to try NextAuth session
+    }
+  }
+
+  // Fallback to NextAuth session (web)
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    console.log('✅ Authenticated via NextAuth session:', session.user.id);
+    return session.user.id;
+  }
+
   return null;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
+
+    // Try to get NextAuth session for Google Contacts access token (only available for web users)
+    const nextAuthSession = await getServerSession(authOptions);
+    const sessionAccessToken = nextAuthSession?.accessToken as string | undefined;
 
     const { 
       token, 
@@ -65,7 +114,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.log(`💾 Saving contact for user ${session.user.id} with token: ${token}`, {
+    console.log(`💾 Saving contact for user ${userId} with token: ${token}`, {
       skipGoogleContacts,
       skipFirebase,
       googleOnly
@@ -81,8 +130,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // For now, we'll still verify the exchange but won't require it to be active
       const matchData = await getExchangeMatch(token);
       if (matchData && matchData.userB) {  // Check userB exists (not in waiting state)
-        const isUserA = matchData.userA.userId === session.user.id;
-        const isUserB = matchData.userB.userId === session.user.id;
+        const isUserA = matchData.userA.userId === userId;
+        const isUserB = matchData.userB.userId === userId;
 
         if (isUserA || isUserB) {
           const otherUserId = isUserA ? matchData.userB.userId : matchData.userA.userId;
@@ -120,8 +169,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Verify user is part of this exchange
-      const isUserA = matchData.userA.userId === session.user.id;
-      const isUserB = matchData.userB.userId === session.user.id;
+      const isUserA = matchData.userA.userId === userId;
+      const isUserB = matchData.userB.userId === userId;
 
       if (!isUserA && !isUserB) {
         return NextResponse.json(
@@ -178,7 +227,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
 
         // Use the contact's userId as the document ID to prevent duplicates
-        const contactRef = db.collection('profiles').doc(session.user.id).collection('contacts').doc((contactProfile as UserProfile).userId);
+        const contactRef = db.collection('profiles').doc(userId).collection('contacts').doc((contactProfile as UserProfile).userId);
         await contactRef.set(savedContact);
 
         result.firebase.success = true;
@@ -201,7 +250,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Save to Google Contacts (if not skipping and either Firebase succeeded or Google-only mode)
     if (!skipGoogleContacts && (result.firebase.success || googleOnly)) {
       console.log('🔍 Google save: Attempting Google Contacts save...');
-      const googleToken = await getGoogleContactsToken(session, session.user.id);
+      const googleToken = await getGoogleContactsToken(userId, sessionAccessToken);
       
       if (googleToken) {
         console.log('🔍 Google save: Found Google token, calling saveToGoogleContacts...');

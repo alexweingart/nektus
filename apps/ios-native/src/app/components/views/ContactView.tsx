@@ -111,6 +111,13 @@ export function ContactView(props: ContactViewProps = {}) {
   const buttonsOpacity = useRef(new Animated.Value(0)).current;
   const exitOpacity = useRef(new Animated.Value(1)).current;
 
+  // Emit match-found for props.profile case (App Clip)
+  useEffect(() => {
+    if (props.profile?.backgroundColors) {
+      emitMatchFound(props.profile.backgroundColors);
+    }
+  }, [props.profile]);
+
   // Fetch the contact profile (skip if props.profile provided)
   useEffect(() => {
     // Skip fetch if profile provided via props (App Clip)
@@ -492,8 +499,10 @@ export function ContactView(props: ContactViewProps = {}) {
           <PageHeader onBack={isHistoricalMode ? handleBack : undefined} />
         </View>
 
-        {/* Content area - centered against full page */}
-        <View style={[styles.content, { paddingBottom: insets.bottom }]}>
+        {/* Content area - centered against full page (including top safe area)
+            LayoutBackground adds paddingTop: insets.top, so we offset by -insets.top/2
+            to visually center relative to the full screen height */}
+        <View style={[styles.content, { paddingBottom: insets.bottom, marginTop: -insets.top / 2 }]}>
           {/* Contact Info - animated entry from top */}
           <Animated.View
             style={{
