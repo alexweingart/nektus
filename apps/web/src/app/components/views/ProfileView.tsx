@@ -182,7 +182,7 @@ const ProfileView: React.FC = () => {
 
     const senderFirstName = session.user.name.split(' ')[0];
     const contactFirstName = contactName.split(' ')[0];
-    const messageText = generateMessageText(contactFirstName, senderFirstName);
+    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, profile?.shortCode);
 
     // Try to use phone number if available
     let phoneNumber = '';

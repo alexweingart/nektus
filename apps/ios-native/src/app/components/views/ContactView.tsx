@@ -22,6 +22,7 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
+import { generateMessageText } from '../../../client/contacts/messaging';
 
 // Demo robot avatar for test mode simulation
 const demoRobotAvatarAsset = require('../../../../assets/demo-robot-avatar.png');
@@ -86,7 +87,7 @@ export function ContactView(props: ContactViewProps = {}) {
   const isHistoricalMode = route?.params?.isHistoricalMode || false;
 
   const { data: session } = useSession();
-  const { saveProfile } = useProfile();
+  const { saveProfile, profile: userProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   // Use props.profile directly if provided (App Clip), otherwise fetch
@@ -419,11 +420,11 @@ export function ContactView(props: ContactViewProps = {}) {
     if (!profile) return;
 
     const phoneNumber = getFieldValue(profile.contactEntries, 'phone');
-    const contactName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
+    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
     // Use props.sessionUserName in App Clip, otherwise session.user.name
-    const senderName = getFirstName(props.sessionUserName || session?.user?.name || '');
+    const senderFirstName = getFirstName(props.sessionUserName || session?.user?.name || '');
 
-    const message = `Hey ${contactName}! It's ${senderName} - nice meeting you!`;
+    const message = generateMessageText(contactFirstName, senderFirstName, undefined, userProfile?.shortCode);
 
     setShowSuccessModal(false);
 
@@ -436,7 +437,7 @@ export function ContactView(props: ContactViewProps = {}) {
       Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
     }
     // Note: SKOverlay is shown when user taps "Done", not after messaging
-  }, [profile, props.sessionUserName, session]);
+  }, [profile, props.sessionUserName, session, userProfile?.shortCode]);
 
   // Loading state
   if (isLoading) {
