@@ -581,7 +581,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   content: {
-    flexGrow: 1,
+    flex: 1,
+    justifyContent: 'center',
     paddingTop: 8,
   },
   actionsContainer: {

@@ -211,55 +211,58 @@ export function ProfileView() {
           </Button>
         </Animated.View>
 
-        {/* Profile Info with carousel - shows QR code during exchange */}
-        {/* Double-tap on profile area activates admin mode */}
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={adminModeProps.onPress}
-        >
-          <ProfileInfo
-            profile={profile}
-            profileImageSrc={profileImageSrc}
-            bioContent={bioContent}
-            isLoadingProfile={false}
-            isGoogleInitials={shouldShowInitials}
-            showQRCode={showQRCode}
-            matchToken={matchToken || undefined}
-            animatedValues={{
-              scale: animatedValues.profileScale,
-              translateY: animatedValues.profileTranslateY,
-              opacity: animatedValues.profileOpacity,
-              rotation: animatedValues.profileRotation,
-            }}
-          />
-        </TouchableOpacity>
+        {/* Centered content: Profile Info + Action Buttons */}
+        <View style={styles.centeredContent}>
+          {/* Profile Info with carousel - shows QR code during exchange */}
+          {/* Double-tap on profile area activates admin mode */}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={adminModeProps.onPress}
+          >
+            <ProfileInfo
+              profile={profile}
+              profileImageSrc={profileImageSrc}
+              bioContent={bioContent}
+              isLoadingProfile={false}
+              isGoogleInitials={shouldShowInitials}
+              showQRCode={showQRCode}
+              matchToken={matchToken || undefined}
+              animatedValues={{
+                scale: animatedValues.profileScale,
+                translateY: animatedValues.profileTranslateY,
+                opacity: animatedValues.profileOpacity,
+                rotation: animatedValues.profileRotation,
+              }}
+            />
+          </TouchableOpacity>
 
-        {/* Action Buttons - Animated */}
-        <Animated.View
-          style={[
-            styles.actionButtonsContainer,
-            {
-              opacity: animatedValues.actionButtonsOpacity,
-              transform: [{ scale: animatedValues.actionButtonsScale }],
-            },
-          ]}
-        >
-          {/* Nekt Button */}
-          <ExchangeButton
-            onStateChange={handleExchangeStatusChange}
-            onMatchTokenChange={handleMatchTokenChange}
-            onMatch={handleMatch}
-          />
+          {/* Action Buttons - Animated */}
+          <Animated.View
+            style={[
+              styles.actionButtonsContainer,
+              {
+                opacity: animatedValues.actionButtonsOpacity,
+                transform: [{ scale: animatedValues.actionButtonsScale }],
+              },
+            ]}
+          >
+            {/* Nekt Button */}
+            <ExchangeButton
+              onStateChange={handleExchangeStatusChange}
+              onMatchTokenChange={handleMatchTokenChange}
+              onMatch={handleMatch}
+            />
 
-          {/* Cancel Button - shows during exchange and match found state */}
-          {(isExchanging || isMatchFound) && (
-            <View style={styles.cancelButtonContainer}>
-              <SecondaryButton onPress={handleCancelExchange}>
-                Cancel
-              </SecondaryButton>
-            </View>
-          )}
-        </Animated.View>
+            {/* Cancel Button - shows during exchange and match found state */}
+            {(isExchanging || isMatchFound) && (
+              <View style={styles.cancelButtonContainer}>
+                <SecondaryButton onPress={handleCancelExchange}>
+                  Cancel
+                </SecondaryButton>
+              </View>
+            )}
+          </Animated.View>
+        </View>
       </PullToRefresh>
 
       {/* Admin Banner - appears when admin mode is activated */}
@@ -274,12 +277,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, // Match web px-4 (applies to all children)
     paddingBottom: 32,
   },
+  centeredContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   headerButtons: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 16,
-    width: "100%",
-    // No horizontal padding - comes from scrollContent
+    paddingHorizontal: 16,
+    zIndex: 1,
   },
   actionButtonsContainer: {
     paddingTop: 16,

@@ -6,6 +6,7 @@ interface AvatarProps {
   src?: string;
   alt?: string;
   size?: 'sm' | 'md' | 'lg';
+  sizeNumeric?: number; // Override preset size with exact pixel value
   isLoading?: boolean;
   showInitials?: boolean; // Explicitly control when to show initials
 }
@@ -41,6 +42,7 @@ const Avatar: React.FC<AvatarProps> = ({
   src,
   alt = 'Profile',
   size = 'md',
+  sizeNumeric,
   isLoading = false,
   showInitials = false
 }) => {
@@ -57,8 +59,8 @@ const Avatar: React.FC<AvatarProps> = ({
   const fadeAnimInitials = React.useRef(new Animated.Value(1)).current;
   const fadeAnimImage = React.useRef(new Animated.Value(0)).current;
 
-  const dimension = sizeMap[size];
-  const fontSize = fontSizeMap[size];
+  const dimension = sizeNumeric ?? sizeMap[size];
+  const fontSize = sizeNumeric ? Math.round(sizeNumeric * 0.375) : fontSizeMap[size];
 
   React.useEffect(() => {
     // Only react to src changes, not hasError changes (prevents infinite loop)

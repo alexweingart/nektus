@@ -6,6 +6,7 @@ import {
   PanResponder,
   LayoutChangeEvent,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
@@ -80,6 +81,10 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   matchToken,
   animatedValues,
 }) => {
+  // Dynamic avatar sizing based on screen width
+  const { width: screenWidth } = useWindowDimensions();
+  const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
+
   // Get base URL for QR code
   const apiBaseUrl = getApiBaseUrl();
   // Convert API base URL to web URL (remove /api if present, use web domain)
@@ -263,11 +268,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         onPress={adminActivator.onPress}
         activeOpacity={1}
       >
-        <View style={styles.avatarBorder}>
+        <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
           <Avatar
             src={profileImageSrc}
             alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
-            size="lg"
+            sizeNumeric={avatarSize}
             isLoading={isLoadingProfile}
             showInitials={showInitialsValue}
           />
@@ -431,7 +436,7 @@ const styles = StyleSheet.create({
   avatarBorder: {
     borderWidth: 4,
     borderColor: '#ffffff',
-    borderRadius: 68, // (128 + 8) / 2
+    // borderRadius is set dynamically based on avatarSize
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

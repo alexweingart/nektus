@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import type { UserProfile } from '@nektus/shared-types';
 import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../elements/Avatar';
@@ -25,17 +25,21 @@ const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): st
 };
 
 export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
+  // Dynamic avatar sizing based on screen width
+  const { width: screenWidth } = useWindowDimensions();
+  const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
+
   const name = getFieldValue(profile?.contactEntries, 'name') || 'Anonymous';
 
   return (
     <View style={styles.container}>
       {/* Profile Image */}
       <View style={styles.avatarContainer}>
-        <View style={styles.avatarBorder}>
+        <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
           <Avatar
             src={getOptimalProfileImageUrl(profile.profileImage, 256)}
             alt={name}
-            size="lg"
+            sizeNumeric={avatarSize}
             showInitials={!profile.profileImage}
           />
         </View>
@@ -79,7 +83,7 @@ const styles = StyleSheet.create({
   avatarBorder: {
     borderWidth: 4,
     borderColor: '#ffffff',
-    borderRadius: 68, // 128 / 2 + 4
+    // borderRadius is set dynamically based on avatarSize
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
