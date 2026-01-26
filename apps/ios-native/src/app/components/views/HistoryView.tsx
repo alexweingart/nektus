@@ -293,7 +293,6 @@ export function HistoryView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -304,7 +303,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   errorText: {
     color: '#EF4444',
@@ -317,11 +316,11 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    width: '100%', // Needed so children with width: 100% can fill properly
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 48, // Match web's py-12
-    // No extra paddingHorizontal - inherits from container's paddingHorizontal: 16
+    paddingTop: 48,
+    paddingHorizontal: 16,
   },
   emptyIconContainer: {
     marginBottom: 24,
@@ -339,6 +338,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   separator: {
     height: 12,
