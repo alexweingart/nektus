@@ -79,7 +79,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="rgb(29, 150, 67)" />
+        <meta name="theme-color" content="rgb(10, 15, 26)" />
         {/* Smart App Banner for App Clip */}
         <meta name="apple-itunes-app" content="app-clip-bundle-id=com.nektus.app.Clip, app-clip-display=card" />
         <link rel="manifest" href="/manifest.json" />

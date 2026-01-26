@@ -329,6 +329,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         userColors,
         backgroundColors: profile?.backgroundColors
       });
+    } else if (status === 'authenticated') {
+      // Fallback for authenticated users while profile is loading
+      // Use themeDark to match the loading gradient colors
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+      document.documentElement.style.backgroundColor = COLORS.themeDark;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      updateThemeColorMeta(COLORS.themeDark);
+      console.log('[LayoutBackground] Authenticated fallback - profile loading, using themeDark');
     } else {
       console.log('[LayoutBackground] ⚠️ NO SAFE AREA PATH MATCHED:', {
         isOnContactPage,
@@ -362,11 +370,16 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // On first page load (refresh or direct URL), don't restore - start from black
-    // On subsequent navigation, restore for smooth transitions
+    // On first page load (refresh or direct URL), set initial colors matching the gradient
+    // On subsequent navigation, restore cached colors for smooth transitions
     if (isFirstPageLoad) {
       isFirstPageLoad = false;
-      console.log('[LayoutBackground] First page load detected - not restoring colors, will start from black');
+      // Set initial colors to themeDark to match the loading gradient
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+      document.documentElement.style.backgroundColor = COLORS.themeDark;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      updateThemeColorMeta(COLORS.themeDark);
+      console.log('[LayoutBackground] First page load detected - setting initial themeDark colors');
       return;
     }
 
@@ -424,20 +437,32 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       if (isOnContactPage) {
         const contactColors = contactProfile?.backgroundColors;
 
-        // Check if colors exist and are custom (not all the same)
-        const hasCustomColors = contactColors &&
-                               contactColors.length >= 3 &&
+        // Check if colors exist
+        const hasColors = contactColors && contactColors.length >= 3;
+
+        // Check if colors are custom (not all the same) - indicates extracted from real image
+        const hasCustomColors = hasColors &&
                                !(contactColors[0] === contactColors[1] && contactColors[1] === contactColors[2]);
 
         if (hasCustomColors) {
-          // Use contact's custom colors
+          // Use contact's custom colors (extracted from real profile image)
           const particleColors = convertToParticleColors(contactColors);
           return {
             colors: particleColors,
             context: 'connect'
           };
+        } else if (hasColors) {
+          // Has colors but all the same (AI-generated avatar default) - use their color for gradient
+          const dominantColor = contactColors[0];
+          return {
+            colors: {
+              ...DEFAULT_COLORS_INVERTED,
+              gradientEnd: hexToRgba(dominantColor, 0.3), // 30% opacity to match DEFAULT_COLORS_INVERTED style
+            },
+            context: 'connect'
+          };
         } else if (contactProfile) {
-          // Contact loaded but no custom colors - use default inverted
+          // Contact loaded but no colors at all - use default inverted
           return {
             colors: DEFAULT_COLORS_INVERTED,
             context: 'connect'
@@ -486,20 +511,32 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // Contact page logic
       const contactColors = contactProfile?.backgroundColors;
 
-      // Check if colors exist and are custom (not all the same)
-      const hasCustomColors = contactColors &&
-                             contactColors.length >= 3 &&
+      // Check if colors exist
+      const hasColors = contactColors && contactColors.length >= 3;
+
+      // Check if colors are custom (not all the same) - indicates extracted from real image
+      const hasCustomColors = hasColors &&
                              !(contactColors[0] === contactColors[1] && contactColors[1] === contactColors[2]);
 
       if (hasCustomColors) {
-        // Use contact's custom colors
+        // Use contact's custom colors (extracted from real profile image)
         const particleColors = convertToParticleColors(contactColors);
         return {
           colors: particleColors,
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
+      } else if (hasColors) {
+        // Has colors but all the same (AI-generated avatar default) - use their color for gradient
+        const dominantColor = contactColors[0];
+        return {
+          colors: {
+            ...DEFAULT_COLORS_INVERTED,
+            gradientEnd: hexToRgba(dominantColor, 0.3), // 30% opacity to match DEFAULT_COLORS_INVERTED style
+          },
+          context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
+        };
       } else {
-        // No contact colors or all colors are the same - use default inverted gradient (profile-style)
+        // No colors at all - use default inverted gradient
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
@@ -509,9 +546,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       // User profile page logic
       const userColors = profile?.backgroundColors;
 
-      // Check if colors exist and are custom (not all the same theme green)
-      const hasCustomColors = userColors &&
-                             userColors.length >= 3 &&
+      // Check if colors exist
+      const hasColors = userColors && userColors.length >= 3;
+
+      // Check if colors are custom (not all the same theme green)
+      const hasCustomColors = hasColors &&
                              !(userColors[0] === userColors[1] && userColors[1] === userColors[2]);
 
       if (hasCustomColors) {
@@ -520,8 +559,18 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
+      } else if (hasColors) {
+        // Has colors but all the same (AI-generated avatar) - use their color for gradient
+        const dominantColor = userColors[0];
+        return {
+          colors: {
+            ...DEFAULT_COLORS_INVERTED,
+            gradientEnd: hexToRgba(dominantColor, 0.3), // 30% opacity to match DEFAULT_COLORS_INVERTED style
+          },
+          context: 'profile-default'
+        };
       } else {
-        // AI-generated or no colors - use default green gradient
+        // No colors at all - use default green gradient
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: 'profile-default'
