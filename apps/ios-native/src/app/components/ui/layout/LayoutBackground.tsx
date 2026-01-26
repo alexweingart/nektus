@@ -155,8 +155,23 @@ export function LayoutBackground({
     }
 
     // For contact context with contact's colors (from match-found event)
-    if ((particleContext === "contact" || particleContext === "connect") && contactColors) {
-      return convertToParticleColors(contactColors);
+    if ((particleContext === "contact" || particleContext === "connect") && contactColors && contactColors.length >= 3) {
+      // Check if colors are custom (not all the same) - indicates extracted from real image
+      const [c1, c2, c3] = contactColors;
+      const hasCustomColors = !(c1 === c2 && c2 === c3);
+
+      if (hasCustomColors) {
+        // Use contact's custom colors (extracted from real profile image)
+        return convertToParticleColors(contactColors);
+      } else {
+        // Has colors but all the same (AI-generated avatar default) - use their color for gradient
+        // Matches web: use DEFAULT_PROFILE_COLORS with dominant color at 30% opacity
+        const dominantColor = contactColors[0];
+        return {
+          ...DEFAULT_PROFILE_COLORS,
+          gradientEnd: hexToRgba(dominantColor, 0.3),
+        };
+      }
     }
 
     // For profile context with custom colors
@@ -165,8 +180,16 @@ export function LayoutBackground({
       // Check if colors are custom (not all the same)
       const [c1, c2, c3] = profile.backgroundColors;
       const hasCustomColors = !(c1 === c2 && c2 === c3);
+
       if (hasCustomColors) {
         return convertToParticleColors(profile.backgroundColors);
+      } else {
+        // Has colors but all the same (AI-generated avatar) - use their color for gradient
+        const dominantColor = profile.backgroundColors[0];
+        return {
+          ...DEFAULT_PROFILE_COLORS,
+          gradientEnd: hexToRgba(dominantColor, 0.3),
+        };
       }
     }
 
@@ -187,13 +210,32 @@ export function LayoutBackground({
   // Use dominant color as background for proper gradient blending
   const effectiveBackgroundColor = useMemo(() => {
     // Contact context with contact colors
-    if ((particleContext === "contact" || particleContext === "connect") && contactColors) {
-      return contactColors[0];
+    if ((particleContext === "contact" || particleContext === "connect") && contactColors && contactColors.length >= 3) {
+      // Check if colors are custom (not all the same)
+      const [c1, c2, c3] = contactColors;
+      const hasCustomColors = !(c1 === c2 && c2 === c3);
+
+      if (hasCustomColors) {
+        // Custom colors - use dominant
+        return contactColors[0];
+      } else {
+        // AI avatar (uniform colors) - use dark background for particle network visibility
+        return backgroundColor;
+      }
     }
     // Profile context with profile colors
     if ((particleContext === "profile" || particleContext === "profile-default") &&
         profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
-      return profile.backgroundColors[0];
+      // Check if colors are custom (not all the same)
+      const [c1, c2, c3] = profile.backgroundColors;
+      const hasCustomColors = !(c1 === c2 && c2 === c3);
+
+      if (hasCustomColors) {
+        return profile.backgroundColors[0];
+      } else {
+        // AI avatar (uniform colors) - use dark background
+        return backgroundColor;
+      }
     }
     return backgroundColor;
   }, [particleContext, profile, backgroundColor, contactColors]);
