@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geocodeAddress } from '@/server/location/geocoding';
 import { calculateMidpoint, calculateDistance } from '@/server/location/location';
+import { getIPLocation } from '@/server/location/ip-geolocation';
 import { searchPlacesByType } from '@/server/places/foursquare';
 import {
   PlaceSearchRequest,
@@ -9,17 +10,98 @@ import {
   PlaceError
 } from '@/types/places';
 
+/**
+ * Get client IP from request headers
+ */
+function getClientIp(request: NextRequest): string {
+  // Check various headers for client IP (in order of preference)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    // x-forwarded-for can be a comma-separated list, take the first one
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    return realIp;
+  }
+
+  // Vercel-specific header
+  const vercelForwardedFor = request.headers.get('x-vercel-forwarded-for');
+  if (vercelForwardedFor) {
+    return vercelForwardedFor.split(',')[0].trim();
+  }
+
+  return '127.0.0.1';
+}
+
+/**
+ * Get fallback location from IP address
+ */
+async function getIpBasedLocation(ip: string): Promise<string | null> {
+  try {
+    // Development fallback for localhost
+    if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+      console.log(`🔧 Development mode detected (IP: ${ip}), using fallback: San Francisco, CA`);
+      return 'San Francisco, CA';
+    }
+
+    const ipLocation = await getIPLocation(ip);
+
+    if (ipLocation.city && ipLocation.state) {
+      const location = `${ipLocation.city}, ${ipLocation.state}`;
+      console.log(`📍 Using IP-based location: ${location}`);
+      return location;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Failed to get IP-based location:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as PlaceSearchRequest;
+    const body = await request.json() as PlaceSearchRequest & { useIpFallback?: boolean };
 
-    // Validate required fields
-    if (!body.userA_address || !body.userB_address || !body.meeting_type || !body.datetime) {
+    // Validate meeting_type and datetime are always required
+    if (!body.meeting_type || !body.datetime) {
       return NextResponse.json(
-        { error: 'Missing required fields: userA_address, userB_address, meeting_type, datetime' },
+        { error: 'Missing required fields: meeting_type, datetime' },
         { status: 400 }
       );
     }
+
+    // Handle address fallback
+    let userAAddress = body.userA_address;
+    let userBAddress = body.userB_address;
+
+    // If addresses are missing and IP fallback is requested, use IP geolocation
+    if ((!userAAddress || !userBAddress) && body.useIpFallback !== false) {
+      const clientIp = getClientIp(request);
+      console.log(`📍 Missing addresses, attempting IP fallback for IP: ${clientIp}`);
+
+      const ipLocation = await getIpBasedLocation(clientIp);
+
+      if (ipLocation) {
+        if (!userAAddress) userAAddress = ipLocation;
+        if (!userBAddress) userBAddress = ipLocation;
+        console.log(`✅ Using IP-based fallback location: ${ipLocation}`);
+      }
+    }
+
+    // Final validation - we need at least one address after fallback attempts
+    if (!userAAddress && !userBAddress) {
+      return NextResponse.json(
+        { error: 'No location available. Please set a location in your profile.' },
+        { status: 400 }
+      );
+    }
+
+    // If only one address, use it for both
+    if (!userAAddress) userAAddress = userBAddress;
+    if (!userBAddress) userBAddress = userAAddress;
 
     // Validate meeting type is a non-empty string
     if (!body.meeting_type || typeof body.meeting_type !== 'string' || body.meeting_type.trim() === '') {
@@ -38,10 +120,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Geocode both addresses
+    // Geocode both addresses (using resolved addresses with IP fallback applied)
     const [userALocation, userBLocation] = await Promise.all([
-      geocodeAddress(body.userA_address),
-      geocodeAddress(body.userB_address),
+      geocodeAddress(userAAddress!),
+      geocodeAddress(userBAddress!),
     ]);
 
     // Calculate optimal search location

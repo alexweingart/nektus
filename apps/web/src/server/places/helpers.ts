@@ -75,21 +75,12 @@ export async function fetchPlacesForEvents(
   const targetUserLocation = findBestLocationForCalendarType(targetUser.locations || [], calendarType);
 
   // Build full addresses
-  let userAAddress = buildFullAddress(currentUserLocation);
-  let userBAddress = buildFullAddress(targetUserLocation);
+  const userAAddress = buildFullAddress(currentUserLocation);
+  const userBAddress = buildFullAddress(targetUserLocation);
 
-  // Require at least one valid address
-  if (!userAAddress && !userBAddress) {
-    console.warn('No valid addresses found for either user');
-    return {};
-  }
-
-  // For single address, use it for both (places API will find nearby venues)
-  if (!userAAddress && userBAddress) {
-    userAAddress = userBAddress;
-  } else if (userAAddress && !userBAddress) {
-    userBAddress = userAAddress;
-  }
+  // Note: If neither user has an address, we'll pass empty strings and let the API
+  // use IP-based geolocation as a fallback. The API will return an error if it
+  // can't determine a location.
 
   // Group events by meeting type to avoid duplicate API calls
   const eventsByMeetingType = new Map<string, MeetingTypeGroup>();
@@ -145,11 +136,12 @@ export async function fetchPlacesForEvents(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userA_address: userAAddress,
-          userB_address: userBAddress,
+          userA_address: userAAddress || '',
+          userB_address: userBAddress || '',
           meeting_type: meetingType,
           datetime: sampleDateTime.toISOString(),
-          duration: group.duration
+          duration: group.duration,
+          useIpFallback: true // Enable IP-based location fallback when addresses are missing
         })
       });
 
