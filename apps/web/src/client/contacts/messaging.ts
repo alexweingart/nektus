@@ -6,22 +6,22 @@
  * Generates the message text template
  */
 export function generateMessageText(
-  contactFirstName: string, 
-  senderFirstName: string, 
+  contactFirstName: string,
+  senderFirstName: string,
   meetingDate: Date = new Date(),
-  senderUserId?: string
+  senderShortCode?: string
 ): string {
-  const dateStr = meetingDate.toLocaleDateString('en-US', { 
-    month: 'long', 
-    day: 'numeric' 
+  const dateStr = meetingDate.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric'
   });
-  
+
   const baseMessage = `👋 Hi ${contactFirstName}, this is ${senderFirstName}. We nekt'd on ${dateStr}. It was great meeting you - let's hang out soon!`;
-  
-  if (senderUserId) {
-    return `${baseMessage} Here's my profile: https://nekt.us/contact/${senderUserId}`;
+
+  if (senderShortCode) {
+    return `${baseMessage} Here's my profile: https://nekt.us/c/${senderShortCode}`;
   }
-  
+
   return baseMessage;
 }
 

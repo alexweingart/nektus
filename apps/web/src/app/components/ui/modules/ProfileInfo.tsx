@@ -170,7 +170,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     const maxHeight = adjustedHeight > 0 ? adjustedHeight : maxWidth;
     const qrSize = Math.min(maxWidth, maxHeight);
     const finalSize = Math.max(qrSize, 180);
-    const qrValue = `${baseUrl}/connect?token=${token}`;
+    const qrValue = `${baseUrl}/x/${token}`;
 
     return (
       <div

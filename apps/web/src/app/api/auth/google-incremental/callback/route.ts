@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       
       // Try to get state data for retry parameters
       let retryParams = {
-        returnUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/connect`,
+        returnUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/x/`,
         contactSaveToken: '',
         profileId: ''
       };

@@ -15,12 +15,11 @@ export function ScrollBehavior() {
     // Only apply scroll blocking on pages that don't need scrolling
     const nonScrollablePages = [
       '/',                    // Homepage
-      '/connect',             // Connect page
       '/setup',               // Setup page
     ];
 
     // Apply to contact detail pages (single-screen), but NOT scheduling pages (scrollable)
-    const isContactPage = pathname?.startsWith('/contact/') &&
+    const isContactPage = pathname?.startsWith('/c/') &&
                           !pathname?.includes('/ai-schedule') &&
                           !pathname?.includes('/smart-schedule');
     const isNonScrollablePage = nonScrollablePages.includes(pathname || '') || isContactPage;

@@ -5,10 +5,9 @@
       {
         "appIDs": ["V4R5CSCQ2J.com.nektus.app"],
         "components": [
-          {
-            "/": "*",
-            "comment": "Matches all paths for Universal Links"
-          }
+          { "/": "/x/*", "comment": "Connect short URLs" },
+          { "/": "/c/*", "comment": "Contact short URLs" },
+          { "/": "*", "comment": "All other paths for Universal Links" }
         ]
       }
     ]
@@ -18,7 +17,7 @@
     "details": [
       {
         "appID": "V4R5CSCQ2J.com.nektus.app.Clip",
-        "paths": ["*", "/", "/?*"]
+        "paths": ["/x/*", "/c/*"]
       }
     ]
   }

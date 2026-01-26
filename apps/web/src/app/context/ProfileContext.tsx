@@ -28,6 +28,7 @@ type ProfileContextType = {
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
   getLatestProfile: () => UserProfile | null;
   setNavigatingFromSetup: (navigating: boolean) => void;
+  refreshProfile: () => Promise<UserProfile | null>;  // Force refresh profile from Firestore
   // Streaming states for immediate UI feedback during generation
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingProfileImage: string | null;
@@ -275,7 +276,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // Set :root background-color to gradientEnd for safe areas
         // BUT skip on contact pages - LayoutBackground handles those
-        const isOnContactPage = pathname === '/connect' || pathname?.startsWith('/contact/');
+        const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
         if (!isOnContactPage) {
           document.documentElement.style.backgroundColor = gradientEnd;
           document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
@@ -420,6 +421,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsNavigatingFromSetup(navigating);
   }, []);
 
+  // Refresh profile from Firestore (forces a re-fetch)
+  const refreshProfile = useCallback(async (): Promise<UserProfile | null> => {
+    if (!session?.user?.id) {
+      console.warn('[ProfileContext] Cannot refresh profile: no user session');
+      return null;
+    }
+
+    try {
+      console.log('[ProfileContext] Refreshing profile from Firestore');
+      const freshProfile = await ProfileService.getProfile(session.user.id);
+
+      if (freshProfile) {
+        setProfile(freshProfile);
+        profileRef.current = freshProfile;
+        console.log('[ProfileContext] Profile refreshed successfully');
+        return freshProfile;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[ProfileContext] Failed to refresh profile:', error);
+      return null;
+    }
+  }, [session?.user?.id]);
+
   // Contacts cache methods
   const loadContacts = useCallback(async (userId: string, force: boolean = false): Promise<SavedContact[]> => {
     // Check if cache is still valid (unless forced refresh)
@@ -484,6 +510,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         saveProfile,
         getLatestProfile,
         setNavigatingFromSetup,
+        refreshProfile,
         streamingSocialContacts,
         streamingProfileImage,
         isGoogleInitials,

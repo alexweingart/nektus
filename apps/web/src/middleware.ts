@@ -14,7 +14,7 @@ const PUBLIC_PATHS = [
   '/about',
   '/privacy',
   '/terms',
-  '/connect',  // Allow unauthenticated access for QR code scanning
+  '/x',  // Allow unauthenticated access for QR code scanning (short URL)
   '/api/exchange/preview',  // Preview endpoint for unauthenticated users
   '/onboarding'  // App Clip trigger page (same as home, different URL for iOS)
 ];

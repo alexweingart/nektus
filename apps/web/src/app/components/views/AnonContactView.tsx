@@ -70,7 +70,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
   const handleSignIn = () => {
     // Preserve token through OAuth via callbackUrl
     signIn('google', {
-      callbackUrl: `/connect?token=${token}`
+      callbackUrl: `/x/${token}`
     });
   };
 
