@@ -247,8 +247,8 @@ export async function POST(req: NextRequest) {
         // Don't fail the whole request if color extraction fails
       }
     } else {
-      // AI-generated image - use theme green for safe areas
-      const themeGreen = '#1d9643'; // rgb(29, 150, 67)
+      // AI-generated image - use theme green for safe areas (Tailwind green-500)
+      const themeGreen = '#22c55e'; // rgb(34, 197, 94) - matches LayoutBackground COLORS.themeGreen
       backgroundColors = [themeGreen, themeGreen, themeGreen];
       console.log('[API/PROFILE-IMAGE] Using default theme green for AI-generated image:', backgroundColors);
     }
