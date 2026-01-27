@@ -28,18 +28,23 @@ function convertToParticleColors(backgroundColors: string[]) {
   };
 }
 
+// Theme green - muted green for gradients and safe areas
+// 40% bright green blended with dark: rgb(34,197,94) * 0.4 + rgb(10,15,26) * 0.6
+const THEME_GREEN = 'rgb(20, 88, 53)';
+const THEME_DARK = 'rgb(10, 15, 26)';
+
 // Default colors for signed-out context - matches web
 const DEFAULT_SIGNED_OUT_COLORS = {
-  gradientStart: 'rgba(34, 197, 94, 0.3)',   // Green in middle
-  gradientEnd: 'rgb(10, 15, 26)',            // Dark at top/bottom
+  gradientStart: THEME_GREEN,                // Green in middle
+  gradientEnd: THEME_DARK,                   // Dark at top/bottom
   particle: 'rgba(200, 255, 200, 0.6)',
   connection: 'rgba(34, 197, 94, 0.15)'
 };
 
 // Default colors for profile/contact context (inverted signed-out colors) - matches web
 const DEFAULT_PROFILE_COLORS = {
-  gradientStart: 'rgb(10, 15, 26)',          // Dark in middle (inverted)
-  gradientEnd: 'rgba(34, 197, 94, 0.3)',     // Green at top/bottom (symmetric)
+  gradientStart: THEME_DARK,                 // Dark in middle (inverted)
+  gradientEnd: THEME_GREEN,                  // Green at top/bottom (symmetric)
   particle: 'rgba(200, 255, 200, 0.8)',      // Brighter particles
   connection: 'rgba(34, 197, 94, 0.4)'       // More visible connections
 };

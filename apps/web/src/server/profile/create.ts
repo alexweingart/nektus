@@ -42,8 +42,18 @@ export class ServerProfileService {
       }
     } catch (error) {
       console.error('[ServerProfileService] Error getting/creating profile:', error);
-      // Fallback - assume needs setup if we can't check
+      // Fallback - attempt to create profile anyway
       const defaultProfile = this.createDefaultProfile(userId, userInfo);
+
+      // Try to save the profile as a recovery mechanism
+      try {
+        const { db } = await getFirebaseAdmin();
+        await db.collection('profiles').doc(userId).set(defaultProfile);
+        console.log('[ServerProfileService] Recovery: Created profile for user:', userId);
+      } catch (saveError) {
+        console.error('[ServerProfileService] Recovery save also failed:', saveError);
+      }
+
       return {
         profile: defaultProfile,
         needsSetup: true

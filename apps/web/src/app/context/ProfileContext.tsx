@@ -209,22 +209,76 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Profile should exist due to server-side creation in NextAuth JWT callback
             // If it doesn't exist, ServerProfileService.getOrCreateProfile() failed silently
-            const errorMessage = `[ProfileContext] Profile missing for user ${session.user.id} - ServerProfileService.getOrCreateProfile() should have created it during authentication. This indicates a server-side profile creation failure.`;
-            console.error(errorMessage);
-            
-            // Set profile to null to prevent UI from showing invalid state
-            setProfile(null);
-            
-            // Log additional context for debugging
-            console.error('[ProfileContext] Profile creation failure details:', {
+            console.warn(`[ProfileContext] Profile missing for user ${session.user.id} - creating fallback profile`);
+
+            // Create a default profile as fallback (recovery mechanism)
+            const defaultProfile: UserProfile = {
               userId: session.user.id,
-              email: session.user.email,
-              timestamp: new Date().toISOString(),
-              suggestion: 'Check server logs for ServerProfileService errors during authentication'
-            });
-            
-            // Don't throw - let the app continue, but profile will be null
-            // User will see appropriate error state in UI
+              profileImage: session.user.image || '',
+              backgroundImage: '',
+              lastUpdated: Date.now(),
+              contactEntries: [
+                {
+                  fieldType: 'name',
+                  value: session.user.name || '',
+                  section: 'universal',
+                  order: -2,
+                  isVisible: true,
+                  confirmed: true
+                },
+                {
+                  fieldType: 'bio',
+                  value: '',
+                  section: 'universal',
+                  order: -1,
+                  isVisible: true,
+                  confirmed: false
+                },
+                {
+                  fieldType: 'phone',
+                  value: '',
+                  section: 'personal',
+                  order: 0,
+                  isVisible: true,
+                  confirmed: false
+                },
+                {
+                  fieldType: 'email',
+                  value: session.user.email || '',
+                  section: 'personal',
+                  order: 1,
+                  isVisible: true,
+                  confirmed: !!session.user.email
+                },
+                {
+                  fieldType: 'phone',
+                  value: '',
+                  section: 'work',
+                  order: 0,
+                  isVisible: true,
+                  confirmed: false
+                },
+                {
+                  fieldType: 'email',
+                  value: session.user.email || '',
+                  section: 'work',
+                  order: 1,
+                  isVisible: true,
+                  confirmed: !!session.user.email
+                }
+              ]
+            };
+
+            // Save the fallback profile to Firestore
+            try {
+              await ProfileService.saveProfile(defaultProfile);
+              console.log('[ProfileContext] Fallback profile created successfully');
+              setProfile(defaultProfile);
+            } catch (saveError) {
+              console.error('[ProfileContext] Failed to create fallback profile:', saveError);
+              // Still set the profile in memory so the UI can function
+              setProfile(defaultProfile);
+            }
           }
         } catch (error) {
           console.error('[ProfileContext] Failed to load or create profile:', error);
