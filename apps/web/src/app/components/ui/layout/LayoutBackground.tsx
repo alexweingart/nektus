@@ -385,15 +385,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
             colors: convertToParticleColors(contactColors),
             context: 'connect'
           };
-        } else if (hasColors) {
-          return {
-            colors: {
-              ...DEFAULT_COLORS_INVERTED,
-              gradientEnd: contactColors[0],
-            },
-            context: 'connect'
-          };
-        } else if (contactProfile) {
+        } else if (hasColors || contactProfile) {
+          // Uniform colors (AI-generated) or no colors - use default muted green
           return {
             colors: DEFAULT_COLORS_INVERTED,
             context: 'connect'
@@ -438,15 +431,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           colors: convertToParticleColors(contactColors),
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
-      } else if (hasColors) {
-        return {
-          colors: {
-            ...DEFAULT_COLORS_INVERTED,
-            gradientEnd: contactColors[0],
-          },
-          context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
-        };
       } else {
+        // Uniform colors (AI-generated) or no colors - use default muted green
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
@@ -461,15 +447,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
-      } else if (hasColors) {
-        return {
-          colors: {
-            ...DEFAULT_COLORS_INVERTED,
-            gradientEnd: userColors[0],
-          },
-          context: 'profile-default'
-        };
       } else {
+        // Uniform colors (AI-generated) or no colors - use default muted green
         return {
           colors: DEFAULT_COLORS_INVERTED,
           context: 'profile-default'

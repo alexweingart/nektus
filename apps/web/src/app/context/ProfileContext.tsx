@@ -312,34 +312,38 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Liquid Glass: Set global color tint from user's profile
   useEffect(() => {
+    // Muted theme green: rgb(20, 88, 53) - matches LayoutBackground COLORS.themeGreen
+    const MUTED_GREEN = 'rgb(20, 88, 53)';
+    const MUTED_GREEN_RGB = '20, 88, 53';
+
     if (profile?.backgroundColors) {
       const [dominant, accent1, accent2] = profile.backgroundColors;
+      const hasCustomColors = !(dominant === accent1 && accent1 === accent2);
 
-      // Use accent2 to match particle dots (for glass tint)
-      const profileColor = accent2 || accent1 || dominant;
-      if (profileColor) {
-        const rgb = hexToRgb(profileColor);
-        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
-      }
+      if (hasCustomColors) {
+        // Custom extracted colors - use accent2 for glass tint
+        const profileColor = accent2 || accent1 || dominant;
+        if (profileColor) {
+          const rgb = hexToRgb(profileColor);
+          const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+          document.documentElement.style.setProperty('--glass-tint-color', rgbString);
+        }
 
-      // Set safe area color for profile pages (LayoutBackground handles particle colors)
-      if (dominant && accent1 && accent2) {
-        const gradientEnd = dominant;
-
-        // Set :root background-color to gradientEnd for safe areas
-        // BUT skip on contact pages - LayoutBackground handles those
+        // Set safe area color for profile pages
         const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
         if (!isOnContactPage) {
-          document.documentElement.style.backgroundColor = gradientEnd;
-          document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
+          document.documentElement.style.backgroundColor = dominant;
+          document.documentElement.style.setProperty('--safe-area-color', dominant);
         }
+      } else {
+        // Uniform colors (AI-generated) - use muted green
+        document.documentElement.style.setProperty('--glass-tint-color', MUTED_GREEN_RGB);
+        // Let LayoutBackground handle background colors for uniform colors
       }
     } else {
-      // Default muted green: rgb(20, 88, 53) - matches LayoutBackground COLORS.themeGreen
-      document.documentElement.style.setProperty('--glass-tint-color', '20, 88, 53');
-
-      // LayoutBackground handles all background colors including safe areas
+      // No colors - use muted green
+      document.documentElement.style.setProperty('--glass-tint-color', MUTED_GREEN_RGB);
+      // LayoutBackground handles all background colors
     }
   }, [profile, pathname]);
 
