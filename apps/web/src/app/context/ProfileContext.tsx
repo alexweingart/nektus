@@ -320,13 +320,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (profileColor) {
         const rgb = hexToRgb(profileColor);
         const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        console.log('[ProfileContext] Setting global glass tint from backgroundColors[2]:', profileColor, '→', rgbString);
         document.documentElement.style.setProperty('--glass-tint-color', rgbString);
       }
 
       // Set safe area color for profile pages (LayoutBackground handles particle colors)
       if (dominant && accent1 && accent2) {
-        const gradientEnd = dominant;  // Main color fills background
+        const gradientEnd = dominant;
 
         // Set :root background-color to gradientEnd for safe areas
         // BUT skip on contact pages - LayoutBackground handles those
@@ -334,15 +333,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (!isOnContactPage) {
           document.documentElement.style.backgroundColor = gradientEnd;
           document.documentElement.style.setProperty('--safe-area-color', gradientEnd);
-          console.log('[ProfileContext] Setting :root background-color to:', gradientEnd);
         }
       }
     } else {
-      console.log('[ProfileContext] No backgroundColors, using default green');
-      document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
+      // Default muted green: rgb(20, 88, 53) - matches LayoutBackground COLORS.themeGreen
+      document.documentElement.style.setProperty('--glass-tint-color', '20, 88, 53');
 
       // LayoutBackground handles all background colors including safe areas
-      // Do NOT set backgroundColor here - it conflicts with LayoutBackground's theme green setting
     }
   }, [profile, pathname]);
 
