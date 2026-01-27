@@ -312,8 +312,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Liquid Glass: Set global color tint from user's profile
   useEffect(() => {
-    // Muted theme green: rgb(20, 88, 53) - matches LayoutBackground COLORS.themeGreen
-    const MUTED_GREEN = 'rgb(20, 88, 53)';
+    // Muted theme green RGB values - matches LayoutBackground COLORS.themeGreen
     const MUTED_GREEN_RGB = '20, 88, 53';
 
     if (profile?.backgroundColors) {
