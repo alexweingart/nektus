@@ -19,8 +19,8 @@ import { Animated, StyleSheet, ViewStyle } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../../../App';
 
-// Transition duration matching web's View Transitions API
-const FADE_DURATION = 200;
+// Transition duration matching web's crossfade (1 second)
+const FADE_DURATION = 1000;
 
 // Context for triggering fade-out from anywhere in the screen
 interface ScreenTransitionContextType {

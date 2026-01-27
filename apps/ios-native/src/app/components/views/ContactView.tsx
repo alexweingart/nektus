@@ -527,24 +527,24 @@ export function ContactView(props: ContactViewProps = {}) {
             ]}
           >
             {isHistoricalMode ? (
-              // Historical mode buttons
+              // Historical mode buttons (matching web)
               <>
-                <Button
-                  variant="white"
-                  size="xl"
-                  onPress={handleSayHi}
-                  style={styles.fullWidth}
-                >
-                  <Text style={styles.buttonText}>Say Hi</Text>
-                </Button>
+                {/* Meet Up Button (Primary) */}
                 <Button
                   variant="white"
                   size="xl"
                   onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '' })}
                   style={styles.fullWidth}
                 >
-                  <Text style={styles.buttonText}>Schedule Meetup</Text>
+                  <Text style={styles.buttonText}>Meet Up 🤝</Text>
                 </Button>
+
+                {/* Say Hi Button (Secondary) */}
+                <View style={styles.secondaryButtonContainer}>
+                  <SecondaryButton onPress={handleSayHi}>
+                    Say Hi
+                  </SecondaryButton>
+                </View>
               </>
             ) : (
               // New contact mode buttons
