@@ -7,7 +7,7 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { initializeAuth, getAuth, Auth } from 'firebase/auth';
 // @ts-ignore: getReactNativePersistence exists in the RN bundle but is missing from TypeScript definitions
 import { getReactNativePersistence } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, Firestore, memoryLocalCache } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -54,7 +54,16 @@ try {
   auth = getAuth(app);
 }
 
-db = getFirestore(app);
+// Use memory-only cache for React Native to avoid IndexedDB/bundle loading errors
+// The Firebase JS SDK's default persistence doesn't work properly in RN
+try {
+  db = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  });
+} catch (e) {
+  // Firestore already initialized, get the existing instance
+  db = getFirestore(app);
+}
 storage = getStorage(app);
 
 export { app, auth, db, storage };

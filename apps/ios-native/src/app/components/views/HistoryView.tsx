@@ -170,6 +170,17 @@ export function HistoryView() {
     setContactToDelete(null);
   }, []);
 
+  // Handle calendar/schedule action
+  const handleCalendarClick = useCallback((contact: SavedContact) => {
+    // Navigate to smart schedule for this contact
+    navigateWithFade('Contact', {
+      userId: contact.userId,
+      token: '',
+      isHistoricalMode: true,
+      openSchedule: true, // Signal to open scheduling
+    });
+  }, [navigateWithFade]);
+
   // Render contact item
   const renderContactItem = ({ item }: { item: SavedContact }) => {
     return (
@@ -178,7 +189,7 @@ export function HistoryView() {
           <Avatar
             src={getOptimalProfileImageUrl(item.profileImage, 128)}
             alt={item.odtName}
-            size="sm"
+            sizeNumeric={40}
           />
         }
         title={item.odtName || 'Unknown Contact'}
@@ -186,9 +197,9 @@ export function HistoryView() {
         truncateTitle
         onClick={() => handleContactTap(item)}
         onLongPress={() => handleLongPress(item)}
-        actionIcon="chevron"
+        actionIcon="calendar"
         isActionLoading={deletingContactId === item.userId}
-        onActionClick={() => handleContactTap(item)}
+        onActionClick={() => handleCalendarClick(item)}
       />
     );
   };
