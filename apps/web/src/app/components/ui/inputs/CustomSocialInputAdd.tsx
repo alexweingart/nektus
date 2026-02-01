@@ -133,6 +133,7 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
           value={username}
           onChange={(e) => onUsernameChange(e.target.value)}
           placeholder="Username"
+          enterKeyHint="done"
           style={{
             border: 'none',
             outline: 'none',

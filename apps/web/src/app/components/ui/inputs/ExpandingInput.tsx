@@ -103,6 +103,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               value={value}
               onChange={handleChange}
               placeholder={placeholder}
+              enterKeyHint="done"
               className={`
                 flex-1 bg-transparent focus:outline-none ${
                   isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
@@ -156,6 +157,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               value={value}
               onChange={handleChange}
               placeholder={placeholder}
+              enterKeyHint="done"
               className={`
                 w-full bg-transparent focus:outline-none ${
                   isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
