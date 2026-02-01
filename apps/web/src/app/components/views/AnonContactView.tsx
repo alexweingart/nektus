@@ -217,7 +217,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
   }, [isAppleSigningIn, token]);
 
   return (
-    <div className="flex flex-col items-center px-4 py-2 relative z-[1001]">
+    <div className="flex flex-col items-center px-4 py-2 relative z-[1001] min-h-dvh">
 
       {/* Fixed Content Area - matches ContactView structure */}
       <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center justify-center flex-1 overflow-hidden">
