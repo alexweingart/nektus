@@ -190,9 +190,20 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
     return { nationalNumber: digits, countryCode: null };
   };
 
+  // Temporarily lift maxLength before autosuggest/paste so the full value comes through
+  const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const inputType = (e.nativeEvent as InputEvent).inputType;
+    if (inputType === 'insertReplacementText' || inputType === 'insertFromPaste') {
+      inputRef.current?.removeAttribute('maxLength');
+    }
+  };
+
   // Handle phone input change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
+
+    // Restore maxLength after autosuggest/paste lifted it
+    inputRef.current?.setAttribute('maxLength', '14');
 
     // Get all digits from input
     const digits = input.replace(/\D/g, '');
@@ -234,6 +245,8 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
     }
 
     // Check if this looks like an international number (more than 10 digits)
+    // This handles both typed input and browser autosuggest which may deliver full
+    // international numbers (e.g. +44 7911 123456 → digits "447911123456")
     if (digits.length > 10) {
       const { nationalNumber, countryCode } = parseInternationalNumber(digits);
 
@@ -243,21 +256,23 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
           setSelectedCountryCode(countryCode);
         }
 
-        // Use the national number for formatting
-        const formattedPhone = formatPhoneNumber(nationalNumber);
+        // Use the national number for formatting (capped at 10 digits for display)
+        const cappedNational = nationalNumber.slice(0, 10);
+        const formattedPhone = formatPhoneNumber(cappedNational);
         setPhoneInput(formattedPhone);
-        onChange(nationalNumber);
+        onChange(cappedNational);
         return;
       }
     }
 
-    // Default handling for regular phone numbers
-    const formattedPhone = digits ? formatPhoneNumber(digits) : '';
+    // Enforce 10-digit max for regular phone numbers
+    const cappedDigits = digits.slice(0, 10);
+    const formattedPhone = cappedDigits ? formatPhoneNumber(cappedDigits) : '';
     const previousFormatted = phoneInput;
 
     // Update local state
     setPhoneInput(formattedPhone);
-    onChange(digits);
+    onChange(cappedDigits);
 
     // Handle cursor positioning
     requestAnimationFrame(() => {
@@ -269,18 +284,18 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
         // 2. Exception: 3 digits -> after ") " (position 6)
         // 3. Exception: 6 digits -> after "-" (position 10)
 
-        if (digits.length === 0) {
+        if (cappedDigits.length === 0) {
           newCursorPosition = 0;
-        } else if (digits.length === 3) {
+        } else if (cappedDigits.length === 3) {
           // "(818) " - cursor after ") " at position 6
           newCursorPosition = 6;
-        } else if (digits.length === 6) {
+        } else if (cappedDigits.length === 6) {
           // "(818) 292-" - cursor after "-" at position 10
           newCursorPosition = 10;
         } else {
           // For all other cases, position cursor after the last digit
           // Count characters to find where last digit is
-          const lastDigitIndex = formattedPhone.lastIndexOf(digits[digits.length - 1]);
+          const lastDigitIndex = formattedPhone.lastIndexOf(cappedDigits[cappedDigits.length - 1]);
           newCursorPosition = lastDigitIndex + 1;
         }
 
@@ -377,6 +392,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}
+        onBeforeInput={handleBeforeInput}
         maxLength={14}
         disabled={isDisabled}
         {...inputProps}
