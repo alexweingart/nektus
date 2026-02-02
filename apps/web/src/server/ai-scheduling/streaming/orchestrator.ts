@@ -46,7 +46,7 @@ export async function streamSchedulingResponse(
   contextMessage: string,
   availableTimeSlots: TimeSlot[],
   handleNavigateBooking: (toolCall: OpenAIToolCall, body: AISchedulingRequest, controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>,
-  handleSuggestActivities: (body: AISchedulingRequest, conversationHistory: Message[], contextMessage: string, controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>,
+  handleSuggestActivities: (body: AISchedulingRequest, conversationHistory: Message[], contextMessage: string, controller: ReadableStreamDefaultController, encoder: TextEncoder, activitySearchQuery: string | null) => Promise<void>,
   handleShowMoreEvents: (controller: ReadableStreamDefaultController, encoder: TextEncoder) => Promise<void>
 ): Promise<Response> {
   const stream = new ReadableStream({
@@ -87,7 +87,8 @@ export async function streamSchedulingResponse(
         }
 
         if (nanoIntent === 'suggest_activities') {
-          await handleSuggestActivities(body, conversationHistory, contextMessage, controller, encoder);
+          const activitySearchQuery = nanoResponse.activitySearchQuery || null;
+          await handleSuggestActivities(body, conversationHistory, contextMessage, controller, encoder, activitySearchQuery);
           controller.close();
           return;
         }

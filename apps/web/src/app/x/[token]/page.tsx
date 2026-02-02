@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ContactView } from '../../components/views/ContactView';
 import { AnonContactView } from '../../components/views/AnonContactView';
 import { Button } from '../../components/ui/buttons/Button';
-import type { UserProfile } from '@/types/profile';
+import { PhoneEntryModal } from '../../components/ui/modals/PhoneEntryModal';
+import { useProfile } from '../../context/ProfileContext';
+import type { UserProfile, ContactEntry } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import { ClientProfileService } from '@/client/profile/firebase-save';
+import { formatPhoneNumber } from '@/client/profile/phone-formatter';
 
 // Force dynamic rendering to prevent static generation issues with auth
 export const dynamic = 'force-dynamic';
 
 function ConnectPageContent() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
+  const { saveProfile } = useProfile(); // Uses ProfileProvider from root layout
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -29,6 +33,46 @@ function ConnectPageContent() {
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+
+  // Phone entry modal state for new users
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [isModalSaving, setIsModalSaving] = useState(false);
+  const [phoneEntryComplete, setPhoneEntryComplete] = useState(false);
+
+  // Handler for phone modal save
+  const handlePhoneSave = useCallback(async (phone: string, socials: ContactEntry[]) => {
+    setIsModalSaving(true);
+    try {
+      // Format phone number
+      const phoneResult = formatPhoneNumber(phone);
+      const internationalPhone = phoneResult.internationalPhone;
+
+      // Build contact entries array with phone in both sections + any added socials
+      const phoneEntries: ContactEntry[] = [
+        { fieldType: 'phone', section: 'personal', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
+        { fieldType: 'phone', section: 'work', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
+        ...socials
+      ];
+
+      // Save phone via ProfileContext (same pattern as ProfileSetupView)
+      await saveProfile({ contactEntries: phoneEntries });
+
+      // Update session (prevents /setup redirect, user goes directly home after exchange)
+      if (update) {
+        await update({ isNewUser: false, redirectTo: '/' });
+      }
+
+      // Close modal → useEffect will proceed with exchange
+      setPhoneEntryComplete(true);
+      setShowPhoneModal(false);
+    } catch (err) {
+      console.error('[ConnectPage] Failed to save phone:', err);
+      // Re-throw so modal can display error to user
+      throw err;
+    } finally {
+      setIsModalSaving(false);
+    }
+  }, [saveProfile, update]);
 
   useEffect(() => {
     async function fetchMatchedProfile() {
@@ -51,7 +95,7 @@ function ConnectPageContent() {
           userId: 'mock-user-123',
           profileImage: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiNGRkI2QzE7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojRkY2RjYxO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSJ1cmwoI2dyYWQpIi8+PHJlY3QgeD0iMTAwIiB5PSIxMDAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiByeD0iNTAiIGZpbGw9IiMwMDRENDAiLz48cmVjdCB4PSIyMDAiIHk9IjIwMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMCIgZmlsbD0iI0ZGQjZDMSIvPjwvc3ZnPg==',
           backgroundImage: '',
-          backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'], // Vibrant coral/pink colors
+          backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'],
           lastUpdated: Date.now(),
           contactEntries: [
             { fieldType: 'name', value: 'Demo Contact', section: 'personal', order: 0, isVisible: true, confirmed: true },
@@ -83,6 +127,12 @@ function ConnectPageContent() {
 
       try {
         if (session) {
+          // Check if this is a new user who needs to enter their phone first
+          if (session.isNewUser && !phoneEntryComplete && !isHistoricalMode) {
+            setShowPhoneModal(true);
+            return; // Don't call exchange API yet - wait for modal
+          }
+
           // Authenticated user - fetch full profile
           if (isHistoricalMode) {
             // For historical mode, fetch from saved contacts
@@ -168,7 +218,7 @@ function ConnectPageContent() {
     }
 
     fetchMatchedProfile();
-  }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile]);
+  }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile, phoneEntryComplete]);
 
 
   // Show loading only while checking auth
@@ -218,11 +268,31 @@ function ConnectPageContent() {
   // Show contact view if authenticated and profile is loaded
   if (session && contactProfile && token) {
     return (
-      <ContactView
-        profile={contactProfile}
-        onReject={() => router.push('/')}
-        isLoading={false}
-        token={token}
+      <>
+        <PhoneEntryModal
+          isOpen={showPhoneModal}
+          userName={session.user?.name || ''}
+          isSaving={isModalSaving}
+          onSave={handlePhoneSave}
+        />
+        <ContactView
+          profile={contactProfile}
+          onReject={() => router.push('/')}
+          isLoading={false}
+          token={token}
+        />
+      </>
+    );
+  }
+
+  // Show phone modal for new users before exchange is created
+  if (session && showPhoneModal) {
+    return (
+      <PhoneEntryModal
+        isOpen={showPhoneModal}
+        userName={session.user?.name || ''}
+        isSaving={isModalSaving}
+        onSave={handlePhoneSave}
       />
     );
   }

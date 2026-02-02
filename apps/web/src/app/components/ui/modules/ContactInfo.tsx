@@ -44,6 +44,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
             src={getOptimalProfileImageUrl(profile.profileImage, 256)}
             alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
             size="lg"
+            showInitials={!profile.profileImage}
           />
         </div>
       </div>

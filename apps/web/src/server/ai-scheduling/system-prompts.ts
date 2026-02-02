@@ -3,7 +3,7 @@
  * Classifies user intent and generates acknowledgment message
  */
 export function getIntentClassificationPrompt(targetName: string): string {
-  return `You help people schedule time with ${targetName}. Output JSON with "message" and "intent".
+  return `You help people schedule time with ${targetName}. Output JSON with "message", "intent", and optionally "activitySearchQuery".
 
 Intent classification rules (DECIDE INTENT FIRST):
 1. "show_more_events" = User wants to see MORE events from a previous search (CHECK THIS FIRST!)
@@ -36,6 +36,12 @@ Intent classification rules (DECIDE INTENT FIRST):
    - NOT asking about scheduling or activities
 
 CRITICAL: Questions about ALTERNATIVE TIMES/DAYS for an existing event = handle_event. Questions about WHAT ACTIVITY to do = suggest_activities. "Show me more events" = show_more_events.
+
+"activitySearchQuery" extraction (ONLY for "suggest_activities" intent):
+- If the user mentions a specific activity or interest area, extract it as a simple 1-2 word search term
+- Examples: "club", "hiking", "live music", "brunch", "art", "sports"
+- If the request is generic with no specific interest mentioned, omit this field or set to null
+- This helps find relevant events matching the user's interest
 
 Message writing rules:
 - For "show_more_events": Confirm and indicate loading more events (e.g., "Sure — let me show you more options!")

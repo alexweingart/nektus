@@ -111,7 +111,8 @@ export async function POST(request: NextRequest) {
       conversationHistory: Message[],
       contextMessage: string,
       controller: ReadableStreamDefaultController,
-      encoder: TextEncoder
+      encoder: TextEncoder,
+      activitySearchQuery: string | null
     ) => handleSuggestActivities(
       body,
       conversationHistory,
@@ -119,7 +120,8 @@ export async function POST(request: NextRequest) {
       controller,
       encoder,
       getTargetName,
-      handleSearchEvents
+      (processingId, location, timeframe, targetName) =>
+        handleSearchEvents(processingId, location, timeframe, targetName, activitySearchQuery)
     );
 
     return streamSchedulingResponse(

@@ -60,7 +60,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
           className="fixed inset-0 z-[2000] flex items-center justify-center px-4 py-4"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="w-full max-w-[var(--max-content-width,448px)] grid gap-6 bg-black/80 border border-white/20 p-8 shadow-lg rounded-2xl animate-modal-enter relative">
+          <div className="w-full max-w-[var(--max-content-width,448px)] grid gap-6 bg-black/80 border border-white/20 p-8 shadow-lg rounded-2xl animate-modal-enter relative [&>*]:min-w-0">
             <div className="text-center space-y-4">
               {/* Title */}
               <Dialog.Title asChild>

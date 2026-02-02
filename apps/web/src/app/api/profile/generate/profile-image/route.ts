@@ -87,63 +87,53 @@ function base64ToBuffer(base64: string): Buffer {
 }
 
 /**
- * Generates an AI profile image for a user with initials + animal
- * Falls back to initials SVG if AI generation fails
+ * Generates an AI profile image for a user using OpenAI.
+ * Throws on failure — caller handles fallback (initials are already saved upfront).
  */
-async function generateProfileImageForProfile(profile: UserProfile): Promise<Buffer> {
+async function generateAIProfileImage(profile: UserProfile): Promise<Buffer> {
   const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
-  console.log(`[API/PROFILE-IMAGE] Starting profile image generation for: ${profileName}`);
+  console.log(`[API/PROFILE-IMAGE] Starting AI image generation for: ${profileName}`);
 
-  try {
-    // Generate AI prompt based on user's name/initials
-    const prompt = generateProfileImagePrompt(profileName);
-    console.log(`[API/PROFILE-IMAGE] Using AI prompt:`, prompt);
+  // Generate AI prompt based on user's name/initials
+  const prompt = generateProfileImagePrompt(profileName);
+  console.log(`[API/PROFILE-IMAGE] Using AI prompt:`, prompt);
 
-    const client = getOpenAIClient();
-    console.log(`[API/PROFILE-IMAGE] Calling OpenAI API with model: gpt-image-1.5, size: 1024x1024`);
+  const client = getOpenAIClient();
+  console.log(`[API/PROFILE-IMAGE] Calling OpenAI API with model: gpt-image-1.5, size: 1024x1024`);
 
-    // Add timeout wrapper for OpenAI API call
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
-    );
+  // Add timeout wrapper for OpenAI API call
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+  );
 
-    // Generate the image - GPT image models return base64 by default (response_format not supported)
-    const imageGenerationPromise = client.images.generate({
-      model: 'gpt-image-1.5',
-      prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'low',
-    });
+  // Generate the image - GPT image models return base64 by default (response_format not supported)
+  const imageGenerationPromise = client.images.generate({
+    model: 'gpt-image-1.5',
+    prompt,
+    n: 1,
+    size: '1024x1024',
+    quality: 'low',
+  });
 
-    console.log('[API/PROFILE-IMAGE] Waiting for OpenAI response...');
-    const response = await Promise.race([imageGenerationPromise, timeoutPromise]) as { data?: Array<{ b64_json?: string; url?: string }> };
+  console.log('[API/PROFILE-IMAGE] Waiting for OpenAI response...');
+  const response = await Promise.race([imageGenerationPromise, timeoutPromise]) as { data?: Array<{ b64_json?: string; url?: string }> };
 
-    console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');
+  console.log('[API/PROFILE-IMAGE] Response received from OpenAI API');
 
-    if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
-      throw new Error('Invalid response from OpenAI');
-    }
-
-    // Check what we got in response
-    const imageData = response.data[0];
-
-    // We should always get base64 data with our request format
-    if (imageData?.b64_json) {
-      console.log('[API/PROFILE-IMAGE] Converting base64 image data to buffer');
-      return base64ToBuffer(imageData.b64_json);
-    }
-
-    throw new Error('No base64 image data found in the response');
-  } catch (error) {
-    console.error('[API/PROFILE-IMAGE] AI generation failed, falling back to initials SVG:', error);
-
-    // Fallback to initials SVG
-    const avatarDataUrl = generateInitialsAvatar(profileName, 1024);
-    const imageBuffer = dataUrlToBuffer(avatarDataUrl);
-    console.log('[API/PROFILE-IMAGE] Initials SVG fallback generated successfully');
-    return imageBuffer;
+  if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+    throw new Error('Invalid response from OpenAI');
   }
+
+  // Check what we got in response
+  const imageDataResult = response.data[0];
+
+  // We should always get base64 data with our request format
+  if (imageDataResult?.b64_json) {
+    console.log('[API/PROFILE-IMAGE] Converting base64 image data to buffer');
+    return base64ToBuffer(imageDataResult.b64_json);
+  }
+
+  throw new Error('No base64 image data found in the response');
 }
 
 export async function POST(req: NextRequest) {
@@ -206,12 +196,37 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Generate AI profile image (or fallback to initials SVG)
-      const imageBuffer = await generateProfileImageForProfile(profile);
+      // --- Frontload initials: save immediately so profile is never stuck with Google image ---
+      const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
+      const initialsDataUrl = generateInitialsAvatar(profileName, 1024);
+      const initialsBuffer = dataUrlToBuffer(initialsDataUrl);
+      console.log('[API/PROFILE-IMAGE] Uploading initials avatar immediately');
+      const initialsUrl = await uploadImageBuffer(initialsBuffer, userId, 'profile');
+      const themeGreen = '#22c55e';
+      const initialsCacheBustedUrl = `${initialsUrl}?t=${Date.now()}`;
 
-      // Upload to our storage
-      console.log('[API/PROFILE-IMAGE] Uploading profile image to Firebase Storage');
-      newImageUrl = await uploadImageBuffer(imageBuffer, userId, 'profile');
+      // Save initials to Firestore right away
+      await AdminProfileService.updateProfile(userId, {
+        profileImage: initialsCacheBustedUrl,
+        backgroundColors: [themeGreen, themeGreen, themeGreen],
+        aiGeneration: {
+          bioGenerated: profile.aiGeneration?.bioGenerated || false,
+          avatarGenerated: true,
+          backgroundImageGenerated: profile.aiGeneration?.backgroundImageGenerated || false
+        }
+      });
+      console.log('[API/PROFILE-IMAGE] Initials avatar saved to Firestore immediately', { userId, imageUrl: initialsCacheBustedUrl });
+
+      // Now attempt AI generation to upgrade the initials
+      try {
+        const aiBuffer = await generateAIProfileImage(profile);
+        console.log('[API/PROFILE-IMAGE] AI generation succeeded, uploading to overwrite initials');
+        newImageUrl = await uploadImageBuffer(aiBuffer, userId, 'profile');
+      } catch (aiError) {
+        console.log('[API/PROFILE-IMAGE] AI generation failed, keeping initials avatar:', aiError);
+        // Already saved initials above, use that URL
+        newImageUrl = initialsUrl;
+      }
     }
 
     // Get current profile to update AI generation flags correctly

@@ -18,9 +18,12 @@ export async function handleSearchEvents(
   processingId: string,
   location: string,
   timeframe: string,
-  targetName: string
+  targetName: string,
+  activitySearchQuery?: string | null
 ): Promise<void> {
   try {
+    console.log(`🔍 Starting event search for ${location} ${timeframe}${activitySearchQuery ? ` with activity interest: "${activitySearchQuery}"` : ' (generic search)'}`);
+
     // Use the streaming web search with progress updates
     const { createWebSearchResponse } = await import('@/server/ai-scheduling/openai-client');
 
@@ -64,16 +67,22 @@ export async function handleSearchEvents(
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
+    // Build activity-aware search context
+    const activityContext = activitySearchQuery
+      ? `USER'S ACTIVITY INTEREST: "${activitySearchQuery}"
+Prioritize events related to this interest. Interpret the activity broadly to find relevant events, shows, performances, and experiences.
+`
+      : '';
+
+    const eventTypesGuidance = activitySearchQuery
+      ? `Focus on events related to "${activitySearchQuery}" first, then include other notable events if needed.`
+      : `Include diverse event types: festivals, concerts, exhibitions, food events, outdoor activities, community events.`;
+
     // First, get structured JSON with ALL events found
     const searchInput = `Find real events in ${location} between ${formatDate(startDate)} and ${formatDate(endDate)}.
 
-REQUIRED: Use web search to find actual upcoming events. Include:
-- Local festivals and special events
-- Museum exhibitions and gallery openings
-- Concerts and performances
-- Food/wine events and farmers markets
-- Outdoor activities and tours
-- Community events
+${activityContext}REQUIRED: Use web search to find actual upcoming events.
+${eventTypesGuidance}
 
 IMPORTANT SELECTION CRITERIA:
 - Pick the most INTERESTING and UNIQUE events

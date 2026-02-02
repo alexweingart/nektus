@@ -15,31 +15,29 @@ Nektus is a Next.js 15 contact exchange application that enables real-time conta
 - `npm start` - Start production server
 
 ### Development Variants
-- `npm run dev:https` - Development server with HTTPS
-- `npm run dev:local` - Local development with custom hostname
-- `npm run dev:local:https` - Local HTTPS development
+- `npm run dev:tailscale` - Development server bound to all interfaces (for Tailscale testing)
 - `npm run dev:ngrok` - Development with ngrok tunneling
 
-### Tailscale Development (Preferred for Testing)
-When starting the dev server for testing with auth, use the Tailscale URL `https://nekt.tail768878.ts.net`:
+### Tailscale Development (Required for Mobile/Auth Testing)
+All mobile and auth testing uses Tailscale at `https://nekt.tail768878.ts.net`:
 
-1. Start the dev server bound to all interfaces:
+1. Start the dev server:
    ```bash
-   npm run dev:local
+   npm run dev:tailscale
    ```
 
-2. Ensure NEXTAUTH_URL in `.env.local` is set to:
-   ```
-   NEXTAUTH_URL=https://nekt.tail768878.ts.net
-   ```
-   Note: `npm run dev:local` will overwrite this to `http://local.nekt.us:3000`, so you may need to manually fix it after starting.
-
-3. Run `tailscale serve` in a separate terminal (foreground) to proxy HTTPS:
+2. Run `tailscale serve` in a separate terminal (foreground) to proxy HTTPS:
    ```bash
    tailscale serve http://localhost:3000
    ```
 
-4. Access the app at: `https://nekt.tail768878.ts.net`
+3. Access the app at: `https://nekt.tail768878.ts.net`
+
+The `.env.local` file should have both URLs set to the Tailscale domain:
+```
+NEXTAUTH_URL=https://nekt.tail768878.ts.net
+NEXT_PUBLIC_BASE_URL=https://nekt.tail768878.ts.net
+```
 
 This setup provides valid HTTPS certificates via Tailscale and is configured in Google OAuth console for authentication.
 
@@ -105,7 +103,7 @@ The app uses dual Firebase configurations:
 - Background image and profile image caching
 
 ### Testing Motion Features
-- Use `npm run dev:https` or `npm run dev:local:https` for motion API access
+- Use Tailscale (`npm run dev:tailscale` + `tailscale serve`) for HTTPS, required by DeviceMotionEvent API
 - Physical devices required for motion testing
 - Clock synchronization critical for accurate matching
 
