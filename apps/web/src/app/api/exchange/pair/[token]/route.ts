@@ -170,6 +170,12 @@ export async function GET(
         );
       }
 
+      // Strip Google default avatar — asset generation will replace it with initials/AI,
+      // but it may not have completed yet for new users
+      if ((scannerProfile.profileImage as string | undefined)?.includes('googleusercontent.com')) {
+        scannerProfile.profileImage = '';
+      }
+
       const scannerSharingCategory = 'All'; // Default for QR scan
 
       // Update the match with scanner's data
