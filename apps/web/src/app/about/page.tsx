@@ -68,7 +68,7 @@ export default function AboutPage() {
             What if it was easy and fun? What if the end of a great first meeting made you <em>excited</em> to ask them to keep in touch?
           </Text>
           <Text>
-            That&apos;s what Nekt does. Simply <strong>bump phones or scan a QR code</strong> to instantly exchange contact information and social profiles—whether personal or professional. <strong>One action, both people connected.</strong>
+            That&apos;s what Nekt does. Simply <strong>bump phones or scan a QR code</strong> to instantly exchange contact information and social profiles—whether personal or professional.
           </Text>
         </section>
 
@@ -76,13 +76,13 @@ export default function AboutPage() {
           <SectionIcon icon={CalendarCheck} />
           <Heading as="h2" className="mb-4 text-center">From Contact to Connection</Heading>
           <Text className="mb-4">
-            Getting someone&apos;s contact information isn&apos;t enough. True friendships and meaningful professional relationships require spending time together. But finding a time and place to meet is surprisingly hard—there&apos;s usually endless back-and-forth to find a good time, and then you need to figure out what to do together.
+            Getting someone&apos;s contact information isn&apos;t enough. Building a true friendship or meaningful professional relationships requires both of you to spend time together. But finding a time and place to meet is surprisingly hard—there&apos;s usually endless back-and-forth to find a good time, and then you need to figure out what to do together.
           </Text>
           <Text className="mb-4">
             What if you could do that instantly?
           </Text>
           <Text>
-            Nekt automatically suggests common activities—lunch, dinner, drinks—and finds an <strong>optimal time based on your calendar</strong> and an optimal place based on your location. Want something more specific, like &quot;tennis this weekend&quot;? Just tell Nektbot. Our AI understands exactly what you mean and creates the event for both of you. It will even help you plan something when you don&apos;t have a clear idea of what you want to do.
+            Nekt automatically suggests common activities—lunch, dinner, drinks—and finds an optimal time based on each of your calendars and an optimal place based on each of your locations. Want something more specific, like &quot;tennis this weekend&quot;? Just tell Nektbot. It&apos;s an agent that understands exactly what you mean and creates the event for both of you. It will even help you plan something when you don&apos;t have a clear idea of what you want to do.
           </Text>
         </section>
 
