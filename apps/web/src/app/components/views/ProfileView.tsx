@@ -35,7 +35,15 @@ const ProfileView: React.FC = () => {
     isCheckingGoogleImage
   } = useProfile();
 
-
+  // Debug flash issue - track state changes
+  useEffect(() => {
+    console.log('[ProfileView] State changed:', {
+      isProfileLoading,
+      isNavigatingFromSetup,
+      hasProfile: !!profile,
+      sessionStatus
+    });
+  }, [isProfileLoading, isNavigatingFromSetup, profile, sessionStatus]);
 
   // Get the latest profile
   const currentProfile = profile;

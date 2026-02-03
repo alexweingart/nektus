@@ -45,6 +45,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
             alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
             size="lg"
             showInitials={!profile.profileImage}
+            profileColors={profile.backgroundColors}
           />
         </div>
       </div>

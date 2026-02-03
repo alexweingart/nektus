@@ -199,6 +199,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             size="lg"
             isLoading={isLoadingProfile}
             showInitials={showInitialsValue}
+            profileColors={profile?.backgroundColors}
           />
         </div>
       </div>

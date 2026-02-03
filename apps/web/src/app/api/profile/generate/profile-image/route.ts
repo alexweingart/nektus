@@ -8,6 +8,9 @@ import { getFieldValue } from '@/client/profile/transforms';
 import { generateInitialsAvatar, dataUrlToBuffer } from '@/client/profile/avatar';
 import { getOpenAIClient } from '@/server/config/openai';
 import { getColorPalette, pickAccentColors, filterChromaticColors } from '@/server/profile/colors';
+// Note: Sharp is used for image compositing (creating radial gradient + overlaying robot)
+import { generateProfileColors } from '@/shared/colors';
+import sharp from 'sharp';
 
 /**
  * Get user ID from either NextAuth session or Firebase ID token
@@ -57,26 +60,25 @@ function getInitials(name: string): string {
 
 /**
  * Generate a prompt for AI profile image creation
- * Creates a robot glyph avatar with negative space forming the user's first initial
+ * Creates a robot glyph avatar on transparent background.
+ * We'll composite it onto our own radial gradient background.
  */
-function generateProfileImagePrompt(name: string): string {
+function generateProfileImagePrompt(name: string, accent2Color: string): string {
   const initials = getInitials(name);
   const firstLetter = initials.charAt(0);
 
-  return `Create a minimalist robot face/head icon in a bold, vector logo style. ` +
+  return `Create a minimalist robot face/head icon in a bold, vector logo style on a TRANSPARENT background. ` +
     `IMPORTANT: Show only the robot's face/head - no body, no torso, no shoulders. Just the head. ` +
     `The robot face should be a single iconic glyph composed of simple geometric shapes (circles, rounded rectangles, rounded triangles). ` +
     `CRITICAL: Use negative space within the robot's face/screen to form the letter "${firstLetter}". The letter should be clearly readable and integrated into the design, not added as text. ` +
-    `Background: gradient from pale cream (#E7FED2) to lime green (#71E454) at 135 degrees, filling the entire square image edge-to-edge. ` +
+    `CRITICAL: The background MUST be completely transparent (alpha = 0). No background color, no gradient, just the robot floating on transparency. ` +
     `The robot face should be centered and use thick, consistent strokes with rounded corners throughout. ` +
     `Style: modern, friendly, tech-forward. Think mascot-like but minimal—like a logo mark for a tech company. ` +
     `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot face structure. ` +
-    `CRITICAL: The gradient (#E7FED2 to #71E454) must fill the entire image from edge to edge. ` +
-    `CRITICAL: Do not add white backgrounds, white circles, or any other background shapes. ` +
     `CRITICAL: Do not include any text, letters as text, or typography. The "${firstLetter}" should be formed by negative space only. ` +
     `CRITICAL: Only show the robot's head/face - no body parts below the head. ` +
-    `Color palette: Robot should use dark teal (#004D40) or near-black for maximum contrast against the nekt gradient background. ` +
-    `Keep it simple, iconic, and instantly recognizable as a robot face.`;
+    `Color palette: Robot should use ONLY ${accent2Color} (this exact bright, vivid color). The entire robot should be this single color. ` +
+    `Keep it simple, iconic, and instantly recognizable as a robot face on a transparent background.`;
 }
 
 /**
@@ -87,15 +89,105 @@ function base64ToBuffer(base64: string): Buffer {
 }
 
 /**
+ * Parse hex color to RGB values
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.replace('#', '');
+  return {
+    r: parseInt(clean.substring(0, 2), 16),
+    g: parseInt(clean.substring(2, 4), 16),
+    b: parseInt(clean.substring(4, 6), 16),
+  };
+}
+
+/**
+ * Create a radial gradient image using Sharp
+ * Center is accent1 (lighter), edge is dominant (darker)
+ */
+async function createRadialGradientBackground(
+  size: number,
+  centerColor: string,
+  edgeColor: string
+): Promise<Buffer> {
+  const center = hexToRgb(centerColor);
+  const edge = hexToRgb(edgeColor);
+
+  // Create raw RGBA pixel data
+  const channels = 4; // RGBA
+  const data = Buffer.alloc(size * size * channels);
+
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const maxRadius = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const t = Math.min(distance / maxRadius, 1); // 0 at center, 1 at corners
+
+      const idx = (y * size + x) * channels;
+      data[idx] = Math.round(center.r + (edge.r - center.r) * t);     // R
+      data[idx + 1] = Math.round(center.g + (edge.g - center.g) * t); // G
+      data[idx + 2] = Math.round(center.b + (edge.b - center.b) * t); // B
+      data[idx + 3] = 255; // A (fully opaque)
+    }
+  }
+
+  return sharp(data, {
+    raw: {
+      width: size,
+      height: size,
+      channels: channels,
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Composite robot image onto radial gradient background
+ */
+async function compositeRobotOnGradient(
+  robotBuffer: Buffer,
+  colors: [string, string, string]
+): Promise<Buffer> {
+  const [dominant, accent1] = colors;
+  const size = 1024;
+
+  // Create the radial gradient background (dominant dark center → accent1 light edge)
+  const gradientBuffer = await createRadialGradientBackground(size, dominant, accent1);
+
+  // Composite the robot (with transparency) on top of the gradient
+  const composited = await sharp(gradientBuffer)
+    .composite([
+      {
+        input: robotBuffer,
+        blend: 'over',
+      },
+    ])
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  return composited;
+}
+
+/**
  * Generates an AI profile image for a user using OpenAI.
+ * Creates robot on transparent background, then composites onto our radial gradient.
  * Throws on failure — caller handles fallback (initials are already saved upfront).
  */
 async function generateAIProfileImage(profile: UserProfile): Promise<Buffer> {
   const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
   console.log(`[API/PROFILE-IMAGE] Starting AI image generation for: ${profileName}`);
 
-  // Generate AI prompt based on user's name/initials
-  const prompt = generateProfileImagePrompt(profileName);
+  // Generate profile colors
+  const colors = generateProfileColors(profileName);
+  const [, , accent2] = colors;
+
+  // Generate AI prompt asking for transparent background with robot in accent2
+  const prompt = generateProfileImagePrompt(profileName, accent2);
   console.log(`[API/PROFILE-IMAGE] Using AI prompt:`, prompt);
 
   const client = getOpenAIClient();
@@ -130,7 +222,13 @@ async function generateAIProfileImage(profile: UserProfile): Promise<Buffer> {
   // We should always get base64 data with our request format
   if (imageDataResult?.b64_json) {
     console.log('[API/PROFILE-IMAGE] Converting base64 image data to buffer');
-    return base64ToBuffer(imageDataResult.b64_json);
+    const robotBuffer = base64ToBuffer(imageDataResult.b64_json);
+
+    // Composite the robot onto our radial gradient background
+    console.log('[API/PROFILE-IMAGE] Compositing robot onto radial gradient background');
+    const compositedBuffer = await compositeRobotOnGradient(robotBuffer, colors);
+
+    return compositedBuffer;
   }
 
   throw new Error('No base64 image data found in the response');
@@ -198,17 +296,19 @@ export async function POST(req: NextRequest) {
 
       // --- Frontload initials: save immediately so profile is never stuck with Google image ---
       const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
-      const initialsDataUrl = generateInitialsAvatar(profileName, 1024);
+      const profileColors = generateProfileColors(profileName);
+      // Radial gradient: dominant (dark center) → accent1 (light edge)
+      // Text color: accent2 (bright, vivid) for contrast
+      const initialsDataUrl = generateInitialsAvatar(profileName, 1024, [profileColors[0], profileColors[1]], profileColors[2]);
       const initialsBuffer = dataUrlToBuffer(initialsDataUrl);
       console.log('[API/PROFILE-IMAGE] Uploading initials avatar immediately');
       const initialsUrl = await uploadImageBuffer(initialsBuffer, userId, 'profile');
-      const themeGreen = '#22c55e';
       const initialsCacheBustedUrl = `${initialsUrl}?t=${Date.now()}`;
 
       // Save initials to Firestore right away
       await AdminProfileService.updateProfile(userId, {
         profileImage: initialsCacheBustedUrl,
-        backgroundColors: [themeGreen, themeGreen, themeGreen],
+        backgroundColors: profileColors,
         aiGeneration: {
           bioGenerated: profile.aiGeneration?.bioGenerated || false,
           avatarGenerated: true,
@@ -262,10 +362,10 @@ export async function POST(req: NextRequest) {
         // Don't fail the whole request if color extraction fails
       }
     } else {
-      // AI-generated image - use theme green for safe areas (Tailwind green-500)
-      const themeGreen = '#22c55e'; // rgb(34, 197, 94) - matches LayoutBackground COLORS.themeGreen
-      backgroundColors = [themeGreen, themeGreen, themeGreen];
-      console.log('[API/PROFILE-IMAGE] Using default theme green for AI-generated image:', backgroundColors);
+      // AI-generated image - use name-seeded colors (already saved during initials frontloading)
+      const profileName = getFieldValue(currentProfile?.contactEntries || [], 'name') || 'User';
+      backgroundColors = generateProfileColors(profileName);
+      console.log('[API/PROFILE-IMAGE] Using generated profile colors for AI image:', backgroundColors);
     }
 
     // Save the cache-busted URL and colors to the profile

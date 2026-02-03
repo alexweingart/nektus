@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '@/app/context/ProfileContext';
 import { hexToRgb } from '@/client/cn';
+import { BRAND_DARK_GREEN_RGB } from '@/shared/colors';
 
 /**
  * Layout for contact pages - applies contact's background image
@@ -73,7 +74,7 @@ export default function ContactLayout({
       } else {
         // No user colors, reset to default green
         console.log('[ContactLayout] Restoring default green on unmount');
-        document.documentElement.style.setProperty('--glass-tint-color', '113, 228, 84');
+        document.documentElement.style.setProperty('--glass-tint-color', BRAND_DARK_GREEN_RGB);
       }
     };
   }, [contactBackgroundColors, userProfile?.backgroundColors]);

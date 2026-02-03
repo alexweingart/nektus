@@ -420,76 +420,12 @@ export const displayVCardInlineForIOS = async (profile: UserProfile, options?: V
 
       setTimeout(cleanupAndResolve, 10000);
 
-    } catch {
-      generateVCard(profile, {
-        includePhoto: !options?.skipPhotoFetch,
-        includeSocialMedia: false,
-        includeNotes: true,
-        contactUrl: options?.contactUrl
-      }).then(vCardContent => {
-        showVCardInstructions(profile, vCardContent);
-        URL.revokeObjectURL(url);
-        resolve();
-      });
+    } catch (error) {
+      console.error('[vCard] Failed to display vCard inline for iOS:', error);
+      URL.revokeObjectURL(url);
+      resolve();
     }
   });
 };
 
-const showVCardInstructions = (profile: UserProfile, vCardContent: string): void => {
-  const contactName = getFieldValue(profile.contactEntries, 'name') || 'Contact';
-  
-  const modal = document.createElement('div');
-  modal.className = 'vcard-modal-backdrop';
-  
-  const content = document.createElement('div');
-  content.className = 'vcard-modal-content vcard-modal';
-  
-  content.innerHTML = `
-    <h3>Save ${contactName}'s Contact</h3>
-    <p>To save this contact to your phone:</p>
-    <ol>
-      <li>Copy the contact info below</li>
-      <li>Open your Contacts app</li>
-      <li>Create a new contact</li>
-      <li>Paste the information</li>
-    </ol>
-    <textarea readonly>${vCardContent}</textarea>
-    <div class="vcard-modal-buttons">
-      <button id="copy-vcard" class="vcard-modal-btn copy">Copy</button>
-      <button id="close-modal" class="vcard-modal-btn close">Close</button>
-    </div>
-  `;
-  
-  modal.appendChild(content);
-  document.body.appendChild(modal);
-  
-  const copyBtn = content.querySelector('#copy-vcard') as HTMLButtonElement;
-  const closeBtn = content.querySelector('#close-modal') as HTMLButtonElement;
-  
-  copyBtn.addEventListener('click', () => {
-    const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.select();
-    textarea.setSelectionRange(0, 99999);
-    
-    try {
-      document.execCommand('copy');
-      copyBtn.textContent = 'Copied!';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy';
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  });
-  
-  closeBtn.addEventListener('click', () => {
-    document.body.removeChild(modal);
-  });
-  
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      document.body.removeChild(modal);
-    }
-  });
-};
 

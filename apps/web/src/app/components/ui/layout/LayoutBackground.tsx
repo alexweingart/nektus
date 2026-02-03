@@ -8,6 +8,7 @@ import { useProfile } from '../../../context/ProfileContext';
 import { ParticleNetwork } from './ParticleNetwork';
 import type { ParticleNetworkProps } from './ParticleNetwork';
 import { PullToRefresh } from './PullToRefresh';
+import { BACKGROUND_BLACK, BACKGROUND_GREEN, BRAND_LIGHT_GREEN, BRAND_DARK_GREEN } from '@/shared/colors';
 
 // Track first page load to prevent cache restoration on refresh
 let isFirstPageLoad = true;
@@ -16,22 +17,12 @@ interface ContactProfile {
   backgroundColors?: string[];
 }
 
-// Theme color constants
+// Theme color constants derived from shared color palette
 const COLORS = {
-  // Theme green - muted green for gradients and safe areas
-  // 40% bright green blended with dark: rgb(34,197,94) * 0.4 + rgb(10,15,26) * 0.6
-  themeGreen: 'rgb(20, 88, 53)',
-
-  // Theme dark background
-  themeDark: 'rgb(10, 15, 26)',
-
-  // Particle colors
-  particleLight: 'rgba(200, 255, 200, 0.6)',
-  particleBright: 'rgba(200, 255, 200, 0.8)',
-
-  // Connection colors
-  connectionSubtle: 'rgba(34, 197, 94, 0.15)',
-  connectionMedium: 'rgba(34, 197, 94, 0.4)',
+  themeGreen: BACKGROUND_GREEN,
+  themeDark: BACKGROUND_BLACK,
+  particleLight: hexToRgba(BRAND_LIGHT_GREEN, 0.6),
+  connectionSubtle: hexToRgba(BRAND_DARK_GREEN, 0.15),
 } as const;
 
 /**
@@ -82,16 +73,6 @@ const DEFAULT_COLORS = {
   connection: COLORS.connectionSubtle,
   gradientStart: COLORS.themeGreen,
   gradientEnd: COLORS.themeDark,
-};
-
-/**
- * Inverted colors for profiles/contacts without custom backgrounds (theme green → dark → theme green)
- */
-const DEFAULT_COLORS_INVERTED = {
-  particle: COLORS.particleBright,
-  connection: COLORS.connectionMedium,
-  gradientStart: COLORS.themeDark,
-  gradientEnd: COLORS.themeGreen,
 };
 
 /**
@@ -195,59 +176,36 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const contactColors = contactProfile?.backgroundColors;
     const userColors = profile?.backgroundColors;
 
-    // Helper to check if colors are custom (not all the same)
-    const hasCustomColors = (colors: string[] | undefined) => {
-      if (!colors || colors.length < 3) return false;
-      return !(colors[0] === colors[1] && colors[1] === colors[2]);
+    // Helper to apply a color to all safe-area properties
+    const applySafeAreaColor = (color: string) => {
+      document.documentElement.style.setProperty('--safe-area-bg', color);
+      document.documentElement.style.backgroundColor = color;
+      document.documentElement.style.setProperty('--safe-area-color', color);
+      updateThemeColorMeta(color);
     };
 
     // Handle signed-out state
     if (status !== 'authenticated') {
       if (isOnContactPage && contactColors && contactColors.length >= 3) {
-        if (hasCustomColors(contactColors)) {
-          const [dominant, , accent2] = contactColors;
-          document.documentElement.style.setProperty('--safe-area-bg', dominant);
-          document.documentElement.style.backgroundColor = dominant;
-          document.documentElement.style.setProperty('--safe-area-color', dominant);
-          document.documentElement.style.setProperty('--particle-color', accent2);
-          updateThemeColorMeta(dominant);
-          sessionStorage.setItem('last-safe-area-color', dominant);
-        } else {
-          document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-          document.documentElement.style.backgroundColor = COLORS.themeGreen;
-          document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-          updateThemeColorMeta(COLORS.themeGreen);
-          sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
-        }
+        const [dominant, , accent2] = contactColors;
+        applySafeAreaColor(dominant);
+        document.documentElement.style.setProperty('--particle-color', accent2);
+        sessionStorage.setItem('last-safe-area-color', dominant);
         return;
       }
 
       // Default signed-out: use themeDark
-      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
-      document.documentElement.style.backgroundColor = COLORS.themeDark;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
-      updateThemeColorMeta(COLORS.themeDark);
+      applySafeAreaColor(COLORS.themeDark);
       sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
       sessionStorage.removeItem('last-safe-area-userId');
       return;
     }
 
     if (isOnContactPage && contactColors && contactColors.length >= 3) {
-      if (hasCustomColors(contactColors)) {
-        const [dominant, , accent2] = contactColors;
-        document.documentElement.style.setProperty('--safe-area-bg', dominant);
-        document.documentElement.style.backgroundColor = dominant;
-        document.documentElement.style.setProperty('--safe-area-color', dominant);
-        document.documentElement.style.setProperty('--particle-color', accent2);
-        updateThemeColorMeta(dominant);
-        sessionStorage.setItem('last-safe-area-color', dominant);
-      } else {
-        document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-        document.documentElement.style.backgroundColor = COLORS.themeGreen;
-        document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-        updateThemeColorMeta(COLORS.themeGreen);
-        sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
-      }
+      const [dominant, , accent2] = contactColors;
+      applySafeAreaColor(dominant);
+      document.documentElement.style.setProperty('--particle-color', accent2);
+      sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
     } else if (isOnContactPage && !contactProfile) {
       // Contact not loaded yet - use cached or themeDark
@@ -256,55 +214,29 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       const currentUserId = (params?.userId as string) || '';
 
       if (lastColor && lastUserId === currentUserId && status === 'authenticated') {
-        document.documentElement.style.setProperty('--safe-area-bg', lastColor);
-        document.documentElement.style.backgroundColor = lastColor;
-        document.documentElement.style.setProperty('--safe-area-color', lastColor);
-        updateThemeColorMeta(lastColor);
+        applySafeAreaColor(lastColor);
       } else {
-        document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
-        document.documentElement.style.backgroundColor = COLORS.themeDark;
-        document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
-        updateThemeColorMeta(COLORS.themeDark);
+        applySafeAreaColor(COLORS.themeDark);
       }
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
-      // Contact loaded but no colors - use themeGreen
-      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-      updateThemeColorMeta(COLORS.themeGreen);
-      sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
+      // Contact loaded but no colors - use themeDark
+      applySafeAreaColor(COLORS.themeDark);
+      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
       sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
-      if (hasCustomColors(userColors)) {
-        const [dominant, , accent2] = userColors;
-        document.documentElement.style.setProperty('--safe-area-bg', dominant);
-        document.documentElement.style.backgroundColor = dominant;
-        document.documentElement.style.setProperty('--safe-area-color', dominant);
-        document.documentElement.style.setProperty('--particle-color', accent2);
-        updateThemeColorMeta(dominant);
-        sessionStorage.setItem('last-safe-area-color', dominant);
-      } else {
-        document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-        document.documentElement.style.backgroundColor = COLORS.themeGreen;
-        document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-        updateThemeColorMeta(COLORS.themeGreen);
-        sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
-      }
+      const [dominant, , accent2] = userColors;
+      applySafeAreaColor(dominant);
+      document.documentElement.style.setProperty('--particle-color', accent2);
+      sessionStorage.setItem('last-safe-area-color', dominant);
       sessionStorage.removeItem('last-safe-area-userId');
     } else if (!isOnContactPage && profile) {
-      // Profile loaded with no colors - use themeGreen
-      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
-      document.documentElement.style.backgroundColor = COLORS.themeGreen;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
-      updateThemeColorMeta(COLORS.themeGreen);
-      sessionStorage.setItem('last-safe-area-color', COLORS.themeGreen);
+      // Profile loaded with no colors - use themeDark
+      applySafeAreaColor(COLORS.themeDark);
+      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
       sessionStorage.removeItem('last-safe-area-userId');
     } else if (status === 'authenticated') {
       // Fallback while profile is loading
-      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
-      document.documentElement.style.backgroundColor = COLORS.themeDark;
-      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
-      updateThemeColorMeta(COLORS.themeDark);
+      applySafeAreaColor(COLORS.themeDark);
     }
   }, [mounted, pathname, contactProfile, profile, params?.userId, isLoading, session, status]);
 
@@ -360,12 +292,6 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
-    // Helper to check if colors are custom
-    const hasCustomColors = (colors: string[] | undefined) => {
-      if (!colors || colors.length < 3) return false;
-      return !(colors[0] === colors[1] && colors[1] === colors[2]);
-    };
-
     if (status === 'loading' && !session) {
       return {
         colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
@@ -378,22 +304,20 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
       if (isOnContactPage) {
         const contactColors = contactProfile?.backgroundColors;
-        const hasColors = contactColors && contactColors.length >= 3;
 
-        if (hasColors && hasCustomColors(contactColors)) {
+        if (contactColors && contactColors.length >= 3) {
           return {
             colors: convertToParticleColors(contactColors),
             context: 'connect'
           };
-        } else if (hasColors || contactProfile) {
-          // Uniform colors (AI-generated) or no colors - use default muted green
+        } else if (contactProfile) {
           return {
-            colors: DEFAULT_COLORS_INVERTED,
+            colors: DEFAULT_COLORS,
             context: 'connect'
           };
         } else {
           return {
-            colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS_INVERTED),
+            colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
             context: 'connect'
           };
         }
@@ -405,52 +329,49 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       };
     }
 
-    if (pathname === '/setup') {
-      return {
-        colors: DEFAULT_COLORS_INVERTED,
-        context: 'profile-default'
-      };
-    }
-
     const isOnContactPage = pathname?.startsWith('/x/') || pathname.startsWith('/c/');
 
     if (isLoading && !isNavigatingFromSetup) {
-      const loadingColors = isOnContactPage ? DEFAULT_COLORS_INVERTED : DEFAULT_COLORS;
+      // Even during loading, if we have profile colors (from immediateProfile), use them
+      const userColors = profile?.backgroundColors;
+      if (userColors && userColors.length >= 3) {
+        return {
+          colors: convertToParticleColors(userColors),
+          context: isOnContactPage ? 'contact' : 'profile'
+        };
+      }
+      // Otherwise fall back to black for first load fade effect
       return {
-        colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : loadingColors),
+        colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
         context: isOnContactPage ? 'contact' : 'signed-out'
       };
     }
 
     if (isOnContactPage) {
       const contactColors = contactProfile?.backgroundColors;
-      const hasColors = contactColors && contactColors.length >= 3;
 
-      if (hasColors && hasCustomColors(contactColors)) {
+      if (contactColors && contactColors.length >= 3) {
         return {
           colors: convertToParticleColors(contactColors),
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       } else {
-        // Uniform colors (AI-generated) or no colors - use default muted green
         return {
-          colors: DEFAULT_COLORS_INVERTED,
+          colors: DEFAULT_COLORS,
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       }
     } else {
       const userColors = profile?.backgroundColors;
-      const hasColors = userColors && userColors.length >= 3;
 
-      if (hasColors && hasCustomColors(userColors)) {
+      if (userColors && userColors.length >= 3) {
         return {
           colors: convertToParticleColors(userColors),
           context: 'profile'
         };
       } else {
-        // Uniform colors (AI-generated) or no colors - use default muted green
         return {
-          colors: DEFAULT_COLORS_INVERTED,
+          colors: DEFAULT_COLORS,
           context: 'profile-default'
         };
       }

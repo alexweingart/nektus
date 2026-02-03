@@ -41,8 +41,8 @@
 
 @layer base {
   :root {
-    /* Start with black and fade to theme color */
-    background-color: #000000;
+    /* Start with BACKGROUND_BLACK and fade to theme color */
+    background-color: #0a0f1a; /* BACKGROUND_BLACK */
 
     /* Smooth background color transitions */
     transition: background-color 1000ms cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -50,8 +50,8 @@
     /* Core dimensions */
     --max-content-width: 448px;  /* Standard max-width for content */
 
-    /* Glass tint color - brand green for colored glass effects */
-    --glass-tint-color: 113, 228, 84; /* Bright lime green from logo */
+    /* Glass tint color - brand green for colored glass effects (BRAND_DARK_GREEN_RGB) */
+    --glass-tint-color: 113, 228, 84; /* BRAND_DARK_GREEN_RGB */
 
     /* Core color palette - using hex for consistency */
     --background: transparent;  /* No background - let ParticleNetwork handle it */
@@ -92,7 +92,7 @@
 /* Base styles */
 :root {
   color: var(--foreground);
-  --safe-area-bg: #0a0f1a; /* Default: theme dark, updated by JS for profiles */
+  --safe-area-bg: #0a0f1a; /* BACKGROUND_BLACK - default: theme dark, updated by JS for profiles */
 }
 
 html {
@@ -364,92 +364,15 @@ select {
   }
 }
 
-
-/* vCard Modal Styles */
-.vcard-modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 20px;
-}
-
-.vcard-modal-content {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-
-.vcard-modal h3 {
-  margin: 0 0 20px 0;
-  color: #333;
-}
-
-.vcard-modal p {
-  margin: 0 0 20px 0;
-  color: #666;
-  line-height: 1.5;
-}
-
-.vcard-modal ol {
-  text-align: left;
-  color: #666;
-  margin: 0 0 20px 0;
-  padding-left: 20px;
-}
-
-.vcard-modal textarea {
-  width: 100%;
-  height: 120px;
-  margin: 10px 0;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 12px;
-  background: #f9f9f9;
-}
-
-.vcard-modal-buttons {
-  margin-top: 20px;
-}
-
-.vcard-modal-btn {
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-right: 10px;
-}
-
-.vcard-modal-btn.copy {
-  background: #007AFF;
-  color: white;
-}
-
-.vcard-modal-btn.close {
-  background: #666;
-  color: white;
-}
-
 /* ============================================================================ */
 /* Nekt Gradient Utilities                                                     */
 /* ============================================================================ */
 
 :root {
   /* Nekt logo gradient colors - matching the official brand */
-  --nekt-gradient-light: #E7FED2; /* Pale cream/green from logo */
-  --nekt-gradient-dark: #71E454;  /* Bright lime green from logo */
-  --nekt-gradient: linear-gradient(135deg, #E7FED2 0%, #71E454 100%);
+  --nekt-gradient-light: #E7FED2; /* BRAND_LIGHT_GREEN */
+  --nekt-gradient-dark: #71E454;  /* BRAND_DARK_GREEN */
+  --nekt-gradient: linear-gradient(135deg, #E7FED2 0%, #71E454 100%); /* BRAND_LIGHT_GREEN → BRAND_DARK_GREEN */
 }
 
 /* ============================================================================ */

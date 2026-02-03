@@ -52,20 +52,40 @@ export function stringToColor(str: string): string {
  * Generates an SVG initials avatar as a data URL
  * @param name - The user's name
  * @param size - Size in pixels (default 200)
+ * @param gradientColors - Optional [centerColor, edgeColor] for a radial gradient background.
+ *                         Center is dark (dominant), edge is light (accent1).
+ * @param customTextColor - Optional text color (e.g., accent2 for vivid contrast)
  */
-export function generateInitialsAvatar(name: string, size: number = 200): string {
+export function generateInitialsAvatar(name: string, size: number = 200, gradientColors?: [string, string], customTextColor?: string): string {
   const initials = getInitials(name);
-  const backgroundColor = stringToColor(name);
-
-  // Text color: use dark gray for better contrast on pastel backgrounds
-  const textColor = '#1f2937';
 
   // Font size is roughly 40% of the image size
   const fontSize = Math.floor(size * 0.4);
 
+  let backgroundElement: string;
+  let textColor: string;
+
+  if (gradientColors) {
+    // Radial gradient: dark center → light edge
+    backgroundElement = `
+      <defs>
+        <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+          <stop offset="0%" stop-color="${gradientColors[0]}"/>
+          <stop offset="100%" stop-color="${gradientColors[1]}"/>
+        </radialGradient>
+      </defs>
+      <rect width="${size}" height="${size}" fill="url(#bg)"/>`;
+    textColor = customTextColor || '#ffffff';
+  } else {
+    // Original pastel background with dark text
+    const backgroundColor = stringToColor(name);
+    backgroundElement = `<rect width="${size}" height="${size}" fill="${backgroundColor}"/>`;
+    textColor = customTextColor || '#1f2937';
+  }
+
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <rect width="${size}" height="${size}" fill="${backgroundColor}"/>
+      ${backgroundElement}
       <text
         x="50%"
         y="50%"

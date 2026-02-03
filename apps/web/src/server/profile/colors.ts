@@ -4,6 +4,10 @@
 import getColors from 'get-image-colors';
 import type { Color } from 'chroma-js';
 import { fileTypeFromBuffer } from 'file-type';
+import { BRAND_DARK_GREEN } from '@/shared/colors';
+
+// Re-export shared color constants for convenience
+export { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN, BRAND_DARK_GREEN_RGB, BACKGROUND_BLACK, BACKGROUND_GREEN, BACKGROUND_GREEN_RGB, TEXT_BLACK, TEXT_WHITE, TEXT_RED, TEXT_GREY, BORDER } from '@/shared/colors';
 
 // Helper to convert RGB array to HEX string
 const rgbToHex = (r: number, g: number, b: number): string => 
@@ -138,5 +142,5 @@ export function filterChromaticColors(palette: string[]): string[] {
 export function getDefaultBackgroundColor(): string {
   // Green color that matches the app's theme
   // This creates good contrast while remaining consistent with the brand
-  return '#71E454'; // Green that matches the app's accent color
+  return BRAND_DARK_GREEN; // Green that matches the app's accent color
 } 

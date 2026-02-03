@@ -12,7 +12,7 @@ import { isAndroidPlatform } from '@/client/platform-detection';
 import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
 import { generateProfileAssets } from '@/client/profile/asset-generation';
 import { hexToRgb } from '@/client/cn';
-import { BACKGROUND_GREEN_RGB } from '@/shared/colors';
+import { BACKGROUND_GREEN_RGB, generateProfileColors } from '@/shared/colors';
 
 // Types
 interface SessionProfile {
@@ -91,14 +91,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
 
         // Set immediate profile so saves work while real profile loads
+        const profileName = session.user.name || 'User';
+        console.log('[ProfileContext] Generating colors for name:', profileName, '-> colors:', generateProfileColors(profileName));
         const immediateProfile: UserProfile = {
           userId: session.user.id,
           shortCode: '',
           profileImage: session.user.image || '',
           backgroundImage: '',
+          backgroundColors: generateProfileColors(profileName),
           lastUpdated: Date.now(),
           contactEntries: [
-            { fieldType: 'name', value: session.user.name || '', section: 'universal', order: -2, isVisible: true, confirmed: true },
+            { fieldType: 'name', value: profileName, section: 'universal', order: -2, isVisible: true, confirmed: true },
             { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: false },
             { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: false },
             { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: !!session.user.email },
@@ -128,12 +131,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             setProfile(existingProfile);
 
             // Trigger asset generation for new users (those without generated assets)
+            // Note: backgroundColors are now always set at profile creation, so we only check avatarGenerated
             const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
-            const backgroundAlreadyGenerated = existingProfile.aiGeneration?.backgroundImageGenerated;
-            const hasBackgroundColors = !!existingProfile.backgroundColors;
-            const profileImage = existingProfile.profileImage || session?.user?.image;
 
-            if (!avatarAlreadyGenerated && !backgroundAlreadyGenerated && !hasBackgroundColors) {
+            if (!avatarAlreadyGenerated) {
               generateProfileAssets({
                 userId: session.user.id,
                 profile: existingProfile,
@@ -148,23 +149,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 setProfile
               }).catch(error => {
                 console.error('[ProfileContext] Asset generation error:', error);
-              });
-            } else if (!hasBackgroundColors && profileImage && !avatarAlreadyGenerated) {
-              // Existing user with profile image but no background colors - extract them
-              generateProfileAssets({
-                userId: session.user.id,
-                profile: existingProfile,
-                profileRef,
-                session,
-                profileImageGenerationTriggeredRef,
-                backgroundGenerationTriggeredRef,
-                setIsGoogleInitials,
-                setIsCheckingGoogleImage,
-                setStreamingProfileImage,
-                setStreamingSocialContacts,
-                setProfile
-              }).catch(error => {
-                console.error('[ProfileContext] Background color extraction error:', error);
               });
             }
 
@@ -204,14 +188,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Profile missing - create fallback (server-side creation may have failed)
             console.warn('[ProfileContext] Profile not found, creating fallback');
+            const fallbackName = session.user.name || 'User';
             const defaultProfile: UserProfile = {
               userId: session.user.id,
               shortCode: '',
               profileImage: session.user.image || '',
               backgroundImage: '',
+              backgroundColors: generateProfileColors(fallbackName),
               lastUpdated: Date.now(),
               contactEntries: [
-                { fieldType: 'name', value: session.user.name || '', section: 'universal', order: -2, isVisible: true, confirmed: true },
+                { fieldType: 'name', value: fallbackName, section: 'universal', order: -2, isVisible: true, confirmed: true },
                 { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: false },
                 { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: false },
                 { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: !!session.user.email },

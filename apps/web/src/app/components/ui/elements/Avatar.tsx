@@ -8,6 +8,7 @@ interface AvatarProps {
   className?: string;
   isLoading?: boolean;
   showInitials?: boolean; // Explicitly control when to show initials
+  profileColors?: string[]; // [dominant, accent1, accent2] for custom gradient
 }
 
 const sizeClasses = {
@@ -37,13 +38,27 @@ const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className = '',
   isLoading = false,
-  showInitials = false
+  showInitials = false,
+  profileColors
 }) => {
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
   const [previouslyShowedInitials, setPreviouslyShowedInitials] = React.useState(false);
   const sizeClass = sizeClasses[size];
+
+  // Generate gradient style from profile colors
+  // Radial gradient: dominant (dark center) → accent1 (light edge), text in accent2
+  const getGradientStyle = React.useCallback(() => {
+    if (!profileColors || profileColors.length < 3) return null;
+    const [dominant, accent1, accent2] = profileColors;
+    return {
+      background: `radial-gradient(circle, ${dominant} 0%, ${accent1} 100%)`,
+      textColor: accent2
+    };
+  }, [profileColors]);
+
+  const gradientStyle = getGradientStyle();
 
   React.useEffect(() => {
     // Track if we're transitioning from initials to image
@@ -94,8 +109,14 @@ const Avatar: React.FC<AvatarProps> = ({
     const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
 
     return (
-      <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className} bg-nekt-gradient flex items-center justify-center`}>
-        <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
+      <div
+        className={`relative rounded-full overflow-hidden ${sizeClass} ${className} ${!gradientStyle ? 'bg-nekt-gradient' : ''} flex items-center justify-center`}
+        style={gradientStyle ? { background: gradientStyle.background } : undefined}
+      >
+        <span
+          className={`${fontSize} font-semibold`}
+          style={{ color: gradientStyle?.textColor || '#004D40' }}
+        >
           {initials}
         </span>
       </div>
@@ -108,8 +129,14 @@ const Avatar: React.FC<AvatarProps> = ({
     const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
 
     return (
-      <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className} bg-nekt-gradient flex items-center justify-center`}>
-        <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
+      <div
+        className={`relative rounded-full overflow-hidden ${sizeClass} ${className} ${!gradientStyle ? 'bg-nekt-gradient' : ''} flex items-center justify-center`}
+        style={gradientStyle ? { background: gradientStyle.background } : undefined}
+      >
+        <span
+          className={`${fontSize} font-semibold`}
+          style={{ color: gradientStyle?.textColor || '#004D40' }}
+        >
           {initials}
         </span>
       </div>
@@ -124,8 +151,14 @@ const Avatar: React.FC<AvatarProps> = ({
     return (
       <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
         {/* Initials fading out - start visible, fade to invisible */}
-        <div className="absolute inset-0 bg-nekt-gradient flex items-center justify-center opacity-100 animate-[fade-out_1000ms_ease-out_forwards]">
-          <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
+        <div
+          className={`absolute inset-0 ${!gradientStyle ? 'bg-nekt-gradient' : ''} flex items-center justify-center opacity-100 animate-[fade-out_1000ms_ease-out_forwards]`}
+          style={gradientStyle ? { background: gradientStyle.background } : undefined}
+        >
+          <span
+            className={`${fontSize} font-semibold`}
+            style={{ color: gradientStyle?.textColor || '#004D40' }}
+          >
             {initials}
           </span>
         </div>
@@ -154,8 +187,14 @@ const Avatar: React.FC<AvatarProps> = ({
     const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
 
     return (
-      <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className} bg-nekt-gradient flex items-center justify-center`}>
-        <span className={`${fontSize} font-semibold`} style={{ color: '#004D40' }}>
+      <div
+        className={`relative rounded-full overflow-hidden ${sizeClass} ${className} ${!gradientStyle ? 'bg-nekt-gradient' : ''} flex items-center justify-center`}
+        style={gradientStyle ? { background: gradientStyle.background } : undefined}
+      >
+        <span
+          className={`${fontSize} font-semibold`}
+          style={{ color: gradientStyle?.textColor || '#004D40' }}
+        >
           {initials}
         </span>
       </div>

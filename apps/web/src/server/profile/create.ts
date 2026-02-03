@@ -1,6 +1,7 @@
 import { getFirebaseAdmin } from '@/server/config/firebase';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { UserProfile, ContactEntry } from '@/types/profile';
+import { generateProfileColors } from '@/shared/colors';
 
 /**
  * Server-side profile service using Firebase Admin SDK
@@ -183,11 +184,17 @@ export class ServerProfileService {
       }
     ];
 
+    // Generate profile colors from name (seeded, deterministic)
+    const name = userInfo.name || 'User';
+    const backgroundColors = generateProfileColors(name);
+    console.log('[ServerProfileService] Creating profile with name:', name, '-> colors:', backgroundColors);
+
     return {
       userId,
       shortCode,
       profileImage: userInfo.image || '',
       backgroundImage: '',
+      backgroundColors,
       lastUpdated: Date.now(),
       contactEntries: baseFields
     };
