@@ -61,6 +61,45 @@ export const AdminProfileService = {
   },
 
   /**
+   * Reserve a shortCode in the shortCodes collection and return it.
+   * Does NOT update the profile document — caller is responsible for including
+   * the shortCode when writing the profile (e.g. via profileRef.set()).
+   */
+  async generateAndReserveShortCode(userId: string): Promise<string> {
+    const { db } = await getFirebaseAdmin();
+    const MAX_ATTEMPTS = 5;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const shortCode = generateShortCode();
+      const shortCodeRef = db.collection('shortCodes').doc(shortCode);
+
+      try {
+        await db.runTransaction(async (transaction) => {
+          const shortCodeDoc = await transaction.get(shortCodeRef);
+
+          if (shortCodeDoc.exists) {
+            throw new Error('COLLISION');
+          }
+
+          // Only write to shortCodes collection — profile write happens elsewhere
+          transaction.set(shortCodeRef, { userId });
+        });
+
+        console.log(`Reserved shortCode ${shortCode} for user ${userId}`);
+        return shortCode;
+      } catch (error) {
+        if ((error as Error).message === 'COLLISION') {
+          console.log(`ShortCode collision, retrying... (attempt ${attempt + 1})`);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(`Failed to generate unique shortCode after ${MAX_ATTEMPTS} attempts`);
+  },
+
+  /**
    * Generate a unique shortCode for a user and store the mapping
    * @param userId The user ID to generate a shortCode for
    * @returns The generated shortCode

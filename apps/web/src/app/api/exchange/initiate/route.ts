@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
 import { redis } from '@/server/config/redis';
 import { getProfile } from '@/server/config/firebase';
-import { AdminProfileService } from '@/server/profile/firebase-admin';
 
 /**
  * Generate a secure random token for exchange
@@ -55,19 +54,6 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Profile not found' },
         { status: 404 }
       );
-    }
-
-    // Ensure user has a shortCode (lazy migration for older accounts)
-    let shortCode = userProfile.shortCode as string | undefined;
-    if (!shortCode) {
-      try {
-        shortCode = await AdminProfileService.ensureShortCode(user.id);
-        userProfile.shortCode = shortCode;
-        console.log(`📌 Generated shortCode ${shortCode} for user ${user.id}`);
-      } catch (shortCodeError) {
-        console.warn(`⚠️ Failed to generate shortCode for user ${user.id}:`, shortCodeError);
-        // Continue without shortCode - not critical for exchange
-      }
     }
 
     // Generate token

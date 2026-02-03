@@ -1,4 +1,5 @@
 import { getFirebaseAdmin } from '@/server/config/firebase';
+import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { UserProfile, ContactEntry } from '@/types/profile';
 
 /**
@@ -29,8 +30,11 @@ export class ServerProfileService {
           needsSetup: !hasPhone
         };
       } else {
-        // Create new profile with default fields
-        const defaultProfile = this.createDefaultProfile(userId, userInfo);
+        // Reserve a shortCode before creating the profile so it's included in the initial write
+        const shortCode = await AdminProfileService.generateAndReserveShortCode(userId);
+
+        // Create new profile with default fields (includes shortCode)
+        const defaultProfile = this.createDefaultProfile(userId, userInfo, shortCode);
 
         await profileRef.set(defaultProfile);
         console.log('[ServerProfileService] Created new profile for user:', userId);
@@ -43,7 +47,16 @@ export class ServerProfileService {
     } catch (error) {
       console.error('[ServerProfileService] Error getting/creating profile:', error);
       // Fallback - attempt to create profile anyway
-      const defaultProfile = this.createDefaultProfile(userId, userInfo);
+      let shortCode: string;
+      try {
+        shortCode = await AdminProfileService.generateAndReserveShortCode(userId);
+      } catch (scError) {
+        console.error('[ServerProfileService] Recovery: Failed to reserve shortCode:', scError);
+        // Last resort — generate a local code; reverse index will be missing but profile won't crash
+        shortCode = Math.random().toString(36).slice(2, 10);
+      }
+
+      const defaultProfile = this.createDefaultProfile(userId, userInfo, shortCode);
 
       // Try to save the profile as a recovery mechanism
       try {
@@ -116,7 +129,8 @@ export class ServerProfileService {
    */
   private static createDefaultProfile(
     userId: string,
-    userInfo: { name?: string | null; email?: string | null; image?: string | null }
+    userInfo: { name?: string | null; email?: string | null; image?: string | null },
+    shortCode: string
   ): UserProfile {
     const baseFields: ContactEntry[] = [
       {
@@ -171,6 +185,7 @@ export class ServerProfileService {
 
     return {
       userId,
+      shortCode,
       profileImage: userInfo.image || '',
       backgroundImage: '',
       lastUpdated: Date.now(),

@@ -26,10 +26,10 @@ export interface ContactEntry {
 
 export interface UserProfile {
   userId: string;
-  shortCode?: string;  // 8-char base62 identifier for short URLs (/c/{shortCode})
+  shortCode: string;  // 8-char base62 identifier for short URLs (/c/{shortCode})
   profileImage: string;
   backgroundImage: string;
-  backgroundColors?: string[];  // Extracted colors for ParticleNetwork: [dominant, accent1, accent2]
+  backgroundColors?: string[];  // [dominant, accent1, accent2] — extracted from photo or generated from name
   lastUpdated: number;
   contactEntries: ContactEntry[];  // Everything is now a ContactEntry (name, bio, contacts)
   // AI generation completion flags - persist across sessions

@@ -22,12 +22,12 @@ export async function GET(
 
     let userId: string | null = null;
 
-    // If code is 8 chars, treat as shortCode; otherwise treat as userId
+    // If code is 8 chars, treat as shortCode; otherwise treat as userId.
+    // The userId fallback path is deprecated — all profiles now have shortCodes
+    // after migration. This branch can be removed once migration is verified.
     if (code.length === 8) {
-      // Look up userId from shortCode
       userId = await AdminProfileService.getUserIdByShortCode(code);
     } else {
-      // Treat as userId directly
       userId = code;
     }
 
@@ -46,18 +46,6 @@ export async function GET(
         { success: false, error: 'Profile not found' },
         { status: 404 }
       );
-    }
-
-    // Ensure profile has a shortCode (lazy migration for older accounts)
-    if (!profile.shortCode) {
-      try {
-        const newShortCode = await AdminProfileService.ensureShortCode(userId);
-        profile.shortCode = newShortCode;
-        console.log(`📌 Generated shortCode ${newShortCode} for user ${userId} on profile fetch`);
-      } catch (shortCodeError) {
-        console.warn(`⚠️ Failed to generate shortCode for user ${userId}:`, shortCodeError);
-        // Continue without shortCode - profile is still valid
-      }
     }
 
     // Return the profile

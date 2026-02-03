@@ -26,7 +26,7 @@ export interface ContactEntry {
 
 export interface UserProfile {
   userId: string;
-  shortCode?: string;  // 8-char base62 identifier for short URLs (/c/{shortCode})
+  shortCode: string;  // 8-char base62 identifier for short URLs (/c/{shortCode})
   profileImage: string;
   backgroundImage: string;
   backgroundColors?: string[];  // Extracted colors for ParticleNetwork: [dominant, accent1, accent2]

@@ -83,7 +83,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     saveProfile: async () => null, // Not needed for ContactView
     onCalendarAddedViaOAuth: () => {
       // Navigate directly to smart-schedule after OAuth calendar addition
-      router.push(`/c/${profile.shortCode ?? profile.userId}/smart-schedule`);
+      router.push(`/c/${profile.shortCode}/smart-schedule`);
     }
   });
 
@@ -162,7 +162,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
     const senderFirstName = getFirstName(session.user.name);
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
     // Use shortCode if available, fall back to userId (both work with /c/ route)
-    const senderProfileId = userProfile?.shortCode || session.user.id;
+    const senderProfileId = userProfile?.shortCode;
     const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
     const phoneNumber = getPhoneNumber(profile.contactEntries);
 
@@ -180,8 +180,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     const senderFirstName = getFirstName(session.user.name);
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
-    // Use shortCode if available, fall back to userId (both work with /c/ route)
-    const senderProfileId = userProfile?.shortCode || session.user.id;
+    const senderProfileId = userProfile?.shortCode;
     const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
     const phoneNumber = getPhoneNumber(profile.contactEntries);
 
@@ -206,7 +205,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     if (userHasCalendar) {
       // Navigate to smart-schedule page
-      router.push(`/c/${profile.shortCode ?? profile.userId}/smart-schedule`);
+      router.push(`/c/${profile.shortCode}/smart-schedule`);
     } else {
       // Open Add Calendar modal
       setShowAddCalendarModal(true);
@@ -227,7 +226,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
     if (userHasCalendar) {
       // Navigate to smart-schedule page
-      router.push(`/c/${profile.shortCode ?? profile.userId}/smart-schedule`);
+      router.push(`/c/${profile.shortCode}/smart-schedule`);
     } else {
       // Open Add Calendar modal
       setShowAddCalendarModal(true);
@@ -238,7 +237,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     // After calendar is added, navigate to smart-schedule
-    router.push(`/c/${profile.shortCode ?? profile.userId}/smart-schedule`);
+    router.push(`/c/${profile.shortCode}/smart-schedule`);
   };
 
   // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
@@ -459,7 +458,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
-          redirectTo={`/c/${profile.shortCode ?? profile.userId}/smart-schedule`}
+          redirectTo={`/c/${profile.shortCode}/smart-schedule`}
         />
       </div>
   );

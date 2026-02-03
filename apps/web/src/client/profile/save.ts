@@ -125,6 +125,7 @@ export class ProfileSaveService {
             ...currentProfile,
             ...processedUpdates,
             userId,
+            shortCode: processedUpdates.shortCode || currentProfile?.shortCode || '',
             lastUpdated: Date.now(),
             profileImage: processedUpdates.profileImage || currentProfile?.profileImage || '',
             backgroundImage: processedUpdates.backgroundImage || currentProfile?.backgroundImage || '',
@@ -270,6 +271,7 @@ export class ProfileSaveService {
   private static createDefaultProfile(userId: string): UserProfile {
     return {
       userId,
+      shortCode: '',
       profileImage: '',
       backgroundImage: '',
       lastUpdated: Date.now(),

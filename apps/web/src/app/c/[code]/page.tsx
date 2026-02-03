@@ -17,12 +17,11 @@ function ContactPageContent() {
   const router = useRouter();
   const params = useParams();
   const code = params.code as string;
-  const { loadContacts, invalidateContactsCache } = useProfile();
+  const { loadContacts } = useProfile();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Require authentication
   useEffect(() => {
@@ -56,41 +55,6 @@ function ContactPageContent() {
         );
 
         if (savedContact) {
-          // Check if we're viewing via userId but contact doesn't have a shortCode yet
-          const isViewingViaUserId = code === savedContact.userId && !savedContact.shortCode;
-
-          if (isViewingViaUserId) {
-            // Fetch/generate shortCode for the profile, update saved contact, then redirect
-            try {
-              const profileRes = await fetch(`/api/profile/shortcode/${savedContact.userId}`);
-              if (profileRes.ok) {
-                const profileData = await profileRes.json();
-                if (profileData.profile?.shortCode) {
-                  const shortCode = profileData.profile.shortCode;
-
-                  // Update the saved contact with the shortCode
-                  await fetch(`/api/contacts/${savedContact.userId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shortCode })
-                  });
-
-                  console.log(`📌 Updated saved contact with shortCode: ${shortCode}`);
-
-                  // Invalidate contacts cache so the next page load fetches fresh data
-                  invalidateContactsCache();
-
-                  // Redirect to shortCode URL
-                  setIsRedirecting(true);
-                  router.replace(`/c/${shortCode}`);
-                  return;
-                }
-              }
-            } catch (err) {
-              console.warn('Failed to migrate to shortCode, continuing with userId:', err);
-            }
-          }
-
           // Use the saved contact data (already filtered from when contact was saved)
           setProfile(savedContact as UserProfile);
 
@@ -113,14 +77,14 @@ function ContactPageContent() {
     }
 
     fetchProfile();
-  }, [code, session, status, router, loadContacts, invalidateContactsCache]);
+  }, [code, session, status, router, loadContacts]);
 
   const handleGoBack = () => {
     router.push('/history');
   };
 
   // Show loading only while checking auth, fetching, or redirecting
-  if (status === 'loading' || isLoading || isRedirecting) {
+  if (status === 'loading' || isLoading) {
     return null;
   }
 

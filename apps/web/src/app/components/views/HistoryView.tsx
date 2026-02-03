@@ -198,7 +198,7 @@ export const HistoryView: React.FC = () => {
 
   const handleContactTap = (contact: SavedContact) => {
     // Prefer shortCode for cleaner URLs, fall back to userId
-    const code = contact.shortCode || contact.userId;
+    const code = contact.shortCode;
     router.push(`/c/${code}`);
   };
 
@@ -215,11 +215,11 @@ export const HistoryView: React.FC = () => {
     );
 
     if (userHasCalendar) {
-      const code = contact.shortCode || contact.userId;
+      const code = contact.shortCode;
       router.push(`/c/${code}/smart-schedule?from=history`);
     } else {
       // Store contact code for after calendar is added
-      const code = contact.shortCode || contact.userId;
+      const code = contact.shortCode;
       sessionStorage.setItem('calendar-contact-id', code);
       setSelectedContact(contact);
       setShowAddCalendarModal(true);
@@ -229,7 +229,7 @@ export const HistoryView: React.FC = () => {
   const handleCalendarAdded = () => {
     setShowAddCalendarModal(false);
     if (selectedContact) {
-      const code = selectedContact.shortCode || selectedContact.userId;
+      const code = selectedContact.shortCode;
       router.push(`/c/${code}/smart-schedule?from=history`);
     }
   };
@@ -239,7 +239,7 @@ export const HistoryView: React.FC = () => {
 
     if (selectedContact) {
       sessionStorage.removeItem('calendar-contact-id');
-      const code = selectedContact.shortCode || selectedContact.userId;
+      const code = selectedContact.shortCode;
       router.push(`/c/${code}/smart-schedule?from=history`);
     }
   };
@@ -451,7 +451,7 @@ export const HistoryView: React.FC = () => {
           section={selectedContact.contactType}
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
-          redirectTo={`/c/${selectedContact.shortCode ?? selectedContact.userId}/smart-schedule?from=history`}
+          redirectTo={`/c/${selectedContact.shortCode}/smart-schedule?from=history`}
         />
       )}
 

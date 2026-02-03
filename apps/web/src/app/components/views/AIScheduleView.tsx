@@ -23,11 +23,10 @@ export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts, loadContacts, invalidateContactsCache } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, loadContacts } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const code = params.code as string;
   const contactType = savedContact?.contactType || 'personal';
@@ -72,39 +71,6 @@ export default function AIScheduleView() {
       }
 
       if (contact) {
-        // Check if we're viewing via userId but contact doesn't have a shortCode yet
-        const isViewingViaUserId = code === contact.userId && !contact.shortCode;
-
-        if (isViewingViaUserId) {
-          // Fetch/generate shortCode for the profile, update saved contact, then redirect
-          try {
-            const profileRes = await fetch(`/api/profile/shortcode/${contact.userId}`);
-            if (profileRes.ok) {
-              const profileData = await profileRes.json();
-              if (profileData.profile?.shortCode) {
-                const shortCode = profileData.profile.shortCode;
-
-                // Update the saved contact with the shortCode
-                await fetch(`/api/contacts/${contact.userId}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ shortCode })
-                });
-
-                console.log(`📌 [AIScheduleView] Updated saved contact with shortCode: ${shortCode}`);
-
-                // Invalidate cache and redirect to shortCode URL
-                invalidateContactsCache();
-                setIsRedirecting(true);
-                router.replace(`/c/${shortCode}/ai-schedule${window.location.search}`);
-                return;
-              }
-            }
-          } catch (err) {
-            console.warn('[AIScheduleView] Failed to migrate to shortCode, continuing with userId:', err);
-          }
-        }
-
         setContactProfile(contact);
         setSavedContact(contact);
       } else {
@@ -119,7 +85,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [code, session?.user?.id, router, getContact, getContacts, loadContacts, invalidateContactsCache]);
+  }, [code, session?.user?.id, router, getContact, getContacts, loadContacts]);
 
   useEffect(() => {
     loadProfiles();
@@ -349,7 +315,7 @@ And if you don't know any of those things, and just want me to suggest based off
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const fromParam = searchParams.get('from');
     const queryString = fromParam ? `?from=${fromParam}` : '';
-    router.push(`/c/${savedContact?.shortCode ?? code}/smart-schedule${queryString}`);
+    router.push(`/c/${savedContact?.shortCode}/smart-schedule${queryString}`);
   };
 
   // Wait 1.5 seconds before showing ChatInput (allows background transition to complete)
@@ -386,7 +352,7 @@ And if you don't know any of those things, and just want me to suggest based off
   }, []);
 
 
-  if (loading || !contactProfile || !currentUserProfile || isRedirecting) {
+  if (loading || !contactProfile || !currentUserProfile) {
     return null;
   }
 

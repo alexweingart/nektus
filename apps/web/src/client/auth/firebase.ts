@@ -12,7 +12,6 @@ export class FirebaseAuthService {
 
   constructor() {
     this.auth = auth;
-    // Don't auto-initialize listener - let components control when they need it
   }
 
   private setupAuthListener() {
@@ -23,11 +22,6 @@ export class FirebaseAuthService {
 
     this.unsubscribeAuth = onAuthStateChanged(this.auth, (user) => {
       this.currentUser = user;
-      if (user) {
-        // User signed in
-      } else {
-        // User signed out
-      }
     });
   }
 
@@ -42,7 +36,6 @@ export class FirebaseAuthService {
    * Get the current user
    */
   getCurrentUser(): User | null {
-    // Return the Firebase auth current user directly instead of cached value
     return this.auth?.currentUser || null;
   }
 
@@ -50,7 +43,6 @@ export class FirebaseAuthService {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    // Check Firebase auth directly instead of cached value
     return this.auth?.currentUser !== null;
   }
 
@@ -63,20 +55,12 @@ export class FirebaseAuthService {
       return null;
     }
 
-
     try {
       const userCredential = await signInWithCustomToken(this.auth, token);
-
       this.currentUser = userCredential.user;
-      if (userCredential.user) {
-      } else {
-        console.error('[FirebaseAuth] ❌ signInWithCustomToken returned null user!');
-      }
       return this.currentUser;
     } catch (error) {
       console.error('[FirebaseAuth] Failed to sign in with custom token:', error);
-      // Note: Token refresh is handled automatically in the NextAuth JWT callback
-      // which refreshes Firebase tokens every 50 minutes
       return null;
     }
   }
@@ -128,4 +112,4 @@ export class FirebaseAuthService {
 }
 
 // Export singleton instance
-export const firebaseAuth = FirebaseAuthService.getInstance(); 
+export const firebaseAuth = FirebaseAuthService.getInstance();

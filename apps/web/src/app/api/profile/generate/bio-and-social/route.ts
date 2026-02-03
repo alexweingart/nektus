@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     if (!userProfile) {
       userProfile = {
         userId: userId,
+        shortCode: '',
         profileImage: session.user.image || '',
         backgroundImage: '',
         lastUpdated: Date.now(),

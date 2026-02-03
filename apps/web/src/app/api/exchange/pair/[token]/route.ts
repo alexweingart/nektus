@@ -82,6 +82,7 @@ function createMockProfile(includeExtendedData = true): UserProfile {
 
   return {
     userId: 'mock-user-123',
+    shortCode: 'mocktest',
     profileImage: '',
     backgroundImage: '',
     lastUpdated: Date.now(),

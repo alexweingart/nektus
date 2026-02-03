@@ -259,11 +259,15 @@ export async function deleteUserProfile(userId: string): Promise<void> {
       const { db, storage } = await getFirebaseAdmin();
       const profileRef = db.collection('profiles').doc(userId);
 
-      // First check if the document exists
+      // First check if the document exists and get the shortCode
       const doc = await profileRef.get();
       if (!doc.exists) {
         return;
       }
+
+      // Get shortCode from profile to delete from shortCodes collection later
+      const profileData = doc.data();
+      const shortCode = profileData?.shortCode as string | undefined;
 
       // Delete Firebase Storage files for this user
       try {
@@ -330,6 +334,18 @@ export async function deleteUserProfile(userId: string): Promise<void> {
       const verifyDoc = await profileRef.get();
       if (verifyDoc.exists) {
         throw new Error(`[deleteUserProfile] Profile ${userId} still exists after deletion attempt`);
+      }
+
+      // Delete the shortCode from the shortCodes collection (reverse lookup index)
+      if (shortCode) {
+        try {
+          const shortCodeRef = db.collection('shortCodes').doc(shortCode);
+          await shortCodeRef.delete();
+          console.log(`[deleteUserProfile] ShortCode ${shortCode} deleted for user ${userId}`);
+        } catch (shortCodeError) {
+          console.warn(`[deleteUserProfile] Failed to delete shortCode ${shortCode}:`, shortCodeError);
+          // Don't fail the entire deletion if shortCode cleanup fails
+        }
       }
 
       // Delete the Firebase Auth user if it exists

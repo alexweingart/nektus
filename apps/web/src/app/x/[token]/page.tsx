@@ -93,6 +93,7 @@ function ConnectPageContent() {
         // Create mock profile for testing with robot avatar and vibrant colors
         const mockProfile: UserProfile = {
           userId: 'mock-user-123',
+          shortCode: 'mocktest',
           profileImage: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiNGRkI2QzE7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojRkY2RjYxO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSJ1cmwoI2dyYWQpIi8+PHJlY3QgeD0iMTAwIiB5PSIxMDAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiByeD0iNTAiIGZpbGw9IiMwMDRENDAiLz48cmVjdCB4PSIyMDAiIHk9IjIwMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMCIgZmlsbD0iI0ZGQjZDMSIvPjwvc3ZnPg==',
           backgroundImage: '',
           backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'],

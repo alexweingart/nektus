@@ -165,7 +165,7 @@ export async function saveContactFlow(
       // Show vCard for iOS non-embedded browsers (Safari/Chrome)
       if (iosNonEmbedded) {
         try {
-          const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${profile.shortCode ?? profile.userId}`;
+          const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${profile.shortCode}`;
           console.log('📱 iOS: Displaying vCard...');
           displayVCardInlineForIOS(profile, {
             contactUrl,

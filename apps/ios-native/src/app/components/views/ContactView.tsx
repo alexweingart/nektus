@@ -451,7 +451,7 @@ export function ContactView(props: ContactViewProps = {}) {
     const senderFirstName = getFirstName(props.sessionUserName || session?.user?.name || '');
 
     // Use shortCode if available, fall back to userId (both work with /c/ route)
-    const senderProfileId = userProfile?.shortCode || session?.user?.id;
+    const senderProfileId = userProfile?.shortCode;
     const message = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
 
     setShowSuccessModal(false);

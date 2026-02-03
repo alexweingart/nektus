@@ -62,6 +62,7 @@ export async function GET(
     // Create limited profile with only public data
     const limitedProfile: UserProfile = {
       userId: userAProfile.userId,
+      shortCode: userAProfile.shortCode,
       profileImage: userAProfile.profileImage || '',
       backgroundImage: userAProfile.backgroundImage || '',
       backgroundColors: userAProfile.backgroundColors,
