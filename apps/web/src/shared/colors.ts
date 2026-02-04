@@ -82,8 +82,8 @@ export function generateProfileColors(name: string): [string, string, string] {
   const accent1Sat = 45 + (hash3 % 20);         // 45-64%
   const accent1Light = 55 + (hash2 % 15);        // 55-69% (very visible)
 
-  // accent2: triadic ~120°, muted but distinct
-  const accent2Hue = (baseHue + 110 + (hash3 % 25)) % 360;  // 110-134° shift (triadic-ish)
+  // accent2: mirrored split ~-55-79°, symmetric with accent1
+  const accent2Hue = (baseHue - 55 - (hash3 % 25) + 360) % 360;  // -55 to -79° shift
   const accent2Sat = 45 + (hash2 % 15);         // 45-59% (more muted)
   const accent2Light = 50 + (hash3 % 13);        // 50-62%
 

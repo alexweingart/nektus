@@ -13,6 +13,25 @@ import { BACKGROUND_BLACK, BACKGROUND_GREEN, BRAND_LIGHT_GREEN, BRAND_DARK_GREEN
 // Track first page load to prevent cache restoration on refresh
 let isFirstPageLoad = true;
 
+// SessionStorage keys for color caching
+const STORAGE_KEYS = {
+  safeAreaColor: 'last-safe-area-color',
+  safeAreaUserId: 'last-safe-area-userId',
+  particleColors: 'last-particle-colors',
+  particleColorsUserId: 'last-particle-colors-userId',
+} as const;
+
+/**
+ * Clear all cached color data from sessionStorage.
+ * Call this on logout to prevent stale colors showing for the next user.
+ */
+export function clearColorCache() {
+  sessionStorage.removeItem(STORAGE_KEYS.safeAreaColor);
+  sessionStorage.removeItem(STORAGE_KEYS.safeAreaUserId);
+  sessionStorage.removeItem(STORAGE_KEYS.particleColors);
+  sessionStorage.removeItem(STORAGE_KEYS.particleColorsUserId);
+}
+
 interface ContactProfile {
   backgroundColors?: string[];
 }
@@ -190,14 +209,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         const [dominant, , accent2] = contactColors;
         applySafeAreaColor(dominant);
         document.documentElement.style.setProperty('--particle-color', accent2);
-        sessionStorage.setItem('last-safe-area-color', dominant);
+        sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
         return;
       }
 
       // Default signed-out: use themeDark
       applySafeAreaColor(COLORS.themeDark);
-      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
-      sessionStorage.removeItem('last-safe-area-userId');
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, COLORS.themeDark);
+      sessionStorage.removeItem(STORAGE_KEYS.safeAreaUserId);
       return;
     }
 
@@ -205,12 +224,12 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       const [dominant, , accent2] = contactColors;
       applySafeAreaColor(dominant);
       document.documentElement.style.setProperty('--particle-color', accent2);
-      sessionStorage.setItem('last-safe-area-color', dominant);
-      sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaUserId, (params?.userId as string) || '');
     } else if (isOnContactPage && !contactProfile) {
       // Contact not loaded yet - use cached or themeDark
-      const lastColor = sessionStorage.getItem('last-safe-area-color');
-      const lastUserId = sessionStorage.getItem('last-safe-area-userId');
+      const lastColor = sessionStorage.getItem(STORAGE_KEYS.safeAreaColor);
+      const lastUserId = sessionStorage.getItem(STORAGE_KEYS.safeAreaUserId);
       const currentUserId = (params?.userId as string) || '';
 
       if (lastColor && lastUserId === currentUserId && status === 'authenticated') {
@@ -221,19 +240,19 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
       // Contact loaded but no colors - use themeDark
       applySafeAreaColor(COLORS.themeDark);
-      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
-      sessionStorage.setItem('last-safe-area-userId', (params?.userId as string) || '');
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, COLORS.themeDark);
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaUserId, (params?.userId as string) || '');
     } else if (!isOnContactPage && userColors && userColors.length >= 3) {
       const [dominant, , accent2] = userColors;
       applySafeAreaColor(dominant);
       document.documentElement.style.setProperty('--particle-color', accent2);
-      sessionStorage.setItem('last-safe-area-color', dominant);
-      sessionStorage.removeItem('last-safe-area-userId');
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaUserId, session?.user?.id || '');
     } else if (!isOnContactPage && profile) {
       // Profile loaded with no colors - use themeDark
       applySafeAreaColor(COLORS.themeDark);
-      sessionStorage.setItem('last-safe-area-color', COLORS.themeDark);
-      sessionStorage.removeItem('last-safe-area-userId');
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, COLORS.themeDark);
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaUserId, session?.user?.id || '');
     } else if (status === 'authenticated') {
       // Fallback while profile is loading
       applySafeAreaColor(COLORS.themeDark);
@@ -242,10 +261,12 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
   // On mount, restore last safe area color and particle colors
   useEffect(() => {
-    const lastColor = sessionStorage.getItem('last-safe-area-color');
-    const lastUserId = sessionStorage.getItem('last-safe-area-userId');
-    const lastParticleColors = sessionStorage.getItem('last-particle-colors');
+    const lastColor = sessionStorage.getItem(STORAGE_KEYS.safeAreaColor);
+    const lastSafeAreaUserId = sessionStorage.getItem(STORAGE_KEYS.safeAreaUserId);
+    const lastParticleColors = sessionStorage.getItem(STORAGE_KEYS.particleColors);
+    const lastParticleColorsUserId = sessionStorage.getItem(STORAGE_KEYS.particleColorsUserId);
     const currentUserId = params?.userId as string | undefined;
+    const currentAuthUserId = session?.user?.id;
 
     if (status !== 'authenticated') {
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
@@ -264,28 +285,34 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const shouldRestore = !currentUserId || lastUserId === currentUserId;
+    // For contact pages, check against URL userId; for profile pages, check against auth userId
+    const shouldRestoreSafeArea = currentUserId
+      ? lastSafeAreaUserId === currentUserId
+      : lastSafeAreaUserId === currentAuthUserId;
 
-    if (lastColor && shouldRestore) {
+    // For particle colors, always check against the authenticated user
+    const shouldRestoreParticleColors = lastParticleColorsUserId === currentAuthUserId;
+
+    if (lastColor && shouldRestoreSafeArea) {
       document.documentElement.style.setProperty('--safe-area-bg', lastColor);
       document.documentElement.style.backgroundColor = lastColor;
       document.documentElement.style.setProperty('--safe-area-color', lastColor);
       updateThemeColorMeta(lastColor);
-    } else if (!shouldRestore && currentUserId) {
+    } else if (!shouldRestoreSafeArea && currentUserId) {
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeGreen);
       document.documentElement.style.backgroundColor = COLORS.themeGreen;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeGreen);
       updateThemeColorMeta(COLORS.themeGreen);
     }
 
-    if (lastParticleColors && shouldRestore) {
+    if (lastParticleColors && shouldRestoreParticleColors) {
       try {
         const parsed = JSON.parse(lastParticleColors);
         setCachedParticleColors(parsed);
       } catch {
         // Ignore parse errors
       }
-    } else if (!shouldRestore) {
+    } else if (!shouldRestoreParticleColors) {
       setCachedParticleColors(null);
     }
   }, [params?.userId, session, status]);
@@ -378,16 +405,17 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     }
   }, [status, session, isLoading, isNavigatingFromSetup, pathname, profile, contactProfile, cachedParticleColors]);
 
-  // Persist particle colors to sessionStorage
+  // Persist particle colors to sessionStorage (with user ID for multi-account support)
   useEffect(() => {
     if (!mounted) return;
 
     const props = getParticleNetworkProps();
 
-    if (props.context !== 'signed-out') {
-      sessionStorage.setItem('last-particle-colors', JSON.stringify(props.colors));
+    if (props.context !== 'signed-out' && session?.user?.id) {
+      sessionStorage.setItem(STORAGE_KEYS.particleColors, JSON.stringify(props.colors));
+      sessionStorage.setItem(STORAGE_KEYS.particleColorsUserId, session.user.id);
     }
-  }, [mounted, getParticleNetworkProps]);
+  }, [mounted, getParticleNetworkProps, session?.user?.id]);
 
   // Manage default background visibility for prefers-reduced-motion fallback
   useEffect(() => {

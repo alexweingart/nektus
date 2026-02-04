@@ -10,6 +10,7 @@ import React, { useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { clearColorCache } from '../ui/layout/LayoutBackground';
 import type { ContactEntry, FieldSection, Calendar, UserLocation } from '@/types/profile';
 import { useEditProfileFields } from '@/client/hooks/use-edit-profile-fields';
 import { useDragAndDrop } from '@/client/hooks/use-drag-and-drop';
@@ -376,7 +377,10 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
             <SecondaryButton
               variant="destructive"
               className="cursor-pointer"
-              onClick={() => signOut({ callbackUrl: '/' })}
+              onClick={() => {
+                clearColorCache();
+                signOut({ callbackUrl: '/' });
+              }}
             >
               Sign Out
             </SecondaryButton>
