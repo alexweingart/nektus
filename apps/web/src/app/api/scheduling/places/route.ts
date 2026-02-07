@@ -36,13 +36,31 @@ function getClientIp(request: NextRequest): string {
 }
 
 /**
+ * Check if an IP is a private/development IP that won't resolve via ipinfo.io
+ */
+function isPrivateOrDevIp(ip: string): boolean {
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('192.168.') || ip.startsWith('10.')) return true;
+  if (ip.startsWith('172.')) {
+    const secondOctet = parseInt(ip.split('.')[1], 10);
+    if (secondOctet >= 16 && secondOctet <= 31) return true; // 172.16.0.0/12
+  }
+  // Tailscale / CGNAT range (100.64.0.0/10)
+  if (ip.startsWith('100.')) {
+    const secondOctet = parseInt(ip.split('.')[1], 10);
+    if (secondOctet >= 64 && secondOctet <= 127) return true;
+  }
+  return false;
+}
+
+/**
  * Get fallback location from IP address
  */
 async function getIpBasedLocation(ip: string): Promise<string | null> {
   try {
-    // Development fallback for localhost
-    if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
-      console.log(`🔧 Development mode detected (IP: ${ip}), using fallback: San Francisco, CA`);
+    // Development/private IP fallback — these won't resolve via ipinfo.io
+    if (isPrivateOrDevIp(ip)) {
+      console.log(`🔧 Private/dev IP detected (${ip}), using fallback: San Francisco, CA`);
       return 'San Francisco, CA';
     }
 
@@ -54,6 +72,13 @@ async function getIpBasedLocation(ip: string): Promise<string | null> {
       return location;
     }
 
+    // ipinfo returned data but no city/state — use state or country if available
+    if (ipLocation.state) {
+      console.log(`📍 Using partial IP location (state only): ${ipLocation.state}`);
+      return ipLocation.state;
+    }
+
+    console.warn(`⚠️ IP geolocation returned no usable location for ${ip}`);
     return null;
   } catch (error) {
     console.error('Failed to get IP-based location:', error);

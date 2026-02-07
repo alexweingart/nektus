@@ -48,8 +48,8 @@ const VPN_PROVIDERS = [
  * Get IP location data with caching
  */
 export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
-  // Handle localhost and private IPs
-  if (ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+  // Handle localhost and private IPs (won't resolve via ipinfo.io)
+  if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
     return {
       ip,
       isVPN: false,
@@ -57,6 +57,32 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
       confidence: 'octet',
       cached: false
     };
+  }
+  // 172.16.0.0/12 (Docker, etc.)
+  if (ip.startsWith('172.')) {
+    const secondOctet = parseInt(ip.split('.')[1], 10);
+    if (secondOctet >= 16 && secondOctet <= 31) {
+      return {
+        ip,
+        isVPN: false,
+        octet: ip.split('.')[0],
+        confidence: 'octet',
+        cached: false
+      };
+    }
+  }
+  // Tailscale / CGNAT (100.64.0.0/10)
+  if (ip.startsWith('100.')) {
+    const secondOctet = parseInt(ip.split('.')[1], 10);
+    if (secondOctet >= 64 && secondOctet <= 127) {
+      return {
+        ip,
+        isVPN: false,
+        octet: ip.split('.')[0],
+        confidence: 'octet',
+        cached: false
+      };
+    }
   }
 
   // Check Redis cache first
