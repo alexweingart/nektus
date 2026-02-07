@@ -144,6 +144,13 @@ export default function SmartScheduleView() {
           console.log('📦 [SmartScheduleView] Using contact');
           setSection(savedContact.contactType);
           setContactProfile(savedContact);
+
+          // Dispatch match-found event for background colors (safe areas)
+          if (savedContact.backgroundColors) {
+            window.dispatchEvent(new CustomEvent('match-found', {
+              detail: { backgroundColors: savedContact.backgroundColors }
+            }));
+          }
         } else {
           // Contact still not found after loading - redirect to history
           console.log('📦 [SmartScheduleView] Contact not found, redirecting to history');

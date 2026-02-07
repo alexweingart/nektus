@@ -73,6 +73,13 @@ export default function AIScheduleView() {
       if (contact) {
         setContactProfile(contact);
         setSavedContact(contact);
+
+        // Dispatch match-found event for background colors (safe areas)
+        if (contact.backgroundColors) {
+          window.dispatchEvent(new CustomEvent('match-found', {
+            detail: { backgroundColors: contact.backgroundColors }
+          }));
+        }
       } else {
         // Contact still not found after loading - redirect to history
         console.log('📦 [AIScheduleView] Contact not found, redirecting to history');
