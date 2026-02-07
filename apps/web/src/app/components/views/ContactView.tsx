@@ -36,6 +36,7 @@ interface ContactViewProps {
   isLoading?: boolean;
   token: string;
   isHistoricalContact?: boolean;
+  skipEnterAnimation?: boolean;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
@@ -43,7 +44,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   onReject,
   isLoading = false,
   token,
-  isHistoricalContact = false
+  isHistoricalContact = false,
+  skipEnterAnimation = false
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
@@ -55,7 +57,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Check if we're returning from Google auth - skip animation in that case
   const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const isReturningFromAuth = urlParams.get('incremental_auth') === 'success' || urlParams.get('incremental_auth') === 'denied';
-  const [isEntering, setIsEntering] = useState(!isReturningFromAuth);
+  const [isEntering, setIsEntering] = useState(!isReturningFromAuth && !skipEnterAnimation);
   const contactCardRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
@@ -282,8 +284,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   // Handle enter animation - delay 500ms to match profile exit
   useEffect(() => {
-    // Skip animation if returning from auth
-    if (isReturningFromAuth) {
+    // Skip animation if returning from auth or coming from phone modal
+    if (isReturningFromAuth || skipEnterAnimation) {
       setIsEntering(false);
       return;
     }
