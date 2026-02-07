@@ -51,6 +51,15 @@ export function useContactExchangeState(
     if (authResult === 'success' && state) {
       authReturnHandledRef.current = true;
       setShowSuccessModal(true);
+      // Update exchange state synchronously so any remount sees completed_success
+      // (not auth_in_progress which would trigger the upsell)
+      setExchangeState(token, {
+        state: 'completed_success',
+        platform: state.platform,
+        profileId: state.profileId,
+        timestamp: Date.now()
+      });
+      markGoogleContactsPermissionGranted();
       return;
     }
 
@@ -88,35 +97,26 @@ export function useContactExchangeState(
           return;
         }
 
-        // Check for auth success URL params first
+        // Check for auth return URL params first
         const urlParams = new URLSearchParams(window.location.search);
         const authResult = urlParams.get('incremental_auth');
+        const contactSaveToken = urlParams.get('contact_save_token') || token;
 
-        if (authResult === 'success') {
-          // Prevent re-processing on hook re-runs
-          if (authReturnHandledRef.current) return;
-          authReturnHandledRef.current = true;
-
-          // Update exchange state and mark permission granted
-          setExchangeState(token, {
-            state: 'completed_success',
-            platform: exchangeState.platform,
-            profileId: exchangeState.profileId,
-            timestamp: Date.now()
-          });
-          markGoogleContactsPermissionGranted();
-
-          // Grab the contact save token before cleaning URL params
-          const contactSaveToken = urlParams.get('contact_save_token') || token;
-
-          // Clean URL params immediately so re-renders don't re-trigger
+        // Always clean auth URL params immediately — even if we already handled
+        // the return on a previous render. This prevents re-triggering on
+        // component remounts (e.g., session refresh).
+        if (authResult) {
           const url = new URL(window.location.href);
           url.searchParams.delete('incremental_auth');
           url.searchParams.delete('contact_save_token');
           url.searchParams.delete('profile_id');
           window.history.replaceState({}, document.title, url.toString());
+        }
 
-          // Modal was already set to open via layout effect
+        if (authResult === 'success') {
+          // State + permission already updated by layout effect.
+          // URL params already cleaned above. No ref guard needed —
+          // cleaned URL params prevent duplicate runs on re-renders.
 
           // Fire off the Google save in the background (don't wait for it)
           fetch('/api/contacts', {

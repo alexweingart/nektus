@@ -249,9 +249,12 @@ function ConnectPageContent() {
   }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile, phoneEntryComplete]);
 
 
-  // Show loading only while checking auth
-  if (status === 'loading') {
-    return null; // No visual loading state
+  // Show loading only for initial auth check — if we already have a
+  // contactProfile rendered, don't tear down the UI on session refresh
+  // (which briefly sets status to 'loading' and would unmount ContactView,
+  // causing modals to re-animate).
+  if (status === 'loading' && !contactProfile) {
+    return null;
   }
 
   // Show error state
