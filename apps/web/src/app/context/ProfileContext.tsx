@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
 import { ClientProfileService as ProfileService } from '@/client/profile/firebase-save';
 import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/client/profile/save';
 import { UserProfile } from '@/types/profile';
@@ -12,7 +11,7 @@ import { isAndroidPlatform } from '@/client/platform-detection';
 import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
 import { generateProfileAssets } from '@/client/profile/asset-generation';
 import { hexToRgb } from '@/client/cn';
-import { BACKGROUND_GREEN_RGB, generateProfileColors } from '@/shared/colors';
+import { generateProfileColors } from '@/shared/colors';
 
 // Types
 interface SessionProfile {
@@ -51,7 +50,6 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 // Provider component
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status: authStatus, update } = useSession();
-  const pathname = usePathname();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,13 +90,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // Set immediate profile so saves work while real profile loads
         const profileName = session.user.name || 'User';
-        console.log('[ProfileContext] Generating colors for name:', profileName, '-> colors:', generateProfileColors(profileName));
         const immediateProfile: UserProfile = {
           userId: session.user.id,
           shortCode: '',
           profileImage: session.user.image || '',
           backgroundImage: '',
-          backgroundColors: generateProfileColors(profileName),
+          // Don't set backgroundColors here — let LayoutBackground use default dark colors
+          // until the real Firestore profile loads with the actual colors (photo-extracted or generated)
           lastUpdated: Date.now(),
           contactEntries: [
             { fieldType: 'name', value: profileName, section: 'universal', order: -2, isVisible: true, confirmed: true },
@@ -242,29 +240,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [profile]);
 
   // Liquid Glass: Set global color tint from user's profile
+  // Note: background-color and --safe-area-color are managed by LayoutBackground, not here
   useEffect(() => {
     if (profile?.backgroundColors && profile.backgroundColors.length >= 3) {
-      const [dominant, accent1, accent2] = profile.backgroundColors;
+      const [, accent1, accent2] = profile.backgroundColors;
 
       // Use accent2 for glass tint (the bright, vivid color)
-      const profileColor = accent2 || accent1 || dominant;
+      const profileColor = accent2 || accent1;
       if (profileColor) {
         const rgb = hexToRgb(profileColor);
         const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
         document.documentElement.style.setProperty('--glass-tint-color', rgbString);
       }
-
-      // Set safe area color for profile pages
-      const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
-      if (!isOnContactPage) {
-        document.documentElement.style.backgroundColor = dominant;
-        document.documentElement.style.setProperty('--safe-area-color', dominant);
-      }
     } else {
-      // No colors at all - use muted green fallback
-      document.documentElement.style.setProperty('--glass-tint-color', BACKGROUND_GREEN_RGB);
+      // No profile colors - remove inline override so CSS default (brand green) applies
+      document.documentElement.style.removeProperty('--glass-tint-color');
     }
-  }, [profile, pathname]);
+  }, [profile]);
 
   // Save profile to Firestore
   const saveProfile = useCallback(async (data: Partial<UserProfile>, options: { directUpdate?: boolean; skipUIUpdate?: boolean } = {}): Promise<UserProfile | null> => {

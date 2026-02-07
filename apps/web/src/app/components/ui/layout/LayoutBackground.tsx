@@ -30,6 +30,13 @@ export function clearColorCache() {
   sessionStorage.removeItem(STORAGE_KEYS.safeAreaUserId);
   sessionStorage.removeItem(STORAGE_KEYS.particleColors);
   sessionStorage.removeItem(STORAGE_KEYS.particleColorsUserId);
+
+  // Also clear inline CSS styles that persist on the document root
+  document.documentElement.style.removeProperty('--glass-tint-color');
+  document.documentElement.style.removeProperty('--safe-area-color');
+  document.documentElement.style.removeProperty('--safe-area-bg');
+  document.documentElement.style.removeProperty('--particle-color');
+  document.documentElement.style.backgroundColor = '';
 }
 
 interface ContactProfile {
@@ -213,8 +220,10 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Default signed-out: use themeDark
+      // Default signed-out: use themeDark and clear user-specific color tints
       applySafeAreaColor(COLORS.themeDark);
+      document.documentElement.style.removeProperty('--glass-tint-color');
+      document.documentElement.style.removeProperty('--particle-color');
       sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, COLORS.themeDark);
       sessionStorage.removeItem(STORAGE_KEYS.safeAreaUserId);
       return;
@@ -267,11 +276,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const lastParticleColorsUserId = sessionStorage.getItem(STORAGE_KEYS.particleColorsUserId);
     const currentUserId = params?.userId as string | undefined;
     const currentAuthUserId = session?.user?.id;
+    const isOnContactPage = pathname?.startsWith('/x/') || pathname?.startsWith('/c/');
 
     if (status !== 'authenticated') {
       document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
       document.documentElement.style.backgroundColor = COLORS.themeDark;
       document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      document.documentElement.style.removeProperty('--glass-tint-color');
+      document.documentElement.style.removeProperty('--particle-color');
       updateThemeColorMeta(COLORS.themeDark);
       return;
     }
@@ -285,10 +297,17 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // For contact pages, check against URL userId; for profile pages, check against auth userId
-    const shouldRestoreSafeArea = currentUserId
-      ? lastSafeAreaUserId === currentUserId
-      : lastSafeAreaUserId === currentAuthUserId;
+    // On contact pages, always use themeDark as fallback - let the main effect handle contact colors
+    if (isOnContactPage) {
+      document.documentElement.style.setProperty('--safe-area-bg', COLORS.themeDark);
+      document.documentElement.style.backgroundColor = COLORS.themeDark;
+      document.documentElement.style.setProperty('--safe-area-color', COLORS.themeDark);
+      updateThemeColorMeta(COLORS.themeDark);
+      return;
+    }
+
+    // For profile pages, check against auth userId
+    const shouldRestoreSafeArea = lastSafeAreaUserId === currentAuthUserId;
 
     // For particle colors, always check against the authenticated user
     const shouldRestoreParticleColors = lastParticleColorsUserId === currentAuthUserId;
@@ -315,7 +334,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     } else if (!shouldRestoreParticleColors) {
       setCachedParticleColors(null);
     }
-  }, [params?.userId, session, status]);
+  }, [params?.userId, pathname, session, status]);
 
   // Determine context and background colors
   const getParticleNetworkProps = useCallback((): ParticleNetworkProps => {
@@ -337,14 +356,10 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
             colors: convertToParticleColors(contactColors),
             context: 'connect'
           };
-        } else if (contactProfile) {
-          return {
-            colors: DEFAULT_COLORS,
-            context: 'connect'
-          };
         } else {
+          // Use dark colors while waiting for contact colors to load
           return {
-            colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
+            colors: cachedParticleColors || BLACK_COLORS,
             context: 'connect'
           };
         }
@@ -359,18 +374,32 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     const isOnContactPage = pathname?.startsWith('/x/') || pathname.startsWith('/c/');
 
     if (isLoading && !isNavigatingFromSetup) {
-      // Even during loading, if we have profile colors (from immediateProfile), use them
+      // On contact pages, use dark colors while loading - don't show user's profile colors
+      if (isOnContactPage) {
+        const contactColors = contactProfile?.backgroundColors;
+        if (contactColors && contactColors.length >= 3) {
+          return {
+            colors: convertToParticleColors(contactColors),
+            context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
+          };
+        }
+        return {
+          colors: BLACK_COLORS,
+          context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
+        };
+      }
+      // For non-contact pages, use profile colors if available
       const userColors = profile?.backgroundColors;
       if (userColors && userColors.length >= 3) {
         return {
           colors: convertToParticleColors(userColors),
-          context: isOnContactPage ? 'contact' : 'profile'
+          context: 'profile'
         };
       }
       // Otherwise fall back to black for first load fade effect
       return {
         colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
-        context: isOnContactPage ? 'contact' : 'signed-out'
+        context: 'signed-out'
       };
     }
 
@@ -383,8 +412,9 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       } else {
+        // Use dark colors while waiting for contact colors to load
         return {
-          colors: DEFAULT_COLORS,
+          colors: BLACK_COLORS,
           context: pathname?.startsWith('/x/') ? 'connect' : 'contact'
         };
       }
