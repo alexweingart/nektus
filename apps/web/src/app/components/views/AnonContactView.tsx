@@ -15,6 +15,7 @@ import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
+import ReactMarkdown from 'react-markdown';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import { isIOSPlatform } from '@/client/platform-detection';
 
@@ -247,9 +248,12 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
             {/* Bio */}
             <div className="text-center mb-6">
               <div className="text-white text-sm leading-relaxed">
-                <Text variant="small" className="leading-relaxed">
+                <ReactMarkdown components={{
+                  p: (props: React.ComponentProps<'p'>) => <Text variant="small" className="leading-relaxed mb-2" {...props} />,
+                  a: (props: React.ComponentProps<'a'>) => <a className="text-blue-400 hover:text-blue-300 underline" {...props} />,
+                }}>
                   {bio}
-                </Text>
+                </ReactMarkdown>
               </div>
             </div>
 
