@@ -99,7 +99,7 @@ export const DropdownInput = React.forwardRef<HTMLInputElement, DropdownInputPro
     value,
     onChange,
     className = '',
-    placeholder = 'Enter phone number',
+    placeholder = 'Phone number',
     isDisabled = false,
     inputProps = {},
     autoFocus = true,

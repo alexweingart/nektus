@@ -6,7 +6,7 @@ import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { Heading, Text } from '../Typography';
 import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
-import { InlineAddLink } from '../modules/InlineAddLink';
+import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import type { ContactEntry } from '@/types/profile';
 import { detectPlatform } from '@/client/platform-detection';
 
@@ -15,19 +15,28 @@ interface PhoneEntryModalProps {
   userName: string;
   isSaving: boolean;
   onSave: (phone: string, socials: ContactEntry[]) => Promise<void>;
+  /** Which profile was scanned - determines default social platform */
+  scannedSection?: 'personal' | 'work';
 }
 
 export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
   isOpen,
   userName,
   isSaving,
-  onSave
+  onSave,
+  scannedSection = 'personal'
 }) => {
   const [digits, setDigits] = useState('');
   const [showAddLink, setShowAddLink] = useState(false);
-  const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
+  const [socialPlatform, setSocialPlatform] = useState(scannedSection === 'work' ? 'linkedin' : 'instagram');
+  const [socialUsername, setSocialUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  // Update default platform when scannedSection prop changes
+  useEffect(() => {
+    setSocialPlatform(scannedSection === 'work' ? 'linkedin' : 'instagram');
+  }, [scannedSection]);
 
   // Check if phone is valid (10+ digits)
   const isPhoneValid = digits.replace(/\D/g, '').length >= 10;
@@ -70,36 +79,35 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
     }
   }, [isOpen]);
 
-  // Handle link added - duplicate to both personal and work sections
-  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
-    // For setup, we want links in both sections like we do with phone
-    const duplicatedEntries: ContactEntry[] = [];
-    entries.forEach(entry => {
-      // Add to personal
-      duplicatedEntries.push({ ...entry, section: 'personal' });
-      // Add to work
-      duplicatedEntries.push({ ...entry, section: 'work' });
-    });
-    setAddedLinks(duplicatedEntries);
-    setShowAddLink(false);
-  }, []);
-
-  // Handle cancel add link
-  const handleCancelAddLink = useCallback(() => {
-    setShowAddLink(false);
-  }, []);
-
-  // Handle save
+  // Handle save - build social entries if username provided
   const handleSave = useCallback(async () => {
     if (!isPhoneValid || isSaving) return;
     setError(null);
+
+    // Build social entries if username was provided
+    const socialEntries: ContactEntry[] = [];
+    if (socialUsername.trim()) {
+      const baseEntry = {
+        fieldType: socialPlatform,
+        value: socialUsername.trim(),
+        order: 1,
+        isVisible: true,
+        confirmed: true,
+        linkType: 'default' as const,
+        icon: `/icons/default/${socialPlatform}.svg`
+      };
+      // Add to both personal and work
+      socialEntries.push({ ...baseEntry, section: 'personal' });
+      socialEntries.push({ ...baseEntry, section: 'work' });
+    }
+
     try {
-      await onSave(digits, addedLinks);
+      await onSave(digits, socialEntries);
     } catch (err) {
       console.error('[PhoneEntryModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, addedLinks, isPhoneValid, isSaving, onSave]);
+  }, [digits, socialPlatform, socialUsername, isPhoneValid, isSaving, onSave]);
 
   // Extract first name from full name
   const firstName = userName?.split(' ')[0] || 'there';
@@ -138,11 +146,10 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
                 ref={phoneInputRef}
                 value={digits}
                 onChange={setDigits}
-                placeholder="Enter phone number"
+                placeholder="Phone number"
                 className="w-full"
                 autoFocus={false}
                 inputProps={{
-                  className: "w-full p-3 text-base border border-gray-300 rounded-full focus:ring-2 focus:ring-primary focus:border-transparent bg-white/90",
                   required: true,
                   'aria-label': 'Phone number',
                   disabled: isSaving,
@@ -155,14 +162,14 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
                 }}
               />
 
-              {/* Inline Add Link - appears above Save button when active */}
+              {/* Social Input - appears when Add Socials is clicked */}
               {showAddLink && (
-                <InlineAddLink
-                  section="personal"
-                  onLinkAdded={handleLinkAdded}
-                  nextOrder={1}
-                  onCancel={handleCancelAddLink}
-                  showDuplicateToggle={false}
+                <CustomSocialInputAdd
+                  platform={socialPlatform}
+                  username={socialUsername}
+                  onPlatformChange={setSocialPlatform}
+                  onUsernameChange={setSocialUsername}
+                  autoFocus
                 />
               )}
             </div>
@@ -195,8 +202,8 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
               </Button>
             </div>
 
-            {/* Add Socials Button - appears below Save when not in add mode */}
-            {!showAddLink && addedLinks.length === 0 && (
+            {/* Add Socials Button - appears below Save when social input not shown */}
+            {!showAddLink && (
               <div className="flex justify-center">
                 <SecondaryButton
                   variant="subtle"

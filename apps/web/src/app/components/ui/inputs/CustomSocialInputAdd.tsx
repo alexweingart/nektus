@@ -23,6 +23,8 @@ interface CustomSocialInputAddProps {
   onUsernameChange: (username: string) => void;
   className?: string;
   autoFocus?: boolean;
+  /** Container element for dropdown portals (use when inside a modal) */
+  portalContainer?: HTMLElement | null;
 }
 
 // Social network options with icons
@@ -75,7 +77,8 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
   onPlatformChange,
   onUsernameChange,
   className = '',
-  autoFocus = false
+  autoFocus = false,
+  portalContainer
 }) => {
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -123,6 +126,7 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
               // Return focus to username input after selecting from dropdown
               inputRef.current?.focus();
             }}
+            portalContainer={portalContainer}
           />
         </div>
 

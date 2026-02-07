@@ -30,6 +30,9 @@ interface DropdownSelectorProps {
   isDraggable?: boolean;
   fieldType?: string;
   section?: string;
+  /** Container element for the dropdown portal. Defaults to document.body.
+   *  Use this when inside a modal to portal within the dialog content. */
+  portalContainer?: HTMLElement | null;
 }
 
 export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
@@ -44,7 +47,8 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
   onTouchMove,
   isDraggable = false,
   fieldType,
-  section
+  section,
+  portalContainer
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
@@ -122,7 +126,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
         data-section={isDraggable ? section : undefined}
       >
         {selectedOption?.icon ? (
-          <span className="mr-1">{renderIcon(selectedOption.icon)}</span>
+          <span className="mr-1 inline-flex items-center justify-center w-6">{renderIcon(selectedOption.icon)}</span>
         ) : (
           <span className="mr-2 text-gray-900">{placeholder}</span>
         )}
@@ -140,7 +144,8 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
           style={{
             top: `${menuPosition.top}px`,
             left: `${menuPosition.left}px`,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)'
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            pointerEvents: 'auto'
           }}
         >
           <div className="overflow-y-auto max-h-60 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/30 [&::-webkit-scrollbar-thumb]:rounded-full">
@@ -163,7 +168,7 @@ export const DropdownSelector: React.FC<DropdownSelectorProps> = ({
             ))}
           </div>
         </div>,
-        document.body
+        portalContainer || document.body
       )}
     </div>
   );

@@ -268,6 +268,12 @@ body.show-default-background::after {
     caret-color: white !important;
   }
 
+  /* Ensure placeholder text stays grey (not overridden by -webkit-text-fill-color: white) */
+  input[type="tel"]::placeholder,
+  input[inputmode="tel"]::placeholder {
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.4) !important;
+  }
+
   /* Android autocomplete tap highlight fix */
   input[type="tel"],
   input[inputmode="tel"] {

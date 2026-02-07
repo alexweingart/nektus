@@ -107,7 +107,7 @@ interface DropdownPhoneInputProps extends Omit<TextInputProps, 'value' | 'onChan
 export function DropdownPhoneInput({
   value,
   onChange,
-  placeholder = 'Enter phone number',
+  placeholder = 'Phone number',
   isDisabled = false,
   autoFocus = false,
   ...props
