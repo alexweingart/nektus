@@ -52,6 +52,7 @@ interface AnonContactViewProps {
   profile: UserProfile;
   socialIconTypes: string[];
   token: string;
+  hideActions?: boolean;
 }
 
 // Google icon SVG component (from HomePage)
@@ -94,7 +95,8 @@ const getSocialDisplayName = (type: string) => {
 export const AnonContactView: React.FC<AnonContactViewProps> = ({
   profile,
   socialIconTypes,
-  token
+  token,
+  hideActions = false
 }) => {
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
@@ -271,7 +273,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
         </div>
 
         {/* Action Buttons - matches ContactView spacing */}
-        <div className="w-full mt-4 mb-4 space-y-3" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
+        <div className={`w-full mt-4 mb-4 space-y-3${hideActions ? ' invisible' : ''}`} style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
           {/* Sign in button - Apple on iOS, Google on other platforms */}
           {showAppleSignIn ? (
             <Button

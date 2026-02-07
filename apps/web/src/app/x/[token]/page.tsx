@@ -31,6 +31,7 @@ function ConnectPageContent() {
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
+  const [sharingCategory, setSharingCategory] = useState<'Personal' | 'Work'>('Personal');
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
@@ -130,6 +131,29 @@ function ConnectPageContent() {
         if (session) {
           // Check if this is a new user who needs to enter their phone first
           if (session.isNewUser && !phoneEntryComplete && !isHistoricalMode) {
+            // Fetch preview to show contact behind modal + get sharingCategory
+            try {
+              const previewResponse = await fetch(`/api/exchange/preview/${token}`);
+              const previewResult = await previewResponse.json();
+              if (previewResult.success) {
+                if (previewResult.sharingCategory) {
+                  setSharingCategory(previewResult.sharingCategory);
+                }
+                if (previewResult.profile) {
+                  setPreviewProfile(previewResult.profile);
+                  setSocialIconTypes(previewResult.socialIconTypes || []);
+                  // Dispatch match-found so LayoutBackground uses contact colors
+                  window.dispatchEvent(new CustomEvent('match-found', {
+                    detail: {
+                      backgroundColors: previewResult.profile.backgroundColors,
+                      loaded: true
+                    }
+                  }));
+                }
+              }
+            } catch (err) {
+              console.log('[ConnectPage] Could not fetch preview for new user:', err);
+            }
             setShowPhoneModal(true);
             return; // Don't call exchange API yet - wait for modal
           }
@@ -196,6 +220,9 @@ function ConnectPageContent() {
           if (result.success && result.profile) {
             setPreviewProfile(result.profile);
             setSocialIconTypes(result.socialIconTypes || []);
+            if (result.sharingCategory) {
+              setSharingCategory(result.sharingCategory);
+            }
 
             // Dispatch match-found event so LayoutBackground uses contact colors
             window.dispatchEvent(new CustomEvent('match-found', {
@@ -275,25 +302,50 @@ function ConnectPageContent() {
           userName={session.user?.name || ''}
           isSaving={isModalSaving}
           onSave={handlePhoneSave}
+          scannedSection={sharingCategory.toLowerCase() as 'personal' | 'work'}
         />
         <ContactView
           profile={contactProfile}
           onReject={() => router.push('/')}
           isLoading={false}
           token={token}
+          skipEnterAnimation={phoneEntryComplete}
         />
       </>
     );
   }
 
   // Show phone modal for new users before exchange is created
+  // Render preview profile behind the modal so user sees the contact's profile + colors
   if (session && showPhoneModal) {
     return (
-      <PhoneEntryModal
-        isOpen={showPhoneModal}
-        userName={session.user?.name || ''}
-        isSaving={isModalSaving}
-        onSave={handlePhoneSave}
+      <>
+        <PhoneEntryModal
+          isOpen={showPhoneModal}
+          userName={session.user?.name || ''}
+          isSaving={isModalSaving}
+          onSave={handlePhoneSave}
+          scannedSection={sharingCategory.toLowerCase() as 'personal' | 'work'}
+        />
+        {previewProfile && (
+          <AnonContactView
+            profile={previewProfile}
+            socialIconTypes={socialIconTypes}
+            token={token}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Keep showing preview (no buttons) while exchange API loads after phone modal
+  if (session && phoneEntryComplete && !contactProfile && previewProfile) {
+    return (
+      <AnonContactView
+        profile={previewProfile}
+        socialIconTypes={socialIconTypes}
+        token={token}
+        hideActions
       />
     );
   }
