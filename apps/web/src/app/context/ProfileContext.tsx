@@ -111,9 +111,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const isAndroid = isAndroidPlatform();
 
         try {
-          // Sign in to Firebase if needed
-          if (session?.firebaseToken && !firebaseAuth.getCurrentUser()) {
+          // Sign in to Firebase if needed, or re-auth if stale user from a deleted account
+          const currentFirebaseUser = firebaseAuth.getCurrentUser();
+          if (session?.firebaseToken && (!currentFirebaseUser || currentFirebaseUser.uid !== session.user.id)) {
             try {
+              // Sign out stale user first if present (e.g. deleted account's IndexedDB state survived)
+              if (currentFirebaseUser && currentFirebaseUser.uid !== session.user.id) {
+                console.warn('[ProfileContext] Stale Firebase user detected, signing out before re-auth');
+                await firebaseAuth.signOut();
+              }
               await firebaseAuth.signInWithCustomToken(session.firebaseToken);
             } catch (authError) {
               console.warn('[ProfileContext] Firebase Auth failed, continuing without auth');

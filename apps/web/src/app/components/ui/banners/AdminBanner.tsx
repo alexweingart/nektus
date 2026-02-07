@@ -115,12 +115,31 @@ export default function AdminBanner() {
         }
       }
       
-      // Simple storage cleanup - essentials first
+      // Clear Firebase Auth state FIRST, before wiping storage
+      // Firebase SDK relies on its own persistence keys in localStorage/IndexedDB.
+      // Clearing storage before sign-out corrupts the SDK's internal state, causing
+      // auth/network-request-failed errors on subsequent sign-in attempts.
+      try {
+        if (firebaseAuth.isAuthenticated()) {
+          console.log('Clearing Firebase Auth state...');
+          await firebaseAuth.signOut();
+          console.log('Firebase Auth state cleared');
+        } else {
+          console.log('Firebase Auth not authenticated, clearing state anyway...');
+          firebaseAuth.cleanup();
+        }
+      } catch (err) {
+        console.error('Error clearing Firebase Auth state:', err);
+        // Force clear the state even if sign out fails
+        firebaseAuth.cleanup();
+      }
+
+      // Now safe to clear storage after Firebase has cleaned up its own state
       try {
         localStorage.clear();
         sessionStorage.clear();
         console.log('Storage cleared');
-        
+
         // Note: Motion permissions cannot be programmatically revoked
         // If user needs to reset motion permissions, they must:
         // 1. Clear site data in browser settings, or
@@ -136,7 +155,7 @@ export default function AdminBanner() {
           console.log('Clearing service worker cache...');
           const cacheNames = await caches.keys();
           console.log('Found caches:', cacheNames);
-          
+
           const deleteCachePromises = cacheNames.map(async (cacheName) => {
             try {
               const deleted = await caches.delete(cacheName);
@@ -147,10 +166,10 @@ export default function AdminBanner() {
               return false;
             }
           });
-          
+
           await Promise.allSettled(deleteCachePromises);
           console.log('Service worker cache clearing completed');
-          
+
           // Also try to force service worker to update
           if (navigator.serviceWorker.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
@@ -161,22 +180,6 @@ export default function AdminBanner() {
         // Continue with cleanup even if cache clearing fails
       }
 
-      // Clear Firebase Auth state
-      try {
-        if (firebaseAuth.isAuthenticated()) {
-          console.log('Clearing Firebase Auth state...');
-          await firebaseAuth.signOut();
-          console.log('Firebase Auth state cleared');
-        } else {
-          console.log('Firebase Auth not authenticated, clearing state anyway...');
-          firebaseAuth.cleanup();
-        }
-      } catch (err) {
-        console.error('Error clearing Firebase Auth state:', err);
-        // Force clear the state even if sign out fails
-        firebaseAuth.cleanup();
-      }
-      
       // Clear IndexedDB databases with timeout protection (non-blocking)
       if ('indexedDB' in window) {
         try {

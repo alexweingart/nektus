@@ -125,12 +125,16 @@ export default function AdminBanner() {
                 // Continue with local cleanup even if API fails
               }
 
-              // Step 3: Clear all local storage (AsyncStorage, SecureStore)
+              // Step 3: Sign out from Firebase BEFORE clearing storage
+              // Firebase SDK relies on its own AsyncStorage keys for auth persistence.
+              // Clearing storage before sign-out corrupts the SDK's internal state, causing
+              // auth/network-request-failed errors on subsequent sign-in attempts.
+              await firebaseSignOut();
+
+              // Step 4: Clear all local storage (AsyncStorage, SecureStore)
+              // Now safe to wipe storage after Firebase has cleaned up its own state
               console.log('[AdminBanner] Clearing all local storage...');
               await clearAllLocalStorage();
-
-              // Step 4: Sign out from Firebase
-              await firebaseSignOut();
 
               // Step 5: Also call the session signOut to clear local state
               await signOut();
