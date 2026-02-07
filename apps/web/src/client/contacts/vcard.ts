@@ -23,10 +23,9 @@ async function fetchWithTimeout(url: string, timeout: number, options: RequestIn
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   
   try {
-    const response = await fetch(url, { 
+    const response = await fetch(url, {
       ...options,
       signal: controller.signal,
-      cache: 'no-cache',
     });
     clearTimeout(timeoutId);
     return response;
@@ -42,27 +41,16 @@ function logVCardError(message: string, error: unknown): void {
 
 /**
  * Convert image URL to optimal version for vCard compatibility
- * Uses high-res Google images when available, otherwise optimizes through Next.js
+ * Uses high-res Google images when available, otherwise fetches directly
  */
 function getOptimizedImageUrl(imageUrl: string): string {
-  // If already a Next.js optimized URL, return as-is
-  if (imageUrl.includes('/_next/image?')) {
-    return imageUrl;
-  }
-
-  // For Google profile images, use high-res version directly (better quality than Next.js optimization)
+  // For Google profile images, use high-res version directly
   if (imageUrl.includes('googleusercontent.com')) {
-    return getHighResGoogleImage(imageUrl, 300, true); // 300px for better quality in vCard
+    return getHighResGoogleImage(imageUrl, 300, true);
   }
 
-  // If it's a Firebase Storage URL, optimize it through Next.js
-  if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('firebasestorage.app')) {
-    const encodedUrl = encodeURIComponent(imageUrl);
-    // Use moderate size for vCard compatibility (250px, better quality than before)
-    return `${typeof window !== 'undefined' ? window.location.origin : ''}/_next/image?url=${encodedUrl}&w=250&q=75`;
-  }
-
-  // For other URLs, return as-is
+  // For all other URLs (Firebase Storage, etc.), fetch directly
+  // Avoids /_next/image server-side cache serving stale images after profile photo updates
   return imageUrl;
 }
 
@@ -73,7 +61,7 @@ async function makePhotoLine(imageUrl: string): Promise<string> {
   try {
     // Use optimized image URL for better vCard compatibility
     const optimizedUrl = getOptimizedImageUrl(imageUrl);
-    
+
     // Try optimized URL first, then fallback to original
     let res: Response;
     try {
