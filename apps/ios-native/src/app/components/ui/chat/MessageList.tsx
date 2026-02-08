@@ -208,12 +208,14 @@ const styles = StyleSheet.create({
   userMessage: {
     maxWidth: '80%',
     alignSelf: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   aiMessage: {
     maxWidth: '80%',
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
     borderColor: 'rgba(229, 231, 235, 1)',
   },
