@@ -542,7 +542,6 @@ export function SmartScheduleView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -555,6 +554,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 16,
     paddingBottom: 32,
+    paddingHorizontal: 16,
   },
   chipsContainer: {
     gap: 12,

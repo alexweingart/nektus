@@ -388,7 +388,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   scrollView: {
     flex: 1,
@@ -396,6 +395,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 16,
     paddingBottom: 200, // Extra padding for fixed input
+    paddingHorizontal: 16,
   },
 });
 
