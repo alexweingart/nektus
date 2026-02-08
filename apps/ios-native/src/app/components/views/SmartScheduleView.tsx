@@ -11,7 +11,6 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Image,
   Linking,
   RefreshControl,
 } from 'react-native';
@@ -19,12 +18,15 @@ import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
-import type { UserProfile, TimeSlot } from '@nektus/shared-types';
+import type { UserProfile, TimeSlot, Place } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
+import { getIdToken } from '../../../client/auth/firebase';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
+import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/layout/ScreenTransition';
+import Svg, { Path } from 'react-native-svg';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 
@@ -112,6 +114,99 @@ const formatSmartDay = (date: Date): string => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
+/**
+ * Render chip icon SVG by name (matching web's /public/icons/*.svg)
+ */
+const ChipIcon = ({ name }: { name: string }) => {
+  const size = 20;
+  const fill = '#ffffff';
+
+  switch (name) {
+    case 'telephone-classic':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path fillRule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z" fill={fill} />
+        </Svg>
+      );
+    case 'coffee-simple':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path fillRule="evenodd" d="M.5 6a.5.5 0 0 0-.488.608l1.652 7.434A2.5 2.5 0 0 0 4.104 16h5.792a2.5 2.5 0 0 0 2.44-1.958l.131-.59a3 3 0 0 0 1.3-5.854l.221-.99A.5.5 0 0 0 13.5 6zM13 12.5a2 2 0 0 1-.316-.025l.867-3.898A2.001 2.001 0 0 1 13 12.5" fill={fill} />
+          <Path d="m4.4.8-.003.004-.014.019a4 4 0 0 0-.204.31 2 2 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.6.6 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3 3 0 0 1-.202.388 5 5 0 0 1-.253.382l-.018.025-.005.008-.002.002A.5.5 0 0 1 3.6 4.2l.003-.004.014-.019a4 4 0 0 0 .204-.31 2 2 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.6.6 0 0 0-.091-.248 1.4 1.4 0 0 0-.308-.445l-.01-.012C3.431 2.91 3.29 2.721 3.18 2.535c-.112-.2-.22-.455-.22-.745 0-.188.065-.368.119-.494A3 3 0 0 1 3.28.908 5 5 0 0 1 3.533.526l.018-.025.005-.008.002-.002A.5.5 0 0 1 4.4.8M5.5.8a.5.5 0 0 1 .823-.379l.003.004.014.019a4 4 0 0 1 .204.31 2 2 0 0 1 .141.267c.026.06.034.092.037.103a.6.6 0 0 1-.091.248 1.4 1.4 0 0 1-.308.445l-.01.012C6.095 2.089 5.954 2.278 5.844 2.464c-.112.2-.22.455-.22.745 0 .188.065.368.119.494.048.118.109.253.202.388a5 5 0 0 0 .253.382l.018.025.005.008.002.002a.5.5 0 0 1-.823.379l-.003-.004-.014-.019a4 4 0 0 1-.204-.31 2 2 0 0 1-.141-.267c-.026-.06-.034-.092-.037-.103a.6.6 0 0 1 .091-.248c.075-.133.178-.272.308-.445l.01-.012C5.569 2.911 5.71 2.722 5.82 2.536c.112-.2.22-.455.22-.745 0-.188-.065-.368-.119-.494A3 3 0 0 0 5.72.909 5 5 0 0 0 5.467.527l-.018-.025L5.444.494l-.002-.002A.5.5 0 0 1 5.5.8m2.5 0a.5.5 0 0 1 .823-.379l.003.004.014.019a4 4 0 0 1 .204.31 2 2 0 0 1 .141.267c.026.06.034.092.037.103a.6.6 0 0 1-.091.248 1.4 1.4 0 0 1-.308.445l-.01.012C8.595 2.089 8.454 2.278 8.344 2.464c-.112.2-.22.455-.22.745 0 .188.065.368.119.494.048.118.109.253.202.388a5 5 0 0 0 .253.382l.018.025.005.008.002.002a.5.5 0 0 1-.823.379l-.003-.004-.014-.019a4 4 0 0 1-.204-.31 2 2 0 0 1-.141-.267c-.026-.06-.034-.092-.037-.103a.6.6 0 0 1 .091-.248c.075-.133.178-.272.308-.445l.01-.012C8.069 2.911 8.21 2.722 8.32 2.536c.112-.2.22-.455.22-.745 0-.188-.065-.368-.119-.494A3 3 0 0 0 8.22.909 5 5 0 0 0 7.967.527l-.018-.025L7.944.494l-.002-.002A.5.5 0 0 1 8 .8" fill={fill} />
+        </Svg>
+      );
+    case 'burger':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 122.88 105.47" fill="none">
+          <Path d="M4.99,83.59c37.32-0.07,74.61-0.11,111.93,0c2.22,0.01,4.04,1.82,4.04,4.04c0,6.03-2.53,17.83-16.17,17.83 c-29.23,0-58.45,0-87.68,0c-13.64,0-16.17-11.8-16.17-17.83C0.94,85.41,2.76,83.6,4.99,83.59L4.99,83.59z M88.55,13.6 c3.43,0,6.22,2.78,6.22,6.22c0,3.43-2.78,6.22-6.22,6.22c-3.43,0-6.22-2.78-6.22-6.22C82.34,16.39,85.12,13.6,88.55,13.6 L88.55,13.6z M34.33,14.04c3.43,0,6.22,2.78,6.22,6.22c0,3.43-2.78,6.22-6.22,6.22c-3.43,0-6.22-2.78-6.22-6.22 C28.11,16.82,30.89,14.04,34.33,14.04L34.33,14.04z M61.22,8.11c3.43,0,6.22,2.78,6.22,6.22c0,3.43-2.78,6.22-6.22,6.22 c-3.43,0-6.22-2.78-6.22-6.22C55.01,10.89,57.79,8.11,61.22,8.11L61.22,8.11z M111.63,44.63H11.57C5.21,44.63,0,39.43,0,33.07v0 C0,16.6,32.81,0.28,60.36,0C114.57-0.54,138.9,44.63,111.63,44.63L111.63,44.63z M120.69,62.21c0.17,0.29,0.26,0.6,0.26,0.93 c0,0.21-0.01,0.44-0.02,0.67c0.02,0.23,0.02,0.46,0.02,0.67c0,0.33-0.09,0.64-0.26,0.93c-0.92,4.01-4.6,9.26-15.9,9.26 c-29.23,0-58.45,0-87.68,0c-11.31,0-14.98-5.24-15.9-9.26c-0.17-0.29-0.26-0.6-0.26-0.93c0-0.21,0.01-0.44,0.02-0.67 c-0.02-0.23-0.02-0.46-0.02-0.67c0-0.33,0.09-0.64,0.26-0.93c0.92-4.01,4.6-9.26,15.9-9.26h45.4l16.74,17.29l16.63-17.29h8.91 C116.1,52.96,119.77,58.2,120.69,62.21L120.69,62.21z" fill={fill} fillRule="evenodd" clipRule="evenodd" />
+        </Svg>
+      );
+    case 'utensils':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path d="M13 .5c0-.276-.226-.506-.498-.465-1.703.257-2.94 2.012-3 8.462a.5.5 0 0 0 .498.5c.56.01 1 .13 1 1.003v5.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5zM4.25 0a.25.25 0 0 1 .25.25v5.122a.128.128 0 0 0 .256.006l.233-5.14A.25.25 0 0 1 5.24 0h.522a.25.25 0 0 1 .25.238l.233 5.14a.128.128 0 0 0 .256-.006V.25A.25.25 0 0 1 6.75 0h.29a.5.5 0 0 1 .498.458l.423 5.07a1.69 1.69 0 0 1-1.059 1.711l-.053.022a.92.92 0 0 0-.58.884L6.47 15a.971.971 0 1 1-1.942 0l.202-6.855a.92.92 0 0 0-.58-.884l-.053-.022a1.69 1.69 0 0 1-1.059-1.712L3.462.458A.5.5 0 0 1 3.96 0z" fill={fill} />
+        </Svg>
+      );
+    case 'drinks':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 512 512" fill="none">
+          <Path d="M32 0C19.1 0 7.4 7.8 2.4 19.8s-2.2 25.7 6.9 34.9L224 269.3 224 448l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0 96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-178.7L502.6 54.6c9.2-9.2 11.9-22.9 6.9-34.9S492.9 0 480 0L32 0zM173.3 128l-64-64 293.5 0-64 64-165.5 0z" fill={fill} />
+        </Svg>
+      );
+    case 'lightning-charge':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z" fill={fill} />
+        </Svg>
+      );
+    case 'search':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" fill={fill} />
+        </Svg>
+      );
+    case 'people':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" fill={fill} />
+        </Svg>
+      );
+    default:
+      return null;
+  }
+};
+
+/**
+ * Find the first available time slot for a given duration from common 30-min slots
+ */
+const findSlotForDuration = (commonSlots: TimeSlot[], durationMinutes: number): TimeSlot | null => {
+  if (commonSlots.length === 0) return null;
+
+  const slotsNeeded = Math.ceil(durationMinutes / 30);
+  const sorted = [...commonSlots].sort((a, b) =>
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+
+  for (let i = 0; i <= sorted.length - slotsNeeded; i++) {
+    let valid = true;
+    for (let j = 1; j < slotsNeeded; j++) {
+      const prevEnd = new Date(sorted[i + j - 1].end).getTime();
+      const nextStart = new Date(sorted[i + j].start).getTime();
+      if (nextStart !== prevEnd) {
+        valid = false;
+        break;
+      }
+    }
+    if (valid) {
+      return {
+        start: sorted[i].start,
+        end: sorted[i + slotsNeeded - 1].end,
+      };
+    }
+  }
+  return null;
+};
+
 export function SmartScheduleView() {
   const navigation = useNavigation<SmartScheduleViewNavigationProp>();
   const route = useRoute<SmartScheduleViewRouteProp>();
@@ -119,13 +214,14 @@ export function SmartScheduleView() {
   const navigateWithFade = useNavigateWithFade();
   const { contactUserId } = route.params;
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact } = useProfile();
+  const { profile: currentUserProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
   const [suggestedTimes, setSuggestedTimes] = useState<Record<string, TimeSlot | null>>({});
+  const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
 
   // Determine which chips to use based on section
@@ -142,30 +238,13 @@ export function SmartScheduleView() {
       if (!session?.user?.id || !contactUserId) return;
 
       try {
-        // Try to get contact from cache first
-        const savedContact = getContact(contactUserId);
-
-        if (savedContact) {
-          // For saved contacts, we need to fetch the full profile
-          const response = await fetch(`${apiBaseUrl}/api/contacts/${contactUserId}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.profile) {
-              setContactProfile(data.profile);
-              // Use contactType from saved contact if available
-              if (savedContact && 'contactType' in savedContact) {
-                setSection((savedContact as any).contactType || 'personal');
-              }
-            }
-          }
-        } else {
-          // Direct fetch if not in cache
-          const response = await fetch(`${apiBaseUrl}/api/profile/${contactUserId}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.profile) {
-              setContactProfile(data.profile);
-            }
+        // Fetch contact from Firestore (same approach as ContactView)
+        const contact = await ClientProfileService.getContactById(session.user.id, contactUserId);
+        if (contact) {
+          setContactProfile(contact);
+          // Use contactType from saved contact if available
+          if ('contactType' in contact) {
+            setSection((contact as any).contactType || 'personal');
           }
         }
       } catch (error) {
@@ -176,7 +255,7 @@ export function SmartScheduleView() {
     };
 
     loadContact();
-  }, [session, contactUserId, apiBaseUrl, getContact]);
+  }, [session, contactUserId]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
@@ -185,33 +264,44 @@ export function SmartScheduleView() {
     setLoadingTimes(true);
 
     try {
-      const eventTemplateIds = SUGGESTION_CHIPS.map(chip => chip.eventId);
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error('No auth token');
 
-      const response = await fetch(`${apiBaseUrl}/api/scheduling/suggested-times`, {
+      const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           user1Id: session.user.id,
           user2Id: contactProfile.userId,
           calendarType: section,
-          eventTemplateIds,
+          duration: 30,
         }),
       });
 
       if (response.ok) {
-        const suggestedTimesResult = await response.json();
+        const data = await response.json();
+        const commonSlots: TimeSlot[] = data.slots || [];
 
-        // Map event template IDs back to chip IDs
+        // Find best slot for each chip's event duration
         const times: Record<string, TimeSlot | null> = {};
         SUGGESTION_CHIPS.forEach(chip => {
-          times[chip.id] = suggestedTimesResult[chip.eventId] || null;
+          const eventTemplate = EVENT_TEMPLATES[chip.eventId];
+          if (eventTemplate) {
+            times[chip.id] = findSlotForDuration(commonSlots, eventTemplate.duration);
+          } else {
+            times[chip.id] = null;
+          }
         });
 
         setSuggestedTimes(times);
+      } else {
+        throw new Error(`API call failed: ${response.status}`);
       }
     } catch (error) {
       console.error('[SmartScheduleView] Error fetching suggested times:', error);
-      // Set all to null on error
       const errorTimes: Record<string, TimeSlot | null> = {};
       SUGGESTION_CHIPS.forEach(chip => {
         errorTimes[chip.id] = null;
@@ -232,12 +322,97 @@ export function SmartScheduleView() {
     },
   });
 
+  // Fetch places for in-person meetings
+  const fetchPlaces = useCallback(async () => {
+    if (!currentUserProfile || !contactProfile) return;
+
+    // Filter for in-person chips with available time slots
+    const inPersonChips = SUGGESTION_CHIPS.filter(chip => {
+      const eventTemplate = EVENT_TEMPLATES[chip.eventId];
+      const timeSlot = suggestedTimes[chip.id];
+      return eventTemplate?.eventType === 'in-person' && timeSlot != null;
+    });
+
+    if (inPersonChips.length === 0) return;
+
+    // Build addresses from user locations
+    const findLocation = (locations: any[] | undefined) => {
+      if (!locations || locations.length === 0) return null;
+      return locations.find((l: any) => l.section === section)
+        || locations.find((l: any) => l.section === 'universal')
+        || locations[0]
+        || null;
+    };
+    const buildAddress = (loc: any) => {
+      if (!loc) return '';
+      return [loc.address, loc.city, loc.region].filter((p: string) => p?.trim()).join(', ') || '';
+    };
+
+    const userAAddress = buildAddress(findLocation(currentUserProfile.locations));
+    const userBAddress = buildAddress(findLocation(contactProfile.locations));
+
+    // Group chips by meeting type to avoid duplicate API calls
+    const meetingTypeMap: Record<string, string> = {
+      'coffee-30': 'coffee', 'lunch-60': 'lunch', 'dinner-60': 'dinner', 'drinks-60': 'drinks',
+    };
+    const groups = new Map<string, string[]>();
+    for (const chip of inPersonChips) {
+      const meetingType = meetingTypeMap[chip.eventId] || 'coffee';
+      if (!groups.has(meetingType)) groups.set(meetingType, []);
+      groups.get(meetingType)!.push(chip.id);
+    }
+
+    const places: Record<string, Place | null> = {};
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(12, 0, 0, 0);
+
+    for (const [meetingType, chipIds] of groups.entries()) {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/scheduling/places`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userA_address: userAAddress,
+            userB_address: userBAddress,
+            meeting_type: meetingType,
+            datetime: tomorrow.toISOString(),
+            duration: 60,
+            useIpFallback: true,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const suggestions: Place[] = data[meetingType] || [];
+          chipIds.forEach((chipId, i) => {
+            places[chipId] = suggestions.length > 0 ? suggestions[i % suggestions.length] : null;
+          });
+        } else {
+          chipIds.forEach(id => { places[id] = null; });
+        }
+      } catch (error) {
+        console.error(`[SmartScheduleView] Error fetching places for ${meetingType}:`, error);
+        chipIds.forEach(id => { places[id] = null; });
+      }
+    }
+
+    setChipPlaces(places);
+  }, [currentUserProfile, contactProfile, section, suggestedTimes, SUGGESTION_CHIPS, apiBaseUrl]);
+
   // Fetch times when profiles are loaded
   useEffect(() => {
     if (currentUserProfile && contactProfile) {
       fetchSuggestedTimes();
     }
   }, [currentUserProfile, contactProfile, fetchSuggestedTimes]);
+
+  // Fetch places when suggested times are loaded
+  useEffect(() => {
+    if (Object.keys(suggestedTimes).length > 0) {
+      fetchPlaces();
+    }
+  }, [suggestedTimes, fetchPlaces]);
 
   // Handle chip click - open calendar event composer
   const handleChipClick = useCallback((chip: SuggestionChip) => {
@@ -327,16 +502,17 @@ export function SmartScheduleView() {
                 ? 'No times in next 2 weeks'
                 : 'Finding times...';
 
-              const title = eventTemplate?.title || 'Meeting';
+              const place = chipPlaces[chip.id];
+              const title = eventTemplate?.eventType === 'in-person' && place
+                ? `${eventTemplate.title} @${place.name}`
+                : eventTemplate?.title || 'Meeting';
 
               return (
                 <ItemChip
                   key={chip.id}
                   icon={
                     <View style={styles.chipIcon}>
-                      <Text style={styles.chipIconText}>
-                        {eventTemplate?.eventType === 'video' ? '📞' : '☕'}
-                      </Text>
+                      <ChipIcon name={chip.icon} />
                     </View>
                   }
                   title={title}
@@ -391,9 +567,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chipIconText: {
-    fontSize: 20,
   },
   customButton: {
     width: '100%',

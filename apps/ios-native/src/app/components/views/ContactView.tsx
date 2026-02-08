@@ -602,8 +602,8 @@ const styles = StyleSheet.create({
   headerContainer: {
     position: 'absolute',
     top: 0,
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
     zIndex: 10,
   },
   loadingContainer: {

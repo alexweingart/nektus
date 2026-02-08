@@ -172,12 +172,9 @@ export function HistoryView() {
 
   // Handle calendar/schedule action
   const handleCalendarClick = useCallback((contact: SavedContact) => {
-    // Navigate to smart schedule for this contact
-    navigateWithFade('Contact', {
-      userId: contact.userId,
-      token: '',
-      isHistoricalMode: true,
-      openSchedule: true, // Signal to open scheduling
+    // Navigate directly to smart schedule for this contact
+    navigateWithFade('SmartSchedule', {
+      contactUserId: contact.userId,
     });
   }, [navigateWithFade]);
 
