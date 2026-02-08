@@ -10,8 +10,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -274,12 +273,10 @@ export function SelectedSections({
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({ item, drag, isActive }: RenderItemParams<ContactEntry>) => (
             <ScaleDecorator activeScale={1.05}>
-              <TouchableOpacity
+              <Pressable
                 onLongPress={drag}
-                delayLongPress={1000}
-                activeOpacity={1}
+                delayLongPress={500}
                 disabled={isActive}
-                extraButtonProps={{ exclusive: false }}
                 style={[
                   styles.draggableItem,
                   isActive && styles.draggableItemActive,
@@ -296,7 +293,7 @@ export function SelectedSections({
                   isDraggable={true}
                   isBeingDragged={isActive}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </ScaleDecorator>
           )}
         />
