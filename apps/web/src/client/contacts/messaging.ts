@@ -45,17 +45,11 @@ function detectPlatform(): 'ios' | 'android' | 'web' {
 }
 
 /**
- * Navigate to a protocol scheme URL using programmatic anchor click
- * This avoids the iOS Safari "about:blank" popup issue
+ * Navigate to a protocol scheme URL (e.g. sms:)
+ * Uses window.location.href which works across all iOS browsers (Safari, Chrome, Edge)
  */
 function navigateToProtocolScheme(url: string): void {
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.style.display = 'none';
-
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
+  window.location.href = url;
 }
 
 /**
