@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "9",
+      "buildNumber": "14",
       "deploymentTarget": "17.0",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
@@ -85,28 +85,21 @@
           "appleSignin": true,
           "entryPoint": "./AppClip.tsx",
           "excludedPackages": [
-            "firebase",
             "react-native-reanimated",
             "react-native-worklets",
-            "react-native-svg",
-            "react-native-screens",
-            "expo-blur",
             "expo-contacts",
             "expo-location",
             "expo-sensors",
             "expo-dev-client",
             "expo-auth-session",
             "expo-web-browser",
-            "expo-linear-gradient",
             "expo-crypto",
             "expo-file-system",
             "expo-font",
             "expo-keep-awake",
             "expo-asset",
             "react-native-qrcode-svg",
-            "react-native-markdown-display",
-            "react-native-gradients",
-            "@react-native-async-storage/async-storage"
+            "react-native-markdown-display"
           ]
         }
       ]
