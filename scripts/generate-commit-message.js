@@ -56,7 +56,7 @@ ${truncatedDiff}
 Generate only the commit message, no additional text:`;
     
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       messages: [
         {
           role: "user",
