@@ -36,7 +36,8 @@ export function buildFormattingInstructions(
   locationContext: 'your_location' | 'other_person_location' | 'midpoint',
   otherPersonName?: string,
   conflictContext?: { requestedTime: string; requestedTimeIndex: number },
-  explicitPlaceRequest?: string
+  explicitPlaceRequest?: string,
+  isSuggestedEvent?: boolean
 ): string {
   // Build time data display
   const timeDataDisplay = timeData.map((t, i) =>
@@ -96,7 +97,12 @@ FORMATTING RULES:
 
 RATIONALE (one sentence explaining your choice):
 
-${conflictContext ? `
+${isSuggestedEvent ? `
+SUGGESTED EVENT INSTRUCTIONS:
+- This is a specific event the user selected from a list of suggested events — the time and place are fixed.
+- Do NOT explain why you "picked" this time or venue. There was only one option.
+- Instead, omit the rationale entirely. Do not include any sentence after the time.
+` : conflictContext ? `
 CONFLICT-SPECIFIC INSTRUCTIONS:
 - You MUST select Slot ${conflictContext.requestedTimeIndex} (the user's explicitly requested time)
 - Time selection: You selected this time per the user's explicit request. Mention that it either conflicts with an existing event OR is outside the schedulable hours for at least one person.

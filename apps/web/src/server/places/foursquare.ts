@@ -96,8 +96,7 @@ export async function searchFoursquarePlaces(
   }
 
   try {
-    console.log(`🔍 Foursquare search: center=(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), radius=${radius}m, query="${textQuery}"`);
-    console.log(`🔑 API Key (first 10/last 10): ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 10)}`);
+    console.log(`🔍 Foursquare search: query="${textQuery}", radius=${radius}m`);
 
     const url = new URL('https://places-api.foursquare.com/places/search');
 
@@ -123,8 +122,7 @@ export async function searchFoursquarePlaces(
       : 'fsq_place_id,name,latitude,longitude,location,categories';
     url.searchParams.set('fields', fields);
 
-    console.log(`🌐 Full URL: ${url.toString()}`);
-    console.log(`📋 Request headers: Accept=application/json, Authorization=${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 10)}`);
+    // Full URL and headers logged at debug level only
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -137,8 +135,7 @@ export async function searchFoursquarePlaces(
 
     const data: FoursquareResponse = await response.json();
 
-    console.log(`📡 Response status: ${response.status}`);
-    console.log(`📡 Response body:`, JSON.stringify(data, null, 2));
+    console.log(`📡 Response status: ${response.status}, results: ${data.results?.length ?? 0}`);
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -201,36 +198,21 @@ export async function searchFoursquarePlaces(
       });
 
     // Filter by radius and rating (4+ stars for better quality)
-    console.log(`🔍 Filtering ${places.length} places from Foursquare (radius: ${radius}m = ${(radius / 1000).toFixed(1)}km)`);
     const filteredPlaces = places.filter(place => {
-      const distanceKm = place.distance_from_midpoint_km || 0;
       const withinRadius = isWithinRadius(location, place.coordinates, radius / 1000);
       const goodRating = !place.rating || place.rating >= 4.0; // Include unrated or 4+ star places
-
-      if (!withinRadius) {
-        console.log(`   ❌ Filtered out ${place.name} - ${distanceKm.toFixed(1)}km away (exceeds ${(radius / 1000).toFixed(1)}km radius)`);
-      }
-      if (!goodRating) {
-        console.log(`   ❌ Filtered out ${place.name} - rating ${place.rating} (below 4.0 threshold)`);
-      }
-
       return withinRadius && goodRating;
     });
-
-    console.log(`✅ After filtering: ${filteredPlaces.length} places remaining`);
 
     // Deduplicate by place_id (same place can appear multiple times in results)
     const seenPlaceIds = new Set<string>();
     const uniquePlaces = filteredPlaces.filter(place => {
-      if (seenPlaceIds.has(place.place_id)) {
-        console.log(`   ❌ Filtered out duplicate: ${place.name} (${place.place_id})`);
-        return false;
-      }
+      if (seenPlaceIds.has(place.place_id)) return false;
       seenPlaceIds.add(place.place_id);
       return true;
     });
 
-    console.log(`✅ After deduplication: ${uniquePlaces.length} unique places`);
+    console.log(`✅ Found ${uniquePlaces.length} places (from ${places.length} raw, ${filteredPlaces.length} after filter)`);
 
     // Return places in Foursquare's default ranking order (relevance + popularity)
     // Foursquare's algorithm already considers quality, popularity, and relevance

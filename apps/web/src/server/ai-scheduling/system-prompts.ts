@@ -38,8 +38,14 @@ Intent classification rules (DECIDE INTENT FIRST):
 CRITICAL: Questions about ALTERNATIVE TIMES/DAYS for an existing event = handle_event. Questions about WHAT ACTIVITY to do = suggest_activities. "Show me more events" = show_more_events.
 
 "activitySearchQuery" extraction (ONLY for "suggest_activities" intent):
-- If the user mentions a specific activity or interest area, extract it as a simple 1-2 word search term
-- Examples: "club", "hiking", "live music", "brunch", "art", "sports"
+- If the user mentions a specific activity or interest area, extract a descriptive 2-4 word search phrase that will help a web search find relevant events
+- Expand vague terms into specific searchable phrases:
+  * "clubbing" → "nightclub DJ dance party"
+  * "hiking" → "hiking trails outdoor hike"
+  * "live music" → "live music concert performance"
+  * "brunch" → "brunch restaurant bottomless"
+  * "art" → "art exhibition gallery opening"
+  * "sports" → "sports game watch party"
 - If the request is generic with no specific interest mentioned, omit this field or set to null
 - This helps find relevant events matching the user's interest
 
@@ -139,6 +145,12 @@ TEMPLATE EXTRACTION REQUIREMENTS:
   * Set these EVEN IF user specified an explicit time (e.g., "lunch Tuesday at 12pm" should have explicitTime: "12:00" AND preferredSchedulableHours: lunch hours 11:00-14:30)
   * The explicitTime will be honored for the primary event, but the hours range is needed for finding alternative times
 - Also set preferredSchedulableHours if user mentions time of day ("mornings" → 07:00-12:00, "after work" → 17:00-22:00)
+- For NON-MEAL activities that have obvious time-of-day or day-of-week preferences, use your common sense to set preferredSchedulableHours and preferredSchedulableDates:
+  * Example: nightclub/clubbing → 21:00-02:00, prefer Friday/Saturday
+  * Example: hiking/outdoor sports → 08:00-16:00
+  * Example: movie/theater → 17:00-22:00
+  * Use your real-world knowledge — don't just pick the soonest time if the activity clearly suits a specific window or day
+- For generic activities with no obvious time preference (hangout, video call, meeting, etc.), do NOT set preferredSchedulableHours — let the system pick the soonest available
 
 **Place Requirements:**
 
@@ -180,6 +192,23 @@ For virtual events:
 - explicitUserTimes: true if user said "tomorrow at 2pm"
 - explicitUserPlace: true if user said "at Blue Bottle Coffee"
 - Otherwise, keep constraints flexible for the system to suggest options
+
+MATCHING PREVIOUSLY SUGGESTED EVENTS:
+- The conversation history may contain previously suggested special events (from web search results)
+- If the user references one of these events (even with typos or abbreviations), you MUST:
+  1. Use the EXACT event title from the conversation history (not the user's misspelled version)
+  2. Set preferredSchedulableDates to the event's specific date: { startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD" } (both the same date)
+  3. Set preferredSchedulableHours to the event's time window on the correct day of week (e.g., if event is on a Saturday from 11:00 AM to 10:00 PM, set { saturday: [{ start: "11:00", end: "22:00" }] })
+  4. Set specificPlaceName to the event's venue or title
+  5. Set placeSearchQuery to the event's address
+  6. Set intentSpecificity to "specific_place"
+- Example: User says "lets do westide lunar market" and conversation history contains "Richmond District 'Westside' Lunar New Year Parade & Night Market" on "Saturday, February 7, 2026" from "11:00 AM" to "10:00 PM" at "Clement Street, San Francisco"
+  → title: "Richmond District 'Westside' Lunar New Year Parade & Night Market"
+  → preferredSchedulableDates: { startDate: "2026-02-07", endDate: "2026-02-07" }
+  → preferredSchedulableHours: { saturday: [{ start: "11:00", end: "22:00" }] }
+  → specificPlaceName: "Richmond District 'Westside' Lunar New Year Parade & Night Market"
+  → placeSearchQuery: "Clement Street, San Francisco"
+  → intentSpecificity: "specific_place"
 
 IMPORTANT RULES:
 - For in-person events, ALWAYS determine place requirements AND travel buffers

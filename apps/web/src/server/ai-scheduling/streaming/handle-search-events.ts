@@ -70,12 +70,13 @@ export async function handleSearchEvents(
     // Build activity-aware search context
     const activityContext = activitySearchQuery
       ? `USER'S ACTIVITY INTEREST: "${activitySearchQuery}"
-Prioritize events related to this interest. Interpret the activity broadly to find relevant events, shows, performances, and experiences.
+ONLY return events that are directly relevant to "${activitySearchQuery}". Do NOT include unrelated events like festivals, cultural celebrations, food events, or anything that doesn't match the user's interest.
+If an event is only tangentially related (e.g., a family festival when the user wants clubbing), do NOT include it.
 `
       : '';
 
     const eventTypesGuidance = activitySearchQuery
-      ? `Focus on events related to "${activitySearchQuery}" first, then include other notable events if needed.`
+      ? `ONLY include events related to "${activitySearchQuery}". Every result must be something a person looking for "${activitySearchQuery}" would actually want to attend. Do NOT pad the list with unrelated events.`
       : `Include diverse event types: festivals, concerts, exhibitions, food events, outdoor activities, community events.`;
 
     // First, get structured JSON with ALL events found
@@ -87,7 +88,7 @@ ${eventTypesGuidance}
 IMPORTANT SELECTION CRITERIA:
 - Pick the most INTERESTING and UNIQUE events
 - NO DUPLICATES: If multiple entries are about the same event, only include ONE comprehensive entry
-- VARIETY: Include diverse event types
+${activitySearchQuery ? `- RELEVANCE: Every event MUST be relevant to "${activitySearchQuery}". Remove anything unrelated.` : '- VARIETY: Include diverse event types'}
 - Find as many quality events as you can (aim for 10-15)
 
 URL REQUIREMENT:

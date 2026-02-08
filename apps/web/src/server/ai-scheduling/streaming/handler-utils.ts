@@ -142,9 +142,10 @@ export function determineAlternativesToShow(
   reason: string;
 } {
   // Detect date/time constraints (EXPLICIT ONLY - user actually specified a time)
+  // Don't count preferredSchedulableDates (vague ranges like "this weekend")
   // Don't count preferredSchedulableHours (implicit from activity type like "dinner")
   const hasDateTimeConstraint = !!(
-    template.preferredSchedulableDates ||
+    template.explicitUserTimes ||
     template.hasExplicitTimeRequest ||
     editResult?.timePreference
   );
@@ -197,7 +198,18 @@ export function determineAlternativesToShow(
     };
   }
 
-  // Rule 5: Default (neither specified) → show place alternatives
+  // Rule 5: Date range given but no explicit time (e.g., "this weekend", "next week")
+  // → show time alternatives so user can pick when within the range
+  if (template.preferredSchedulableDates && !hasDateTimeConstraint) {
+    return {
+      showAlternativePlaces: false,
+      showAlternativeTimes: true,
+      includeConflictWarning: false,
+      reason: 'date-range-show-times'
+    };
+  }
+
+  // Rule 6: Default (neither specified) → show place alternatives
   return {
     showAlternativePlaces: true,
     showAlternativeTimes: false,

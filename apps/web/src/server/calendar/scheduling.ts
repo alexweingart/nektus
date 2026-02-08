@@ -46,7 +46,10 @@ function calculateSchedulableWindowCenter(
   const startMinutes = timeToMinutes(timeWindow.start);
   const endMinutes = timeToMinutes(timeWindow.end);
 
-  return Math.floor((startMinutes + endMinutes) / 2);
+  // Handle midnight-crossing windows (e.g., 21:00-02:00)
+  const effectiveEnd = endMinutes < startMinutes ? endMinutes + 1440 : endMinutes;
+  const center = Math.floor((startMinutes + effectiveEnd) / 2);
+  return center >= 1440 ? center - 1440 : center;
 }
 
 /**
@@ -134,7 +137,7 @@ function isSlotWithinSchedulableHours(
       if (Math.abs(timeInMinutes - startWindow) < 30) {
         return true;
       }
-    } else {
+    } else if (endWindow > startWindow) {
       // Normal time window - entire block (before buffer + event + after buffer) must fit within window
       // slotTime represents when free time starts, so the entire block runs from
       // slotTime to slotTime + beforeBuffer + duration + afterBuffer
@@ -142,6 +145,18 @@ function isSlotWithinSchedulableHours(
       const blockEndMinutes = timeInMinutes + beforeBuffer + eventDurationOnly + afterBuffer;
 
       if (blockStartMinutes >= startWindow && blockEndMinutes <= endWindow) {
+        return true;
+      }
+    } else {
+      // Midnight-crossing window (e.g., 21:00-02:00): endWindow < startWindow
+      // Normalize to continuous range where startWindow = 0
+      const totalBlockMinutes = beforeBuffer + eventDurationOnly + afterBuffer;
+      const windowDuration = (1440 - startWindow) + endWindow;
+
+      let shiftedStart = timeInMinutes - startWindow;
+      if (shiftedStart < 0) shiftedStart += 1440;
+
+      if (shiftedStart >= 0 && shiftedStart + totalBlockMinutes <= windowDuration) {
         return true;
       }
     }
@@ -284,6 +299,13 @@ export function getAllValidSlots(
       const slotDate = new Date(slot.start);
       return slotDate >= startDate && slotDate <= endDate;
     });
+    console.log(`📊 Date filter: ${startDate.toISOString()} to ${endDate.toISOString()} → ${filteredSlots.length}/${sortedSlots.length} slots`);
+    if (filteredSlots.length > 0) {
+      console.log(`📊 First slot: ${filteredSlots[0].start}, Last slot: ${filteredSlots[filteredSlots.length - 1].start}`);
+    }
+    if (sortedSlots.length > 0) {
+      console.log(`📊 All slots range: ${sortedSlots[0].start} to ${sortedSlots[sortedSlots.length - 1].start}`);
+    }
   }
 
   const validSlots: TimeSlot[] = [];
@@ -306,6 +328,7 @@ export function getAllValidSlots(
       }
     }
 
+    // Slot passed hours filter
     // When there's a before buffer, we need to check if there's enough consecutive free time
     // The slot at index i represents when FREE TIME starts
     // We need to verify there's continuous free time to fit: beforeBuffer + event + afterBuffer
@@ -370,6 +393,7 @@ export function getAllValidSlots(
     });
   }
 
+  console.log(`📊 Hours filter: ${validSlots.length} valid slots from ${filteredSlots.length} date-filtered`);
   return validSlots;
 }
 

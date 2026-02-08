@@ -182,6 +182,9 @@ export interface TemplateHandlerResult {
   /** Cached places from previous search (for edits when place type unchanged) */
   cachedPlaces?: Place[];
 
+  /** Whether the user selected a previously suggested event (from web search results) */
+  isSuggestedEvent?: boolean;
+
   /** Whether we need to search for places in Stage 4 */
   needsPlaceSearch: boolean;
 

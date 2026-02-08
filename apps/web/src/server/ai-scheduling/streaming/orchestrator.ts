@@ -5,6 +5,7 @@ import { generateEventFunction, processGenerateEventResult } from '@/server/ai-s
 import { navigateToBookingLinkFunction } from '@/server/ai-scheduling/functions/navigate-to-booking';
 import { editEventTemplateFunction } from '@/server/ai-scheduling/functions/edit-event-template';
 import { searchPlaces } from '@/server/ai-scheduling/helpers/search-places';
+import { processingStateManager } from '@/server/ai-scheduling/processing';
 import { getCandidateSlotsWithFallback } from '@/server/calendar/scheduling';
 import { enqueueAcknowledgment, enqueueProgress, enqueueError } from './streaming-utils';
 import { handleGenerateEventTemplate } from './handle-generate-event-template';
@@ -110,6 +111,17 @@ export async function streamSchedulingResponse(
 
         const isNewEvent = conversationHistory.length === 0;
 
+        // Only offer navigateToBookingLink if there's a cached event to confirm
+        const cacheKey = `places:${body.user1Id}:${body.user2Id}`;
+        const cachedEvent = await processingStateManager.getCached<{ finalEvent?: unknown }>(cacheKey);
+        const hasExistingEvent = !!cachedEvent?.finalEvent;
+
+        const tools = [
+          { type: 'function' as const, function: generateEventTemplateFunction },
+          ...(hasExistingEvent ? [{ type: 'function' as const, function: navigateToBookingLinkFunction }] : []),
+          { type: 'function' as const, function: editEventTemplateFunction },
+        ];
+
         const extraction = await createCompletion({
           model: AI_MODELS.GPT5_MINI,
           reasoning_effort: 'low',
@@ -120,11 +132,7 @@ export async function streamSchedulingResponse(
             ...conversationHistory,
             { role: 'user', content: body.userMessage },
           ],
-          tools: [
-            { type: 'function', function: generateEventTemplateFunction },
-            { type: 'function', function: navigateToBookingLinkFunction },
-            { type: 'function', function: editEventTemplateFunction },
-          ],
+          tools,
           tool_choice: isNewEvent
             ? { type: 'function', function: { name: 'generateEventTemplate' } }
             : 'auto',
@@ -150,7 +158,7 @@ export async function streamSchedulingResponse(
           templateResult = await handleEditEventTemplate(toolCall, body);
         } else {
           // Default to generateEventTemplate (handles both new events and fallback cases)
-          templateResult = await handleGenerateEventTemplate(toolCall);
+          templateResult = await handleGenerateEventTemplate(toolCall, body.userMessage);
         }
 
         // ===================================================================
@@ -198,7 +206,42 @@ export async function streamSchedulingResponse(
         // Use same logic as Path B, but include requested time and show conflict message
         let conflictContext: { requestedTime: string; requestedTimeIndex: number } | undefined;
 
-        if (hasExplicitTimeRequest && hasNoCommonTime && !templateResult.isConditional) {
+        // For suggested events, inject a synthetic slot at the event's exact time
+        if (templateResult.isSuggestedEvent) {
+          const requestedTime = getRequestedTimeFromTemplate(templateResult.template);
+          if (requestedTime) {
+            const requestedDate = new Date(requestedTime);
+            const duration = templateResult.template.duration || 60;
+            const requestedEndDate = new Date(requestedDate.getTime() + duration * 60 * 1000);
+            slots = [{
+              start: requestedDate.toISOString(),
+              end: requestedEndDate.toISOString(),
+            }];
+            console.log(`📌 Injected suggested event slot: ${requestedDate.toISOString()}`);
+          }
+
+          // If Foursquare didn't find the venue, create a fallback Place from the template's venue/address
+          if (places.length === 0) {
+            const templateAny = templateResult.template as Record<string, unknown>;
+            const placeName = (templateAny.specificPlaceName as string) || templateResult.template.title || 'Venue';
+            const placeAddress = (templateAny.placeSearchQuery as string) || '';
+            if (placeName) {
+              const fallbackPlace: Place = {
+                place_id: `suggested-${Date.now()}`,
+                name: placeName,
+                address: placeAddress,
+                coordinates: { lat: 0, lng: 0 },
+                google_maps_url: placeAddress
+                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeAddress)}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeName)}`,
+              };
+              places = [fallbackPlace];
+              console.log(`📍 Foursquare found nothing, using fallback place: ${placeName} (${placeAddress})`);
+            }
+          }
+        }
+
+        if (hasExplicitTimeRequest && hasNoCommonTime && !templateResult.isConditional && !templateResult.isSuggestedEvent) {
           const requestedTime = getRequestedTimeFromTemplate(templateResult.template);
           if (!requestedTime) {
             console.warn('⚠️ Could not construct requested time from template, falling through to normal flow');
@@ -327,7 +370,8 @@ export async function streamSchedulingResponse(
           locationContext,
           body.user2Name,
           conflictContext,
-          explicitPlaceRequest
+          explicitPlaceRequest,
+          !!templateResult.isSuggestedEvent
         );
 
         // Call LLM to select best time and place AND generate message
