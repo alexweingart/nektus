@@ -126,6 +126,7 @@ export function HistoryView() {
       userId: contact.userId,
       token: '',
       isHistoricalMode: true,
+      backgroundColors: contact.backgroundColors,
     });
   }, [navigateWithFade]);
 
@@ -175,6 +176,7 @@ export function HistoryView() {
     // Navigate directly to smart schedule for this contact
     navigateWithFade('SmartSchedule', {
       contactUserId: contact.userId,
+      backgroundColors: contact.backgroundColors,
     });
   }, [navigateWithFade]);
 

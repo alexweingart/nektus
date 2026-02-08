@@ -37,14 +37,14 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   Profile: undefined;
   EditProfile: undefined;
-  Contact: { userId?: string; token: string; isHistoricalMode?: boolean };
+  Contact: { userId?: string; token: string; isHistoricalMode?: boolean; backgroundColors?: string[] };
   ContactProfile: { code: string };  // View profile via shortCode (/c/:code)
   History: undefined;
   // Phase 2: Scheduling
   Calendar: { section: 'personal' | 'work' };
   Location: { section: 'personal' | 'work' };
-  SmartSchedule: { contactUserId: string };
-  AISchedule: { contactUserId: string };
+  SmartSchedule: { contactUserId: string; backgroundColors?: string[] };
+  AISchedule: { contactUserId: string; backgroundColors?: string[] };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

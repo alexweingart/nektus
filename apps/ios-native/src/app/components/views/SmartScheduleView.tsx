@@ -29,6 +29,7 @@ import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/
 import Svg, { Path } from 'react-native-svg';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
+import { emitMatchFound } from '../../utils/animationEvents';
 
 type SmartScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SmartSchedule'>;
 type SmartScheduleViewRouteProp = RouteProp<RootStackParamList, 'SmartSchedule'>;
@@ -212,7 +213,7 @@ export function SmartScheduleView() {
   const route = useRoute<SmartScheduleViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
   const navigateWithFade = useNavigateWithFade();
-  const { contactUserId } = route.params;
+  const { contactUserId, backgroundColors } = route.params;
   const { data: session } = useSession();
   const { profile: currentUserProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
@@ -223,6 +224,13 @@ export function SmartScheduleView() {
   const [suggestedTimes, setSuggestedTimes] = useState<Record<string, TimeSlot | null>>({});
   const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
+
+  // Emit background colors immediately from nav params
+  useEffect(() => {
+    if (backgroundColors && backgroundColors.length >= 3) {
+      emitMatchFound(backgroundColors);
+    }
+  }, [backgroundColors]);
 
   // Determine which chips to use based on section
   const SUGGESTION_CHIPS = section === 'work' ? WORK_SUGGESTION_CHIPS : PERSONAL_SUGGESTION_CHIPS;
@@ -242,6 +250,10 @@ export function SmartScheduleView() {
         const contact = await ClientProfileService.getContactById(session.user.id, contactUserId);
         if (contact) {
           setContactProfile(contact);
+          // Emit contact colors for LayoutBackground
+          if (contact.backgroundColors) {
+            emitMatchFound(contact.backgroundColors);
+          }
           // Use contactType from saved contact if available
           if ('contactType' in contact) {
             setSection((contact as any).contactType || 'personal');
@@ -483,8 +495,11 @@ export function SmartScheduleView() {
 
   // Navigate to AI Schedule view
   const handleCustomTimePlace = useCallback(() => {
-    navigateWithFade('AISchedule', { contactUserId });
-  }, [navigateWithFade, contactUserId]);
+    navigateWithFade('AISchedule', {
+      contactUserId,
+      backgroundColors: contactProfile?.backgroundColors || backgroundColors,
+    });
+  }, [navigateWithFade, contactUserId, contactProfile, backgroundColors]);
 
   // Loading state
   if (loading || !contactProfile) {

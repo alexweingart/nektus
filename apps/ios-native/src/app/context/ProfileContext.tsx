@@ -51,6 +51,7 @@ export interface SavedContact {
   phone?: string;
   email?: string;
   contactType?: 'personal' | 'work';
+  backgroundColors?: string[];
 }
 
 interface ProfileContextType {
@@ -331,6 +332,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           phone: getFieldValue(contact.contactEntries, 'phone'),
           email: getFieldValue(contact.contactEntries, 'email'),
           contactType: contact.contactType,
+          backgroundColors: contact.backgroundColors,
         }));
 
         // Sort by addedAt (newest first)

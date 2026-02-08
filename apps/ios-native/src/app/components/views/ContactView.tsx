@@ -88,6 +88,7 @@ export function ContactView(props: ContactViewProps = {}) {
   const userId = route?.params?.userId;
   const token = props.token || route?.params?.token || '';
   const isHistoricalMode = route?.params?.isHistoricalMode || false;
+  const navBackgroundColors = route?.params?.backgroundColors;
 
   const { data: session } = useSession();
   const { saveProfile, profile: userProfile } = useProfile();
@@ -117,6 +118,13 @@ export function ContactView(props: ContactViewProps = {}) {
       emitMatchFound(props.profile.backgroundColors);
     }
   }, [props.profile]);
+
+  // Emit background colors immediately from nav params (before async fetch)
+  useEffect(() => {
+    if (!props.profile && navBackgroundColors && navBackgroundColors.length >= 3) {
+      emitMatchFound(navBackgroundColors);
+    }
+  }, [navBackgroundColors, props.profile]);
 
   // Fetch the contact profile (skip if props.profile provided)
   useEffect(() => {
@@ -533,7 +541,7 @@ export function ContactView(props: ContactViewProps = {}) {
                 <Button
                   variant="white"
                   size="xl"
-                  onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '' })}
+                  onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '', backgroundColors: profile?.backgroundColors })}
                   style={styles.fullWidth}
                 >
                   <Text style={styles.buttonText}>Meet Up 🤝</Text>

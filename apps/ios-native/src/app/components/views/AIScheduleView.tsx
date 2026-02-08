@@ -36,6 +36,7 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { MessageList } from '../ui/chat/MessageList';
 import { ChatInput } from '../ui/chat/ChatInput';
+import { emitMatchFound } from '../../utils/animationEvents';
 
 type AIScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AISchedule'>;
 type AIScheduleViewRouteProp = RouteProp<RootStackParamList, 'AISchedule'>;
@@ -55,7 +56,7 @@ export function AIScheduleView() {
   const navigation = useNavigation<AIScheduleViewNavigationProp>();
   const route = useRoute<AIScheduleViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
-  const { contactUserId } = route.params;
+  const { contactUserId, backgroundColors } = route.params;
 
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
@@ -65,6 +66,13 @@ export function AIScheduleView() {
 
   const contactType = savedContact?.contactType || 'personal';
   const apiBaseUrl = getApiBaseUrl();
+
+  // Emit background colors immediately from nav params
+  useEffect(() => {
+    if (backgroundColors && backgroundColors.length >= 3) {
+      emitMatchFound(backgroundColors);
+    }
+  }, [backgroundColors]);
 
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -150,6 +158,10 @@ export function AIScheduleView() {
           profileImage: contact.profileImage,
         } as unknown as UserProfile);
         setSavedContact(contact);
+        // Emit contact colors for LayoutBackground
+        if (contact.backgroundColors && contact.backgroundColors.length >= 3) {
+          emitMatchFound(contact.backgroundColors);
+        }
       }
     } catch (error) {
       console.error('Error loading profiles:', error);
