@@ -29,25 +29,26 @@ export async function GET(
     // Permanent demo token for App Clip testing — bypasses Redis entirely
     if (token === 'demo') {
       const demoProfile: UserProfile = {
-        userId: 'demo-user',
-        shortCode: 'demo',
+        userId: 'mock-user-123',
+        shortCode: 'mocktest',
         profileImage: '',
         backgroundImage: '',
+        backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'],
         lastUpdated: Date.now(),
         contactEntries: [
           {
             fieldType: 'name',
-            value: 'John Doe',
-            section: 'universal' as const,
-            order: -2,
+            value: 'Demo Contact',
+            section: 'personal' as const,
+            order: 0,
             isVisible: true,
             confirmed: true
           },
           {
             fieldType: 'bio',
-            value: 'Software Engineer passionate about technology and innovation.',
-            section: 'universal' as const,
-            order: -1,
+            value: 'This is a test contact for animation preview. In real usage, you\'ll see the actual contact\'s profile here after a successful bump exchange!',
+            section: 'personal' as const,
+            order: 1,
             isVisible: true,
             confirmed: true
           }

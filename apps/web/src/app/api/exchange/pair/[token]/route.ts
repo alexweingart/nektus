@@ -21,33 +21,33 @@ function createMockProfile(includeExtendedData = true): UserProfile {
   const baseEntries = [
     {
       fieldType: 'name',
-      value: 'John Doe',
-      section: 'universal' as const,
-      order: -2,
-      isVisible: true,
-      confirmed: true
-    },
-    {
-      fieldType: 'bio',
-      value: 'Software Engineer passionate about technology and innovation.',
-      section: 'universal' as const,
-      order: -1,
-      isVisible: true,
-      confirmed: true
-    },
-    {
-      fieldType: 'phone',
-      value: '1234567890',
-      section: 'universal' as const,
+      value: 'Demo Contact',
+      section: 'personal' as const,
       order: 0,
       isVisible: true,
       confirmed: true
     },
     {
-      fieldType: 'email',
-      value: 'john.doe@example.com',
-      section: 'universal' as const,
+      fieldType: 'bio',
+      value: 'This is a test contact for animation preview. In real usage, you\'ll see the actual contact\'s profile here after a successful bump exchange!',
+      section: 'personal' as const,
       order: 1,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'phone',
+      value: '+1234567890',
+      section: 'personal' as const,
+      order: 2,
+      isVisible: true,
+      confirmed: true
+    },
+    {
+      fieldType: 'email',
+      value: 'demo@example.com',
+      section: 'personal' as const,
+      order: 3,
       isVisible: true,
       confirmed: true
     }
@@ -56,25 +56,17 @@ function createMockProfile(includeExtendedData = true): UserProfile {
   const extendedEntries = includeExtendedData ? [
     {
       fieldType: 'instagram',
-      value: 'johndoe',
+      value: 'democontact',
       section: 'personal' as const,
-      order: 2,
+      order: 4,
       isVisible: true,
       confirmed: true
     },
     {
       fieldType: 'x',
-      value: 'john_doe',
+      value: 'democontact',
       section: 'personal' as const,
-      order: 3,
-      isVisible: true,
-      confirmed: true
-    },
-    {
-      fieldType: 'linkedin',
-      value: 'johndoe',
-      section: 'work' as const,
-      order: 4,
+      order: 5,
       isVisible: true,
       confirmed: true
     }
@@ -85,6 +77,7 @@ function createMockProfile(includeExtendedData = true): UserProfile {
     shortCode: 'mocktest',
     profileImage: '',
     backgroundImage: '',
+    backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'],
     lastUpdated: Date.now(),
     contactEntries: [...baseEntries, ...extendedEntries]
   };
