@@ -20,7 +20,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
 import { ContactView } from "./src/app/components/views/ContactView";
 import { Button } from "./src/app/components/ui/buttons/Button";
-import type { UserProfile } from "@nektus/shared-types";
+import { PhoneEntryModal } from "./src/app/components/ui/modals/PhoneEntryModal";
+import type { UserProfile, ContactEntry } from "@nektus/shared-types";
 import { fetchProfilePreview } from "./src/client/contacts/preview";
 import {
   signInWithApple,
@@ -29,6 +30,7 @@ import {
 } from "./src/client/auth/apple";
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken } from "./src/client/auth/firebase";
+import { formatPhoneNumber } from "@nektus/shared-client";
 
 // Session context for App Clip (simplified, no full Firebase SDK)
 interface AppClipSession {
@@ -37,6 +39,58 @@ interface AppClipSession {
   userEmail: string | null;
   firebaseToken: string;
 }
+
+// Error boundary to catch render errors and show them visually (no red screen in production)
+class AppClipErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message || "Unknown error" };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[AppClip] Error boundary caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorBoundaryStyles.container}>
+          <Text style={errorBoundaryStyles.title}>App Clip Error</Text>
+          <Text style={errorBoundaryStyles.message}>{this.state.error}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const errorBoundaryStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#0a0f1a",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  title: {
+    color: "#ef4444",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  message: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    textAlign: "center",
+  },
+});
 
 function AppClipContent() {
   const insets = useSafeAreaInsets();
@@ -51,6 +105,10 @@ function AppClipContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneEntryComplete, setPhoneEntryComplete] = useState(false);
+  const [isPhoneSaving, setIsPhoneSaving] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -200,7 +258,13 @@ function AppClipContent() {
         firebaseToken: tokenResponse.firebaseToken,
       });
 
-      console.log("[AppClip] Sign in successful, userId:", tokenResponse.userId);
+      // If new user, show phone entry modal
+      if (tokenResponse.needsSetup) {
+        setNeedsSetup(true);
+        setShowPhoneModal(true);
+      }
+
+      console.log("[AppClip] Sign in successful, userId:", tokenResponse.userId, "needsSetup:", tokenResponse.needsSetup);
     } catch (err) {
       console.error("[AppClip] Sign in error:", err);
       setError("Sign-in failed. Please try again.");
@@ -208,6 +272,65 @@ function AppClipContent() {
       setIsAuthenticating(false);
     }
   }, []);
+
+  // Handle phone modal save
+  const handlePhoneSave = useCallback(async (phone: string, socials: ContactEntry[]) => {
+    setIsPhoneSaving(true);
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("No auth token");
+
+      // Format phone number for storage
+      const { internationalPhone } = formatPhoneNumber(phone);
+
+      // Build contact entries to save
+      const entries: ContactEntry[] = [
+        {
+          fieldType: 'phone',
+          value: internationalPhone || phone,
+          order: 0,
+          isVisible: true,
+          confirmed: true,
+          linkType: 'default',
+          icon: '/icons/default/phone.svg',
+          section: 'personal',
+        },
+        {
+          fieldType: 'phone',
+          value: internationalPhone || phone,
+          order: 0,
+          isVisible: true,
+          confirmed: true,
+          linkType: 'default',
+          icon: '/icons/default/phone.svg',
+          section: 'work',
+        },
+        ...socials,
+      ];
+
+      const response = await fetch(`${apiBaseUrl}/api/profile/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ contactEntries: entries }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      console.log("[AppClip] Phone saved successfully");
+      setShowPhoneModal(false);
+      setPhoneEntryComplete(true);
+    } catch (err) {
+      console.error("[AppClip] Phone save error:", err);
+      throw err; // Re-throw so modal shows error
+    } finally {
+      setIsPhoneSaving(false);
+    }
+  }, [apiBaseUrl]);
 
   // Loading state
   if (isLoading) {
@@ -283,8 +406,8 @@ function AppClipContent() {
     );
   }
 
-  // Authenticated - show ContactView
-  if (session && fullProfile && token) {
+  // Authenticated - show ContactView (or phone modal if setup needed)
+  if (session && fullProfile && token && (phoneEntryComplete || !needsSetup)) {
     return (
       <LinearGradient
         colors={
@@ -299,6 +422,27 @@ function AppClipContent() {
           profile={fullProfile}
           token={token}
           sessionUserName={session.userName}
+        />
+      </LinearGradient>
+    );
+  }
+
+  // Authenticated but needs phone setup — show loading bg with modal overlay
+  if (session && showPhoneModal) {
+    return (
+      <LinearGradient
+        colors={["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]}
+        locations={[0, 0.3, 1]}
+        style={[styles.container, { paddingTop: insets.top }]}
+      >
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#22c55e" />
+        </View>
+        <PhoneEntryModal
+          isOpen={showPhoneModal}
+          userName={session.userName || ''}
+          isSaving={isPhoneSaving}
+          onSave={handlePhoneSave}
         />
       </LinearGradient>
     );
@@ -342,9 +486,11 @@ function AppClipContent() {
 
 export default function AppClip() {
   return (
-    <SafeAreaProvider>
-      <AppClipContent />
-    </SafeAreaProvider>
+    <AppClipErrorBoundary>
+      <SafeAreaProvider>
+        <AppClipContent />
+      </SafeAreaProvider>
+    </AppClipErrorBoundary>
   );
 }
 

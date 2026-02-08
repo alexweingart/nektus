@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback, useImperativeHandle, forwardRef, useRef } from 'react';
-import { View, Text, StyleSheet, Keyboard, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Keyboard, ScrollView, TouchableOpacity } from 'react-native';
 import { DualStateSelector } from '../controls/DualStateSelector';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
@@ -230,14 +230,33 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
         keyboardShouldPersistTaps="always"
         scrollEnabled={false}
       >
-        {/* Toggle: Social | Custom - centered, not full width like web */}
-        <DualStateSelector
-          options={['Social', 'Custom']}
-          selectedOption={linkType}
-          onOptionChange={handleModeChange}
-          minWidth={100}
-          tintColor={tintColor}
-        />
+        {/* Toggle row: [X] — [Social | Custom] — [✓] */}
+        <View style={styles.toggleRow}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onCancel}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <Text style={styles.actionButtonText}>✕</Text>
+          </TouchableOpacity>
+
+          <DualStateSelector
+            options={['Social', 'Custom']}
+            selectedOption={linkType}
+            onOptionChange={handleModeChange}
+            minWidth={100}
+            tintColor={tintColor}
+          />
+
+          <TouchableOpacity
+            style={[styles.actionButton, !isValid && styles.actionButtonDisabled]}
+            onPress={handleSave}
+            disabled={!isValid}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <Text style={[styles.actionButtonText, !isValid && styles.actionButtonTextDisabled]}>✓</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Conditionally render input based on mode (matches web) */}
         {linkType === 'Social' ? (
@@ -300,6 +319,30 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     gap: 16,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.3,
+  },
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  actionButtonTextDisabled: {
+    opacity: 0.5,
   },
   error: {
     fontSize: 14,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN, TEXT_BLACK } from '../../../../shared/colors';
 
 interface AvatarProps {
   src?: string;
@@ -9,6 +10,7 @@ interface AvatarProps {
   sizeNumeric?: number; // Override preset size with exact pixel value
   isLoading?: boolean;
   showInitials?: boolean; // Explicitly control when to show initials
+  profileColors?: [string, string, string]; // [dominant, accent1, accent2] from generateProfileColors
 }
 
 const sizeMap = {
@@ -44,8 +46,14 @@ const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   sizeNumeric,
   isLoading = false,
-  showInitials = false
+  showInitials = false,
+  profileColors,
 }) => {
+  // Derive gradient and text colors from profileColors or fall back to brand green
+  const gradientColors: [string, string] = profileColors
+    ? [profileColors[1], profileColors[0]]  // accent1 → dominant
+    : [BRAND_LIGHT_GREEN, BRAND_DARK_GREEN];
+  const initialsColor = profileColors ? profileColors[2] : TEXT_BLACK;  // accent2 or dark teal
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
 
@@ -144,7 +152,7 @@ const Avatar: React.FC<AvatarProps> = ({
         }
       ]}>
         <LinearGradient
-          colors={['#E7FED2', '#71E454']}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -156,7 +164,7 @@ const Avatar: React.FC<AvatarProps> = ({
             }
           ]}
         >
-          <Text style={[styles.initialsText, { fontSize, color: '#004D40' }]}>
+          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
         </LinearGradient>
@@ -176,7 +184,7 @@ const Avatar: React.FC<AvatarProps> = ({
         }
       ]}>
         <LinearGradient
-          colors={['#E7FED2', '#71E454']}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -188,7 +196,7 @@ const Avatar: React.FC<AvatarProps> = ({
             }
           ]}
         >
-          <Text style={[styles.initialsText, { fontSize, color: '#004D40' }]}>
+          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
         </LinearGradient>
@@ -213,7 +221,7 @@ const Avatar: React.FC<AvatarProps> = ({
           { opacity: fadeAnimInitials }
         ]}>
           <LinearGradient
-            colors={['#E7FED2', '#71E454']}
+            colors={gradientColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[
@@ -225,7 +233,7 @@ const Avatar: React.FC<AvatarProps> = ({
               }
             ]}
           >
-            <Text style={[styles.initialsText, { fontSize, color: '#004D40' }]}>
+            <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
               {initials}
             </Text>
           </LinearGradient>
@@ -267,7 +275,7 @@ const Avatar: React.FC<AvatarProps> = ({
         }
       ]}>
         <LinearGradient
-          colors={['#E7FED2', '#71E454']}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -279,7 +287,7 @@ const Avatar: React.FC<AvatarProps> = ({
             }
           ]}
         >
-          <Text style={[styles.initialsText, { fontSize, color: '#004D40' }]}>
+          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
         </LinearGradient>

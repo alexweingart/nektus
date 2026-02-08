@@ -6,6 +6,7 @@ import { useProfile } from "../../../../app/context/ProfileContext";
 import { useSession } from "../../../../app/providers/SessionProvider";
 import { useCurrentRoute } from "../../../../app/context/RouteContext";
 import { animationEvents } from "../../../utils/animationEvents";
+import { generateProfileColors, BACKGROUND_GREEN, BACKGROUND_BLACK } from "../../../../shared/colors";
 
 // Helper function to convert hex to rgba
 function hexToRgba(hex: string, alpha: number): string {
@@ -29,9 +30,8 @@ function convertToParticleColors(backgroundColors: string[]) {
 }
 
 // Theme green - muted green for gradients and safe areas
-// 40% bright green blended with dark: rgb(34,197,94) * 0.4 + rgb(10,15,26) * 0.6
-const THEME_GREEN = 'rgb(20, 88, 53)';
-const THEME_DARK = 'rgb(10, 15, 26)';
+const THEME_GREEN = BACKGROUND_GREEN;
+const THEME_DARK = BACKGROUND_BLACK;
 
 // Default colors for signed-out context - matches web
 const DEFAULT_SIGNED_OUT_COLORS = {
@@ -203,8 +203,14 @@ export function LayoutBackground({
       return DEFAULT_PROFILE_COLORS;
     }
 
-    // Default for profile contexts without custom colors
+    // Default for profile contexts without custom colors — generate from name
     if (particleContext === "profile" || particleContext === "profile-default") {
+      if (profile) {
+        const name = profile.contactEntries?.find((e: any) => e.fieldType === 'name')?.value;
+        if (name) {
+          return convertToParticleColors(generateProfileColors(name));
+        }
+      }
       return DEFAULT_PROFILE_COLORS;
     }
 
@@ -240,6 +246,13 @@ export function LayoutBackground({
       } else {
         // AI avatar (uniform colors) - use dark background
         return backgroundColor;
+      }
+    }
+    // No backgroundColors but has a name — use generated dominant color
+    if ((particleContext === "profile" || particleContext === "profile-default") && profile) {
+      const name = profile.contactEntries?.find((e: any) => e.fieldType === 'name')?.value;
+      if (name) {
+        return generateProfileColors(name)[0];
       }
     }
     return backgroundColor;

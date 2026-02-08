@@ -9,6 +9,7 @@ import type { UserProfile } from '@nektus/shared-types';
 import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
+import { generateProfileColors } from '../../../../shared/colors';
 
 interface ContactInfoProps {
   profile: UserProfile;
@@ -30,6 +31,7 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
   const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
 
   const name = getFieldValue(profile?.contactEntries, 'name') || 'Anonymous';
+  const profileColors = generateProfileColors(name);
 
   return (
     <View style={styles.container}>
@@ -41,6 +43,7 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
             alt={name}
             sizeNumeric={avatarSize}
             showInitials={!profile.profileImage}
+            profileColors={profileColors}
           />
         </View>
       </View>
@@ -52,9 +55,16 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
           <Text style={styles.name}>{name}</Text>
         </View>
 
-        {/* Bio */}
+        {/* Bio - split on double newlines for paragraph spacing */}
         <View style={styles.bioContainer}>
-          <Text style={styles.bio}>{bioContent}</Text>
+          {bioContent.split(/\n\n+/).map((paragraph, i, arr) => (
+            <Text
+              key={i}
+              style={[styles.bio, i < arr.length - 1 && { marginBottom: 12 }]}
+            >
+              {paragraph}
+            </Text>
+          ))}
         </View>
 
         {/* Social Media Icons */}
