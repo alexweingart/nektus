@@ -26,6 +26,44 @@ export async function GET(
       );
     }
 
+    // Permanent demo token for App Clip testing — bypasses Redis entirely
+    if (token === 'demo') {
+      const demoProfile: UserProfile = {
+        userId: 'demo-user',
+        shortCode: 'demo',
+        profileImage: '',
+        backgroundImage: '',
+        lastUpdated: Date.now(),
+        contactEntries: [
+          {
+            fieldType: 'name',
+            value: 'John Doe',
+            section: 'universal' as const,
+            order: -2,
+            isVisible: true,
+            confirmed: true
+          },
+          {
+            fieldType: 'bio',
+            value: 'Software Engineer passionate about technology and innovation.',
+            section: 'universal' as const,
+            order: -1,
+            isVisible: true,
+            confirmed: true
+          }
+        ]
+      };
+
+      const demoSocialIconTypes = ['phone', 'email', 'instagram', 'x', 'linkedin'];
+
+      return NextResponse.json({
+        success: true,
+        profile: demoProfile,
+        socialIconTypes: demoSocialIconTypes,
+        sharingCategory: 'All'
+      });
+    }
+
     if (!redis) {
       return NextResponse.json(
         { success: false, message: 'Redis not available' },

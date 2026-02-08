@@ -122,6 +122,16 @@ export async function GET(
 
     console.log(`👤 User ${user.id} (${user.source}) requesting pair data for token: ${token}`);
 
+    // Permanent demo token for App Clip testing — bypasses Redis entirely
+    if (token === 'demo') {
+      const mockProfile = createMockProfile();
+      return NextResponse.json({
+        success: true,
+        profile: mockProfile,
+        matchedAt: Date.now()
+      } as ContactExchangeResponse);
+    }
+
     // Get match data from Redis
     let matchData = await getExchangeMatch(token);
 
