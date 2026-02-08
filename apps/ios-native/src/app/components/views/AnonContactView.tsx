@@ -129,7 +129,7 @@ export function AnonContactView({
           </Button>
 
           {/* "to save contact" text */}
-          <Text style={styles.helperText}>to save {name}&apos;s contact</Text>
+          <Text style={styles.helperText}>to get nekt&apos;d</Text>
         </View>
       </ScrollView>
 

@@ -75,7 +75,7 @@ function createMockProfile(includeExtendedData = true): UserProfile {
   return {
     userId: 'mock-user-123',
     shortCode: 'mocktest',
-    profileImage: '',
+    profileImage: 'https://www.nekt.us/demo-robot-avatar.png',
     backgroundImage: '',
     backgroundColors: ['#FF6F61', '#FFB6C1', '#FF1493'],
     lastUpdated: Date.now(),
