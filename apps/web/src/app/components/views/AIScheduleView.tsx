@@ -309,12 +309,26 @@ And if you don't know any of those things, and just want me to suggest based off
   }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
 
   const handleScheduleEvent = (event: Event) => {
-    if (!event.calendar_urls?.google) {
-      return;
-    }
+    if (!event.calendar_urls) return;
 
-    // Open the pre-generated calendar URL
-    window.open(event.calendar_urls.google, '_blank');
+    // Use the calendar provider matching the user's connected calendar for this section
+    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
+    const provider = userCalendar?.provider || 'google';
+
+    if (provider === 'apple') {
+      // Download ICS file for Apple Calendar
+      const icsContent = event.calendar_urls.apple;
+      if (icsContent) {
+        window.open(icsContent, '_blank');
+      }
+    } else {
+      const calendarUrl = provider === 'microsoft'
+        ? event.calendar_urls.outlook
+        : event.calendar_urls.google;
+      if (calendarUrl) {
+        window.open(calendarUrl, '_blank');
+      }
+    }
   };
 
   const handleBack = () => {

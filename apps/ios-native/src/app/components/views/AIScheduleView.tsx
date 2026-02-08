@@ -72,7 +72,7 @@ export function AIScheduleView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [showChatInput, setShowChatInput] = useState(false);
+  const showChatInput = true;
 
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
@@ -305,26 +305,24 @@ And if you don't know any of those things, and just want me to suggest based off
   }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse, apiBaseUrl]);
 
   const handleScheduleEvent = useCallback((event: Event) => {
-    if (!event.calendar_urls?.google) {
-      return;
-    }
+    if (!event.calendar_urls) return;
 
-    // Open the pre-generated calendar URL
-    Linking.openURL(event.calendar_urls.google);
-  }, []);
+    // Use the calendar provider matching the user's connected calendar for this section
+    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
+    const provider = userCalendar?.provider || 'google';
+
+    const calendarUrl = provider === 'microsoft'
+      ? event.calendar_urls.outlook
+      : event.calendar_urls.google;
+
+    if (!calendarUrl) return;
+    Linking.openURL(calendarUrl);
+  }, [currentUserProfile, contactType]);
 
   const handleBack = useCallback(() => {
     goBackWithFade();
   }, [goBackWithFade]);
 
-  // Wait 1.5 seconds before showing ChatInput
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowChatInput(true);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   if (loading || !contactProfile || !currentUserProfile) {
     return (
@@ -373,7 +371,7 @@ And if you don't know any of those things, and just want me to suggest based off
               onSend={handleSend}
               disabled={false}
               sendDisabled={isProcessing}
-              fadeIn={true}
+              fadeIn={false}
             />
           )}
         </View>

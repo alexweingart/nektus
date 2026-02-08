@@ -426,18 +426,46 @@ export function SmartScheduleView() {
 
     if (hasCheckedChip) {
       if (existingTime) {
-        // Open calendar with event details
         const contactName = getFieldValue(contactProfile.contactEntries, 'name');
+        const contactEmail = getFieldValue(contactProfile.contactEntries, 'email');
         const startDate = new Date(existingTime.start);
         const endDate = new Date(existingTime.end);
+        const place = chipPlaces[chip.id];
 
-        // Format for iOS calendar URL
-        const title = encodeURIComponent(`${eventTemplate.title} with ${contactName}`);
-        const startISO = startDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-        const endISO = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const title = `${eventTemplate.title} with ${contactName}`;
+        const location = (eventTemplate.eventType === 'in-person' && place) ? place.name : '';
 
-        // Try to open in calendar app
-        const calendarUrl = `calshow:${startDate.getTime() / 1000}`;
+        // Determine user's calendar provider for this section
+        const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
+        const provider = userCalendar?.provider || 'google';
+
+        const formatDateForGoogle = (d: Date) =>
+          d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+        let calendarUrl: string;
+        if (provider === 'microsoft') {
+          const params = new URLSearchParams({
+            subject: title,
+            startdt: startDate.toISOString(),
+            enddt: endDate.toISOString(),
+            location,
+            path: '/calendar/action/compose',
+            rru: 'addevent',
+          });
+          if (contactEmail) params.append('to', contactEmail);
+          calendarUrl = `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+        } else {
+          // Google (default fallback for all providers including apple)
+          const params = new URLSearchParams({
+            action: 'TEMPLATE',
+            text: title,
+            dates: `${formatDateForGoogle(startDate)}/${formatDateForGoogle(endDate)}`,
+            location,
+          });
+          if (contactEmail) params.append('add', contactEmail);
+          calendarUrl = `https://calendar.google.com/calendar/render?${params.toString()}`;
+        }
+
         Linking.openURL(calendarUrl).catch(() => {
           Alert.alert(
             'Add to Calendar',
@@ -451,7 +479,7 @@ export function SmartScheduleView() {
     } else {
       Alert.alert('Loading', 'Please wait for scheduling data to load');
     }
-  }, [currentUserProfile, contactProfile, session, suggestedTimes]);
+  }, [currentUserProfile, contactProfile, session, suggestedTimes, chipPlaces, section]);
 
   // Navigate to AI Schedule view
   const handleCustomTimePlace = useCallback(() => {
