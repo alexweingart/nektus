@@ -44,24 +44,152 @@ export function useStreamingAI({
 }: UseStreamingAIProps) {
   const apiBaseUrl = getApiBaseUrl();
 
+  const processSSELine = (
+    line: string,
+    state: {
+      acknowledgmentMessageId: string;
+      contentMessageId: string;
+      currentContentMessage: string;
+      finalMessageContent: string;
+      currentEvent?: Event;
+    },
+    generateMessageId: (offset?: number) => string
+  ) => {
+    if (!line.startsWith('data: ')) return;
+
+    try {
+      const data = JSON.parse(line.slice(6));
+
+      switch (data.type) {
+        case 'acknowledgment':
+          onUpdateMessages(prev => {
+            const withoutTyping = prev.filter(msg => !(msg.isProcessing && msg.content === ''));
+            return [...withoutTyping, {
+              id: state.acknowledgmentMessageId,
+              type: 'ai',
+              content: data.text,
+            }];
+          });
+          break;
+
+        case 'progress':
+          if (!state.currentContentMessage) {
+            state.currentContentMessage = data.text;
+            onUpdateMessages(prev => [...prev, {
+              id: state.contentMessageId,
+              type: 'ai',
+              content: state.currentContentMessage,
+              isLoading: data.isLoading,
+            }]);
+          } else {
+            state.currentContentMessage = data.text;
+            onUpdateMessages(prev => prev.map(msg =>
+              msg.id === state.contentMessageId
+                ? { ...msg, content: state.currentContentMessage, isLoading: data.isLoading }
+                : msg
+            ));
+          }
+          break;
+
+        case 'content':
+          if (data.text) {
+            state.finalMessageContent = data.text;
+            onUpdateMessages(prev => prev.map(msg =>
+              msg.id === state.contentMessageId
+                ? { ...msg, content: state.finalMessageContent, isLoading: false }
+                : msg
+            ));
+          }
+          break;
+
+        case 'event':
+          state.currentEvent = data.event;
+          onUpdateMessages(prev => prev.map(msg =>
+            msg.id === state.contentMessageId
+              ? {
+                  ...msg,
+                  event: state.currentEvent,
+                  showCreateButton: true,
+                  askForConfirmation: true
+                }
+              : msg
+          ));
+          break;
+
+        case 'clear_loading':
+          onUpdateMessages(prev => prev.map(msg =>
+            msg.id === state.contentMessageId
+              ? { ...msg, isLoading: false }
+              : msg
+          ).filter(msg => !(msg.isLoading && msg.content === 'Thinking...')));
+          break;
+
+        case 'enhancement_pending':
+          console.log('🔄 Enhancement pending, will poll:', data.processingId);
+          pollForEnhancement(data.processingId, generateMessageId);
+          break;
+
+        case 'navigate_to_calendar':
+          if (data.calendarUrl) {
+            console.log('🔗 Auto-opening calendar:', data.calendarUrl);
+            Linking.openURL(data.calendarUrl);
+          }
+          break;
+
+        case 'error':
+          console.error('Streaming error from backend:', data.message);
+          onUpdateMessages(prev => prev.map(msg =>
+            msg.isLoading
+              ? { ...msg, isLoading: false, content: `Sorry, something went wrong: ${data.message || 'Unknown error'}` }
+              : msg
+          ));
+          return;
+
+        default:
+          console.warn('Unknown stream event type:', data.type);
+      }
+    } catch (parseError) {
+      // Ignore parse errors for incomplete lines
+    }
+  };
+
   const handleStreamingResponse = async (
     response: Response,
     userAIMessage: AIMessage,
     generateMessageId: (offset?: number) => string
   ) => {
+    const state = {
+      acknowledgmentMessageId: generateMessageId(1),
+      contentMessageId: generateMessageId(2),
+      currentContentMessage: '',
+      finalMessageContent: '',
+      currentEvent: undefined as Event | undefined,
+    };
+
+    // React Native's fetch doesn't support ReadableStream on response.body.
+    // Fall back to reading the full response text and parsing SSE events.
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('No response body');
+      const text = await response.text();
+      const lines = text.split('\n');
+      for (const line of lines) {
+        processSSELine(line, state, generateMessageId);
+      }
+
+      onUpdateConversationHistory(prev => [
+        ...prev,
+        userAIMessage,
+        {
+          role: 'assistant',
+          content: state.finalMessageContent || state.currentContentMessage,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
     }
 
+    // Web path: stream via ReadableStream
     const decoder = new TextDecoder();
-    const acknowledgmentMessageId = generateMessageId(1);
-    const contentMessageId = generateMessageId(2);
-
-    let currentContentMessage = '';
-    let currentEvent: Event | undefined;
-    let finalMessageContent = '';
-
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -69,104 +197,8 @@ export function useStreamingAI({
 
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n');
-
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              switch (data.type) {
-                case 'acknowledgment':
-                  onUpdateMessages(prev => {
-                    const withoutTyping = prev.filter(msg => !(msg.isProcessing && msg.content === ''));
-                    return [...withoutTyping, {
-                      id: acknowledgmentMessageId,
-                      type: 'ai',
-                      content: data.text,
-                    }];
-                  });
-                  break;
-
-                case 'progress':
-                  if (!currentContentMessage) {
-                    currentContentMessage = data.text;
-                    onUpdateMessages(prev => [...prev, {
-                      id: contentMessageId,
-                      type: 'ai',
-                      content: currentContentMessage,
-                      isLoading: data.isLoading,
-                    }]);
-                  } else {
-                    currentContentMessage = data.text;
-                    onUpdateMessages(prev => prev.map(msg =>
-                      msg.id === contentMessageId
-                        ? { ...msg, content: currentContentMessage, isLoading: data.isLoading }
-                        : msg
-                    ));
-                  }
-                  break;
-
-                case 'content':
-                  if (data.text) {
-                    finalMessageContent = data.text;
-                    onUpdateMessages(prev => prev.map(msg =>
-                      msg.id === contentMessageId
-                        ? { ...msg, content: finalMessageContent, isLoading: false }
-                        : msg
-                    ));
-                  }
-                  break;
-
-                case 'event':
-                  currentEvent = data.event;
-                  onUpdateMessages(prev => prev.map(msg =>
-                    msg.id === contentMessageId
-                      ? {
-                          ...msg,
-                          event: currentEvent,
-                          showCreateButton: true,
-                          askForConfirmation: true
-                        }
-                      : msg
-                  ));
-                  break;
-
-                case 'clear_loading':
-                  onUpdateMessages(prev => prev.map(msg =>
-                    msg.id === contentMessageId
-                      ? { ...msg, isLoading: false }
-                      : msg
-                  ).filter(msg => !(msg.isLoading && msg.content === 'Thinking...')));
-                  break;
-
-                case 'enhancement_pending':
-                  console.log('🔄 Enhancement pending, will poll:', data.processingId);
-                  pollForEnhancement(data.processingId, generateMessageId);
-                  break;
-
-                case 'navigate_to_calendar':
-                  if (data.calendarUrl) {
-                    console.log('🔗 Auto-opening calendar:', data.calendarUrl);
-                    Linking.openURL(data.calendarUrl);
-                  }
-                  break;
-
-                case 'error':
-                  console.error('Streaming error from backend:', data.message);
-                  onUpdateMessages(prev => prev.map(msg =>
-                    msg.isLoading
-                      ? { ...msg, isLoading: false, content: `Sorry, something went wrong: ${data.message || 'Unknown error'}` }
-                      : msg
-                  ));
-                  return;
-
-                default:
-                  console.warn('Unknown stream event type:', data.type);
-              }
-            } catch (parseError) {
-              console.error('Error parsing SSE data:', parseError);
-            }
-          }
+          processSSELine(line, state, generateMessageId);
         }
       }
 
@@ -175,11 +207,10 @@ export function useStreamingAI({
         userAIMessage,
         {
           role: 'assistant',
-          content: finalMessageContent || currentContentMessage,
+          content: state.finalMessageContent || state.currentContentMessage,
           timestamp: new Date(),
         },
       ]);
-
     } finally {
       reader.releaseLock();
     }
