@@ -21,6 +21,7 @@ import { ContactInfo } from '../ui/modules/ContactInfo';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
+import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateMessageText } from '../../../client/contacts/messaging';
@@ -100,6 +101,7 @@ export function ContactView(props: ContactViewProps = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
   // Animation values (matching web's contactEnter animation)
@@ -475,6 +477,34 @@ export function ContactView(props: ContactViewProps = {}) {
     // Note: SKOverlay is shown when user taps "Done", not after messaging
   }, [profile, props.sessionUserName, session, userProfile?.shortCode, session?.user?.id]);
 
+  // Handle Meet Up button - check for linked calendar first (matches web)
+  const handleScheduleMeetUp = useCallback(() => {
+    if (!session?.user?.id) return;
+
+    // Check if user has a calendar (use 'personal' as default section, matching web behavior)
+    const userHasCalendar = userProfile?.calendars?.some(
+      (cal) => cal.section === 'personal'
+    );
+
+    if (userHasCalendar) {
+      navigation?.navigate('SmartSchedule', {
+        contactUserId: userId || '',
+        backgroundColors: profile?.backgroundColors,
+      });
+    } else {
+      setShowAddCalendarModal(true);
+    }
+  }, [session?.user?.id, userProfile?.calendars, navigation, userId, profile?.backgroundColors]);
+
+  // Handle calendar added from modal - navigate to smart schedule
+  const handleCalendarAdded = useCallback(() => {
+    setShowAddCalendarModal(false);
+    navigation?.navigate('SmartSchedule', {
+      contactUserId: userId || '',
+      backgroundColors: profile?.backgroundColors,
+    });
+  }, [navigation, userId, profile?.backgroundColors]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -537,11 +567,11 @@ export function ContactView(props: ContactViewProps = {}) {
             {isHistoricalMode ? (
               // Historical mode buttons (matching web)
               <>
-                {/* Meet Up Button (Primary) */}
+                {/* Meet Up Button (Primary) - checks for calendar first */}
                 <Button
                   variant="white"
                   size="xl"
-                  onPress={() => navigation?.navigate('SmartSchedule', { contactUserId: userId || '', backgroundColors: profile?.backgroundColors })}
+                  onPress={handleScheduleMeetUp}
                   style={styles.fullWidth}
                 >
                   <Text style={styles.buttonText}>Meet Up 🤝</Text>
@@ -597,6 +627,15 @@ export function ContactView(props: ContactViewProps = {}) {
         secondaryButtonText="Nah, they'll text me"
         onSecondaryButtonClick={() => setShowSuccessModal(false)}
         showCloseButton={false}
+      />
+
+      {/* Add Calendar Modal - shown when user taps Meet Up without a linked calendar */}
+      <AddCalendarModal
+        isOpen={showAddCalendarModal}
+        onClose={() => setShowAddCalendarModal(false)}
+        section="personal"
+        userEmail={session?.user?.email || ''}
+        onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>
   );

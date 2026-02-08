@@ -19,6 +19,7 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { StandardModal } from '../ui/modals/StandardModal';
+import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { Heading, BodyText } from '../ui/Typography';
 import Avatar from '../ui/elements/Avatar';
 
@@ -77,7 +78,7 @@ export function HistoryView() {
   const goBackWithFade = useGoBackWithFade();
   const navigateWithFade = useNavigateWithFade();
   const { data: session } = useSession();
-  const { contacts, loadContacts } = useProfile();
+  const { contacts, loadContacts, profile: userProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -85,6 +86,8 @@ export function HistoryView() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<SavedContact | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
+  const [calendarContact, setCalendarContact] = useState<SavedContact | null>(null);
 
   // Pull-to-refresh
   const { isRefreshing, handleRefresh } = useScreenRefresh({
@@ -171,14 +174,38 @@ export function HistoryView() {
     setContactToDelete(null);
   }, []);
 
-  // Handle calendar/schedule action
+  // Handle calendar/schedule action - check for linked calendar first (matches web)
   const handleCalendarClick = useCallback((contact: SavedContact) => {
-    // Navigate directly to smart schedule for this contact
-    navigateWithFade('SmartSchedule', {
-      contactUserId: contact.userId,
-      backgroundColors: contact.backgroundColors,
-    });
-  }, [navigateWithFade]);
+    if (!session?.user?.id) return;
+
+    // Check if user has a calendar for this contact's type
+    const userHasCalendar = userProfile?.calendars?.some(
+      (cal) => cal.section === contact.contactType
+    );
+
+    if (userHasCalendar) {
+      navigateWithFade('SmartSchedule', {
+        contactUserId: contact.userId,
+        backgroundColors: contact.backgroundColors,
+      });
+    } else {
+      // Store contact and show Add Calendar modal
+      setCalendarContact(contact);
+      setShowAddCalendarModal(true);
+    }
+  }, [navigateWithFade, session?.user?.id, userProfile?.calendars]);
+
+  // Handle calendar added from modal - navigate to smart schedule
+  const handleCalendarAdded = useCallback(() => {
+    setShowAddCalendarModal(false);
+    if (calendarContact) {
+      navigateWithFade('SmartSchedule', {
+        contactUserId: calendarContact.userId,
+        backgroundColors: calendarContact.backgroundColors,
+      });
+      setCalendarContact(null);
+    }
+  }, [calendarContact, navigateWithFade]);
 
   // Render contact item
   const renderContactItem = ({ item }: { item: SavedContact }) => {
@@ -296,6 +323,18 @@ export function HistoryView() {
           showCloseButton={false}
         />
       )}
+
+      {/* Add Calendar Modal - shown when user taps calendar without a linked calendar */}
+      <AddCalendarModal
+        isOpen={showAddCalendarModal}
+        onClose={() => {
+          setShowAddCalendarModal(false);
+          setCalendarContact(null);
+        }}
+        section={calendarContact?.contactType || 'personal'}
+        userEmail={session?.user?.email || ''}
+        onCalendarAdded={handleCalendarAdded}
+      />
     </ScreenTransition>
   );
 }
