@@ -171,14 +171,38 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
       onBlur={handleBlur}
       tabIndex={-1}
     >
-      {/* Toggle: Social | Custom */}
-      <div className="flex justify-center">
+      {/* Toggle: Social | Custom with X and ✓ buttons */}
+      <div className="flex items-center justify-between">
+        {/* Cancel button */}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Cancel"
+        >
+          <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         <DualStateSelector
           options={['Social', 'Custom']}
           selectedOption={linkType}
           onOptionChange={setLinkType}
           minWidth="100px"
         />
+
+        {/* Confirm button */}
+        <button
+          type="button"
+          onClick={handleSave}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Confirm"
+        >
+          <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
       </div>
 
       {/* Input field based on link type */}

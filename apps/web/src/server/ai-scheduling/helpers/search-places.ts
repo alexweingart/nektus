@@ -419,7 +419,7 @@ async function getMidpointFromLocations(
       console.log(`📍 No user locations provided, falling back to IP geolocation for ${userIp}`);
 
       // Development fallback for localhost
-      if (userIp === '127.0.0.1' || userIp === '::1' || userIp.startsWith('192.168.') || userIp.startsWith('10.')) {
+      if (userIp === '127.0.0.1' || userIp === '::1' || userIp.startsWith('192.168.') || userIp.startsWith('10.') || userIp.startsWith('100.')) {
         const devFallbackLocation = 'San Francisco, CA';
         console.log(`🔧 Development mode detected (IP: ${userIp}), using fallback: ${devFallbackLocation}`);
         const geocoded = await geocodeAddress(devFallbackLocation);

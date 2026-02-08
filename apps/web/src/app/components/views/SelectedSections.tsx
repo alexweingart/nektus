@@ -273,7 +273,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                 className="cursor-pointer"
                 onClick={() => handleToggleInlineAddLink(sectionName)}
               >
-                {showInlineAddLink[sectionName] ? 'Cancel' : 'Add Link'}
+                Add Link
               </SecondaryButton>
             </div>
           </>
