@@ -71,10 +71,10 @@ export function openMessagingApp(messageText: string, phoneNumber?: string): voi
       if (phoneNumber) {
         // If we have a phone number, open Messages with specific contact
         const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-        navigateToProtocolScheme(`sms:${cleanPhone}&body=${encodedMessage}`);
+        navigateToProtocolScheme(`sms:${cleanPhone}?&body=${encodedMessage}`);
       } else {
         // Open Messages app to compose new message
-        navigateToProtocolScheme(`sms:&body=${encodedMessage}`);
+        navigateToProtocolScheme(`sms:?&body=${encodedMessage}`);
       }
     } else if (platform === 'android') {
       // Use SMS app on Android - consistent approach with iOS
