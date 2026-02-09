@@ -7,122 +7,99 @@ A monorepo containing the Nekt web app and iOS mobile app with shared code.
 ```
 nektus/
 ├── apps/
-│   ├── web/          # Next.js web app (existing)
-│   └── ios-native/   # React Native/Expo iOS app (new)
+│   ├── web/              # Next.js web app
+│   └── ios-native/       # React Native/Expo iOS app (+ App Clip)
 ├── packages/
 │   ├── shared-types/     # TypeScript type definitions
-│   ├── shared-utils/     # Platform-agnostic utilities
-│   └── shared-services/  # Firebase and business logic services
-├── turbo.json        # Turborepo configuration
-├── pnpm-workspace.yaml
-└── package.json
+│   └── shared-client/    # Shared business logic and services
+├── turbo.json            # Turborepo configuration
+└── package.json          # Bun workspaces
 ```
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+
-- pnpm (`npm install -g pnpm`)
+- [Bun](https://bun.sh) (`curl -fsSL https://bun.sh/install | bash`)
 - Xcode (for iOS development)
-- Apple Developer Account ($99/year)
+- Apple Developer Account (for device builds / TestFlight)
 
 ### Installation
 
 ```bash
-pnpm install
+bun install
 ```
 
-### Development
+### Local Development
 
 **Web App:**
 ```bash
-pnpm dev:web
+bun run dev:web
 # or
-cd apps/web && pnpm dev
+cd apps/web && bun run dev
 ```
 
 **iOS App (Simulator):**
 ```bash
-cd apps/ios-native && pnpm ios
+cd apps/ios-native && bun run ios
 ```
 
-### Building
+This runs `expo run:ios` which does an incremental build (30s–2min) and launches the simulator. For day-to-day TypeScript/JS changes, Metro hot reload handles it automatically — no rebuild needed. Only do a clean build (`./scripts/clean-prebuild.sh`) when switching branches with native dependency changes or after pod updates.
 
-**Build all packages:**
+### Building Shared Packages
+
 ```bash
-pnpm build
+bun run build
 ```
 
-**Build web app only:**
-```bash
-pnpm build:web
-```
+## iOS Build Workflows (EAS)
 
-## Deploying to TestFlight
+### EAS Cloud Builds (Internal Testing)
 
-### 1. Login to Expo
-```bash
-eas login
-```
+The `preview` profile builds for internal/ad-hoc distribution:
 
-### 2. Configure EAS Project
-```bash
-cd apps/ios-native
-eas init
-```
-This will create an EAS project and update `app.json` with your project ID.
-
-### 3. Configure Apple Credentials
-```bash
-eas credentials
-```
-Follow the prompts to configure your Apple Developer credentials.
-
-### 4. Update App Configuration
-Edit `apps/ios-native/app.json`:
-- Update `expo.owner` with your Expo username
-- Verify `ios.bundleIdentifier` is correct
-
-Edit `apps/ios-native/eas.json`:
-- Update `submit.production.ios.appleId` with your Apple ID
-- Update `submit.production.ios.ascAppId` with your App Store Connect app ID
-
-### 5. Build for TestFlight
 ```bash
 cd apps/ios-native
 eas build --platform ios --profile preview
 ```
 
-### 6. Submit to TestFlight
+This runs on EAS build servers and produces an IPA you can install on registered devices.
+
+### Production Builds (TestFlight)
+
+Production builds use the `production` profile with store distribution certs. Typically built locally with `--local` to use your machine and Apple credentials:
+
+```bash
+cd apps/ios-native
+eas build --platform ios --profile production --local
+```
+
+Then submit to TestFlight:
+
 ```bash
 eas submit --platform ios
 ```
 
+### EAS Build Profiles Summary
+
+| Profile       | Distribution | Use Case                        |
+|---------------|-------------|----------------------------------|
+| `development` | internal    | Dev client builds for simulator  |
+| `preview`     | internal    | Ad-hoc builds for test devices   |
+| `production`  | store       | TestFlight / App Store release   |
+
+### First-Time EAS Setup
+
+1. `eas login`
+2. `cd apps/ios-native && eas init`
+3. `eas credentials` — configure Apple Developer certs
+4. Verify `apps/ios-native/app.json` has correct `expo.owner` and `ios.bundleIdentifier`
+5. Verify `apps/ios-native/eas.json` has correct `appleId` and `ascAppId` under `submit.production.ios`
+
 ## Shared Packages
 
 ### @nektus/shared-types
-TypeScript type definitions shared between web and mobile:
-- `UserProfile` - User profile data structure
-- `ContactEntry` - Contact field entries
-- `ContactExchange*` - Contact exchange types
+TypeScript type definitions shared between web and mobile (profiles, contacts, exchanges, etc.).
 
-### @nektus/shared-utils
-Platform-agnostic utility functions:
-- `formatPhoneNumber()` - Phone number formatting
-- `getHighResGoogleImage()` - Google image URL optimization
-- `getFieldValue()` - Extract values from contact entries
-- `generateSocialUrl()` - Generate social media URLs
-
-### @nektus/shared-services
-Business logic services (Firebase, etc.):
-- Profile service (coming soon)
-- Contact exchange service (coming soon)
-
-## Next Steps (Phase 2)
-
-1. **Authentication** - Implement Google Sign-In with Expo AuthSession
-2. **Profile Management** - Migrate Firebase profile service
-3. **Contact Exchange** - Implement motion detection with expo-sensors
-4. **UI Components** - Build React Native equivalents
-
-See `SPEC.md` for the full iOS feature roadmap.
+### @nektus/shared-client
+Shared business logic and services with dependency injection for platform-specific implementations (Firebase services, profile management, contact exchange logic).
