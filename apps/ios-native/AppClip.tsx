@@ -32,6 +32,26 @@ import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken } from "./src/client/auth/firebase";
 import { formatPhoneNumber } from "@nektus/shared-client";
 
+// Background colors matching main app's LayoutBackground
+const THEME_DARK = '#0a0f1a';
+const THEME_GREEN = '#145835';
+
+// Default gradient (matches main app's signed-out colors: dark → green → dark)
+const DEFAULT_GRADIENT: [string, string, string] = [THEME_DARK, THEME_GREEN, THEME_DARK];
+const DEFAULT_LOCATIONS: [number, number, number] = [0, 0.5, 1];
+
+// Convert profile backgroundColors to gradient matching main app's LayoutBackground
+function convertToGradientColors(backgroundColors: string[]): [string, string, string] {
+  const [dominant, accent1] = backgroundColors;
+  // Match LayoutBackground: dominant at top/bottom, accent1 (0.4 alpha) in middle
+  const cleanHex = accent1.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  const middleColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+  return [dominant, middleColor, dominant];
+}
+
 // Session context for App Clip (simplified, no full Firebase SDK)
 interface AppClipSession {
   userId: string;
@@ -74,7 +94,7 @@ class AppClipErrorBoundary extends React.Component<
 const errorBoundaryStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0f1a",
+    backgroundColor: THEME_DARK,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -91,6 +111,14 @@ const errorBoundaryStyles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+/** Get gradient colors from a profile, falling back to defaults */
+function getGradient(profile: UserProfile | null): [string, string, string] {
+  if (profile?.backgroundColors?.length && profile.backgroundColors.length >= 2) {
+    return convertToGradientColors(profile.backgroundColors);
+  }
+  return DEFAULT_GRADIENT;
+}
 
 function AppClipContent() {
   const insets = useSafeAreaInsets();
@@ -225,7 +253,7 @@ function AppClipContent() {
       const result = await signInWithApple();
 
       if (!result.success) {
-        setError(result.error || "Sign-in failed");
+        // User cancelled — just dismiss, no error
         return;
       }
 
@@ -332,13 +360,16 @@ function AppClipContent() {
     }
   }, [apiBaseUrl]);
 
+  // Determine which gradient to use based on current state
+  const gradientColors = getGradient(fullProfile || previewProfile);
+
   // Loading state
   if (isLoading) {
     return (
       <LinearGradient
-        colors={["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]}
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top + 24 }]}
+        colors={DEFAULT_GRADIENT}
+        locations={DEFAULT_LOCATIONS}
+        style={styles.container}
       >
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
@@ -348,13 +379,13 @@ function AppClipContent() {
     );
   }
 
-  // Error state
-  if (error) {
+  // Error state (only show if no profile to display behind it)
+  if (error && !previewProfile && !fullProfile) {
     return (
       <LinearGradient
-        colors={["rgba(239, 68, 68, 0.3)", "rgba(239, 68, 68, 0.12)", "#0a0f1a"]}
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top + 24 }]}
+        colors={DEFAULT_GRADIENT}
+        locations={DEFAULT_LOCATIONS}
+        style={styles.container}
       >
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
@@ -390,33 +421,13 @@ function AppClipContent() {
     );
   }
 
-  // Authenticating state
-  if (isAuthenticating) {
-    return (
-      <LinearGradient
-        colors={["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]}
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top + 24 }]}
-      >
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#22c55e" />
-          <Text style={styles.loadingText}>Signing in...</Text>
-        </View>
-      </LinearGradient>
-    );
-  }
-
   // Authenticated - show ContactView (or phone modal if setup needed)
   if (session && fullProfile && token && (phoneEntryComplete || !needsSetup)) {
     return (
       <LinearGradient
-        colors={
-          fullProfile.backgroundColors?.length && fullProfile.backgroundColors.length >= 2
-            ? (fullProfile.backgroundColors as [string, string, ...string[]])
-            : ["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]
-        }
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top }]}
+        colors={gradientColors}
+        locations={DEFAULT_LOCATIONS}
+        style={styles.container}
       >
         <ContactView
           profile={fullProfile}
@@ -431,9 +442,9 @@ function AppClipContent() {
   if (session && showPhoneModal) {
     return (
       <LinearGradient
-        colors={["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]}
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top }]}
+        colors={gradientColors}
+        locations={DEFAULT_LOCATIONS}
+        style={styles.container}
       >
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
@@ -448,17 +459,13 @@ function AppClipContent() {
     );
   }
 
-  // Not authenticated - show AnonContactView
+  // Not authenticated - show AnonContactView (persists behind sign-in and errors)
   if (previewProfile && token) {
     return (
       <LinearGradient
-        colors={
-          previewProfile.backgroundColors?.length && previewProfile.backgroundColors.length >= 2
-            ? (previewProfile.backgroundColors as [string, string, ...string[]])
-            : ["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]
-        }
-        locations={[0, 0.3, 1]}
-        style={[styles.container, { paddingTop: insets.top }]}
+        colors={gradientColors}
+        locations={DEFAULT_LOCATIONS}
+        style={styles.container}
       >
         <AnonContactView
           profile={previewProfile}
@@ -466,6 +473,19 @@ function AppClipContent() {
           token={token}
           onSignIn={handleSignIn}
         />
+        {/* Show error overlay on the card if sign-in failed */}
+        {error && (
+          <View style={styles.errorOverlay}>
+            <Text style={styles.errorOverlayText}>{error}</Text>
+          </View>
+        )}
+        {/* Show loading overlay while authenticating */}
+        {isAuthenticating && (
+          <View style={styles.authOverlay}>
+            <ActivityIndicator size="large" color="#22c55e" />
+            <Text style={styles.loadingText}>Signing in...</Text>
+          </View>
+        )}
       </LinearGradient>
     );
   }
@@ -473,9 +493,9 @@ function AppClipContent() {
   // Fallback - should not reach here
   return (
     <LinearGradient
-      colors={["rgba(34, 197, 94, 0.3)", "rgba(34, 197, 94, 0.12)", "#0a0f1a"]}
-      locations={[0, 0.3, 1]}
-      style={[styles.container, { paddingTop: insets.top + 24 }]}
+      colors={DEFAULT_GRADIENT}
+      locations={DEFAULT_LOCATIONS}
+      style={styles.container}
     >
       <View style={styles.centered}>
         <Text style={styles.errorText}>Something went wrong</Text>
@@ -497,7 +517,6 @@ export default function AppClip() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   centered: {
     flex: 1,
@@ -515,5 +534,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     marginBottom: 16,
+  },
+  errorOverlay: {
+    position: "absolute",
+    bottom: 100,
+    left: 16,
+    right: 16,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  errorOverlayText: {
+    color: "#ef4444",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  authOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
   },
 });
