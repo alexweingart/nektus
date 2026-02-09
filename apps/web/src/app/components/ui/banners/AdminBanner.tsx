@@ -54,7 +54,7 @@ export default function AdminBanner() {
           revokeBody.email = userEmail;
         }
         
-        const response = await fetch('/api/auth/revoke', {
+        const response = await fetch('/api/auth/google/revoke', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

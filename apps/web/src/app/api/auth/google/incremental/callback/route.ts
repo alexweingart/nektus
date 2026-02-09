@@ -6,10 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { 
-  getIncrementalAuthState, 
-  deleteIncrementalAuthState, 
-  storeContactsAccessToken 
+import {
+  getIncrementalAuthState,
+  deleteIncrementalAuthState,
+  storeContactsAccessToken
 } from '@/server/auth/google-incremental';
 
 export async function GET(request: NextRequest) {
@@ -70,14 +70,14 @@ export async function GET(request: NextRequest) {
     // Handle silent auth failures - retry with consent
     if (error === 'interaction_required' || error === 'consent_required' || error === 'login_required') {
       console.log(`🔄 Silent auth failed (${error}), retrying with consent for user ${session.user.id}`);
-      
+
       // Try to get state data for retry parameters
       let retryParams = {
         returnUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/x/`,
         contactSaveToken: '',
         profileId: ''
       };
-      
+
       if (state) {
         const stateData = await getIncrementalAuthState(state);
         if (stateData) {
@@ -90,19 +90,19 @@ export async function GET(request: NextRequest) {
           await deleteIncrementalAuthState(state);
         }
       }
-      
+
       // Retry with consent prompt
       const requestUrl = new URL(request.url);
       const currentPort = requestUrl.port || '3000';
       const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
 
       // Build retry URL with attempt=explicit (Android-friendly)
-      const retryUrl = new URL(`${nextAuthUrl}/api/auth/google-incremental`);
+      const retryUrl = new URL(`${nextAuthUrl}/api/auth/google/incremental`);
       retryUrl.searchParams.set('returnUrl', retryParams.returnUrl);
       retryUrl.searchParams.set('contactSaveToken', retryParams.contactSaveToken);
       retryUrl.searchParams.set('profileId', retryParams.profileId);
       retryUrl.searchParams.set('attempt', 'explicit');
-      
+
       return NextResponse.redirect(retryUrl.toString());
     }
 
@@ -145,12 +145,12 @@ export async function GET(request: NextRequest) {
 
     // Exchange authorization code for access token
     console.log(`🔄 Exchanging authorization code for access token: ${session.user.id}`);
-    
+
     // Use consistent port detection for redirect_uri
     const requestUrl = new URL(request.url);
     const currentPort = requestUrl.port || '3000';
     const nextAuthUrl = process.env.NEXTAUTH_URL || `http://localhost:${currentPort}`;
-    
+
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -159,12 +159,12 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `${nextAuthUrl}/api/auth/google-incremental/callback`
+        redirect_uri: `${nextAuthUrl}/api/auth/google/incremental/callback`
       })
     });
 
     const tokenData = await tokenResponse.json();
-    
+
     if (!tokenResponse.ok) {
       console.error('❌ Token exchange failed:', tokenData);
       return NextResponse.redirect(`${nextAuthUrl}/?error=token_exchange_failed&details=${encodeURIComponent(tokenData.error || 'Unknown error')}`);
@@ -179,8 +179,8 @@ export async function GET(request: NextRequest) {
     // Store the contacts access token securely
     try {
       await storeContactsAccessToken(
-        session.user.id, 
-        tokenData.access_token, 
+        session.user.id,
+        tokenData.access_token,
         tokenData.refresh_token
       );
       console.log(`✅ Stored contacts access token for user: ${session.user.id}`);
@@ -204,9 +204,9 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Incremental auth successful for user ${session.user.id}, redirecting to: ${returnUrl.toString()}`);
 
     return NextResponse.redirect(returnUrl.toString());
-    
+
   } catch (error) {
     console.error('❌ Incremental auth callback error:', error);
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=callback_error&details=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`);
   }
-} 
+}

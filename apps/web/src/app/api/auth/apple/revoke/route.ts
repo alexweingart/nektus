@@ -54,7 +54,7 @@ async function generateAppleClientSecret(): Promise<string | null> {
  * 2. Signals to Apple that the user has disconnected from the app
  * 3. Causes Apple to show "Create Account" instead of "Sign in" on next auth
  *
- * POST /api/auth/apple-revoke
+ * POST /api/auth/apple/revoke
  * Body: { refreshToken: string }
  * Headers: Authorization: Bearer <firebase-id-token>
  */

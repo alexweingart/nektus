@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const returnUrl = url.searchParams.get('returnUrl');
     const contactSaveToken = url.searchParams.get('contactSaveToken');
     const profileId = url.searchParams.get('profileId');
-    
+
     // Extract attempt parameter to handle two-step flow with debugging
     const attempt = url.searchParams.get('attempt') || 'silent';
     console.log(`🔍 Auth attempt type: "${attempt}"`);
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     // Validate required parameters
     if (!returnUrl || !contactSaveToken || !profileId) {
       console.warn('⚠️ Incremental auth missing required parameters:', { returnUrl, contactSaveToken, profileId });
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Missing required parameters',
         required: ['returnUrl', 'contactSaveToken', 'profileId']
       }, { status: 400 });
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     // Generate secure state parameter for CSRF protection
     const state = randomBytes(32).toString('hex');
-    
+
     // Store auth state securely with timestamp
     const stateData = {
       userId: session.user.id,
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       profileId,
       timestamp: Date.now()
     };
-    
+
     try {
       await storeIncrementalAuthState(state, stateData);
       console.log(`✅ Stored incremental auth state for user ${session.user.id}`);
@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Build Google OAuth URL for incremental authorization
-    const callbackUrl = `${nextAuthUrl}/api/auth/google-incremental/callback`;
+    const callbackUrl = `${nextAuthUrl}/api/auth/google/incremental/callback`;
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    
+
     googleAuthUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID);
     googleAuthUrl.searchParams.append('redirect_uri', callbackUrl);
     googleAuthUrl.searchParams.append('response_type', 'code');
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append('state', state);
     googleAuthUrl.searchParams.append('access_type', 'offline');
     googleAuthUrl.searchParams.append('include_granted_scopes', 'true'); // Key for incremental auth
-    
+
     // Platform-optimized prompt handling
     const userAgent = request.headers.get('user-agent') || '';
     const isIOS = /iPad|iPhone|iPod/i.test(userAgent);
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     }
     console.log(`🔍 Final prompt value: ${googleAuthUrl.searchParams.get('prompt') || '(none)'}`);
     console.log(`🔍 User-Agent: ${userAgent.substring(0, 100)}...`);
-    
+
     // Add login hint if available to suggest the correct account
     if (session.user.email) {
       googleAuthUrl.searchParams.append('login_hint', session.user.email);
@@ -139,14 +139,14 @@ export async function GET(request: NextRequest) {
     console.log(`🎯 Profile ID: ${profileId}`);
     console.log(`🔗 Callback URL: ${callbackUrl}`);
     console.log(`🌐 Full Google Auth URL: ${googleAuthUrl.toString()}`);
-    
+
     return NextResponse.redirect(googleAuthUrl.toString());
-    
+
   } catch (error) {
     console.error('❌ Incremental auth endpoint error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
-} 
+}

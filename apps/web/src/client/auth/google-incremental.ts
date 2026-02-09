@@ -289,7 +289,7 @@ export async function startIncrementalAuth(contactSaveToken: string, profileId: 
   }
 
   // Build auth URL using existing endpoint
-  const authUrl = `/api/auth/google-incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=${attempt}`;
+  const authUrl = `/api/auth/google/incremental?returnUrl=${encodeURIComponent(window.location.href)}&contactSaveToken=${encodeURIComponent(contactSaveToken)}&profileId=${encodeURIComponent(profileId)}&attempt=${attempt}`;
 
   window.location.href = authUrl;
 

@@ -66,7 +66,7 @@ export default function AdminBanner() {
                   console.log('[AdminBanner] Found Apple refresh token, attempting revocation...');
                   const baseUrl = getApiBaseUrl();
                   const revokeResponse = await fetch(
-                    `${baseUrl}/api/auth/apple-revoke`,
+                    `${baseUrl}/api/auth/apple/revoke`,
                     {
                       method: 'POST',
                       headers: {

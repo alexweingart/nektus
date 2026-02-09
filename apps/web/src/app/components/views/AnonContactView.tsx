@@ -162,7 +162,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
       if (port && port !== '443' && port !== '80') {
         origin += `:${port}`;
       }
-      const redirectURI = `${origin}/api/auth/apple-callback`;
+      const redirectURI = `${origin}/api/auth/apple/callback`;
 
       // Generate random state for CSRF protection
       const state = crypto.randomUUID();
