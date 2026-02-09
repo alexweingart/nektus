@@ -1,6 +1,13 @@
 /**
  * AddCalendarModal - Modal for selecting and connecting a calendar provider
  * Supports Google, Microsoft, and Apple calendars
+ *
+ * Google/Microsoft: Opens OAuth in browser, extracts auth code from redirect,
+ * then exchanges code server-side via /api/calendar-connections/mobile-token
+ * (authenticated with Firebase Bearer token).
+ *
+ * Apple: Opens AppleCalendarSetupModal for CalDAV credentials, then POSTs
+ * to the same mobile-token endpoint.
  */
 
 import React, { useState } from 'react';
@@ -8,16 +15,24 @@ import {
   View,
   StyleSheet,
   Alert,
+  Linking,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import * as WebBrowser from 'expo-web-browser';
 import { StandardModal } from './StandardModal';
+import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
 import type { FieldSection } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
+import { getIdToken } from '../../../../client/auth/firebase';
 
-// Ensure web browser sessions are completed
-WebBrowser.maybeCompleteAuthSession();
+// Try to load expo-web-browser, fall back gracefully in App Clip where native module is excluded
+let WebBrowser: typeof import('expo-web-browser') | null = null;
+try {
+  WebBrowser = require('expo-web-browser');
+  WebBrowser?.maybeCompleteAuthSession();
+} catch {
+  // expo-web-browser native module not available (App Clip) — will fall back to Linking
+}
 
 interface AddCalendarModalProps {
   isOpen: boolean;
@@ -77,40 +92,76 @@ export function AddCalendarModal({
   onCalendarAdded,
 }: AddCalendarModalProps) {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
+  const [showAppleModal, setShowAppleModal] = useState(false);
   const apiBaseUrl = getApiBaseUrl();
+
+  /**
+   * Exchange an OAuth auth code or Apple credentials with the server
+   * via Firebase Bearer token authentication.
+   */
+  const postToMobileExchange = async (payload: Record<string, string>) => {
+    const idToken = await getIdToken();
+    if (!idToken) {
+      throw new Error('Not authenticated. Please sign in again.');
+    }
+
+    const response = await fetch(`${apiBaseUrl}/api/calendar-connections/mobile-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to connect calendar');
+    }
+    return data;
+  };
+
+  const handleAppleConnect = async (appleId: string, appPassword: string) => {
+    try {
+      await postToMobileExchange({
+        provider: 'apple',
+        section,
+        userEmail,
+        appleId,
+        appSpecificPassword: appPassword,
+      });
+      onCalendarAdded();
+      onClose();
+    } catch (error) {
+      throw error; // Re-throw so AppleCalendarSetupModal can show the error
+    }
+  };
 
   const handleAddCalendar = async (provider: 'google' | 'microsoft' | 'apple') => {
     if (isConnecting) return;
 
+    if (provider === 'apple') {
+      setShowAppleModal(true);
+      return;
+    }
+
     try {
       setIsConnecting(provider);
 
-      if (provider === 'apple') {
-        // Apple Calendar requires CalDAV credentials
-        // TODO: Show AppleCalendarSetupModal
-        Alert.alert(
-          'Apple Calendar',
-          'Apple Calendar requires an app-specific password. This feature is coming soon.',
-          [{ text: 'OK' }]
-        );
-        setIsConnecting(null);
-        return;
-      }
-
-      // For Google and Microsoft, we need to open the OAuth flow
       // Build the OAuth URL
       const oauthEndpoint = provider === 'google'
         ? 'https://accounts.google.com/o/oauth2/v2/auth'
         : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 
       const clientId = provider === 'google'
-        ? process.env.EXPO_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID
+        ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
         : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID;
 
       if (!clientId) {
         throw new Error(`${provider} client ID not configured`);
       }
 
+      // Use the server callback URL as the redirect URI (registered with OAuth providers)
       const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
 
       const scope = provider === 'google'
@@ -131,7 +182,7 @@ export function AddCalendarModal({
         state,
         ...(provider === 'google' ? {
           access_type: 'offline',
-          prompt: 'select_account',
+          prompt: 'consent',
           include_granted_scopes: 'true',
           login_hint: userEmail,
         } : {
@@ -142,83 +193,115 @@ export function AddCalendarModal({
       const authUrl = `${oauthEndpoint}?${params.toString()}`;
 
       // Open OAuth in browser
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        redirectUri,
-        { showInRecents: true }
-      );
+      if (WebBrowser) {
+        // Full app: use expo-web-browser for in-app auth session
+        const result = await WebBrowser.openAuthSessionAsync(
+          authUrl,
+          redirectUri,
+          { showInRecents: true }
+        );
 
-      if (result.type === 'success') {
-        // Calendar was connected successfully
-        onCalendarAdded();
-        onClose();
-      } else if (result.type === 'cancel') {
-        // User cancelled
-        console.log('[AddCalendarModal] User cancelled OAuth flow');
+        if (result.type === 'success' && result.url) {
+          const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          const error = url.searchParams.get('error');
+
+          if (error) {
+            throw new Error(`OAuth error: ${error}`);
+          }
+
+          if (!code) {
+            throw new Error('No authorization code received');
+          }
+
+          await postToMobileExchange({
+            provider,
+            code,
+            redirectUri,
+            section,
+            userEmail,
+          });
+
+          onCalendarAdded();
+          onClose();
+        } else if (result.type === 'cancel') {
+          console.log('[AddCalendarModal] User cancelled OAuth flow');
+        }
+      } else {
+        // App Clip: fall back to opening in external browser
+        await Linking.openURL(authUrl);
       }
     } catch (error) {
       console.error(`[AddCalendarModal] Error connecting ${provider} calendar:`, error);
-      Alert.alert('Error', `Failed to connect ${provider}. Please try again.`);
+      Alert.alert('Error', error instanceof Error ? error.message : `Failed to connect ${provider}. Please try again.`);
     } finally {
       setIsConnecting(null);
     }
   };
 
   return (
-    <StandardModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Add Calendar"
-      subtitle="Make finding time effortless! Nekt only reads free/busy info and stores no data."
-      showPrimaryButton={false}
-      showSecondaryButton={true}
-      secondaryButtonText="Cancel"
-      showCloseButton={false}
-    >
-      <View style={styles.buttonsContainer}>
-        {/* Google Calendar */}
-        <Button
-          variant="white"
-          size="lg"
-          onPress={() => handleAddCalendar('google')}
-          disabled={isConnecting === 'google'}
-          loading={isConnecting === 'google'}
-          loadingText="Connecting..."
-          icon={<GoogleIcon />}
-          style={styles.providerButton}
-        >
-          Google Calendar
-        </Button>
+    <>
+      <StandardModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Add Calendar"
+        subtitle="Make finding time effortless! Nekt only reads free/busy info and stores no data."
+        showPrimaryButton={false}
+        showSecondaryButton={true}
+        secondaryButtonText="Cancel"
+        showCloseButton={false}
+      >
+        <View style={styles.buttonsContainer}>
+          {/* Google Calendar */}
+          <Button
+            variant="white"
+            size="lg"
+            onPress={() => handleAddCalendar('google')}
+            disabled={isConnecting === 'google'}
+            loading={isConnecting === 'google'}
+            loadingText="Connecting..."
+            icon={<GoogleIcon />}
+            style={styles.providerButton}
+          >
+            Google Calendar
+          </Button>
 
-        {/* Microsoft Calendar */}
-        <Button
-          variant="white"
-          size="lg"
-          onPress={() => handleAddCalendar('microsoft')}
-          disabled={isConnecting === 'microsoft'}
-          loading={isConnecting === 'microsoft'}
-          loadingText="Connecting..."
-          icon={<MicrosoftIcon />}
-          style={styles.providerButton}
-        >
-          Microsoft Calendar
-        </Button>
+          {/* Microsoft Calendar */}
+          <Button
+            variant="white"
+            size="lg"
+            onPress={() => handleAddCalendar('microsoft')}
+            disabled={isConnecting === 'microsoft'}
+            loading={isConnecting === 'microsoft'}
+            loadingText="Connecting..."
+            icon={<MicrosoftIcon />}
+            style={styles.providerButton}
+          >
+            Microsoft Calendar
+          </Button>
 
-        {/* Apple Calendar */}
-        <Button
-          variant="white"
-          size="lg"
-          onPress={() => handleAddCalendar('apple')}
-          disabled={isConnecting === 'apple'}
-          loading={isConnecting === 'apple'}
-          loadingText="Connecting..."
-          icon={<AppleIcon />}
-          style={styles.providerButton}
-        >
-          Apple Calendar
-        </Button>
-      </View>
-    </StandardModal>
+          {/* Apple Calendar */}
+          <Button
+            variant="white"
+            size="lg"
+            onPress={() => handleAddCalendar('apple')}
+            disabled={isConnecting === 'apple'}
+            loading={isConnecting === 'apple'}
+            loadingText="Connecting..."
+            icon={<AppleIcon />}
+            style={styles.providerButton}
+          >
+            Apple Calendar
+          </Button>
+        </View>
+      </StandardModal>
+
+      <AppleCalendarSetupModal
+        isOpen={showAppleModal}
+        onClose={() => setShowAppleModal(false)}
+        onConnect={handleAppleConnect}
+      />
+    </>
   );
 }
 
