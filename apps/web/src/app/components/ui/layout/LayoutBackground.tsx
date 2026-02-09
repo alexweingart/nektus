@@ -187,7 +187,7 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    document.documentElement.style.setProperty('--default-background-image', 'url("/DefaultBackgroundImage.png")');
+    document.documentElement.style.setProperty('--default-background-image', 'url("/default-background-image.png")');
 
     return () => {
       document.documentElement.style.removeProperty('--default-background-image');

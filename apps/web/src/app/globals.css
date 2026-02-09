@@ -181,7 +181,7 @@ body {
      - Extends to full screen height (852px on iPhone 14)
 
    Layer 1: Default Background (body::after)
-     - Static background image (DefaultBackgroundImage.png)
+     - Static background image (default-background-image.png)
      - Fallback for users with prefers-reduced-motion
      - Controlled by body.show-default-background class
 

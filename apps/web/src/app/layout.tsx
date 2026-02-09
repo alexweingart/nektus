@@ -83,7 +83,7 @@ export default function RootLayout({
         {/* Smart App Banner for App Clip */}
         <meta name="apple-itunes-app" content="app-clip-bundle-id=com.nektus.app.Clip, app-clip-display=card" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
+        <link rel="icon" type="image/png" href="/pwa/nektus-logo-pwa-192x192.png" sizes="192x192" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32" />
       </head>

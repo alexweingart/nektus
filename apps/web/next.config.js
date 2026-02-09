@@ -155,7 +155,7 @@ const config = process.env.NODE_ENV === 'production'
           },
         },
         {
-          urlPattern: /\/favicon\.(ico|svg|png)$/,
+          urlPattern: /\/favicon\.(ico|svg)$/,
           handler: 'NetworkOnly',
           options: {
             cacheName: 'favicon-cache-v2',
