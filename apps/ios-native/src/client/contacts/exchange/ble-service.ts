@@ -404,6 +404,7 @@ export class BLEExchangeService {
         youAre: isInitiator ? 'A' : 'B',
         profile: {
           userId: peerPayload.userId,
+          shortCode: '', // Not sent over BLE
           profileImage: peerPayload.profileImage,
           backgroundImage: '', // Not sent over BLE
           backgroundColors: peerPayload.backgroundColors,

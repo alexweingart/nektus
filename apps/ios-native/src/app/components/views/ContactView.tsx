@@ -144,6 +144,7 @@ export function ContactView(props: ContactViewProps = {}) {
           // Create mock profile for testing with robot avatar and vibrant colors
           const mockProfile: UserProfile = {
             userId: 'mock-user-123',
+            shortCode: 'demo1234',
             profileImage: getDemoRobotAvatarUri(),
             backgroundImage: '',
             lastUpdated: Date.now(),
@@ -486,24 +487,28 @@ export function ContactView(props: ContactViewProps = {}) {
       (cal) => cal.section === 'personal'
     );
 
+    const contactUserId = userId || profile?.userId || '';
+
     if (userHasCalendar) {
       navigation?.navigate('SmartSchedule', {
-        contactUserId: userId || '',
+        contactUserId,
         backgroundColors: profile?.backgroundColors,
+        contactProfile: profile,
       });
     } else {
       setShowAddCalendarModal(true);
     }
-  }, [session?.user?.id, userProfile?.calendars, navigation, userId, profile?.backgroundColors]);
+  }, [session?.user?.id, userProfile?.calendars, navigation, userId, profile]);
 
   // Handle calendar added from modal - navigate to smart schedule
   const handleCalendarAdded = useCallback(() => {
     setShowAddCalendarModal(false);
     navigation?.navigate('SmartSchedule', {
-      contactUserId: userId || '',
+      contactUserId: userId || profile?.userId || '',
       backgroundColors: profile?.backgroundColors,
+      contactProfile: profile,
     });
-  }, [navigation, userId, profile?.backgroundColors]);
+  }, [navigation, userId, profile]);
 
   // Loading state
   if (isLoading) {
@@ -602,6 +607,14 @@ export function ContactView(props: ContactViewProps = {}) {
                     </Text>
                   )}
                 </Button>
+
+                {isSaved && (
+                  <View style={styles.secondaryButtonContainer}>
+                    <SecondaryButton onPress={handleScheduleMeetUp}>
+                      Schedule next meet up now!
+                    </SecondaryButton>
+                  </View>
+                )}
 
                 {!isSaved && (
                   <View style={styles.secondaryButtonContainer}>

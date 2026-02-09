@@ -63,11 +63,84 @@ export interface VCardOptions {
 }
 
 /**
- * Generate vCard 3.0 string from profile data
- * Note: Photo is not included in iOS version to keep it simple and fast
+ * Detect image type from content-type header or URL
  */
-export function generateVCard(profile: UserProfile, options: VCardOptions = {}): string {
+function detectImageType(contentType: string, url: string): string {
+  if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) return 'JPEG';
+  if (contentType.includes('image/png')) return 'PNG';
+  if (contentType.includes('image/gif')) return 'GIF';
+  if (contentType.includes('image/webp')) return 'WEBP';
+
+  const urlLower = url.toLowerCase();
+  if (urlLower.includes('.png')) return 'PNG';
+  if (urlLower.includes('.gif')) return 'GIF';
+  if (urlLower.includes('.webp')) return 'WEBP';
+
+  return 'JPEG';
+}
+
+/**
+ * Format base64 photo data as a vCard PHOTO line with proper line folding
+ */
+function formatPhotoLine(base64Data: string, imageType: string = 'JPEG'): string {
+  const photoPrefix = `PHOTO;ENCODING=BASE64;TYPE=${imageType}:`;
+  const prefixLength = photoPrefix.length;
+  const firstLineSpace = 75 - prefixLength;
+  const firstChunk = base64Data.slice(0, firstLineSpace);
+  const remainingData = base64Data.slice(firstLineSpace);
+
+  let photoLine = photoPrefix + firstChunk;
+
+  for (let i = 0; i < remainingData.length; i += 74) {
+    const chunk = remainingData.slice(i, i + 74);
+    photoLine += '\r\n ' + chunk;
+  }
+
+  return photoLine;
+}
+
+/**
+ * Download and encode a profile image as a base64 vCard PHOTO line
+ */
+async function makePhotoLine(imageUrl: string): Promise<string> {
+  try {
+    const tempPath = `${FileSystem.cacheDirectory}vcard_photo_${Date.now()}.tmp`;
+
+    const downloadResult = await FileSystem.downloadAsync(imageUrl, tempPath);
+
+    if (downloadResult.status !== 200) {
+      throw new Error(`Failed to fetch image: ${downloadResult.status}`);
+    }
+
+    // Check file size - skip if too large
+    const fileInfo = await FileSystem.getInfoAsync(tempPath);
+    if (fileInfo.exists && fileInfo.size && fileInfo.size > 1.5 * 1024 * 1024) {
+      throw new Error('Image too large (>1.5MB)');
+    }
+
+    const b64 = await FileSystem.readAsStringAsync(tempPath, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Clean up temp file
+    FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+
+    const contentType = downloadResult.headers?.['content-type'] || downloadResult.headers?.['Content-Type'] || '';
+    const imageType = detectImageType(contentType, imageUrl);
+
+    return formatPhotoLine(b64, imageType);
+  } catch (error) {
+    console.warn('[vCard] Failed to encode photo:', error instanceof Error ? error.message : error);
+    return '';
+  }
+}
+
+/**
+ * Generate vCard 3.0 string from profile data
+ */
+export async function generateVCard(profile: UserProfile, options: VCardOptions = {}): Promise<string> {
   const {
+    includePhoto = true,
     includeSocialMedia = false, // Disabled by default for faster save UI
     includeNotes = true,
     contactUrl,
@@ -99,6 +172,18 @@ export function generateVCard(profile: UserProfile, options: VCardOptions = {}):
     const emailEntry = profile.contactEntries.find(e => e.fieldType === 'email');
     if (emailEntry?.value) {
       lines.push(`EMAIL:${escapeVCardValue(emailEntry.value)}`);
+    }
+  }
+
+  // Profile photo
+  if (includePhoto && profile.profileImage) {
+    try {
+      const photoLine = await makePhotoLine(profile.profileImage);
+      if (photoLine.trim() !== '') {
+        lines.push(photoLine);
+      }
+    } catch (error) {
+      console.warn('[vCard] Failed to encode photo for vCard:', error);
     }
   }
 
@@ -165,7 +250,7 @@ export function generateVCardFilename(profile: UserProfile): string {
  */
 export async function openVCard(profile: UserProfile, options?: VCardOptions): Promise<boolean> {
   try {
-    const vCardContent = generateVCard(profile, options);
+    const vCardContent = await generateVCard(profile, options);
     const filename = generateVCardFilename(profile);
     const filePath = `${FileSystem.cacheDirectory}${filename}`;
 

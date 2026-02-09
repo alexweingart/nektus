@@ -33,6 +33,15 @@ export interface MeCardData {
 }
 
 /**
+ * Generate the Nekt profile URL for a contact
+ */
+function getContactUrl(profile: UserProfile): string | undefined {
+  if (!profile.shortCode) return undefined;
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}/c/${profile.shortCode}`;
+}
+
+/**
  * Request contacts permission
  */
 async function requestContactsPermission(): Promise<boolean> {
@@ -60,6 +69,7 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
     const name = getFieldValue(profile.contactEntries, 'name') || '';
     const email = getFieldValue(profile.contactEntries, 'email') || '';
     const phone = getFieldValue(profile.contactEntries, 'phone') || '';
+    const contactUrl = getContactUrl(profile);
 
     const nameParts = name.split(' ');
     const firstName = nameParts[0] || '';
@@ -70,10 +80,19 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
       familyName: lastName,
       emailAddresses: email ? [{ label: 'home', email }] : [],
       phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
-      note: `Added via Nekt on ${new Date().toLocaleDateString()}`,
+      urlAddresses: contactUrl ? [{ url: contactUrl, label: 'Nekt' }] : [],
+      note: contactUrl
+        ? `Added via Nekt on ${new Date().toLocaleDateString()} | ${contactUrl}`
+        : `Added via Nekt on ${new Date().toLocaleDateString()}`,
     };
 
+    // Set profile image URL — the native iOS Contacts bridge fetches it directly
+    if (profile.profileImage) {
+      newContact.thumbnailPath = profile.profileImage;
+    }
+
     await Contacts.addContact(newContact as Contact);
+
     return { success: true };
   } catch (error) {
     console.error('Failed to save to native contacts:', error);
@@ -166,7 +185,8 @@ export async function saveContactFlow(
   // App Clip: Use vCard only (no contacts access available)
   if (isAppClip()) {
     console.log('📱 App Clip: Using vCard fallback');
-    const vCardOpened = await openVCard(profile);
+    const contactUrl = getContactUrl(profile);
+    const vCardOpened = await openVCard(profile, { includePhoto: true, contactUrl });
     return {
       success: true,
       firebase: firebaseResult,
@@ -206,7 +226,8 @@ export async function saveContactFlow(
   // If permission denied, fall back to vCard
   if (!nativeResult.success && nativeResult.error === 'Contacts permission denied') {
     console.log('📱 Permission denied, falling back to vCard');
-    const vCardOpened = await openVCard(profile);
+    const contactUrl = getContactUrl(profile);
+    const vCardOpened = await openVCard(profile, { includePhoto: true, contactUrl });
     return {
       success: true,
       firebase: firebaseResult,
