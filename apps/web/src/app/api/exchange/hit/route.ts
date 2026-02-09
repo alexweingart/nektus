@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
+import { getAuthenticatedUser } from '@/server/auth/get-authenticated-user';
 import type { ContactExchangeRequest, ContactExchangeResponse } from '@/types/contactExchange';
 import type { UserProfile } from '@/types/profile';
 import {

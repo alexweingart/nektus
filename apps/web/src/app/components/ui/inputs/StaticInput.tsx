@@ -4,7 +4,7 @@
  */
 
 import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react';
-import { EyeIcon } from '../icons/EyeIcon';
+import { EyeIcon } from '../elements/EyeIcon';
 
 interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: ReactNode;

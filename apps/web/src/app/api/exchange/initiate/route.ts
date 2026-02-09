@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/server/auth/getAuthenticatedUser';
+import { getAuthenticatedUser } from '@/server/auth/get-authenticated-user';
 import { redis } from '@/server/config/redis';
 import { getProfile } from '@/server/config/firebase';
 

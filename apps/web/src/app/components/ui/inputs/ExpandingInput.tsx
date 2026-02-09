@@ -6,7 +6,7 @@
 'use client';
 
 import React, { forwardRef, TextareaHTMLAttributes, useEffect } from 'react';
-import { EyeIcon } from '../icons/EyeIcon';
+import { EyeIcon } from '../elements/EyeIcon';
 
 interface ExpandingInputProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   value?: string;

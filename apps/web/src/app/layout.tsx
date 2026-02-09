@@ -7,7 +7,6 @@ import { ProfileProvider } from "./context/ProfileContext";
 import AdminModeProvider from './providers/AdminModeProvider';
 import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
-import { HeightDebugger } from './components/debug/HeightDebugger';
 import { ScrollBehavior } from './components/ui/layout/ScrollBehavior';
 
 const inter = Inter({
@@ -92,7 +91,6 @@ export default function RootLayout({
           <ProfileProvider>
             <AdminModeProvider>
               <ScrollBehavior />
-              <HeightDebugger />
               {/* V2: LayoutBackground wraps children - no wrapper div needed */}
               <LayoutBackground>
                 <AdminBanner />
