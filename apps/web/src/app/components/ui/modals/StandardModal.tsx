@@ -61,7 +61,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="w-full max-w-[var(--max-content-width,448px)] grid gap-6 bg-black/80 border border-white/20 p-8 shadow-lg rounded-2xl animate-modal-enter relative [&>*]:min-w-0">
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-4 select-none">
               {/* Title */}
               <Dialog.Title asChild>
                 <Heading as="h2">
