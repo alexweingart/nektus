@@ -18,6 +18,7 @@ import {
   Linking,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
+import * as ExpoLinking from 'expo-linking';
 import { StandardModal } from './StandardModal';
 import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
@@ -163,10 +164,14 @@ export function AddCalendarModal({
       ? 'https://www.googleapis.com/auth/calendar.readonly'
       : 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access';
 
+    // Build app callback URL using Expo's linking (handles exp+nekt:// in dev, nekt:// in prod)
+    const appCallbackUrl = ExpoLinking.createURL('calendar-callback');
+
     const state = encodeURIComponent(JSON.stringify({
       userEmail,
       section,
       platform: 'ios',
+      appCallbackUrl,
     }));
 
     const params = new URLSearchParams({
@@ -192,18 +197,13 @@ export function AddCalendarModal({
     if (WebBrowser) {
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        redirectUri,
+        appCallbackUrl,
         { showInRecents: true }
       );
 
       if (result.type === 'success' && result.url) {
         const url = new URL(result.url);
         const code = url.searchParams.get('code');
-        const error = url.searchParams.get('error');
-
-        if (error) {
-          throw new Error(`OAuth error: ${error}`);
-        }
 
         if (!code) {
           throw new Error('No authorization code received');

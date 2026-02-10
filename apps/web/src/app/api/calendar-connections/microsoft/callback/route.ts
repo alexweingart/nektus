@@ -13,11 +13,6 @@ import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/shared/con
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.redirect(new URL('/sign-in?error=unauthorized', request.url));
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
@@ -29,7 +24,21 @@ export async function GET(request: NextRequest) {
       section: 'personal' | 'work';
       returnUrl?: string;
       redirectTo?: string;
+      platform?: string;
+      appCallbackUrl?: string;
     } : null;
+
+    // iOS app: redirect the auth code back to the app via custom URL scheme
+    // The app will exchange the code via /api/calendar-connections/mobile-token
+    if (stateData?.platform === 'ios' && stateData?.appCallbackUrl && code) {
+      const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
+      return NextResponse.redirect(appRedirect);
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.redirect(new URL('/sign-in?error=unauthorized', request.url));
+    }
 
     const returnUrl = stateData?.returnUrl || '/edit';
     const redirectTo = stateData?.redirectTo || returnUrl;
