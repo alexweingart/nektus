@@ -15,12 +15,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
 import { ContactView } from "./src/app/components/views/ContactView";
 import { Button } from "./src/app/components/ui/buttons/Button";
 import { PhoneEntryModal } from "./src/app/components/ui/modals/PhoneEntryModal";
+import { ParticleNetworkLite } from "./src/app/components/ui/layout/ParticleNetworkLite";
+import type { ParticleNetworkProps } from "./src/app/components/ui/layout/ParticleNetworkLite";
 import type { UserProfile, ContactEntry } from "@nektus/shared-types";
 import { fetchProfilePreview } from "./src/client/contacts/preview";
 import {
@@ -36,20 +37,30 @@ import { formatPhoneNumber } from "@nektus/shared-client";
 const THEME_DARK = '#0a0f1a';
 const THEME_GREEN = '#145835';
 
-// Default gradient (matches main app's signed-out colors: dark → green → dark)
-const DEFAULT_GRADIENT: [string, string, string] = [THEME_DARK, THEME_GREEN, THEME_DARK];
-const DEFAULT_LOCATIONS: [number, number, number] = [0, 0.5, 1];
+// Default particle colors (matches main app's signed-out/connect theme)
+const DEFAULT_PARTICLE_COLORS: NonNullable<ParticleNetworkProps['colors']> = {
+  gradientStart: THEME_GREEN,
+  gradientEnd: THEME_DARK,
+  particle: 'rgba(200, 255, 200, 0.6)',
+  connection: 'rgba(34, 197, 94, 0.15)',
+};
 
-// Convert profile backgroundColors to gradient matching main app's LayoutBackground
-function convertToGradientColors(backgroundColors: string[]): [string, string, string] {
-  const [dominant, accent1] = backgroundColors;
-  // Match LayoutBackground: dominant at top/bottom, accent1 (0.4 alpha) in middle
-  const cleanHex = accent1.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16);
-  const g = parseInt(cleanHex.substring(2, 4), 16);
-  const b = parseInt(cleanHex.substring(4, 6), 16);
-  const middleColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
-  return [dominant, middleColor, dominant];
+// Convert profile backgroundColors to particle colors matching main app's LayoutBackground
+function convertToParticleColors(backgroundColors: string[]): NonNullable<ParticleNetworkProps['colors']> {
+  const [dominant, accent1, accent2] = backgroundColors;
+  const hexToRgba = (hex: string, alpha: number) => {
+    const cleanHex = hex.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  return {
+    gradientStart: hexToRgba(accent1, 0.4),
+    gradientEnd: dominant,
+    particle: hexToRgba(accent2, 0.8),
+    connection: hexToRgba(accent2, 0.4),
+  };
 }
 
 // Session context for App Clip (simplified, no full Firebase SDK)
@@ -112,12 +123,12 @@ const errorBoundaryStyles = StyleSheet.create({
   },
 });
 
-/** Get gradient colors from a profile, falling back to defaults */
-function getGradient(profile: UserProfile | null): [string, string, string] {
+/** Get particle colors from a profile, falling back to defaults */
+function getParticleColors(profile: UserProfile | null): NonNullable<ParticleNetworkProps['colors']> {
   if (profile?.backgroundColors?.length && profile.backgroundColors.length >= 2) {
-    return convertToGradientColors(profile.backgroundColors);
+    return convertToParticleColors(profile.backgroundColors);
   }
-  return DEFAULT_GRADIENT;
+  return DEFAULT_PARTICLE_COLORS;
 }
 
 function AppClipContent() {
@@ -360,33 +371,28 @@ function AppClipContent() {
     }
   }, [apiBaseUrl]);
 
-  // Determine which gradient to use based on current state
-  const gradientColors = getGradient(fullProfile || previewProfile);
+  // Determine particle colors based on current state
+  const particleColors = getParticleColors(fullProfile || previewProfile);
+  const particleContext = session ? "contact" : "connect";
 
   // Loading state
   if (isLoading) {
     return (
-      <LinearGradient
-        colors={DEFAULT_GRADIENT}
-        locations={DEFAULT_LOCATIONS}
-        style={styles.container}
-      >
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   // Error state (only show if no profile to display behind it)
   if (error && !previewProfile && !fullProfile) {
     return (
-      <LinearGradient
-        colors={DEFAULT_GRADIENT}
-        locations={DEFAULT_LOCATIONS}
-        style={styles.container}
-      >
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
           <Button
@@ -417,35 +423,29 @@ function AppClipContent() {
             Try Again
           </Button>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   // Authenticated - show ContactView (or phone modal if setup needed)
   if (session && fullProfile && token && (phoneEntryComplete || !needsSetup)) {
     return (
-      <LinearGradient
-        colors={gradientColors}
-        locations={DEFAULT_LOCATIONS}
-        style={styles.container}
-      >
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={particleColors} context="contact" />
         <ContactView
           profile={fullProfile}
           token={token}
           sessionUserName={session.userName}
         />
-      </LinearGradient>
+      </View>
     );
   }
 
   // Authenticated but needs phone setup — show loading bg with modal overlay
   if (session && showPhoneModal) {
     return (
-      <LinearGradient
-        colors={gradientColors}
-        locations={DEFAULT_LOCATIONS}
-        style={styles.container}
-      >
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={particleColors} context="contact" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
         </View>
@@ -455,18 +455,15 @@ function AppClipContent() {
           isSaving={isPhoneSaving}
           onSave={handlePhoneSave}
         />
-      </LinearGradient>
+      </View>
     );
   }
 
   // Not authenticated - show AnonContactView (persists behind sign-in and errors)
   if (previewProfile && token) {
     return (
-      <LinearGradient
-        colors={gradientColors}
-        locations={DEFAULT_LOCATIONS}
-        style={styles.container}
-      >
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={particleColors} context="connect" />
         <AnonContactView
           profile={previewProfile}
           socialIconTypes={socialIconTypes}
@@ -486,21 +483,18 @@ function AppClipContent() {
             <Text style={styles.loadingText}>Signing in...</Text>
           </View>
         )}
-      </LinearGradient>
+      </View>
     );
   }
 
   // Fallback - should not reach here
   return (
-    <LinearGradient
-      colors={DEFAULT_GRADIENT}
-      locations={DEFAULT_LOCATIONS}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
       <View style={styles.centered}>
         <Text style={styles.errorText}>Something went wrong</Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -517,6 +511,7 @@ export default function AppClip() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: THEME_DARK,
   },
   centered: {
     flex: 1,
