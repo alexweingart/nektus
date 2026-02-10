@@ -142,7 +142,6 @@ function AppClipContent() {
   const [fullProfile, setFullProfile] = useState<UserProfile | null>(null);
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
@@ -251,7 +250,6 @@ function AppClipContent() {
 
   // Handle Sign in with Apple
   const handleSignIn = useCallback(async () => {
-    setIsAuthenticating(true);
     setError(null);
 
     try {
@@ -307,8 +305,6 @@ function AppClipContent() {
     } catch (err) {
       console.error("[AppClip] Sign in error:", err);
       setError("Sign-in failed. Please try again.");
-    } finally {
-      setIsAuthenticating(false);
     }
   }, []);
 
@@ -476,13 +472,6 @@ function AppClipContent() {
             <Text style={styles.errorOverlayText}>{error}</Text>
           </View>
         )}
-        {/* Show loading overlay while authenticating */}
-        {isAuthenticating && (
-          <View style={styles.authOverlay}>
-            <ActivityIndicator size="large" color="#22c55e" />
-            <Text style={styles.loadingText}>Signing in...</Text>
-          </View>
-        )}
       </View>
     );
   }
@@ -544,12 +533,5 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontSize: 14,
     textAlign: "center",
-  },
-  authOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
   },
 });

@@ -338,6 +338,7 @@ export async function POST(req: NextRequest) {
         // Accept both native app bundle ID and web Services ID
         const validAppleAudiences = [
           "com.nektus.app", // iOS native app bundle ID
+          "com.nektus.app.Clip", // App Clip bundle ID
           process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "com.nektus.web.signin", // Web Services ID
         ];
 
