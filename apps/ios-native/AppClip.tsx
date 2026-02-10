@@ -30,7 +30,7 @@ import {
   isAppleAuthAvailable,
 } from "./src/client/auth/apple";
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
-import { getApiBaseUrl, getIdToken } from "./src/client/auth/firebase";
+import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/firebase";
 import { formatPhoneNumber } from "@nektus/shared-client";
 
 // Background colors matching main app's LayoutBackground
@@ -278,6 +278,9 @@ function AppClipContent() {
         result.email
       );
 
+      // Sign into Firebase with the custom token (needed for authenticated API calls)
+      await signInWithToken(tokenResponse.firebaseToken, tokenResponse.userId);
+
       // Store session for handoff to full app
       await storeSessionForHandoff({
         firebaseToken: tokenResponse.firebaseToken,
@@ -302,9 +305,10 @@ function AppClipContent() {
       }
 
       console.log("[AppClip] Sign in successful, userId:", tokenResponse.userId, "needsSetup:", tokenResponse.needsSetup);
-    } catch (err) {
-      console.error("[AppClip] Sign in error:", err);
-      setError("Sign-in failed. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[AppClip] Sign in error:", message);
+      setError(`Sign-in failed: ${message}`);
     }
   }, []);
 
