@@ -158,9 +158,9 @@ export async function POST(request: NextRequest) {
         tokenData = await tokenResponse.json();
 
         if (!tokenData.refresh_token) {
-          console.error('[mobile-token] Google: no refresh token received');
+          console.error('[mobile-token] Google: no refresh token received, client should retry with consent');
           return NextResponse.json(
-            { error: 'No refresh token received. Please try again and re-authorize.' },
+            { error: 'no_refresh_token', message: 'Please re-authorize to grant offline access.' },
             { status: 400 }
           );
         }

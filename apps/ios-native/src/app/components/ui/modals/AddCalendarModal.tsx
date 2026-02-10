@@ -116,7 +116,10 @@ export function AddCalendarModal({
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to connect calendar');
+      // Throw with the error code so callers can check for specific errors
+      const err = new Error(data.message || data.error || 'Failed to connect calendar');
+      (err as Error & { code?: string }).code = data.error;
+      throw err;
     }
     return data;
   };
@@ -137,6 +140,94 @@ export function AddCalendarModal({
     }
   };
 
+  /**
+   * Run the OAuth browser flow for Google/Microsoft and exchange the code.
+   * If Google doesn't return a refresh token, automatically retries with prompt=consent.
+   */
+  const runOAuthFlow = async (provider: 'google' | 'microsoft', forceConsent = false): Promise<boolean> => {
+    const oauthEndpoint = provider === 'google'
+      ? 'https://accounts.google.com/o/oauth2/v2/auth'
+      : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
+
+    const clientId = provider === 'google'
+      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+      : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID;
+
+    if (!clientId) {
+      throw new Error(`${provider} client ID not configured`);
+    }
+
+    const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
+
+    const scope = provider === 'google'
+      ? 'https://www.googleapis.com/auth/calendar.readonly'
+      : 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access';
+
+    const state = encodeURIComponent(JSON.stringify({
+      userEmail,
+      section,
+      platform: 'ios',
+    }));
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope,
+      state,
+      login_hint: userEmail,
+      ...(provider === 'google' ? {
+        access_type: 'offline',
+        include_granted_scopes: 'true',
+        // Omit prompt so Google only shows what's needed:
+        // skips picker if login_hint matches, shows consent only for new scopes
+        ...(forceConsent ? { prompt: 'consent' } : {}),
+      } : {
+        // Microsoft: omit prompt to skip picker when login_hint matches
+      }),
+    });
+
+    const authUrl = `${oauthEndpoint}?${params.toString()}`;
+
+    if (WebBrowser) {
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri,
+        { showInRecents: true }
+      );
+
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+
+        if (error) {
+          throw new Error(`OAuth error: ${error}`);
+        }
+
+        if (!code) {
+          throw new Error('No authorization code received');
+        }
+
+        await postToMobileExchange({
+          provider,
+          code,
+          redirectUri,
+          section,
+          userEmail,
+        });
+
+        return true; // success
+      }
+      // User cancelled
+      return false;
+    } else {
+      // App Clip: fall back to opening in external browser
+      await Linking.openURL(authUrl);
+      return false;
+    }
+  };
+
   const handleAddCalendar = async (provider: 'google' | 'microsoft' | 'apple') => {
     if (isConnecting) return;
 
@@ -148,88 +239,22 @@ export function AddCalendarModal({
     try {
       setIsConnecting(provider);
 
-      // Build the OAuth URL
-      const oauthEndpoint = provider === 'google'
-        ? 'https://accounts.google.com/o/oauth2/v2/auth'
-        : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
-
-      const clientId = provider === 'google'
-        ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-        : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID;
-
-      if (!clientId) {
-        throw new Error(`${provider} client ID not configured`);
+      let success: boolean;
+      try {
+        success = await runOAuthFlow(provider);
+      } catch (error) {
+        // Google: if no refresh token, retry with consent prompt
+        if (provider === 'google' && (error as Error & { code?: string }).code === 'no_refresh_token') {
+          console.log('[AddCalendarModal] No refresh token, retrying with consent');
+          success = await runOAuthFlow(provider, true);
+        } else {
+          throw error;
+        }
       }
 
-      // Use the server callback URL as the redirect URI (registered with OAuth providers)
-      const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
-
-      const scope = provider === 'google'
-        ? 'https://www.googleapis.com/auth/calendar.readonly'
-        : 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access';
-
-      const state = encodeURIComponent(JSON.stringify({
-        userEmail,
-        section,
-        platform: 'ios',
-      }));
-
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope,
-        state,
-        ...(provider === 'google' ? {
-          access_type: 'offline',
-          prompt: 'consent',
-          include_granted_scopes: 'true',
-          login_hint: userEmail,
-        } : {
-          prompt: 'select_account',
-        }),
-      });
-
-      const authUrl = `${oauthEndpoint}?${params.toString()}`;
-
-      // Open OAuth in browser
-      if (WebBrowser) {
-        // Full app: use expo-web-browser for in-app auth session
-        const result = await WebBrowser.openAuthSessionAsync(
-          authUrl,
-          redirectUri,
-          { showInRecents: true }
-        );
-
-        if (result.type === 'success' && result.url) {
-          const url = new URL(result.url);
-          const code = url.searchParams.get('code');
-          const error = url.searchParams.get('error');
-
-          if (error) {
-            throw new Error(`OAuth error: ${error}`);
-          }
-
-          if (!code) {
-            throw new Error('No authorization code received');
-          }
-
-          await postToMobileExchange({
-            provider,
-            code,
-            redirectUri,
-            section,
-            userEmail,
-          });
-
-          onCalendarAdded();
-          onClose();
-        } else if (result.type === 'cancel') {
-          console.log('[AddCalendarModal] User cancelled OAuth flow');
-        }
-      } else {
-        // App Clip: fall back to opening in external browser
-        await Linking.openURL(authUrl);
+      if (success) {
+        onCalendarAdded();
+        onClose();
       }
     } catch (error) {
       console.error(`[AddCalendarModal] Error connecting ${provider} calendar:`, error);
