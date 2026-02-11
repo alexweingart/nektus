@@ -114,6 +114,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Demo token: skip exchange verification, return success without saving
+    if (token === 'demo') {
+      console.log(`🎭 Demo token detected for user ${userId} - returning mock success`);
+      return NextResponse.json({
+        success: true,
+        firebase: { success: true },
+        google: { success: false, error: 'Skipped for demo' },
+      });
+    }
+
     console.log(`💾 Saving contact for user ${userId} with token: ${token}`, {
       skipGoogleContacts,
       skipFirebase,
