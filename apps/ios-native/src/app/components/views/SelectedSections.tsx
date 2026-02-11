@@ -13,8 +13,7 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  NestableDraggableFlatList,
+import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
 } from 'react-native-draggable-flatlist';
@@ -24,8 +23,8 @@ import { useSession } from '../../providers/SessionProvider';
 import { useDragAndDrop } from '../../../client/hooks/use-drag-and-drop';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
-import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
-import { FieldList } from '../ui/layout/FieldList';
+import { FieldSection as FieldSectionComponent } from '../ui/modules/FieldSection';
+import { FieldList } from '../ui/modules/FieldList';
 import { ProfileField } from '../ui/elements/ProfileField';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
@@ -65,10 +64,8 @@ interface SelectedSectionsProps {
   };
   /** Tint color for the selectors (from profile.backgroundColors[2]) */
   tintColor?: string;
-  /** Callback when drag state changes (for parent overflow handling) */
+  /** Callback when drag state changes (parent disables scroll during drag) */
   onDragStateChange?: (isDragging: boolean) => void;
-  /** Ref to parent scroll container for gesture coordination */
-  scrollRef?: React.RefObject<any>;
 }
 
 // Calendar icon component
@@ -122,7 +119,6 @@ export function SelectedSections({
   getFieldsForView,
   tintColor,
   onDragStateChange,
-  scrollRef,
 }: SelectedSectionsProps) {
   const navigation = useNavigation<NavigationProp>();
   const { signOut } = useSession();
@@ -142,7 +138,7 @@ export function SelectedSections({
     },
   });
 
-  // Wrap drag handlers to notify parent of drag state changes
+  // Wrap drag handlers to disable parent scroll during drag
   const handleDragBegin = useCallback((index: number) => {
     onDragStateChange?.(true);
     dragAndDrop.onDragBegin(index);
@@ -234,7 +230,7 @@ export function SelectedSections({
           </View>
         }
         bottomButton={
-          <View>
+          <View style={styles.bottomContent}>
             {/* Inline Add Link Component */}
             {showInlineAddLink[sectionName] && (
               <View style={styles.inlineAddLink}>
@@ -259,7 +255,7 @@ export function SelectedSections({
           </View>
         }
       >
-        <NestableDraggableFlatList
+        <DraggableFlatList
           data={visibleFields}
           keyExtractor={(item) => `${item.fieldType}-${item.section}`}
           onDragBegin={handleDragBegin}
@@ -267,10 +263,10 @@ export function SelectedSections({
           activationDistance={20}
           dragItemOverflow={true}
           scrollEnabled={false}
-          simultaneousHandlers={scrollRef}
+          autoscrollThreshold={-999}
+          autoscrollSpeed={0}
           style={{ overflow: 'visible' }}
           contentContainerStyle={{ overflow: 'visible' }}
-          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({ item, drag, isActive }: RenderItemParams<ContactEntry>) => (
             <ScaleDecorator activeScale={1.05}>
               <Pressable
@@ -355,6 +351,9 @@ const styles = StyleSheet.create({
   inlineAddLink: {
     marginBottom: 16,
   },
+  bottomContent: {
+    marginTop: -20, // Compensate for last draggable item's marginBottom
+  },
   addLinkButton: {
     alignItems: 'center',
   },
@@ -365,12 +364,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Drag and drop styles
-  itemSeparator: {
-    height: 20, // Match FieldList gap (space-y-5 = 1.25rem = 20px)
-  },
   draggableItem: {
     opacity: 1,
     borderRadius: 28,
+    marginBottom: 20, // Match FieldList gap (space-y-5 = 1.25rem = 20px)
   },
   draggableItemActive: {
     opacity: 0.95,
