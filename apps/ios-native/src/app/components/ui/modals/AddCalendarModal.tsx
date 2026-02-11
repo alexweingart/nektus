@@ -184,9 +184,9 @@ export function AddCalendarModal({
       ...(provider === 'google' ? {
         access_type: 'offline',
         include_granted_scopes: 'true',
-        // Always request consent on iOS to guarantee a refresh token in one pass
-        // (avoids double browser prompt from retry logic)
-        prompt: 'consent',
+        // Omit prompt: Google's consent flow hangs in ASWebAuthenticationSession.
+        // Without prompt, Google auto-redirects (works reliably).
+        // Server handles missing refresh token gracefully.
       } : {
         // Microsoft: omit prompt to skip picker when login_hint matches
       }),

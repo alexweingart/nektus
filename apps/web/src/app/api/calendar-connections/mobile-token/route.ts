@@ -159,11 +159,7 @@ export async function POST(request: NextRequest) {
         tokenData = await tokenResponse.json();
 
         if (!tokenData.refresh_token) {
-          console.error('[mobile-token] Google: no refresh token received, client should retry with consent');
-          return NextResponse.json(
-            { error: 'no_refresh_token', message: 'Please re-authorize to grant offline access.' },
-            { status: 400 }
-          );
+          console.warn('[mobile-token] Google: no refresh token received (re-authorization). Calendar will work until token expires.');
         }
 
         // Get user email from Google userinfo
