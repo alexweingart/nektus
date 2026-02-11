@@ -332,7 +332,7 @@ export function HistoryView() {
           setCalendarContact(null);
         }}
         section={calendarContact?.contactType || 'personal'}
-        userEmail={session?.user?.email || ''}
+        userEmail={session?.user?.email || userProfile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>

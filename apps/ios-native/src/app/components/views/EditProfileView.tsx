@@ -18,8 +18,8 @@ import {
   Animated,
   Dimensions,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
-import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,8 +34,8 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
 import { StaticInput } from '../ui/inputs/StaticInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
-import { FieldSection as FieldSectionComponent } from '../ui/layout/FieldSection';
-import { FieldList } from '../ui/layout/FieldList';
+import { FieldSection as FieldSectionComponent } from '../ui/modules/FieldSection';
+import { FieldList } from '../ui/modules/FieldList';
 import { ProfileField } from '../ui/elements/ProfileField';
 import { ProfileImageIcon } from '../ui/elements/ProfileImageIcon';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
@@ -68,7 +68,7 @@ export function EditProfileView() {
     work: false,
   });
 
-  // Drag state - used to toggle carousel overflow during drag
+  // Drag state - disables scroll during drag so DraggableFlatList can handle pan gesture
   const [isDragging, setIsDragging] = useState(false);
 
   // Field management
@@ -228,13 +228,15 @@ export function EditProfileView() {
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <NestableScrollContainer
+        <ScrollView
           ref={scrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets={true}
+          nestedScrollEnabled={true}
+          scrollEnabled={!isDragging}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -337,7 +339,6 @@ export function EditProfileView() {
                   getFieldsForView={getFieldsForView}
                   tintColor={profile?.backgroundColors?.[2]}
                   onDragStateChange={setIsDragging}
-                  scrollRef={scrollRef}
                 />
               </Animated.View>
 
@@ -378,7 +379,6 @@ export function EditProfileView() {
                   getFieldsForView={getFieldsForView}
                   tintColor={profile?.backgroundColors?.[2]}
                   onDragStateChange={setIsDragging}
-                  scrollRef={scrollRef}
                 />
               </Animated.View>
             </View>
@@ -386,7 +386,7 @@ export function EditProfileView() {
             {/* Bottom spacing for selector */}
             <View style={styles.bottomSpacer} />
           </View>
-        </NestableScrollContainer>
+        </ScrollView>
 
         {/* Sticky Profile View Selector */}
         <View style={styles.selectorContainer}>
@@ -403,7 +403,7 @@ export function EditProfileView() {
         isOpen={isCalendarModalOpen}
         onClose={() => setIsCalendarModalOpen(false)}
         section={modalSection}
-        userEmail={session?.user?.email || ''}
+        userEmail={session?.user?.email || profile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
 

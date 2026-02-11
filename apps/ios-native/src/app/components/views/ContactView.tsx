@@ -647,7 +647,7 @@ export function ContactView(props: ContactViewProps = {}) {
         isOpen={showAddCalendarModal}
         onClose={() => setShowAddCalendarModal(false)}
         section="personal"
-        userEmail={session?.user?.email || ''}
+        userEmail={session?.user?.email || userProfile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>

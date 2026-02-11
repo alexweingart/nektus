@@ -52,28 +52,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const rawBody = await request.text();
-    console.log('[mobile-token] Raw body:', rawBody);
-    console.log('[mobile-token] Content-Type:', request.headers.get('content-type'));
-
-    let body: Record<string, string>;
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      console.error('[mobile-token] Failed to parse body as JSON');
-      return NextResponse.json(
-        { error: 'Invalid JSON body', receivedBody: rawBody.substring(0, 200) },
-        { status: 400 }
-      );
-    }
-
+    const body = await request.json();
     const { provider, userEmail } = body;
     const section = body.section as 'personal' | 'work';
-    console.log('[mobile-token] Parsed fields - provider:', provider, 'section:', section, 'userEmail:', userEmail);
 
-    if (!provider || !section || !userEmail) {
+    if (!provider || !section) {
       return NextResponse.json(
-        { error: 'Missing required parameters: provider, section, userEmail', receivedKeys: Object.keys(body) },
+        { error: 'Missing required parameters: provider, section' },
         { status: 400 }
       );
     }
@@ -147,7 +132,7 @@ export async function POST(request: NextRequest) {
       }
 
       let tokenData: { access_token: string; refresh_token?: string; expires_in: number };
-      let calendarEmail = userEmail;
+      let calendarEmail = userEmail || '';
 
       if (provider === 'google') {
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -179,6 +164,16 @@ export async function POST(request: NextRequest) {
             { error: 'no_refresh_token', message: 'Please re-authorize to grant offline access.' },
             { status: 400 }
           );
+        }
+
+        // Get user email from Google userinfo
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+
+        if (userInfoResponse.ok) {
+          const userInfo = await userInfoResponse.json();
+          calendarEmail = userInfo.email || calendarEmail;
         }
       } else {
         // Microsoft
