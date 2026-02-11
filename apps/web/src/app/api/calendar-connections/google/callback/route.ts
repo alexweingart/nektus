@@ -32,11 +32,38 @@ export async function GET(request: NextRequest) {
       appCallbackUrl?: string;
     } : null;
 
+    // Silent auth fallback: if client sent prompt=none and Google needs interaction,
+    // redirect back to Google without prompt param (normal interactive flow)
+    if (error && (error === 'interaction_required' || error === 'consent_required') && stateData) {
+      console.log(`[Google OAuth] Silent auth failed (${error}), falling back to interactive flow`);
+      const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || request.url.split('/api')[0]}/api/calendar-connections/google/callback`;
+      const fallbackParams = new URLSearchParams({
+        client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/calendar.readonly',
+        access_type: 'offline',
+        include_granted_scopes: 'true',
+        login_hint: stateData.userEmail,
+        state: encodeURIComponent(JSON.stringify({
+          userEmail: stateData.userEmail,
+          section: stateData.section,
+          returnUrl: stateData.returnUrl,
+          redirectTo: stateData.redirectTo,
+        }))
+      });
+      return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${fallbackParams.toString()}`);
+    }
+
     // iOS app: redirect the auth code back to the app via custom URL scheme
     // The app will exchange the code via /api/calendar-connections/mobile-token
+    // Uses HTML + JS redirect instead of 307 for reliable custom scheme handling
     if (stateData?.platform === 'ios' && stateData?.appCallbackUrl && code) {
       const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=google`;
-      return NextResponse.redirect(appRedirect);
+      return new NextResponse(
+        `<html><head><meta http-equiv="refresh" content="0;url=${appRedirect}"></head><body><script>window.location.href="${appRedirect}";</script></body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      );
     }
 
     const session = await getServerSession(authOptions);

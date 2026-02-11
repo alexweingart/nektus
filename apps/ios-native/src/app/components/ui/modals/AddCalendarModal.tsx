@@ -145,7 +145,7 @@ export function AddCalendarModal({
    * Run the OAuth browser flow for Google/Microsoft and exchange the code.
    * If Google doesn't return a refresh token, automatically retries with prompt=consent.
    */
-  const runOAuthFlow = async (provider: 'google' | 'microsoft', forceConsent = false): Promise<boolean> => {
+  const runOAuthFlow = async (provider: 'google' | 'microsoft'): Promise<boolean> => {
     const oauthEndpoint = provider === 'google'
       ? 'https://accounts.google.com/o/oauth2/v2/auth'
       : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
@@ -184,9 +184,9 @@ export function AddCalendarModal({
       ...(provider === 'google' ? {
         access_type: 'offline',
         include_granted_scopes: 'true',
-        // Omit prompt so Google only shows what's needed:
-        // skips picker if login_hint matches, shows consent only for new scopes
-        ...(forceConsent ? { prompt: 'consent' } : {}),
+        // Always request consent on iOS to guarantee a refresh token in one pass
+        // (avoids double browser prompt from retry logic)
+        prompt: 'consent',
       } : {
         // Microsoft: omit prompt to skip picker when login_hint matches
       }),
@@ -239,18 +239,7 @@ export function AddCalendarModal({
     try {
       setIsConnecting(provider);
 
-      let success: boolean;
-      try {
-        success = await runOAuthFlow(provider);
-      } catch (error) {
-        // Google: if no refresh token, retry with consent prompt
-        if (provider === 'google' && (error as Error & { code?: string }).code === 'no_refresh_token') {
-          console.log('[AddCalendarModal] No refresh token, retrying with consent');
-          success = await runOAuthFlow(provider, true);
-        } else {
-          throw error;
-        }
-      }
+      const success = await runOAuthFlow(provider);
 
       if (success) {
         onCalendarAdded();
