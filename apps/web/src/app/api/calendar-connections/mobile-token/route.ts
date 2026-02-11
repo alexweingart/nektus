@@ -52,12 +52,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { provider, section, userEmail } = body;
+    const rawBody = await request.text();
+    console.log('[mobile-token] Raw body:', rawBody);
+    console.log('[mobile-token] Content-Type:', request.headers.get('content-type'));
+
+    let body: Record<string, string>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      console.error('[mobile-token] Failed to parse body as JSON');
+      return NextResponse.json(
+        { error: 'Invalid JSON body', receivedBody: rawBody.substring(0, 200) },
+        { status: 400 }
+      );
+    }
+
+    const { provider, userEmail } = body;
+    const section = body.section as 'personal' | 'work';
+    console.log('[mobile-token] Parsed fields - provider:', provider, 'section:', section, 'userEmail:', userEmail);
 
     if (!provider || !section || !userEmail) {
       return NextResponse.json(
-        { error: 'Missing required parameters: provider, section, userEmail' },
+        { error: 'Missing required parameters: provider, section, userEmail', receivedKeys: Object.keys(body) },
         { status: 400 }
       );
     }
