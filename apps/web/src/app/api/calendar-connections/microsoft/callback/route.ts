@@ -30,13 +30,13 @@ export async function GET(request: NextRequest) {
 
     // iOS app: redirect the auth code back to the app via custom URL scheme
     // The app will exchange the code via /api/calendar-connections/mobile-token
-    // Uses HTML + JS redirect instead of 307 for reliable custom scheme handling
+    // MUST use 302 (not 307): 302 converts POST to GET, required for custom scheme navigation.
     if (stateData?.platform === 'ios' && stateData?.appCallbackUrl && code) {
       const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
-      return new NextResponse(
-        `<html><head><meta http-equiv="refresh" content="0;url=${appRedirect}"></head><body><script>window.location.href="${appRedirect}";</script></body></html>`,
-        { status: 200, headers: { 'Content-Type': 'text/html' } }
-      );
+      return new Response(null, {
+        status: 302,
+        headers: { Location: appRedirect },
+      });
     }
 
     const session = await getServerSession(authOptions);
