@@ -1,11 +1,11 @@
 /**
  * AppClip.tsx - App Clip Entry Point
  *
- * New flow (matches web connect page):
- * 1. Parse exchange token from invocation URL: https://nekt.us/connect?token=xxx
+ * Flow:
+ * 1. Parse exchange token from invocation URL: https://nekt.us/x/{token}
  * 2. If no token → show error state
- * 3. If not authenticated → show AnonContactView
- * 4. If authenticated → show ContactView
+ * 3. Show AnonContactView with preview profile
+ * 4. After sign-in → buttons swap in-place (no reload/animation)
  *
  * Note: No ProfileSetupView in connect flow (matches web behavior).
  * Phone collection happens when user sets up their own profile to share.
@@ -17,7 +17,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import * as Linking from "expo-linking";
 
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
-import { ContactView } from "./src/app/components/views/ContactView";
 import { Button } from "./src/app/components/ui/buttons/Button";
 import { PhoneEntryModal } from "./src/app/components/ui/modals/PhoneEntryModal";
 import { ParticleNetworkLite } from "./src/app/components/ui/layout/ParticleNetworkLite";
@@ -139,7 +138,6 @@ function AppClipContent() {
   const [token, setToken] = useState<string | null>(null);
   const [session, setSession] = useState<AppClipSession | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
-  const [fullProfile, setFullProfile] = useState<UserProfile | null>(null);
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -212,41 +210,6 @@ function AppClipContent() {
 
     fetchPreview();
   }, [token, session]);
-
-  // Fetch full profile when authenticated
-  useEffect(() => {
-    if (!token || !session) return;
-
-    const fetchFullProfile = async () => {
-      setIsLoading(true);
-      try {
-        const idToken = await getIdToken();
-        const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${token}`, {
-          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch contact profile");
-        }
-
-        const result = await response.json();
-        if (result.success && result.profile) {
-          setFullProfile(result.profile);
-        } else if (result.profile) {
-          setFullProfile(result.profile);
-        } else {
-          setError("Invalid profile response");
-        }
-      } catch (err) {
-        console.error("[AppClip] Failed to fetch full profile:", err);
-        setError("Failed to load contact");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFullProfile();
-  }, [token, session, apiBaseUrl]);
 
   // Handle Sign in with Apple
   const handleSignIn = useCallback(async () => {
@@ -372,8 +335,7 @@ function AppClipContent() {
   }, [apiBaseUrl]);
 
   // Determine particle colors based on current state
-  const particleColors = getParticleColors(fullProfile || previewProfile);
-  const particleContext = session ? "contact" : "connect";
+  const particleColors = getParticleColors(previewProfile);
 
   // Loading state
   if (isLoading) {
@@ -389,7 +351,7 @@ function AppClipContent() {
   }
 
   // Error state (only show if no profile to display behind it)
-  if (error && !previewProfile && !fullProfile) {
+  if (error && !previewProfile) {
     return (
       <View style={styles.container}>
         <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
@@ -427,20 +389,6 @@ function AppClipContent() {
     );
   }
 
-  // Authenticated - show ContactView (or phone modal if setup needed)
-  if (session && fullProfile && token && (phoneEntryComplete || !needsSetup)) {
-    return (
-      <View style={styles.container}>
-        <ParticleNetworkLite colors={particleColors} context="contact" />
-        <ContactView
-          profile={fullProfile}
-          token={token}
-          sessionUserName={session.userName}
-        />
-      </View>
-    );
-  }
-
   // Authenticated but needs phone setup — show loading bg with modal overlay
   if (session && showPhoneModal) {
     return (
@@ -459,7 +407,7 @@ function AppClipContent() {
     );
   }
 
-  // Not authenticated - show AnonContactView (persists behind sign-in and errors)
+  // Show AnonContactView — buttons swap seamlessly after sign-in (no reload)
   if (previewProfile && token) {
     return (
       <View style={styles.container}>
@@ -469,6 +417,8 @@ function AppClipContent() {
           socialIconTypes={socialIconTypes}
           token={token}
           onSignIn={handleSignIn}
+          isAuthenticated={!!session}
+          isDemo={token === 'demo'}
         />
         {/* Show error overlay on the card if sign-in failed */}
         {error && (

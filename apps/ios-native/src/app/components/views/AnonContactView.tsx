@@ -6,15 +6,17 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import { Button } from '../ui/buttons/Button';
+import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { BodyText } from '../ui/Typography';
+import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 
 // Apple icon (dark logo for white button to match app style)
 const AppleIcon = () => (
@@ -28,6 +30,10 @@ interface AnonContactViewProps {
   socialIconTypes: string[];
   token: string;
   onSignIn: () => void;
+  /** When set, user is authenticated — show save/download buttons instead of sign-in */
+  isAuthenticated?: boolean;
+  /** When true, show demo message instead of saving */
+  isDemo?: boolean;
 }
 
 // Map icon type to display name
@@ -55,6 +61,8 @@ export function AnonContactView({
   socialIconTypes,
   token,
   onSignIn,
+  isAuthenticated = false,
+  isDemo = false,
 }: AnonContactViewProps) {
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
@@ -117,19 +125,57 @@ export function AnonContactView({
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          {/* Sign in with Apple button */}
-          <Button
-            variant="white"
-            size="xl"
-            onPress={handleSignIn}
-            icon={<AppleIcon />}
-            style={styles.fullWidth}
-          >
-            Sign in with Apple
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Button
+                variant="white"
+                size="xl"
+                onPress={() => {
+                  if (isDemo) {
+                    Alert.alert(
+                      'Demo Contact',
+                      'This is a demo contact for testing. Download the full app to exchange real contacts!',
+                      [
+                        { text: 'OK', style: 'cancel' },
+                        {
+                          text: 'Get the App',
+                          onPress: () => {
+                            showAppStoreOverlay();
+                          },
+                        },
+                      ]
+                    );
+                  }
+                }}
+                style={styles.fullWidth}
+              >
+                Save Contact
+              </Button>
+              <View style={styles.secondaryButtonContainer}>
+                <SecondaryButton onPress={() => {
+                  showAppStoreOverlay();
+                }}>
+                  Get the Full App
+                </SecondaryButton>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Sign in with Apple button */}
+              <Button
+                variant="white"
+                size="xl"
+                onPress={handleSignIn}
+                icon={<AppleIcon />}
+                style={styles.fullWidth}
+              >
+                Sign in with Apple
+              </Button>
 
-          {/* "to save contact" text */}
-          <Text style={styles.helperText}>to get nekt&apos;d</Text>
+              {/* "to save contact" text */}
+              <Text style={styles.helperText}>to get nekt&apos;d</Text>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -213,6 +259,9 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     textAlign: 'center',
+  },
+  secondaryButtonContainer: {
+    alignItems: 'center',
   },
 });
 
