@@ -141,6 +141,9 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       }
       const redirectURI = `${origin}/api/auth/apple/callback`;
 
+      console.log('[Apple Sign-In] Initializing with:', { clientId, redirectURI, hostname, protocol });
+      alert(`[DEBUG] clientId: ${clientId}\nredirectURI: ${redirectURI}`);
+
       const state = crypto.randomUUID();
 
       if (!window.AppleID) {
@@ -189,6 +192,7 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       });
     } catch (error) {
       console.error('[useAuthSignIn] Apple sign-in failed:', error);
+      alert(`[DEBUG] Apple sign-in error: ${error instanceof Error ? error.message : String(error)}`);
       setIsAppleSigningIn(false);
     }
   }, [isAppleSigningIn, options?.callbackUrl]);
