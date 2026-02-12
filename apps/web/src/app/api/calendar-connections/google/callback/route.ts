@@ -45,14 +45,13 @@ export async function GET(request: NextRequest) {
         access_type: 'offline',
         include_granted_scopes: 'true',
         login_hint: stateData.userEmail,
-        prompt: 'consent', // Skip account picker, go straight to scope consent.
-        // Also guarantees a refresh_token so the later retry is never needed.
+        // No prompt param: login_hint auto-selects account, Google shows
+        // minimal incremental scope consent instead of full account picker.
         state: encodeURIComponent(JSON.stringify({
           userEmail: stateData.userEmail,
           section: stateData.section,
           returnUrl: stateData.returnUrl,
           redirectTo: stateData.redirectTo,
-          retry: true, // Already forcing consent, so mark as retry
         }))
       });
       return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${fallbackParams.toString()}`);

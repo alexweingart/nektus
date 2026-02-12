@@ -98,32 +98,20 @@ export async function GET(request: NextRequest) {
       googleAuthUrl.searchParams.append('prompt', 'none');
       console.log(`🤐 Attempting silent auth for user ${session.user.id} (prompt=none)`);
     } else if (attempt === 'explicit') {
-      // Mobile-optimized explicit flow
-      if (isAndroid) {
-        // Android: No prompt param for cleanest flow
-        console.log(`🤖 Android: Using default prompt behavior for user ${session.user.id} (no prompt param)`);
-      } else if (isIOS) {
-        if (isInAppBrowser) {
-          // iOS in-app browsers: Force consent to avoid session issues
-          googleAuthUrl.searchParams.append('prompt', 'consent');
-          console.log(`📱 iOS in-app browser: Forcing consent for user ${session.user.id} (prompt=consent)`);
-        } else if (isSafari) {
-          // iOS Safari: No prompt param works best with Safari's session handling
-          console.log(`🍎 iOS Safari: Using default prompt for user ${session.user.id} (no prompt param)`);
-        } else {
-          // iOS Chrome/Firefox: Use consent for consistency
-          googleAuthUrl.searchParams.append('prompt', 'consent');
-          console.log(`📱 iOS non-Safari: Using consent for user ${session.user.id} (prompt=consent)`);
-        }
-      } else {
-        // Desktop browsers: Use consent for explicit flow
+      // Explicit flow: omit prompt param so Google shows incremental scope
+      // consent only (not full account picker). login_hint auto-selects account.
+      if (isIOS && isInAppBrowser) {
+        // iOS in-app browsers: Force consent to avoid session issues
         googleAuthUrl.searchParams.append('prompt', 'consent');
-        console.log(`💻 Desktop: Using consent for user ${session.user.id} (prompt=consent)`);
+        console.log(`📱 iOS in-app browser: Forcing consent for user ${session.user.id} (prompt=consent)`);
+      } else {
+        // All other browsers (desktop, Android, iOS Safari, iOS Chrome):
+        // No prompt param → minimal incremental scope consent
+        console.log(`🔄 Using incremental auth for user ${session.user.id} (no prompt param)`);
       }
     } else {
-      // Fallback: Desktop default
-      googleAuthUrl.searchParams.append('prompt', 'consent');
-      console.log(`🔊 Default: Showing consent screen for user ${session.user.id} (prompt=consent)`);
+      // Fallback: no prompt param for incremental auth
+      console.log(`🔊 Default: Using incremental auth for user ${session.user.id} (no prompt param)`);
     }
     console.log(`🔍 Final prompt value: ${googleAuthUrl.searchParams.get('prompt') || '(none)'}`);
     console.log(`🔍 User-Agent: ${userAgent.substring(0, 100)}...`);
