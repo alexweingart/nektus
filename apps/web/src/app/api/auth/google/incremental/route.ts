@@ -89,8 +89,6 @@ export async function GET(request: NextRequest) {
     // Platform-optimized prompt handling
     const userAgent = request.headers.get('user-agent') || '';
     const isIOS = /iPad|iPhone|iPod/i.test(userAgent);
-    const isAndroid = /android/i.test(userAgent);
-    const isSafari = /safari/i.test(userAgent) && !/chrome|crios/i.test(userAgent);
     const isInAppBrowser = /FBAN|FBAV|Instagram|LINE|Twitter/i.test(userAgent);
 
     if (attempt === 'silent') {
