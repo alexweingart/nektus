@@ -143,35 +143,50 @@ export function AddCalendarModal({
 
   /**
    * Run the OAuth browser flow for Google/Microsoft and exchange the code.
-   * If Google doesn't return a refresh token, automatically retries with prompt=consent.
+   *
+   * Google: Uses iOS client ID with reversed-scheme redirect. Google redirects
+   * directly to the app (no server callback needed). This avoids the 302
+   * redirect interception issue in ASWebAuthenticationSession.
+   *
+   * Microsoft: Uses web client ID with server callback + 302 redirect.
    */
   const runOAuthFlow = async (provider: 'google' | 'microsoft'): Promise<boolean> => {
+    // Google: use iOS native OAuth (reversed client ID scheme redirect)
+    // Microsoft: use server callback flow
+    const isGoogleNative = provider === 'google' && process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
     const oauthEndpoint = provider === 'google'
       ? 'https://accounts.google.com/o/oauth2/v2/auth'
       : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 
-    const clientId = provider === 'google'
-      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-      : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID;
+    let clientId: string;
+    let redirectUri: string;
+    let callbackUrl: string;
 
-    if (!clientId) {
-      throw new Error(`${provider} client ID not configured`);
+    if (isGoogleNative) {
+      // Google iOS: use iOS client ID + reversed scheme redirect
+      clientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
+      // Reversed client ID scheme (registered in Info.plist)
+      redirectUri = `com.googleusercontent.apps.${clientId.split('.')[0]}:/oauthredirect`;
+      callbackUrl = redirectUri;
+    } else {
+      clientId = (provider === 'google'
+        ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+        : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID) || '';
+      if (!clientId) throw new Error(`${provider} client ID not configured`);
+      // Server callback redirect
+      redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
+      callbackUrl = ExpoLinking.createURL('calendar-callback');
     }
-
-    const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
 
     const scope = provider === 'google'
       ? 'https://www.googleapis.com/auth/calendar.readonly'
       : 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access';
 
-    // Build app callback URL using Expo's linking (handles exp+nekt:// in dev, nekt:// in prod)
-    const appCallbackUrl = ExpoLinking.createURL('calendar-callback');
-
     const state = encodeURIComponent(JSON.stringify({
       userEmail,
       section,
-      platform: 'ios',
-      appCallbackUrl,
+      ...(isGoogleNative ? {} : { platform: 'ios', appCallbackUrl: callbackUrl }),
     }));
 
     const params = new URLSearchParams({
@@ -184,30 +199,40 @@ export function AddCalendarModal({
       ...(provider === 'google' ? {
         access_type: 'offline',
         include_granted_scopes: 'true',
-        // Omit prompt: Google's consent flow hangs in ASWebAuthenticationSession.
-        // Without prompt, Google auto-redirects (works reliably).
-        // Server handles missing refresh token gracefully.
-      } : {
-        // Microsoft: omit prompt to skip picker when login_hint matches
-      }),
+      } : {}),
     });
 
     const authUrl = `${oauthEndpoint}?${params.toString()}`;
 
+    console.log('[AddCalendarModal] provider:', provider, 'isGoogleNative:', !!isGoogleNative);
+    console.log('[AddCalendarModal] callbackUrl:', callbackUrl);
+    console.log('[AddCalendarModal] redirectUri:', redirectUri);
+
     if (WebBrowser) {
+      // Extract just the scheme for ASWebAuthenticationSession
+      const callbackScheme = callbackUrl.split(':')[0];
+      console.log('[AddCalendarModal] Opening auth session, scheme:', callbackScheme);
+
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        appCallbackUrl,
-        { showInRecents: true }
+        callbackUrl,
+        { preferEphemeralSession: true }
       );
 
+      console.log('[AddCalendarModal] Auth result:', JSON.stringify(result).substring(0, 500));
+
       if (result.type === 'success' && result.url) {
-        const url = new URL(result.url);
-        const code = url.searchParams.get('code');
+        // Parse code from URL - use URLSearchParams on query string directly
+        // since new URL() may not handle custom scheme formats like com.googleusercontent.apps.XXX:/path
+        const queryString = result.url.split('?')[1] || '';
+        const urlParams = new URLSearchParams(queryString);
+        const code = urlParams.get('code');
 
         if (!code) {
           throw new Error('No authorization code received');
         }
+
+        console.log('[AddCalendarModal] Got code, exchanging via mobile-token...');
 
         await postToMobileExchange({
           provider,
@@ -215,14 +240,14 @@ export function AddCalendarModal({
           redirectUri,
           section,
           userEmail,
+          ...(isGoogleNative ? { useIosClientId: 'true' } : {}),
         });
 
-        return true; // success
+        return true;
       }
-      // User cancelled
+      console.log('[AddCalendarModal] Auth session cancelled or dismissed');
       return false;
     } else {
-      // App Clip: fall back to opening in external browser
       await Linking.openURL(authUrl);
       return false;
     }

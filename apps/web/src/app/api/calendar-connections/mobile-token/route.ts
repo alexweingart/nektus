@@ -135,16 +135,27 @@ export async function POST(request: NextRequest) {
       let calendarEmail = userEmail || '';
 
       if (provider === 'google') {
+        // Support iOS native OAuth (uses iOS client ID, no client_secret needed)
+        const useIosClientId = body.useIosClientId === 'true';
+        const googleClientId = useIosClientId
+          ? process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_CALENDAR_CLIENT_ID!
+          : process.env.GOOGLE_CALENDAR_CLIENT_ID!;
+
+        const tokenParams: Record<string, string> = {
+          code,
+          client_id: googleClientId,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        };
+        // Web client requires client_secret; iOS client does not
+        if (!useIosClientId) {
+          tokenParams.client_secret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET!;
+        }
+
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            code,
-            client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
-            client_secret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET!,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-          }),
+          body: new URLSearchParams(tokenParams),
         });
 
         if (!tokenResponse.ok) {
