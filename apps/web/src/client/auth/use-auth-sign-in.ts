@@ -192,7 +192,7 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       });
     } catch (error) {
       console.error('[useAuthSignIn] Apple sign-in failed:', error);
-      alert(`[DEBUG] Apple sign-in error: ${error instanceof Error ? error.message : String(error)}`);
+      try { alert(`[DEBUG] Apple error: ${JSON.stringify(error)}`); } catch { alert(`[DEBUG] Apple error keys: ${Object.keys(error as Record<string, unknown>).join(', ')} | message: ${(error as Record<string, unknown>).message || (error as Record<string, unknown>).error}`); }
       setIsAppleSigningIn(false);
     }
   }, [isAppleSigningIn, options?.callbackUrl]);
