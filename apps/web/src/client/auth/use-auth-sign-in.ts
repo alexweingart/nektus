@@ -141,9 +141,6 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       }
       const redirectURI = `${origin}/api/auth/apple/callback`;
 
-      console.log('[Apple Sign-In] Initializing with:', { clientId, redirectURI, hostname, protocol });
-      alert(`[DEBUG] clientId: ${clientId}\nredirectURI: ${redirectURI}`);
-
       const state = crypto.randomUUID();
 
       if (!window.AppleID) {
@@ -192,7 +189,7 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       });
     } catch (error) {
       console.error('[useAuthSignIn] Apple sign-in failed:', error);
-      try { alert(`[DEBUG] Apple error: ${JSON.stringify(error)}`); } catch { alert(`[DEBUG] Apple error keys: ${Object.keys(error as Record<string, unknown>).join(', ')} | message: ${(error as Record<string, unknown>).message || (error as Record<string, unknown>).error}`); }
+      // Don't show alert for user cancellation — user can see they're still on sign-in page
       setIsAppleSigningIn(false);
     }
   }, [isAppleSigningIn, options?.callbackUrl]);
