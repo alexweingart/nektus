@@ -96,10 +96,26 @@ const Avatar: React.FC<AvatarProps> = ({
     setHasError(true);
   };
 
-  // Show empty skeleton while loading OR waiting to determine if we should show initials
+  // Show skeleton while loading OR waiting to determine if we should show initials
+  // If we have a name, show initials inside the pulse so it's not a blank circle
   if (isLoading || (!imgSrc && !showInitials && !hasError)) {
+    const initials = alt && alt !== 'Profile' ? getInitials(alt) : null;
+    const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
+
     return (
-      <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className} bg-white/20 animate-pulse`} />
+      <div
+        className={`relative rounded-full overflow-hidden ${sizeClass} ${className} ${initials && gradientStyle ? '' : 'bg-white/20'} animate-pulse flex items-center justify-center`}
+        style={initials && gradientStyle ? { background: gradientStyle.background } : undefined}
+      >
+        {initials && (
+          <span
+            className={`${fontSize} font-semibold`}
+            style={{ color: gradientStyle?.textColor || 'rgba(255,255,255,0.6)' }}
+          >
+            {initials}
+          </span>
+        )}
+      </div>
     );
   }
 

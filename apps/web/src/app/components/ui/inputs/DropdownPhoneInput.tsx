@@ -85,6 +85,7 @@ const countryOptions: DropdownOption[] = countries.map(country => ({
 interface DropdownPhoneInputProps {
   value: string;
   onChange: (value: string) => void;
+  onCountryChange?: (countryCode: string) => void;
   className?: string;
   placeholder?: string;
   isDisabled?: boolean;
@@ -101,6 +102,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
   {
     value,
     onChange,
+    onCountryChange,
     className = '',
     placeholder = 'Phone number',
     isDisabled = false,
@@ -128,13 +130,27 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
     const currentCleaned = phoneInput.replace(/\D/g, '');
 
     if (cleanedValue !== currentCleaned) {
-      // Check if it's a US number (11 digits starting with 1) and strip the country code
+      // Parse international numbers (>10 digits) to detect country code
+      if (cleanedValue.length > 10) {
+        const { nationalNumber, countryCode } = parseInternationalNumber(cleanedValue);
+        if (countryCode) {
+          setSelectedCountryCode(countryCode);
+          onCountryChange?.(countryCode);
+          const formattedValue = formatPhoneNumber(nationalNumber.slice(0, 10));
+          setPhoneInput(formattedValue);
+          return;
+        }
+      }
+
+      // US number: 11 digits starting with 1, or exactly 10 digits
       let digitsToFormat = cleanedValue;
       if (cleanedValue.length === 11 && cleanedValue.startsWith('1')) {
-        digitsToFormat = cleanedValue.slice(1); // Strip the leading 1
+        digitsToFormat = cleanedValue.slice(1);
         setSelectedCountryCode('US');
+        onCountryChange?.('US');
       } else if (cleanedValue.length === 10) {
         setSelectedCountryCode('US');
+        onCountryChange?.('US');
       }
 
       const formattedValue = formatPhoneNumber(digitsToFormat);
@@ -254,6 +270,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
         // Update the selected country if we detected a country code
         if (countryCode !== selectedCountryCode) {
           setSelectedCountryCode(countryCode);
+          onCountryChange?.(countryCode);
         }
 
         // Use the national number for formatting (capped at 10 digits for display)
@@ -310,6 +327,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
   // Handle country selection
   const handleCountrySelect = (countryCode: string) => {
     setSelectedCountryCode(countryCode);
+    onCountryChange?.(countryCode);
 
     // Focus on the input after country selection
     if (inputRef.current) {

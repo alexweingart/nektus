@@ -9,7 +9,6 @@ import { Heading, Text } from '../ui/Typography';
 import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile, ContactEntry } from '@/types/profile';
-import type { Country } from '../ui/inputs/DropdownPhoneInput';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
 import { formatPhoneNumber } from '@/client/profile/phone-formatter';
@@ -31,13 +30,8 @@ function ProfileSetupView() {
   const [showAddLink, setShowAddLink] = useState(false);
   const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
 
-  // Keep selectedCountry for phone number formatting
-  const [selectedCountry] = useState<Country>({
-    name: 'United States',
-    code: 'US',
-    flag: '🇺🇸',
-    dialCode: '1'
-  });
+  // Track country code for phone number formatting (updated by DropdownPhoneInput)
+  const [countryCode, setCountryCode] = useState('US');
   
   const phoneInputRef = useRef<HTMLInputElement>(null);
   
@@ -82,15 +76,11 @@ function ProfileSetupView() {
         requestAnimationFrame(focusInput);
       });
     } else if (isAndroid) {
-      // Android: Use multiple attempts with different delays
-      const timer1 = setTimeout(focusInput, 100);
-      const timer2 = setTimeout(focusInput, 500);
-      const timer3 = setTimeout(focusInput, 1000);
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-      };
+      // Android: Focus after a short delay to bring up keyboard.
+      // Don't use click() — programmatic clicks don't trigger Chrome's autosuggest.
+      // Autosuggest appears on the user's first tap on the already-focused input.
+      const timer = setTimeout(focusInput, 300);
+      return () => clearTimeout(timer);
     } else {
       // Web/Desktop: Focus immediately
       focusInput();
@@ -107,7 +97,7 @@ function ProfileSetupView() {
 
     let internationalPhone = '';
     if (digits) {
-      const phoneResult = formatPhoneNumber(digits, selectedCountry.code as CountryCode);
+      const phoneResult = formatPhoneNumber(digits, countryCode as CountryCode);
       internationalPhone = phoneResult.internationalPhone;
     }
 
@@ -158,7 +148,7 @@ function ProfileSetupView() {
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, addedLinks, isProfileSaving, selectedCountry.code, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+  }, [digits, addedLinks, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
 
 
   if (sessionStatus === 'loading') {
@@ -197,12 +187,14 @@ function ProfileSetupView() {
                   ref={phoneInputRef}
                   value={digits}
                   onChange={setDigits}
+                  onCountryChange={setCountryCode}
                   placeholder="Phone number"
                   className="w-full"
                   autoFocus={false}
                   inputProps={{
                     required: true,
                     'aria-label': 'Phone number',
+                    autoComplete: 'tel-national',
                     disabled: isProfileSaving,
                     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter' && !isProfileSaving && digits.replace(/\D/g, '').length >= 10) {
