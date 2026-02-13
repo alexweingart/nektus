@@ -1,27 +1,54 @@
 /**
  * Calendar Connection API - Delete calendar
  * Handles deletion of calendar connections by ID
+ * Supports both NextAuth session (web) and Firebase Bearer token (iOS) auth
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getFirebaseAdmin } from '@/server/config/firebase';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
+
+/**
+ * Get authenticated user ID from either NextAuth session or Firebase Bearer token
+ */
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  // Try NextAuth session first (web)
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) return session.user.id;
+
+  // Fall back to Firebase Bearer token (iOS)
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const { auth } = await getFirebaseAdmin();
+      const idToken = authHeader.replace('Bearer ', '');
+      if (!idToken || idToken === 'null' || idToken === 'undefined') return null;
+      const decodedToken = await auth.verifyIdToken(idToken);
+      return decodedToken.uid;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ calendarId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { calendarId } = await params;
 
     // Get current profile
-    const profile = await AdminProfileService.getProfile(session.user.id);
+    const profile = await AdminProfileService.getProfile(userId);
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
@@ -50,11 +77,11 @@ export async function DELETE(
 
     // Remove calendar from profile (this also removes encrypted tokens)
     const updatedCalendars = profile.calendars?.filter(cal => cal.id !== calendarId) || [];
-    await AdminProfileService.updateProfile(session.user.id, {
+    await AdminProfileService.updateProfile(userId, {
       calendars: updatedCalendars
     });
 
-    console.log(`[Calendar API] Deleted calendar ${calendarId} for user ${session.user.id}`);
+    console.log(`[Calendar API] Deleted calendar ${calendarId} for user ${userId}`);
 
     return NextResponse.json({ success: true });
 
