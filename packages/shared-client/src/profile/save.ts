@@ -147,8 +147,17 @@ export class ProfileSaveService {
           }
         : this.mergeNonEmpty(currentProfile, processedUpdates, userId);
 
+      // Never write an empty shortCode to Firestore — it's generated server-side
+      // and Firestore's { merge: true } will preserve the existing value if omitted.
+      // This prevents a race condition where the immediate/placeholder profile
+      // (shortCode: '') overwrites the server-generated shortCode during early saves.
+      const saveData = { ...merged };
+      if (!saveData.shortCode) {
+        delete (saveData as Partial<UserProfile>).shortCode;
+      }
+
       // Save to Firebase
-      await ClientProfileService.saveProfile(merged);
+      await ClientProfileService.saveProfile(saveData as UserProfile);
 
       return { success: true, profile: merged };
     } catch (error) {
