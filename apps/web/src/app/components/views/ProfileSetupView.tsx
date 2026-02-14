@@ -272,13 +272,15 @@ function ProfileSetupView() {
                 <SecondaryButton
                   className="cursor-pointer"
                   onClick={() => {
-                    if (showAddLink && socialUsername.trim()) {
+                    if (showAddLink) {
                       handleAddSocial();
+                      setSocialPlatform('facebook');
+                      setSocialUsername('');
                     }
                     setShowAddLink(true);
                   }}
                 >
-                  {addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
+                  {showAddLink || addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
                 </SecondaryButton>
               </div>
             </div>

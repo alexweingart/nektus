@@ -239,13 +239,15 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
               <SecondaryButton
                 variant="subtle"
                 onClick={() => {
-                  if (showAddLink && socialUsername.trim()) {
+                  if (showAddLink) {
                     handleAddSocial();
+                    setSocialPlatform('facebook');
+                    setSocialUsername('');
                   }
                   setShowAddLink(true);
                 }}
               >
-                {addedSocials.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
+                {showAddLink || addedSocials.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
               </SecondaryButton>
             </div>
           </div>
