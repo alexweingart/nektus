@@ -179,14 +179,19 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
       const data = await backendResponse.json();
 
       const callbackUrl = options?.callbackUrl ?? (data.needsSetup ? '/setup' : '/');
-      await signIn('apple', {
+      const result = await signIn('apple', {
         firebaseToken: data.firebaseToken,
         userId: data.userId,
         name: data.user?.name || '',
         email: data.user?.email || '',
-        callbackUrl,
-        redirect: true,
+        redirect: false,
       });
+
+      if (result?.ok) {
+        window.location.href = callbackUrl;
+      } else {
+        throw new Error(result?.error || 'Sign-in failed');
+      }
     } catch (error) {
       console.error('[useAuthSignIn] Apple sign-in failed:', error);
       // Don't show alert for user cancellation — user can see they're still on sign-in page

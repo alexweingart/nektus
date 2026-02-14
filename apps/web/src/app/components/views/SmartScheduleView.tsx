@@ -124,6 +124,30 @@ export default function SmartScheduleView() {
       try {
         console.log('🔍 [SmartScheduleView] Loading contact:', code);
 
+        // Check sessionStorage first (set by ContactView after saving a new contact)
+        // This avoids a race condition where the saved contacts cache hasn't updated yet
+        try {
+          const stashed = sessionStorage.getItem('smartScheduleContact');
+          if (stashed) {
+            sessionStorage.removeItem('smartScheduleContact');
+            const { profile: stashedProfile, contactType } = JSON.parse(stashed);
+            if (stashedProfile && (stashedProfile.shortCode === code || stashedProfile.userId === code)) {
+              console.log('📦 [SmartScheduleView] Using stashed contact from sessionStorage');
+              setSection(contactType || 'personal');
+              setContactProfile(stashedProfile);
+              if (stashedProfile.backgroundColors) {
+                window.dispatchEvent(new CustomEvent('match-found', {
+                  detail: { backgroundColors: stashedProfile.backgroundColors }
+                }));
+              }
+              setLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // sessionStorage unavailable or parse error, continue with normal flow
+        }
+
         // Get contact from cache - try by userId first, then by shortCode
         let savedContact = getContact(code);
 

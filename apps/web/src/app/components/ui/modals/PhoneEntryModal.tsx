@@ -30,6 +30,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
   const [showAddLink, setShowAddLink] = useState(false);
   const [socialPlatform, setSocialPlatform] = useState(scannedSection === 'work' ? 'linkedin' : 'instagram');
   const [socialUsername, setSocialUsername] = useState('');
+  const [addedSocials, setAddedSocials] = useState<ContactEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,24 +80,47 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
     }
   }, [isOpen]);
 
+  // Handle adding a social (Enter key in social input)
+  const handleAddSocial = useCallback(() => {
+    if (!socialUsername.trim()) return;
+
+    const baseEntry = {
+      fieldType: socialPlatform,
+      value: socialUsername.trim(),
+      order: Math.floor(addedSocials.length / 2) + 1,
+      isVisible: true,
+      confirmed: true,
+      linkType: 'default' as const,
+      icon: `/icons/default/${socialPlatform}.svg`
+    };
+
+    setAddedSocials(prev => [
+      ...prev,
+      { ...baseEntry, section: 'personal' },
+      { ...baseEntry, section: 'work' }
+    ]);
+    setSocialUsername('');
+    setSocialPlatform('facebook');
+    setShowAddLink(false);
+  }, [socialPlatform, socialUsername, addedSocials.length]);
+
   // Handle save - build social entries if username provided
   const handleSave = useCallback(async () => {
     if (!isPhoneValid || isSaving) return;
     setError(null);
 
-    // Build social entries if username was provided
-    const socialEntries: ContactEntry[] = [];
-    if (socialUsername.trim()) {
+    // Combine previously added socials with any in-progress one
+    const socialEntries: ContactEntry[] = [...addedSocials];
+    if (showAddLink && socialUsername.trim()) {
       const baseEntry = {
         fieldType: socialPlatform,
         value: socialUsername.trim(),
-        order: 1,
+        order: Math.floor(addedSocials.length / 2) + 1,
         isVisible: true,
         confirmed: true,
         linkType: 'default' as const,
         icon: `/icons/default/${socialPlatform}.svg`
       };
-      // Add to both personal and work
       socialEntries.push({ ...baseEntry, section: 'personal' });
       socialEntries.push({ ...baseEntry, section: 'work' });
     }
@@ -107,7 +131,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
       console.error('[PhoneEntryModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, socialPlatform, socialUsername, isPhoneValid, isSaving, onSave]);
+  }, [digits, socialPlatform, socialUsername, addedSocials, showAddLink, isPhoneValid, isSaving, onSave]);
 
   // Extract first name from full name
   const firstName = userName?.split(' ')[0] || 'there';
@@ -164,13 +188,21 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
 
               {/* Social Input - appears when Add Socials is clicked */}
               {showAddLink && (
-                <CustomSocialInputAdd
-                  platform={socialPlatform}
-                  username={socialUsername}
-                  onPlatformChange={setSocialPlatform}
-                  onUsernameChange={setSocialUsername}
-                  autoFocus
-                />
+                <div onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddSocial();
+                  }
+                }}>
+                  <CustomSocialInputAdd
+                    platform={socialPlatform}
+                    username={socialUsername}
+                    onPlatformChange={setSocialPlatform}
+                    onUsernameChange={setSocialUsername}
+                    autoFocus
+                  />
+                </div>
               )}
             </div>
 
@@ -202,17 +234,20 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
               </Button>
             </div>
 
-            {/* Add Socials Button - appears below Save when social input not shown */}
-            {!showAddLink && (
-              <div className="flex justify-center">
-                <SecondaryButton
-                  variant="subtle"
-                  onClick={() => setShowAddLink(true)}
-                >
-                  Add Socials
-                </SecondaryButton>
-              </div>
-            )}
+            {/* Add Socials Button - always visible */}
+            <div className="flex justify-center">
+              <SecondaryButton
+                variant="subtle"
+                onClick={() => {
+                  if (showAddLink && socialUsername.trim()) {
+                    handleAddSocial();
+                  }
+                  setShowAddLink(true);
+                }}
+              >
+                {addedSocials.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
+              </SecondaryButton>
+            </div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

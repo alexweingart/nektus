@@ -111,18 +111,35 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const isAndroid = isAndroidPlatform();
 
         try {
-          // Sign in to Firebase if needed, or re-auth if stale user from a deleted account
-          const currentFirebaseUser = firebaseAuth.getCurrentUser();
-          if (session?.firebaseToken && (!currentFirebaseUser || currentFirebaseUser.uid !== session.user.id)) {
-            try {
-              // Sign out stale user first if present (e.g. deleted account's IndexedDB state survived)
-              if (currentFirebaseUser && currentFirebaseUser.uid !== session.user.id) {
-                console.warn('[ProfileContext] Stale Firebase user detected, signing out before re-auth');
+          // Sign in to Firebase with the session's custom token.
+          // Must handle stale auth state from deleted/re-created accounts
+          // (IndexedDB caches the old user, which causes permission errors on save).
+          if (session?.firebaseToken) {
+            // Proactively clear stale user if cached UID doesn't match session
+            const cachedUser = firebaseAuth.getCurrentUser();
+            if (cachedUser && cachedUser.uid !== session.user.id) {
+              console.warn('[ProfileContext] Stale Firebase user detected (cached:', cachedUser.uid, 'session:', session.user.id, '), signing out first');
+              try {
                 await firebaseAuth.signOut();
+              } catch {
+                firebaseAuth.cleanup();
               }
-              await firebaseAuth.signInWithCustomToken(session.firebaseToken);
-            } catch (authError) {
-              console.warn('[ProfileContext] Firebase Auth failed, continuing without auth');
+            }
+
+            // signInWithCustomToken returns null on failure (doesn't throw),
+            // so check the return value to trigger retry logic
+            let authUser = await firebaseAuth.signInWithCustomToken(session.firebaseToken);
+            if (!authUser) {
+              console.warn('[ProfileContext] Firebase Auth failed, clearing state and retrying');
+              try {
+                await firebaseAuth.signOut();
+              } catch {
+                firebaseAuth.cleanup();
+              }
+              authUser = await firebaseAuth.signInWithCustomToken(session.firebaseToken);
+              if (!authUser) {
+                console.warn('[ProfileContext] Firebase Auth retry failed, continuing without auth');
+              }
             }
           }
 

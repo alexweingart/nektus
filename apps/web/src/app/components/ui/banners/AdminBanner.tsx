@@ -21,257 +21,158 @@ export default function AdminBanner() {
   
   const handleDeleteAccount = useCallback(async () => {
     setDeleteStatus('loading');
-    
+
     try {
-      // Get access token from session before doing anything
+      // Capture session data before any cleanup
       const accessToken = session?.accessToken;
       const userId = session?.user?.id;
       const userEmail = session?.user?.email;
-      
-      console.log('Starting account deletion process...', {
+
+      console.log('[DELETE] Starting account deletion...', {
         hasAccessToken: !!accessToken,
         hasUserId: !!userId,
         hasUserEmail: !!userEmail
       });
-      
-      // Step 1: Try to revoke the OAuth token FIRST (before clearing session)
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-        
-        const revokeBody: Record<string, string | number> = {
-          timestamp: new Date().getTime() // Prevent caching
-        };
-        
-        // Include access token and user info in request body
-        if (accessToken) {
-          revokeBody.accessToken = accessToken;
-        }
-        if (userId) {
-          revokeBody.userId = userId;
-        }
-        if (userEmail) {
-          revokeBody.email = userEmail;
-        }
-        
-        const response = await fetch('/api/auth/google/revoke', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(revokeBody),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        if (response.ok) {
-          console.log('OAuth token revoked successfully');
-        } else {
-          console.warn('OAuth token revocation failed, status:', response.status);
-          const errorText = await response.text().catch(() => 'Unknown error');
-          console.warn('Revoke error details:', errorText);
-        }
-      } catch (err) {
-        console.error('Error revoking OAuth token:', err);
-        // Continue with deletion even if token revocation fails
-      }
-      
-      // Step 2: Call the delete account API (this will clear session cookies)
-      let sessionInvalidated = false;
-      try {
-        const deleteResponse = await fetch('/api/delete-account', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            timestamp: new Date().getTime()
-          })
-        });
-        
-        if (deleteResponse.ok) {
-          const deleteData = await deleteResponse.json();
-          sessionInvalidated = deleteData.sessionInvalidated;
-          console.log('Account deletion successful, session invalidated:', sessionInvalidated);
-        }
-      } catch (err) {
-        console.error('Error calling delete account API:', err);
-        // Continue with cleanup even if API call fails
-      }
 
-      // Step 3: Force session refresh to clear client-side session data
-      if (sessionInvalidated && update) {
-        try {
-          console.log('Forcing session refresh to clear client-side session data...');
-          await update();
-          console.log('Session refresh completed - session data should now be cleared');
-          
-          // Give a small delay to ensure ProfileContext reacts to the cleared session
-          await new Promise(resolve => setTimeout(resolve, 500));
-          console.log('Delay completed - ProfileContext should have reacted to cleared session');
-        } catch (err) {
-          console.error('Error refreshing session:', err);
-          // Continue with cleanup even if session refresh fails
-        }
-      }
-      
-      // Clear Firebase Auth state FIRST, before wiping storage
-      // Firebase SDK relies on its own persistence keys in localStorage/IndexedDB.
-      // Clearing storage before sign-out corrupts the SDK's internal state, causing
-      // auth/network-request-failed errors on subsequent sign-in attempts.
+      // ============================================================
+      // STEP 1: Sign out Firebase FIRST — while the user still exists
+      // server-side. This is critical: if we delete the server-side
+      // user first, Firebase SDK can't properly clean up its IndexedDB
+      // persistence (signOut talks to the server to revoke refresh tokens).
+      // ============================================================
       try {
-        if (firebaseAuth.isAuthenticated()) {
-          console.log('Clearing Firebase Auth state...');
-          await firebaseAuth.signOut();
-          console.log('Firebase Auth state cleared');
-        } else {
-          console.log('Firebase Auth not authenticated, clearing state anyway...');
-          firebaseAuth.cleanup();
-        }
+        console.log('[DELETE] Step 1: Signing out Firebase (before server deletion)...');
+        await firebaseAuth.signOut();
+        console.log('[DELETE] Firebase signed out successfully');
       } catch (err) {
-        console.error('Error clearing Firebase Auth state:', err);
-        // Force clear the state even if sign out fails
+        console.warn('[DELETE] Firebase signOut failed:', err);
         firebaseAuth.cleanup();
       }
 
-      // Now safe to clear storage after Firebase has cleaned up its own state
+      // ============================================================
+      // STEP 2: Revoke OAuth access token
+      // ============================================================
+      if (accessToken) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const response = await fetch('/api/auth/google/revoke', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken, userId, email: userEmail }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          console.log('[DELETE] OAuth token revoke:', response.ok ? 'success' : `failed (${response.status})`);
+        } catch (err) {
+          console.warn('[DELETE] OAuth token revoke error:', err);
+        }
+      }
+
+      // ============================================================
+      // STEP 3: Delete account server-side
+      // (Firebase Auth user, Firestore profile, storage files)
+      // ============================================================
+      try {
+        const deleteResponse = await fetch('/api/delete-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timestamp: Date.now() })
+        });
+        if (deleteResponse.ok) {
+          console.log('[DELETE] Server-side deletion successful');
+        } else {
+          console.error('[DELETE] Server-side deletion failed:', deleteResponse.status);
+        }
+      } catch (err) {
+        console.error('[DELETE] Server-side deletion error:', err);
+      }
+
+      // ============================================================
+      // STEP 4: Clear ALL client-side storage
+      // ============================================================
+
+      // 4a: Clear localStorage and sessionStorage
       try {
         localStorage.clear();
         sessionStorage.clear();
-        console.log('Storage cleared');
-
-        // Note: Motion permissions cannot be programmatically revoked
-        // If user needs to reset motion permissions, they must:
-        // 1. Clear site data in browser settings, or
-        // 2. Use incognito/private browsing mode
-        console.log('⚠️ Note: Motion detection permissions cannot be automatically cleared. If needed, clear site data in browser settings.');
+        console.log('[DELETE] localStorage/sessionStorage cleared');
       } catch (err) {
-        console.error('Error clearing storage:', err);
+        console.warn('[DELETE] Storage clear error:', err);
       }
 
-      // Clear Service Worker cache
+      // 4b: Clear ALL cookies for this domain (not just NextAuth)
       try {
-        if ('serviceWorker' in navigator && 'caches' in window) {
-          console.log('Clearing service worker cache...');
-          const cacheNames = await caches.keys();
-          console.log('Found caches:', cacheNames);
-
-          const deleteCachePromises = cacheNames.map(async (cacheName) => {
-            try {
-              const deleted = await caches.delete(cacheName);
-              console.log(`Cache ${cacheName} deleted:`, deleted);
-              return deleted;
-            } catch (err) {
-              console.warn(`Failed to delete cache ${cacheName}:`, err);
-              return false;
-            }
-          });
-
-          await Promise.allSettled(deleteCachePromises);
-          console.log('Service worker cache clearing completed');
-
-          // Also try to force service worker to update
-          if (navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+        document.cookie.split(';').forEach((c) => {
+          const name = c.split('=')[0].trim();
+          if (name) {
+            // Clear with multiple path/domain combinations to catch all cookies
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure`;
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure; samesite=lax`;
           }
+        });
+        console.log('[DELETE] All cookies cleared');
+      } catch (err) {
+        console.warn('[DELETE] Cookie clear error:', err);
+      }
+
+      // 4c: Clear Service Worker cache and unregister
+      try {
+        if ('serviceWorker' in navigator) {
+          // Unregister all service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.allSettled(registrations.map(r => r.unregister()));
+          console.log('[DELETE] Service workers unregistered:', registrations.length);
+        }
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.allSettled(cacheNames.map(name => caches.delete(name)));
+          console.log('[DELETE] Caches cleared:', cacheNames.length);
         }
       } catch (err) {
-        console.error('Error clearing service worker cache:', err);
-        // Continue with cleanup even if cache clearing fails
+        console.warn('[DELETE] Service worker/cache clear error:', err);
       }
 
-      // Clear IndexedDB databases with timeout protection (non-blocking)
-      if ('indexedDB' in window) {
+      // 4d: Clear ALL IndexedDB databases
+      // Firebase already signed out (Step 1) so connections should be closed
+      if ('indexedDB' in window && 'databases' in indexedDB) {
         try {
-          const clearIndexedDB = async () => {
-            if ('databases' in indexedDB) {
-              const databases = await indexedDB.databases();
-              console.log('Found IndexedDB databases:', databases.map(db => db.name));
-              
-              const deletePromises = databases.map(async (db) => {
-                if (db.name) {
-                  return new Promise<void>((resolve) => {
-                    const deleteReq = indexedDB.deleteDatabase(db.name!);
-                    deleteReq.onsuccess = () => {
-                      console.log(`IndexedDB ${db.name} deleted successfully`);
-                      resolve();
-                    };
-                    deleteReq.onerror = () => {
-                      console.warn(`Failed to delete IndexedDB ${db.name}:`, deleteReq.error);
-                      resolve(); // Don't fail the entire process
-                    };
-                    deleteReq.onblocked = () => {
-                      console.warn(`IndexedDB ${db.name} deletion blocked - continuing anyway`);
-                      resolve(); // Don't fail the entire process
-                    };
-                    
-                    // Timeout for individual databases (non-blocking)
-                    setTimeout(() => {
-                      console.warn(`IndexedDB ${db.name} cleanup timed out - continuing anyway`);
-                      resolve();
-                    }, 2000);
-                  });
-                }
-              });
-              
-              // Use allSettled to not fail the entire process
-              await Promise.allSettled(deletePromises);
-            }
-          };
-          
-          // Run IndexedDB cleanup with overall timeout (non-blocking)
-          const timeoutPromise = new Promise<void>((resolve) => 
-            setTimeout(() => {
-              console.log('IndexedDB cleanup timeout reached - continuing...');
-              resolve();
-            }, 3000)
-          );
-          
-          await Promise.race([clearIndexedDB(), timeoutPromise]);
-          console.log('IndexedDB cleanup completed');
-          
+          const databases = await indexedDB.databases();
+          console.log('[DELETE] IndexedDB databases found:', databases.map(db => db.name));
+
+          await Promise.allSettled(databases.map(db => {
+            if (!db.name) return Promise.resolve();
+            return new Promise<void>((resolve) => {
+              const req = indexedDB.deleteDatabase(db.name!);
+              req.onsuccess = () => { console.log(`[DELETE] IndexedDB ${db.name} deleted`); resolve(); };
+              req.onerror = () => { console.warn(`[DELETE] IndexedDB ${db.name} delete error`); resolve(); };
+              req.onblocked = () => { console.warn(`[DELETE] IndexedDB ${db.name} blocked`); resolve(); };
+              setTimeout(resolve, 3000);
+            });
+          }));
+          console.log('[DELETE] IndexedDB cleanup done');
         } catch (err) {
-          console.warn('IndexedDB cleanup failed, but continuing:', err);
+          console.warn('[DELETE] IndexedDB cleanup error:', err);
         }
       }
 
-      // Use NextAuth signOut with proper error handling
-      console.log('Account deletion complete, signing out...');
+      // ============================================================
+      // STEP 5: Sign out NextAuth and redirect
+      // ============================================================
+      console.log('[DELETE] Complete. Signing out and redirecting...');
       try {
-        await signOut({ 
-          callbackUrl: '/',
-          redirect: true 
-        });
-      } catch (signOutError) {
-        console.warn('NextAuth signOut failed, using fallback approach:', signOutError);
-        
-        // Fallback: Manual cleanup and redirect
-        try {
-          // Clear any remaining NextAuth cookies manually
-          document.cookie.split(";").forEach((c) => {
-            const eqPos = c.indexOf("=");
-            const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
-            if (name.includes('next-auth') || name.includes('__Secure-next-auth') || name.includes('__Host-next-auth')) {
-              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;secure;samesite=lax`;
-            }
-          });
-          
-          // Force redirect to home page
-          console.log('Forcing redirect to home page...');
-          window.location.href = window.location.origin;
-          
-        } catch (fallbackError) {
-          console.error('All signout methods failed:', fallbackError);
-          // Last resort: reload the page
-          window.location.reload();
-        }
+        await signOut({ callbackUrl: '/', redirect: true });
+      } catch {
+        // Fallback: force redirect
+        window.location.href = window.location.origin;
       }
-      
+
       setDeleteStatus('success');
       closeAdminMode();
-      
+
     } catch (err) {
-      console.error('Error deleting account:', err);
+      console.error('[DELETE] Fatal error:', err);
       setDeleteStatus('error');
     }
   }, [session, closeAdminMode, update]);

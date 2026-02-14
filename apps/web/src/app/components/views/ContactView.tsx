@@ -223,6 +223,17 @@ export const ContactView: React.FC<ContactViewProps> = ({
     // Get current profile type from localStorage
     const currentSection = (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
 
+    // Stash the contact profile in sessionStorage so SmartScheduleView can use it
+    // immediately without waiting for the saved contacts cache to update
+    try {
+      sessionStorage.setItem('smartScheduleContact', JSON.stringify({
+        profile,
+        contactType: currentSection,
+      }));
+    } catch {
+      // sessionStorage may be unavailable, proceed anyway
+    }
+
     // Check if user has a calendar for current profile type using ProfileContext
     const userHasCalendar = userProfile?.calendars?.some(
       (cal) => cal.section === currentSection

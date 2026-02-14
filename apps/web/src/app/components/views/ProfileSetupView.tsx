@@ -10,7 +10,7 @@ import { LoadingSpinner } from '../ui/elements/LoadingSpinner';
 import { useProfile } from '../../context/ProfileContext'; // Import useProfile hook
 import type { UserProfile, ContactEntry } from '@/types/profile';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
-import { InlineAddLink } from '../ui/modules/InlineAddLink';
+import { CustomSocialInputAdd } from '../ui/inputs/CustomSocialInputAdd';
 import { formatPhoneNumber } from '@/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
@@ -29,32 +29,39 @@ function ProfileSetupView() {
   const [digits, setDigits] = useState('');
   const [showAddLink, setShowAddLink] = useState(false);
   const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
+  const [socialPlatform, setSocialPlatform] = useState('instagram');
+  const [socialUsername, setSocialUsername] = useState('');
 
   // Track country code for phone number formatting (updated by DropdownPhoneInput)
   const [countryCode, setCountryCode] = useState('US');
-  
+
   const phoneInputRef = useRef<HTMLInputElement>(null);
-  
+
   const adminModeProps = useAdminModeActivator();
 
-  // Handle link added - duplicate to both personal and work sections
-  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
-    // For setup, we want links in both sections like we do with phone
-    const duplicatedEntries: ContactEntry[] = [];
-    entries.forEach(entry => {
-      // Add to personal
-      duplicatedEntries.push({ ...entry, section: 'personal' });
-      // Add to work
-      duplicatedEntries.push({ ...entry, section: 'work' });
-    });
-    setAddedLinks(duplicatedEntries);
-    // Don't hide immediately - let the form submission happen first
-  }, []);
+  // Handle adding a social from the inline input (Enter key or Save captures it)
+  const handleAddSocial = useCallback(() => {
+    if (!socialUsername.trim()) return;
 
-  // Handle cancel add link
-  const handleCancelAddLink = useCallback(() => {
+    const baseEntry = {
+      fieldType: socialPlatform,
+      value: socialUsername.trim(),
+      order: Math.floor(addedLinks.length / 2) + 1,
+      isVisible: true,
+      confirmed: true,
+      linkType: 'default' as const,
+      icon: `/icons/default/${socialPlatform}.svg`
+    };
+
+    setAddedLinks(prev => [
+      ...prev,
+      { ...baseEntry, section: 'personal' },
+      { ...baseEntry, section: 'work' }
+    ]);
+    setSocialUsername('');
+    setSocialPlatform('facebook');
     setShowAddLink(false);
-  }, []);
+  }, [socialPlatform, socialUsername, addedLinks.length]);
 
   // Platform-specific delayed focus for keyboard tray behavior
   useEffect(() => {
@@ -101,6 +108,22 @@ function ProfileSetupView() {
       internationalPhone = phoneResult.internationalPhone;
     }
 
+    // Capture in-progress social if input is showing
+    let finalLinks = [...addedLinks];
+    if (showAddLink && socialUsername.trim()) {
+      const baseEntry = {
+        fieldType: socialPlatform,
+        value: socialUsername.trim(),
+        order: Math.floor(addedLinks.length / 2) + 1,
+        isVisible: true,
+        confirmed: true,
+        linkType: 'default' as const,
+        icon: `/icons/default/${socialPlatform}.svg`
+      };
+      finalLinks.push({ ...baseEntry, section: 'personal' });
+      finalLinks.push({ ...baseEntry, section: 'work' });
+    }
+
     // Build contact entries array with phone and any added links
     const contactEntries: ContactEntry[] = [
       {
@@ -119,7 +142,7 @@ function ProfileSetupView() {
         isVisible: true,
         confirmed: true
       },
-      ...addedLinks // Add any links the user added
+      ...finalLinks
     ];
 
     const phoneUpdateData: Partial<UserProfile> = {
@@ -148,7 +171,7 @@ function ProfileSetupView() {
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, addedLinks, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+  }, [digits, addedLinks, showAddLink, socialPlatform, socialUsername, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
 
 
   if (sessionStatus === 'loading') {
@@ -205,15 +228,23 @@ function ProfileSetupView() {
                   }}
                 />
 
-                {/* Inline Add Link - appears above Save button when active */}
+                {/* Social Input - appears above Save button when active */}
                 {showAddLink && (
-                  <InlineAddLink
-                    section="personal"
-                    onLinkAdded={handleLinkAdded}
-                    nextOrder={1}
-                    onCancel={handleCancelAddLink}
-                    showDuplicateToggle={false}
-                  />
+                  <div onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddSocial();
+                    }
+                  }}>
+                    <CustomSocialInputAdd
+                      platform={socialPlatform}
+                      username={socialUsername}
+                      onPlatformChange={setSocialPlatform}
+                      onUsernameChange={setSocialUsername}
+                      autoFocus
+                    />
+                  </div>
                 )}
 
                 <Button
@@ -236,17 +267,20 @@ function ProfileSetupView() {
                 </Button>
               </form>
 
-              {/* Add Socials Button - appears below Save when not in add mode */}
-              {!showAddLink && addedLinks.length === 0 && (
-                <div className="mt-4 text-center">
-                  <SecondaryButton
-                    className="cursor-pointer"
-                    onClick={() => setShowAddLink(true)}
-                  >
-                    Add Socials
-                  </SecondaryButton>
-                </div>
-              )}
+              {/* Add Socials Button - always visible */}
+              <div className="mt-4 text-center">
+                <SecondaryButton
+                  className="cursor-pointer"
+                  onClick={() => {
+                    if (showAddLink && socialUsername.trim()) {
+                      handleAddSocial();
+                    }
+                    setShowAddLink(true);
+                  }}
+                >
+                  {addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
+                </SecondaryButton>
+              </div>
             </div>
           </div>
         </div>
