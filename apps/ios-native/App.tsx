@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer, useNavigationContainerRef, LinkingOptions } from "@react-navigation/native";
@@ -28,6 +29,8 @@ import { AIScheduleView } from "./src/app/components/views/AIScheduleView";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();
+// Enable fade-out animation (default is false on iOS = instant hide = black flash)
+SplashScreenModule.setOptions({ fade: true, duration: 400 });
 
 // Navigation types
 export type RootStackParamList = {
@@ -43,7 +46,7 @@ export type RootStackParamList = {
   // Phase 2: Scheduling
   Calendar: { section: 'personal' | 'work' };
   Location: { section: 'personal' | 'work' };
-  SmartSchedule: { contactUserId: string; backgroundColors?: string[] };
+  SmartSchedule: { contactUserId: string; backgroundColors?: string[]; contactProfile?: any };
   AISchedule: { contactUserId: string; backgroundColors?: string[] };
 };
 
@@ -87,22 +90,23 @@ function AppContent() {
   // Determine if loading
   const isLoading = status === "loading" || (status === "authenticated" && profileLoading);
 
-  // Hide the native splash screen once app state is determined
-  useEffect(() => {
-    if (!isLoading) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(async () => {
-        await SplashScreenModule.hideAsync();
-        setAppIsReady(true);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading]);
+  // Content fade-in after native splash hides
+  const contentOpacity = useSharedValue(0);
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    flex: 1,
+  }));
 
-  // Keep native splash visible while loading
-  if (isLoading || !appIsReady) {
-    return null;
-  }
+  // When content has laid out, hide native splash and fade in content
+  const handleContentReady = useCallback(() => {
+    if (appIsReady) return;
+    // Small delay to ensure gradient is fully composited
+    setTimeout(async () => {
+      await SplashScreenModule.hideAsync();
+      contentOpacity.value = withTiming(1, { duration: 500 });
+      setAppIsReady(true);
+    }, 100);
+  }, [appIsReady]);
 
   // Determine initial route based on auth state
   const getInitialRouteName = (): keyof RootStackParamList => {
@@ -112,52 +116,58 @@ function AppContent() {
   };
 
   // Compute navigator key based on auth state to force remount on state changes
-  // This prevents React Navigation from trying to reconcile invalid routes
   const navigatorKey = status === "unauthenticated" ? "unauth" : needsSetup ? "setup" : "auth";
 
+  // Always render LayoutBackground so gradient paints behind the native splash.
+  // Only render navigation content once data is loaded.
   return (
-    <LayoutBackground>
-      <Stack.Navigator
-        key={navigatorKey}
-        initialRouteName={getInitialRouteName()}
-        screenOptions={{
-          headerShown: false,
-          animation: "none", // Disabled - using custom ScreenTransition for sequential fade
-          contentStyle: { backgroundColor: "transparent" },
-        }}
-      >
-        {status === "unauthenticated" ? (
-          // Unauthenticated screens
-          <>
-            <Stack.Screen name="Home" component={HomePage} />
-            <Stack.Screen name="Privacy" component={PrivacyView} />
-            <Stack.Screen name="Terms" component={TermsView} />
-          </>
-        ) : needsSetup ? (
-          // Profile setup screens
-          <>
-            <Stack.Screen name="ProfileSetup" component={ProfileSetupView} />
-            <Stack.Screen name="Privacy" component={PrivacyView} />
-            <Stack.Screen name="Terms" component={TermsView} />
-          </>
-        ) : (
-          // Authenticated screens - all use fade (crossfade) to keep background static
-          <>
-            <Stack.Screen name="Profile" component={ProfileView} />
-            <Stack.Screen name="EditProfile" component={EditProfileView} />
-            <Stack.Screen name="Contact" component={ContactView} />
-            <Stack.Screen name="ContactProfile" component={ContactProfileView} />
-            <Stack.Screen name="History" component={HistoryView} />
-            <Stack.Screen name="Calendar" component={CalendarView} />
-            <Stack.Screen name="Location" component={LocationView} />
-            <Stack.Screen name="SmartSchedule" component={SmartScheduleView} />
-            <Stack.Screen name="AISchedule" component={AIScheduleView} />
-            <Stack.Screen name="Privacy" component={PrivacyView} />
-            <Stack.Screen name="Terms" component={TermsView} />
-          </>
+    <View style={styles.container}>
+      <LayoutBackground>
+        {!isLoading && (
+          <View style={{ flex: 1 }} onLayout={handleContentReady}>
+            <Animated.View style={contentStyle}>
+              <Stack.Navigator
+                key={navigatorKey}
+                initialRouteName={getInitialRouteName()}
+                screenOptions={{
+                  headerShown: false,
+                  animation: "none",
+                  contentStyle: { backgroundColor: "transparent" },
+                }}
+              >
+                {status === "unauthenticated" ? (
+                  <>
+                    <Stack.Screen name="Home" component={HomePage} />
+                    <Stack.Screen name="Privacy" component={PrivacyView} />
+                    <Stack.Screen name="Terms" component={TermsView} />
+                  </>
+                ) : needsSetup ? (
+                  <>
+                    <Stack.Screen name="ProfileSetup" component={ProfileSetupView} />
+                    <Stack.Screen name="Privacy" component={PrivacyView} />
+                    <Stack.Screen name="Terms" component={TermsView} />
+                  </>
+                ) : (
+                  <>
+                    <Stack.Screen name="Profile" component={ProfileView} />
+                    <Stack.Screen name="EditProfile" component={EditProfileView} />
+                    <Stack.Screen name="Contact" component={ContactView} />
+                    <Stack.Screen name="ContactProfile" component={ContactProfileView} />
+                    <Stack.Screen name="History" component={HistoryView} />
+                    <Stack.Screen name="Calendar" component={CalendarView} />
+                    <Stack.Screen name="Location" component={LocationView} />
+                    <Stack.Screen name="SmartSchedule" component={SmartScheduleView} />
+                    <Stack.Screen name="AISchedule" component={AIScheduleView} />
+                    <Stack.Screen name="Privacy" component={PrivacyView} />
+                    <Stack.Screen name="Terms" component={TermsView} />
+                  </>
+                )}
+              </Stack.Navigator>
+            </Animated.View>
+          </View>
         )}
-      </Stack.Navigator>
-    </LayoutBackground>
+      </LayoutBackground>
+    </View>
   );
 }
 
@@ -167,7 +177,7 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState<string | null>(null);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0a0f1a" }}>
       <SafeAreaProvider>
         <NavigationContainer
           ref={navigationRef}
@@ -204,9 +214,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
     backgroundColor: "#0a0f1a",
   },
 });

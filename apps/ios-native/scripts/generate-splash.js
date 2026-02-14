@@ -2,24 +2,21 @@ const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs');
 const path = require('path');
 
-// iPhone splash screen dimensions (iPhone 14 Pro Max)
-const WIDTH = 1290;
-const HEIGHT = 2796;
+// iPhone splash screen dimensions (iPhone Air @3x)
+const WIDTH = 1260;
+const HEIGHT = 2736;
 
-// Gradient parameters matching ParticleNetwork.tsx
-const RADIUS_X = WIDTH * 0.4;
-const RADIUS_Y = HEIGHT * 0.8;
-const CENTER_X = WIDTH / 2;
-const CENTER_Y = 0;
+// Colors matching the default profile gradient (symmetric linear)
+const COLOR_DARK = { r: 10, g: 15, b: 26 };   // #0a0f1a - top and bottom
+const COLOR_GREEN = { r: 20, g: 88, b: 53 };   // #145835 - middle
 
-// Colors matching ParticleNetwork
-const COLOR_START = { r: 34, g: 197, b: 94, a: 0.3 }; // rgba(34, 197, 94, 0.3)
-const COLOR_END = { r: 10, g: 15, b: 26, a: 1.0 }; // #0a0f1a
-
-// Logo positioning - bottom of logo at vertical center (logo in upper half)
-const LOGO_WIDTH = 950; // Scaled for splash screen resolution (larger for visibility)
+// Logo sizing - match homepage: Math.min(screenWidth - 32, 448) in points
+// iPhone 14 Pro Max: 430pt wide → min(398, 448) = 398pt → 398 * 3 = 1194px @3x
+const SCREEN_WIDTH_PT = WIDTH / 3; // 430pt
+const LOGO_WIDTH = Math.min(SCREEN_WIDTH_PT - 32, 448) * 3; // Same formula as homepage, scaled to @3x
 const LOGO_HEIGHT = LOGO_WIDTH / (593 / 207); // Maintain aspect ratio
-const LOGO_TOP_OFFSET = (HEIGHT / 2) - LOGO_HEIGHT; // Logo finishes at vertical midpoint
+// Logo positioning - bottom of logo at vertical center (logo in upper half)
+const LOGO_TOP_OFFSET = (HEIGHT / 2) - LOGO_HEIGHT;
 
 // Nekt logo SVG path data (simplified for canvas drawing)
 const logoSvg = `<svg width="593" height="207" viewBox="0 0 593 207" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -97,14 +94,13 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-// Mix colors based on distance (matching shader logic)
-function mixColors(t) {
+// Mix two colors by parameter t (0 = colorA, 1 = colorB)
+function mixColors(colorA, colorB, t) {
   const clampedT = Math.min(1, Math.max(0, t));
   return {
-    r: Math.round(lerp(COLOR_START.r, COLOR_END.r, clampedT)),
-    g: Math.round(lerp(COLOR_START.g, COLOR_END.g, clampedT)),
-    b: Math.round(lerp(COLOR_START.b, COLOR_END.b, clampedT)),
-    a: lerp(COLOR_START.a, COLOR_END.a, clampedT),
+    r: Math.round(lerp(colorA.r, colorB.r, clampedT)),
+    g: Math.round(lerp(colorA.g, colorB.g, clampedT)),
+    b: Math.round(lerp(colorA.b, colorB.b, clampedT)),
   };
 }
 
@@ -114,41 +110,31 @@ async function generateSplash() {
 
   console.log('Generating splash image...');
   console.log(`Dimensions: ${WIDTH}x${HEIGHT}`);
-  console.log(`Gradient: radiusX=${RADIUS_X}, radiusY=${RADIUS_Y}`);
+  console.log('Gradient: symmetric linear (dark → green → dark)');
 
-  // Draw elliptical gradient pixel by pixel (matching SKSL shader)
+  // Draw symmetric linear gradient (top-to-bottom)
+  // Matches the profile screen: dark at top, green in middle, dark at bottom
   const imageData = ctx.createImageData(WIDTH, HEIGHT);
   const data = imageData.data;
 
   for (let y = 0; y < HEIGHT; y++) {
+    // Normalized position 0..1
+    const t = y / (HEIGHT - 1);
+
+    // Symmetric: 0→0.5 goes dark→green, 0.5→1 goes green→dark
+    let color;
+    if (t <= 0.5) {
+      color = mixColors(COLOR_DARK, COLOR_GREEN, t / 0.5);
+    } else {
+      color = mixColors(COLOR_GREEN, COLOR_DARK, (t - 0.5) / 0.5);
+    }
+
     for (let x = 0; x < WIDTH; x++) {
-      // Calculate normalized distance from center using ellipse formula
-      const dx = (x - CENTER_X) / RADIUS_X;
-      const dy = (y - CENTER_Y) / RADIUS_Y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Get interpolated color
-      const color = mixColors(dist);
-
-      // Set pixel
       const i = (y * WIDTH + x) * 4;
-
-      // Blend the gradient start color with the end color based on alpha
-      // Since start has alpha 0.3, we need to composite properly
-      const bgR = COLOR_END.r;
-      const bgG = COLOR_END.g;
-      const bgB = COLOR_END.b;
-
-      // Simple alpha compositing
-      const srcAlpha = color.a;
-      const finalR = Math.round(color.r * srcAlpha + bgR * (1 - srcAlpha));
-      const finalG = Math.round(color.g * srcAlpha + bgG * (1 - srcAlpha));
-      const finalB = Math.round(color.b * srcAlpha + bgB * (1 - srcAlpha));
-
-      data[i] = finalR;
-      data[i + 1] = finalG;
-      data[i + 2] = finalB;
-      data[i + 3] = 255; // Fully opaque
+      data[i] = color.r;
+      data[i + 1] = color.g;
+      data[i + 2] = color.b;
+      data[i + 3] = 255;
     }
   }
 
