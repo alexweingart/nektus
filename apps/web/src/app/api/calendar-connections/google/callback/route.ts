@@ -111,9 +111,20 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json();
 
-    // Use the email from the state (already validated and passed from the client)
-    // No need to fetch from Google since we're using incremental auth with the same client
-    const calendarEmail = userEmail;
+    // Get actual Google account email from userinfo endpoint
+    // (userEmail from state is the Nekt profile email, which may be an Apple ID)
+    let calendarEmail = userEmail;
+    try {
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json();
+        calendarEmail = userInfo.email || calendarEmail;
+      }
+    } catch (e) {
+      console.warn('[Google OAuth] Failed to fetch userinfo, falling back to state email:', e);
+    }
 
     console.log(`[Google OAuth] Success for ${calendarEmail}`);
 

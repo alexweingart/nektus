@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { StandardModal } from './StandardModal';
 import { StaticInput } from '../inputs/StaticInput';
+import { useProfile } from '@/app/context/ProfileContext';
+import { ensureReadableColor } from '@/shared/colors';
 
 interface AppleCalendarSetupModalProps {
   isOpen: boolean;
@@ -15,6 +17,10 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
   const [appPassword, setAppPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState('');
+  const { profile } = useProfile();
+
+  const dominantColor = profile?.backgroundColors?.[0];
+  const linkColor = dominantColor ? ensureReadableColor(dominantColor) : undefined;
 
   const handleConnect = async () => {
     if (!appleId || !appPassword) {
@@ -71,7 +77,8 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
             href="https://appleid.apple.com/account/security"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[hsl(var(--primary))] hover:underline"
+            className="hover:underline"
+            style={linkColor ? { color: linkColor } : { color: 'hsl(var(--primary))' }}
           >
             Generate an app-specific password
           </a>
