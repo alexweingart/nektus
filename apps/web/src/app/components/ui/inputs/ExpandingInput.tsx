@@ -5,8 +5,9 @@
 
 'use client';
 
-import React, { forwardRef, TextareaHTMLAttributes, useEffect, useRef } from 'react';
+import React, { forwardRef, TextareaHTMLAttributes, useEffect, useMemo, useRef } from 'react';
 import { EyeIcon } from '../elements/EyeIcon';
+import { isAndroidPlatform } from '@/client/platform-detection';
 
 interface ExpandingInputProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   value?: string;
@@ -42,6 +43,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
     ...props
   }, ref) => {
     const isComposingRef = useRef(false);
+    const isAndroid = useMemo(() => isAndroidPlatform(), []);
 
     // Auto-resize effect
     useEffect(() => {
@@ -54,7 +56,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
 
     // Handle both onChange patterns: (value: string) => void and event-based
     const handleChange = onChange ? (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (isComposingRef.current) return;
+      if (!isAndroid && isComposingRef.current) return;
       // Try string pattern first (new pattern)
       try {
         (onChange as (value: string) => void)(e.target.value);

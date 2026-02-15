@@ -1,5 +1,6 @@
-import { InputHTMLAttributes, useRef } from 'react';
+import { InputHTMLAttributes, useMemo, useRef } from 'react';
 import type { ValidationResult } from '@/types/profile';
+import { isAndroidPlatform } from '@/client/platform-detection';
 
 interface ValidatedInputProps extends InputHTMLAttributes<HTMLInputElement> {
   className?: string;
@@ -19,6 +20,7 @@ export function ValidatedInput({
 }: ValidatedInputProps) {
   const { onChange, ...inputProps } = props;
   const isComposingRef = useRef(false);
+  const isAndroid = useMemo(() => isAndroidPlatform(), []);
   const value = props.value ? String(props.value).trim() : '';
   const isEmpty = value.length === 0;
   const isRequiredEmpty = isRequired && isEmpty && saveAttempted; // Only show required error after save attempt
@@ -64,7 +66,7 @@ export function ValidatedInput({
           }}
           {...inputProps}
           onChange={(e) => {
-            if (!isComposingRef.current) {
+            if (isAndroid || !isComposingRef.current) {
               onChange?.(e);
             }
           }}

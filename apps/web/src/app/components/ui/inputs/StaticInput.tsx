@@ -3,8 +3,9 @@
  * For name, email, and other single-line text fields
  */
 
-import React, { forwardRef, InputHTMLAttributes, ReactNode, useRef } from 'react';
+import React, { forwardRef, InputHTMLAttributes, ReactNode, useMemo, useRef } from 'react';
 import { EyeIcon } from '../elements/EyeIcon';
+import { isAndroidPlatform } from '@/client/platform-detection';
 
 interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: ReactNode;
@@ -22,6 +23,7 @@ export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
   ({ label, error, className = '', inputClassName = '', icon, iconClassName = '', variant = 'default', isHidden = false, onToggleHide, ...props }, ref) => {
     const { onChange, ...inputProps } = props;
     const isComposingRef = useRef(false);
+    const isAndroid = useMemo(() => isAndroidPlatform(), []);
 
     return (
       <div className={`w-full ${className}`}>
@@ -61,7 +63,7 @@ export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
             }}
             {...inputProps}
             onChange={(e) => {
-              if (!isComposingRef.current) {
+              if (isAndroid || !isComposingRef.current) {
                 onChange?.(e);
               }
             }}
