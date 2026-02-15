@@ -313,6 +313,7 @@ function ConnectPageContent() {
           isLoading={false}
           token={token}
           skipEnterAnimation={phoneEntryComplete}
+          scannedSection={sharingCategory.toLowerCase() as 'personal' | 'work'}
         />
       </>
     );

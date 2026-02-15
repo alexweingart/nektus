@@ -37,6 +37,7 @@ interface ContactViewProps {
   token: string;
   isHistoricalContact?: boolean;
   skipEnterAnimation?: boolean;
+  scannedSection?: 'personal' | 'work';
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
@@ -45,7 +46,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   isLoading = false,
   token,
   isHistoricalContact = false,
-  skipEnterAnimation = false
+  skipEnterAnimation = false,
+  scannedSection
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
@@ -224,8 +226,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleScheduleMeetUp = async () => {
     if (!session?.user?.id) return;
 
-    // Get current profile type from localStorage
-    const currentSection = (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
+    // Use the scanned contact's section (what the other user shared), fall back to profileViewMode
+    const currentSection = scannedSection || (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
 
     // Stash the contact profile in sessionStorage so SmartScheduleView can use it
     // immediately without waiting for the saved contacts cache to update
@@ -473,7 +475,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           section={
             isHistoricalMode
               ? (profile as SavedContact).contactType
-              : (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work'
+              : scannedSection || (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work'
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}
