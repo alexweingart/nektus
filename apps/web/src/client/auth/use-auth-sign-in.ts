@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { signIn } from 'next-auth/react';
-import { isIOSPlatform, isAndroidPlatform } from '@/client/platform-detection';
+import { isIOSPlatform } from '@/client/platform-detection';
 
 // Apple JS SDK type declarations
 declare global {
@@ -31,28 +31,6 @@ declare global {
         }>;
       };
     };
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential: string; select_by: string }) => void;
-            auto_select?: boolean;
-            cancel_on_tap_outside?: boolean;
-            use_fedcm_for_prompt?: boolean;
-          }) => void;
-          prompt: (callback?: (notification: {
-            isNotDisplayed: () => boolean;
-            isSkippedMoment: () => boolean;
-            isDismissedMoment: () => boolean;
-            getNotDisplayedReason: () => string;
-            getSkippedReason: () => string;
-            getDismissedReason: () => string;
-          }) => void) => void;
-          cancel: () => void;
-        };
-      };
-    };
   }
 }
 
@@ -62,31 +40,25 @@ interface UseAuthSignInOptions {
 
 export function useAuthSignIn(options?: UseAuthSignInOptions) {
   const [showAppleSignIn, setShowAppleSignIn] = useState(false);
-  const [showGoogleOneTap, setShowGoogleOneTap] = useState(false);
   const [isAppleSigningIn, setIsAppleSigningIn] = useState(false);
-  const [isGoogleOneTapSigningIn, setIsGoogleOneTapSigningIn] = useState(false);
 
   // Detect platform on client-side for native sign-in experiences
-  // iOS → Apple Sign-In popup, Android → Google One Tap bottom sheet
+  // iOS → Apple Sign-In popup, all other platforms → Google OAuth redirect
   // Apple requires real domains (no localhost or .ts.net), so we use:
   // - Production: www.nekt.us, nekt.us, *.vercel.app
   // - Local dev: local.nekt.us (add to /etc/hosts -> 127.0.0.1, register with Apple)
   // Tailscale and plain localhost fall back to Google sign-in redirect
-  // Debug: add ?forceApple=true or ?forceOneTap=true to URL to test on any platform
+  // Debug: add ?forceApple=true to URL to test on any platform
   useEffect(() => {
     const hostname = window.location.hostname;
     const urlParams = new URLSearchParams(window.location.search);
     const forceApple = urlParams.get('forceApple') === 'true';
-    const forceOneTap = urlParams.get('forceOneTap') === 'true';
 
     const isProduction = hostname === 'nekt.us' || hostname === 'www.nekt.us' || hostname.endsWith('.vercel.app');
     const isLocalAppleDev = hostname === 'local.nekt.us';
-    const isTailscaleDev = hostname.endsWith('.ts.net');
     const isIOS = isIOSPlatform();
-    const isAndroid = isAndroidPlatform();
 
     setShowAppleSignIn(forceApple || (isIOS && (isProduction || isLocalAppleDev)));
-    setShowGoogleOneTap(forceOneTap || (isAndroid && (isProduction || isLocalAppleDev || isTailscaleDev)));
   }, []);
 
   const handleSignIn = useCallback(async () => {
@@ -199,121 +171,10 @@ export function useAuthSignIn(options?: UseAuthSignInOptions) {
     }
   }, [isAppleSigningIn, options?.callbackUrl]);
 
-  // Handle Google One Tap for Android
-  // Races the One Tap flow against a 5s timeout, falls back to redirect on any failure
-  const handleGoogleOneTap = useCallback(async () => {
-    if (isGoogleOneTapSigningIn) return;
-
-    setIsGoogleOneTapSigningIn(true);
-
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('One Tap timed out')), 5000);
-    });
-
-    try {
-      // Clear Google One Tap cooldown cookie
-      document.cookie = 'g_state=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-
-      const credential = await Promise.race([
-        (async () => {
-          if (!window.google?.accounts?.id) {
-            await new Promise<void>((resolve, reject) => {
-              const script = document.createElement('script');
-              script.src = 'https://accounts.google.com/gsi/client';
-              script.onload = () => resolve();
-              script.onerror = () => reject(new Error('Failed to load GIS SDK'));
-              document.head.appendChild(script);
-            });
-          }
-
-          if (!window.google?.accounts?.id) {
-            throw new Error('Google Identity Services SDK failed to load');
-          }
-
-          const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-          if (!clientId) {
-            throw new Error('Google Client ID not configured');
-          }
-
-          return new Promise<string>((resolve, reject) => {
-            try {
-              window.google!.accounts.id.initialize({
-                client_id: clientId,
-                callback: (response) => {
-                  if (response.credential) {
-                    resolve(response.credential);
-                  } else {
-                    reject(new Error('No credential in Google One Tap response'));
-                  }
-                },
-                auto_select: true,
-                cancel_on_tap_outside: false,
-                use_fedcm_for_prompt: false,
-              });
-            } catch (e) {
-              reject(e);
-              return;
-            }
-
-            window.google!.accounts.id.prompt((notification) => {
-              if (notification.isNotDisplayed()) {
-                clearTimeout(timeoutId);
-                reject(new Error(`One Tap not displayed: ${notification.getNotDisplayedReason()}`));
-              } else if (notification.isSkippedMoment()) {
-                clearTimeout(timeoutId);
-                reject(new Error(`One Tap skipped: ${notification.getSkippedReason()}`));
-              } else if (notification.isDismissedMoment()) {
-                clearTimeout(timeoutId);
-                reject(new Error(`One Tap dismissed: ${notification.getDismissedReason()}`));
-              } else {
-                // Display moment — prompt is visible, cancel the timeout
-                clearTimeout(timeoutId);
-              }
-            });
-          });
-        })(),
-        timeoutPromise,
-      ]);
-
-      const backendResponse = await fetch('/api/auth/mobile-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ googleIdToken: credential }),
-      });
-
-      if (!backendResponse.ok) {
-        const error = await backendResponse.json().catch(() => ({}));
-        throw new Error(error.error || `HTTP ${backendResponse.status}`);
-      }
-
-      const data = await backendResponse.json();
-
-      const callbackUrl = options?.callbackUrl ?? (data.needsSetup ? '/setup' : '/');
-      await signIn('google-onetap', {
-        firebaseToken: data.firebaseToken,
-        userId: data.userId,
-        name: data.user?.name || '',
-        email: data.user?.email || '',
-        image: data.user?.image || '',
-        callbackUrl,
-        redirect: true,
-      });
-    } catch (error) {
-      console.error('[useAuthSignIn] Google One Tap failed:', error);
-      setIsGoogleOneTapSigningIn(false);
-      console.log('[useAuthSignIn] Falling back to Google redirect sign-in');
-      handleSignIn();
-    }
-  }, [isGoogleOneTapSigningIn, handleSignIn, options?.callbackUrl]);
-
   return {
     showAppleSignIn,
-    showGoogleOneTap,
     isAppleSigningIn,
-    isGoogleOneTapSigningIn,
     handleSignIn,
     handleAppleSignIn,
-    handleGoogleOneTap,
   };
 }

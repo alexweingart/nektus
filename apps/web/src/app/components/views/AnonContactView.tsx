@@ -57,12 +57,9 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
 
   const {
     showAppleSignIn,
-    showGoogleOneTap,
     isAppleSigningIn,
-    isGoogleOneTapSigningIn,
     handleSignIn,
     handleAppleSignIn,
-    handleGoogleOneTap,
   } = useAuthSignIn({ callbackUrl: `/x/${token}` });
 
   const name = getFieldValue(profile.contactEntries, 'name') || 'User';
@@ -144,17 +141,6 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
             >
               {isAppleSigningIn ? 'Signing in...' : 'Sign in with Apple'}
             </Button>
-          ) : showGoogleOneTap ? (
-            <Button
-              variant="white"
-              size="xl"
-              onClick={handleGoogleOneTap}
-              className="w-full mb-2"
-              icon={<Image src="/icons/auth/google.svg" alt="" width={18} height={18} />}
-              disabled={isGoogleOneTapSigningIn}
-            >
-              {isGoogleOneTapSigningIn ? 'Signing in...' : 'Sign in with Google'}
-            </Button>
           ) : (
             <Button
               variant="white"
@@ -183,7 +169,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
         showCloseButton={false}
         primaryButtonText={showAppleSignIn ? 'Sign in with Apple' : 'Sign in with Google'}
         primaryButtonIcon={showAppleSignIn ? <Image src="/icons/auth/apple.svg" alt="" width={24} height={24} /> : <Image src="/icons/auth/google.svg" alt="" width={18} height={18} />}
-        onPrimaryButtonClick={showAppleSignIn ? handleAppleSignIn : showGoogleOneTap ? handleGoogleOneTap : handleSignIn}
+        onPrimaryButtonClick={showAppleSignIn ? handleAppleSignIn : handleSignIn}
         secondaryButtonText="Cancel"
       />
     </div>

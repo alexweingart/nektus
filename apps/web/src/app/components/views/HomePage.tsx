@@ -56,12 +56,9 @@ const HomePage: React.FC = () => {
 
   const {
     showAppleSignIn,
-    showGoogleOneTap,
     isAppleSigningIn,
-    isGoogleOneTapSigningIn,
     handleSignIn,
     handleAppleSignIn,
-    handleGoogleOneTap,
   } = useAuthSignIn();
 
   const handleGetStarted = () => {
@@ -138,18 +135,6 @@ const HomePage: React.FC = () => {
             disabled={isAppleSigningIn}
           >
             {isAppleSigningIn ? 'Signing in...' : 'Sign in with Apple'}
-          </Button>
-        ) : showGoogleOneTap ? (
-          // Android: Show Google One Tap sign-in (lightweight bottom sheet)
-          <Button
-            variant="white"
-            size="xl"
-            className="w-full mb-2"
-            onClick={handleGoogleOneTap}
-            icon={<Image src="/icons/auth/google.svg" alt="" width={18} height={18} />}
-            disabled={isGoogleOneTapSigningIn}
-          >
-            {isGoogleOneTapSigningIn ? 'Signing in...' : 'Sign in with Google'}
           </Button>
         ) : (
           // Desktop/fallback: Google Sign-in via redirect
