@@ -1,18 +1,16 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
-  Keyboard,
 } from "react-native";
 import { Heading, BodyText } from "../ui/Typography";
 import { Button } from "../ui/buttons/Button";
 import { DropdownPhoneInput } from "../ui/inputs/DropdownPhoneInput";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
-import { InlineAddLink, InlineAddLinkRef } from "../ui/modules/InlineAddLink";
+import { CustomSocialInputAdd } from "../ui/inputs/CustomSocialInputAdd";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber } from "@nektus/shared-client";
@@ -32,40 +30,46 @@ export function ProfileSetupView() {
   const { data: session } = useSession();
   const { saveProfile, isSaving, profile } = useProfile();
   const adminModeProps = useAdminModeActivator();
-  const inlineAddLinkRef = useRef<InlineAddLinkRef>(null);
 
   const [phoneDigits, setPhoneDigits] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showAddLink, setShowAddLink] = useState(false);
   const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
+  const [socialPlatform, setSocialPlatform] = useState('instagram');
+  const [socialUsername, setSocialUsername] = useState('');
 
   // Get user's first name from profile or session
   const userName = getFieldValue(profile?.contactEntries, 'name') || session?.user?.name;
   const firstName = userName?.split(" ")[0] || "there";
 
-  // Handle link added - duplicate to both personal and work sections
-  const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
-    // For setup, we want links in both sections like we do with phone
-    const duplicatedEntries: ContactEntry[] = [];
-    entries.forEach(entry => {
-      // Add to personal
-      duplicatedEntries.push({ ...entry, section: 'personal' });
-      // Add to work
-      duplicatedEntries.push({ ...entry, section: 'work' });
-    });
-    setAddedLinks(duplicatedEntries);
-    setShowAddLink(false);
-  }, []);
+  // Handle adding a social from the inline input
+  const handleAddSocial = useCallback(() => {
+    if (!socialUsername.trim()) return;
 
-  // Handle cancel add link
-  const handleCancelAddLink = useCallback(() => {
+    const baseEntry = {
+      fieldType: socialPlatform,
+      value: socialUsername.trim(),
+      order: Math.floor(addedLinks.length / 2) + 1,
+      isVisible: true,
+      confirmed: true,
+      linkType: 'default' as const,
+      icon: `/icons/default/${socialPlatform}.svg`,
+    };
+
+    setAddedLinks(prev => [
+      ...prev,
+      { ...baseEntry, section: 'personal' },
+      { ...baseEntry, section: 'work' }
+    ]);
+    setSocialUsername('');
+    setSocialPlatform('facebook');
     setShowAddLink(false);
-  }, []);
+  }, [socialPlatform, socialUsername, addedLinks.length]);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
 
-    // Validate phone FIRST, before touching InlineAddLink state
+    // Validate phone FIRST
     const cleanDigits = phoneDigits.replace(/\D/g, "");
     if (cleanDigits.length < 10) {
       setError("Please enter a valid 10-digit phone number");
@@ -82,22 +86,24 @@ export function ProfileSetupView() {
       return;
     }
 
-    // Phone is valid - now save InlineAddLink content if open
+    // Capture in-progress social if input is showing
     let newLinks: ContactEntry[] = [];
-    if (showAddLink && inlineAddLinkRef.current) {
-      const savedEntries = inlineAddLinkRef.current.save();
-      if (savedEntries) {
-        // Duplicate to both sections for setup (handleLinkAdded's setAddedLinks is async,
-        // so we need to duplicate here directly)
-        savedEntries.forEach(entry => {
-          newLinks.push({ ...entry, section: 'personal' });
-          newLinks.push({ ...entry, section: 'work' });
-        });
-      }
+    if (showAddLink && socialUsername.trim()) {
+      const baseEntry = {
+        fieldType: socialPlatform,
+        value: socialUsername.trim(),
+        order: Math.floor(addedLinks.length / 2) + 1,
+        isVisible: true,
+        confirmed: true,
+        linkType: 'default' as const,
+        icon: `/icons/default/${socialPlatform}.svg`,
+      };
+      newLinks.push({ ...baseEntry, section: 'personal' });
+      newLinks.push({ ...baseEntry, section: 'work' });
     }
 
     try {
-      // Combine previously added links with any new links from InlineAddLink
+      // Combine previously added links with any new in-progress social
       const allLinks = [...addedLinks, ...newLinks];
 
       const phoneUpdateData: Partial<UserProfile> = {
@@ -131,7 +137,7 @@ export function ProfileSetupView() {
       console.error("[ProfileSetupView] Save failed:", err);
       setError("Failed to save. Please try again.");
     }
-  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, addedLinks, showAddLink]);
+  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, addedLinks, showAddLink, socialPlatform, socialUsername]);
 
   const isButtonDisabled =
     isSaving || phoneDigits.replace(/\D/g, "").length < 10;
@@ -178,30 +184,20 @@ export function ProfileSetupView() {
 
             {error && <BodyText style={styles.errorText}>{error}</BodyText>}
 
-            {/* Inline Add Link - appears above Save button when active */}
+            {/* Social Input - appears above Save button when active */}
             {showAddLink && (
-              <>
-                {/* Backdrop to dismiss when tapping outside */}
-                <Pressable
-                  style={styles.addLinkBackdrop}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    handleCancelAddLink();
-                  }}
-                />
-                <InlineAddLink
-                  ref={inlineAddLinkRef}
-                  section="personal"
-                  onLinkAdded={handleLinkAdded}
-                  nextOrder={1}
-                  onCancel={handleCancelAddLink}
-                  showDuplicateToggle={false}
-                />
-              </>
+              <CustomSocialInputAdd
+                platform={socialPlatform}
+                username={socialUsername}
+                onPlatformChange={setSocialPlatform}
+                onUsernameChange={setSocialUsername}
+                onSubmit={handleAddSocial}
+                autoFocus
+              />
             )}
 
-            {/* Save Button - higher zIndex when InlineAddLink is showing */}
-            <View style={showAddLink ? styles.saveButtonAboveBackdrop : undefined}>
+            {/* Save Button */}
+            <View>
               <Button
                 onPress={handleSave}
                 loading={isSaving}
@@ -214,10 +210,10 @@ export function ProfileSetupView() {
             </View>
 
             {/* Add Socials CTA - appears below Save when not in add mode */}
-            {!showAddLink && addedLinks.length === 0 && (
+            {!showAddLink && (
               <View style={styles.addSocialsContainer}>
                 <SecondaryButton onPress={() => setShowAddLink(true)}>
-                  Add Socials
+                  {addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
                 </SecondaryButton>
               </View>
             )}
@@ -269,17 +265,6 @@ const styles = StyleSheet.create({
   addSocialsContainer: {
     alignItems: "center",
     marginTop: 8,
-  },
-  addLinkBackdrop: {
-    position: "absolute",
-    top: -1000,
-    left: -1000,
-    right: -1000,
-    bottom: -1000,
-    zIndex: 40,
-  },
-  saveButtonAboveBackdrop: {
-    zIndex: 60, // Above backdrop (40) and InlineAddLink (50)
   },
 });
 

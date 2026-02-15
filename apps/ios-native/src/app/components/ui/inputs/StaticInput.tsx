@@ -18,7 +18,7 @@ import {
   StyleSheet,
   TextInputProps,
 } from 'react-native';
-import { EyeIcon } from '../icons/EyeIcon';
+import { EyeIcon } from '../elements/EyeIcon';
 import { ThemedTextInput } from './ThemedTextInput';
 
 interface StaticInputProps extends Omit<TextInputProps, 'style'> {

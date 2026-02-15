@@ -45,6 +45,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
     scannedSection === 'work' ? 'linkedin' : 'instagram'
   );
   const [socialUsername, setSocialUsername] = useState('');
+  const [addedSocials, setAddedSocials] = useState<ContactEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Animation
@@ -96,17 +97,41 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
 
   const firstName = userName?.split(' ')[0] || 'there';
 
+  // Handle adding a social (Done key on keyboard)
+  const handleAddSocial = useCallback(() => {
+    if (!socialUsername.trim()) return;
+
+    const baseEntry = {
+      fieldType: socialPlatform,
+      value: socialUsername.trim(),
+      order: Math.floor(addedSocials.length / 2) + 1,
+      isVisible: true,
+      confirmed: true,
+      linkType: 'default' as const,
+      icon: `/icons/default/${socialPlatform}.svg`,
+    };
+
+    setAddedSocials(prev => [
+      ...prev,
+      { ...baseEntry, section: 'personal' as const },
+      { ...baseEntry, section: 'work' as const }
+    ]);
+    setSocialUsername('');
+    setSocialPlatform('facebook');
+    setShowAddLink(false);
+  }, [socialPlatform, socialUsername, addedSocials.length]);
+
   const handleSave = useCallback(async () => {
     if (!isPhoneValid || isSaving) return;
     setError(null);
 
-    // Build social entries if username provided
-    const socialEntries: ContactEntry[] = [];
-    if (socialUsername.trim()) {
+    // Combine previously added socials with any in-progress one
+    const socialEntries: ContactEntry[] = [...addedSocials];
+    if (showAddLink && socialUsername.trim()) {
       const baseEntry = {
         fieldType: socialPlatform,
         value: socialUsername.trim(),
-        order: 1,
+        order: Math.floor(addedSocials.length / 2) + 1,
         isVisible: true,
         confirmed: true,
         linkType: 'default' as const,
@@ -122,7 +147,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
       console.error('[PhoneEntryModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, socialPlatform, socialUsername, isPhoneValid, isSaving, onSave]);
+  }, [digits, socialPlatform, socialUsername, addedSocials, showAddLink, isPhoneValid, isSaving, onSave]);
 
   return (
     <Modal
@@ -178,6 +203,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
                     username={socialUsername}
                     onPlatformChange={setSocialPlatform}
                     onUsernameChange={setSocialUsername}
+                    onSubmit={handleAddSocial}
                     autoFocus
                   />
                 )}
@@ -210,7 +236,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
                     variant="subtle"
                     onPress={() => setShowAddLink(true)}
                   >
-                    Add Socials
+                    {addedSocials.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
                   </SecondaryButton>
                 </View>
               )}

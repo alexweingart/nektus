@@ -16,7 +16,7 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
 } from 'react-native';
-import { EyeIcon } from '../icons/EyeIcon';
+import { EyeIcon } from '../elements/EyeIcon';
 import { ThemedTextInput } from './ThemedTextInput';
 
 export interface ExpandingInputRef {

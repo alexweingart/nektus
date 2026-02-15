@@ -4,15 +4,18 @@
  *
  * Changes from web:
  * - Replaced div with View
- * - Uses iOS Input component
+ * - Uses iOS StaticInput component (glassmorphic style)
  * - Replaced Tailwind with StyleSheet
  * - Uses Linking for external URL
+ * - Link color uses dominant profile color (matching web's hsl(var(--primary)))
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 import { StandardModal } from './StandardModal';
-import { Input } from '../inputs/Input';
+import { StaticInput } from '../inputs/StaticInput';
+import { useProfile } from '../../../context/ProfileContext';
+import { ensureReadableColor } from '@nektus/shared-client';
 
 interface AppleCalendarSetupModalProps {
   isOpen: boolean;
@@ -29,6 +32,10 @@ export function AppleCalendarSetupModal({
   const [appPassword, setAppPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState('');
+  const { profile } = useProfile();
+
+  const dominantColor = profile?.backgroundColors?.[0];
+  const linkColor = dominantColor ? ensureReadableColor(dominantColor) : '#10B981';
 
   const handleConnect = async () => {
     if (!appleId || !appPassword) {
@@ -67,10 +74,6 @@ export function AppleCalendarSetupModal({
     onClose();
   };
 
-  const openAppleSecurityPage = () => {
-    Linking.openURL('https://appleid.apple.com/account/security');
-  };
-
   return (
     <StandardModal
       isOpen={isOpen}
@@ -86,15 +89,18 @@ export function AppleCalendarSetupModal({
       <View style={styles.content}>
         <View style={styles.instructionsContainer}>
           <Text style={styles.instructionsText}>
-            <TouchableOpacity onPress={openAppleSecurityPage}>
-              <Text style={styles.link}>Generate an app-specific password</Text>
-            </TouchableOpacity>
+            <Text
+              style={[styles.link, { color: linkColor }]}
+              onPress={() => Linking.openURL('https://appleid.apple.com/account/security')}
+            >
+              Generate an app-specific password
+            </Text>
             {' '}for your Apple ID and enter it below
           </Text>
         </View>
 
         <View style={styles.inputsContainer}>
-          <Input
+          <StaticInput
             value={appleId}
             onChangeText={setAppleId}
             placeholder="Apple ID (iCloud Email)"
@@ -102,9 +108,9 @@ export function AppleCalendarSetupModal({
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Input
+          <StaticInput
             value={appPassword}
-            onChangeText={(text) => setAppPassword(text.replace(/[\s-]/g, ''))}
+            onChangeText={(text: string) => setAppPassword(text.replace(/[\s-]/g, ''))}
             placeholder="16-character app-specific password"
             autoCapitalize="none"
             autoCorrect={false}
@@ -136,7 +142,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   link: {
-    color: '#10B981',
     textDecorationLine: 'underline',
   },
   inputsContainer: {

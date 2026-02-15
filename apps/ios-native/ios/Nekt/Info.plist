@@ -67,6 +67,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Nekt reads your calendar to find available meeting times. No event details are stored.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Nekt does not use reminders. This permission is required by the calendar framework.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Nekt uses Bluetooth to discover nearby friends</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>

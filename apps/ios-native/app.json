@@ -67,6 +67,9 @@
     },
     "plugins": [
       "expo-apple-authentication",
+      ["expo-calendar", {
+        "calendarPermission": "Nekt reads your calendar to find available meeting times. No event details are stored."
+      }],
       ["expo-image-picker", {
         "photosPermission": "Nekt needs access to your photos to set your profile picture"
       }],
@@ -99,7 +102,8 @@
             "expo-keep-awake",
             "expo-asset",
             "react-native-qrcode-svg",
-            "react-native-markdown-display"
+            "react-native-markdown-display",
+            "expo-calendar"
           ]
         }
       ]

@@ -1,18 +1,16 @@
 /**
  * AddCalendarModal - Modal for selecting and connecting a calendar provider
- * Supports Google, Microsoft, and Apple calendars
  *
- * Google/Microsoft: Opens OAuth in browser, extracts auth code from redirect,
- * then exchanges code server-side via /api/calendar-connections/mobile-token
- * (authenticated with Firebase Bearer token).
+ * Primary: iPhone Calendar (EventKit) - reads all device-synced calendars with one permission prompt
+ * Secondary: Google/Microsoft OAuth for accounts not synced to the device
  *
- * Apple: Opens AppleCalendarSetupModal for CalDAV credentials, then POSTs
- * to the same mobile-token endpoint.
+ * App Clip fallback: EventKit unavailable, shows Google/Microsoft/Apple CalDAV
  */
 
 import React, { useState } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Alert,
   Linking,
@@ -22,9 +20,15 @@ import * as ExpoLinking from 'expo-linking';
 import { StandardModal } from './StandardModal';
 import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
-import type { FieldSection } from '@nektus/shared-types';
-import { getApiBaseUrl } from '@nektus/shared-client';
+import type { FieldSection, Calendar } from '@nektus/shared-types';
+import { getApiBaseUrl, WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@nektus/shared-client';
 import { getIdToken } from '../../../../client/auth/firebase';
+import { useProfile } from '../../../context/ProfileContext';
+import { useSession } from '../../../providers/SessionProvider';
+import {
+  isEventKitAvailable,
+  requestCalendarPermission,
+} from '../../../../client/calendar/eventkit-service';
 
 // Try to load expo-web-browser, fall back gracefully in App Clip where native module is excluded
 let WebBrowser: typeof import('expo-web-browser') | null = null;
@@ -85,6 +89,19 @@ const AppleIcon = () => (
   </Svg>
 );
 
+// iPhone icon
+const IPhoneIcon = () => (
+  <Svg width={24} height={24} viewBox="0 0 24 24">
+    <Path
+      fill="#000000"
+      d="M15.5 1h-8C6.12 1 5 2.12 5 3.5v17C5 21.88 6.12 23 7.5 23h8c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z"
+    />
+  </Svg>
+);
+
+const eventKitAvailable = isEventKitAvailable();
+console.log('[AddCalendarModal] EventKit available:', eventKitAvailable);
+
 export function AddCalendarModal({
   isOpen,
   onClose,
@@ -95,6 +112,8 @@ export function AddCalendarModal({
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [showAppleModal, setShowAppleModal] = useState(false);
   const apiBaseUrl = getApiBaseUrl();
+  const { profile, saveProfile } = useProfile();
+  const { data: session } = useSession();
 
   /**
    * Exchange an OAuth auth code or Apple credentials with the server
@@ -142,17 +161,67 @@ export function AddCalendarModal({
   };
 
   /**
+   * Handle EventKit (iPhone Calendar) connection.
+   * Requests permission, then saves a calendar entry client-side.
+   */
+  const handleEventKitConnect = async () => {
+    if (isConnecting) return;
+
+    try {
+      setIsConnecting('eventkit');
+
+      const granted = await requestCalendarPermission();
+      if (!granted) {
+        Alert.alert(
+          'Calendar Access Required',
+          'Please enable calendar access in Settings > Nekt to use iPhone Calendar.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+
+      // Save calendar entry client-side (no server round-trip needed)
+      const schedulableHours = section === 'work'
+        ? WORK_SCHEDULABLE_HOURS
+        : PERSONAL_SCHEDULABLE_HOURS;
+
+      const newCalendar: Calendar = {
+        id: `eventkit-${section}-${Date.now()}`,
+        userId: session?.user?.id || '',
+        provider: 'apple',
+        accessMethod: 'eventkit',
+        email: userEmail,
+        section,
+        schedulableHours,
+        connectionStatus: 'connected',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const updatedCalendars = [
+        ...(profile?.calendars?.filter((cal) => cal.section !== section) || []),
+        newCalendar,
+      ];
+
+      await saveProfile({ calendars: updatedCalendars });
+
+      onCalendarAdded();
+      onClose();
+    } catch (error) {
+      console.error('[AddCalendarModal] EventKit connection error:', error);
+      Alert.alert('Error', 'Failed to connect iPhone Calendar. Please try again.');
+    } finally {
+      setIsConnecting(null);
+    }
+  };
+
+  /**
    * Run the OAuth browser flow for Google/Microsoft and exchange the code.
-   *
-   * Google: Uses iOS client ID with reversed-scheme redirect. Google redirects
-   * directly to the app (no server callback needed). This avoids the 302
-   * redirect interception issue in ASWebAuthenticationSession.
-   *
-   * Microsoft: Uses web client ID with server callback + 302 redirect.
    */
   const runOAuthFlow = async (provider: 'google' | 'microsoft'): Promise<boolean> => {
-    // Google: use iOS native OAuth (reversed client ID scheme redirect)
-    // Microsoft: use server callback flow
     const isGoogleNative = provider === 'google' && process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
     const oauthEndpoint = provider === 'google'
@@ -164,9 +233,7 @@ export function AddCalendarModal({
     let callbackUrl: string;
 
     if (isGoogleNative) {
-      // Google iOS: use iOS client ID + reversed scheme redirect
       clientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
-      // Reversed client ID scheme (registered in Info.plist)
       redirectUri = `com.googleusercontent.apps.${clientId.split('.')[0]}:/oauthredirect`;
       callbackUrl = redirectUri;
     } else {
@@ -174,7 +241,6 @@ export function AddCalendarModal({
         ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
         : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID) || '';
       if (!clientId) throw new Error(`${provider} client ID not configured`);
-      // Server callback redirect
       redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
       callbackUrl = ExpoLinking.createURL('calendar-callback');
     }
@@ -209,21 +275,18 @@ export function AddCalendarModal({
     console.log('[AddCalendarModal] redirectUri:', redirectUri);
 
     if (WebBrowser) {
-      // Extract just the scheme for ASWebAuthenticationSession
       const callbackScheme = callbackUrl.split(':')[0];
       console.log('[AddCalendarModal] Opening auth session, scheme:', callbackScheme);
 
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
         callbackUrl,
-        { preferEphemeralSession: true }
+        { preferEphemeralSession: isGoogleNative }
       );
 
       console.log('[AddCalendarModal] Auth result:', JSON.stringify(result).substring(0, 500));
 
       if (result.type === 'success' && result.url) {
-        // Parse code from URL - use URLSearchParams on query string directly
-        // since new URL() may not handle custom scheme formats like com.googleusercontent.apps.XXX:/path
         const queryString = result.url.split('?')[1] || '';
         const urlParams = new URLSearchParams(queryString);
         const code = urlParams.get('code');
@@ -281,7 +344,7 @@ export function AddCalendarModal({
   return (
     <>
       <StandardModal
-        isOpen={isOpen}
+        isOpen={isOpen && !showAppleModal}
         onClose={onClose}
         title="Add Calendar"
         subtitle="Make finding time effortless! Nekt only reads free/busy info and stores no data."
@@ -291,6 +354,31 @@ export function AddCalendarModal({
         showCloseButton={false}
       >
         <View style={styles.buttonsContainer}>
+          {/* iPhone Calendar (EventKit) - primary option when available */}
+          {eventKitAvailable && (
+            <>
+              <Button
+                variant="white"
+                size="lg"
+                onPress={handleEventKitConnect}
+                disabled={isConnecting === 'eventkit'}
+                loading={isConnecting === 'eventkit'}
+                loadingText="Connecting..."
+                icon={<IPhoneIcon />}
+                style={styles.providerButton}
+              >
+                iPhone Calendar
+              </Button>
+
+              {/* "or" divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            </>
+          )}
+
           {/* Google Calendar */}
           <Button
             variant="white"
@@ -319,27 +407,32 @@ export function AddCalendarModal({
             Microsoft Calendar
           </Button>
 
-          {/* Apple Calendar */}
-          <Button
-            variant="white"
-            size="lg"
-            onPress={() => handleAddCalendar('apple')}
-            disabled={isConnecting === 'apple'}
-            loading={isConnecting === 'apple'}
-            loadingText="Connecting..."
-            icon={<AppleIcon />}
-            style={styles.providerButton}
-          >
-            Apple Calendar
-          </Button>
+          {/* Apple CalDAV - only show in App Clip where EventKit is not available */}
+          {!eventKitAvailable && (
+            <Button
+              variant="white"
+              size="lg"
+              onPress={() => handleAddCalendar('apple')}
+              disabled={isConnecting === 'apple'}
+              loading={isConnecting === 'apple'}
+              loadingText="Connecting..."
+              icon={<AppleIcon />}
+              style={styles.providerButton}
+            >
+              Apple Calendar
+            </Button>
+          )}
         </View>
       </StandardModal>
 
-      <AppleCalendarSetupModal
-        isOpen={showAppleModal}
-        onClose={() => setShowAppleModal(false)}
-        onConnect={handleAppleConnect}
-      />
+      {/* AppleCalendarSetupModal only needed for App Clip CalDAV fallback */}
+      {!eventKitAvailable && (
+        <AppleCalendarSetupModal
+          isOpen={showAppleModal}
+          onClose={() => setShowAppleModal(false)}
+          onConnect={handleAppleConnect}
+        />
+      )}
     </>
   );
 }
@@ -350,6 +443,21 @@ const styles = StyleSheet.create({
   },
   providerButton: {
     width: '100%',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dividerText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+    marginHorizontal: 12,
   },
 });
 

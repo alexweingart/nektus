@@ -128,27 +128,38 @@ export function useCalendarLocationManagement({
       setIsDeletingCalendar((prev) => ({ ...prev, [section]: true }));
 
       try {
-        const apiBaseUrl = getApiBaseUrl();
-        const idToken = await getIdToken();
-
-        const response = await fetch(
-          `${apiBaseUrl}/api/calendar-connections/${calendar.id}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
+        if (calendar.accessMethod === 'eventkit') {
+          // EventKit calendars are local-only — just remove from profile
+          if (saveProfile && profile) {
+            const updatedCalendars =
+              profile.calendars?.filter((cal: Calendar) => cal.id !== calendar.id) ||
+              [];
+            await saveProfile({ calendars: updatedCalendars });
           }
-        );
+        } else {
+          // Server-managed calendars need a DELETE call
+          const apiBaseUrl = getApiBaseUrl();
+          const idToken = await getIdToken();
 
-        if (!response.ok) throw new Error('Failed to delete calendar');
+          const response = await fetch(
+            `${apiBaseUrl}/api/calendar-connections/${calendar.id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
 
-        // Update profile state to remove the deleted calendar
-        if (saveProfile && profile) {
-          const updatedCalendars =
-            profile.calendars?.filter((cal: Calendar) => cal.id !== calendar.id) ||
-            [];
-          await saveProfile({ calendars: updatedCalendars });
+          if (!response.ok) throw new Error('Failed to delete calendar');
+
+          // Update profile state to remove the deleted calendar
+          if (saveProfile && profile) {
+            const updatedCalendars =
+              profile.calendars?.filter((cal: Calendar) => cal.id !== calendar.id) ||
+              [];
+            await saveProfile({ calendars: updatedCalendars });
+          }
         }
       } catch (error) {
         console.error('[useCalendarLocationManagement] Failed to delete calendar:', error);

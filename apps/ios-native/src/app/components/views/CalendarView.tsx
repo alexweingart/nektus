@@ -30,7 +30,8 @@ type CalendarViewRouteProp = RouteProp<RootStackParamList, 'Calendar'>;
 /**
  * Get display name for calendar provider
  */
-const getProviderName = (provider: string) => {
+const getProviderName = (provider: string, accessMethod?: string) => {
+  if (accessMethod === 'eventkit') return 'iPhone Calendar';
   switch (provider) {
     case 'google':
       return 'Google Calendar';
@@ -123,7 +124,7 @@ export function CalendarView() {
 
     Alert.alert(
       'Delete Calendar',
-      `Are you sure you want to remove ${getProviderName(calendar.provider)}?`,
+      `Are you sure you want to remove ${getProviderName(calendar.provider, calendar.accessMethod)}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -209,9 +210,13 @@ export function CalendarView() {
         {/* Calendar Info */}
         <View style={styles.calendarInfo}>
           <Text style={styles.providerName} onPress={handleOpenProvider}>
-            {getProviderName(calendar.provider)}
+            {getProviderName(calendar.provider, calendar.accessMethod)}
           </Text>
-          <Text style={styles.email}>{calendar.email}</Text>
+          {calendar.accessMethod === 'eventkit' ? (
+            <Text style={styles.email}>All calendars on your iPhone. Available on iOS only.</Text>
+          ) : (
+            <Text style={styles.email}>{calendar.email}</Text>
+          )}
         </View>
 
         {/* Schedulable Hours Editor */}
