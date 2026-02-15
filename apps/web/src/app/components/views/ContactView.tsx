@@ -54,10 +54,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const { data: session } = useSession();
 
   // Animation state
-  // Check if we're returning from Google auth - skip animation in that case
+  // Skip animation if returning from any OAuth flow or if contact is already saved
   const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const isReturningFromAuth = urlParams.get('incremental_auth') === 'success' || urlParams.get('incremental_auth') === 'denied';
-  const [isEntering, setIsEntering] = useState(!isReturningFromAuth && !skipEnterAnimation);
+  const isAlreadySaved = (() => {
+    const state = getExchangeState(token);
+    return state?.state === 'completed_success' || state?.state === 'completed_firebase_only';
+  })();
+  const [isEntering, setIsEntering] = useState(!isReturningFromAuth && !skipEnterAnimation && !isAlreadySaved);
   const contactCardRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
