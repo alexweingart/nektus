@@ -27,10 +27,7 @@ function ProfileSetupView() {
 
   // Component state
   const [digits, setDigits] = useState('');
-  const [showAddLink, setShowAddLink] = useState(false);
-  const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
-  const [socialPlatform, setSocialPlatform] = useState('instagram');
-  const [socialUsername, setSocialUsername] = useState('');
+  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
 
   // Track country code for phone number formatting (updated by DropdownPhoneInput)
   const [countryCode, setCountryCode] = useState('US');
@@ -38,30 +35,6 @@ function ProfileSetupView() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   const adminModeProps = useAdminModeActivator();
-
-  // Handle adding a social from the inline input (Enter key or Save captures it)
-  const handleAddSocial = useCallback(() => {
-    if (!socialUsername.trim()) return;
-
-    const baseEntry = {
-      fieldType: socialPlatform,
-      value: socialUsername.trim(),
-      order: Math.floor(addedLinks.length / 2) + 1,
-      isVisible: true,
-      confirmed: true,
-      linkType: 'default' as const,
-      icon: `/icons/default/${socialPlatform}.svg`
-    };
-
-    setAddedLinks(prev => [
-      ...prev,
-      { ...baseEntry, section: 'personal' },
-      { ...baseEntry, section: 'work' }
-    ]);
-    setSocialUsername('');
-    setSocialPlatform('facebook');
-    setShowAddLink(false);
-  }, [socialPlatform, socialUsername, addedLinks.length]);
 
   // Platform-specific delayed focus for keyboard tray behavior
   useEffect(() => {
@@ -108,21 +81,24 @@ function ProfileSetupView() {
       internationalPhone = phoneResult.internationalPhone;
     }
 
-    // Capture in-progress social if input is showing
-    let finalLinks = [...addedLinks];
-    if (showAddLink && socialUsername.trim()) {
-      const baseEntry = {
-        fieldType: socialPlatform,
-        value: socialUsername.trim(),
-        order: Math.floor(addedLinks.length / 2) + 1,
-        isVisible: true,
-        confirmed: true,
-        linkType: 'default' as const,
-        icon: `/icons/default/${socialPlatform}.svg`
-      };
-      finalLinks.push({ ...baseEntry, section: 'personal' });
-      finalLinks.push({ ...baseEntry, section: 'work' });
-    }
+    // Collect all social inputs with non-empty usernames
+    const finalLinks: ContactEntry[] = socialInputs
+      .filter(input => input.username.trim())
+      .flatMap((input, idx) => {
+        const baseEntry = {
+          fieldType: input.platform,
+          value: input.username.trim(),
+          order: idx + 1,
+          isVisible: true,
+          confirmed: true,
+          linkType: 'default' as const,
+          icon: `/icons/default/${input.platform}.svg`
+        };
+        return [
+          { ...baseEntry, section: 'personal' as const },
+          { ...baseEntry, section: 'work' as const }
+        ];
+      });
 
     // Build contact entries array with phone and any added links
     const contactEntries: ContactEntry[] = [
@@ -171,7 +147,7 @@ function ProfileSetupView() {
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, addedLinks, showAddLink, socialPlatform, socialUsername, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+  }, [digits, socialInputs, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
 
 
   if (sessionStatus === 'loading') {
@@ -228,24 +204,21 @@ function ProfileSetupView() {
                   }}
                 />
 
-                {/* Social Input - appears above Save button when active */}
-                {showAddLink && (
-                  <div onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleAddSocial();
+                {/* Social Inputs - each button tap adds a new one */}
+                {socialInputs.map((input, index) => (
+                  <CustomSocialInputAdd
+                    key={index}
+                    platform={input.platform}
+                    username={input.username}
+                    onPlatformChange={(platform) =>
+                      setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, platform } : s))
                     }
-                  }}>
-                    <CustomSocialInputAdd
-                      platform={socialPlatform}
-                      username={socialUsername}
-                      onPlatformChange={setSocialPlatform}
-                      onUsernameChange={setSocialUsername}
-                      autoFocus
-                    />
-                  </div>
-                )}
+                    onUsernameChange={(username) =>
+                      setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
+                    }
+                    autoFocus={index === socialInputs.length - 1}
+                  />
+                ))}
 
                 <Button
                   type="submit"
@@ -272,15 +245,13 @@ function ProfileSetupView() {
                 <SecondaryButton
                   className="cursor-pointer"
                   onClick={() => {
-                    if (showAddLink) {
-                      handleAddSocial();
-                      setSocialPlatform('facebook');
-                      setSocialUsername('');
-                    }
-                    setShowAddLink(true);
+                    setSocialInputs(prev => [
+                      ...prev,
+                      { platform: prev.length === 0 ? 'instagram' : 'facebook', username: '' }
+                    ]);
                   }}
                 >
-                  {showAddLink || addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
+                  {socialInputs.length > 0 ? 'Add Socials' : 'Add Instagram'}
                 </SecondaryButton>
               </div>
             </div>
