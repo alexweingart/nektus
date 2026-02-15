@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate cache key with version (bump version to invalidate cache after bug fixes)
-    const CACHE_VERSION = 'v25'; // Bumped to v25 - added EventKit device busy times support
-    const hasDeviceBusyTimes = Array.isArray(user1BusyTimes) && user1BusyTimes.length >= 0;
+    const CACHE_VERSION = 'v26'; // Bumped to v26 - fixed device busy times detection
+    const hasDeviceBusyTimes = Array.isArray(user1BusyTimes) && user1BusyTimes.length > 0;
     const cacheKey = hasDeviceBusyTimes
       ? `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}:local`
       : `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
 
     let user1Slots: TimeSlot[];
     let user2Slots: TimeSlot[];
+
+    console.log(`📱 hasDeviceBusyTimes: ${hasDeviceBusyTimes}, user1BusyTimes: ${Array.isArray(user1BusyTimes) ? user1BusyTimes.length + ' items' : 'not provided'}`);
 
     if (hasDeviceBusyTimes) {
       // User1 sent device busy times (EventKit) — build free slots locally
