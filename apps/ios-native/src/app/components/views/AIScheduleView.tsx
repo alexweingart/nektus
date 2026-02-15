@@ -32,6 +32,7 @@ import { useProfile, type UserProfile, type SavedContact } from '../../context/P
 import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import type { Event, TimeSlot } from '@nektus/shared-types';
+import { isEventKitAvailable, getDeviceBusyTimes } from '../../../client/calendar/eventkit-service';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { MessageList } from '../ui/chat/MessageList';
@@ -51,6 +52,28 @@ interface AIMessage {
 function generateMessageId(offset = 0): string {
   return (Date.now() + offset).toString();
 }
+
+async function getEventKitBusyTimesForProfile(
+  profile: UserProfile | null
+): Promise<{ user1BusyTimes: { start: string; end: string }[] } | {}> {
+  if (!isEventKitAvailable() || !profile) return {};
+  const calendar = profile.calendars?.find(
+    (cal) => cal.accessMethod === 'eventkit'
+  );
+  if (!calendar) return {};
+  try {
+    const now = new Date();
+    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const busyTimes = await getDeviceBusyTimes(now, twoWeeksOut);
+    return { user1BusyTimes: busyTimes };
+  } catch (error) {
+    console.error('[AIScheduleView] Failed to get EventKit busy times:', error);
+    return {};
+  }
+}
+
+// Cold start flag — true on first request after app launch, resets after use
+let isColdStart = true;
 
 export function AIScheduleView() {
   const navigation = useNavigation<AIScheduleViewNavigationProp>();
@@ -107,8 +130,12 @@ export function AIScheduleView() {
           user2Id: contactUserId,
           duration: 30,
           calendarType: contactType,
+          ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
+          ...(isColdStart ? { skipCache: true } : {}),
         }),
       });
+
+      isColdStart = false; // Reset after first API call
 
       if (response.ok) {
         const data = await response.json();

@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       travelBuffer,
       calendarType = 'personal', // Default to personal if not specified
       user1BusyTimes, // Optional: device busy times from EventKit (iOS)
+      skipCache = false, // Skip Redis cache (e.g. on cold app start)
     } = await request.json();
 
     // Validate inputs first
@@ -77,15 +78,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate cache key with version (bump version to invalidate cache after bug fixes)
-    const CACHE_VERSION = 'v26'; // Bumped to v26 - fixed device busy times detection
+    const CACHE_VERSION = 'v27'; // Bumped to v27 - standardized cache TTL, added skipCache
     const hasDeviceBusyTimes = Array.isArray(user1BusyTimes) && user1BusyTimes.length > 0;
     const cacheKey = hasDeviceBusyTimes
       ? `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}:local`
       : `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
-    const cacheTTL = hasDeviceBusyTimes ? 120 : 600; // 2 min for device data, 10 min for server
+    const cacheTTL = 600; // 10 min for all requests
 
-    // Try to get from cache first
-    if (redis) {
+    // Try to get from cache first (skip on cold app start)
+    if (redis && !skipCache) {
       try {
         const cached = await redis.get(cacheKey);
         if (cached) {
@@ -112,8 +113,6 @@ export async function POST(request: NextRequest) {
 
     let user1Slots: TimeSlot[];
     let user2Slots: TimeSlot[];
-
-    console.log(`📱 hasDeviceBusyTimes: ${hasDeviceBusyTimes}, user1BusyTimes: ${Array.isArray(user1BusyTimes) ? user1BusyTimes.length + ' items' : 'not provided'}`);
 
     if (hasDeviceBusyTimes) {
       // User1 sent device busy times (EventKit) — build free slots locally

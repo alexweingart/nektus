@@ -10,12 +10,33 @@
 import { useEffect, useRef } from 'react';
 import type { SavedContact, UserProfile, Calendar } from '@nektus/shared-types';
 import { getApiBaseUrl, getIdToken } from '../auth/firebase';
+import { isEventKitAvailable, getDeviceBusyTimes } from '../calendar/eventkit-service';
+
+// Cold start flag — true on first request after app launch, resets after use
+let isColdStart = true;
 
 interface UseSchedulingPreFetchParams {
   isHistoricalMode: boolean;
   sessionUserId?: string;
   profile?: SavedContact | UserProfile;
   userCalendars?: Calendar[];
+}
+
+async function getEventKitBusyTimesIfNeeded(
+  calendars: Calendar[] | undefined
+): Promise<{ user1BusyTimes: { start: string; end: string }[] } | {}> {
+  if (!isEventKitAvailable()) return {};
+  const calendar = calendars?.find(
+    (cal) => cal.accessMethod === 'eventkit'
+  );
+  if (!calendar) return {};
+  try {
+    const now = new Date();
+    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    return { user1BusyTimes: await getDeviceBusyTimes(now, twoWeeksOut) };
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -71,9 +92,13 @@ export function useSchedulingPreFetch({
             user2Id: profile.userId,
             duration: 30,
             calendarType: contactType,
+            ...(await getEventKitBusyTimesIfNeeded(userCalendars)),
+            ...(isColdStart ? { skipCache: true } : {}),
           }),
           signal: abortController.signal, // Allow request to be cancelled
         });
+
+        isColdStart = false; // Reset after first API call
 
         if (response.ok) {
           const data = await response.json();
