@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
             section: 'universal',
             order: -1,
             isVisible: true,
-            confirmed: false
+            confirmed: true
           },
           {
             fieldType: 'phone',
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             section: 'personal',
             order: 0,
             isVisible: true,
-            confirmed: false
+            confirmed: true
           },
           {
             fieldType: 'email',
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             section: 'personal',
             order: 1,
             isVisible: true,
-            confirmed: !!session.user.email
+            confirmed: true
           },
           {
             fieldType: 'phone',
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
             section: 'work',
             order: 0,
             isVisible: true,
-            confirmed: false
+            confirmed: true
           },
           {
             fieldType: 'email',
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
             section: 'work',
             order: 1,
             isVisible: true,
-            confirmed: !!session.user.email
+            confirmed: true
           }
         ]
       };
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           section: platform === 'linkedin' ? 'work' : 'personal',
           order: 0, // Will be reassigned by ProfileSaveService
           isVisible: true,
-          confirmed: false, // AI-generated profiles are unconfirmed
+          confirmed: true,
           automatedVerification: isVerified || false,
           discoveryMethod: 'ai' as const
         });

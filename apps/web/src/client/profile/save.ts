@@ -72,13 +72,7 @@ export class ProfileSaveService {
       }
     });
 
-    // Mark non-empty fields as confirmed
-    return Array.from(fieldsMap.values()).map(field => {
-      if (field.value && field.value.trim() !== '') {
-        return { ...field, confirmed: true };
-      }
-      return field;
-    });
+    return Array.from(fieldsMap.values());
   }
 
   /**
@@ -347,7 +341,7 @@ export async function generateWhatsAppFromPhone(
         section: 'personal',
         order: updatedEntries.length,
         isVisible: true,
-        confirmed: false // Phone-based generation is unconfirmed
+        confirmed: true
       };
 
       if (whatsappIndex >= 0) {

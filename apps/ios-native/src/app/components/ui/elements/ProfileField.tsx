@@ -26,8 +26,6 @@ interface ProfileFieldProps {
   fieldSectionManager: FieldSectionManager;
   getValue: (fieldType: string, section?: FieldSection) => string;
   onChange: (fieldType: string, value: string, section: FieldSection) => void;
-  isUnconfirmed: (fieldType: string) => boolean;
-  onConfirm: (fieldType: string) => void;
   currentViewMode: 'Personal' | 'Work';
   isDraggable?: boolean;
   isBeingDragged?: boolean;
@@ -55,8 +53,6 @@ export function ProfileField({
   fieldSectionManager,
   getValue: _getValue,
   onChange,
-  isUnconfirmed,
-  onConfirm,
   currentViewMode,
   isDraggable = false,
   isBeingDragged = false,
@@ -83,7 +79,6 @@ export function ProfileField({
           value={value}
           onChange={(newValue) => {
             onChange(fieldType, newValue, profile.section);
-            onConfirm(fieldType);
           }}
           placeholder={placeholder}
         />
@@ -148,7 +143,6 @@ export function ProfileField({
               customIcon={profile.icon}
               linkType={profile.linkType}
             />
-            {isUnconfirmed(fieldType) && <View style={styles.unconfirmedDot} />}
           </View>
         }
       />
@@ -171,17 +165,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  unconfirmedDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FBBF24', // bg-yellow-400
-    borderWidth: 1,
-    borderColor: '#ffffff',
   },
 });
 

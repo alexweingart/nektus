@@ -35,8 +35,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 interface FieldSectionManager {
   isFieldHidden: (fieldType: string, viewMode: 'Personal' | 'Work') => boolean;
   toggleFieldVisibility: (fieldType: string, viewMode: 'Personal' | 'Work') => void;
-  isChannelUnconfirmed: (fieldType: string) => boolean;
-  markChannelAsConfirmed: (fieldType: string) => void;
   getVisibleFields: (section: 'personal' | 'work') => ContactEntry[];
   updateFieldOrder: (section: 'personal' | 'work', newOrder: ContactEntry[]) => void;
 }
@@ -183,8 +181,8 @@ export function SelectedSections({
             {calendar ? (
               <ItemChip
                 icon={<CalendarIcon />}
-                title={`${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
-                subtitle={calendar.email}
+                title={calendar.accessMethod === 'eventkit' ? 'iPhone Calendar' : `${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
+                subtitle={calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone' : calendar.email}
                 onPress={handleCalendarPress}
                 onActionClick={() => handleDeleteCalendar(sectionName)}
                 actionIcon="trash"
@@ -283,8 +281,6 @@ export function SelectedSections({
                   fieldSectionManager={fieldSectionManager}
                   getValue={getFieldValue}
                   onChange={handleFieldChange}
-                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                  onConfirm={fieldSectionManager.markChannelAsConfirmed}
                   currentViewMode={viewMode}
                   isDraggable={true}
                   isBeingDragged={isActive}
@@ -320,8 +316,6 @@ export function SelectedSections({
                 fieldSectionManager={fieldSectionManager}
                 getValue={getFieldValue}
                 onChange={handleFieldChange}
-                isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                onConfirm={fieldSectionManager.markChannelAsConfirmed}
                 currentViewMode={viewMode}
               />
             ))}

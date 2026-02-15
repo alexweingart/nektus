@@ -84,7 +84,7 @@ export async function generateWhatsAppFromPhone(
         section: 'personal',
         order: updatedEntries.length,
         isVisible: true,
-        confirmed: false // Phone-based generation is unconfirmed
+        confirmed: true
       };
 
       if (whatsappIndex >= 0) {

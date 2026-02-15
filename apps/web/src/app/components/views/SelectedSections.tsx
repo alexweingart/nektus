@@ -305,8 +305,6 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                     fieldSectionManager={fieldSectionManager}
                     getValue={getFieldValue}
                     onChange={handleFieldChange}
-                    isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                    onConfirm={fieldSectionManager.markChannelAsConfirmed}
                     currentViewMode={viewMode}
                     isDraggable={true}
                   />
@@ -356,8 +354,6 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                   fieldSectionManager={fieldSectionManager}
                   getValue={getFieldValue}
                   onChange={() => {}}
-                  isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-                  onConfirm={() => {}}
                   currentViewMode={viewMode}
                   isDraggable={false}
                 />
@@ -395,8 +391,6 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
               fieldSectionManager={fieldSectionManager}
               getValue={getFieldValue}
               onChange={handleFieldChange}
-              isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-              onConfirm={fieldSectionManager.markChannelAsConfirmed}
               currentViewMode={viewMode}
             />
           ))}

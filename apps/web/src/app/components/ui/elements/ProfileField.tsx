@@ -15,8 +15,6 @@ interface ProfileFieldProps {
   };
   getValue: (fieldType: string, section?: FieldSection) => string;
   onChange: (fieldType: string, value: string, section: FieldSection) => void;
-  isUnconfirmed: (fieldType: string) => boolean;
-  onConfirm: (fieldType: string) => void;
   currentViewMode: 'Personal' | 'Work';
 
   // Drag & Drop props
@@ -45,8 +43,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
   fieldSectionManager,
   getValue: _getValue,
   onChange,
-  isUnconfirmed,
-  onConfirm,
   currentViewMode,
   isDraggable = false,
 }) => {
@@ -72,7 +68,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           onChange={(value) => {
             // Update the field value through the standard onChange (same as all other fields)
             onChange(fieldType, value, profile.section);
-            onConfirm(fieldType);
           }}
           value={value}
           placeholder={placeholder}
@@ -161,9 +156,6 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
                 username={value}
                 size="sm"
               />
-              {isUnconfirmed(fieldType) && (
-                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full border border-white"></div>
-              )}
             </div>
           }
           iconClassName="text-white"

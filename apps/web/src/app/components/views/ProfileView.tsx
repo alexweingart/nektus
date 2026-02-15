@@ -245,21 +245,6 @@ const ProfileView: React.FC = () => {
     return streamingSocialContacts || currentProfile?.contactEntries;
   }, [streamingSocialContacts, currentProfile?.contactEntries]);
 
-  // Check if any contact channels are unconfirmed
-  const hasUnconfirmedChannels = useMemo(() => {
-    if (!contactChannels) return false;
-    
-    // contactChannels is now a ContactEntry array
-    if (Array.isArray(contactChannels)) {
-      return contactChannels.some(entry => {
-        // Check if entry has a value and is not confirmed
-        return entry.value && !entry.confirmed;
-      });
-    }
-    
-    return false;
-  }, [contactChannels]);
-
 
   // Show loading state while checking auth status or loading profile, but not when navigating from setup
   if ((isProfileLoading || sessionStatus === 'loading') && !isNavigatingFromSetup) {
@@ -338,9 +323,6 @@ const ProfileView: React.FC = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current" viewBox="0 0 20 20">
               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
             </svg>
-            {hasUnconfirmedChannels && (
-              <div className="absolute top-0 right-0 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white"></div>
-            )}
           </Button>
         </Link>
       </div>

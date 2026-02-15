@@ -172,7 +172,6 @@ export function EditProfileView() {
 
   // Handle field input change
   const handleFieldChange = useCallback((fieldType: string, value: string, section: FieldSection) => {
-    fieldManager.markChannelAsConfirmed(fieldType);
     fieldManager.updateFieldValue(fieldType, value, section);
   }, [fieldManager]);
 
@@ -187,9 +186,6 @@ export function EditProfileView() {
   // Handle link added
   const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
     fieldManager.addFields(entries);
-    entries.forEach(entry => {
-      fieldManager.markChannelAsConfirmed(entry.fieldType);
-    });
     setShowInlineAddLink({ personal: false, work: false });
   }, [fieldManager]);
 
@@ -295,8 +291,6 @@ export function EditProfileView() {
                       fieldSectionManager={fieldManager}
                       getValue={getFieldValue}
                       onChange={handleFieldChange}
-                      isUnconfirmed={fieldManager.isChannelUnconfirmed}
-                      onConfirm={fieldManager.markChannelAsConfirmed}
                       currentViewMode={selectedMode}
                     />
                   ))}

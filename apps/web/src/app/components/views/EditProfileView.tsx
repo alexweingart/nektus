@@ -105,7 +105,6 @@ const EditProfileView: React.FC = () => {
 
   // Handle field input change
   const handleFieldChange = (fieldType: string, value: string, section: FieldSection) => {
-    fieldSectionManager.markChannelAsConfirmed(fieldType);
     fieldSectionManager.updateFieldValue(fieldType, value, section);
   };
 
@@ -119,9 +118,6 @@ const EditProfileView: React.FC = () => {
   const handleLinkAdded = (entries: ContactEntry[]) => {
     // Add links to field manager
     fieldSectionManager.addFields(entries);
-    entries.forEach(entry => {
-      fieldSectionManager.markChannelAsConfirmed(entry.fieldType);
-    });
     // Close inline add link for all sections
     setShowInlineAddLink({ personal: false, work: false });
   };
@@ -194,8 +190,6 @@ const EditProfileView: React.FC = () => {
         fieldSectionManager={fieldSectionManager}
         getValue={getFieldValue}
         onChange={handleFieldChange}
-        isUnconfirmed={fieldSectionManager.isChannelUnconfirmed}
-        onConfirm={fieldSectionManager.markChannelAsConfirmed}
         currentViewMode={selectedMode}
       />
     ));

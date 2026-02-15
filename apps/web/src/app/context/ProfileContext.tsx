@@ -100,9 +100,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           lastUpdated: Date.now(),
           contactEntries: [
             { fieldType: 'name', value: profileName, section: 'universal', order: -2, isVisible: true, confirmed: true },
-            { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: false },
-            { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: false },
-            { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: !!session.user.email },
+            { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: true },
+            { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: true },
+            { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: true },
           ]
         };
         setProfile(immediateProfile);
@@ -219,11 +219,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               lastUpdated: Date.now(),
               contactEntries: [
                 { fieldType: 'name', value: fallbackName, section: 'universal', order: -2, isVisible: true, confirmed: true },
-                { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: false },
-                { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: false },
-                { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: !!session.user.email },
-                { fieldType: 'phone', value: '', section: 'work', order: 0, isVisible: true, confirmed: false },
-                { fieldType: 'email', value: session.user.email || '', section: 'work', order: 1, isVisible: true, confirmed: !!session.user.email }
+                { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: true },
+                { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: true },
+                { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: true },
+                { fieldType: 'phone', value: '', section: 'work', order: 0, isVisible: true, confirmed: true },
+                { fieldType: 'email', value: session.user.email || '', section: 'work', order: 1, isVisible: true, confirmed: true }
               ]
             };
 

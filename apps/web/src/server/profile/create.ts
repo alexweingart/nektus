@@ -148,7 +148,7 @@ export class ServerProfileService {
         section: 'universal',
         order: -1,
         isVisible: true,
-        confirmed: false
+        confirmed: true
       },
       {
         fieldType: 'phone',
@@ -156,7 +156,7 @@ export class ServerProfileService {
         section: 'personal',
         order: 0,
         isVisible: true,
-        confirmed: false
+        confirmed: true
       },
       {
         fieldType: 'email',
@@ -164,7 +164,7 @@ export class ServerProfileService {
         section: 'personal',
         order: 1,
         isVisible: true,
-        confirmed: !!userInfo.email
+        confirmed: true
       },
       {
         fieldType: 'phone',
@@ -172,7 +172,7 @@ export class ServerProfileService {
         section: 'work',
         order: 0,
         isVisible: true,
-        confirmed: false
+        confirmed: true
       },
       {
         fieldType: 'email',
@@ -180,7 +180,7 @@ export class ServerProfileService {
         section: 'work',
         order: 1,
         isVisible: true,
-        confirmed: !!userInfo.email
+        confirmed: true
       }
     ];
 

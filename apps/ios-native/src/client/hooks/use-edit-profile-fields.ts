@@ -44,9 +44,6 @@ export interface UseEditProfileFieldsReturn {
   getFieldData: (fieldType: string, section?: FieldSection) => ContactEntry | undefined;
   isFieldHidden: (fieldType: string, viewMode: 'Personal' | 'Work') => boolean;
 
-  // Confirmation handling
-  markChannelAsConfirmed: (fieldType: string) => void;
-  isChannelUnconfirmed: (fieldType: string) => boolean;
 }
 
 export const useEditProfileFields = ({
@@ -60,12 +57,12 @@ export const useEditProfileFields = ({
   const calculateInitialFields = useCallback((): ContactEntry[] => {
     const firebaseData = profile?.contactEntries;
     const defaultData: ContactEntry[] = [
-      { fieldType: 'name', value: session?.user?.name || '', section: 'universal' as FieldSection, order: 0, isVisible: true, confirmed: false },
-      { fieldType: 'bio', value: '', section: 'universal' as FieldSection, order: 1, isVisible: true, confirmed: false },
-      { fieldType: 'phone', value: '', section: 'personal' as FieldSection, order: 0, isVisible: true, confirmed: false },
-      { fieldType: 'email', value: session?.user?.email || '', section: 'personal' as FieldSection, order: 1, isVisible: true, confirmed: false },
-      { fieldType: 'phone', value: '', section: 'work' as FieldSection, order: 0, isVisible: true, confirmed: false },
-      { fieldType: 'email', value: session?.user?.email || '', section: 'work' as FieldSection, order: 1, isVisible: true, confirmed: false }
+      { fieldType: 'name', value: session?.user?.name || '', section: 'universal' as FieldSection, order: 0, isVisible: true, confirmed: true },
+      { fieldType: 'bio', value: '', section: 'universal' as FieldSection, order: 1, isVisible: true, confirmed: true },
+      { fieldType: 'phone', value: '', section: 'personal' as FieldSection, order: 0, isVisible: true, confirmed: true },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'personal' as FieldSection, order: 1, isVisible: true, confirmed: true },
+      { fieldType: 'phone', value: '', section: 'work' as FieldSection, order: 0, isVisible: true, confirmed: true },
+      { fieldType: 'email', value: session?.user?.email || '', section: 'work' as FieldSection, order: 1, isVisible: true, confirmed: true }
     ];
 
     return firebaseData || defaultData;
@@ -191,20 +188,6 @@ export const useEditProfileFields = ({
     updateImages({ ...images, [type]: value });
   }, [images, updateImages]);
 
-  // Mark channel as confirmed
-  const markChannelAsConfirmed = useCallback((fieldType: string) => {
-    setFields(prevFields => prevFields.map(field =>
-      field.fieldType === fieldType ? { ...field, confirmed: true } : field
-    ));
-  }, []);
-
-  // Check if channel is unconfirmed
-  const isChannelUnconfirmed = useCallback((fieldType: string): boolean => {
-    const field = fields.find(f => f.fieldType === fieldType);
-    if (!field) return false;
-    return Boolean(field.value && field.value.trim() !== '') && !Boolean(field.confirmed);
-  }, [fields]);
-
   // Field filtering functions
   const getFieldsBySection = useCallback((section: FieldSection): ContactEntry[] => {
     const sectionFields = fields.filter(f => f.section === section);
@@ -294,8 +277,6 @@ export const useEditProfileFields = ({
     updateFieldOrder,
     getFieldData,
     isFieldHidden,
-    markChannelAsConfirmed,
-    isChannelUnconfirmed,
   };
 };
 
