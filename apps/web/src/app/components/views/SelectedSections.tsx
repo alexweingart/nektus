@@ -197,8 +197,8 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   }
-                  title={`${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
-                  subtitle={calendar.email}
+                  title={calendar.accessMethod === 'eventkit' ? 'iPhone Calendar' : `${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
+                  subtitle={calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone. Available on iOS only.' : calendar.email}
                   onClick={() => calRouter.push(`/edit/calendar?id=${calendar.id}`)}
                   onActionClick={() => handleDeleteCalendar(sectionName)}
                   actionIcon="trash"

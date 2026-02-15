@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
       user2Id,
       duration = 60,
       travelBuffer,
-      calendarType = 'personal' // Default to personal if not specified
+      calendarType = 'personal', // Default to personal if not specified
+      user1BusyTimes, // Optional: device busy times from EventKit (iOS)
     } = await request.json();
 
     // Validate inputs first
@@ -76,8 +77,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate cache key with version (bump version to invalidate cache after bug fixes)
-    const CACHE_VERSION = 'v24'; // Bumped to v24 - added weekend slot debugging
-    const cacheKey = `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
+    const CACHE_VERSION = 'v25'; // Bumped to v25 - added EventKit device busy times support
+    const hasDeviceBusyTimes = Array.isArray(user1BusyTimes) && user1BusyTimes.length >= 0;
+    const cacheKey = hasDeviceBusyTimes
+      ? `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}:local`
+      : `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
+    const cacheTTL = hasDeviceBusyTimes ? 120 : 600; // 2 min for device data, 10 min for server
 
     // Try to get from cache first
     if (redis) {
@@ -105,11 +110,45 @@ export async function POST(request: NextRequest) {
     // Get user data for both users in one batched call
     const usersData = await adminGetMultipleUserData([user1Id, user2Id]);
 
-    // Get free slots for both users in parallel using pre-fetched data
-    const [user1Slots, user2Slots] = await Promise.all([
-      getUserFreeSlotsWithData(user1Id, usersData[user1Id] || null, calendarType, requestingUserTimezone),
-      getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, requestingUserTimezone)
-    ]);
+    let user1Slots: TimeSlot[];
+    let user2Slots: TimeSlot[];
+
+    if (hasDeviceBusyTimes) {
+      // User1 sent device busy times (EventKit) — build free slots locally
+      const { startTime, endTime } = getAvailabilityTimeRange(requestingUserTimezone || undefined);
+
+      // Get user1's schedulable hours from their profile calendar or defaults
+      let user1SchedulableHours = getDefaultSchedulableHours(calendarType);
+      const user1Data = usersData[user1Id];
+      if (user1Data?.providers?.length) {
+        const matchingCal = user1Data.providers.find(c => c.section === calendarType);
+        const universalCal = user1Data.providers.find(c => c.section === 'universal');
+        if (universalCal) {
+          user1SchedulableHours = universalCal.schedulableHours;
+        } else if (matchingCal) {
+          user1SchedulableHours = matchingCal.schedulableHours;
+        }
+      }
+
+      const mergedBusy = mergeBusyTimes([user1BusyTimes as TimeSlot[]]);
+      user1Slots = generateFreeSlots(
+        mergedBusy,
+        user1SchedulableHours,
+        new Date(startTime),
+        new Date(endTime),
+        requestingUserTimezone || undefined
+      );
+      console.log(`✅ Built ${user1Slots.length} free slots from ${(user1BusyTimes as TimeSlot[]).length} device busy times for user1`);
+
+      // user2 still uses server-side calendar fetching
+      user2Slots = await getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, requestingUserTimezone);
+    } else {
+      // Standard server-side flow for both users
+      [user1Slots, user2Slots] = await Promise.all([
+        getUserFreeSlotsWithData(user1Id, usersData[user1Id] || null, calendarType, requestingUserTimezone),
+        getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, requestingUserTimezone)
+      ]);
+    }
 
     // Find slots that both users have available
     const commonSlots = findSlotIntersection(user1Slots, user2Slots);
@@ -130,8 +169,8 @@ export async function POST(request: NextRequest) {
     // Cache the result with 10 minute TTL (only if we have slots)
     if (redis && commonSlots.length > 0) {
       try {
-        await redis.set(cacheKey, JSON.stringify(response), { ex: 600 }); // 600 seconds = 10 minutes
-        console.log(`💾 Cached common times: ${cacheKey} (TTL: 10min)`);
+        await redis.set(cacheKey, JSON.stringify(response), { ex: cacheTTL });
+        console.log(`💾 Cached common times: ${cacheKey} (TTL: ${cacheTTL}s)`);
       } catch (cacheError) {
         console.error('Cache write error:', cacheError);
         // Continue even if caching fails

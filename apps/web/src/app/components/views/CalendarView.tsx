@@ -73,7 +73,8 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
     }
   };
 
-  const getProviderName = (provider: string) => {
+  const getProviderName = (provider: string, accessMethod?: string) => {
+    if (accessMethod === 'eventkit') return 'iPhone Calendar';
     switch (provider) {
       case 'google':
         return 'Google Calendar';
@@ -139,9 +140,9 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
             if (calendarUrl) window.open(calendarUrl, '_blank');
           }}
         >
-          <Text className="font-medium text-white">{getProviderName(calendar.provider)}</Text>
+          <Text className="font-medium text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>
           <Text variant="small" className="text-white/60">
-            {calendar.email}
+            {calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone. Available on iOS only.' : calendar.email}
           </Text>
         </div>
 
