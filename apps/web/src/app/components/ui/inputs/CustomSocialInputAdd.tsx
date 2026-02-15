@@ -82,6 +82,7 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
 }) => {
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const isComposingRef = React.useRef(false);
 
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -135,7 +136,16 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
           ref={inputRef}
           type="text"
           value={username}
-          onChange={(e) => onUsernameChange(e.target.value)}
+          onChange={(e) => {
+            if (!isComposingRef.current) {
+              onUsernameChange(e.target.value);
+            }
+          }}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false;
+            onUsernameChange(e.currentTarget.value);
+          }}
           placeholder="Username"
           enterKeyHint="done"
           style={{

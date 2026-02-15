@@ -3,7 +3,7 @@
  * For name, email, and other single-line text fields
  */
 
-import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react';
+import React, { forwardRef, InputHTMLAttributes, ReactNode, useRef } from 'react';
 import { EyeIcon } from '../elements/EyeIcon';
 
 interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -20,6 +20,8 @@ interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
   ({ label, error, className = '', inputClassName = '', icon, iconClassName = '', variant = 'default', isHidden = false, onToggleHide, ...props }, ref) => {
+    const { onChange, ...inputProps } = props;
+    const isComposingRef = useRef(false);
 
     return (
       <div className={`w-full ${className}`}>
@@ -57,7 +59,17 @@ export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
               boxShadow: 'none',
               borderRadius: variant === 'hideable' ? '0' : icon ? '0 9999px 9999px 0' : '9999px'
             }}
-            {...props}
+            {...inputProps}
+            onChange={(e) => {
+              if (!isComposingRef.current) {
+                onChange?.(e);
+              }
+            }}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false;
+              onChange?.({ target: e.target, currentTarget: e.currentTarget } as React.ChangeEvent<HTMLInputElement>);
+            }}
           />
           {/* Eye icon for hideable variant */}
           {variant === 'hideable' && onToggleHide && (

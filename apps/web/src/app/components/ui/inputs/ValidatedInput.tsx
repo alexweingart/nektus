@@ -1,4 +1,4 @@
-import { InputHTMLAttributes } from 'react';
+import { InputHTMLAttributes, useRef } from 'react';
 import type { ValidationResult } from '@/types/profile';
 
 interface ValidatedInputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -17,6 +17,8 @@ export function ValidatedInput({
   saveAttempted = false,
   ...props
 }: ValidatedInputProps) {
+  const { onChange, ...inputProps } = props;
+  const isComposingRef = useRef(false);
   const value = props.value ? String(props.value).trim() : '';
   const isEmpty = value.length === 0;
   const isRequiredEmpty = isRequired && isEmpty && saveAttempted; // Only show required error after save attempt
@@ -60,7 +62,17 @@ export function ValidatedInput({
             outline: 'none',
             boxShadow: 'none'
           }}
-          {...props}
+          {...inputProps}
+          onChange={(e) => {
+            if (!isComposingRef.current) {
+              onChange?.(e);
+            }
+          }}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false;
+            onChange?.({ target: e.target, currentTarget: e.currentTarget } as React.ChangeEvent<HTMLInputElement>);
+          }}
         />
 
         {/* Validation Icon */}

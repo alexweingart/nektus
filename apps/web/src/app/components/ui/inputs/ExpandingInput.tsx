@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { forwardRef, TextareaHTMLAttributes, useEffect } from 'react';
+import React, { forwardRef, TextareaHTMLAttributes, useEffect, useRef } from 'react';
 import { EyeIcon } from '../elements/EyeIcon';
 
 interface ExpandingInputProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
@@ -41,6 +41,8 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
     icon,
     ...props
   }, ref) => {
+    const isComposingRef = useRef(false);
+
     // Auto-resize effect
     useEffect(() => {
       const textarea = document.querySelector('textarea[data-expanding-input]') as HTMLTextAreaElement;
@@ -52,12 +54,22 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
 
     // Handle both onChange patterns: (value: string) => void and event-based
     const handleChange = onChange ? (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (isComposingRef.current) return;
       // Try string pattern first (new pattern)
       try {
         (onChange as (value: string) => void)(e.target.value);
       } catch {
         // Fallback to event pattern (backwards compatibility)
         (onChange as (e: React.ChangeEvent<HTMLTextAreaElement>) => void)(e);
+      }
+    } : undefined;
+
+    const handleCompositionEnd = onChange ? (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+      isComposingRef.current = false;
+      try {
+        (onChange as (value: string) => void)(e.currentTarget.value);
+      } catch {
+        // ignore
       }
     } : undefined;
 
@@ -102,6 +114,8 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               rows={1}
               value={value}
               onChange={handleChange}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+              onCompositionEnd={handleCompositionEnd}
               placeholder={placeholder}
               enterKeyHint="done"
               className={`
@@ -156,6 +170,8 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               rows={1}
               value={value}
               onChange={handleChange}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+              onCompositionEnd={handleCompositionEnd}
               placeholder={placeholder}
               enterKeyHint="done"
               className={`
