@@ -8,7 +8,6 @@
 import React from 'react';
 import { FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
-import { isAndroidPlatform } from '@/client/platform-detection';
 
 // Custom X logo component (formerly Twitter)
 const XIcon = ({ className }: { className?: string }) => (
@@ -83,8 +82,6 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
 }) => {
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const isComposingRef = React.useRef(false);
-  const isAndroid = React.useMemo(() => isAndroidPlatform(), []);
 
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -138,18 +135,13 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
           ref={inputRef}
           type="text"
           value={username}
-          onChange={(e) => {
-            if (isAndroid || !isComposingRef.current) {
-              onUsernameChange(e.target.value);
-            }
-          }}
-          onCompositionStart={() => { isComposingRef.current = true; }}
-          onCompositionEnd={(e) => {
-            isComposingRef.current = false;
-            onUsernameChange(e.currentTarget.value);
-          }}
+          onChange={(e) => onUsernameChange(e.target.value)}
           placeholder="Username"
           enterKeyHint="done"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           style={{
             border: 'none',
             outline: 'none',
