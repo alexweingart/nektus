@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { StandardModal } from './StandardModal';
 import { Button } from '../buttons/Button';
@@ -31,6 +31,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
 }) => {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
+  const isAndroid = useMemo(() => /android/i.test(navigator.userAgent), []);
 
   const handleAppleCalendarConnect = async (appleId: string, appPassword: string) => {
     try {
@@ -175,7 +176,8 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
               {isConnecting === 'microsoft' ? 'Connecting...' : 'Microsoft Calendar'}
             </Button>
 
-            {/* Apple Calendar */}
+            {/* Apple Calendar - hidden on Android since CalDAV flow requires Apple ID */}
+            {!isAndroid && (
             <Button
               variant="white"
               size="lg"
@@ -187,6 +189,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
             >
               {isConnecting === 'apple' ? 'Connecting...' : 'Apple Calendar'}
             </Button>
+            )}
           </div>
     </StandardModal>
 
