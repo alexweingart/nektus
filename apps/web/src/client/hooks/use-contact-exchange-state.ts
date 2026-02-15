@@ -3,10 +3,10 @@
  * Handles auth callbacks, state transitions, and modal orchestration
  */
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import type { UserProfile } from '@/types/profile';
 import { saveContactFlow } from '@/client/contacts/save';
-import { getExchangeState, setExchangeState, shouldShowUpsell, markGoogleContactsPermissionGranted } from '@/client/contacts/exchange/state';
+import { getExchangeState, setExchangeState, shouldShowUpsell, markGoogleContactsPermissionGranted, markSuccessModalDismissed } from '@/client/contacts/exchange/state';
 import { isEmbeddedBrowser } from '@/client/platform-detection';
 
 // SSR-safe: useLayoutEffect on client, useEffect on server (avoids SSR warning)
@@ -26,8 +26,16 @@ export function useContactExchangeState(
   isHistoricalMode: boolean
 ): UseContactExchangeStateResult {
   // Start false on both server and client to avoid hydration mismatch.
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModalRaw] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
+
+  // Wrap setShowSuccessModal so dismissals are persisted to exchange state
+  const setShowSuccessModal = useCallback((show: boolean) => {
+    setShowSuccessModalRaw(show);
+    if (!show) {
+      markSuccessModalDismissed(token);
+    }
+  }, [token]);
 
   // Track whether we already handled the auth return to prevent race conditions
   // on hook re-runs (e.g., from profile reference changes or React re-renders)
@@ -53,18 +61,23 @@ export function useContactExchangeState(
       setShowSuccessModal(true);
       // Update exchange state synchronously so any remount sees completed_success
       // (not auth_in_progress which would trigger the upsell)
+      // Reset successModalDismissed since this is a fresh auth return
       setExchangeState(token, {
         state: 'completed_success',
         platform: state.platform,
         profileId: state.profileId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        successModalDismissed: false
       });
       markGoogleContactsPermissionGranted();
       return;
     }
 
     if (state?.state === 'completed_success') {
-      setShowSuccessModal(true);
+      // Don't re-show if user already dismissed it (e.g., returning from calendar OAuth)
+      if (!state.successModalDismissed) {
+        setShowSuccessModal(true);
+      }
       return;
     }
 
@@ -72,7 +85,7 @@ export function useContactExchangeState(
       const iosNonEmbedded = state.platform === 'ios' && !isEmbeddedBrowser();
       if (shouldShowUpsell(token, state.platform, iosNonEmbedded)) {
         setShowUpsellModal(true);
-      } else {
+      } else if (!state.successModalDismissed) {
         setShowSuccessModal(true);
       }
     }
@@ -151,7 +164,9 @@ export function useContactExchangeState(
 
         // Handle different states (only if no auth params)
         if (exchangeState.state === 'completed_success') {
-          setShowSuccessModal(true);
+          if (!exchangeState.successModalDismissed) {
+            setShowSuccessModal(true);
+          }
           return;
         }
 
@@ -178,7 +193,7 @@ export function useContactExchangeState(
           const iosNonEmbedded = exchangeState.platform === 'ios' && !isEmbeddedBrowser();
           if (shouldShowUpsell(token, exchangeState.platform, iosNonEmbedded)) {
             setShowUpsellModal(true);
-          } else {
+          } else if (!exchangeState.successModalDismissed) {
             setShowSuccessModal(true);
           }
           return;

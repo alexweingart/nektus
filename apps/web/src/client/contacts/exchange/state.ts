@@ -12,6 +12,7 @@ export interface ExchangeStateData {
   profileId: string;
   token: string;
   upsellShown: boolean;
+  successModalDismissed?: boolean;
 }
 
 /**
@@ -82,6 +83,16 @@ export function clearExchangeState(token: string): void {
     console.log('🗑️ Cleared exchange state for token:', token);
   } catch (error) {
     console.warn('Failed to clear exchange state:', error);
+  }
+}
+
+/**
+ * Mark success modal as dismissed for a token (prevents re-showing on remount)
+ */
+export function markSuccessModalDismissed(token: string): void {
+  const existing = getExchangeState(token);
+  if (existing) {
+    setExchangeState(token, { ...existing, successModalDismissed: true });
   }
 }
 
