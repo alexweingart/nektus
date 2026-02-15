@@ -62,13 +62,12 @@ function createFirebaseOnlyResult(
     timestamp: Date.now()
   });
 
-  const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
   return {
     success: true,
     firebase,
     google,
-    ...(shouldShowUpsell(token, platform, iosNonEmbedded) 
-      ? { showUpsellModal: true } 
+    ...(shouldShowUpsell(token)
+      ? { showUpsellModal: true }
       : { showSuccessModal: true }
     ),
     platform
@@ -79,11 +78,10 @@ function createFirebaseOnlyResult(
  * Check if user likely has Google Contacts permission
  * Uses exchange state history as a smart indicator
  */
-function likelyHasGoogleContactsPermission(platform: string, token: string): boolean {
+function likelyHasGoogleContactsPermission(token: string): boolean {
   // If we've never shown the upsell, they might still have permission
   // If we have shown the upsell, they definitely don't have permission
-  const iosNonEmbedded = platform === 'ios' && !isEmbeddedBrowser();
-  return !shouldShowUpsell(token, platform, iosNonEmbedded);
+  return !shouldShowUpsell(token);
 }
 
 /**
@@ -307,7 +305,7 @@ export async function saveContactFlow(
 
   try {
     // Smart permission check to avoid unnecessary API calls
-    const likelyHasPermission = likelyHasGoogleContactsPermission(platform, token);
+    const likelyHasPermission = likelyHasGoogleContactsPermission(token);
     console.log('🔍 Permission check: User likely has Google Contacts permission:', likelyHasPermission);
 
     // If we know they don't have permission and can do incremental auth, skip Google attempt
@@ -393,7 +391,7 @@ export async function saveContactFlow(
       });
 
     // Check permission for UI display
-    const userHasPermission = likelyHasGoogleContactsPermission(platform, token);
+    const userHasPermission = likelyHasGoogleContactsPermission(token);
 
     // Create results for immediate UI feedback (assume success)
     const firebaseResult = { firebase: { success: true } };

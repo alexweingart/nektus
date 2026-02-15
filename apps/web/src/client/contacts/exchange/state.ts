@@ -34,12 +34,10 @@ export function getExchangeState(token: string): ExchangeStateData | null {
       return null;
     }
     
-    // Completed states expire after 15 minutes (except iOS which persists forever for consistency)
-    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only')) {
-      if (data.platform !== 'ios' && age > 15 * 60 * 1000) {
-        clearExchangeState(token);
-        return null;
-      }
+    // Completed states expire after 15 minutes
+    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only') && age > 15 * 60 * 1000) {
+      clearExchangeState(token);
+      return null;
     }
     
     return data;
@@ -107,28 +105,6 @@ export function markUpsellShown(token: string): void {
 }
 
 /**
- * Check if user has dismissed Google contacts upsell globally (iOS Safari/Chrome/Edge only)
- */
-function hasUserDismissedUpsellGlobally(): boolean {
-  try {
-    return localStorage.getItem('google_contacts_upsell_dismissed') === 'true';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that user has dismissed Google contacts upsell globally (iOS Safari/Chrome/Edge only)
- */
-export function markUpsellDismissedGlobally(): void {
-  try {
-    localStorage.setItem('google_contacts_upsell_dismissed', 'true');
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
  * Check if user has completed their first contact save (iOS non-embedded only)
  */
 export function hasCompletedFirstSave(): boolean {
@@ -180,27 +156,19 @@ export function markGoogleContactsPermissionGranted(): void {
 }
 
 /**
- * Check if upsell should be shown based on exchange state and platform rules
+ * Check if upsell should be shown based on exchange state
  */
-export function shouldShowUpsell(token: string, platform: string, iosNonEmbedded: boolean = false): boolean {
+export function shouldShowUpsell(token: string): boolean {
   const state = getExchangeState(token);
 
   // For first-time saves (no state yet), check if user has permission globally
   if (!state) {
-    // If user already has Google Contacts permission globally, don't show upsell
-    // (they can save successfully, just no exchange state for this token yet)
     return !hasGoogleContactsPermission();
   }
 
   // Only show upsell if contact was saved to Firebase but not Google
   if (state.state !== 'completed_firebase_only') return false;
 
-  // iOS non-embedded browsers (Safari/Chrome/Edge): show only if never dismissed globally
-  if (iosNonEmbedded) {
-    return !hasUserDismissedUpsellGlobally();
-  }
-
-  // All other platforms: show every time (for now - simplified as requested)
   return true;
 }
 

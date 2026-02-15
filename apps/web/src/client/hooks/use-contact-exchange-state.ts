@@ -7,7 +7,6 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import type { UserProfile } from '@/types/profile';
 import { saveContactFlow } from '@/client/contacts/save';
 import { getExchangeState, setExchangeState, shouldShowUpsell, markGoogleContactsPermissionGranted, markSuccessModalDismissed } from '@/client/contacts/exchange/state';
-import { isEmbeddedBrowser } from '@/client/platform-detection';
 
 // SSR-safe: useLayoutEffect on client, useEffect on server (avoids SSR warning)
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -82,8 +81,7 @@ export function useContactExchangeState(
     }
 
     if (state?.state === 'completed_firebase_only') {
-      const iosNonEmbedded = state.platform === 'ios' && !isEmbeddedBrowser();
-      if (shouldShowUpsell(token, state.platform, iosNonEmbedded)) {
+      if (shouldShowUpsell(token)) {
         setShowUpsellModal(true);
       } else if (!state.successModalDismissed) {
         setShowSuccessModal(true);
@@ -189,9 +187,7 @@ export function useContactExchangeState(
         }
 
         if (exchangeState.state === 'completed_firebase_only') {
-          // Check if we should show upsell based on platform rules
-          const iosNonEmbedded = exchangeState.platform === 'ios' && !isEmbeddedBrowser();
-          if (shouldShowUpsell(token, exchangeState.platform, iosNonEmbedded)) {
+          if (shouldShowUpsell(token)) {
             setShowUpsellModal(true);
           } else if (!exchangeState.successModalDismissed) {
             setShowSuccessModal(true);

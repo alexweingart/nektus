@@ -21,8 +21,7 @@ import { generateMessageText, openMessagingAppDirectly } from '@/client/contacts
 import { useSession } from 'next-auth/react';
 import { saveContactFlow } from '@/client/contacts/save';
 import { startIncrementalAuth } from '@/client/auth/google-incremental';
-import { getExchangeState, markUpsellShown, markUpsellDismissedGlobally } from '@/client/contacts/exchange/state';
-import { isEmbeddedBrowser } from '@/client/platform-detection';
+import { getExchangeState, markUpsellShown } from '@/client/contacts/exchange/state';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { useContactExchangeState } from '@/client/hooks/use-contact-exchange-state';
@@ -148,18 +147,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   const handleUpsellDecline = () => {
     setShowUpsellModal(false);
-
-    // For iOS Safari/Chrome/Edge, use global tracking
-    const exchangeState = getExchangeState(token);
-    const iosNonEmbedded = exchangeState?.platform === 'ios' && !isEmbeddedBrowser();
-
-    if (iosNonEmbedded) {
-      // Mark globally for iOS non-embedded browsers
-      markUpsellDismissedGlobally();
-    } else {
-      // Use per-token tracking for other platforms
-      markUpsellShown(token);
-    }
+    markUpsellShown(token);
   };
 
   const handleSayHi = () => {

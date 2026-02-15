@@ -35,12 +35,10 @@ export async function getExchangeState(token: string): Promise<ExchangeStateData
       return null;
     }
 
-    // Completed states expire after 15 minutes (except iOS which persists forever)
-    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only')) {
-      if (data.platform !== 'ios' && age > 15 * 60 * 1000) {
-        await clearExchangeState(token);
-        return null;
-      }
+    // Completed states expire after 15 minutes
+    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only') && age > 15 * 60 * 1000) {
+      await clearExchangeState(token);
+      return null;
     }
 
     return data;
@@ -95,97 +93,6 @@ export async function markUpsellShown(token: string): Promise<void> {
   if (existing) {
     await setExchangeState(token, { ...existing, upsellShown: true });
   }
-}
-
-/**
- * Check if user has dismissed Google contacts upsell globally
- */
-async function hasUserDismissedUpsellGlobally(): Promise<boolean> {
-  try {
-    return (await AsyncStorage.getItem('google_contacts_upsell_dismissed')) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that user has dismissed Google contacts upsell globally
- */
-export async function markUpsellDismissedGlobally(): Promise<void> {
-  try {
-    await AsyncStorage.setItem('google_contacts_upsell_dismissed', 'true');
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
- * Check if user has completed their first contact save
- */
-export async function hasCompletedFirstSave(): Promise<boolean> {
-  try {
-    return (await AsyncStorage.getItem('google_contacts_first_save_completed')) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that user has completed their first contact save
- */
-export async function markFirstSaveCompleted(): Promise<void> {
-  try {
-    await AsyncStorage.setItem('google_contacts_first_save_completed', 'true');
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
- * Check if this is a first-time save
- */
-export async function isFirstTimeSave(token: string): Promise<boolean> {
-  return (await getExchangeState(token)) === null;
-}
-
-/**
- * Check if user has ever successfully authorized Google Contacts
- */
-export async function hasGoogleContactsPermission(): Promise<boolean> {
-  try {
-    return (await AsyncStorage.getItem('google_contacts_permission_granted')) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that user has successfully authorized Google Contacts
- */
-export async function markGoogleContactsPermissionGranted(): Promise<void> {
-  try {
-    await AsyncStorage.setItem('google_contacts_permission_granted', 'true');
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
- * Check if upsell should be shown
- */
-export async function shouldShowUpsell(token: string): Promise<boolean> {
-  const state = await getExchangeState(token);
-
-  // For first-time saves, check if user has permission globally
-  if (!state) {
-    return !(await hasGoogleContactsPermission());
-  }
-
-  // Only show upsell if contact was saved to Firebase but not Google
-  if (state.state !== 'completed_firebase_only') return false;
-
-  // iOS: show only if never dismissed globally
-  return !(await hasUserDismissedUpsellGlobally());
 }
 
 /**

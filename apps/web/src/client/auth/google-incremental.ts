@@ -89,12 +89,7 @@ export function hasShownUpsell(platform: string, token: string): boolean {
     
     const { timestamp, platform: storedPlatform } = JSON.parse(stored);
     
-    // iOS Safari entries never expire (less noisy)
-    if (storedPlatform === 'ios_safari') {
-      return true;
-    }
-    
-    // Other platforms expire after 15 minutes
+    // Expire after 15 minutes
     const age = Date.now() - timestamp;
     const maxAge = 15 * 60 * 1000; // 15 minutes
     

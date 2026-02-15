@@ -5,16 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import type { UserProfile } from '@nektus/shared-types';
-import {
-  getExchangeState,
-  shouldShowUpsell
-} from '../contacts/exchange/state';
+import { getExchangeState } from '../contacts/exchange/state';
 
 interface UseContactExchangeStateResult {
   showSuccessModal: boolean;
   setShowSuccessModal: (show: boolean) => void;
-  showUpsellModal: boolean;
-  setShowUpsellModal: (show: boolean) => void;
   isSuccess: boolean;
   isLoading: boolean;
 }
@@ -25,7 +20,6 @@ export function useContactExchangeState(
   isHistoricalMode: boolean
 ): UseContactExchangeStateResult {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,28 +50,11 @@ export function useContactExchangeState(
                        exchangeState.state === 'completed_firebase_only';
         setIsSuccess(success);
 
-        // Handle different states
-        if (exchangeState.state === 'completed_success') {
+        if (success) {
           setShowSuccessModal(true);
-          setIsLoading(false);
-          return;
         }
 
-        if (exchangeState.state === 'completed_firebase_only') {
-          // Check if we should show upsell
-          const showUpsell = await shouldShowUpsell(token);
-          if (showUpsell) {
-            setShowUpsellModal(true);
-          } else {
-            setShowSuccessModal(true);
-          }
-          setIsLoading(false);
-          return;
-        }
-
-        // For other states, just mark as not loading
         setIsLoading(false);
-
       } catch (error) {
         console.error('[iOS] Error checking exchange state:', error);
         setIsLoading(false);
@@ -90,8 +67,6 @@ export function useContactExchangeState(
   return {
     showSuccessModal,
     setShowSuccessModal,
-    showUpsellModal,
-    setShowUpsellModal,
     isSuccess,
     isLoading
   };

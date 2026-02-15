@@ -17,13 +17,11 @@ const ASYNC_STORAGE_KEYS = [
   "google_contacts_upsell_dismissed",
   "google_contacts_first_save_completed",
   "google_contacts_permission_granted",
-  "google_incremental_auth_state",
 ];
 
 // Prefixes for dynamic keys
 const ASYNC_STORAGE_PREFIXES = [
   "exchange_state_",
-  "google_incremental_tokens_",
 ];
 
 // SecureStore keys
