@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import type { UserProfile } from '@nektus/shared-types';
-import { getExchangeState } from '../contacts/exchange/state';
+import { getLocalExchangeState } from '../contacts/exchange/state';
 
 interface UseContactExchangeStateResult {
   showSuccessModal: boolean;
@@ -32,7 +32,7 @@ export function useContactExchangeState(
 
     const checkExchangeState = async () => {
       try {
-        const exchangeState = await getExchangeState(token);
+        const exchangeState = await getLocalExchangeState(token);
 
         if (!exchangeState) {
           setIsLoading(false);
