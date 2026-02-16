@@ -10,6 +10,8 @@
  * - Desktop: Try silent auth first, then explicit if needed
  */
 
+import { CACHE_TTL } from '@nektus/shared-client';
+
 // Constants for permission error detection
 export const PERMISSION_KEYWORDS = [
   'permission',
@@ -89,9 +91,9 @@ export function hasShownUpsell(platform: string, token: string): boolean {
     
     const { timestamp, platform: storedPlatform } = JSON.parse(stored);
     
-    // Expire after 15 minutes
+    // Expire after 5 minutes
     const age = Date.now() - timestamp;
-    const maxAge = 15 * 60 * 1000; // 15 minutes
+    const maxAge = CACHE_TTL.SHORT_MS;
     
     if (age > maxAge) {
       localStorage.removeItem(key);

@@ -21,6 +21,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Alert,
   RefreshControl,
 } from 'react-native';
 import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
@@ -32,7 +33,8 @@ import { useProfile, type UserProfile, type SavedContact } from '../../context/P
 import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import type { Event, TimeSlot } from '@nektus/shared-types';
-import { isEventKitAvailable, getDeviceBusyTimes } from '../../../client/calendar/eventkit-service';
+import { isEventKitAvailable, getDeviceBusyTimes, createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { StandardModal } from '../ui/modals/StandardModal';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { MessageList } from '../ui/chat/MessageList';
@@ -83,12 +85,19 @@ export function AIScheduleView() {
 
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
+  const skipCacheOnRefresh = useRef(false);
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
 
   const contactType = savedContact?.contactType || 'personal';
   const apiBaseUrl = getApiBaseUrl();
+  const [createdEventModal, setCreatedEventModal] = useState<{
+    visible: boolean;
+    title: string;
+    subtitle: string;
+    startDate: Date;
+  } | null>(null);
 
   // Emit background colors immediately from nav params
   useEffect(() => {
@@ -131,11 +140,12 @@ export function AIScheduleView() {
           duration: 30,
           calendarType: contactType,
           ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
-          ...(isColdStart ? { skipCache: true } : {}),
+          ...(isColdStart || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
       });
 
-      isColdStart = false; // Reset after first API call
+      isColdStart = false;
+      skipCacheOnRefresh.current = false;
 
       if (response.ok) {
         const data = await response.json();
@@ -150,9 +160,10 @@ export function AIScheduleView() {
     }
   }, [session?.user?.id, contactUserId, contactType, apiBaseUrl]);
 
-  // Pull-to-refresh - re-fetches common time slots
+  // Pull-to-refresh - re-fetches common time slots (bypasses Redis cache)
   const { refreshControl } = useScreenRefresh({
     onRefresh: async () => {
+      skipCacheOnRefresh.current = true;
       await fetchCommonTimeSlots();
     },
   });
@@ -343,13 +354,49 @@ And if you don't know any of those things, and just want me to suggest based off
     }
   }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse, apiBaseUrl]);
 
-  const handleScheduleEvent = useCallback((event: Event) => {
+  const handleScheduleEvent = useCallback(async (event: Event) => {
+    // Determine user's calendar access method for this section
+    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
+    const accessMethod = userCalendar?.accessMethod;
+
+    // EventKit: create event directly on device
+    if (accessMethod === 'eventkit') {
+      const startDate = event.startTime ? new Date(event.startTime) : null;
+      const endDate = event.endTime ? new Date(event.endTime) : null;
+      if (!startDate || !endDate) {
+        Alert.alert('Error', 'Event is missing start or end time.');
+        return;
+      }
+
+      try {
+        await createCalendarEvent({
+          title: event.title,
+          startDate,
+          endDate,
+          location: event.location || undefined,
+          notes: event.description || undefined,
+        });
+
+        const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const dayStr = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+        setCreatedEventModal({
+          visible: true,
+          title: 'Added to Calendar',
+          subtitle: `${event.title} — ${dayStr} • ${timeStr} (${event.duration} min)`,
+          startDate,
+        });
+      } catch (error) {
+        console.error('[AISchedule] EventKit create failed:', error);
+        Alert.alert('Error', 'Failed to create calendar event. Please try again.');
+      }
+      return;
+    }
+
+    // Google / Microsoft: open web URL
     if (!event.calendar_urls) return;
 
-    // Use the calendar provider matching the user's connected calendar for this section
-    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
     const provider = userCalendar?.provider || 'google';
-
     const calendarUrl = provider === 'microsoft'
       ? event.calendar_urls.outlook
       : event.calendar_urls.google;
@@ -411,6 +458,24 @@ And if you don't know any of those things, and just want me to suggest based off
               disabled={false}
               sendDisabled={isProcessing}
               fadeIn={false}
+            />
+          )}
+
+          {/* EventKit success modal */}
+          {createdEventModal && (
+            <StandardModal
+              isOpen={createdEventModal.visible}
+              onClose={() => setCreatedEventModal(null)}
+              title="Added to Calendar ✓"
+              subtitle={createdEventModal.subtitle}
+              primaryButtonText="View Event"
+              onPrimaryButtonClick={() => {
+                openEventInCalendar(createdEventModal.startDate);
+                setCreatedEventModal(null);
+              }}
+              secondaryButtonText="Done"
+              onSecondaryButtonClick={() => setCreatedEventModal(null)}
+              showCloseButton={false}
             />
           )}
         </View>

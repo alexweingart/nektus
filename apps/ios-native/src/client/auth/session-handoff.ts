@@ -8,6 +8,7 @@
  */
 
 import * as SecureStore from "expo-secure-store";
+import { CACHE_TTL } from "@nektus/shared-client";
 
 const SESSION_KEY = "nekt_session_handoff";
 
@@ -106,8 +107,7 @@ export async function retrieveHandoffSession(): Promise<HandoffSession | null> {
     const session: HandoffSession = JSON.parse(data);
 
     // Check if session is still valid (within 1 hour)
-    const ONE_HOUR = 60 * 60 * 1000;
-    if (Date.now() - session.timestamp > ONE_HOUR) {
+    if (Date.now() - session.timestamp > CACHE_TTL.LONG_MS) {
       console.log("[session-handoff] Handoff session expired");
       await clearHandoffSession();
       return null;

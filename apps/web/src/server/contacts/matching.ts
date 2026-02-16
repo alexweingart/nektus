@@ -5,6 +5,7 @@
 import { redis, isRedisAvailable } from '@/server/config/redis';
 import type { ProcessedLocation } from '@/server/location/ip-geolocation';
 import type { UserProfile } from '@/types/profile';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Re-export for backwards compatibility
 export { isRedisAvailable };
@@ -126,7 +127,7 @@ export async function atomicExchangeAndMatch(
   exchangeData: ExchangeData,
   currentLocation: ProcessedLocation,
   currentServerTimestamp?: number,
-  ttlSeconds: number = 30
+  ttlSeconds: number = CACHE_TTL.SHORT_S
 ): Promise<{ sessionId: string; matchData: ExchangeData } | null> {
   if (!isRedisAvailable()) {
     throw new Error('Redis is not available for atomic exchange operations');
@@ -509,15 +510,15 @@ export async function storeExchangeMatch(
   // Store all match data atomically to prevent race conditions
   await Promise.all([
     // Store by token
-    redis!.setex(`exchange_match:${token}`, 600, JSON.stringify(matchData)), // 10 minutes TTL
+    redis!.setex(`exchange_match:${token}`, CACHE_TTL.SHORT_S, JSON.stringify(matchData)),
 
     // Store references by session IDs for lookup
-    redis!.setex(`exchange_session:${sessionA}`, 600, JSON.stringify({
+    redis!.setex(`exchange_session:${sessionA}`, CACHE_TTL.SHORT_S, JSON.stringify({
       token,
       youAre: 'A'
     })),
 
-    redis!.setex(`exchange_session:${sessionB}`, 600, JSON.stringify({
+    redis!.setex(`exchange_session:${sessionB}`, CACHE_TTL.SHORT_S, JSON.stringify({
       token,
       youAre: 'B'
     }))

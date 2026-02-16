@@ -26,6 +26,7 @@ import {
   UserLocation,
   ProfileSaveService,
   getFieldValue,
+  CACHE_TTL,
 } from "@nektus/shared-client";
 import type { SavedContact as SharedSavedContact } from "@nektus/shared-types";
 import {
@@ -104,7 +105,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const initializedRef = useRef(false);
   const assetGenerationTriggeredRef = useRef(false);
 
-  const CONTACTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const CONTACTS_CACHE_DURATION = CACHE_TTL.SHORT_MS;
 
   // Initialize Firebase services once
   useEffect(() => {

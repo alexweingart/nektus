@@ -12,6 +12,7 @@ import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
 import { generateProfileAssets } from '@/client/profile/asset-generation';
 import { hexToRgb } from '@/client/cn';
 import { generateProfileColors } from '@/shared/colors';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Types
 interface SessionProfile {
@@ -77,8 +78,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const profileRef = useRef<UserProfile | null>(null);
 
-  // Contacts cache duration - 5 minutes (matches auth state expiry pattern)
-  const CONTACTS_CACHE_DURATION = 5 * 60 * 1000;
+  const CONTACTS_CACHE_DURATION = CACHE_TTL.SHORT_MS;
 
 
   // Profile creation/loading effect

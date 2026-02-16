@@ -3,7 +3,7 @@
  * Shows pre-computed meeting suggestions based on both users' calendars
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,8 @@ import type { RootStackParamList } from '../../../../App';
 import type { UserProfile, TimeSlot, Place, SchedulableHours } from '@nektus/shared-types';
 import { getApiBaseUrl } from '@nektus/shared-client';
 import { getIdToken } from '../../../client/auth/firebase';
-import { isEventKitAvailable, getDeviceBusyTimes } from '../../../client/calendar/eventkit-service';
+import { isEventKitAvailable, getDeviceBusyTimes, createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { StandardModal } from '../ui/modals/StandardModal';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
@@ -449,6 +450,15 @@ async function getEventKitBusyTimesForProfile(
     const now = new Date();
     const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const busyTimes = await getDeviceBusyTimes(now, twoWeeksOut);
+    console.log(`[SmartSchedule] EventKit: ${busyTimes.length} busy times`);
+    // Log Monday busy times specifically
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    for (const bt of busyTimes) {
+      const d = new Date(bt.start);
+      if (d.getDay() === 1) { // Monday
+        console.log(`  [Mon] ${d.toLocaleString('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit' })} - ${new Date(bt.end).toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`);
+      }
+    }
     return { user1BusyTimes: busyTimes };
   } catch (error) {
     console.error('[SmartScheduleView] Failed to get EventKit busy times:', error);
@@ -466,12 +476,19 @@ export function SmartScheduleView() {
   const { profile: currentUserProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
+  const skipCacheOnRefresh = useRef(false);
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
   const [suggestedTimes, setSuggestedTimes] = useState<Record<string, TimeSlot | null>>({});
   const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
+  const [createdEventModal, setCreatedEventModal] = useState<{
+    visible: boolean;
+    title: string;
+    subtitle: string;
+    startDate: Date;
+  } | null>(null);
 
   // Emit background colors immediately from nav params
   useEffect(() => {
@@ -550,19 +567,40 @@ export function SmartScheduleView() {
           calendarType: section,
           duration: 30,
           ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
-          ...(isColdStart ? { skipCache: true } : {}),
+          ...(isColdStart || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
       });
 
-      isColdStart = false; // Reset after first API call
+      isColdStart = false;
+      skipCacheOnRefresh.current = false;
 
       if (response.ok) {
         const data = await response.json();
         const commonSlots: TimeSlot[] = data.slots || [];
 
+        // Debug: log common slots summary
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log(`[SmartSchedule] API returned ${commonSlots.length} common slots`);
+        const mondaySlots = commonSlots.filter(s => new Date(s.start).getDay() === 1);
+        console.log(`[SmartSchedule] Monday slots: ${mondaySlots.length}`);
+        for (const s of mondaySlots.slice(0, 5)) {
+          const d = new Date(s.start);
+          console.log(`  [Mon] ${d.toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })} - ${new Date(s.end).toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`);
+        }
+
         // Process slots using template-aware scheduling (preferred hours, middle-time, travel buffers)
         const templateIds = SUGGESTION_CHIPS.map(chip => chip.eventId);
         const templateTimes = processCommonSlots(commonSlots, templateIds);
+
+        // Debug: log selected times per template
+        for (const [tid, slot] of Object.entries(templateTimes)) {
+          if (slot) {
+            const d = new Date(slot.start);
+            console.log(`[SmartSchedule] ${tid}: ${d.toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
+          } else {
+            console.log(`[SmartSchedule] ${tid}: null`);
+          }
+        }
 
         // Map template results back to chip IDs
         const times: Record<string, TimeSlot | null> = {};
@@ -586,10 +624,11 @@ export function SmartScheduleView() {
     }
   }, [session, contactProfile, currentUserProfile, section, SUGGESTION_CHIPS, apiBaseUrl]);
 
-  // Pull-to-refresh - refreshes suggested times
+  // Pull-to-refresh - refreshes suggested times (bypasses Redis cache)
   const { refreshControl } = useScreenRefresh({
     onRefresh: async () => {
       if (currentUserProfile && contactProfile) {
+        skipCacheOnRefresh.current = true;
         setSuggestedTimes({});
         await fetchSuggestedTimes();
       }
@@ -689,7 +728,7 @@ export function SmartScheduleView() {
   }, [suggestedTimes, fetchPlaces]);
 
   // Handle chip click - open calendar event composer
-  const handleChipClick = useCallback((chip: SuggestionChip) => {
+  const handleChipClick = useCallback(async (chip: SuggestionChip) => {
     if (!currentUserProfile || !contactProfile || !session?.user) return;
 
     const eventTemplate = EVENT_TEMPLATES[chip.eventId];
@@ -709,9 +748,32 @@ export function SmartScheduleView() {
         const title = `${eventTemplate.title} with ${contactName}`;
         const location = (eventTemplate.eventType === 'in-person' && place) ? place.name : '';
 
-        // Determine user's calendar provider for this section
+        // Determine user's calendar access method for this section
         const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
+        const accessMethod = userCalendar?.accessMethod;
         const provider = userCalendar?.provider || 'google';
+
+        // EventKit: create event directly on device
+        if (accessMethod === 'eventkit') {
+          try {
+            await createCalendarEvent({
+              title,
+              startDate,
+              endDate,
+              location: location || undefined,
+            });
+            setCreatedEventModal({
+              visible: true,
+              title: 'Added to Calendar',
+              subtitle: `${title} — ${formatTimeSlot(existingTime, eventTemplate.duration)}`,
+              startDate,
+            });
+          } catch (error) {
+            console.error('[SmartSchedule] EventKit create failed:', error);
+            Alert.alert('Error', 'Failed to create calendar event. Please try again.');
+          }
+          return;
+        }
 
         const formatDateForGoogle = (d: Date) =>
           d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -839,6 +901,24 @@ export function SmartScheduleView() {
             <Text style={styles.customButtonText}>Find Custom Time & Place</Text>
           </Button>
         </ScrollView>
+
+        {/* EventKit success modal */}
+        {createdEventModal && (
+          <StandardModal
+            isOpen={createdEventModal.visible}
+            onClose={() => setCreatedEventModal(null)}
+            title="Added to Calendar ✓"
+            subtitle={createdEventModal.subtitle}
+            primaryButtonText="View Event"
+            onPrimaryButtonClick={() => {
+              openEventInCalendar(createdEventModal.startDate);
+              setCreatedEventModal(null);
+            }}
+            secondaryButtonText="Done"
+            onSecondaryButtonClick={() => setCreatedEventModal(null)}
+            showCloseButton={false}
+          />
+        )}
       </View>
     </ScreenTransition>
   );

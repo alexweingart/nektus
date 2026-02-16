@@ -22,6 +22,7 @@ type State = typeof State[keyof typeof State];
 
 import { Platform, PermissionsAndroid } from 'react-native';
 import type { BLEAdvertisementData, BLEProfilePayload } from '@nektus/shared-types';
+import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 
 // Polyfill for base64 encoding/decoding in React Native
 function base64Encode(str: string): string {
@@ -81,10 +82,10 @@ export const NEKTUS_METADATA_CHAR_UUID = '8fa1c2d6-e5f6-4a7b-9c0d-1e2f3a4b5c6f';
 const MAX_CHUNK_SIZE = 512;
 
 // BLE scan timeout
-const SCAN_TIMEOUT_MS = 10000;
+const SCAN_TIMEOUT_MS = EXCHANGE_TIMEOUT.SLOW_MS;
 
 // Connection timeout
-const CONNECTION_TIMEOUT_MS = 5000;
+const CONNECTION_TIMEOUT_MS = EXCHANGE_TIMEOUT.MEDIUM_MS;
 
 // Singleton BLE Manager instance
 let bleManagerInstance: BleManager | null = null;
@@ -215,7 +216,7 @@ export async function requestBluetoothPermissions(): Promise<{ granted: boolean;
 /**
  * Wait for Bluetooth to be powered on
  */
-export async function waitForBluetoothReady(timeoutMs: number = 5000): Promise<boolean> {
+export async function waitForBluetoothReady(timeoutMs: number = EXCHANGE_TIMEOUT.MEDIUM_MS): Promise<boolean> {
   const manager = await getBleManagerAsync();
   if (!manager) {
     return false;

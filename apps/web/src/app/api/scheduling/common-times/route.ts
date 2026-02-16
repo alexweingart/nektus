@@ -9,6 +9,7 @@ import { TimeSlot, Calendar } from '@/types';
 import { getDefaultSchedulableHours } from '@/server/calendar/scheduling';
 import { CalendarTokens } from '@/types';
 import { Redis } from '@upstash/redis';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Initialize Redis for caching common times
 let redis: Redis | null = null;
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     const cacheKey = hasDeviceBusyTimes
       ? `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}:local`
       : `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}`;
-    const cacheTTL = 600; // 10 min for all requests
+    const cacheTTL = CACHE_TTL.LONG_S; // 1 hour for all requests
 
     // Try to get from cache first (skip on cold app start)
     if (redis && !skipCache) {

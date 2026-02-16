@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/server/config/redis';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     // Simple ping to keep Redis active
     const timestamp = Date.now();
-    await redis.set('keepalive:last_ping', timestamp, { ex: 60 * 60 * 24 * 14 }); // 14 day TTL
+    await redis.set('keepalive:last_ping', timestamp, { ex: CACHE_TTL.WEEKLY_S }); // 7 day TTL
     const pong = await redis.get('keepalive:last_ping');
 
     console.log(`🏓 Redis keepalive ping successful: ${pong}`);

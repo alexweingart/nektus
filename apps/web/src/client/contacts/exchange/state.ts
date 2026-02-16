@@ -3,6 +3,8 @@
  * Replaces multiple localStorage keys with single exchange state per token
  */
 
+import { CACHE_TTL } from '@nektus/shared-client';
+
 export type ExchangeState = 'pending' | 'auth_in_progress' | 'completed_success' | 'completed_firebase_only';
 
 export interface ExchangeStateData {
@@ -29,13 +31,13 @@ export function getExchangeState(token: string): ExchangeStateData | null {
     const age = Date.now() - data.timestamp;
     
     // Auth in progress expires after 5 minutes
-    if (data.state === 'auth_in_progress' && age > 5 * 60 * 1000) {
+    if (data.state === 'auth_in_progress' && age > CACHE_TTL.SHORT_MS) {
       clearExchangeState(token);
       return null;
     }
     
-    // Completed states expire after 15 minutes
-    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only') && age > 15 * 60 * 1000) {
+    // Completed states expire after 5 minutes
+    if ((data.state === 'completed_success' || data.state === 'completed_firebase_only') && age > CACHE_TTL.SHORT_MS) {
       clearExchangeState(token);
       return null;
     }

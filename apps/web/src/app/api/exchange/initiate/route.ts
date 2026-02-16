@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/server/auth/get-authenticated-user';
 import { redis } from '@/server/config/redis';
 import { getProfile } from '@/server/config/firebase';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 /**
  * Generate a secure random token for exchange
@@ -80,12 +81,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Store in Redis with 30-second TTL
-    await redis.setex(`exchange_match:${token}`, 30, JSON.stringify(matchData));
+    // Store in Redis with SHORT TTL
+    await redis.setex(`exchange_match:${token}`, CACHE_TTL.SHORT_S, JSON.stringify(matchData));
     console.log(`✅ Stored waiting exchange for token: ${token}`);
 
     // Store reverse mapping for polling
-    await redis.setex(`exchange_session:${sessionId}`, 30, token);
+    await redis.setex(`exchange_session:${sessionId}`, CACHE_TTL.SHORT_S, token);
     console.log(`✅ Stored session mapping: ${sessionId} → ${token}`);
 
     return NextResponse.json({

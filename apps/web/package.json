@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "countries-list": "^3.1.1",
     "file-type": "^19.0.0",
+    "@nektus/shared-client": "workspace:*",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
     "get-image-colors": "^4.0.1",

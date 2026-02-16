@@ -36,6 +36,7 @@ import {
   NEKTUS_SERVICE_UUID,
 } from './ble-manager';
 import { filterProfileByCategory, type SharingCategory } from '../../profile/filtering';
+import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 import {
   emitStartFloating,
   emitStopFloating,
@@ -43,7 +44,7 @@ import {
 } from '../../../app/utils/animationEvents';
 
 // BLE exchange timeout (matching server exchange timeout)
-const BLE_EXCHANGE_TIMEOUT_MS = 10000;
+const BLE_EXCHANGE_TIMEOUT_MS = EXCHANGE_TIMEOUT.MEDIUM_MS;
 
 // Debounce for duplicate device discoveries
 const DISCOVERY_DEBOUNCE_MS = 1000;
@@ -147,7 +148,7 @@ export class BLEExchangeService {
       }
 
       // Wait for Bluetooth to be ready
-      const isReady = await waitForBluetoothReady(3000);
+      const isReady = await waitForBluetoothReady(EXCHANGE_TIMEOUT.MEDIUM_MS);
       if (!isReady) {
         console.warn('[BLE Service] Bluetooth not ready');
         this.setStatus('ble-unavailable');

@@ -4,6 +4,7 @@
  */
 
 import { redis, isRedisAvailable } from '@/server/config/redis';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 interface IPLocationData {
   ip: string;
@@ -153,10 +154,10 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
   const processed = processLocationData(locationData);
   processed.cached = false; // Fresh lookup
   
-  // Cache the result (24 hour TTL)
+  // Cache the result (7 day TTL)
   if (isRedisAvailable()) {
     try {
-      await redis!.setex(cacheKey, 24 * 60 * 60, JSON.stringify(processed));
+      await redis!.setex(cacheKey, CACHE_TTL.WEEKLY_S, JSON.stringify(processed));
     } catch (error) {
       console.warn('Redis cache write failed for IP location:', error);
     }

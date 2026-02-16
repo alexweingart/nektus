@@ -161,7 +161,7 @@ const config = process.env.NODE_ENV === 'production'
             cacheName: 'favicon-cache-v2',
             expiration: {
               maxEntries: 1,
-              maxAgeSeconds: 1 * 60 * 60, // 1 hour only
+              maxAgeSeconds: 1 * 60 * 60, // CACHE_TTL.LONG
             },
           },
         },
@@ -172,7 +172,7 @@ const config = process.env.NODE_ENV === 'production'
             cacheName: 'firebase-storage-cache',
             expiration: {
               maxEntries: 50,
-              maxAgeSeconds: 24 * 60 * 60, // 24 hours
+              maxAgeSeconds: 1 * 60 * 60, // CACHE_TTL.LONG
             },
             // Use a plugin to customize cache key
             plugins: [

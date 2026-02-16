@@ -198,7 +198,7 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
                     </svg>
                   }
                   title={calendar.accessMethod === 'eventkit' ? 'iPhone Calendar' : `${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
-                  subtitle={calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone. Available on iOS only.' : calendar.email}
+                  subtitle={calendar.accessMethod === 'eventkit' ? 'Only available in iOS app' : calendar.email}
                   onClick={() => calRouter.push(`/edit/calendar?id=${calendar.id}`)}
                   onActionClick={() => handleDeleteCalendar(sectionName)}
                   actionIcon="trash"
@@ -375,6 +375,8 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
               className="cursor-pointer"
               onClick={() => {
                 clearColorCache();
+                localStorage.clear();
+                sessionStorage.clear();
                 signOut({ callbackUrl: '/' });
               }}
             >

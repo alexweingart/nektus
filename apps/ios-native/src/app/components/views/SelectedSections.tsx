@@ -29,6 +29,7 @@ import { ProfileField } from '../ui/elements/ProfileField';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { InlineAddLink } from '../ui/modules/InlineAddLink';
 import Svg, { Path } from 'react-native-svg';
+import { clearAllLocalStorage } from '../../../client/auth/cleanup';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -149,6 +150,7 @@ export function SelectedSections({
 
   const handleSignOut = useCallback(async () => {
     try {
+      await clearAllLocalStorage();
       await signOut();
       // Navigation will be handled by SessionProvider updating auth state
     } catch (error) {

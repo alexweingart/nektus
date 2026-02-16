@@ -4,6 +4,10 @@ import { timeToMinutes, getDayOfWeek } from './time';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS, UNIVERSAL_SCHEDULABLE_HOURS } from '@/shared/constants';
 import { createFallbackFromTemplate, getDateRange } from './slots-generator';
 
+// Cold start flag — true on first request after page load, resets after use.
+// Browser refresh reloads all JS modules, so this naturally resets to true.
+let isColdStart = true;
+
 export interface SuggestedTimes {
   [chipId: string]: { start: string; end: string } | null;
 }
@@ -243,8 +247,11 @@ export async function getSuggestedTimes(
         user2Id,
         duration: 30, // Use minimum duration for maximum flexibility
         calendarType,
+        ...(isColdStart ? { skipCache: true } : {}),
       }),
     });
+
+    isColdStart = false;
 
     if (!response.ok) {
       throw new Error(`API call failed: ${response.status}`);
@@ -255,6 +262,7 @@ export async function getSuggestedTimes(
     return processCommonSlots(data.slots || [], eventTemplateIds);
 
   } catch (error) {
+    isColdStart = false;
     console.error('❌ Error in getSuggestedTimes:', error);
     // Return empty results on error
     const errorResult: SuggestedTimes = {};

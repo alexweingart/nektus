@@ -4,6 +4,7 @@ import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils
 import type { AISchedulingRequest, GenerateEventResult } from '@/types/ai-scheduling';
 import type { Event } from '@/types';
 import type { Place } from '@/types/places';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 /**
  * Simplified event finalization handler for new 5-stage pipeline.
@@ -142,8 +143,8 @@ export async function handleFinalizeEvent(
       },
       finalEvent, // Cache the complete event with calendar URLs for navigation
     },
-    1800 // 30 minutes
+    CACHE_TTL.LONG_S // 1 hour
   );
 
-  console.log(`✅ Cached template, final event, and ${places?.length || 0} places for future edits with TTL 1800s`);
+  console.log(`✅ Cached template, final event, and ${places?.length || 0} places for future edits with TTL ${CACHE_TTL.LONG_S}s`);
 }

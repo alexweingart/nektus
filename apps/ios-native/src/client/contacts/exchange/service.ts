@@ -10,6 +10,7 @@ import type {
   ContactExchangeState
 } from '@nektus/shared-types';
 import { MotionDetector } from '../motion';
+import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 
 // Simple event callback system for exchange events
 type ExchangeEventCallback = (data: { token: string }) => void;
@@ -133,9 +134,9 @@ export class RealTimeContactExchangeService {
       this.startMatchPolling();
       console.log('🔄 [iOS] Started polling for QR scan matches');
 
-      // Set 20-second timeout for entire exchange process
+      // Set 60-second timeout for entire exchange process
       this.waitingForBumpTimeout = setTimeout(async () => {
-        console.log('⏰ [iOS] Exchange timed out after 20 seconds');
+        console.log('⏰ [iOS] Exchange timed out after 60 seconds');
 
         // Stop motion detection and polling
         await this.disconnect();
@@ -147,7 +148,7 @@ export class RealTimeContactExchangeService {
         } else {
           console.log('✅ [iOS] Match found - not showing timeout');
         }
-      }, 20000);
+      }, EXCHANGE_TIMEOUT.SLOW_MS);
 
       // Only start motion detection if permission was granted
       if (motionPermissionGranted) {
@@ -244,7 +245,7 @@ export class RealTimeContactExchangeService {
               if (this.state.status !== 'matched') {
                 this.updateState({ status: 'timeout' });
               }
-            }, 60000);
+            }, EXCHANGE_TIMEOUT.SLOW_MS);
           }
 
           this.updateState({ status: 'qr-scan-pending' });

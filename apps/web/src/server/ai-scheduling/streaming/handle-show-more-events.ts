@@ -1,5 +1,6 @@
 import { processingStateManager } from '@/server/ai-scheduling/processing';
 import { enqueueContent, enqueueClearLoading, enqueueProgress } from './streaming-utils';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 interface CachedEvents {
   events: Array<{
@@ -101,7 +102,7 @@ export async function handleShowMoreEvents(
       location,
       timeframe,
       shownCount: nextBatchEnd,
-    }, 3600); // Keep same TTL
+    }, CACHE_TTL.LONG_S); // Keep same TTL
 
     // Send progress first to create the content message ID
     enqueueProgress(controller, encoder, 'Loading more events...');

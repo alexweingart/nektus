@@ -20,10 +20,11 @@ import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/client/config/firebase';
 import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Module-level tracking that persists across component mounts
 let lastPreFetchTime = 0;
-const PRE_FETCH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown between pre-fetches
+const PRE_FETCH_COOLDOWN = CACHE_TTL.SHORT_MS; // 5 minutes cooldown between pre-fetches
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();

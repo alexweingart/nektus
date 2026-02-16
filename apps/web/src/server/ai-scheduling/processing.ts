@@ -1,5 +1,6 @@
 import type { ProcessingState, AISchedulingRequest, DetermineIntentResult, AISchedulingFinalResponse } from '@/types/ai-scheduling';
 import { Redis } from '@upstash/redis';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Extend global to include our processing states
 declare global {
@@ -58,8 +59,8 @@ class ProcessingStateManager {
 
     try {
       if (this.redis) {
-        // Store in Redis with 5 minute expiration - use set with EX option to avoid auto-parsing
-        await this.redis.set(this.getKey(id), JSON.stringify(state), { ex: 5 * 60 });
+        // Store in Redis with SHORT TTL expiration - use set with EX option to avoid auto-parsing
+        await this.redis.set(this.getKey(id), JSON.stringify(state), { ex: CACHE_TTL.SHORT_S });
         console.log(`📝 Created processing state in Redis: ${id}`);
       } else {
         // Fallback to in-memory storage
@@ -75,11 +76,11 @@ class ProcessingStateManager {
           this.memoryStates.__instanceId = Math.random().toString(36).substring(7);
         }
 
-        // Clean up memory state after 5 minutes
+        // Clean up memory state after SHORT TTL
         setTimeout(() => {
           this.memoryStates.delete(id);
           console.log(`🗑️ Cleaned up memory state: ${id}`);
-        }, 5 * 60 * 1000);
+        }, CACHE_TTL.SHORT_MS);
       }
     } catch (error) {
       console.error('Error saving state:', error);
@@ -140,7 +141,7 @@ class ProcessingStateManager {
       const updatedState = { ...currentState, ...updates };
 
       if (this.redis) {
-        await this.redis.set(this.getKey(id), JSON.stringify(updatedState), { ex: 5 * 60 });
+        await this.redis.set(this.getKey(id), JSON.stringify(updatedState), { ex: CACHE_TTL.SHORT_S });
         console.log(`📝 Updated processing state in Redis: ${id}`);
       } else {
         // Update in memory
