@@ -22,7 +22,6 @@ import type {
   ExchangeStatus,
 } from '@nektus/shared-types';
 import {
-  getBleManager,
   requestBluetoothPermissions,
   waitForBluetoothReady,
   startScanning,
@@ -33,18 +32,12 @@ import {
   monitorConnectionState,
   getSecondsSinceMidnightUTC,
   generateBLEMatchToken,
-  NEKTUS_SERVICE_UUID,
 } from './ble-manager';
 import { filterProfileByCategory, type SharingCategory } from '../../profile/filtering';
 import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 import {
-  emitStartFloating,
-  emitStopFloating,
   emitMatchFound,
 } from '../../../app/utils/animationEvents';
-
-// BLE exchange timeout (matching server exchange timeout)
-const BLE_EXCHANGE_TIMEOUT_MS = EXCHANGE_TIMEOUT.MEDIUM_MS;
 
 // Debounce for duplicate device discoveries
 const DISCOVERY_DEBOUNCE_MS = 1000;
@@ -120,11 +113,8 @@ export class BLEExchangeService {
     sharingCategory: SharingCategory
   ): Promise<void> {
     if (this.state !== 'idle') {
-      console.warn('[BLE Service] Already running, ignoring start');
       return;
     }
-
-    console.log('[BLE Service] Starting BLE exchange...');
     this.cancelled = false;
     this.userId = userId;
     this.userProfile = userProfile;
@@ -140,7 +130,6 @@ export class BLEExchangeService {
       // Request BLE permissions
       const permissionResult = await requestBluetoothPermissions();
       if (!permissionResult.granted) {
-        console.warn('[BLE Service] BLE permissions not granted:', permissionResult.message);
         this.setStatus('ble-unavailable');
         this.callbacks.onError?.(new Error(permissionResult.message || 'BLE not available'));
         this.setState('failed');
@@ -150,7 +139,6 @@ export class BLEExchangeService {
       // Wait for Bluetooth to be ready
       const isReady = await waitForBluetoothReady(EXCHANGE_TIMEOUT.MEDIUM_MS);
       if (!isReady) {
-        console.warn('[BLE Service] Bluetooth not ready');
         this.setStatus('ble-unavailable');
         this.callbacks.onError?.(new Error('Bluetooth not ready'));
         this.setState('failed');
@@ -158,18 +146,16 @@ export class BLEExchangeService {
       }
 
       if (this.cancelled) {
-        console.log('[BLE Service] Cancelled before scanning');
         return;
       }
 
       // Start timeout
       this.timeoutHandle = setTimeout(() => {
         if (this.state !== 'completed' && this.state !== 'failed') {
-          console.log('[BLE Service] Exchange timeout');
           this.stop();
           this.callbacks.onError?.(new Error('BLE exchange timeout'));
         }
-      }, BLE_EXCHANGE_TIMEOUT_MS);
+      }, EXCHANGE_TIMEOUT.MEDIUM_MS);
 
       // Start scanning for peers
       this.startScanning();
@@ -191,7 +177,6 @@ export class BLEExchangeService {
    * Stop BLE exchange process
    */
   stop(): void {
-    console.log('[BLE Service] Stopping BLE exchange...');
     this.cancelled = true;
 
     // Clear timeout
@@ -232,8 +217,6 @@ export class BLEExchangeService {
    * Start scanning for nearby Nektus devices
    */
   private async startScanning(): Promise<void> {
-    console.log('[BLE Service] Starting scan...');
-
     this.scanHandle = await startScanning(
       (device, advertisementData) => this.handleDeviceDiscovered(device, advertisementData),
       (error) => this.handleScanError(error)
@@ -251,20 +234,17 @@ export class BLEExchangeService {
 
     // Ignore devices without proper advertisement data
     if (!advertisementData) {
-      console.log('[BLE Service] Ignoring device without advertisement data');
       return;
     }
 
     // Ignore our own device (shouldn't happen, but safety check)
     if (advertisementData.userId === this.userId.slice(0, 8)) {
-      console.log('[BLE Service] Ignoring own device');
       return;
     }
 
     // Check if sharing category matches
     const ourCategory = this.sharingCategory === 'Personal' ? 'P' : 'W';
     if (advertisementData.sharingCategory !== ourCategory) {
-      console.log('[BLE Service] Sharing category mismatch:', advertisementData.sharingCategory, 'vs', ourCategory);
       return;
     }
 
@@ -273,8 +253,6 @@ export class BLEExchangeService {
     if (existingPeer && Date.now() - existingPeer.discoveredAt < DISCOVERY_DEBOUNCE_MS) {
       return;
     }
-
-    console.log(`[BLE Service] Discovered peer: ${advertisementData.userId} (${device.id})`);
 
     // Store peer info
     this.discoveredPeers.set(device.id, {
@@ -289,15 +267,9 @@ export class BLEExchangeService {
     // Determine role: earlier timestamp = initiator
     const isInitiator = this.shouldBeInitiator(advertisementData);
 
-    console.log(`[BLE Service] Role: ${isInitiator ? 'Initiator' : 'Responder'}`);
-
     if (isInitiator) {
       // We initiate the connection
       await this.initiateConnection(device);
-    } else {
-      // Wait for the other device to connect to us
-      // In practice, both devices scan and the initiator connects
-      console.log('[BLE Service] Waiting for peer to initiate connection...');
     }
   }
 
@@ -322,7 +294,6 @@ export class BLEExchangeService {
   private async initiateConnection(device: Device): Promise<void> {
     if (this.cancelled || this.state === 'completed') return;
 
-    console.log(`[BLE Service] Initiating connection to ${device.id}...`);
     this.setState('connecting');
     this.setStatus('ble-connecting');
 
@@ -339,8 +310,7 @@ export class BLEExchangeService {
       // Monitor connection state
       this.connectionMonitor = monitorConnectionState(this.connectedDevice, () => {
         if (this.state !== 'completed') {
-          console.log('[BLE Service] Connection lost');
-          this.handleConnectionLost();
+          this.handleDisconnection();
         }
       });
 
@@ -354,7 +324,7 @@ export class BLEExchangeService {
 
     } catch (error) {
       console.error('[BLE Service] Connection failed:', error);
-      this.handleConnectionError(error instanceof Error ? error : new Error('Connection failed'));
+      this.handleDisconnection(error instanceof Error ? error : new Error('Connection failed'));
     }
   }
 
@@ -364,7 +334,6 @@ export class BLEExchangeService {
   private async exchangeProfiles(isInitiator: boolean): Promise<void> {
     if (this.cancelled || !this.connectedDevice || !this.userProfile) return;
 
-    console.log('[BLE Service] Exchanging profiles...');
     this.setState('exchanging');
     this.setStatus('ble-exchanging');
 
@@ -382,14 +351,12 @@ export class BLEExchangeService {
 
       // Write our profile to peer
       await writeProfileToDevice(this.connectedDevice, ourPayload);
-      console.log('[BLE Service] Wrote our profile to peer');
 
       // Read peer's profile
       const peerPayload = await readProfileFromDevice(this.connectedDevice);
       if (!peerPayload) {
         throw new Error('Failed to read peer profile');
       }
-      console.log('[BLE Service] Read peer profile');
 
       // Disconnect after exchange
       if (this.connectionMonitor) {
@@ -420,7 +387,7 @@ export class BLEExchangeService {
 
     } catch (error) {
       console.error('[BLE Service] Profile exchange failed:', error);
-      this.handleConnectionError(error instanceof Error ? error : new Error('Exchange failed'));
+      this.handleDisconnection(error instanceof Error ? error : new Error('Exchange failed'));
     }
   }
 
@@ -428,8 +395,6 @@ export class BLEExchangeService {
    * Handle successful match
    */
   private handleMatchSuccess(match: BLEMatchResult): void {
-    console.log('[BLE Service] Match successful!', match.token);
-
     // Clear timeout
     if (this.timeoutHandle) {
       clearTimeout(this.timeoutHandle);
@@ -456,45 +421,30 @@ export class BLEExchangeService {
   }
 
   /**
-   * Handle connection error
+   * Handle disconnection (connection error or connection lost)
+   * If error is provided, logs it and explicitly disconnects the device.
+   * If no error, treats it as a passive connection loss (device already gone).
    */
-  private handleConnectionError(error: Error): void {
-    console.error('[BLE Service] Connection error:', error);
+  private handleDisconnection(error?: Error): void {
+    if (error) {
+      console.error('[BLE Service] Connection error:', error);
+    }
 
-    // Cleanup
+    // Cleanup connection monitor
     if (this.connectionMonitor) {
       this.connectionMonitor.cancel();
       this.connectionMonitor = null;
     }
-    if (this.connectedDevice) {
+
+    // Explicitly disconnect if error (device may still be connected);
+    // otherwise just null it (device already disconnected)
+    if (error && this.connectedDevice) {
       disconnectDevice(this.connectedDevice);
-      this.connectedDevice = null;
     }
+    this.connectedDevice = null;
 
     // Resume scanning for other peers
     if (!this.cancelled && this.state !== 'completed') {
-      console.log('[BLE Service] Resuming scan after connection error...');
-      this.setState('scanning');
-      this.setStatus('ble-scanning');
-      this.startScanning();
-    }
-  }
-
-  /**
-   * Handle connection lost
-   */
-  private handleConnectionLost(): void {
-    console.log('[BLE Service] Connection lost');
-
-    this.connectedDevice = null;
-    if (this.connectionMonitor) {
-      this.connectionMonitor.cancel();
-      this.connectionMonitor = null;
-    }
-
-    // Resume scanning
-    if (!this.cancelled && this.state !== 'completed') {
-      console.log('[BLE Service] Resuming scan after connection lost...');
       this.setState('scanning');
       this.setStatus('ble-scanning');
       this.startScanning();
@@ -506,7 +456,6 @@ export class BLEExchangeService {
    */
   private setState(state: BLEExchangeState): void {
     if (this.state !== state) {
-      console.log(`[BLE Service] State: ${this.state} -> ${state}`);
       this.state = state;
       this.callbacks.onStateChange?.(state);
     }
@@ -517,16 +466,8 @@ export class BLEExchangeService {
    */
   private setStatus(status: ExchangeStatus): void {
     if (this.status !== status) {
-      console.log(`[BLE Service] Status: ${this.status} -> ${status}`);
       this.status = status;
       this.callbacks.onStatusChange?.(status);
     }
   }
-}
-
-/**
- * Create a new BLE exchange service instance
- */
-export function createBLEExchangeService(callbacks?: BLEServiceCallbacks): BLEExchangeService {
-  return new BLEExchangeService(callbacks);
 }

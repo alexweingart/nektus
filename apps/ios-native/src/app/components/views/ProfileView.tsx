@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../../../App";
 import type { ExchangeStatus } from "@nektus/shared-types";
+import { getFieldValue } from "@nektus/shared-client";
 import { ProfileInfo } from "../ui/modules/ProfileInfo";
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
@@ -13,20 +14,11 @@ import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
-import { useProfileAnimations } from "../../../client/hooks/use-profile-animations";
+import { useProfileAnimations } from "../../../client/hooks/use-exchange-animations";
 import { emitCancelExchange } from "../../utils/animationEvents";
 import { ScreenTransition, useNavigateWithFade } from "../ui/layout/ScreenTransition";
 
 type ProfileViewNavigationProp = NativeStackNavigationProp<RootStackParamList, "Profile">;
-
-/**
- * Get a field value from ContactEntry array by fieldType
- */
-const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
 
 export function ProfileView() {
   const { data: session } = useSession();

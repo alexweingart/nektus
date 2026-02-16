@@ -14,34 +14,13 @@ import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Button } from '../buttons/Button';
 import type { Event } from '@nektus/shared-types';
+import { formatSmartDay } from '@nektus/shared-client';
 
 interface EventCardProps {
   event: Event;
   showCreateButton?: boolean;
   onCreateEvent: (event: Event) => void;
 }
-
-const formatSmartDay = (date: Date): string => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-  const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (inputDate.getTime() === today.getTime()) {
-    return 'Today';
-  }
-
-  if (inputDate.getTime() === tomorrow.getTime()) {
-    return 'Tomorrow';
-  }
-
-  const daysDiff = Math.floor((inputDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff > 0 && daysDiff <= 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  }
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
 
 const formatEventSubtitle = (event: Event): string => {
   if (!event.startTime || !event.endTime) return '';

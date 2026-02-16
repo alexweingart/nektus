@@ -33,6 +33,7 @@
     "production": {
       "extends": "base",
       "distribution": "store",
+      "autoSubmit": true,
       "ios": {
         "resourceClass": "m-medium",
         "image": "macos-sequoia-15.6-xcode-26.0",

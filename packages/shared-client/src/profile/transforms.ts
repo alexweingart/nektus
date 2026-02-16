@@ -110,3 +110,14 @@ export function getPhoneNumber(contactEntries: ContactEntry[] | undefined): stri
 export function getFirstName(fullName: string): string {
   return fullName.split(' ')[0] || fullName;
 }
+
+/**
+ * Format a location object into a display string (address, city, region, country)
+ */
+export function formatLocationString(loc?: { address?: string; city?: string; region?: string; country?: string }): string {
+  if (!loc) return '';
+  const base = loc.address
+    ? `${loc.address}, ${loc.city}, ${loc.region}`
+    : `${loc.city}, ${loc.region}`;
+  return loc.country ? `${base}, ${loc.country}` : base;
+}

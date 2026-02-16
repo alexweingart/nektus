@@ -15,13 +15,16 @@
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf node_modules apps/*/node_modules packages/*/node_modules",
     "ios": "turbo run ios --filter=@nektus/ios-native",
+    "test": "turbo run test",
+    "test:watch": "vitest --workspace=vitest.workspace.ts",
     "validate": "node scripts/pre-deploy-check.js",
     "validate:web": "node scripts/pre-deploy-check.js --web",
     "validate:ios": "node scripts/pre-deploy-check.js --ios"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18"

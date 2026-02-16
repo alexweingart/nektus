@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       timezone: requestingUserTimezone || 'UTC',
     };
 
-    // Cache the result with 10 minute TTL (only if we have slots)
+    // Cache the result (only if we have slots)
     if (redis && commonSlots.length > 0) {
       try {
         await redis.set(cacheKey, JSON.stringify(response), { ex: cacheTTL });
@@ -422,26 +422,26 @@ function generate24x7Slots(startTime: string, endTime: string, userTimezone?: st
   return slots;
 }
 
-// Validate Microsoft token expiration and refresh if needed
-async function validateAndRefreshMicrosoftToken(tokens: CalendarTokens, userEmail: string): Promise<string | null> {
+// Validate token expiration and refresh if needed
+async function validateAndRefreshToken(
+  provider: string,
+  tokens: CalendarTokens,
+  refreshFn: (refreshToken: string) => Promise<{ accessToken: string; expiresAt: Date }>,
+  saveFn: (accessToken: string, expiresAt: Date) => Promise<unknown>
+): Promise<string | null> {
   try {
-    const accessToken = tokens.accessToken;
-    const expiresAt = tokens.expiresAt;
+    const { accessToken, expiresAt } = tokens;
 
     if (!accessToken || typeof accessToken !== 'string') {
-      console.warn('Microsoft access token is missing, attempting refresh...');
+      console.warn(`${provider} access token is missing, attempting refresh...`);
 
       if (!tokens.refreshToken) {
-        console.error('No refresh token available for Microsoft token refresh');
+        console.error(`No refresh token available for ${provider} token refresh`);
         return null;
       }
 
-      // Attempt to refresh token
-      const refreshedData = await refreshMicrosoftToken(tokens.refreshToken);
-
-      // Update tokens in database
-      await adminUpdateMicrosoftTokens(userEmail, refreshedData.accessToken, refreshedData.expiresAt);
-
+      const refreshedData = await refreshFn(tokens.refreshToken);
+      await saveFn(refreshedData.accessToken, refreshedData.expiresAt);
       return refreshedData.accessToken;
     }
 
@@ -449,88 +449,39 @@ async function validateAndRefreshMicrosoftToken(tokens: CalendarTokens, userEmai
     if (expiresAt) {
       const now = new Date();
       const expiry = new Date(expiresAt);
-      const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+      const bufferTime = 5 * 60 * 1000; // 5 minutes
 
       if (now.getTime() >= (expiry.getTime() - bufferTime)) {
-        console.warn('Microsoft access token is expired or expiring soon, refreshing...');
+        console.warn(`${provider} access token is expired or expiring soon, refreshing...`);
 
         if (!tokens.refreshToken) {
-          console.error('No refresh token available for Microsoft token refresh');
+          console.error(`No refresh token available for ${provider} token refresh`);
           return null;
         }
 
-        // Attempt to refresh token
-        const refreshedData = await refreshMicrosoftToken(tokens.refreshToken);
-
-        // Update tokens in database
-        await adminUpdateMicrosoftTokens(userEmail, refreshedData.accessToken, refreshedData.expiresAt);
-
+        const refreshedData = await refreshFn(tokens.refreshToken);
+        await saveFn(refreshedData.accessToken, refreshedData.expiresAt);
         return refreshedData.accessToken;
       }
     }
 
-    // Token appears to be valid
     return accessToken;
   } catch (error) {
-    console.error('Error validating/refreshing Microsoft token:', error);
+    console.error(`Error validating/refreshing ${provider} token:`, error);
     return null;
   }
 }
 
-// Validate Google token expiration and refresh if needed
+async function validateAndRefreshMicrosoftToken(tokens: CalendarTokens, userEmail: string): Promise<string | null> {
+  return validateAndRefreshToken('Microsoft', tokens, refreshMicrosoftToken, (accessToken, expiresAt) =>
+    adminUpdateMicrosoftTokens(userEmail, accessToken, expiresAt)
+  );
+}
+
 async function validateAndRefreshGoogleToken(tokens: CalendarTokens, userId: string): Promise<string | null> {
-  try {
-    const accessToken = tokens.accessToken;
-    const expiresAt = tokens.expiresAt;
-
-    if (!accessToken || typeof accessToken !== 'string') {
-      console.warn('Google access token is missing, attempting refresh...');
-
-      if (!tokens.refreshToken) {
-        console.error('No refresh token available for Google token refresh');
-        return null;
-      }
-
-      // Attempt to refresh token
-      const refreshedData = await refreshGoogleToken(tokens.refreshToken);
-
-      // Update tokens in database
-      const { adminUpdateCalendarTokens } = await import('@/server/calendar/firebase-admin');
-      await adminUpdateCalendarTokens(userId, 'google', refreshedData.accessToken, refreshedData.expiresAt);
-
-      return refreshedData.accessToken;
-    }
-
-    // Check if token is expired (with 5-minute buffer)
-    if (expiresAt) {
-      const now = new Date();
-      const expiry = new Date(expiresAt);
-      const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-      if (now.getTime() >= (expiry.getTime() - bufferTime)) {
-        console.warn('Google access token is expired or expiring soon, refreshing...');
-
-        if (!tokens.refreshToken) {
-          console.error('No refresh token available for Google token refresh');
-          return null;
-        }
-
-        // Attempt to refresh token
-        const refreshedData = await refreshGoogleToken(tokens.refreshToken);
-
-        // Update tokens in database
-        const { adminUpdateCalendarTokens } = await import('@/server/calendar/firebase-admin');
-        await adminUpdateCalendarTokens(userId, 'google', refreshedData.accessToken, refreshedData.expiresAt);
-
-        return refreshedData.accessToken;
-      }
-    }
-
-    // Token appears to be valid
-    return accessToken;
-  } catch (error) {
-    console.error('Error validating/refreshing Google token:', error);
-    return null;
-  }
+  return validateAndRefreshToken('Google', tokens, refreshGoogleToken, async (accessToken, expiresAt) => {
+    const { adminUpdateCalendarTokens } = await import('@/server/calendar/firebase-admin');
+    await adminUpdateCalendarTokens(userId, 'google', accessToken, expiresAt);
+  });
 }
 

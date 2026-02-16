@@ -6,23 +6,22 @@ import { searchLocalEvents } from './search-events';
 import { createCompletion, getModelForTask, getReasoningEffortForTask } from '@/server/ai-scheduling/openai-client';
 import { searchFoursquarePlaces, getFoursquareCategoriesForActivity } from '@/server/places/foursquare';
 
-export interface PlaceSearchParams {
+interface PlaceSearchParams {
   intentResult: DetermineIntentResult;
   userLocations: string[];
-  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>; // Coordinates from user profiles
-  userIp?: string; // For IP-based location fallback
-  dateTime?: string;
+  userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>;
+  userIp?: string;
   timeframe?: 'today' | 'tomorrow' | 'this weekend' | 'next week';
 }
 
-export interface ActivitySuggestion {
+interface ActivitySuggestion {
   activity: string;
   searchQuery: string;
   description: string;
-  suggestedPlaceTypes?: string[]; // Foursquare category IDs
+  suggestedPlaceTypes?: string[];
 }
 
-export interface SpecialEvent {
+interface SpecialEvent {
   eventName: string;
   eventDescription: string;
   eventDate?: string;
@@ -31,14 +30,10 @@ export interface SpecialEvent {
   url?: string;
 }
 
-export interface SpecialEventPlace extends Place, SpecialEvent {
-  // Inherits all Place fields + SpecialEvent fields
-}
+interface SpecialEventPlace extends Place, SpecialEvent {}
 
 export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> {
   const { intentResult, userLocations, userCoordinates, userIp, timeframe = 'tomorrow' } = params;
-
-  console.log(`🎯 determineThingsToDo called with specificity: ${intentResult.intentSpecificity}`);
 
   try {
     switch (intentResult.intentSpecificity) {
@@ -52,11 +47,10 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<Place[]> 
         return await searchGenericActivities(userLocations, timeframe, userCoordinates, userIp);
 
       default:
-        console.log('⚠️ Unknown intent specificity, defaulting to empty results');
         return [];
     }
   } catch (error) {
-    console.error('Error in determineThingsToDo:', error);
+    console.error('Error in searchPlaces:', error);
     return [];
   }
 }
@@ -69,53 +63,29 @@ async function searchSpecificPlace(
   userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
-  console.log(`🔍 Tier 1: Searching for specific place: ${placeName}`);
-
   try {
-    // Calculate midpoint between users for search center (for location-based ranking)
     const { searchCenter } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
-    // For specific place searches, use a LARGE radius (100km) to cast a wide net
-    // The text search and Foursquare's relevance ranking will handle matching
-    // Location is used for RANKING, not filtering
-    const WIDE_SEARCH_RADIUS = 100000; // 100km in meters
+    // Wide radius (100km) — Foursquare's relevance ranking handles matching,
+    // location is used for RANKING, not filtering
+    const WIDE_SEARCH_RADIUS = 100000;
 
-    console.log(`📍 Using wide search radius for specific place: ${(WIDE_SEARCH_RADIUS / 1000).toFixed(1)}km`);
-
-    // For specific places, use suggested categories to ensure we get the right type of venue
+    // Use suggested categories to ensure we get the right type of venue
     // (e.g., searching for "Chic N Time" for dinner should only match restaurants, not barbershops)
     const categories = suggestedPlaceTypes?.join(',');
 
-    try {
-      const places = await searchFoursquarePlaces(
-        searchCenter,
-        WIDE_SEARCH_RADIUS, // Wide radius for specific place searches
-        placeName,
-        categories // Filter by activity type (e.g., restaurants for dinner)
-        // Premium fields disabled - using free tier only
-      );
+    const places = await searchFoursquarePlaces(
+      searchCenter,
+      WIDE_SEARCH_RADIUS,
+      placeName,
+      categories
+    );
 
-      console.log(`🔍 Foursquare returned ${places.length} results for "${placeName}"`);
-
-      // Log ALL results for debugging (up to 10)
-      if (places.length > 0) {
-        console.log(`📋 ALL ${Math.min(places.length, 10)} results from Foursquare (showing top 10):`);
-        places.slice(0, 10).forEach((place, i) => {
-          console.log(`   ${i + 1}. ${place.name} - ${place.distance_from_midpoint_km?.toFixed(1)}km away - rating: ${place.rating || 'N/A'} - ${place.address}`);
-        });
-      }
-
-      if (places.length > 0) {
-        console.log(`✅ Found ${places.length} matches for specific place: ${placeName} (categories: ${categories || 'any'})`);
-        return places.slice(0, 10); // Return top 10 matches so Stage 5 can pick the best one
-      }
-    } catch (error) {
-      console.log(`   Search failed for specific place: ${placeName}`, error);
+    if (places.length > 0) {
+      return places.slice(0, 10);
     }
 
-    console.log(`⚠️ No matches found for specific place: ${placeName}`);
     return [];
-
   } catch (error) {
     console.error('Error searching for specific place:', error);
     return [];
@@ -126,51 +96,35 @@ async function searchSpecificPlace(
 async function searchPlacesByActivity(
   activitySearchQuery: string,
   userLocations: string[],
-  intentResult: DetermineIntentResult,
+  _intentResult: DetermineIntentResult,
   userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
-  console.log(`🎾 Tier 2: Searching for activity: ${activitySearchQuery}`);
-  console.log(`🔍 Intent result received:`, JSON.stringify(intentResult, null, 2));
-  console.log(`🔍 User locations array:`, userLocations);
-
   try {
-    // Calculate midpoint between users for search center
     const { searchCenter, searchRadiusMeters } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
-    console.log(`📍 SEARCH RADIUS: ${searchRadiusMeters} meters (${(searchRadiusMeters / 1000).toFixed(1)}km)`);
-
-    // Just use text search - Foursquare is smart enough to find the right places
-    // No need for category filtering!
     let places = await searchFoursquarePlaces(
       searchCenter,
       searchRadiusMeters,
       activitySearchQuery,
-      undefined // No category filtering - let Foursquare's text search do its job
+      undefined
     );
 
     // If we got fewer than 4 results, try expanding the radius
-    const MIN_DESIRED_PLACES = 4;
-    if (places.length < MIN_DESIRED_PLACES) {
-      const expandedRadius = searchRadiusMeters * 2; // Double the radius
-      console.log(`⚠️  Only found ${places.length} places, expanding radius to ${(expandedRadius / 1000).toFixed(1)}km`);
-
+    if (places.length < 4) {
       const expandedPlaces = await searchFoursquarePlaces(
         searchCenter,
-        expandedRadius,
+        searchRadiusMeters * 2,
         activitySearchQuery,
         undefined
       );
 
       if (expandedPlaces.length > places.length) {
         places = expandedPlaces;
-        console.log(`✅ Found ${places.length} places with expanded radius`);
       }
     }
 
-    console.log(`✅ Found ${places.length} places for activity: ${activitySearchQuery}`);
-    return places.slice(0, 10); // Return top 10 results
-
+    return places.slice(0, 10);
   } catch (error) {
     console.error('Error searching for places by activity:', error);
     return [];
@@ -184,34 +138,17 @@ async function searchGenericActivities(
   userCoordinates?: Array<{ lat: number; lng: number } | null | undefined>,
   userIp?: string
 ): Promise<Place[]> {
-  console.log(`🌟 Tier 3: Generic activity discovery for timeframe: ${timeframe}`);
-
   try {
-    // Calculate midpoint for context
     const { searchCenter, searchRadiusMeters, primaryLocation } = await getMidpointFromLocations(userLocations, userCoordinates, userIp);
 
-    console.log(`📍 Using dynamic search radius: ${(searchRadiusMeters / 1000).toFixed(1)}km`);
-
-    // 3A & 3B: Run in parallel
     const [activitySuggestions, specialEvents] = await Promise.all([
-      // 3A: LLM suggests general activities
       suggestActivitiesWithLLM(primaryLocation, timeframe),
-      // 3B: Web search for special events
       searchSpecialEvents(primaryLocation, timeframe)
     ]);
 
-    console.log(`📋 3A: LLM suggested ${activitySuggestions.length} activities`);
-    console.log(`🎪 3B: Found ${specialEvents.length} special events`);
-
-    // 3C: Find places for each LLM-suggested activity
     const activityPlaces = await findPlacesForActivities(activitySuggestions, searchCenter, searchRadiusMeters);
 
-    // 3D: Combine activity places with special event places
-    const allPlaces = [...activityPlaces, ...specialEvents];
-
-    console.log(`✅ Total places found: ${allPlaces.length} (${activityPlaces.length} activity + ${specialEvents.length} events)`);
-    return allPlaces;
-
+    return [...activityPlaces, ...specialEvents];
   } catch (error) {
     console.error('Error in generic activity discovery:', error);
     return [];
@@ -223,15 +160,13 @@ async function suggestActivitiesWithLLM(
   location: string,
   timeframe: string
 ): Promise<ActivitySuggestion[]> {
-  console.log(`🧠 3A: Getting LLM activity suggestions for ${location}`);
-
   const prompt = `You are a local activity expert. Suggest 3-5 diverse activities for ${timeframe} in ${location}.
 
 For each activity, provide:
 1. Activity name (short, e.g., "hiking", "museums", "coffee tasting")
 2. Search query for finding venues (e.g., "hiking trails", "art museums", "specialty coffee shops")
 3. Brief description of why it's good for this location/timeframe
-4. Suggested Google Places API types (e.g., ["park", "tourist_attraction"] for hiking, ["cafe", "restaurant"] for coffee, ["museum"] for museums)
+4. Suggested Foursquare category types (e.g., ["park", "tourist_attraction"] for hiking, ["cafe", "restaurant"] for coffee, ["museum"] for museums)
 
 Focus on activities that:
 - Are appropriate for ${timeframe}
@@ -257,10 +192,7 @@ Return as JSON array: [{"activity": "...", "searchQuery": "...", "description": 
     const result = completion.choices[0].message.content;
     const parsed = JSON.parse(result || '{"activities": []}');
 
-    // Handle both array and object with activities key
     const activities = Array.isArray(parsed) ? parsed : (parsed.activities || []);
-
-    console.log(`✅ LLM suggested ${activities.length} activities`);
     return activities;
 
   } catch (error) {
@@ -274,18 +206,13 @@ async function searchSpecialEvents(
   location: string,
   timeframe: string
 ): Promise<SpecialEventPlace[]> {
-  console.log(`🌐 3B: Searching for special events in ${location}`);
-
   try {
-    // Search for real events using OpenAI's web search and get structured data
     const eventResults = await searchLocalEvents(location, timeframe);
 
     if (eventResults.length === 0) {
-      console.log(`⚠️ No structured events found for ${location}`);
       return [];
     }
 
-    // Convert EventSearchResult to SpecialEventPlace format with real geocoding
     const specialEventPlaces: SpecialEventPlace[] = await Promise.all(
       eventResults.map(async (event, index) => {
         let coordinates = { lat: 0, lng: 0 };
@@ -320,9 +247,7 @@ async function searchSpecialEvents(
       })
     );
 
-    console.log(`✅ Found ${specialEventPlaces.length} structured special events for ${location}`);
     return specialEventPlaces;
-
   } catch (error) {
     console.error('Error searching for special events:', error);
     return [];
@@ -335,40 +260,23 @@ async function findPlacesForActivities(
   searchCenter: { lat: number; lng: number },
   searchRadiusMeters: number
 ): Promise<Place[]> {
-  console.log(`🔍 3C: Finding places for ${activities.length} activities`);
-
   const allPlaces: Place[] = [];
 
   for (const activity of activities) {
     try {
-      console.log(`   Searching for: ${activity.searchQuery}`);
-
-      // Use LLM-suggested Foursquare categories if available, otherwise infer from search query
       const categories = activity.suggestedPlaceTypes && activity.suggestedPlaceTypes.length > 0
         ? activity.suggestedPlaceTypes
         : getFoursquareCategoriesForActivity(activity.searchQuery);
 
-      // Optimization: Pass all categories in a single API call using comma-separated list
-      try {
-        const places = await searchFoursquarePlaces(
-          searchCenter,
-          searchRadiusMeters, // Use dynamic radius based on user distance
-          activity.searchQuery,
-          categories.join(',') // ← Single call with all categories
-          // Premium fields disabled - using free tier only
-        );
+      const places = await searchFoursquarePlaces(
+        searchCenter,
+        searchRadiusMeters,
+        activity.searchQuery,
+        categories.join(',')
+      );
 
-        // Take top 2-3 places per activity to maintain diversity
-        const topPlaces = places.slice(0, 3);
-        allPlaces.push(...topPlaces);
-
-        console.log(`   Found ${places.length} places for ${activity.activity} (categories: ${categories.join(', ')}), taking top ${topPlaces.length}`);
-
-      } catch (_error) {
-        console.error(`Error searching for activity ${activity.activity}:`, _error);
-        continue;
-      }
-
+      // Take top 3 places per activity to maintain diversity
+      allPlaces.push(...places.slice(0, 3));
     } catch (_error) {
       console.error(`Error searching for activity ${activity.activity}:`, _error);
     }
@@ -387,12 +295,10 @@ async function getMidpointFromLocations(
   searchRadiusMeters: number;
   primaryLocation: string;
 }> {
-  // If we have coordinates, use them directly (avoid geocoding!)
+  // Use coordinates directly if available (avoid geocoding)
   const validCoordinates = userCoordinates?.filter(coord => coord && coord.lat && coord.lng) || [];
 
   if (validCoordinates.length > 0) {
-    console.log(`✅ Using ${validCoordinates.length} coordinate(s) from user profiles (no geocoding needed)`);
-
     if (validCoordinates.length === 1) {
       return {
         searchCenter: validCoordinates[0]!,
@@ -468,26 +374,13 @@ async function getMidpointFromLocations(
     })
   );
 
-  // For multiple locations, use the first two coordinates for midpoint calculation
-  if (geocodedLocations.length >= 2) {
-    const midpoint = calculateMidpoint(geocodedLocations[0], geocodedLocations[1]);
-    return {
-      searchCenter: midpoint.coordinates,
-      searchRadiusMeters: midpoint.search_radius_meters,
-      primaryLocation
-    };
-  } else {
-    // Single location (shouldn't happen as we handle this case above, but safety fallback)
-    return {
-      searchCenter: geocodedLocations[0],
-      searchRadiusMeters: 5000, // Default 5km for single location
-      primaryLocation
-    };
-  }
+  const midpoint = calculateMidpoint(geocodedLocations[0], geocodedLocations[1]);
+  return {
+    searchCenter: midpoint.coordinates,
+    searchRadiusMeters: midpoint.search_radius_meters,
+    primaryLocation
+  };
 }
-
-// Note: This function is replaced by getFoursquareCategoriesForActivity from foursquare-client
-// Removed - no longer used
 
 // Fallback activity suggestions
 function getDefaultActivitySuggestions(): ActivitySuggestion[] {

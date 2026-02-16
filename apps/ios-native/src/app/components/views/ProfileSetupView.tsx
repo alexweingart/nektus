@@ -13,18 +13,11 @@ import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { CustomSocialInputAdd } from "../ui/inputs/CustomSocialInputAdd";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
-import { formatPhoneNumber } from "@nektus/shared-client";
+import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
 import { ScreenTransition } from "../ui/layout/ScreenTransition";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import type { ContactEntry } from "@nektus/shared-types";
-
-// Helper to get field value from contact entries
-const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
 
 export function ProfileSetupView() {
   const { data: session } = useSession();

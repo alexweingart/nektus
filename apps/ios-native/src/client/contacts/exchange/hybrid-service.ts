@@ -18,7 +18,7 @@ import type {
   BLEMatchResult,
 } from '@nektus/shared-types';
 import { RealTimeContactExchangeService, generateSessionId, exchangeEvents } from './service';
-import { BLEExchangeService, createBLEExchangeService } from './ble-service';
+import { BLEExchangeService } from './ble-service';
 import type { SharingCategory } from '../../profile/filtering';
 
 // Match result unified across BLE and server
@@ -65,7 +65,7 @@ export class HybridExchangeService {
    * Check if BLE is available for matching
    */
   async checkBLEAvailability(): Promise<boolean> {
-    const bleService = createBLEExchangeService();
+    const bleService = new BLEExchangeService();
     this.bleAvailable = await bleService.isAvailable();
     console.log(`[Hybrid] BLE available: ${this.bleAvailable}`);
     return this.bleAvailable;
@@ -121,7 +121,7 @@ export class HybridExchangeService {
 
     console.log('[Hybrid] Starting BLE service...');
 
-    this.bleService = createBLEExchangeService({
+    this.bleService = new BLEExchangeService({
       onStatusChange: (status) => {
         // Only update status if no match found yet
         if (!this.matchFound) {

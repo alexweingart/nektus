@@ -12,6 +12,7 @@ import MessageList from '@/app/components/ui/chat/MessageList';
 import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { useProfile } from '@/app/context/ProfileContext';
+import { formatLocationString } from '@nektus/shared-client';
 import { auth } from '@/client/config/firebase';
 
 // Helper: Generate unique message IDs
@@ -229,22 +230,12 @@ And if you don't know any of those things, and just want me to suggest based off
       const currentUserLoc = currentUserProfile.locations?.find(
         loc => loc.section === contactType
       );
-      // Build full address with city context to avoid geocoding ambiguity
-      const currentUserLocation = currentUserLoc
-        ? currentUserLoc.address
-          ? `${currentUserLoc.address}, ${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
-          : `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
-        : '';
+      const currentUserLocation = formatLocationString(currentUserLoc);
 
       const contactLoc = contactProfile.locations?.find(
         loc => loc.section === contactType
       );
-      // Build full address with city context to avoid geocoding ambiguity
-      const contactLocation = contactLoc
-        ? contactLoc.address
-          ? `${contactLoc.address}, ${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
-          : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
-        : '';
+      const contactLocation = formatLocationString(contactLoc);
 
       // Extract coordinates from user locations
       const currentUserCoordinates = currentUserLoc?.coordinates;

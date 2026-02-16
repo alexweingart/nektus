@@ -165,8 +165,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API/BIO-AND-SOCIAL] Final merged entries:`, mergedEntries.map(e => `${e.fieldType}-${e.section}:${e.order}`));
     
-    // TODO: Update logging to work with new array format
-    
     // Update bio entry in the contactEntries array
     const updatedContactEntries = [...mergedEntries];
     const bioIndex = updatedContactEntries.findIndex(e => e.fieldType === 'bio');

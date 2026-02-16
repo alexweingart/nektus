@@ -20,7 +20,7 @@ const State = {
 } as const;
 type State = typeof State[keyof typeof State];
 
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform } from 'react-native';
 import type { BLEAdvertisementData, BLEProfilePayload } from '@nektus/shared-types';
 import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 
@@ -75,8 +75,8 @@ function base64Decode(str: string): Uint8Array {
 export const NEKTUS_SERVICE_UUID = '8fa1c2d4-e5f6-4a7b-9c0d-1e2f3a4b5c6d';
 
 // GATT Characteristic UUIDs
-export const NEKTUS_PROFILE_CHAR_UUID = '8fa1c2d5-e5f6-4a7b-9c0d-1e2f3a4b5c6e';  // For profile exchange
-export const NEKTUS_METADATA_CHAR_UUID = '8fa1c2d6-e5f6-4a7b-9c0d-1e2f3a4b5c6f'; // For advertisement metadata
+const NEKTUS_PROFILE_CHAR_UUID = '8fa1c2d5-e5f6-4a7b-9c0d-1e2f3a4b5c6e';  // For profile exchange
+const NEKTUS_METADATA_CHAR_UUID = '8fa1c2d6-e5f6-4a7b-9c0d-1e2f3a4b5c6f'; // For advertisement metadata
 
 // BLE MTU size (typical iOS default is 185, but we chunk at 512 for safety)
 const MAX_CHUNK_SIZE = 512;
@@ -90,16 +90,6 @@ const CONNECTION_TIMEOUT_MS = EXCHANGE_TIMEOUT.MEDIUM_MS;
 // Singleton BLE Manager instance
 let bleManagerInstance: BleManager | null = null;
 let BleManagerClass: any = null;
-
-export type BLEStateCallback = (state: State) => void;
-export type BLEDeviceCallback = (device: Device, advertisementData: BLEAdvertisementData | null) => void;
-export type BLEErrorCallback = (error: BleError | Error) => void;
-
-interface BLEManagerCallbacks {
-  onStateChange?: BLEStateCallback;
-  onDeviceDiscovered?: BLEDeviceCallback;
-  onError?: BLEErrorCallback;
-}
 
 /**
  * Dynamically load react-native-ble-plx (handles when package is not installed)
@@ -140,19 +130,9 @@ export function getBleManager(): BleManager | null {
 }
 
 /**
- * Destroy the BLE manager instance (cleanup)
- */
-export function destroyBleManager(): void {
-  if (bleManagerInstance) {
-    bleManagerInstance.destroy();
-    bleManagerInstance = null;
-  }
-}
-
-/**
  * Check if Bluetooth is available and enabled
  */
-export async function checkBluetoothState(): Promise<{ available: boolean; state: State }> {
+async function checkBluetoothState(): Promise<{ available: boolean; state: State }> {
   const manager = await getBleManagerAsync();
   if (!manager) {
     return { available: false, state: State.Unsupported };
@@ -187,29 +167,6 @@ export async function requestBluetoothPermissions(): Promise<{ granted: boolean;
     return { granted: true };
   }
 
-  // Android requires explicit permission requests
-  if (Platform.OS === 'android') {
-    try {
-      const granted = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ]);
-
-      const allGranted = Object.values(granted).every(
-        (status) => status === PermissionsAndroid.RESULTS.GRANTED
-      );
-
-      if (!allGranted) {
-        return { granted: false, message: 'Bluetooth permissions denied.' };
-      }
-      return { granted: true };
-    } catch (error) {
-      return { granted: false, message: 'Failed to request Bluetooth permissions.' };
-    }
-  }
-
   return { granted: false, message: 'Platform not supported.' };
 }
 
@@ -242,27 +199,6 @@ export async function waitForBluetoothReady(timeoutMs: number = EXCHANGE_TIMEOUT
       }
     }, true);
   });
-}
-
-/**
- * Encode advertisement data into manufacturer-specific data
- * Format: [userId (8 chars)] [sharingCategory (1 char)] [timestamp (4 bytes)]
- */
-export function encodeAdvertisementData(data: BLEAdvertisementData): Uint8Array {
-  const buffer = new Uint8Array(13); // 8 + 1 + 4 = 13 bytes
-
-  // userId (first 8 chars, padded if shorter)
-  const userIdBytes = new TextEncoder().encode(data.userId.slice(0, 8).padEnd(8, '\0'));
-  buffer.set(userIdBytes, 0);
-
-  // sharingCategory (1 char)
-  buffer[8] = data.sharingCategory.charCodeAt(0);
-
-  // buttonPressTimestamp (4 bytes, little-endian)
-  const view = new DataView(buffer.buffer);
-  view.setUint32(9, data.buttonPressTimestamp, true);
-
-  return buffer;
 }
 
 /**
@@ -305,8 +241,8 @@ export function decodeAdvertisementData(data: Uint8Array): BLEAdvertisementData 
  * Start scanning for nearby Nektus devices
  */
 export async function startScanning(
-  onDeviceDiscovered: BLEDeviceCallback,
-  onError?: BLEErrorCallback
+  onDeviceDiscovered: (device: Device, advertisementData: BLEAdvertisementData | null) => void,
+  onError?: (error: BleError | Error) => void
 ): Promise<{ stop: () => void }> {
   const manager = await getBleManagerAsync();
   if (!manager) {
@@ -413,7 +349,7 @@ export async function disconnectDevice(device: Device): Promise<void> {
 /**
  * Chunk data for BLE transmission
  */
-export function chunkData(data: string): string[] {
+function chunkData(data: string): string[] {
   const chunks: string[] = [];
   for (let i = 0; i < data.length; i += MAX_CHUNK_SIZE) {
     chunks.push(data.slice(i, i + MAX_CHUNK_SIZE));

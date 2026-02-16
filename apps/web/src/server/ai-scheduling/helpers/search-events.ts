@@ -65,7 +65,7 @@ Return only factual information about real events with: title, description, venu
       input: searchInput,
       location: {
         type: 'approximate',
-        country: 'US', // TODO: Make dynamic
+        country: 'US',
         city: location
       }
     });

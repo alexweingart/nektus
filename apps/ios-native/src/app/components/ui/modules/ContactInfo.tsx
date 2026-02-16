@@ -7,7 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import type { UserProfile } from '@nektus/shared-types';
-import { getOptimalProfileImageUrl } from '@nektus/shared-client';
+import { getOptimalProfileImageUrl, getFieldValue } from '@nektus/shared-client';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 import { generateProfileColors } from '../../../../shared/colors';
@@ -16,15 +16,6 @@ interface ContactInfoProps {
   profile: UserProfile;
   bioContent: string;
 }
-
-/**
- * Get a field value from ContactEntry array by fieldType
- */
-const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
 
 export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
   // Dynamic avatar sizing based on screen width

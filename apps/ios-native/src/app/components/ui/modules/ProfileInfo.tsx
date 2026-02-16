@@ -15,7 +15,7 @@ import Avatar from '../elements/Avatar';
 import { SocialIconsList } from '../elements/SocialIconsList';
 import { ProfileViewSelector } from '../controls/ProfileViewSelector';
 import { Heading, BodyText } from '../Typography';
-import { getApiBaseUrl } from '@nektus/shared-client';
+import { getApiBaseUrl, getFieldValue } from '@nektus/shared-client';
 import { useProfile, type SharingCategory } from '../../../../app/context/ProfileContext';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 import { useAdminModeActivator } from '../banners/AdminBanner';
@@ -37,15 +37,6 @@ interface ProfileInfoProps {
   matchToken?: string; // Token for QR code URL
   animatedValues?: ProfileAnimatedValues; // Animation values from useProfileAnimations
 }
-
-/**
- * Get a field value from ContactEntry array by fieldType
- */
-const getFieldValue = (contactEntries: ContactEntry[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
 
 /**
  * Filter profile by category (Personal or Work)

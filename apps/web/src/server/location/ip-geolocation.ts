@@ -6,7 +6,7 @@
 import { redis, isRedisAvailable } from '@/server/config/redis';
 import { CACHE_TTL } from '@nektus/shared-client';
 
-interface IPLocationData {
+export interface IPLocationData {
   ip: string;
   city?: string;
   region?: string;
@@ -169,7 +169,7 @@ export async function getIPLocation(ip: string): Promise<ProcessedLocation> {
 /**
  * Process raw IPinfo data into standardized format
  */
-function processLocationData(data: IPLocationData): ProcessedLocation {
+export function processLocationData(data: IPLocationData): ProcessedLocation {
   const isVPN = detectVPN(data);
   const octet = data.ip.split('.')[0];
   
@@ -201,7 +201,7 @@ function processLocationData(data: IPLocationData): ProcessedLocation {
 /**
  * Detect if IP is from VPN/proxy/hosting provider
  */
-function detectVPN(data: IPLocationData): boolean {
+export function detectVPN(data: IPLocationData): boolean {
   // Direct VPN detection from IPinfo
   if (data.vpn === true || data.hosting === true || data.tor === true) {
     return true;

@@ -1,14 +1,12 @@
 import { db } from '@/client/config/firebase';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
+import {
+  doc,
+  getDoc,
+  setDoc,
   deleteDoc,
   onSnapshot,
   FirestoreError,
-  collection,
-  getDocs
+  collection
 } from 'firebase/firestore';
 import { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
@@ -104,39 +102,6 @@ export const ClientProfileService = {
   },
 
   /**
-   * Updates specific fields of a user profile
-   * @param userId The ID of the user to update
-   * @param updates The fields to update
-   * @returns Promise that resolves when the operation completes
-   */
-  async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
-    try {
-      const firestore = await ensureInitialized();
-      if (!firestore) {
-        console.warn('Cannot update profile: Firebase not initialized');
-        return;
-      }
-      
-      const profileRef = doc(firestore, 'profiles', userId);
-      const updateData = {
-        ...updates,
-        lastUpdated: Date.now()
-      };
-      
-      console.log('Updating profile:', { userId });
-      await updateDoc(profileRef, updateData);
-    } catch (error) {
-      const firestoreError = error as FirestoreError;
-      if (firestoreError.code === ERROR_CODES.UNAVAILABLE) {
-        console.warn('Firebase is not available. Profile update will be skipped.');
-      } else {
-        console.error('Failed to update profile:', error);
-        throw error;
-      }
-    }
-  },
-
-  /**
    * Retrieves a user profile from Firestore
    * @param userId The ID of the user to retrieve
    * @returns The user profile if found, null otherwise
@@ -184,8 +149,6 @@ export const ClientProfileService = {
     
     try {
       const profileRef = doc(db, 'profiles', userId);
-      console.log('Setting up profile subscription for user:', userId);
-      
       return onSnapshot(
         profileRef,
         (snap) => {
@@ -223,7 +186,6 @@ export const ClientProfileService = {
       }
       
       await deleteDoc(doc(firestore, 'profiles', userId));
-      console.log('Deleted profile for user:', userId);
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
@@ -249,7 +211,6 @@ export const ClientProfileService = {
       // Use the contact's userId as the document ID to prevent duplicates
       const contactRef = doc(firestore, 'profiles', userId, 'contacts', contact.userId);
       await setDoc(contactRef, contact);
-      console.log('Saved contact for user:', userId);
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
@@ -258,38 +219,6 @@ export const ClientProfileService = {
         console.error('Failed to save contact:', error);
       }
       throw error;
-    }
-  },
-
-  /**
-   * Gets all contacts for a user
-   */
-  async getContacts(userId: string): Promise<SavedContact[]> {
-    try {
-      const firestore = await ensureInitialized();
-      if (!firestore) {
-        console.warn('Cannot get contacts: Firebase not initialized');
-        return [];
-      }
-
-      const contactsRef = collection(firestore, 'profiles', userId, 'contacts');
-      const snapshot = await getDocs(contactsRef);
-
-      const contacts = snapshot.docs.map(doc => {
-        const data = doc.data() as SavedContact;
-        return data;
-      });
-
-      return contacts;
-    } catch (error) {
-      const firestoreError = error as FirestoreError;
-      if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
-        console.warn('Permission denied when getting contacts. User may not have sufficient permissions.');
-        return [];
-      } else {
-        console.error('Failed to get contacts:', error);
-        return [];
-      }
     }
   },
 
@@ -307,8 +236,6 @@ export const ClientProfileService = {
 
     try {
       const contactsRef = collection(db, 'profiles', userId, 'contacts');
-      console.log('Setting up contacts subscription for user:', userId);
-
       return onSnapshot(
         contactsRef,
         (snapshot) => {
@@ -345,7 +272,6 @@ export const ClientProfileService = {
 
       const contactRef = doc(firestore, 'profiles', userId, 'contacts', contactUserId);
       await deleteDoc(contactRef);
-      console.log('Deleted contact for user:', userId, 'contactUserId:', contactUserId);
     } catch (error) {
       const firestoreError = error as FirestoreError;
       if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {

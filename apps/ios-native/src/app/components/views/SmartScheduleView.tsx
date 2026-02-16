@@ -12,16 +12,22 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
-  RefreshControl,
 } from 'react-native';
 import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
-import type { UserProfile, TimeSlot, Place, SchedulableHours } from '@nektus/shared-types';
-import { getApiBaseUrl } from '@nektus/shared-client';
+import type { UserProfile, TimeSlot, Place } from '@nektus/shared-types';
+import {
+  getApiBaseUrl,
+  getFieldValue,
+  EVENT_TEMPLATES,
+  formatSmartDay,
+  processCommonSlots,
+} from '@nektus/shared-client';
 import { getIdToken } from '../../../client/auth/firebase';
-import { isEventKitAvailable, getDeviceBusyTimes, createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { getEventKitBusyTimesForProfile } from '../../../client/calendar/eventkit-helpers';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
@@ -36,110 +42,12 @@ import { emitMatchFound } from '../../utils/animationEvents';
 type SmartScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SmartSchedule'>;
 type SmartScheduleViewRouteProp = RouteProp<RootStackParamList, 'SmartSchedule'>;
 
-// Cold start flag — true on first request after app launch, resets after use
-let isColdStart = true;
 
 interface SuggestionChip {
   id: string;
   eventId: string;
   icon: string;
 }
-
-interface EventTemplate {
-  id: string;
-  title: string;
-  duration: number;
-  eventType: 'video' | 'in-person';
-  travelBuffer?: { beforeMinutes: number; afterMinutes: number };
-  preferredSchedulableHours?: SchedulableHours;
-  preferMiddleTimeSlot?: boolean;
-}
-
-// Event templates (matching web's event-templates.ts)
-const EVENT_TEMPLATES: Record<string, EventTemplate> = {
-  'video-30': {
-    id: 'video-30', title: 'Quick Call', duration: 30, eventType: 'video',
-    preferredSchedulableHours: {
-      monday: [{ start: '08:00', end: '22:00' }], tuesday: [{ start: '08:00', end: '22:00' }],
-      wednesday: [{ start: '08:00', end: '22:00' }], thursday: [{ start: '08:00', end: '22:00' }],
-      friday: [{ start: '08:00', end: '22:00' }], saturday: [{ start: '08:00', end: '22:00' }],
-      sunday: [{ start: '08:00', end: '22:00' }],
-    },
-    preferMiddleTimeSlot: true,
-  },
-  'coffee-30': {
-    id: 'coffee-30', title: 'Coffee', duration: 30, eventType: 'in-person',
-    travelBuffer: { beforeMinutes: 30, afterMinutes: 30 },
-    preferredSchedulableHours: {
-      monday: [{ start: '08:00', end: '12:00' }], tuesday: [{ start: '08:00', end: '12:00' }],
-      wednesday: [{ start: '08:00', end: '12:00' }], thursday: [{ start: '08:00', end: '12:00' }],
-      friday: [{ start: '08:00', end: '12:00' }], saturday: [{ start: '08:00', end: '12:00' }],
-      sunday: [{ start: '08:00', end: '12:00' }],
-    },
-    preferMiddleTimeSlot: true,
-  },
-  'lunch-60': {
-    id: 'lunch-60', title: 'Lunch', duration: 60, eventType: 'in-person',
-    travelBuffer: { beforeMinutes: 30, afterMinutes: 30 },
-    preferredSchedulableHours: {
-      monday: [{ start: '11:30', end: '14:30' }], tuesday: [{ start: '11:30', end: '14:30' }],
-      wednesday: [{ start: '11:30', end: '14:30' }], thursday: [{ start: '11:30', end: '14:30' }],
-      friday: [{ start: '11:30', end: '14:30' }], saturday: [{ start: '11:30', end: '14:30' }],
-      sunday: [{ start: '11:30', end: '14:30' }],
-    },
-    preferMiddleTimeSlot: true,
-  },
-  'dinner-60': {
-    id: 'dinner-60', title: 'Dinner', duration: 60, eventType: 'in-person',
-    travelBuffer: { beforeMinutes: 30, afterMinutes: 30 },
-    preferredSchedulableHours: {
-      monday: [{ start: '17:00', end: '20:00' }], tuesday: [{ start: '17:00', end: '20:00' }],
-      wednesday: [{ start: '17:00', end: '20:00' }], thursday: [{ start: '17:00', end: '20:00' }],
-      friday: [{ start: '17:00', end: '20:00' }], saturday: [{ start: '17:00', end: '20:00' }],
-      sunday: [{ start: '17:00', end: '20:00' }],
-    },
-    preferMiddleTimeSlot: true,
-  },
-  'drinks-60': {
-    id: 'drinks-60', title: 'Drinks', duration: 60, eventType: 'in-person',
-    travelBuffer: { beforeMinutes: 30, afterMinutes: 30 },
-    preferredSchedulableHours: {
-      monday: [{ start: '16:00', end: '18:00' }], tuesday: [{ start: '16:00', end: '18:00' }],
-      wednesday: [{ start: '16:00', end: '18:00' }], thursday: [{ start: '16:00', end: '18:00' }],
-      friday: [{ start: '16:00', end: '22:00' }], saturday: [{ start: '16:00', end: '22:00' }],
-      sunday: [{ start: '16:00', end: '18:00' }],
-    },
-    preferMiddleTimeSlot: true,
-  },
-  'quick-sync-30': {
-    id: 'quick-sync-30', title: 'Quick Sync', duration: 30, eventType: 'video',
-    preferredSchedulableHours: {
-      monday: [{ start: '08:00', end: '22:00' }], tuesday: [{ start: '08:00', end: '22:00' }],
-      wednesday: [{ start: '08:00', end: '22:00' }], thursday: [{ start: '08:00', end: '22:00' }],
-      friday: [{ start: '08:00', end: '22:00' }], saturday: [{ start: '08:00', end: '22:00' }],
-      sunday: [{ start: '08:00', end: '22:00' }],
-    },
-  },
-  'deep-dive-60': {
-    id: 'deep-dive-60', title: 'Deep Dive', duration: 60, eventType: 'video',
-    preferredSchedulableHours: {
-      monday: [{ start: '08:00', end: '22:00' }], tuesday: [{ start: '08:00', end: '22:00' }],
-      wednesday: [{ start: '08:00', end: '22:00' }], thursday: [{ start: '08:00', end: '22:00' }],
-      friday: [{ start: '08:00', end: '22:00' }], saturday: [{ start: '08:00', end: '22:00' }],
-      sunday: [{ start: '08:00', end: '22:00' }],
-    },
-  },
-  'live-working-session-60': {
-    id: 'live-working-session-60', title: 'Working Session', duration: 60, eventType: 'in-person',
-    travelBuffer: { beforeMinutes: 30, afterMinutes: 30 },
-    preferredSchedulableHours: {
-      monday: [{ start: '08:00', end: '22:00' }], tuesday: [{ start: '08:00', end: '22:00' }],
-      wednesday: [{ start: '08:00', end: '22:00' }], thursday: [{ start: '08:00', end: '22:00' }],
-      friday: [{ start: '08:00', end: '22:00' }], saturday: [{ start: '08:00', end: '22:00' }],
-      sunday: [{ start: '08:00', end: '22:00' }],
-    },
-  },
-};
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },
@@ -158,15 +66,6 @@ const WORK_SUGGESTION_CHIPS: SuggestionChip[] = [
 ];
 
 /**
- * Get a field value from ContactEntry array by fieldType
- */
-const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
-
-/**
  * Format time slot for display
  */
 const formatTimeSlot = (slot: TimeSlot, duration: number): string => {
@@ -179,25 +78,6 @@ const formatTimeSlot = (slot: TimeSlot, duration: number): string => {
   const startTime = start.toLocaleTimeString('en-US', timeOptions);
   const dayString = formatSmartDay(start);
   return `${dayString} • ${startTime} (${duration} min)`;
-};
-
-/**
- * Format day in smart format (Today, Tomorrow, Day name, or date)
- */
-const formatSmartDay = (date: Date): string => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-  const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (inputDate.getTime() === today.getTime()) return 'Today';
-  if (inputDate.getTime() === tomorrow.getTime()) return 'Tomorrow';
-
-  const daysDiff = Math.floor((inputDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff > 0 && daysDiff <= 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 /**
@@ -262,210 +142,6 @@ const ChipIcon = ({ name }: { name: string }) => {
   }
 };
 
-// --- Scheduling logic (ported from web's scheduling.ts) ---
-
-/** Convert "HH:MM" to minutes since midnight */
-const timeToMinutes = (time: string): number => {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-/** Get day-of-week key from Date */
-const getDayOfWeek = (date: Date): keyof SchedulableHours => {
-  const days: (keyof SchedulableHours)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  return days[date.getDay()];
-};
-
-/** Check if a slot's time block fits within preferred schedulable hours */
-const isSlotWithinSchedulableHours = (
-  slotTime: Date,
-  preferredHours: SchedulableHours,
-  eventDuration: number,
-  beforeBuffer: number = 0,
-  afterBuffer: number = 0
-): boolean => {
-  const timeInMinutes = slotTime.getHours() * 60 + slotTime.getMinutes();
-  const daySchedule = preferredHours[getDayOfWeek(slotTime)];
-  if (!daySchedule || daySchedule.length === 0) return false;
-
-  for (const tw of daySchedule) {
-    const startWindow = timeToMinutes(tw.start);
-    const endWindow = timeToMinutes(tw.end);
-    if (startWindow === endWindow) {
-      if (Math.abs(timeInMinutes - startWindow) < 30) return true;
-    } else if (endWindow > startWindow) {
-      const blockEnd = timeInMinutes + beforeBuffer + eventDuration + afterBuffer;
-      if (timeInMinutes >= startWindow && blockEnd <= endWindow) return true;
-    } else {
-      const totalBlock = beforeBuffer + eventDuration + afterBuffer;
-      const windowDuration = (1440 - startWindow) + endWindow;
-      let shifted = timeInMinutes - startWindow;
-      if (shifted < 0) shifted += 1440;
-      if (shifted >= 0 && shifted + totalBlock <= windowDuration) return true;
-    }
-  }
-  return false;
-};
-
-/** Get all valid time slots for an event template from common 30-min slots */
-const getAllValidSlots = (
-  commonSlots: TimeSlot[],
-  template: EventTemplate
-): TimeSlot[] => {
-  const sorted = [...commonSlots].sort((a, b) =>
-    new Date(a.start).getTime() - new Date(b.start).getTime()
-  );
-
-  const eventDuration = template.duration;
-  const beforeBuffer = template.travelBuffer?.beforeMinutes || 0;
-  const afterBuffer = template.travelBuffer?.afterMinutes || 0;
-  const validSlots: TimeSlot[] = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const slotTime = new Date(sorted[i].start);
-
-    // Check preferred hours filter
-    if (template.preferredSchedulableHours && Object.keys(template.preferredSchedulableHours).length > 0) {
-      if (!isSlotWithinSchedulableHours(slotTime, template.preferredSchedulableHours, eventDuration, beforeBuffer, afterBuffer)) {
-        continue;
-      }
-    }
-
-    // Check consecutive free time covers buffer + event + buffer
-    const requiredEnd = new Date(slotTime.getTime() + (beforeBuffer + eventDuration + afterBuffer) * 60 * 1000);
-
-    // Find consecutive block starting from or before this slot
-    let startIndex = i;
-    for (let k = i - 1; k >= 0; k--) {
-      if (new Date(sorted[k].end).getTime() === new Date(sorted[startIndex].start).getTime()) {
-        startIndex = k;
-      } else break;
-    }
-
-    let consecutiveEnd = new Date(sorted[startIndex].end);
-    let j = startIndex + 1;
-    while (j < sorted.length && new Date(sorted[j].start).getTime() === consecutiveEnd.getTime()) {
-      consecutiveEnd = new Date(sorted[j].end);
-      j++;
-    }
-
-    if (new Date(sorted[startIndex].start).getTime() > slotTime.getTime() || consecutiveEnd.getTime() < requiredEnd.getTime()) {
-      continue;
-    }
-
-    // Event starts after before-buffer
-    const eventStart = new Date(slotTime.getTime() + beforeBuffer * 60 * 1000);
-    const eventEnd = new Date(eventStart.getTime() + eventDuration * 60 * 1000);
-    validSlots.push({ start: eventStart.toISOString(), end: eventEnd.toISOString() });
-  }
-
-  return validSlots;
-};
-
-/** Calculate center of a schedulable window for a given day */
-const calculateWindowCenter = (hours: SchedulableHours, date: Date): number | null => {
-  const daySchedule = hours[getDayOfWeek(date)];
-  if (!daySchedule || daySchedule.length === 0) return null;
-  const startMin = timeToMinutes(daySchedule[0].start);
-  const endMin = timeToMinutes(daySchedule[0].end);
-  const effectiveEnd = endMin < startMin ? endMin + 1440 : endMin;
-  const center = Math.floor((startMin + effectiveEnd) / 2);
-  return center >= 1440 ? center - 1440 : center;
-};
-
-/** Select slot closest to center of preferred window */
-const selectOptimalSlot = (slots: TimeSlot[], centerMinutes: number, eventDuration: number): TimeSlot | null => {
-  if (slots.length === 0) return null;
-  if (slots.length === 1) return slots[0];
-
-  return slots.reduce((best, slot) => {
-    const slotStart = new Date(slot.start);
-    const midpoint = slotStart.getHours() * 60 + slotStart.getMinutes() + eventDuration / 2;
-    const dist = Math.abs(midpoint - centerMinutes);
-
-    const bestStart = new Date(best.start);
-    const bestMid = bestStart.getHours() * 60 + bestStart.getMinutes() + eventDuration / 2;
-    const bestDist = Math.abs(bestMid - centerMinutes);
-
-    if (dist < bestDist) return slot;
-    if (dist === bestDist && slotStart.getTime() < bestStart.getTime()) return slot;
-    return best;
-  }, slots[0]);
-};
-
-/** Process common slots into suggested times per event template (matching web logic) */
-const processCommonSlots = (
-  commonSlots: TimeSlot[],
-  templateIds: string[]
-): Record<string, TimeSlot | null> => {
-  const times: Record<string, TimeSlot | null> = {};
-
-  for (const id of templateIds) {
-    const template = EVENT_TEMPLATES[id];
-    if (!template) { times[id] = null; continue; }
-
-    const validSlots = getAllValidSlots(commonSlots, template);
-
-    if (validSlots.length === 0) {
-      times[id] = null;
-    } else if (template.preferMiddleTimeSlot && template.preferredSchedulableHours) {
-      // Pick slot closest to center of preferred window on earliest available day
-      const earliestDate = new Date(validSlots[0].start);
-      earliestDate.setHours(0, 0, 0, 0);
-
-      const slotsOnDay = validSlots.filter(s => {
-        const d = new Date(s.start); d.setHours(0, 0, 0, 0);
-        return d.getTime() === earliestDate.getTime();
-      });
-
-      const center = calculateWindowCenter(template.preferredSchedulableHours, earliestDate);
-      if (center !== null && slotsOnDay.length > 0) {
-        times[id] = selectOptimalSlot(slotsOnDay, center, template.duration);
-      } else {
-        times[id] = validSlots[0];
-      }
-    } else {
-      times[id] = validSlots[0];
-    }
-  }
-
-  return times;
-};
-
-/**
- * If the current user has an EventKit calendar for this section,
- * read device busy times and return them for the API call.
- */
-async function getEventKitBusyTimesForProfile(
-  profile: UserProfile | null
-): Promise<{ user1BusyTimes: { start: string; end: string }[] } | {}> {
-  if (!isEventKitAvailable() || !profile) return {};
-
-  const calendar = profile.calendars?.find(
-    (cal) => cal.accessMethod === 'eventkit'
-  );
-  if (!calendar) return {};
-
-  try {
-    const now = new Date();
-    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const busyTimes = await getDeviceBusyTimes(now, twoWeeksOut);
-    console.log(`[SmartSchedule] EventKit: ${busyTimes.length} busy times`);
-    // Log Monday busy times specifically
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    for (const bt of busyTimes) {
-      const d = new Date(bt.start);
-      if (d.getDay() === 1) { // Monday
-        console.log(`  [Mon] ${d.toLocaleString('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit' })} - ${new Date(bt.end).toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`);
-      }
-    }
-    return { user1BusyTimes: busyTimes };
-  } catch (error) {
-    console.error('[SmartScheduleView] Failed to get EventKit busy times:', error);
-    return {};
-  }
-}
-
 export function SmartScheduleView() {
   const navigation = useNavigation<SmartScheduleViewNavigationProp>();
   const route = useRoute<SmartScheduleViewRouteProp>();
@@ -476,6 +152,7 @@ export function SmartScheduleView() {
   const { profile: currentUserProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
+  const isColdStart = useRef(true);
   const skipCacheOnRefresh = useRef(false);
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -526,7 +203,6 @@ export function SmartScheduleView() {
           }
         } else if (passedContactProfile) {
           // Contact not yet in Firestore (just saved) - use the profile passed via nav params
-          console.log('[SmartScheduleView] Using passed contact profile (not yet in Firestore)');
           setContactProfile(passedContactProfile);
           if (passedContactProfile.backgroundColors) {
             emitMatchFound(passedContactProfile.backgroundColors);
@@ -568,40 +244,20 @@ export function SmartScheduleView() {
           calendarType: section,
           duration: 30,
           ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
-          ...(isColdStart || skipCacheOnRefresh.current ? { skipCache: true } : {}),
+          ...(isColdStart.current || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
       });
 
-      isColdStart = false;
+      isColdStart.current = false;
       skipCacheOnRefresh.current = false;
 
       if (response.ok) {
         const data = await response.json();
         const commonSlots: TimeSlot[] = data.slots || [];
 
-        // Debug: log common slots summary
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        console.log(`[SmartSchedule] API returned ${commonSlots.length} common slots`);
-        const mondaySlots = commonSlots.filter(s => new Date(s.start).getDay() === 1);
-        console.log(`[SmartSchedule] Monday slots: ${mondaySlots.length}`);
-        for (const s of mondaySlots.slice(0, 5)) {
-          const d = new Date(s.start);
-          console.log(`  [Mon] ${d.toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })} - ${new Date(s.end).toLocaleString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`);
-        }
-
         // Process slots using template-aware scheduling (preferred hours, middle-time, travel buffers)
         const templateIds = SUGGESTION_CHIPS.map(chip => chip.eventId);
         const templateTimes = processCommonSlots(commonSlots, templateIds);
-
-        // Debug: log selected times per template
-        for (const [tid, slot] of Object.entries(templateTimes)) {
-          if (slot) {
-            const d = new Date(slot.start);
-            console.log(`[SmartSchedule] ${tid}: ${d.toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
-          } else {
-            console.log(`[SmartSchedule] ${tid}: null`);
-          }
-        }
 
         // Map template results back to chip IDs
         const times: Record<string, TimeSlot | null> = {};
@@ -842,8 +498,6 @@ export function SmartScheduleView() {
     );
   }
 
-  const contactName = getFieldValue(contactProfile.contactEntries, 'name');
-
   return (
     <ScreenTransition>
       <View style={styles.container}>
@@ -966,4 +620,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SmartScheduleView;

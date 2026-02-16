@@ -3,13 +3,14 @@
  * Similar to ProfileView but read-only with Save/Message actions
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Easing, Image } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Linking, Alert, ActivityIndicator, Animated, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
 import type { UserProfile } from '@nektus/shared-types';
+import { getFieldValue, getFirstName } from '@nektus/shared-client';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { isAppClip } from '../../../client/auth/session-handoff';
@@ -26,6 +27,7 @@ import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateMessageText } from '../../../client/contacts/messaging';
+import { useContactEnterAnimation } from '../../../client/hooks/use-exchange-animations';
 import { emitMatchFound } from '../../utils/animationEvents';
 
 // Demo robot avatar for test mode simulation
@@ -47,22 +49,6 @@ interface ContactViewProps {
   sessionUserName?: string | null;
 }
 
-/**
- * Get a field value from ContactEntry array by fieldType
- */
-const getFieldValue = (contactEntries: any[] | undefined, fieldType: string): string => {
-  if (!contactEntries) return '';
-  const entry = contactEntries.find(e => e.fieldType === fieldType);
-  return entry?.value || '';
-};
-
-/**
- * Get first name from full name
- */
-const getFirstName = (name: string): string => {
-  if (!name) return '';
-  return name.split(' ')[0];
-};
 
 export function ContactView(props: ContactViewProps = {}) {
   const inAppClip = isAppClip();
@@ -103,17 +89,17 @@ export function ContactView(props: ContactViewProps = {}) {
   const [isSaved, setIsSaved] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
 
   // Animation values (matching web's contactEnter animation)
-  // Card: translateY(-200 → 0), scale(0.6 → 1), opacity(0 → 1)
-  // Buttons: translateY(10 → 0), opacity(0 → 1) with 300ms delay
-  const cardTranslateY = useRef(new Animated.Value(-200)).current;
-  const cardScale = useRef(new Animated.Value(0.6)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const buttonsTranslateY = useRef(new Animated.Value(10)).current;
-  const buttonsOpacity = useRef(new Animated.Value(0)).current;
-  const exitOpacity = useRef(new Animated.Value(1)).current;
+  const {
+    cardTranslateY,
+    cardScale,
+    cardOpacity,
+    buttonsTranslateY,
+    buttonsOpacity,
+    exitOpacity,
+    playExitAnimation,
+  } = useContactEnterAnimation(isHistoricalMode);
 
   // Emit match-found for props.profile case (App Clip)
   useEffect(() => {
@@ -203,7 +189,6 @@ export function ContactView(props: ContactViewProps = {}) {
             calendars: []
           };
 
-          console.log('🧪 [ContactView] Using mock profile for test animation');
           setProfile(mockProfile);
           // Emit match-found to update LayoutBackground colors
           if (mockProfile.backgroundColors) {
@@ -244,13 +229,7 @@ export function ContactView(props: ContactViewProps = {}) {
           }
 
           const result = await response.json();
-          if (result.success && result.profile) {
-            setProfile(result.profile);
-            // Emit match-found to update LayoutBackground colors
-            if (result.profile.backgroundColors) {
-              emitMatchFound(result.profile.backgroundColors);
-            }
-          } else if (result.profile) {
+          if (result.profile) {
             setProfile(result.profile);
             // Emit match-found to update LayoutBackground colors
             if (result.profile.backgroundColors) {
@@ -272,79 +251,6 @@ export function ContactView(props: ContactViewProps = {}) {
     fetchProfile();
   }, [props.profile, userId, token, isHistoricalMode, apiBaseUrl, navigation, session?.user?.id]);
 
-  // Enter animation - runs on mount with 500ms delay (matches web's profile exit duration)
-  useEffect(() => {
-    // Skip animation for historical mode (like web)
-    if (isHistoricalMode) {
-      cardTranslateY.setValue(0);
-      cardScale.setValue(1);
-      cardOpacity.setValue(1);
-      buttonsTranslateY.setValue(0);
-      buttonsOpacity.setValue(1);
-      return;
-    }
-
-    // Delay animation start by 500ms to let ProfileView exit animation complete
-    const enterTimer = setTimeout(() => {
-      // Card animation: translateY(-200 → 0), scale(0.6 → 1), opacity(0 → 1) - 500ms
-      Animated.parallel([
-        Animated.timing(cardTranslateY, {
-          toValue: 0,
-          duration: 500,
-          easing: Easing.bezier(0, 0, 0.2, 1), // ease-in
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardScale, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.bezier(0, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardOpacity, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Buttons animation with 300ms delay: translateY(10 → 0), opacity(0 → 1) - 200ms
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(buttonsTranslateY, {
-            toValue: 0,
-            duration: 200,
-            easing: Easing.bezier(0, 0, 0.2, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(buttonsOpacity, {
-            toValue: 1,
-            duration: 200,
-            easing: Easing.bezier(0, 0, 0.2, 1),
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, 300);
-    }, 500);
-
-    return () => clearTimeout(enterTimer);
-  }, [isHistoricalMode, cardTranslateY, cardScale, cardOpacity, buttonsTranslateY, buttonsOpacity]);
-
-  // Exit animation - simple fade out (300ms, matches web's crossfadeExit)
-  const playExitAnimation = useCallback((onComplete: () => void) => {
-    setIsExiting(true);
-    Animated.timing(exitOpacity, {
-      toValue: 0,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onComplete();
-      }
-    });
-  }, [exitOpacity]);
-
   // Navigate to web (for App Clip exit)
   const navigateToWeb = useCallback(() => {
     showAppStoreOverlay();
@@ -356,13 +262,15 @@ export function ContactView(props: ContactViewProps = {}) {
     }, 500);
   }, []);
 
+  // App Clip exit: fade out then navigate to web
+  const exitAppClip = useCallback(() => {
+    playExitAnimation(() => navigateToWeb());
+  }, [playExitAnimation, navigateToWeb]);
+
   // Handle back navigation with exit animation
   const handleBack = useCallback(() => {
     if (inAppClip) {
-      // App Clip: use custom exit animation then navigate to web
-      playExitAnimation(() => {
-        navigateToWeb();
-      });
+      exitAppClip();
     } else if (goBackWithFade) {
       // Full app: use ScreenTransition fade
       goBackWithFade();
@@ -370,34 +278,62 @@ export function ContactView(props: ContactViewProps = {}) {
       // Fallback
       navigation?.goBack();
     }
-  }, [inAppClip, navigation, navigateToWeb, playExitAnimation, goBackWithFade]);
+  }, [inAppClip, navigation, exitAppClip, goBackWithFade]);
 
   // Handle Me Card data extraction callback
   const handleMeCardExtracted = useCallback(async (meCardData: MeCardData) => {
-    // Auto-fill user's profile if phone or photo is missing
-    if (!saveProfile) return;
+    if (!saveProfile || !userProfile) return;
 
-    console.log('[ContactView] Me Card data received, checking if profile needs update');
+    const updates: Partial<UserProfile> = {};
+    const entries = [...(userProfile.contactEntries || [])];
 
-    // TODO: Check if user's profile is missing phone or has AI-generated photo
-    // For now, just log the data - the actual profile update logic will be added later
-    // This would involve checking the current profile and calling saveProfile with updates
+    // Auto-fill phone if user has no phone entry
     if (meCardData.phone) {
-      console.log('[ContactView] Me Card has phone:', meCardData.phone);
+      const hasPhone = entries.some(e => e.fieldType === 'phone' && e.value);
+      if (!hasPhone) {
+        const phoneIndex = entries.findIndex(e => e.fieldType === 'phone');
+        if (phoneIndex >= 0) {
+          entries[phoneIndex] = { ...entries[phoneIndex], value: meCardData.phone };
+        } else {
+          entries.push({
+            fieldType: 'phone',
+            value: meCardData.phone,
+            section: 'personal' as const,
+            order: 0,
+            isVisible: true,
+            confirmed: true,
+          });
+        }
+        updates.contactEntries = entries;
+      }
     }
-    if (meCardData.imageBase64) {
-      console.log('[ContactView] Me Card has image');
+
+    // Replace AI-generated avatar with Me Card photo
+    if (meCardData.imageBase64 && userProfile.aiGeneration?.avatarGenerated && session?.user?.id) {
+      try {
+        const { uploadProfileImage } = await import('../../../client/firebase/firebase-storage');
+        const imageUrl = await uploadProfileImage(meCardData.imageBase64, session.user.id);
+        updates.profileImage = imageUrl;
+        updates.aiGeneration = {
+          ...userProfile.aiGeneration,
+          avatarGenerated: false,
+        };
+      } catch (error) {
+        console.error('[ContactView] Me Card: failed to upload photo:', error);
+      }
     }
-  }, [saveProfile]);
+
+    if (Object.keys(updates).length > 0) {
+      await saveProfile(updates);
+    }
+  }, [saveProfile, userProfile, session]);
 
   // Handle save contact
   const handleSaveContact = useCallback(async () => {
     if (isSaved) {
       // Already saved - "Done" button tapped, navigate back
       if (inAppClip) {
-        playExitAnimation(() => {
-          navigateToWeb();
-        });
+        exitAppClip();
       } else if (goBackWithFade) {
         goBackWithFade();
       } else {
@@ -421,11 +357,6 @@ export function ContactView(props: ContactViewProps = {}) {
       });
 
       if (result.success) {
-        console.log('[ContactView] Save successful:', {
-          firebase: result.firebase.success,
-          native: result.native.success,
-          usedVCard: result.native.usedVCard,
-        });
         setIsSaved(true);
         setShowSuccessModal(true);
       } else {
@@ -438,20 +369,7 @@ export function ContactView(props: ContactViewProps = {}) {
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, inAppClip, navigation, navigateToWeb, profile, token, handleMeCardExtracted, playExitAnimation, goBackWithFade]);
-
-  // Handle reject/dismiss - uses same logic as back
-  const handleReject = useCallback(() => {
-    if (inAppClip) {
-      playExitAnimation(() => {
-        navigateToWeb();
-      });
-    } else if (goBackWithFade) {
-      goBackWithFade();
-    } else {
-      navigation?.goBack();
-    }
-  }, [inAppClip, navigation, navigateToWeb, playExitAnimation, goBackWithFade]);
+  }, [isSaved, inAppClip, navigation, exitAppClip, profile, token, handleMeCardExtracted, goBackWithFade]);
 
   // Handle say hi (open messaging)
   const handleSayHi = useCallback(() => {
@@ -478,7 +396,7 @@ export function ContactView(props: ContactViewProps = {}) {
       Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
     }
     // Note: SKOverlay is shown when user taps "Done", not after messaging
-  }, [profile, props.sessionUserName, session, userProfile?.contactEntries, userProfile?.shortCode, session?.user?.id]);
+  }, [profile, props.sessionUserName, session, userProfile?.contactEntries, userProfile?.shortCode]);
 
   // Handle Meet Up button - check for linked calendar first (matches web)
   const handleScheduleMeetUp = useCallback(() => {
@@ -610,7 +528,7 @@ export function ContactView(props: ContactViewProps = {}) {
 
                 {!isSaved && (
                   <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={handleReject} disabled={isSaving}>
+                    <SecondaryButton onPress={handleBack} disabled={isSaving}>
                       Nah, who this
                     </SecondaryButton>
                   </View>
@@ -639,7 +557,7 @@ export function ContactView(props: ContactViewProps = {}) {
         isOpen={showAddCalendarModal}
         onClose={() => setShowAddCalendarModal(false)}
         section="personal"
-        userEmail={session?.user?.email || userProfile?.contactEntries?.find((f: any) => f.fieldType === 'email')?.value || ''}
+        userEmail={session?.user?.email || getFieldValue(userProfile?.contactEntries, 'email') || ''}
         onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>
@@ -693,5 +611,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
-export default ContactView;

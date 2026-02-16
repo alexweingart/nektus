@@ -102,6 +102,28 @@ The app uses dual Firebase configurations:
 - Manifest.json for app installation
 - Background image and profile image caching
 
+### Testing
+
+**Run all tests:** `bun run test` (from repo root) or `bun run test --filter=@nektus/web` (web only)
+**Watch mode:** `bun run test:watch` (from repo root)
+
+Test files:
+- `src/server/location/ip-geolocation.test.ts` — VPN detection, match confidence, location processing
+- `src/server/contacts/matching.test.ts` — Exchange matching, Redis operations (mocked)
+
+Shared-client tests (run with `bun run test --filter=@nektus/shared-client`):
+- `profile/transforms.test.ts` — Field extraction, social URL generation, sorting
+- `profile/avatar.test.ts` — Initials extraction, deterministic color generation
+- `profile/phone-formatter.test.ts` — Phone number parsing and E.164 formatting
+- `profile/save.test.ts` — ProfileSaveService save, merge, and filtering logic
+- `profile/utils.test.ts` — Color readability, profile setup detection
+- `contacts/vcard-utils.test.ts` — vCard escaping, generation, image detection
+- `scheduling.test.ts` — Slot evaluation, window center, processCommonSlots
+
+**CI:** Tests run automatically on PRs via GitHub Actions (`.github/workflows/ci.yml`).
+
+**When to add tests:** New pure business logic, bug fixes for critical paths (matching, scheduling, profile saves).
+
 ### Testing Motion Features
 - Use Tailscale (`npm run dev:tailscale` + `tailscale serve`) for HTTPS, required by DeviceMotionEvent API
 - Physical devices required for motion testing

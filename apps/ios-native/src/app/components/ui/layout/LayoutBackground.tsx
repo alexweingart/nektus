@@ -6,40 +6,8 @@ import { useProfile } from "../../../../app/context/ProfileContext";
 import { useSession } from "../../../../app/providers/SessionProvider";
 import { useCurrentRoute } from "../../../../app/context/RouteContext";
 import { animationEvents } from "../../../utils/animationEvents";
-import { generateProfileColors, BACKGROUND_GREEN, BACKGROUND_BLACK } from "../../../../shared/colors";
-
-// Helper function to convert hex to rgba
-function hexToRgba(hex: string, alpha: number): string {
-  const cleanHex = hex.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16);
-  const g = parseInt(cleanHex.substring(2, 4), 16);
-  const b = parseInt(cleanHex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// Convert profile backgroundColors to ParticleNetwork colors
-// EXACTLY matches web - uses same 0.4 alpha on accent1 for middle gradient color
-function convertToParticleColors(backgroundColors: string[]) {
-  const [dominant, accent1, accent2] = backgroundColors;
-  return {
-    gradientStart: hexToRgba(accent1, 0.4),   // EXACTLY matches web (0.4 alpha)
-    gradientEnd: dominant,                     // Dominant at top and bottom (symmetric)
-    particle: hexToRgba(accent2, 0.8),        // Matches web
-    connection: hexToRgba(accent2, 0.4)       // Matches web
-  };
-}
-
-// Theme green - muted green for gradients and safe areas
-const THEME_GREEN = BACKGROUND_GREEN;
-const THEME_DARK = BACKGROUND_BLACK;
-
-// Default colors for signed-out context - matches web
-const DEFAULT_SIGNED_OUT_COLORS = {
-  gradientStart: THEME_GREEN,                // Green in middle
-  gradientEnd: THEME_DARK,                   // Dark at top/bottom
-  particle: 'rgba(200, 255, 200, 0.6)',
-  connection: 'rgba(34, 197, 94, 0.15)'
-};
+import { generateProfileColors } from "../../../../shared/colors";
+import { hexToRgba, convertToParticleColors, THEME_GREEN, THEME_DARK, DEFAULT_SIGNED_OUT_COLORS } from "../../../utils/colors";
 
 // Default colors for profile/contact context (inverted signed-out colors) - matches web
 const DEFAULT_PROFILE_COLORS = {

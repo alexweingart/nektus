@@ -5,15 +5,13 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Text, View, ActivityIndicator, StyleSheet, Animated, Easing, DeviceEventEmitter } from "react-native";
+import { Text, View, ActivityIndicator, StyleSheet, Animated, DeviceEventEmitter } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Button } from "./Button";
-import type { ExchangeStatus, ContactExchangeState, ContactExchangeMatch, UserProfile } from "@nektus/shared-types";
+import type { ExchangeStatus, ContactExchangeState, UserProfile } from "@nektus/shared-types";
 import { getApiBaseUrl } from "@nektus/shared-client";
 import {
-  RealTimeContactExchangeService,
-  generateSessionId,
   exchangeEvents,
 } from "../../../../client/contacts/exchange/service";
 import {
@@ -29,8 +27,8 @@ import {
   emitStopFloating,
   emitBumpDetected,
   emitMatchFound,
-  floatAnimationStart,
 } from "../../../utils/animationEvents";
+import { usePulseAnimation } from "../../../../client/hooks/use-exchange-animations";
 import { useSession } from "../../../providers/SessionProvider";
 import { useProfile, type SharingCategory } from "../../../context/ProfileContext";
 import { getIdToken } from "../../../../client/auth/firebase";
@@ -53,7 +51,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const { data: session } = useSession();
   const { profile, sharingCategory } = useProfile();
   const [status, setStatus] = useState<ExchangeStatus>("idle");
-  const [exchangeService, setExchangeService] = useState<RealTimeContactExchangeService | null>(null);
   const [hybridService, setHybridService] = useState<HybridExchangeService | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [bleAvailable, setBleAvailable] = useState<boolean | null>(null);
@@ -61,98 +58,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const prevStatusRef = useRef<ExchangeStatus>("idle");
 
   // Pulse animation for "Match Found!" state
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  // Start/stop pulse animation based on status, synced with float animation
-  useEffect(() => {
-    if (status === "qr-scan-matched" || status === "ble-matched") {
-      const animationDuration = 3000; // 3s cycle to match float
-      const halfDuration = 1500;
-
-      // Calculate starting position to sync with float animation
-      let startValue = 0;
-      let startGoingUp = true; // Whether we're in the 0→1 phase
-
-      if (floatAnimationStart) {
-        const elapsed = Date.now() - floatAnimationStart;
-        const positionInCycle = elapsed % animationDuration;
-
-        if (positionInCycle < halfDuration) {
-          // In first half (0→1), calculate value
-          startValue = positionInCycle / halfDuration;
-          startGoingUp = true;
-        } else {
-          // In second half (1→0), calculate value
-          startValue = 1 - (positionInCycle - halfDuration) / halfDuration;
-          startGoingUp = false;
-        }
-      }
-
-      pulseAnim.setValue(startValue);
-
-      // Create animation sequence starting from current phase
-      const createFullCycle = () => Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: halfDuration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: halfDuration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-      ]);
-
-      // First, complete the current phase, then loop
-      const remainingDuration = startGoingUp
-        ? halfDuration * (1 - startValue) // Time to reach 1
-        : halfDuration * startValue; // Time to reach 0
-
-      const firstAnimation = Animated.timing(pulseAnim, {
-        toValue: startGoingUp ? 1 : 0,
-        duration: remainingDuration,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: false,
-      });
-
-      // If starting going up, after reaching 1 we need to go back to 0 then loop
-      // If starting going down, after reaching 0 we loop from 0
-      if (startGoingUp) {
-        pulseAnimationRef.current = Animated.sequence([
-          firstAnimation,
-          Animated.timing(pulseAnim, {
-            toValue: 0,
-            duration: halfDuration,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: false,
-          }),
-        ]);
-        pulseAnimationRef.current.start(() => {
-          // After first partial cycle, start the full loop
-          pulseAnimationRef.current = Animated.loop(createFullCycle());
-          pulseAnimationRef.current.start();
-        });
-      } else {
-        firstAnimation.start(() => {
-          // After reaching 0, start the full loop
-          pulseAnimationRef.current = Animated.loop(createFullCycle());
-          pulseAnimationRef.current.start();
-        });
-      }
-    } else {
-      // Stop animation and reset
-      pulseAnimationRef.current?.stop();
-      pulseAnim.setValue(0);
-    }
-
-    return () => {
-      pulseAnimationRef.current?.stop();
-    };
-  }, [status, pulseAnim]);
+  const pulseAnim = usePulseAnimation(status);
 
   // Notify parent of state changes and emit animation events
   useEffect(() => {
@@ -167,20 +73,16 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
     if (isWaitingStatus && !wasWaitingStatus) {
       // Started waiting for bump/BLE - start floating animation
-      console.log("[ExchangeButton] Emitting start-floating");
       emitStartFloating();
     } else if (status === "processing" && wasWaitingStatus) {
       // Bump detected - trigger wind-up animation
-      console.log("[ExchangeButton] Emitting bump-detected");
       emitBumpDetected();
     } else if (status === "ble-connecting" && (prevStatus === "ble-discovered" || prevStatus === "ble-scanning")) {
       // BLE peer found - trigger wind-up animation (like bump detected)
-      console.log("[ExchangeButton] Emitting bump-detected (BLE peer found)");
       emitBumpDetected();
     } else if (["idle", "error", "timeout", "ble-unavailable"].includes(status) &&
                ["waiting-for-bump", "processing", "qr-scan-pending", "ble-scanning", "ble-discovered", "ble-connecting", "ble-exchanging"].includes(prevStatus)) {
       // Exchange ended without match - stop floating
-      console.log("[ExchangeButton] Emitting stop-floating");
       emitStopFloating();
     }
 
@@ -195,7 +97,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   // Listen for exchange initiated events (for QR code display)
   useEffect(() => {
     const unsubscribe = exchangeEvents.onExchangeInitiated(({ token }) => {
-      console.log("🎫 [iOS] Exchange initiated with token:", token.substring(0, 8) + "...");
       setQrToken(token);
     });
     return unsubscribe;
@@ -206,21 +107,13 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     try {
       const service = createHybridExchangeService({
         onStateChange: (state: ContactExchangeState) => {
-          console.log("🎯 [iOS] ExchangeButton received state change:", state.status);
-
           // Save QR token for qr-scan-matched state
           if (state.qrToken) {
             setQrToken(state.qrToken);
           }
 
-          // Handle QR scan match - show tappable button
-          if (state.status === "qr-scan-matched") {
-            console.log("🎯 [iOS] QR scan match - showing tappable button");
-          }
-
           // Handle timeout
           if (state.status === "timeout") {
-            console.log("🎯 [iOS] Exchange timed out");
             setTimeout(() => {
               setStatus("idle");
               setHybridService(null);
@@ -229,7 +122,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
           // Handle error
           if (state.status === "error") {
-            console.log("🎯 [iOS] Exchange error");
             setTimeout(() => {
               setStatus("idle");
               setHybridService(null);
@@ -237,15 +129,12 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
           }
         },
         onStatusChange: (newStatus) => {
-          console.log("🎯 [iOS] ExchangeButton status change:", newStatus);
           setStatus(newStatus);
         },
         onMatchTokenChange: (token) => {
-          console.log("🎯 [iOS] ExchangeButton token change:", token?.substring(0, 8) || null);
           setQrToken(token);
         },
         onMatch: (match: HybridMatchResult) => {
-          console.log(`🎯 [iOS] ${match.matchType} match found!`);
           // Emit match-found animation event with contact's background colors
           emitMatchFound(match.profile.backgroundColors);
 
@@ -268,7 +157,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       if (bleAvailable === null) {
         const available = await service.checkBLEAvailability();
         setBleAvailable(available);
-        console.log(`📶 [iOS] BLE available: ${available}`);
       }
 
       setHybridService(service);
@@ -281,76 +169,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     }
   }, [onMatch, bleAvailable]);
 
-  // Legacy: Initialize server-only exchange service (fallback)
-  const initializeService = useCallback(async () => {
-    try {
-      const sessionId = generateSessionId();
-      const service = new RealTimeContactExchangeService(
-        sessionId,
-        async (state: ContactExchangeState) => {
-          console.log("🎯 [iOS] ExchangeButton received state change:", state.status);
-
-          // Save QR token for qr-scan-matched state
-          if (state.qrToken) {
-            setQrToken(state.qrToken);
-          }
-
-          // Update status
-          setStatus(state.status);
-
-          // Handle bump match - notify parent and reset
-          if (state.status === "matched" && state.match) {
-            console.log("🎯 [iOS] Bump match found!");
-            // Emit match-found animation event with contact's background colors
-            emitMatchFound(state.match.profile.backgroundColors);
-            const matchResult: MatchResult = {
-              token: state.match.token,
-              profile: state.match.profile,
-              matchType: 'bump',
-            };
-
-            // Small delay to allow exit animation to play
-            setTimeout(() => {
-              onMatch?.(matchResult);
-              setExchangeService(null);
-              setStatus("idle");
-            }, 500);
-          }
-
-          // Handle QR scan match - show tappable button
-          if (state.status === "qr-scan-matched") {
-            console.log("🎯 [iOS] QR scan match - showing tappable button");
-          }
-
-          // Handle timeout
-          if (state.status === "timeout") {
-            console.log("🎯 [iOS] Exchange timed out");
-            setTimeout(() => {
-              setStatus("idle");
-              setExchangeService(null);
-            }, 1000);
-          }
-
-          // Handle error
-          if (state.status === "error") {
-            console.log("🎯 [iOS] Exchange error");
-            setTimeout(() => {
-              setStatus("idle");
-              setExchangeService(null);
-            }, 2000);
-          }
-        }
-      );
-      setExchangeService(service);
-      return service;
-    } catch (error) {
-      console.error("[iOS] Failed to initialize exchange service:", error);
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 2000);
-      return null;
-    }
-  }, [onMatch]);
-
   const handleExchangeStart = useCallback(async () => {
     // Don't allow new exchange if in timeout or error state
     if (status === "timeout" || status === "error") {
@@ -359,7 +177,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
     // Force reset to idle if we're in any non-idle state
     if (status !== "idle") {
-      console.log(`⚠️ [iOS] Exchange button clicked in non-idle state: ${status}, forcing reset`);
       setStatus("idle");
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -367,7 +184,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     // Use sharing category from Context (both ProfileInfo and ExchangeButton
     // share the same Context value, so it's always in sync)
     const currentCategory = sharingCategory;
-    console.log(`📋 [iOS] Using sharing category: ${currentCategory}`);
 
     let permissionGranted = false;
 
@@ -379,60 +195,47 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       if (!permissionResult.success) {
         // In simulator or device without accelerometer, just skip motion detection
         // and use QR code only mode
-        console.warn("⚠️ [iOS] Motion not available, using QR-only mode:", permissionResult.message);
         permissionGranted = false; // Will skip motion detection
       } else {
         permissionGranted = true;
       }
     } catch (error) {
-      console.warn("⚠️ [iOS] Permission request failed, using QR-only mode:", error);
       permissionGranted = false; // Will skip motion detection
     }
 
     try {
-      // Clean up any existing services first
-      if (exchangeService) {
-        await exchangeService.disconnect();
-      }
-      setExchangeService(null);
-
+      // Clean up any existing service first
       if (hybridService) {
         await hybridService.stop();
       }
       setHybridService(null);
 
-      // Use hybrid service if we have profile data for BLE exchange
-      if (profile && session?.user?.id) {
-        console.log("🔄 [iOS] Starting hybrid exchange (BLE + server)...");
-        const service = await initializeHybridService();
-        if (!service) return;
-
-        // Start the hybrid exchange process (BLE + server simultaneously)
-        await service.start(
-          session.user.id,
-          profile,
-          currentCategory,
-          permissionGranted
-        );
-      } else {
-        // Fallback to server-only if no profile available
-        console.log("🔄 [iOS] Starting server-only exchange (no profile for BLE)...");
-        const service = await initializeService();
-        if (!service) return;
-
-        // Start the exchange process with the selected sharing category
-        await service.startExchange(permissionGranted, currentCategory);
+      if (!profile || !session?.user?.id) {
+        console.error("[iOS] Cannot start exchange: missing profile or session");
+        setStatus("error");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
       }
+
+      const service = await initializeHybridService();
+      if (!service) return;
+
+      // Start the hybrid exchange process (BLE + server simultaneously)
+      await service.start(
+        session.user.id,
+        profile,
+        currentCategory,
+        permissionGranted
+      );
     } catch (error) {
       console.error("[iOS] Failed to start exchange:", error);
       setStatus("error");
     }
-  }, [status, exchangeService, hybridService, initializeService, initializeHybridService, profile, session?.user?.id, sharingCategory]);
+  }, [status, hybridService, initializeHybridService, profile, session?.user?.id, sharingCategory]);
 
   const handleButtonPress = useCallback(async () => {
     // Handle QR scan matched state - fetch profile and notify parent
     if (status === "qr-scan-matched" && qrToken) {
-      console.log("🎯 [iOS] QR scan match - fetching profile...");
       try {
         const idToken = await getIdToken();
         const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${qrToken}`, {
@@ -443,7 +246,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         }
         const result = await response.json();
         if (result.success && result.profile) {
-          console.log(`👤 [iOS] QR matched with: ${result.profile.name}`);
           // Emit match-found animation event with contact's background colors
           emitMatchFound(result.profile.backgroundColors);
 
@@ -462,7 +264,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       }
       setStatus("idle");
       setQrToken(null);
-      setExchangeService(null);
       return;
     }
 
@@ -473,62 +274,46 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (exchangeService) {
-        exchangeService.disconnect();
-      }
       if (hybridService) {
         hybridService.stop();
       }
     };
-  }, [exchangeService, hybridService]);
+  }, [hybridService]);
 
   // Listen for cancel event from ProfileView
   useEffect(() => {
     const unsubscribe = animationEvents.on('cancel-exchange', async () => {
-      console.log('🚫 [iOS] ExchangeButton: Cancel exchange requested');
-
       // Stop hybrid service (BLE + server)
       if (hybridService) {
         await hybridService.stop();
       }
 
-      // Stop server-only service (fallback)
-      if (exchangeService) {
-        await exchangeService.disconnect();
-      }
-
       // Reset state
       setHybridService(null);
-      setExchangeService(null);
       setStatus('idle');
       setQrToken(null);
 
       // Emit stop-floating to exit animations
-      console.log('🚫 [iOS] ExchangeButton: Emitting stop-floating event');
       emitStopFloating();
     });
 
     return unsubscribe;
-  }, [hybridService, exchangeService]);
+  }, [hybridService]);
 
   // Listen for admin simulation trigger (matches web implementation)
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener(ADMIN_SIMULATE_NEKT_EVENT, () => {
-      console.log('🧪 [iOS] ExchangeButton: Starting admin simulation');
-
       // 1. Waiting for bump (floating animation)
       setStatus('waiting-for-bump');
       emitStartFloating();
 
       // 2. After 3 seconds, bump detected
       setTimeout(() => {
-        console.log('🧪 [iOS] ExchangeButton: Simulating bump detected');
         setStatus('processing');
         emitBumpDetected();
 
         // 3. After 500ms, simulate match and trigger exit animation
         setTimeout(() => {
-          console.log('🧪 [iOS] ExchangeButton: Simulating match - triggering exit animation');
           setStatus('matched');
 
           // Trigger exit animation on ProfileView with demo contact colors
@@ -554,109 +339,39 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     return () => subscription.remove();
   }, [navigation]);
 
-  // Get button content based on status
-  const getButtonContent = () => {
-    switch (status) {
-      case "requesting-permission":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#374151" style={styles.spinner} />
-            <Text style={styles.text}>Getting Ready...</Text>
-          </View>
-        );
-
-      case "waiting-for-bump":
-      case "ble-scanning":
-        return (
-          <View style={styles.contentRow}>
-            <View style={styles.pulsingDot} />
-            <Text style={styles.text}>Waiting for Bump or Scan...</Text>
-          </View>
-        );
-
-      case "ble-discovered":
-        return (
-          <View style={styles.contentRow}>
-            <View style={styles.pulsingDot} />
-            <Text style={styles.text}>Found nearby device...</Text>
-          </View>
-        );
-
-      case "ble-connecting":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#374151" style={styles.spinner} />
-            <Text style={styles.text}>Connecting...</Text>
-          </View>
-        );
-
-      case "ble-exchanging":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#374151" style={styles.spinner} />
-            <Text style={styles.text}>Exchanging contacts...</Text>
-          </View>
-        );
-
-      case "processing":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#374151" style={styles.spinner} />
-            <Text style={styles.text}>Waiting for Match...</Text>
-          </View>
-        );
-
-      case "qr-scan-pending":
-        return (
-          <View style={styles.contentRow}>
-            <View style={styles.pulsingDot} />
-            <Text style={styles.text}>Waiting for Match...</Text>
-          </View>
-        );
-
-      case "qr-scan-matched":
-      case "ble-matched":
-        return <Text style={styles.matchText}>Match Found!</Text>;
-
-      case "ble-unavailable":
-        // BLE not available, but server fallback should kick in
-        return (
-          <View style={styles.contentRow}>
-            <View style={styles.pulsingDot} />
-            <Text style={styles.text}>Waiting for Bump or Scan...</Text>
-          </View>
-        );
-
-      case "timeout":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#ffffff" style={styles.spinner} />
-            <Text style={styles.errorText}>Timed out, try again!</Text>
-          </View>
-        );
-
-      case "error":
-        return (
-          <View style={styles.contentRow}>
-            <ActivityIndicator size="small" color="#ffffff" style={styles.spinner} />
-            <Text style={styles.errorText}>Error - Cleaning up...</Text>
-          </View>
-        );
-
-      default:
-        return <Text style={styles.nektText}>Nekt</Text>;
-    }
+  // Button content config: icon type, label, and style variant per status
+  const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
+    'requesting-permission': { icon: 'spinner', text: 'Getting Ready...' },
+    'waiting-for-bump':     { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
+    'ble-scanning':         { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
+    'ble-discovered':       { icon: 'dot',     text: 'Found nearby device...' },
+    'ble-connecting':       { icon: 'spinner', text: 'Connecting...' },
+    'ble-exchanging':       { icon: 'spinner', text: 'Exchanging contacts...' },
+    'processing':           { icon: 'spinner', text: 'Waiting for Match...' },
+    'qr-scan-pending':      { icon: 'dot',     text: 'Waiting for Match...' },
+    'qr-scan-matched':      { icon: 'none',    text: 'Match Found!', match: true },
+    'ble-matched':          { icon: 'none',    text: 'Match Found!', match: true },
+    'ble-unavailable':      { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
+    'timeout':              { icon: 'spinner', text: 'Timed out, try again!', error: true },
+    'error':                { icon: 'spinner', text: 'Error - Cleaning up...', error: true },
   };
 
-  // Get button variant based on status
+  const getButtonContent = () => {
+    const config = BUTTON_CONTENT[status] || { icon: 'none' as const, text: 'Nekt' };
+    const textStyle = config.error ? styles.errorText : config.match ? styles.matchText : styles.text;
+    if (config.icon === 'none') return <Text style={textStyle}>{config.text}</Text>;
+    return (
+      <View style={styles.contentRow}>
+        {config.icon === 'spinner'
+          ? <ActivityIndicator size="small" color={config.error ? '#ffffff' : '#374151'} style={styles.spinner} />
+          : <View style={styles.pulsingDot} />}
+        <Text style={textStyle}>{config.text}</Text>
+      </View>
+    );
+  };
+
   const getButtonVariant = () => {
-    switch (status) {
-      case "error":
-      case "timeout":
-        return "destructive" as const;
-      default:
-        return "white" as const;
-    }
+    return (status === 'error' || status === 'timeout') ? 'destructive' as const : 'white' as const;
   };
 
   // Determine if button should be disabled
@@ -765,13 +480,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     color: "#374151",
   },
-  nektText: {
-    fontFamily: "System",
-    fontSize: 20,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    color: "#374151",
-  },
   matchText: {
     fontFamily: "System",
     fontSize: 20,
@@ -787,5 +495,3 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
 });
-
-export default ExchangeButton;

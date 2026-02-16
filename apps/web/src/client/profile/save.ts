@@ -4,7 +4,7 @@
  *
  * TODO: Refactor to match iOS architecture pattern
  * - Core ProfileSaveService already exists in @nektus/shared-client (lines 1-293 are identical)
- * - Keep web-specific helpers here: generateWhatsAppFromPhone, syncProfileToSession, silentSaveToFirebase
+ * - Keep web-specific helpers here: generateWhatsAppFromPhone, syncProfileToSession
  * - Import ProfileSaveService from @nektus/shared-client instead of duplicating it
  * - This file will become web-specific helpers only (like iOS save-helpers.ts)
  */
@@ -141,27 +141,6 @@ export class ProfileSaveService {
   }
 
   /**
-   * Save ContactEntry[] and images directly (for form submissions)
-   */
-  static async saveContactEntries(
-    userId: string,
-    currentProfile: UserProfile | null,
-    contactEntries: ContactEntry[],
-    images: { profileImage?: string; backgroundImage?: string } = {}
-  ): Promise<SaveProfileResult> {
-    
-    // Ensure unique order numbers before saving to Firebase
-    const contactEntriesWithUniqueOrder = this.assignUniqueOrders(contactEntries);
-    
-    const updates: Partial<UserProfile> = {
-      contactEntries: contactEntriesWithUniqueOrder,
-      ...images
-    };
-
-    return this.saveProfile(userId, currentProfile, updates, { directUpdate: true });
-  }
-
-  /**
    * Merge objects intelligently, preserving existing data
    */
   private static mergeNonEmpty(
@@ -293,8 +272,6 @@ export async function generateWhatsAppFromPhone(
   setProfile: (profile: UserProfile) => void,
   setStreamingSocialContacts: (contacts: ContactEntry[] | null) => void
 ): Promise<void> {
-  console.log('[ProfileSave] Phone saved and WhatsApp empty, triggering WhatsApp generation');
-
   try {
     // Generate and verify WhatsApp profile
     const response = await fetch('/api/profile/generate/verify-phone-socials', {
@@ -316,11 +293,6 @@ export async function generateWhatsAppFromPhone(
     const whatsappResult = data.results?.find((r: VerificationResult) => r.platform === 'whatsapp');
 
     if (whatsappResult && whatsappResult.verified) {
-      console.log('[ProfileSave] WhatsApp profile verified:', {
-        phoneNumber: phoneNumber,
-        verified: true
-      });
-
       // Create WhatsApp profile
       const whatsappProfile = {
         username: phoneNumber.replace(/\D/g, ''),
@@ -360,8 +332,6 @@ export async function generateWhatsAppFromPhone(
         );
 
         if (saveResult.success && saveResult.profile) {
-          console.log('[ProfileSave] Phone-based socials saved to Firebase');
-
           // Update React state for immediate UI feedback
           profileRef.current = saveResult.profile;
           setProfile(saveResult.profile);
@@ -370,8 +340,6 @@ export async function generateWhatsAppFromPhone(
           console.error('[ProfileSave] Failed to save phone-based socials:', saveResult.error);
         }
       }
-    } else {
-      console.log('[ProfileSave] WhatsApp verification failed or not verified');
     }
   } catch (error) {
     console.error('[ProfileSave] WhatsApp verification request failed:', error);
@@ -461,40 +429,3 @@ export async function syncProfileToSession(
   }
 }
 
-/**
- * Silent save function for background operations
- * Bypasses React state management - only updates Firebase and the profileRef
- */
-export async function silentSaveToFirebase(
-  data: Partial<UserProfile>,
-  session: { user?: { id?: string } } | null,
-  profileRef: React.MutableRefObject<UserProfile | null>
-): Promise<void> {
-  try {
-    if (!session?.user?.id) return;
-
-    const current = profileRef.current;
-    if (!current || !current.userId) return;
-
-    // CRITICAL: Get fresh profile data from Firebase before saving to prevent overwrites
-    // This ensures we have the latest bio and other data if they were generated in parallel
-    const freshProfile = await ClientProfileService.getProfile(session.user.id);
-    const baseProfile = freshProfile || current;
-
-    // Use ProfileSaveService for consistent saving logic
-    const saveResult = await ProfileSaveService.saveProfile(
-      session.user.id,
-      baseProfile,
-      data,
-      { directUpdate: true }
-    );
-
-    if (saveResult.success && saveResult.profile) {
-      profileRef.current = saveResult.profile; // Update ref only, no React state
-    } else {
-      console.error('[ProfileSave] Silent save failed:', saveResult.error);
-    }
-  } catch (error) {
-    console.error('[ProfileSave] Silent save failed:', error);
-  }
-}

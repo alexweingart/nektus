@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Clipboard } from "react-native";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
 
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
@@ -31,43 +31,13 @@ import {
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/firebase";
 import { formatPhoneNumber } from "@nektus/shared-client";
-
-// Background colors matching main app's LayoutBackground
-const THEME_DARK = '#0a0f1a';
-const THEME_GREEN = '#145835';
-
-// Default particle colors (matches main app's signed-out/connect theme)
-const DEFAULT_PARTICLE_COLORS: NonNullable<ParticleNetworkProps['colors']> = {
-  gradientStart: THEME_GREEN,
-  gradientEnd: THEME_DARK,
-  particle: 'rgba(200, 255, 200, 0.6)',
-  connection: 'rgba(34, 197, 94, 0.15)',
-};
-
-// Convert profile backgroundColors to particle colors matching main app's LayoutBackground
-function convertToParticleColors(backgroundColors: string[]): NonNullable<ParticleNetworkProps['colors']> {
-  const [dominant, accent1, accent2] = backgroundColors;
-  const hexToRgba = (hex: string, alpha: number) => {
-    const cleanHex = hex.replace('#', '');
-    const r = parseInt(cleanHex.substring(0, 2), 16);
-    const g = parseInt(cleanHex.substring(2, 4), 16);
-    const b = parseInt(cleanHex.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-  return {
-    gradientStart: hexToRgba(accent1, 0.4),
-    gradientEnd: dominant,
-    particle: hexToRgba(accent2, 0.8),
-    connection: hexToRgba(accent2, 0.4),
-  };
-}
+import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
 
 // Session context for App Clip (simplified, no full Firebase SDK)
 interface AppClipSession {
   userId: string;
   userName: string | null;
   userEmail: string | null;
-  firebaseToken: string;
 }
 
 // Error boundary to catch render errors and show them visually (no red screen in production)
@@ -127,11 +97,10 @@ function getParticleColors(profile: UserProfile | null): NonNullable<ParticleNet
   if (profile?.backgroundColors?.length && profile.backgroundColors.length >= 2) {
     return convertToParticleColors(profile.backgroundColors);
   }
-  return DEFAULT_PARTICLE_COLORS;
+  return DEFAULT_SIGNED_OUT_COLORS;
 }
 
 function AppClipContent() {
-  const insets = useSafeAreaInsets();
   const apiBaseUrl = getApiBaseUrl();
 
   // State
@@ -143,7 +112,6 @@ function AppClipContent() {
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [phoneEntryComplete, setPhoneEntryComplete] = useState(false);
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
@@ -152,11 +120,9 @@ function AppClipContent() {
       try {
         // Get the URL that launched the App Clip
         const url = await Linking.getInitialURL();
-        console.log("[AppClip] Initial URL:", url);
 
         if (url) {
           const parsed = Linking.parse(url);
-          console.log("[AppClip] Parsed URL:", parsed);
 
           // Extract token from path: /x/{token}
           const pathParts = parsed.path?.split('/').filter(Boolean) || [];
@@ -258,7 +224,6 @@ function AppClipContent() {
         userId: tokenResponse.userId,
         userName: tokenResponse.user.name,
         userEmail: tokenResponse.user.email,
-        firebaseToken: tokenResponse.firebaseToken,
       });
 
       // If new user, show phone entry modal
@@ -267,7 +232,6 @@ function AppClipContent() {
         setShowPhoneModal(true);
       }
 
-      console.log("[AppClip] Sign in successful, userId:", tokenResponse.userId, "needsSetup:", tokenResponse.needsSetup);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[AppClip] Sign in error:", message);
@@ -285,28 +249,19 @@ function AppClipContent() {
       // Format phone number for storage
       const { internationalPhone } = formatPhoneNumber(phone);
 
-      // Build contact entries to save
+      // Build contact entries to save (phone added to both personal and work sections)
+      const phoneValue = internationalPhone || phone;
       const entries: ContactEntry[] = [
-        {
-          fieldType: 'phone',
-          value: internationalPhone || phone,
-          order: 0,
+        ...(['personal', 'work'] as const).map((section, i) => ({
+          fieldType: 'phone' as const,
+          value: phoneValue,
+          order: i,
           isVisible: true,
           confirmed: true,
-          linkType: 'default',
+          linkType: 'default' as const,
           icon: '/icons/default/phone.svg',
-          section: 'personal',
-        },
-        {
-          fieldType: 'phone',
-          value: internationalPhone || phone,
-          order: 0,
-          isVisible: true,
-          confirmed: true,
-          linkType: 'default',
-          icon: '/icons/default/phone.svg',
-          section: 'work',
-        },
+          section,
+        })),
         ...socials,
       ];
 
@@ -323,9 +278,7 @@ function AppClipContent() {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      console.log("[AppClip] Phone saved successfully");
       setShowPhoneModal(false);
-      setPhoneEntryComplete(true);
     } catch (err) {
       console.error("[AppClip] Phone save error:", err);
       throw err; // Re-throw so modal shows error
@@ -341,7 +294,7 @@ function AppClipContent() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
+        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
           <Text style={styles.loadingText}>Loading...</Text>
@@ -354,7 +307,7 @@ function AppClipContent() {
   if (error && !previewProfile && !token) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
+        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.heading}>Paste Exchange Link</Text>
           <Text style={styles.subheading}>Scan a QR code in your browser, copy the URL, and paste it here</Text>
@@ -411,7 +364,7 @@ function AppClipContent() {
   if (error && !previewProfile) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
+        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
@@ -463,7 +416,7 @@ function AppClipContent() {
   // Fallback - should not reach here
   return (
     <View style={styles.container}>
-      <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
+      <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
       <View style={styles.centered}>
         <Text style={styles.errorText}>Something went wrong</Text>
       </View>

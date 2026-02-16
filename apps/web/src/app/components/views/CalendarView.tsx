@@ -61,9 +61,6 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
 
       await saveProfile({ calendars: updatedCalendars });
 
-      // TODO: Also revoke OAuth tokens if needed
-      // For now, just remove from profile
-
       router.push('/edit');
     } catch (error) {
       console.error('Error deleting calendar:', error);

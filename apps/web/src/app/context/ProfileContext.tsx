@@ -345,9 +345,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    // Detect Android for enhanced session sync
-    const isAndroid = isAndroidPlatform();
-
     // Wait for any ongoing save operations to complete, with timeout
     const maxWaitTime = 30000; // 30 seconds max wait
     const waitStartTime = Date.now();
@@ -377,10 +374,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     let merged: UserProfile;
 
     try {
-      // Profile must be loaded before saving - fail explicitly if missing
       if (!profileRef.current) {
-        const errorMessage = `[ProfileContext] Cannot save profile - profile not loaded for user ${session.user.id}. Profile must be loaded before save operations.`;
-        console.error(errorMessage);
         throw new Error('Profile not loaded - cannot save');
       }
 
@@ -403,17 +397,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Optimistic update: set profile immediately, onSnapshot confirms ms later
       profileRef.current = merged;
 
-      // Skip React state updates for:
-      // 1. Background operations (directUpdate - bio generation, social media generation)
-      // 2. Explicit skipUIUpdate requests
-      const skipReactUpdate = options.skipUIUpdate;
-
-      if (!skipReactUpdate) {
+      if (!options.skipUIUpdate) {
         setProfile(merged);
-      } else {
-        if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
-          setProfile(merged);
-        }
       }
 
       // Only trigger phone-based social generation if phone number was saved AND WhatsApp is blank
@@ -437,9 +422,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       await syncProfileToSession(merged, session, wasFormSubmission || false, update);
     } catch (error) {
       console.error('[ProfileContext] Error saving profile:', error);
-      if (isAndroid) {
-        console.error('[ProfileContext] Android - Firebase save failed:', error);
-      }
       throw error;
     } finally {
       // Always release the saving lock and reset saving state
@@ -509,6 +491,3 @@ export function useProfile() {
   }
   return context;
 }
-
-// Re-export utility function for backwards compatibility
-export { profileHasPhone } from '@/client/profile/utils';

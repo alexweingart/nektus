@@ -22,19 +22,19 @@ import {
   Keyboard,
   Linking,
   Alert,
-  RefreshControl,
 } from 'react-native';
 import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../../App';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile, type UserProfile, type SavedContact } from '../../context/ProfileContext';
 import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
+import { getFieldValue, formatLocationString } from '@nektus/shared-client';
 import type { Event, TimeSlot } from '@nektus/shared-types';
-import { isEventKitAvailable, getDeviceBusyTimes, createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
+import { getEventKitBusyTimesForProfile } from '../../../client/calendar/eventkit-helpers';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
@@ -42,7 +42,6 @@ import { MessageList } from '../ui/chat/MessageList';
 import { ChatInput } from '../ui/chat/ChatInput';
 import { emitMatchFound } from '../../utils/animationEvents';
 
-type AIScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AISchedule'>;
 type AIScheduleViewRouteProp = RouteProp<RootStackParamList, 'AISchedule'>;
 
 interface AIMessage {
@@ -56,36 +55,16 @@ function generateMessageId(offset = 0): string {
   return (Date.now() + offset).toString();
 }
 
-async function getEventKitBusyTimesForProfile(
-  profile: UserProfile | null
-): Promise<{ user1BusyTimes: { start: string; end: string }[] } | {}> {
-  if (!isEventKitAvailable() || !profile) return {};
-  const calendar = profile.calendars?.find(
-    (cal) => cal.accessMethod === 'eventkit'
-  );
-  if (!calendar) return {};
-  try {
-    const now = new Date();
-    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const busyTimes = await getDeviceBusyTimes(now, twoWeeksOut);
-    return { user1BusyTimes: busyTimes };
-  } catch (error) {
-    console.error('[AIScheduleView] Failed to get EventKit busy times:', error);
-    return {};
-  }
-}
 
-// Cold start flag — true on first request after app launch, resets after use
-let isColdStart = true;
 
 export function AIScheduleView() {
-  const navigation = useNavigation<AIScheduleViewNavigationProp>();
   const route = useRoute<AIScheduleViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
   const { contactUserId, backgroundColors, savedContact: passedContact } = route.params;
 
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
+  const isColdStart = useRef(true);
   const skipCacheOnRefresh = useRef(false);
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
@@ -134,7 +113,6 @@ export function AIScheduleView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
-  const showChatInput = true;
 
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
@@ -147,7 +125,6 @@ export function AIScheduleView() {
     if (!session?.user?.id || !contactUserId || !currentUser) return;
 
     try {
-      console.log('Fetching common time slots for AI scheduling...');
       const idToken = await getIdToken();
 
       const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
@@ -162,18 +139,17 @@ export function AIScheduleView() {
           duration: 30,
           calendarType: contactType,
           ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
-          ...(isColdStart || skipCacheOnRefresh.current ? { skipCache: true } : {}),
+          ...(isColdStart.current || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
       });
 
-      isColdStart = false;
+      isColdStart.current = false;
       skipCacheOnRefresh.current = false;
 
       if (response.ok) {
         const data = await response.json();
         const slots = data.slots || [];
         commonTimeSlotsRef.current = slots;
-        console.log(`Fetched ${slots.length} common time slots`);
       } else {
         console.error(`Failed to fetch common times: ${response.status}`);
       }
@@ -202,12 +178,12 @@ export function AIScheduleView() {
     const entries = fsContact.contactEntries || [];
     setSavedContact({
       odtId: fsContact.userId,
-      odtName: entries.find((e: any) => e.fieldType === 'name')?.value || '',
+      odtName: getFieldValue(entries, 'name') || '',
       userId: fsContact.userId,
       addedAt: fsContact.addedAt || Date.now(),
       profileImage: fsContact.profileImage,
-      phone: entries.find((e: any) => e.fieldType === 'phone')?.value,
-      email: entries.find((e: any) => e.fieldType === 'email')?.value,
+      phone: getFieldValue(entries, 'phone'),
+      email: getFieldValue(entries, 'email'),
       contactType: fsContact.contactType,
       backgroundColors: fsContact.backgroundColors,
     });
@@ -275,7 +251,7 @@ export function AIScheduleView() {
   // Initialize chat with AI greeting when component mounts
   useEffect(() => {
     if (contactProfile && messages.length === 0) {
-      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'this contact';
+      const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'this contact';
       setMessages([{
         id: '1',
         type: 'ai',
@@ -334,29 +310,16 @@ And if you don't know any of those things, and just want me to suggest based off
 
     try {
       // Get user locations from the locations array
-      const currentUserLoc = currentUserProfile.locations?.find(
-        loc => loc.section === contactType
-      );
-      const currentUserLocation = currentUserLoc
-        ? currentUserLoc.address
-          ? `${currentUserLoc.address}, ${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
-          : `${currentUserLoc.city}, ${currentUserLoc.region}${currentUserLoc.country ? ', ' + currentUserLoc.country : ''}`
-        : '';
-
-      const contactLoc = contactProfile.locations?.find(
-        loc => loc.section === contactType
-      );
-      const contactLocation = contactLoc
-        ? contactLoc.address
-          ? `${contactLoc.address}, ${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
-          : `${contactLoc.city}, ${contactLoc.region}${contactLoc.country ? ', ' + contactLoc.country : ''}`
-        : '';
-
+      const currentUserLoc = currentUserProfile.locations?.find(loc => loc.section === contactType);
+      const currentUserLocation = formatLocationString(currentUserLoc);
       const currentUserCoordinates = currentUserLoc?.coordinates;
+
+      const contactLoc = contactProfile.locations?.find(loc => loc.section === contactType);
+      const contactLocation = formatLocationString(contactLoc);
       const contactCoordinates = contactLoc?.coordinates;
 
-      const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
-      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
+      const contactEmail = getFieldValue(contactProfile.contactEntries, 'email') || '';
+      const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'Contact';
 
       const idToken = await getIdToken();
 
@@ -457,16 +420,11 @@ And if you don't know any of those things, and just want me to suggest based off
     Linking.openURL(calendarUrl);
   }, [currentUserProfile, contactType]);
 
-  const handleBack = useCallback(() => {
-    goBackWithFade();
-  }, [goBackWithFade]);
-
-
   if (loading || !contactProfile || !currentUserProfile) {
     return (
       <ScreenTransition>
         <View style={styles.container}>
-          <PageHeader title="Find a Time" onBack={handleBack} />
+          <PageHeader title="Find a Time" onBack={goBackWithFade} />
         </View>
       </ScreenTransition>
     );
@@ -475,7 +433,7 @@ And if you don't know any of those things, and just want me to suggest based off
   return (
     <ScreenTransition>
       <View style={styles.container}>
-        <PageHeader title="Find a Time" onBack={handleBack} />
+        <PageHeader title="Find a Time" onBack={goBackWithFade} />
 
         {/* Messages */}
         <ScrollView
@@ -490,23 +448,21 @@ And if you don't know any of those things, and just want me to suggest based off
         </ScrollView>
 
         {/* Chat Input */}
-        {showChatInput && (
-          <ChatInput
-            value={input}
-            onChange={(e) => {
-              const newValue = e.target.value;
-              if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
-                setInput('\u200B');
-              } else {
-                setInput(newValue);
-              }
-            }}
-            onSend={handleSend}
-            disabled={false}
-            sendDisabled={isProcessing}
-            fadeIn={false}
-          />
-        )}
+        <ChatInput
+          value={input}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
+              setInput('\u200B');
+            } else {
+              setInput(newValue);
+            }
+          }}
+          onSend={handleSend}
+          disabled={false}
+          sendDisabled={isProcessing}
+          fadeIn={false}
+        />
 
         {/* Keyboard spacer - animates to match keyboard height */}
         <Animated.View style={{ height: keyboardHeight }} />
@@ -547,4 +503,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AIScheduleView;
