@@ -33,38 +33,11 @@ export function ProfileSetupView() {
 
   const [phoneDigits, setPhoneDigits] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showAddLink, setShowAddLink] = useState(false);
-  const [addedLinks, setAddedLinks] = useState<ContactEntry[]>([]);
-  const [socialPlatform, setSocialPlatform] = useState('instagram');
-  const [socialUsername, setSocialUsername] = useState('');
+  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
 
   // Get user's first name from profile or session
   const userName = getFieldValue(profile?.contactEntries, 'name') || session?.user?.name;
   const firstName = userName?.split(" ")[0] || "there";
-
-  // Handle adding a social from the inline input
-  const handleAddSocial = useCallback(() => {
-    if (!socialUsername.trim()) return;
-
-    const baseEntry = {
-      fieldType: socialPlatform,
-      value: socialUsername.trim(),
-      order: Math.floor(addedLinks.length / 2) + 1,
-      isVisible: true,
-      confirmed: true,
-      linkType: 'default' as const,
-      icon: `/icons/default/${socialPlatform}.svg`,
-    };
-
-    setAddedLinks(prev => [
-      ...prev,
-      { ...baseEntry, section: 'personal' },
-      { ...baseEntry, section: 'work' }
-    ]);
-    setSocialUsername('');
-    setSocialPlatform('facebook');
-    setShowAddLink(false);
-  }, [socialPlatform, socialUsername, addedLinks.length]);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
@@ -86,26 +59,26 @@ export function ProfileSetupView() {
       return;
     }
 
-    // Capture in-progress social if input is showing
-    let newLinks: ContactEntry[] = [];
-    if (showAddLink && socialUsername.trim()) {
-      const baseEntry = {
-        fieldType: socialPlatform,
-        value: socialUsername.trim(),
-        order: Math.floor(addedLinks.length / 2) + 1,
-        isVisible: true,
-        confirmed: true,
-        linkType: 'default' as const,
-        icon: `/icons/default/${socialPlatform}.svg`,
-      };
-      newLinks.push({ ...baseEntry, section: 'personal' });
-      newLinks.push({ ...baseEntry, section: 'work' });
-    }
+    // Collect all social inputs with non-empty usernames
+    const finalLinks: ContactEntry[] = socialInputs
+      .filter(input => input.username.trim())
+      .flatMap((input, idx) => {
+        const baseEntry = {
+          fieldType: input.platform,
+          value: input.username.trim(),
+          order: idx + 1,
+          isVisible: true,
+          confirmed: true,
+          linkType: 'default' as const,
+          icon: `/icons/default/${input.platform}.svg`,
+        };
+        return [
+          { ...baseEntry, section: 'personal' as const },
+          { ...baseEntry, section: 'work' as const },
+        ];
+      });
 
     try {
-      // Combine previously added links with any new in-progress social
-      const allLinks = [...addedLinks, ...newLinks];
-
       const phoneUpdateData: Partial<UserProfile> = {
         contactEntries: [
           ...(profile?.contactEntries?.filter(
@@ -127,7 +100,7 @@ export function ProfileSetupView() {
             isVisible: true,
             confirmed: true,
           },
-          ...allLinks, // Add all links (previously added + newly saved)
+          ...finalLinks,
         ],
       };
 
@@ -137,7 +110,7 @@ export function ProfileSetupView() {
       console.error("[ProfileSetupView] Save failed:", err);
       setError("Failed to save. Please try again.");
     }
-  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, addedLinks, showAddLink, socialPlatform, socialUsername]);
+  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, socialInputs]);
 
   const isButtonDisabled =
     isSaving || phoneDigits.replace(/\D/g, "").length < 10;
@@ -184,17 +157,21 @@ export function ProfileSetupView() {
 
             {error && <BodyText style={styles.errorText}>{error}</BodyText>}
 
-            {/* Social Input - appears above Save button when active */}
-            {showAddLink && (
+            {/* Social Inputs - each button tap adds a new persistent row */}
+            {socialInputs.map((input, index) => (
               <CustomSocialInputAdd
-                platform={socialPlatform}
-                username={socialUsername}
-                onPlatformChange={setSocialPlatform}
-                onUsernameChange={setSocialUsername}
-                onSubmit={handleAddSocial}
-                autoFocus
+                key={index}
+                platform={input.platform}
+                username={input.username}
+                onPlatformChange={(platform) =>
+                  setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, platform } : s))
+                }
+                onUsernameChange={(username) =>
+                  setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
+                }
+                autoFocus={index === socialInputs.length - 1}
               />
-            )}
+            ))}
 
             {/* Save Button */}
             <View>
@@ -209,14 +186,17 @@ export function ProfileSetupView() {
               </Button>
             </View>
 
-            {/* Add Socials CTA - appears below Save when not in add mode */}
-            {!showAddLink && (
-              <View style={styles.addSocialsContainer}>
-                <SecondaryButton onPress={() => setShowAddLink(true)}>
-                  {addedLinks.length > 0 ? 'Add Socials' : 'Add Instagram'}
-                </SecondaryButton>
-              </View>
-            )}
+            {/* Add Socials CTA - always visible */}
+            <View style={styles.addSocialsContainer}>
+              <SecondaryButton onPress={() => {
+                setSocialInputs(prev => [
+                  ...prev,
+                  { platform: prev.length === 0 ? 'instagram' : 'facebook', username: '' }
+                ]);
+              }}>
+                {socialInputs.length > 0 ? 'Add Socials' : 'Add Instagram'}
+              </SecondaryButton>
+            </View>
           </View>
         </PullToRefresh>
       </KeyboardAvoidingView>
