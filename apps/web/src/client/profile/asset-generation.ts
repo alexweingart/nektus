@@ -92,6 +92,21 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
       setIsGoogleInitials(false);
     }
 
+    // If Google photo is confirmed real (not initials), persist the result
+    // so we don't re-check on every page refresh
+    if (!shouldGenerate && currentProfileImage?.includes('googleusercontent.com') && userId) {
+      ProfileService.saveProfile({
+        userId,
+        aiGeneration: {
+          bioGenerated: profile?.aiGeneration?.bioGenerated || false,
+          avatarGenerated: true,
+          backgroundImageGenerated: profile?.aiGeneration?.backgroundImageGenerated || false,
+        }
+      } as UserProfile).catch(error => {
+        console.error('[AssetGeneration] Failed to persist Google image check result:', error);
+      });
+    }
+
     if (shouldGenerate) {
       shouldGenerateProfileImage = true;
 

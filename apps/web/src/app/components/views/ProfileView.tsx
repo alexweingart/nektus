@@ -28,7 +28,8 @@ const ProfileView: React.FC = () => {
     isLoading: isProfileLoading,
     isNavigatingFromSetup,
     streamingProfileImage,
-    isGoogleInitials
+    isGoogleInitials,
+    isCheckingGoogleImage
   } = useProfile();
 
   // Debug flash issue - track state changes
@@ -148,25 +149,31 @@ const ProfileView: React.FC = () => {
   }, [currentProfile?.contactEntries]);
 
   // Profile image - use streaming value for immediate updates after generation
-  // Keep Google image visible while checking; only hide if confirmed initials
+  // Filter out Google initials images to show our gradient instead
+  // While checking Google image, hide it (src=undefined) to prevent flash
   const profileImageSrc = useMemo(() => {
     const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
 
-    // Prioritize streaming image (e.g., newly generated avatar)
+    // Prioritize streaming image for crossfade
     if (streamingProfileImage) {
       return getOptimalProfileImageUrl(streamingProfileImage, 400);
     }
 
-    // Only hide if confirmed Google initials (not while still checking)
-    if (isGoogleInitials) {
+    // Hide Google image while checking or if confirmed initials
+    if (isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)) {
       return undefined;
     }
 
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials]);
+  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
 
-  // Only show initials when confirmed (not during the async check)
-  const shouldShowInitials = isGoogleInitials;
+  // Calculate if we should show initials - true for confirmed Google initials or while checking
+  const shouldShowInitials = useMemo(() => {
+    const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
+    const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
+    return isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
+  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
 
 
   // Show loading state while checking auth status or loading profile, but not when navigating from setup
