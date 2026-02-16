@@ -38,7 +38,7 @@ const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className = '',
   isLoading = false,
-  showInitials = false,
+  showInitials: _showInitials = false,
   profileColors
 }) => {
   const [hasError, setHasError] = React.useState(false);
