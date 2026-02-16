@@ -18,8 +18,8 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  Animated,
+  Keyboard,
   Linking,
   Alert,
   RefreshControl,
@@ -107,6 +107,26 @@ export function AIScheduleView() {
       emitMatchFound(backgroundColors);
     }
   }, [backgroundColors]);
+
+  // Keyboard tracking for chat layout
+  const keyboardHeight = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+      Animated.timing(keyboardHeight, {
+        toValue: e.endCoordinates.height,
+        duration: e.duration || 250,
+        useNativeDriver: false,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener('keyboardWillHide', (e) => {
+      Animated.timing(keyboardHeight, {
+        toValue: 0,
+        duration: e.duration || 250,
+        useNativeDriver: false,
+      }).start();
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, [keyboardHeight]);
 
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -454,72 +474,66 @@ And if you don't know any of those things, and just want me to suggest based off
 
   return (
     <ScreenTransition>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <View style={styles.container}>
-          <PageHeader title="Find a Time" onBack={handleBack} />
+      <View style={styles.container}>
+        <PageHeader title="Find a Time" onBack={handleBack} />
 
-          {/* Messages */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={refreshControl}
-          >
-            <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
-          </ScrollView>
+        {/* Messages */}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={refreshControl}
+        >
+          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
+        </ScrollView>
 
-          {/* Chat Input - appears at 1.5s, content fades in */}
-          {showChatInput && (
-            <ChatInput
-              value={input}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
-                  setInput('\u200B');
-                } else {
-                  setInput(newValue);
-                }
-              }}
-              onSend={handleSend}
-              disabled={false}
-              sendDisabled={isProcessing}
-              fadeIn={false}
-            />
-          )}
+        {/* Chat Input */}
+        {showChatInput && (
+          <ChatInput
+            value={input}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
+                setInput('\u200B');
+              } else {
+                setInput(newValue);
+              }
+            }}
+            onSend={handleSend}
+            disabled={false}
+            sendDisabled={isProcessing}
+            fadeIn={false}
+          />
+        )}
 
-          {/* EventKit success modal */}
-          {createdEventModal && (
-            <StandardModal
-              isOpen={createdEventModal.visible}
-              onClose={() => setCreatedEventModal(null)}
-              title="Added to Calendar ✓"
-              subtitle={createdEventModal.subtitle}
-              primaryButtonText="View Event"
-              onPrimaryButtonClick={async () => {
-                await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
-                setCreatedEventModal(null);
-              }}
-              secondaryButtonText="Done"
-              onSecondaryButtonClick={() => setCreatedEventModal(null)}
-              showCloseButton={false}
-            />
-          )}
-        </View>
-      </KeyboardAvoidingView>
+        {/* Keyboard spacer - animates to match keyboard height */}
+        <Animated.View style={{ height: keyboardHeight }} />
+
+        {/* EventKit success modal */}
+        {createdEventModal && (
+          <StandardModal
+            isOpen={createdEventModal.visible}
+            onClose={() => setCreatedEventModal(null)}
+            title="Added to Calendar ✓"
+            subtitle={createdEventModal.subtitle}
+            primaryButtonText="View Event"
+            onPrimaryButtonClick={async () => {
+              await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
+              setCreatedEventModal(null);
+            }}
+            secondaryButtonText="Done"
+            onSecondaryButtonClick={() => setCreatedEventModal(null)}
+            showCloseButton={false}
+          />
+        )}
+      </View>
     </ScreenTransition>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
@@ -528,7 +542,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 16,
-    paddingBottom: 200, // Extra padding for fixed input
+    paddingBottom: 16,
     paddingHorizontal: 16,
   },
 });

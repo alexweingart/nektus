@@ -202,6 +202,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 28,
     overflow: 'hidden',
+    justifyContent: 'center',
   },
   baseOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -232,7 +233,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.4)', // border-white/40
   },
   contentWrapper: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24, // px-6 on web

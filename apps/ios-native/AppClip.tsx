@@ -356,45 +356,49 @@ function AppClipContent() {
       <View style={styles.container}>
         <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
         <View style={styles.centered}>
-          <Text style={styles.pasteTitle}>Paste Exchange Link</Text>
-          <Text style={styles.pasteSubtitle}>Scan a QR code in your browser, copy the URL, and paste it here</Text>
-          <TextInput
-            style={styles.pasteInput}
-            placeholder="https://nekt.us/x/..."
-            placeholderTextColor="rgba(255, 255, 255, 0.3)"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onSubmitEditing={(e) => {
-              const url = e.nativeEvent.text.trim();
-              const match = url.match(/\/x\/([^/?]+)/);
-              if (match?.[1]) {
-                setError(null);
-                setToken(match[1]);
-              } else {
-                setError("No token found in URL");
-              }
-            }}
-            returnKeyType="go"
-          />
-          <Button
-            variant="primary"
-            onPress={async () => {
-              try {
-                const text = await Clipboard.getString();
-                const match = text.match(/\/x\/([^/?]+)/);
+          <Text style={styles.heading}>Paste Exchange Link</Text>
+          <Text style={styles.subheading}>Scan a QR code in your browser, copy the URL, and paste it here</Text>
+          <View style={styles.buttonContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="https://nekt.us/x/..."
+              placeholderTextColor="rgba(255, 255, 255, 0.3)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={(e) => {
+                const url = e.nativeEvent.text.trim();
+                const match = url.match(/\/x\/([^/?]+)/);
                 if (match?.[1]) {
                   setError(null);
                   setToken(match[1]);
                 } else {
-                  setError("No exchange token found in clipboard");
+                  setError("No token found in URL");
                 }
-              } catch {
-                setError("Failed to read clipboard");
-              }
-            }}
-          >
-            Paste from Clipboard
-          </Button>
+              }}
+              returnKeyType="go"
+            />
+            <Button
+              variant="white"
+              size="lg"
+              onPress={async () => {
+                try {
+                  const text = await Clipboard.getString();
+                  const match = text.match(/\/x\/([^/?]+)/);
+                  if (match?.[1]) {
+                    setError(null);
+                    setToken(match[1]);
+                  } else {
+                    setError("No exchange token found in clipboard");
+                  }
+                } catch {
+                  setError("Failed to read clipboard");
+                }
+              }}
+              style={styles.button}
+            >
+              Paste from Clipboard
+            </Button>
+          </View>
           {error !== "Invalid link - no contact token found" && (
             <Text style={styles.errorText}>{error}</Text>
           )}
@@ -499,29 +503,40 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
   },
-  pasteTitle: {
+  heading: {
+    fontSize: 24,
+    fontWeight: "600",
     color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  pasteSubtitle: {
-    color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 14,
     textAlign: "center",
-    marginBottom: 24,
-    paddingHorizontal: 32,
+    marginBottom: 12,
   },
-  pasteInput: {
-    width: "85%",
+  subheading: {
+    fontSize: 18,
+    color: "rgba(255, 255, 255, 0.9)",
+    textAlign: "center",
+    marginBottom: 40,
+    paddingHorizontal: 16,
+    lineHeight: 26,
+  },
+  buttonContainer: {
+    width: "100%",
+    maxWidth: 448,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  input: {
+    width: "100%",
+    height: 56,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 9999,
+    paddingHorizontal: 24,
     color: "#ffffff",
-    fontSize: 15,
-    marginBottom: 16,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  button: {
+    width: "100%",
   },
   errorOverlay: {
     position: "absolute",

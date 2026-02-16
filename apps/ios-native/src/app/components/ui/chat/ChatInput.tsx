@@ -3,11 +3,9 @@
  * Adapted from: apps/web/src/app/components/ui/chat/ChatInput.tsx
  *
  * Changes from web:
- * - Replaced fixed positioning with KeyboardAvoidingView pattern
- * - Removed visualViewport handling (iOS handles keyboard natively)
+ * - Uses ExpandingInput for auto-growing text input
+ * - Uses Keyboard events for safe area handling
  * - Replaced div with View/StyleSheet
- * - Replaced ExpandingInput import path
- * - Uses KeyboardAvoidingView instead of CSS fixed positioning
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
@@ -15,11 +13,11 @@ import {
   View,
   StyleSheet,
   Keyboard,
-  Platform,
   Animated,
   Easing,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import { Button } from '../buttons/Button';
@@ -43,8 +41,17 @@ export function ChatInput({
   placeholder = "What would you like to do?",
   fadeIn = false,
 }: ChatInputProps) {
+  const insets = useSafeAreaInsets();
   const [isFocused, setIsFocused] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(fadeIn ? 0 : 1)).current;
+
+  // Track keyboard visibility for safe area padding
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   // Fade in animation
   useEffect(() => {
@@ -76,8 +83,11 @@ export function ChatInput({
   const actualContent = value.replace(/\u200B/g, '').trim();
   const isSendDisabled = !actualContent || sendDisabled;
 
+  // Show empty string when unfocused with no content so native placeholder renders
+  const displayValue = !isFocused && !actualContent ? '' : value;
+
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim, paddingBottom: keyboardVisible ? 12 : Math.max(24, insets.bottom) }]}>
       {/* Backdrop blur */}
       <BlurView
         style={StyleSheet.absoluteFillObject}
@@ -92,11 +102,11 @@ export function ChatInput({
       <View style={styles.content}>
         <View style={styles.inputWrapper}>
           <ExpandingInput
-            value={value}
+            value={displayValue}
             onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder={!isFocused && !actualContent ? placeholder : ''}
+            placeholder={placeholder}
             editable={!disabled}
             variant="white"
             returnKeyType="send"
@@ -126,14 +136,8 @@ export function ChatInput({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 24,
-    overflow: 'hidden',
+    paddingTop: 12,
   },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,
