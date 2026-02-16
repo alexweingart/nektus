@@ -14,15 +14,10 @@ import {
   TextInput,
   StyleSheet,
   TextInputProps,
-  InputAccessoryView,
-  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import { ThemedTextInput } from './ThemedTextInput';
-
-// Unique ID for input accessory view to hide keyboard "Done" button
-const INPUT_ACCESSORY_VIEW_ID = 'dropdownPhoneInputAccessory';
 
 // Country type for phone input components
 export interface Country {
@@ -211,17 +206,10 @@ export function DropdownPhoneInput({
             editable={!isDisabled}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            inputAccessoryViewID={Platform.OS === 'ios' ? INPUT_ACCESSORY_VIEW_ID : undefined}
             {...props}
           />
         </View>
 
-        {/* Empty InputAccessoryView to hide iOS keyboard Done button */}
-        {Platform.OS === 'ios' && (
-          <InputAccessoryView nativeID={INPUT_ACCESSORY_VIEW_ID}>
-            <View style={{ height: 0 }} />
-          </InputAccessoryView>
-        )}
       </View>
     </View>
   );
