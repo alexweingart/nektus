@@ -3,8 +3,8 @@
 ../../.git
 ../../node_modules
 
-# Ignore iOS build artifacts and dependencies
-ios/Pods
-ios/build
-ios/.xcode.env.local
+# Ignore iOS native directory so EAS uses CNG/Prebuild
+# (keeps Info.plist files accessible via git, but EAS regenerates ios/ from scratch)
+ios
+
 .expo

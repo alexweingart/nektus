@@ -8,7 +8,7 @@ const config = getDefaultConfig(__dirname);
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, "../..");
 
-config.watchFolders = [monorepoRoot];
+config.watchFolders = [...(config.watchFolders || []), monorepoRoot];
 
 config.resolver = {
   ...config.resolver,

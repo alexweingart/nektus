@@ -17,7 +17,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
       "buildNumber": "23",
-      "deploymentTarget": "17.0",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
       "associatedDomains": [
@@ -66,6 +65,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          }
+        }
+      ],
       "expo-apple-authentication",
       [
         "expo-calendar",
