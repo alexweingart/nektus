@@ -19,6 +19,7 @@ import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import type { SavedContact } from '@/types/contactExchange';
 import { FaArrowLeft } from 'react-icons/fa';
 import { auth } from '@/client/config/firebase';
+import { ClientProfileService } from '@/client/profile/firebase-save';
 import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
 import { CACHE_TTL } from '@nektus/shared-client';
 
@@ -246,27 +247,7 @@ export const HistoryView: React.FC = () => {
     setShowDeleteModal(false);
 
     try {
-      // Get Firebase ID token for authentication
-      const currentUser = auth?.currentUser;
-      if (!currentUser) {
-        throw new Error('No authenticated user');
-      }
-
-      const idToken = await currentUser.getIdToken();
-
-      // Call DELETE API endpoint
-      const response = await fetch(`/api/contacts/${contactToDelete.userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete contact');
-      }
-
+      await ClientProfileService.deleteContact(session.user.id, contactToDelete.userId);
       // onSnapshot will auto-update the contacts list
     } catch (error) {
       console.error('Failed to delete contact:', error);

@@ -11,7 +11,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { RootStackParamList } from '../../../../App';
 import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/layout/ScreenTransition';
 import type { SavedContact } from '../../context/ProfileContext';
-import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
+import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
@@ -79,7 +79,6 @@ export function HistoryView() {
   const navigateWithFade = useNavigateWithFade();
   const { data: session } = useSession();
   const { contacts, contactsLoading, profile: userProfile } = useProfile();
-  const apiBaseUrl = getApiBaseUrl();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,16 +134,7 @@ export function HistoryView() {
     setShowDeleteModal(false);
 
     try {
-      const idToken = await getIdToken();
-      const response = await fetch(`${apiBaseUrl}/api/contacts/${contactToDelete.userId}`, {
-        method: 'DELETE',
-        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete contact');
-      }
-
+      await ClientProfileService.deleteContact(session.user.id, contactToDelete.userId);
       // onSnapshot will auto-update the contacts list
     } catch (err) {
       console.error('[HistoryView] Failed to delete contact:', err);
@@ -153,7 +143,7 @@ export function HistoryView() {
       setDeletingContactId(null);
       setContactToDelete(null);
     }
-  }, [contactToDelete, session, apiBaseUrl]);
+  }, [contactToDelete, session]);
 
   // Handle cancel delete
   const handleCancelDelete = useCallback(() => {
