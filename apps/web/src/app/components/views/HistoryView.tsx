@@ -22,14 +22,14 @@ import { auth } from '@/client/config/firebase';
 import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
 import { CACHE_TTL } from '@nektus/shared-client';
 
-// Module-level tracking that persists across component mounts
+// Module-level tracking for pre-fetch cooldown
 let lastPreFetchTime = 0;
-const PRE_FETCH_COOLDOWN = CACHE_TTL.SHORT_MS; // 5 minutes cooldown between pre-fetches
+const PRE_FETCH_COOLDOWN = CACHE_TTL.SHORT_MS;
 
 export const HistoryView: React.FC = () => {
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: userProfile, loadContacts, getContacts, invalidateContactsCache, refreshProfile } = useProfile();
+  const { profile: userProfile, getContacts, contactsLoading } = useProfile();
   const contacts = getContacts();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,29 +57,17 @@ export const HistoryView: React.FC = () => {
   });
 
 
-  // Fetch contacts and refresh profile on component mount
+  // Wait for contacts to load via onSnapshot
   useEffect(() => {
-    const fetchData = async () => {
-      if (!session?.user?.id) {
-        router.push('/');
-        return;
-      }
+    if (!session?.user?.id) {
+      router.push('/');
+      return;
+    }
 
-      try {
-        setError(null);
-        // Refresh profile to ensure we have latest calendar data
-        await refreshProfile();
-        await loadContacts(session.user.id);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Failed to load contacts:', error);
-        setError('Failed to load contact history');
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [session, router, loadContacts, refreshProfile]);
+    if (!contactsLoading) {
+      setIsLoading(false);
+    }
+  }, [session, router, contactsLoading]);
 
   // Pre-fetch common time slots for recent contacts (truly non-blocking background process)
   useEffect(() => {
@@ -279,11 +267,7 @@ export const HistoryView: React.FC = () => {
         throw new Error(errorData.error || 'Failed to delete contact');
       }
 
-      // Invalidate contacts cache to trigger re-fetch
-      invalidateContactsCache();
-
-      // Reload contacts to update the list
-      await loadContacts(session.user.id, true);
+      // onSnapshot will auto-update the contacts list
     } catch (error) {
       console.error('Failed to delete contact:', error);
       setError('Failed to delete contact. Please try again.');

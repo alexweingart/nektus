@@ -37,7 +37,7 @@ export default function SmartScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts, loadContacts } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
@@ -54,67 +54,6 @@ export default function SmartScheduleView() {
   const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
 
-  // Handle background crossfade when entering from HistoryView
-  useEffect(() => {
-    const isEnteringFromHistory = sessionStorage.getItem('entering-from-history-to-schedule');
-    const historyBackground = sessionStorage.getItem('history-background-url');
-
-    if (isEnteringFromHistory === 'true') {
-      console.log('🎯 SmartScheduleView: Detected entrance from HistoryView, setting up background crossfade');
-
-      // Clear the flag
-      sessionStorage.removeItem('entering-from-history-to-schedule');
-
-      // If we have a history background and contact background, set up crossfade
-      if (historyBackground && contactProfile?.backgroundImage) {
-        console.log('🎯 SmartScheduleView: Setting up background crossfade');
-
-        // Create style for history background that will fade out
-        const historyBgStyle = document.createElement('style');
-        historyBgStyle.id = 'history-background-fadeout';
-        historyBgStyle.textContent = `
-          body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('${historyBackground}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 300ms ease-out;
-            pointer-events: none;
-          }
-          body.fade-out-history-bg::after {
-            opacity: 0;
-          }
-        `;
-        document.head.appendChild(historyBgStyle);
-
-        // Trigger fade out
-        requestAnimationFrame(() => {
-          document.body.classList.add('fade-out-history-bg');
-        });
-
-        // Clean up after animation
-        setTimeout(() => {
-          document.body.classList.remove('fade-out-history-bg');
-          const style = document.getElementById('history-background-fadeout');
-          if (style) {
-            style.remove();
-          }
-          sessionStorage.removeItem('history-background-url');
-        }, 300);
-      } else {
-        sessionStorage.removeItem('history-background-url');
-      }
-    }
-  }, [contactProfile?.backgroundImage]);
-
   // Load contact profile
   useEffect(() => {
     async function loadContact() {
@@ -127,9 +66,9 @@ export default function SmartScheduleView() {
         // Check sessionStorage first (set by ContactView after saving a new contact)
         // This avoids a race condition where the saved contacts cache hasn't updated yet
         try {
-          const stashed = sessionStorage.getItem('smartScheduleContact');
+          const stashed = sessionStorage.getItem('smart-schedule-contact');
           if (stashed) {
-            sessionStorage.removeItem('smartScheduleContact');
+            sessionStorage.removeItem('smart-schedule-contact');
             const { profile: stashedProfile, contactType } = JSON.parse(stashed);
             if (stashedProfile && (stashedProfile.shortCode === code || stashedProfile.userId === code)) {
               console.log('📦 [SmartScheduleView] Using stashed contact from sessionStorage');
@@ -157,13 +96,6 @@ export default function SmartScheduleView() {
           savedContact = allContacts.find(c => c.shortCode === code) || null;
         }
 
-        // If not found in cache, load contacts from server
-        if (!savedContact) {
-          console.log('📦 [SmartScheduleView] Contact not in cache, loading from server...');
-          const loadedContacts = await loadContacts(session.user.id);
-          savedContact = loadedContacts.find(c => c.shortCode === code || c.userId === code) || null;
-        }
-
         if (savedContact) {
           console.log('📦 [SmartScheduleView] Using contact');
           setSection(savedContact.contactType);
@@ -189,7 +121,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.code, router, getContact, getContacts, loadContacts]);
+  }, [session, params.code, router, getContact, getContacts]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
@@ -316,14 +248,6 @@ export default function SmartScheduleView() {
             onBack={() => {
               // Navigate back to history if user came from there, otherwise go to contact profile
               if (fromParam === 'history') {
-                // Mark that we're returning to history for crossfade animation
-                sessionStorage.setItem('returning-to-history', 'true');
-
-                // Store contact background for crossfade
-                if (contactProfile?.backgroundImage) {
-                  sessionStorage.setItem('contact-background-url', contactProfile.backgroundImage);
-                }
-
                 router.push('/history');
               } else {
                 router.push(`/c/${contactProfile?.shortCode}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { ClientProfileService as ProfileService } from '@/client/profile/firebase-save';
 import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/client/profile/save';
@@ -12,7 +12,7 @@ import { syncTimezone, type SessionPhoneEntry } from '@/client/profile/utils';
 import { generateProfileAssets } from '@/client/profile/asset-generation';
 import { hexToRgb } from '@/client/cn';
 import { generateProfileColors } from '@/shared/colors';
-import { CACHE_TTL } from '@nektus/shared-client';
+import { profileNeedsSetup } from '@nektus/shared-client';
 
 // Types
 interface SessionProfile {
@@ -21,28 +21,31 @@ interface SessionProfile {
   };
 }
 
+export type SharingCategory = 'Personal' | 'Work';
+
 type ProfileContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
   isSaving: boolean;
+  needsSetup: boolean;
   isNavigatingFromSetup: boolean;
   saveProfile: (data: Partial<UserProfile>, options?: { directUpdate?: boolean; skipUIUpdate?: boolean }) => Promise<UserProfile | null>;
   getLatestProfile: () => UserProfile | null;
   setNavigatingFromSetup: (navigating: boolean) => void;
-  refreshProfile: () => Promise<UserProfile | null>;  // Force refresh profile from Firestore
   // Streaming states for immediate UI feedback during generation
   streamingSocialContacts: UserProfile['contactEntries'] | null;
   streamingProfileImage: string | null;
   // Flag to indicate if current profile image is Google auto-generated initials
   isGoogleInitials: boolean;
   isCheckingGoogleImage: boolean;
-  // Contacts cache management
+  // Contacts (live via onSnapshot)
   contacts: SavedContact[] | null;
-  contactsLoadedAt: number | null;
-  loadContacts: (userId: string, force?: boolean) => Promise<SavedContact[]>;
+  contactsLoading: boolean;
   getContact: (contactUserId: string) => SavedContact | null;
   getContacts: () => SavedContact[];
-  invalidateContactsCache: () => void;
+  // Sharing category (Personal/Work toggle)
+  sharingCategory: SharingCategory;
+  setSharingCategory: (category: SharingCategory) => void;
 };
 
 // Create context
@@ -65,28 +68,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
   const [isCheckingGoogleImage, setIsCheckingGoogleImage] = useState(false);
 
-  // Contacts cache state
+  // Contacts state (live via onSnapshot)
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
-  const [contactsLoadedAt, setContactsLoadedAt] = useState<number | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(true);
+
+  // Sharing category state (replaces localStorage 'nekt-sharing-category')
+  const [sharingCategory, setSharingCategory] = useState<SharingCategory>('Personal');
 
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
   const backgroundGenerationTriggeredRef = useRef(false);
   const profileImageGenerationTriggeredRef = useRef(false);
-  const contactsLoadingPromiseRef = useRef<Promise<SavedContact[]> | null>(null);
 
+  // Subscription unsubscribe refs
+  const profileUnsubRef = useRef<(() => void) | null>(null);
+  const contactsUnsubRef = useRef<(() => void) | null>(null);
 
   const profileRef = useRef<UserProfile | null>(null);
-
-  const CONTACTS_CACHE_DURATION = CACHE_TTL.SHORT_MS;
-
+  const isFirstProfileCallbackRef = useRef(true);
 
   // Profile creation/loading effect
   useEffect(() => {
-    const loadProfile = async () => {
+    const setupSubscriptions = async () => {
       if (authStatus === 'authenticated' && session?.user?.id && !profile && !loadingRef.current) {
         loadingRef.current = true;
         setIsLoading(true);
+        isFirstProfileCallbackRef.current = true;
 
         // Set immediate profile so saves work while real profile loads
         const profileName = session.user.name || 'User';
@@ -143,105 +150,139 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Fetch existing profile
-          let existingProfile = await ProfileService.getProfile(session.user.id);
+          // Subscribe to profile updates (replaces one-time getProfile)
+          profileUnsubRef.current = ProfileService.subscribeToProfile(
+            session.user.id,
+            async (profileData) => {
+              if (profileData) {
+                if (isFirstProfileCallbackRef.current) {
+                  isFirstProfileCallbackRef.current = false;
 
-          if (existingProfile) {
-            // Auto-detect and update timezone if different from browser timezone
-            existingProfile = await syncTimezone(existingProfile, session.user.id);
-            setProfile(existingProfile);
+                  // One-time setup on first callback
+                  const synced = await syncTimezone(profileData, session.user.id);
+                  setProfile(synced);
+                  profileRef.current = synced;
 
-            // Trigger asset generation for new users (those without generated assets)
-            // Note: backgroundColors are now always set at profile creation, so we only check avatarGenerated
-            const avatarAlreadyGenerated = existingProfile.aiGeneration?.avatarGenerated;
+                  // Trigger asset generation for new users
+                  const avatarAlreadyGenerated = synced.aiGeneration?.avatarGenerated;
+                  if (!avatarAlreadyGenerated) {
+                    generateProfileAssets({
+                      userId: session.user.id,
+                      profile: synced,
+                      profileRef,
+                      session,
+                      profileImageGenerationTriggeredRef,
+                      backgroundGenerationTriggeredRef,
+                      setIsGoogleInitials,
+                      setIsCheckingGoogleImage,
+                      setStreamingProfileImage,
+                      setStreamingSocialContacts,
+                      setProfile
+                    }).catch(error => {
+                      console.error('[ProfileContext] Asset generation error:', error);
+                    });
+                  }
 
-            if (!avatarAlreadyGenerated) {
-              generateProfileAssets({
-                userId: session.user.id,
-                profile: existingProfile,
-                profileRef,
-                session,
-                profileImageGenerationTriggeredRef,
-                backgroundGenerationTriggeredRef,
-                setIsGoogleInitials,
-                setIsCheckingGoogleImage,
-                setStreamingProfileImage,
-                setStreamingSocialContacts,
-                setProfile
-              }).catch(error => {
-                console.error('[ProfileContext] Asset generation error:', error);
-              });
-            }
+                  // Android-specific: Ensure session is synced with loaded profile
+                  if (isAndroid && synced.contactEntries && !isNavigatingFromSetup) {
+                    const phoneEntry = synced.contactEntries.find(e => e.fieldType === 'phone');
+                    const sessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionPhoneEntry) => e.platform === 'phone');
 
-            // Android-specific: Ensure session is synced with loaded profile
-            // Run async (don't await) to avoid blocking the loading screen
-            // Skip during setup navigation to prevent redirect loops
-            if (isAndroid && existingProfile.contactEntries && !isNavigatingFromSetup) {
-              const phoneEntry = existingProfile.contactEntries.find(e => e.fieldType === 'phone');
-              const sessionPhoneEntry = (session?.profile as SessionProfile)?.contactChannels?.entries?.find((e: SessionPhoneEntry) => e.platform === 'phone');
-
-              if (phoneEntry?.value && sessionPhoneEntry?.internationalPhone !== phoneEntry.value) {
-                // Force session update to sync with Firebase data (async, don't block)
-                if (update) {
-                  update({
-                    profile: {
-                      contactChannels: {
-                        entries: [
-                          {
-                            platform: 'phone',
-                            section: phoneEntry.section,
-                            userConfirmed: phoneEntry.confirmed,
-                            internationalPhone: phoneEntry.value,
-                            nationalPhone: phoneEntry.value || ''
+                    if (phoneEntry?.value && sessionPhoneEntry?.internationalPhone !== phoneEntry.value) {
+                      if (update) {
+                        update({
+                          profile: {
+                            contactChannels: {
+                              entries: [
+                                {
+                                  platform: 'phone',
+                                  section: phoneEntry.section,
+                                  userConfirmed: phoneEntry.confirmed,
+                                  internationalPhone: phoneEntry.value,
+                                  nationalPhone: phoneEntry.value || ''
+                                }
+                              ]
+                            }
                           }
-                        ]
+                        }).catch(error => {
+                          console.error('[ProfileContext] Failed to update session:', error);
+                        });
                       }
                     }
-                  }).catch(error => {
-                    console.error('[ProfileContext] Failed to update session:', error);
-                  });
+                  }
+
+                  setIsLoading(false);
+                  loadingRef.current = false;
+                } else {
+                  // Subsequent callbacks: just update profile state
+                  setProfile(profileData);
+                  profileRef.current = profileData;
+                }
+              } else {
+                // Profile doesn't exist — create fallback
+                if (isFirstProfileCallbackRef.current) {
+                  isFirstProfileCallbackRef.current = false;
+                  console.warn('[ProfileContext] Profile not found, creating fallback');
+                  const fallbackName = session.user.name || 'User';
+                  const defaultProfile: UserProfile = {
+                    userId: session.user.id,
+                    shortCode: '',
+                    profileImage: session.user.image || '',
+                    backgroundImage: '',
+                    backgroundColors: generateProfileColors(fallbackName),
+                    lastUpdated: Date.now(),
+                    contactEntries: [
+                      { fieldType: 'name', value: fallbackName, section: 'universal', order: -2, isVisible: true, confirmed: true },
+                      { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: true },
+                      { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: true },
+                      { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: true },
+                      { fieldType: 'phone', value: '', section: 'work', order: 0, isVisible: true, confirmed: true },
+                      { fieldType: 'email', value: session.user.email || '', section: 'work', order: 1, isVisible: true, confirmed: true }
+                    ]
+                  };
+
+                  try {
+                    await ProfileService.saveProfile(defaultProfile);
+                  } catch (saveError) {
+                    console.error('[ProfileContext] Failed to save fallback profile:', saveError);
+                  }
+                  setProfile(defaultProfile);
+                  profileRef.current = defaultProfile;
+                  setIsLoading(false);
+                  loadingRef.current = false;
                 }
               }
             }
-            
-            // Note: Per CALCONNECT_MERGE_SPEC, we no longer auto-trigger asset generation on profile refresh
-            // Assets are only generated when explicitly requested by the user
-          } else {
-            // Profile missing - create fallback (server-side creation may have failed)
-            console.warn('[ProfileContext] Profile not found, creating fallback');
-            const fallbackName = session.user.name || 'User';
-            const defaultProfile: UserProfile = {
-              userId: session.user.id,
-              shortCode: '',
-              profileImage: session.user.image || '',
-              backgroundImage: '',
-              backgroundColors: generateProfileColors(fallbackName),
-              lastUpdated: Date.now(),
-              contactEntries: [
-                { fieldType: 'name', value: fallbackName, section: 'universal', order: -2, isVisible: true, confirmed: true },
-                { fieldType: 'bio', value: '', section: 'universal', order: -1, isVisible: true, confirmed: true },
-                { fieldType: 'phone', value: '', section: 'personal', order: 0, isVisible: true, confirmed: true },
-                { fieldType: 'email', value: session.user.email || '', section: 'personal', order: 1, isVisible: true, confirmed: true },
-                { fieldType: 'phone', value: '', section: 'work', order: 0, isVisible: true, confirmed: true },
-                { fieldType: 'email', value: session.user.email || '', section: 'work', order: 1, isVisible: true, confirmed: true }
-              ]
-            };
+          );
 
-            try {
-              await ProfileService.saveProfile(defaultProfile);
-            } catch (saveError) {
-              console.error('[ProfileContext] Failed to save fallback profile:', saveError);
+          // Subscribe to contacts updates (replaces one-time getContacts)
+          setContactsLoading(true);
+          contactsUnsubRef.current = ProfileService.subscribeToContacts(
+            session.user.id,
+            (contactsData) => {
+              // Sort contacts by addedAt timestamp (newest first)
+              const sortedContacts = [...contactsData].sort((a, b) => b.addedAt - a.addedAt);
+              setContacts(sortedContacts);
+              setContactsLoading(false);
             }
-            setProfile(defaultProfile);
-          }
+          );
         } catch (error) {
-          console.error('[ProfileContext] Profile load failed:', error);
+          console.error('[ProfileContext] Profile subscription setup failed:', error);
           // Keep the immediate profile set earlier - UI can still function
-        } finally {
           setIsLoading(false);
           loadingRef.current = false;
         }
       } else if (authStatus === 'unauthenticated') {
+        // Clean up subscriptions
+        if (profileUnsubRef.current) {
+          profileUnsubRef.current();
+          profileUnsubRef.current = null;
+        }
+        if (contactsUnsubRef.current) {
+          contactsUnsubRef.current();
+          contactsUnsubRef.current = null;
+        }
+
         if (firebaseAuth.getCurrentUser()) {
           try {
             await firebaseAuth.signOut();
@@ -250,10 +291,26 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setProfile(null);
+        setContacts(null);
+        setContactsLoading(true);
         setIsLoading(false);
+        isFirstProfileCallbackRef.current = true;
+        loadingRef.current = false;
       }
     };
-    loadProfile();
+    setupSubscriptions();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      if (profileUnsubRef.current) {
+        profileUnsubRef.current();
+        profileUnsubRef.current = null;
+      }
+      if (contactsUnsubRef.current) {
+        contactsUnsubRef.current();
+        contactsUnsubRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus, session?.user?.id, update]);
 
@@ -263,7 +320,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [profile]);
 
   // Liquid Glass: Set global color tint from user's profile
-  // Note: background-color and --safe-area-color are managed by LayoutBackground, not here
+  // Note: background-color and --safe-area-bg are managed by LayoutBackground, not here
   useEffect(() => {
     if (profile?.backgroundColors && profile.backgroundColors.length >= 3) {
       const [, accent1, accent2] = profile.backgroundColors;
@@ -308,10 +365,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Set saving state to prevent setup effects from running during form submission
     // Detect form submission by checking if we have contact entries (any field, not just phone)
-    const wasFormSubmission = !options.directUpdate && 
-      data.contactEntries && 
+    const wasFormSubmission = !options.directUpdate &&
+      data.contactEntries &&
       data.contactEntries.length > 0;
-    
+
     // Save operation starting
     if (wasFormSubmission) {
       setIsSaving(true);
@@ -326,9 +383,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         console.error(errorMessage);
         throw new Error('Profile not loaded - cannot save');
       }
-      
+
       const current = profileRef.current;
-      
+
       // Use ProfileSaveService for core saving logic
       const saveResult = await ProfileSaveService.saveProfile(
         session.user.id,
@@ -343,23 +400,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       merged = saveResult.profile!;
 
-      // Phone-based social media generation is now handled by verify-phone-socials API
-      // after the profile is successfully saved (see phone save trigger below)
-
-      // Always update the ref so subsequent operations can access updated data
+      // Optimistic update: set profile immediately, onSnapshot confirms ms later
       profileRef.current = merged;
-      
+
       // Skip React state updates for:
       // 1. Background operations (directUpdate - bio generation, social media generation)
       // 2. Explicit skipUIUpdate requests
-      // Note: Removed form submission skip - we want UI to reflect saved changes immediately
       const skipReactUpdate = options.skipUIUpdate;
 
       if (!skipReactUpdate) {
         setProfile(merged);
       } else {
-        // However, if this is a background operation and the current profile state is stale (empty userId),
-        // we should update it to prevent UI showing empty data during streaming
         if (options.directUpdate && (!profileRef.current || !profileRef.current.userId) && merged.userId) {
           setProfile(merged);
         }
@@ -387,7 +438,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('[ProfileContext] Error saving profile:', error);
       if (isAndroid) {
-        console.error('[ProfileContext] 🤖 Android - Firebase save failed:', error);
+        console.error('[ProfileContext] Android - Firebase save failed:', error);
       }
       throw error;
     } finally {
@@ -397,7 +448,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setIsSaving(false);
       }
     }
-    
+
     return merged;
   }, [session, update]);
 
@@ -410,71 +461,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsNavigatingFromSetup(navigating);
   }, []);
 
-  // Refresh profile from Firestore (forces a re-fetch)
-  const refreshProfile = useCallback(async (): Promise<UserProfile | null> => {
-    if (!session?.user?.id) {
-      console.warn('[ProfileContext] Cannot refresh profile: no user session');
-      return null;
-    }
-
-    try {
-      console.log('[ProfileContext] Refreshing profile from Firestore');
-      const freshProfile = await ProfileService.getProfile(session.user.id);
-
-      if (freshProfile) {
-        setProfile(freshProfile);
-        profileRef.current = freshProfile;
-        console.log('[ProfileContext] Profile refreshed successfully');
-        return freshProfile;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('[ProfileContext] Failed to refresh profile:', error);
-      return null;
-    }
-  }, [session?.user?.id]);
-
-  // Contacts cache methods
-  const loadContacts = useCallback(async (userId: string, force: boolean = false): Promise<SavedContact[]> => {
-    // Check if cache is still valid (unless forced refresh)
-    if (!force && contacts && contactsLoadedAt) {
-      const age = Date.now() - contactsLoadedAt;
-      if (age < CONTACTS_CACHE_DURATION) {
-        return contacts;
-      }
-    }
-
-    // If already loading, return the existing promise to prevent duplicate requests
-    if (contactsLoadingPromiseRef.current) {
-      return contactsLoadingPromiseRef.current;
-    }
-
-    // Create and store the loading promise
-    const loadingPromise = (async () => {
-      try {
-        const userContacts = await ProfileService.getContacts(userId);
-
-        // Sort contacts by addedAt timestamp (newest first)
-        const sortedContacts = userContacts.sort((a, b) => b.addedAt - a.addedAt);
-
-        setContacts(sortedContacts);
-        setContactsLoadedAt(Date.now());
-
-        return sortedContacts;
-      } catch (error) {
-        console.error('[ProfileContext] Failed to load contacts:', error);
-        throw error;
-      } finally {
-        // Clear the loading promise ref when done
-        contactsLoadingPromiseRef.current = null;
-      }
-    })();
-
-    contactsLoadingPromiseRef.current = loadingPromise;
-    return loadingPromise;
-  }, [contacts, contactsLoadedAt, CONTACTS_CACHE_DURATION]);
-
   const getContact = useCallback((contactUserId: string): SavedContact | null => {
     if (!contacts) return null;
     return contacts.find(c => c.userId === contactUserId) || null;
@@ -484,10 +470,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     return contacts || [];
   }, [contacts]);
 
-  const invalidateContactsCache = useCallback(() => {
-    setContacts(null);
-    setContactsLoadedAt(null);
-  }, []);
+  // Check if profile needs setup (no phone number configured)
+  const needsSetup = useMemo(() => profileNeedsSetup(profile), [profile]);
 
   return (
     <ProfileContext.Provider
@@ -495,21 +479,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         profile,
         isLoading,
         isSaving,
+        needsSetup,
         isNavigatingFromSetup,
         saveProfile,
         getLatestProfile,
         setNavigatingFromSetup,
-        refreshProfile,
         streamingSocialContacts,
         streamingProfileImage,
         isGoogleInitials,
         isCheckingGoogleImage,
         contacts,
-        contactsLoadedAt,
-        loadContacts,
+        contactsLoading,
         getContact,
         getContacts,
-        invalidateContactsCache
+        sharingCategory,
+        setSharingCategory,
       }}
     >
       {children}
@@ -528,4 +512,3 @@ export function useProfile() {
 
 // Re-export utility function for backwards compatibility
 export { profileHasPhone } from '@/client/profile/utils';
-

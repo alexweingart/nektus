@@ -375,7 +375,6 @@ export const SelectedSections: React.FC<SelectedSectionsProps> = ({
               className="cursor-pointer"
               onClick={() => {
                 clearColorCache();
-                localStorage.clear();
                 sessionStorage.clear();
                 signOut({ callbackUrl: '/' });
               }}

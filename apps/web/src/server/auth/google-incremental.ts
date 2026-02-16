@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { CACHE_TTL } from '@nektus/shared-client';
 
 // Initialize Redis using environment variables
 let redis: Redis | null = null;
@@ -38,7 +39,7 @@ export async function storeIncrementalAuthState(state: string, data: Incremental
   }
 
   try {
-    await redis!.setex(`incremental_auth_state:${state}`, 600, JSON.stringify(data)); // 10 minutes
+    await redis!.setex(`incremental_auth_state:${state}`, CACHE_TTL.SHORT_S, JSON.stringify(data));
     console.log(`✅ Stored incremental auth state: ${state}`);
   } catch (error) {
     console.error('❌ Failed to store incremental auth state:', error);
@@ -71,8 +72,8 @@ export async function getIncrementalAuthState(state: string): Promise<Incrementa
       parsedData = data as IncrementalAuthState;
     }
     
-    // Check if state is expired (older than 10 minutes)
-    if (Date.now() - parsedData.timestamp > 600000) {
+    // Check if state is expired
+    if (Date.now() - parsedData.timestamp > CACHE_TTL.SHORT_MS) {
       console.warn(`⚠️ Incremental auth state expired: ${state}`);
       await deleteIncrementalAuthState(state);
       return null;

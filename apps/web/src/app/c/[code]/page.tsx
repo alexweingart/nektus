@@ -17,7 +17,7 @@ function ContactPageContent() {
   const router = useRouter();
   const params = useParams();
   const code = params.code as string;
-  const { loadContacts } = useProfile();
+  const { getContacts, contactsLoading } = useProfile();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,47 +37,34 @@ function ContactPageContent() {
   // Load contact from saved contacts (supports both shortCode and userId)
   // Only shows data that was deliberately shared during the exchange
   useEffect(() => {
-    async function fetchProfile() {
-      if (status === 'loading') return;
-      if (!session?.user?.id) return;
-      if (!code) {
-        router.push('/history');
-        return;
-      }
-
-      try {
-        // Load from saved contacts only - contacts only exist if they were deliberately shared
-        const savedContacts = await loadContacts(session.user.id);
-
-        // Look for a saved contact matching by shortCode or userId
-        const savedContact = savedContacts.find((c: SavedContact) =>
-          c.shortCode === code || c.userId === code
-        );
-
-        if (savedContact) {
-          // Use the saved contact data (already filtered from when contact was saved)
-          setProfile(savedContact as UserProfile);
-
-          // Dispatch match-found event for background colors
-          if (savedContact.backgroundColors) {
-            window.dispatchEvent(new CustomEvent('match-found', {
-              detail: { backgroundColors: savedContact.backgroundColors }
-            }));
-          }
-        } else {
-          // Contact not in saved contacts - user doesn't have permission to view
-          setError('Contact not found. You may need to exchange contacts first.');
-        }
-      } catch (err) {
-        console.error('Failed to fetch contact:', err);
-        setError('Failed to load contact.');
-      } finally {
-        setIsLoading(false);
-      }
+    if (status === 'loading' || contactsLoading) return;
+    if (!session?.user?.id) return;
+    if (!code) {
+      router.push('/history');
+      return;
     }
 
-    fetchProfile();
-  }, [code, session, status, router, loadContacts]);
+    // Contacts are live via onSnapshot — just look up from context
+    const savedContacts = getContacts();
+    const savedContact = savedContacts.find((c: SavedContact) =>
+      c.shortCode === code || c.userId === code
+    );
+
+    if (savedContact) {
+      setProfile(savedContact as UserProfile);
+
+      // Dispatch match-found event for background colors
+      if (savedContact.backgroundColors) {
+        window.dispatchEvent(new CustomEvent('match-found', {
+          detail: { backgroundColors: savedContact.backgroundColors }
+        }));
+      }
+    } else {
+      setError('Contact not found. You may need to exchange contacts first.');
+    }
+
+    setIsLoading(false);
+  }, [code, session, status, router, getContacts, contactsLoading]);
 
   const handleGoBack = () => {
     router.push('/history');

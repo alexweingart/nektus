@@ -9,51 +9,20 @@ import { useRouter } from 'next/navigation';
 import { Button } from './Button';
 import { LoadingSpinner } from '../elements/LoadingSpinner';
 import type { ExchangeStatus, ContactExchangeState } from '@/types/contactExchange';
+import { useProfile } from '@/app/context/ProfileContext';
 
 interface ExchangeButtonProps {
   className?: string;
 }
 
-type SharingCategory = 'Personal' | 'Work';
-
 export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
   className
 }) => {
   const router = useRouter();
+  const { sharingCategory: selectedCategory } = useProfile();
   const [status, setStatus] = useState<ExchangeStatus>('idle');
   const [exchangeService, setExchangeService] = useState<{ disconnect: () => Promise<void>; startExchange: (permissionGranted?: boolean, sharingCategory?: "All" | "Personal" | "Work") => Promise<void> } | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>('Personal');
   const [qrToken, setQrToken] = useState<string | null>(null);
-
-  // Load selected category from localStorage on mount and listen for changes
-  useEffect(() => {
-    const loadCategory = () => {
-      try {
-        const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
-        if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
-          setSelectedCategory(savedCategory);
-        }
-      } catch (error) {
-        console.warn('Failed to load sharing category from localStorage:', error);
-      }
-    };
-
-    // Load initial value
-    loadCategory();
-
-    // Listen for storage changes from ProfileInfo
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'nekt-sharing-category' && e.newValue) {
-        const newCategory = e.newValue as SharingCategory;
-        if (['Personal', 'Work'].includes(newCategory)) {
-          setSelectedCategory(newCategory);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   // Listen for admin simulation trigger
   useEffect(() => {
@@ -84,7 +53,6 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 
           // Wait for exit animation to complete (500ms), then navigate
           setTimeout(() => {
-            sessionStorage.setItem('test-connect-mode', 'true');
             router.push('/x/test-animation-token');
           }, 500);
         }, 500);

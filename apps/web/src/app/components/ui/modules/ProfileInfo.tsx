@@ -4,12 +4,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 import { ProfileViewSelector, type ProfileViewMode } from '../controls/ProfileViewSelector';
-import { filterProfileByCategory, type SharingCategory } from '@/client/profile/filtering';
+import { filterProfileByCategory } from '@/client/profile/filtering';
 import ReactMarkdown from 'react-markdown';
 import { Heading, Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
 import QRCode from 'react-qr-code';
+import { useProfile } from '@/app/context/ProfileContext';
 
 interface ProfileInfoProps {
   profile: UserProfile;
@@ -32,8 +33,9 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   showQRCode = false,
   matchToken
 }) => {
-  const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+  const { sharingCategory, setSharingCategory } = useProfile();
+  const selectedMode = sharingCategory as ProfileViewMode;
+  const setSelectedMode = setSharingCategory;
   const carouselRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -56,45 +58,14 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // This enables the Avatar component to crossfade from initials to the generated image
   const showInitialsValue = isGoogleInitials;
 
-  // Load selected mode from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedCategory = localStorage.getItem('nekt-sharing-category') as SharingCategory;
-      if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
-        setSelectedMode(savedCategory);
-      }
-      setHasLoadedFromStorage(true);
-    } catch (error) {
-      console.warn('Failed to load sharing category from localStorage:', error);
-      setHasLoadedFromStorage(true);
-    }
-  }, []);
-
-  // Save selected mode to localStorage when it changes
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-    
-    try {
-      localStorage.setItem('nekt-sharing-category', selectedMode);
-      // Trigger storage event for other components
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'nekt-sharing-category',
-        newValue: selectedMode,
-        oldValue: null
-      }));
-    } catch (error) {
-      console.warn('Failed to save sharing category to localStorage:', error);
-    }
-  }, [selectedMode, hasLoadedFromStorage]);
-
   // Filter contact entries based on selected mode
   const filteredContactEntries = useMemo(() => {
-    if (profile?.contactEntries && hasLoadedFromStorage) {
+    if (profile?.contactEntries) {
       const filteredProfile = filterProfileByCategory(profile, selectedMode);
       return filteredProfile.contactEntries;
     }
     return profile?.contactEntries || [];
-  }, [profile, selectedMode, hasLoadedFromStorage]);
+  }, [profile, selectedMode]);
 
   // Handle mode change from selector
   const handleModeChange = (mode: ProfileViewMode) => {

@@ -10,8 +10,6 @@
  * - Desktop: Try silent auth first, then explicit if needed
  */
 
-import { CACHE_TTL } from '@nektus/shared-client';
-
 // Constants for permission error detection
 export const PERMISSION_KEYWORDS = [
   'permission',
@@ -78,51 +76,6 @@ export function isPermissionError(error?: string): boolean {
   
   return isPermError;
 }
-
-/**
- * Check if upsell modal has been shown for this platform/token combination
- */
-export function hasShownUpsell(platform: string, token: string): boolean {
-  try {
-    const key = `upsell_shown_${token}`;
-    const stored = localStorage.getItem(key);
-    
-    if (!stored) return false;
-    
-    const { timestamp, platform: storedPlatform } = JSON.parse(stored);
-    
-    // Expire after 5 minutes
-    const age = Date.now() - timestamp;
-    const maxAge = CACHE_TTL.SHORT_MS;
-    
-    if (age > maxAge) {
-      localStorage.removeItem(key);
-      return false;
-    }
-    
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that upsell modal has been shown for this platform/token combination
- */
-export function markUpsellShown(platform: string, token: string): void {
-  try {
-    const key = `upsell_shown_${token}`;
-    const data = {
-      timestamp: Date.now(),
-      token,
-      platform
-    };
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.warn('Failed to mark upsell as shown:', error);
-  }
-}
-
 
 /**
  * Check if user is returning from incremental auth

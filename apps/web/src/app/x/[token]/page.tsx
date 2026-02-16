@@ -10,7 +10,6 @@ import { PhoneEntryModal } from '../../components/ui/modals/PhoneEntryModal';
 import { useProfile } from '../../context/ProfileContext';
 import type { UserProfile, ContactEntry } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
-import { ClientProfileService } from '@/client/profile/firebase-save';
 import { formatPhoneNumber } from '@/client/profile/phone-formatter';
 
 // Force dynamic rendering to prevent static generation issues with auth
@@ -18,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 function ConnectPageContent() {
   const { data: session, status, update } = useSession();
-  const { saveProfile } = useProfile(); // Uses ProfileProvider from root layout
+  const { saveProfile, getContacts } = useProfile(); // Uses ProfileProvider from root layout
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -160,10 +159,8 @@ function ConnectPageContent() {
 
           // Authenticated user - fetch full profile
           if (isHistoricalMode) {
-            // For historical mode, fetch from saved contacts
-            const contacts = await ClientProfileService.getContacts(session.user.id);
-
-            // Find the contact with matching token
+            // For historical mode, look up from live contacts in context
+            const contacts = getContacts();
             const contact = contacts.find((c: SavedContact) => c.matchToken === token);
 
             if (contact) {

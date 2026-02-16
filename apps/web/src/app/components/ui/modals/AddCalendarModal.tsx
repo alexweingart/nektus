@@ -75,10 +75,6 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
     try {
       setIsConnecting(provider);
 
-      // Store the section and origin page for OAuth callback
-      sessionStorage.setItem('calendar-section', section);
-      sessionStorage.setItem('oauth-origin-page', window.location.pathname);
-
       if (provider === 'google') {
         // Redirect to Google OAuth using incremental authorization
         // Use NEXT_PUBLIC_BASE_URL to ensure consistent OAuth redirect regardless of how user accessed the site

@@ -117,7 +117,7 @@ export const useImageUpload = (onColorsExtracted?: (colors: string[]) => void) =
 };
 
 /**
- * Custom hook for managing profile view mode (Personal/Work) with localStorage and carousel
+ * Custom hook for managing profile view mode (Personal/Work) carousel animation
  */
 export const useProfileViewMode = (carouselRef: React.RefObject<HTMLDivElement | null>) => {
   const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
@@ -168,40 +168,22 @@ export const useProfileViewMode = (carouselRef: React.RefObject<HTMLDivElement |
     return () => window.removeEventListener('resize', updateWidth);
   }, [carouselRef]);
 
-  // Load from localStorage on mount
-  const loadFromStorage = useCallback(() => {
-    try {
-      const savedCategory = localStorage.getItem('nekt-sharing-category') as 'Personal' | 'Work';
-      if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
-        setSelectedMode(savedCategory);
-        // Animate carousel after loading from storage
-        setTimeout(() => animateCarousel(savedCategory), 0);
-      }
-    } catch (error) {
-      console.warn('Failed to load sharing category from localStorage:', error);
-    }
+  // Sync carousel to mode (called on mount and mode changes)
+  const syncCarousel = useCallback((mode: 'Personal' | 'Work') => {
+    setTimeout(() => animateCarousel(mode), 0);
   }, [animateCarousel]);
 
-  // Save to localStorage and animate carousel
+  // Handle mode change and animate carousel
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     if (mode === selectedMode) return;
-    
+
     setSelectedMode(mode);
-    
-    // Save to localStorage
-    try {
-      localStorage.setItem('nekt-sharing-category', mode);
-    } catch (error) {
-      console.warn('Failed to save sharing category to localStorage:', error);
-    }
-    
-    // Animate carousel
     animateCarousel(mode);
   }, [selectedMode, animateCarousel]);
 
   return {
     selectedMode,
-    loadFromStorage,
+    syncCarousel,
     handleModeChange
   };
 };

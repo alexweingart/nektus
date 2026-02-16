@@ -1,6 +1,6 @@
 /**
  * Unified exchange state management service
- * Replaces multiple localStorage keys with single exchange state per token
+ * Replaces multiple sessionStorage keys with single exchange state per token
  */
 
 import { CACHE_TTL } from '@nektus/shared-client';
@@ -22,7 +22,7 @@ export interface ExchangeStateData {
  */
 export function getExchangeState(token: string): ExchangeStateData | null {
   try {
-    const stored = localStorage.getItem(`exchange_state_${token}`);
+    const stored = sessionStorage.getItem(`exchange-state-${token}`);
     if (!stored) return null;
     
     const data = JSON.parse(stored) as ExchangeStateData;
@@ -67,7 +67,7 @@ export function setExchangeState(token: string, data: Partial<ExchangeStateData>
       ...data
     };
     
-    localStorage.setItem(`exchange_state_${token}`, JSON.stringify(newData));
+    sessionStorage.setItem(`exchange-state-${token}`, JSON.stringify(newData));
     console.log('💾 Set exchange state:', newData);
   } catch (error) {
     console.warn('Failed to set exchange state:', error);
@@ -79,7 +79,7 @@ export function setExchangeState(token: string, data: Partial<ExchangeStateData>
  */
 export function clearExchangeState(token: string): void {
   try {
-    localStorage.removeItem(`exchange_state_${token}`);
+    sessionStorage.removeItem(`exchange-state-${token}`);
     console.log('🗑️ Cleared exchange state for token:', token);
   } catch (error) {
     console.warn('Failed to clear exchange state:', error);
@@ -107,28 +107,6 @@ export function markUpsellShown(token: string): void {
 }
 
 /**
- * Check if user has completed their first contact save (iOS non-embedded only)
- */
-export function hasCompletedFirstSave(): boolean {
-  try {
-    return localStorage.getItem('google_contacts_first_save_completed') === 'true';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark that user has completed their first contact save (iOS non-embedded only)
- */
-export function markFirstSaveCompleted(): void {
-  try {
-    localStorage.setItem('google_contacts_first_save_completed', 'true');
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
  * Check if this is a first-time save (no exchange state exists)
  */
 export function isFirstTimeSave(token: string): boolean {
@@ -140,7 +118,7 @@ export function isFirstTimeSave(token: string): boolean {
  */
 export function hasGoogleContactsPermission(): boolean {
   try {
-    return localStorage.getItem('google_contacts_permission_granted') === 'true';
+    return sessionStorage.getItem('google-contacts-permission') === 'true';
   } catch {
     return false;
   }
@@ -151,7 +129,7 @@ export function hasGoogleContactsPermission(): boolean {
  */
 export function markGoogleContactsPermissionGranted(): void {
   try {
-    localStorage.setItem('google_contacts_permission_granted', 'true');
+    sessionStorage.setItem('google-contacts-permission', 'true');
   } catch {
     // Ignore storage errors
   }

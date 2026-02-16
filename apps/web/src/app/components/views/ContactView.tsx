@@ -51,7 +51,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { profile: userProfile } = useProfile();
+  const { profile: userProfile, sharingCategory } = useProfile();
   const { data: session } = useSession();
 
   // Animation state
@@ -98,9 +98,6 @@ export const ContactView: React.FC<ContactViewProps> = ({
     try {
       // Check if contact is already saved (button shows "I'm Done")
       if (isSuccess) {
-        // Clean up any saved state
-        const savedStateKey = `contact_saved_${profile.userId}_${token}`;
-        localStorage.removeItem(savedStateKey);
         // Close the ContactView by calling onReject (which navigates back)
         onReject();
         return;
@@ -214,13 +211,13 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleScheduleMeetUp = async () => {
     if (!session?.user?.id) return;
 
-    // Use the scanned contact's section (what the other user shared), fall back to profileViewMode
-    const currentSection = scannedSection || (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work';
+    // Use the scanned contact's section (what the other user shared), fall back to sharing category
+    const currentSection = scannedSection || (sharingCategory.toLowerCase() as 'personal' | 'work');
 
     // Stash the contact profile in sessionStorage so SmartScheduleView can use it
     // immediately without waiting for the saved contacts cache to update
     try {
-      sessionStorage.setItem('smartScheduleContact', JSON.stringify({
+      sessionStorage.setItem('smart-schedule-contact', JSON.stringify({
         profile,
         contactType: currentSection,
       }));
@@ -463,7 +460,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           section={
             isHistoricalMode
               ? (profile as SavedContact).contactType
-              : scannedSection || (localStorage.getItem('profileViewMode') || 'personal') as 'personal' | 'work'
+              : scannedSection || (sharingCategory.toLowerCase() as 'personal' | 'work')
           }
           userEmail={session?.user?.email || ''}
           onCalendarAdded={handleCalendarAdded}

@@ -170,7 +170,7 @@ export default function ChatInput({
           zIndex: 99, // Below ChatInput
           display: 'none', // Hidden by default, shown by JS when keyboard opens
           pointerEvents: 'none',
-          backgroundColor: 'var(--safe-area-color)', // Use contact's theme color
+          backgroundColor: 'var(--safe-area-bg)', // Use contact's theme color
         }}
       />
     </>

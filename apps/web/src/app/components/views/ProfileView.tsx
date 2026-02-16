@@ -14,9 +14,7 @@ import { ProfileInfo } from '../ui/modules/ProfileInfo';
 import { useExchangeQRDisplay } from '@/client/hooks/use-exchange-qr-display';
 
 import { useRouter } from 'next/navigation';
-import { generateMessageText, openMessagingApp } from '@/client/contacts/messaging';
 import { usePWAInstall } from '@/client/hooks/use-pwa-install';
-import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
 
@@ -66,41 +64,6 @@ const ProfileView: React.FC = () => {
   const topButtonsRef = useRef<HTMLDivElement>(null);
   const nektButtonRef = useRef<HTMLDivElement>(null);
   const pwaButtonRef = useRef<HTMLDivElement>(null);
-
-  // Success modal state
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [savedContactProfile, setSavedContactProfile] = useState<UserProfile | null>(null);
-
-  // Check for saved contact on component mount
-  useEffect(() => {
-    const checkForSavedContact = () => {
-      try {
-        const savedContactData = localStorage.getItem('savedContact');
-        if (savedContactData) {
-          const { profile: contactProfile, timestamp } = JSON.parse(savedContactData);
-          
-          // Only show modal if the save was recent (within last 30 seconds)
-          const timeDiff = Date.now() - timestamp;
-          if (timeDiff < 30000) {
-            setSavedContactProfile(contactProfile);
-            setShowSuccessModal(true);
-          }
-          
-          // Clear the localStorage data
-          localStorage.removeItem('savedContact');
-        }
-      } catch (error) {
-        console.error('Error checking for saved contact:', error);
-        // Clear corrupted data
-        localStorage.removeItem('savedContact');
-      }
-    };
-
-    // Check when component mounts and profile is available
-    if (currentProfile) {
-      checkForSavedContact();
-    }
-  }, [currentProfile]);
 
   // Floating animation is now triggered by ExchangeButton's waiting-for-bump state
   // No auto-floating on mount
@@ -169,7 +132,6 @@ const ProfileView: React.FC = () => {
     if (isReturning === 'true') {
       // Clear the flags
       sessionStorage.removeItem('returning-to-profile');
-      sessionStorage.removeItem('contact-background-url'); // Background crossfade now handled by LayoutBackground
 
       // Trigger entrance animation
       setAnimationPhase('entering');
@@ -180,32 +142,6 @@ const ProfileView: React.FC = () => {
       }, 300);
     }
   }, [profile?.backgroundImage]);
-
-  const handleMessageContact = () => {
-    const contactName = getFieldValue(savedContactProfile?.contactEntries, 'name');
-    if (!session?.user?.name || !contactName) {
-      console.warn('Missing user names for message generation');
-      return;
-    }
-
-    const senderFirstName = session.user.name.split(' ')[0];
-    const contactFirstName = contactName.split(' ')[0];
-    // Use shortCode if available, fall back to userId (both work with /c/ route)
-    const senderProfileId = profile?.shortCode;
-    const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
-
-    // Try to use phone number if available
-    let phoneNumber = '';
-
-    if (savedContactProfile?.contactEntries) {
-      const phoneEntry = savedContactProfile.contactEntries.find(e => e.fieldType === 'phone');
-      phoneNumber = phoneEntry?.value || '';
-    }
-
-    openMessagingApp(messageText, phoneNumber);
-    
-    setShowSuccessModal(false);
-  };
 
   // Memoized values that need to be declared before conditional returns
   const bioContent = useMemo(() => {
@@ -403,18 +339,6 @@ const ProfileView: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Success Modal - shows when contact is saved */}
-      <StandardModal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        title="All set - new friend saved!"
-        subtitle="Shoot them a quick text before you forget"
-        primaryButtonText="Say hey 👋"
-        onPrimaryButtonClick={handleMessageContact}
-        secondaryButtonText="Maybe later"
-        showCloseButton={false}
-      />
 
       {/* PWA Install Modal - shows for iOS users */}
       <StandardModal

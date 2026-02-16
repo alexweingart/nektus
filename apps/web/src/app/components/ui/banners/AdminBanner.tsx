@@ -92,11 +92,10 @@ export default function AdminBanner() {
       // STEP 4: Clear ALL client-side storage
       // ============================================================
 
-      // 4a: Clear localStorage and sessionStorage
+      // 4a: Clear sessionStorage
       try {
-        localStorage.clear();
         sessionStorage.clear();
-        console.log('[DELETE] localStorage/sessionStorage cleared');
+        console.log('[DELETE] sessionStorage cleared');
       } catch (err) {
         console.warn('[DELETE] Storage clear error:', err);
       }

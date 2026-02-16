@@ -22,7 +22,7 @@ import { SelectedSections } from './SelectedSections';
 
 const EditProfileView: React.FC = () => {
   const { data: session } = useSession();
-  const { profile, saveProfile, isSaving: isProfileSaving } = useProfile();
+  const { profile, saveProfile, isSaving: isProfileSaving, sharingCategory, setSharingCategory } = useProfile();
   const router = useRouter();
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -34,14 +34,8 @@ const EditProfileView: React.FC = () => {
     work: false
   });
 
-  const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>(() => {
-    // Initialize from localStorage, fallback to 'Personal'
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('nekt-sharing-category');
-      return (saved as 'Personal' | 'Work') || 'Personal';
-    }
-    return 'Personal';
-  });
+  const selectedMode = sharingCategory;
+  const setSelectedMode = setSharingCategory;
 
   // Initial images setup
   const initialImages = {
@@ -61,7 +55,7 @@ const EditProfileView: React.FC = () => {
     console.log('[EditProfileView] Updating profile with extracted colors:', colors);
     saveProfile({ backgroundColors: colors }, { skipUIUpdate: false });
   });
-  const { loadFromStorage, handleModeChange: handleCarouselModeChange } = useProfileViewMode(carouselRef);
+  const { syncCarousel, handleModeChange: handleCarouselModeChange } = useProfileViewMode(carouselRef);
 
   // Calendar and location management
   const {
@@ -87,10 +81,10 @@ const EditProfileView: React.FC = () => {
   });
 
 
-  // Initialize on mount
+  // Sync carousel position with sharing category on mount
   React.useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
+    syncCarousel(sharingCategory);
+  }, [syncCarousel, sharingCategory]);
 
   // Handle mode change - update both carousel and local state
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {

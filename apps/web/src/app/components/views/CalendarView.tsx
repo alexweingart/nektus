@@ -142,7 +142,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
         >
           <Text className="font-medium text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>
           <Text variant="small" className="text-white/60">
-            {calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone. Available on iOS only.' : calendar.email}
+            {calendar.accessMethod === 'eventkit' ? 'Only available in iOS app' : calendar.email}
           </Text>
         </div>
 
