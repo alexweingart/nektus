@@ -487,6 +487,7 @@ export function SmartScheduleView() {
     visible: boolean;
     title: string;
     subtitle: string;
+    eventId: string;
     startDate: Date;
   } | null>(null);
 
@@ -756,7 +757,7 @@ export function SmartScheduleView() {
         // EventKit: create event directly on device
         if (accessMethod === 'eventkit') {
           try {
-            await createCalendarEvent({
+            const eventId = await createCalendarEvent({
               title,
               startDate,
               endDate,
@@ -766,6 +767,7 @@ export function SmartScheduleView() {
               visible: true,
               title: 'Added to Calendar',
               subtitle: `${title} — ${formatTimeSlot(existingTime, eventTemplate.duration)}`,
+              eventId,
               startDate,
             });
           } catch (error) {
@@ -910,8 +912,8 @@ export function SmartScheduleView() {
             title="Added to Calendar ✓"
             subtitle={createdEventModal.subtitle}
             primaryButtonText="View Event"
-            onPrimaryButtonClick={() => {
-              openEventInCalendar(createdEventModal.startDate);
+            onPrimaryButtonClick={async () => {
+              await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
               setCreatedEventModal(null);
             }}
             secondaryButtonText="Done"

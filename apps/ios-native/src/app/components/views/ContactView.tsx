@@ -20,6 +20,7 @@ import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransiti
 import { ContactInfo } from '../ui/modules/ContactInfo';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
+import { ContactButton } from '../ui/buttons/ContactButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
@@ -458,8 +459,9 @@ export function ContactView(props: ContactViewProps = {}) {
 
     const phoneNumber = getFieldValue(profile.contactEntries, 'phone');
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
-    // Use props.sessionUserName in App Clip, otherwise session.user.name
-    const senderFirstName = getFirstName(props.sessionUserName || session?.user?.name || '');
+    // Get sender name: profile contactEntries first (most reliable), then session, then App Clip prop
+    const senderName = getFieldValue(userProfile?.contactEntries, 'name') || props.sessionUserName || session?.user?.name || '';
+    const senderFirstName = getFirstName(senderName);
 
     // Use shortCode if available, fall back to userId (both work with /c/ route)
     const senderProfileId = userProfile?.shortCode;
@@ -476,7 +478,7 @@ export function ContactView(props: ContactViewProps = {}) {
       Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
     }
     // Note: SKOverlay is shown when user taps "Done", not after messaging
-  }, [profile, props.sessionUserName, session, userProfile?.shortCode, session?.user?.id]);
+  }, [profile, props.sessionUserName, session, userProfile?.contactEntries, userProfile?.shortCode, session?.user?.id]);
 
   // Handle Meet Up button - check for linked calendar first (matches web)
   const handleScheduleMeetUp = useCallback(() => {
@@ -592,21 +594,11 @@ export function ContactView(props: ContactViewProps = {}) {
             ) : (
               // New contact mode buttons
               <>
-                <Button
-                  variant="white"
-                  size="xl"
+                <ContactButton
+                  isSuccess={isSaved}
+                  isSaving={isSaving}
                   onPress={handleSaveContact}
-                  disabled={isSaving}
-                  style={styles.fullWidth}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color="#374151" />
-                  ) : (
-                    <Text style={styles.buttonText}>
-                      {isSaved ? "I'm Done" : 'Save Contact'}
-                    </Text>
-                  )}
-                </Button>
+                />
 
                 {isSaved && (
                   <View style={styles.secondaryButtonContainer}>
@@ -647,7 +639,7 @@ export function ContactView(props: ContactViewProps = {}) {
         isOpen={showAddCalendarModal}
         onClose={() => setShowAddCalendarModal(false)}
         section="personal"
-        userEmail={session?.user?.email || userProfile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
+        userEmail={session?.user?.email || userProfile?.contactEntries?.find((f: any) => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>
@@ -693,7 +685,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#374151',
   },

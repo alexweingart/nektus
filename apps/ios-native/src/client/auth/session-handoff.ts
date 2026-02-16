@@ -10,7 +10,7 @@
 import * as SecureStore from "expo-secure-store";
 import { CACHE_TTL } from "@nektus/shared-client";
 
-const SESSION_KEY = "nekt_session_handoff";
+const SESSION_KEY = "nekt-session-handoff";
 
 // Extended options type for iOS keychain access group sharing (App Clip <-> Full App)
 // expo-secure-store doesn't expose this in types but it works at runtime on iOS

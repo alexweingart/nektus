@@ -28,7 +28,7 @@ import type { RootStackParamList } from '../../../../App';
 import type { ContactEntry, FieldSection } from '@nektus/shared-types';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
-import { useEditProfileFields, useProfileViewMode } from '../../../client/hooks/use-edit-profile-fields';
+import { useEditProfileFields } from '../../../client/hooks/use-edit-profile-fields';
 import { useCalendarLocationManagement } from '../../../client/hooks/use-calendar-location-management';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
@@ -51,16 +51,16 @@ export function EditProfileView() {
   const navigation = useNavigation<EditProfileNavigationProp>();
   const goBackWithFade = useGoBackWithFade();
   const { data: session } = useSession();
-  const { profile, saveProfile, isSaving, refreshProfile } = useProfile();
+  const { profile, saveProfile, isSaving, sharingCategory, setSharingCategory } = useProfile();
 
   // Slide animation for view switching (0 = Personal, 1 = Work)
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(sharingCategory === 'Work' ? 1 : 0)).current;
 
   // Ref for scroll container (needed for drag gesture coordination)
   const scrollRef = useRef(null);
 
-  // Profile view mode (Personal/Work)
-  const { selectedMode, loadFromStorage, handleModeChange: baseModeChange } = useProfileViewMode();
+  // selectedMode alias for readability in this component
+  const selectedMode = sharingCategory;
 
   // Inline add link state
   const [showInlineAddLink, setShowInlineAddLink] = useState<{ personal: boolean; work: boolean }>({
@@ -98,25 +98,15 @@ export function EditProfileView() {
   } = useCalendarLocationManagement({
     profile,
     saveProfile,
-    onCalendarAddedViaOAuth: refreshProfile,
+    onCalendarAddedViaOAuth: () => {}, // Profile auto-updates via onSnapshot
   });
 
-  // Pull-to-refresh - reloads profile and resets form
+  // Pull-to-refresh — profile is live via onSnapshot, just reset local form state
   const { isRefreshing, handleRefresh } = useScreenRefresh({
     onRefresh: async () => {
-      await refreshProfile();
-      // The fieldManager will get fresh profile data on next render
+      // fieldManager will pick up fresh profile data on next render
     },
   });
-
-  // Load saved mode on mount
-  useEffect(() => {
-    const loadMode = async () => {
-      const loadedMode = await loadFromStorage();
-      slideAnim.setValue(loadedMode === 'Personal' ? 0 : 1);
-    };
-    loadMode();
-  }, [loadFromStorage, slideAnim]);
 
   // Handle mode change with slide animation
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
@@ -128,8 +118,8 @@ export function EditProfileView() {
       useNativeDriver: true,
     }).start();
 
-    baseModeChange(mode);
-  }, [baseModeChange, slideAnim]);
+    setSharingCategory(mode);
+  }, [setSharingCategory, slideAnim]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -157,13 +147,8 @@ export function EditProfileView() {
   // When backgroundColors are provided (from API), refresh the profile to pick up the new colors
   const handleProfileImageUpload = useCallback((uri: string, backgroundColors?: string[]) => {
     fieldManager.setImageValue('profileImage', uri);
-
-    // If colors were extracted, refresh profile to pick up the saved colors from Firestore
-    if (backgroundColors && backgroundColors.length > 0) {
-      console.log('[EditProfileView] Background colors extracted, refreshing profile...');
-      refreshProfile();
-    }
-  }, [fieldManager, refreshProfile]);
+    // onSnapshot will auto-update profile with new background colors
+  }, [fieldManager]);
 
   // Debug: log profile backgroundColors
   React.useEffect(() => {
@@ -397,7 +382,7 @@ export function EditProfileView() {
         isOpen={isCalendarModalOpen}
         onClose={() => setIsCalendarModalOpen(false)}
         section={modalSection}
-        userEmail={session?.user?.email || profile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
+        userEmail={session?.user?.email || profile?.contactEntries?.find((f: any) => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
 

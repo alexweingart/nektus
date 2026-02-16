@@ -22,7 +22,7 @@ export interface ExchangeStateData {
  */
 export async function getExchangeState(token: string): Promise<ExchangeStateData | null> {
   try {
-    const stored = await AsyncStorage.getItem(`exchange_state_${token}`);
+    const stored = await AsyncStorage.getItem(`exchange-state-${token}`);
     if (!stored) return null;
 
     const data = JSON.parse(stored) as ExchangeStateData;
@@ -67,7 +67,7 @@ export async function setExchangeState(token: string, data: Partial<ExchangeStat
       ...data
     };
 
-    await AsyncStorage.setItem(`exchange_state_${token}`, JSON.stringify(newData));
+    await AsyncStorage.setItem(`exchange-state-${token}`, JSON.stringify(newData));
     console.log('💾 [iOS] Set exchange state:', newData);
   } catch (error) {
     console.warn('Failed to set exchange state:', error);
@@ -79,7 +79,7 @@ export async function setExchangeState(token: string, data: Partial<ExchangeStat
  */
 export async function clearExchangeState(token: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(`exchange_state_${token}`);
+    await AsyncStorage.removeItem(`exchange-state-${token}`);
     console.log('🗑️ [iOS] Cleared exchange state for token:', token);
   } catch (error) {
     console.warn('Failed to clear exchange state:', error);

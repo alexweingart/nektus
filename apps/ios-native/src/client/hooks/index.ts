@@ -4,7 +4,6 @@
 
 export * from './use-contact-exchange-state';
 export * from './use-exchange-qr-display';
-export * from './use-contact-back-navigation';
 export * from './use-edit-profile-fields';
 export * from './use-calendar-location-management';
 export * from './use-drag-and-drop';

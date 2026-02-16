@@ -8,7 +8,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Text, View, ActivityIndicator, StyleSheet, Animated, Easing, DeviceEventEmitter } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Button } from "./Button";
 import type { ExchangeStatus, ContactExchangeState, ContactExchangeMatch, UserProfile } from "@nektus/shared-types";
 import { getApiBaseUrl } from "@nektus/shared-client";
@@ -33,11 +32,9 @@ import {
   floatAnimationStart,
 } from "../../../utils/animationEvents";
 import { useSession } from "../../../providers/SessionProvider";
-import { useProfile } from "../../../context/ProfileContext";
+import { useProfile, type SharingCategory } from "../../../context/ProfileContext";
 import { getIdToken } from "../../../../client/auth/firebase";
 import { ADMIN_SIMULATE_NEKT_EVENT } from "../banners/AdminBanner";
-
-type SharingCategory = "Personal" | "Work";
 
 export interface MatchResult {
   token: string;
@@ -54,11 +51,10 @@ interface ExchangeButtonProps {
 export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: ExchangeButtonProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { data: session } = useSession();
-  const { profile } = useProfile();
+  const { profile, sharingCategory } = useProfile();
   const [status, setStatus] = useState<ExchangeStatus>("idle");
   const [exchangeService, setExchangeService] = useState<RealTimeContactExchangeService | null>(null);
   const [hybridService, setHybridService] = useState<HybridExchangeService | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<SharingCategory>("Personal");
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [bleAvailable, setBleAvailable] = useState<boolean | null>(null);
   const apiBaseUrl = getApiBaseUrl();
@@ -195,21 +191,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   useEffect(() => {
     onMatchTokenChange?.(qrToken);
   }, [qrToken, onMatchTokenChange]);
-
-  // Load selected category from AsyncStorage on mount
-  useEffect(() => {
-    const loadCategory = async () => {
-      try {
-        const savedCategory = await AsyncStorage.getItem("nekt-sharing-category");
-        if (savedCategory && ["Personal", "Work"].includes(savedCategory)) {
-          setSelectedCategory(savedCategory as SharingCategory);
-        }
-      } catch (error) {
-        console.warn("[iOS] Failed to load sharing category:", error);
-      }
-    };
-    loadCategory();
-  }, []);
 
   // Listen for exchange initiated events (for QR code display)
   useEffect(() => {
@@ -383,19 +364,10 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    // Read fresh category from AsyncStorage to avoid stale state
-    // (ProfileInfo updates AsyncStorage when user swipes, but this component's
-    // state may not have been updated yet)
-    let currentCategory: SharingCategory = "Personal";
-    try {
-      const savedCategory = await AsyncStorage.getItem("nekt-sharing-category");
-      if (savedCategory && ["Personal", "Work"].includes(savedCategory)) {
-        currentCategory = savedCategory as SharingCategory;
-      }
-      console.log(`📋 [iOS] Using sharing category: ${currentCategory}`);
-    } catch (error) {
-      console.warn("[iOS] Failed to read sharing category, using default:", error);
-    }
+    // Use sharing category from Context (both ProfileInfo and ExchangeButton
+    // share the same Context value, so it's always in sync)
+    const currentCategory = sharingCategory;
+    console.log(`📋 [iOS] Using sharing category: ${currentCategory}`);
 
     let permissionGranted = false;
 
@@ -455,7 +427,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       console.error("[iOS] Failed to start exchange:", error);
       setStatus("error");
     }
-  }, [status, exchangeService, hybridService, initializeService, initializeHybridService, profile, session?.user?.id]);
+  }, [status, exchangeService, hybridService, initializeService, initializeHybridService, profile, session?.user?.id, sharingCategory]);
 
   const handleButtonPress = useCallback(async () => {
     // Handle QR scan matched state - fetch profile and notify parent

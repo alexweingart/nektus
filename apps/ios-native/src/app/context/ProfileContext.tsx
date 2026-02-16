@@ -2,8 +2,7 @@
  * Profile Context for iOS
  *
  * Manages user profile state and Firestore operations.
- * This is a simplified version of the web ProfileContext,
- * focused on core profile loading and saving.
+ * Uses onSnapshot subscriptions for real-time profile and contacts updates.
  */
 
 import React, {
@@ -26,7 +25,6 @@ import {
   UserLocation,
   ProfileSaveService,
   getFieldValue,
-  CACHE_TTL,
 } from "@nektus/shared-client";
 import type { SavedContact as SharedSavedContact } from "@nektus/shared-types";
 import {
@@ -42,6 +40,8 @@ import {
 
 // Re-export types for convenience
 export type { UserProfile, ContactEntry, UserLocation };
+
+export type SharingCategory = 'Personal' | 'Work';
 
 export interface SavedContact {
   odtId: string;
@@ -65,11 +65,14 @@ interface ProfileContextType {
     options?: { directUpdate?: boolean }
   ) => Promise<UserProfile | null>;
   getLatestProfile: () => UserProfile | null;
-  refreshProfile: () => Promise<void>;
-  // Contacts
+  // Contacts (live via onSnapshot)
   contacts: SavedContact[] | null;
-  loadContacts: (force?: boolean) => Promise<SavedContact[]>;
+  contactsLoading: boolean;
   getContact: (contactUserId: string) => SavedContact | null;
+  getContacts: () => SavedContact[];
+  // Sharing category (Personal/Work toggle)
+  sharingCategory: SharingCategory;
+  setSharingCategory: (category: SharingCategory) => void;
   // Asset generation state
   assetGeneration: AssetGenerationState;
   // Streaming states for immediate UI feedback (extracted from assetGeneration for convenience)
@@ -91,9 +94,12 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Contacts cache
+  // Contacts state (live via onSnapshot)
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
-  const [contactsLoadedAt, setContactsLoadedAt] = useState<number | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(true);
+
+  // Sharing category state (replaces AsyncStorage 'nekt-sharing-category')
+  const [sharingCategory, setSharingCategory] = useState<SharingCategory>('Personal');
 
   // Asset generation state
   const [assetGeneration, setAssetGeneration] = useState<AssetGenerationState>(
@@ -105,7 +111,10 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const initializedRef = useRef(false);
   const assetGenerationTriggeredRef = useRef(false);
 
-  const CONTACTS_CACHE_DURATION = CACHE_TTL.SHORT_MS;
+  // Subscription unsubscribe refs
+  const profileUnsubRef = useRef<(() => void) | null>(null);
+  const contactsUnsubRef = useRef<(() => void) | null>(null);
+  const isFirstProfileCallbackRef = useRef(true);
 
   // Initialize Firebase services once
   useEffect(() => {
@@ -115,9 +124,9 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     }
   }, []);
 
-  // Load profile when authenticated
+  // Load profile when authenticated (using onSnapshot subscriptions)
   useEffect(() => {
-    const loadProfile = async () => {
+    const setupSubscriptions = () => {
       if (
         authStatus === "authenticated" &&
         session?.user?.id &&
@@ -126,44 +135,99 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       ) {
         loadingRef.current = true;
         setIsLoading(true);
+        isFirstProfileCallbackRef.current = true;
 
-        try {
-          // Use Firebase SDK to load profile
-          const profileData = await ClientProfileService.getProfile(
-            session.user.id
-          );
-
-          if (profileData) {
-            setProfile(profileData);
-            profileRef.current = profileData;
-            console.log(
-              "[ProfileContext] Profile loaded for user:",
-              session.user.id
-            );
-          } else {
-            // Profile should have been created by the backend during auth
-            console.warn(
-              "[ProfileContext] Profile not found for user:",
-              session.user.id
-            );
-            setProfile(null);
+        // Subscribe to profile updates
+        profileUnsubRef.current = ClientProfileService.subscribeToProfile(
+          session.user.id,
+          (profileData) => {
+            if (profileData) {
+              if (isFirstProfileCallbackRef.current) {
+                isFirstProfileCallbackRef.current = false;
+                console.log(
+                  "[ProfileContext] Profile loaded for user:",
+                  session.user.id
+                );
+              }
+              setProfile(profileData);
+              profileRef.current = profileData;
+              setIsLoading(false);
+              loadingRef.current = false;
+            } else {
+              if (isFirstProfileCallbackRef.current) {
+                isFirstProfileCallbackRef.current = false;
+                // Profile should have been created by the backend during auth
+                console.warn(
+                  "[ProfileContext] Profile not found for user:",
+                  session.user.id
+                );
+                setProfile(null);
+                setIsLoading(false);
+                loadingRef.current = false;
+              }
+            }
           }
-        } catch (error) {
-          console.error("[ProfileContext] Failed to load profile:", error);
-        } finally {
-          setIsLoading(false);
-          loadingRef.current = false;
-        }
+        );
+
+        // Subscribe to contacts updates
+        setContactsLoading(true);
+        contactsUnsubRef.current = ClientProfileService.subscribeToContacts(
+          session.user.id,
+          (sharedContacts: SharedSavedContact[]) => {
+            // Transform shared-types SavedContact to local SavedContact format
+            const loadedContacts: SavedContact[] = sharedContacts.map((contact) => ({
+              odtId: contact.userId,
+              odtName: getFieldValue(contact.contactEntries, 'name') || '',
+              userId: contact.userId,
+              addedAt: contact.addedAt,
+              profileImage: contact.profileImage,
+              phone: getFieldValue(contact.contactEntries, 'phone'),
+              email: getFieldValue(contact.contactEntries, 'email'),
+              contactType: contact.contactType,
+              backgroundColors: contact.backgroundColors,
+            }));
+
+            // Sort by addedAt (newest first)
+            loadedContacts.sort((a, b) => b.addedAt - a.addedAt);
+
+            setContacts(loadedContacts);
+            setContactsLoading(false);
+          }
+        );
       } else if (authStatus === "unauthenticated") {
+        // Clean up subscriptions
+        if (profileUnsubRef.current) {
+          profileUnsubRef.current();
+          profileUnsubRef.current = null;
+        }
+        if (contactsUnsubRef.current) {
+          contactsUnsubRef.current();
+          contactsUnsubRef.current = null;
+        }
+
         setProfile(null);
         profileRef.current = null;
         setContacts(null);
-        setContactsLoadedAt(null);
+        setContactsLoading(true);
         setIsLoading(false);
+        isFirstProfileCallbackRef.current = true;
+        loadingRef.current = false;
       }
     };
 
-    loadProfile();
+    setupSubscriptions();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      if (profileUnsubRef.current) {
+        profileUnsubRef.current();
+        profileUnsubRef.current = null;
+      }
+      if (contactsUnsubRef.current) {
+        contactsUnsubRef.current();
+        contactsUnsubRef.current = null;
+      }
+    };
   }, [authStatus, session?.user?.id, profile]);
 
   // Update ref when profile changes
@@ -234,6 +298,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           // Capture previous profile image BEFORE updating the ref
           const previousProfileImage = profileRef.current?.profileImage;
 
+          // Optimistic update: set immediately, onSnapshot confirms ms later
           profileRef.current = savedProfile;
           if (!options.directUpdate) {
             setProfile(savedProfile);
@@ -250,18 +315,8 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           if (isNewImage && isUserUploadedImage) {
             console.log("[ProfileContext] New profile image detected, extracting background colors...");
             // Run color extraction async (don't block the save)
+            // onSnapshot will pick up the new colors automatically
             extractBackgroundColors(session.user.id)
-              .then(async (result) => {
-                if (result?.backgroundColors) {
-                  // Reload profile to get the new colors
-                  const updatedProfile = await ClientProfileService.getProfile(session.user.id);
-                  if (updatedProfile) {
-                    setProfile(updatedProfile);
-                    profileRef.current = updatedProfile;
-                    console.log("[ProfileContext] Profile updated with new background colors");
-                  }
-                }
-              })
               .catch((error) => {
                 console.error("[ProfileContext] Background color extraction failed:", error);
               });
@@ -287,70 +342,6 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     return profileRef.current;
   }, []);
 
-  // Refresh profile using Firebase SDK
-  const refreshProfile = useCallback(async () => {
-    if (!session?.user?.id) return;
-
-    try {
-      const profileData = await ClientProfileService.getProfile(
-        session.user.id
-      );
-
-      if (profileData) {
-        setProfile(profileData);
-        profileRef.current = profileData;
-      }
-    } catch (error) {
-      console.error("[ProfileContext] Failed to refresh profile:", error);
-    }
-  }, [session?.user?.id]);
-
-  // Load contacts using Firebase SDK
-  const loadContacts = useCallback(
-    async (force: boolean = false): Promise<SavedContact[]> => {
-      if (!session?.user?.id) return [];
-
-      // Check cache validity
-      if (!force && contacts && contactsLoadedAt) {
-        const age = Date.now() - contactsLoadedAt;
-        if (age < CONTACTS_CACHE_DURATION) {
-          return contacts;
-        }
-      }
-
-      try {
-        const sharedContacts: SharedSavedContact[] = await ClientProfileService.getContacts(
-          session.user.id
-        );
-
-        // Transform shared-types SavedContact to local SavedContact format
-        const loadedContacts: SavedContact[] = sharedContacts.map((contact) => ({
-          odtId: contact.userId,
-          odtName: getFieldValue(contact.contactEntries, 'name') || '',
-          userId: contact.userId,
-          addedAt: contact.addedAt,
-          profileImage: contact.profileImage,
-          phone: getFieldValue(contact.contactEntries, 'phone'),
-          email: getFieldValue(contact.contactEntries, 'email'),
-          contactType: contact.contactType,
-          backgroundColors: contact.backgroundColors,
-        }));
-
-        // Sort by addedAt (newest first)
-        loadedContacts.sort((a, b) => b.addedAt - a.addedAt);
-
-        setContacts(loadedContacts);
-        setContactsLoadedAt(Date.now());
-
-        return loadedContacts;
-      } catch (error) {
-        console.error("[ProfileContext] Failed to load contacts:", error);
-        return [];
-      }
-    },
-    [session?.user?.id, contacts, contactsLoadedAt, CONTACTS_CACHE_DURATION]
-  );
-
   // Get single contact
   const getContact = useCallback(
     (contactUserId: string): SavedContact | null => {
@@ -359,6 +350,11 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     },
     [contacts]
   );
+
+  // Get all contacts (convenience helper matching web)
+  const getContacts = useCallback((): SavedContact[] => {
+    return contacts || [];
+  }, [contacts]);
 
   // Check if profile needs setup (no phone number configured)
   const needsSetup = useMemo(() => profileNeedsSetup(profile), [profile]);
@@ -372,10 +368,12 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         needsSetup,
         saveProfile,
         getLatestProfile,
-        refreshProfile,
         contacts,
-        loadContacts,
+        contactsLoading,
         getContact,
+        getContacts,
+        sharingCategory,
+        setSharingCategory,
         assetGeneration,
         // Expose streaming states for convenience (matching web API)
         streamingProfileImage: assetGeneration.streamingProfileImage,
@@ -405,10 +403,12 @@ export function useProfile(): ProfileContextType {
       needsSetup: false,
       saveProfile: async () => null,
       getLatestProfile: () => null,
-      refreshProfile: async () => {},
       contacts: null,
-      loadContacts: async () => [],
+      contactsLoading: false,
       getContact: () => null,
+      getContacts: () => [],
+      sharingCategory: 'Personal',
+      setSharingCategory: () => {},
       assetGeneration: {
         isCheckingGoogleImage: false,
         isGoogleInitials: false,

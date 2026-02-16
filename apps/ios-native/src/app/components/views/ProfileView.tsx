@@ -32,7 +32,6 @@ export function ProfileView() {
   const { data: session } = useSession();
   const {
     profile,
-    refreshProfile,
     streamingProfileImage,
     isGoogleInitials,
     isCheckingGoogleImage,
@@ -111,17 +110,13 @@ export function ProfileView() {
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    console.log("[ProfileView] Refreshing profile...");
-    // Reset exchange state on refresh
+    // Reset exchange state on refresh; profile is live via onSnapshot
     if (exchangeStatus !== "idle") {
       emitCancelExchange();
       setExchangeStatus("idle");
       setMatchToken(null);
     }
-    if (refreshProfile) {
-      await refreshProfile();
-    }
-  }, [refreshProfile, exchangeStatus]);
+  }, [exchangeStatus]);
 
   // Extract bio content with fallback
   const bioContent = useMemo(() => {

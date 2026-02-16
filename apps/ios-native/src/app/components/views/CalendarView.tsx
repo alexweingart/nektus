@@ -65,7 +65,7 @@ export function CalendarView() {
   const route = useRoute<CalendarViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
   const { section } = route.params;
-  const { profile, saveProfile, refreshProfile, isLoading: profileLoading } = useProfile();
+  const { profile, saveProfile, isLoading: profileLoading } = useProfile();
 
   const [isSaving, setIsSaving] = useState(false);
   const [editedHours, setEditedHours] = useState<SchedulableHours | null>(null);
@@ -73,11 +73,9 @@ export function CalendarView() {
   // Find the calendar for this section
   const calendar = profile?.calendars?.find((cal: Calendar) => cal.section === section);
 
-  // Pull-to-refresh - reloads profile and resets edits
+  // Pull-to-refresh — profile is live via onSnapshot, just reset local edits
   const { refreshControl } = useScreenRefresh({
     onRefresh: async () => {
-      await refreshProfile();
-      // Reset edited hours to reload from fresh profile
       setEditedHours(calendar?.schedulableHours || null);
     },
   });

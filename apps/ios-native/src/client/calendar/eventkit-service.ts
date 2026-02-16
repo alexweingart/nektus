@@ -6,6 +6,7 @@
  * from all calendars synced to the device.
  */
 
+import { Linking, NativeModules } from 'react-native';
 import type { TimeSlot } from '@nektus/shared-types';
 
 // Lazy-load expo-calendar (same pattern as expo-web-browser in AddCalendarModal)
@@ -70,4 +71,60 @@ export async function getDeviceBusyTimes(
   }
 
   return busyTimes;
+}
+
+/**
+ * Create a calendar event on the device via EventKit.
+ * Picks the default writable calendar (primary, or first writable as fallback).
+ * Returns the created event ID.
+ */
+export async function createCalendarEvent(params: {
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  location?: string;
+  notes?: string;
+}): Promise<string> {
+  if (!ExpoCalendar) throw new Error('expo-calendar not available');
+
+  const calendars = await ExpoCalendar.getCalendarsAsync(
+    ExpoCalendar.EntityTypes.EVENT
+  );
+
+  // Find a writable calendar: prefer primary, then local account default, then first writable
+  const writable = calendars.filter(
+    (cal) => cal.allowsModifications !== false
+  );
+  if (writable.length === 0) throw new Error('No writable calendars found');
+
+  const target =
+    writable.find((cal) => cal.isPrimary) ||
+    writable.find((cal) => cal.source?.isLocalAccount) ||
+    writable[0];
+
+  const eventId = await ExpoCalendar.createEventAsync(target.id, {
+    title: params.title,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    location: params.location,
+    notes: params.notes,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+
+  console.log(`[EventKit] Created event ${eventId} in calendar "${target.title}"`);
+  return eventId;
+}
+
+/**
+ * Present the native iOS event detail view for a created event.
+ * Falls back to opening the Calendar app at the event's date if the native viewer is unavailable.
+ */
+export async function openEventInCalendar(eventId: string, fallbackDate: Date): Promise<void> {
+  try {
+    await NativeModules.EventKitViewer.presentEvent(eventId);
+  } catch (error) {
+    console.warn('[EventKit] Native event viewer unavailable, falling back to calshow:', error);
+    const nsDateTimestamp = fallbackDate.getTime() / 1000 - 978307200;
+    Linking.openURL(`calshow:${nsDateTimestamp}`);
+  }
 }

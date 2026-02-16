@@ -9,25 +9,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // Known AsyncStorage keys used in the app
-const ASYNC_STORAGE_KEYS = [
-  "nekt-sharing-category",
-  "returning-to-history",
-  "returning-to-profile",
-  "contact-background-url",
-  "google_contacts_upsell_dismissed",
-  "google_contacts_first_save_completed",
-  "google_contacts_permission_granted",
-];
+const ASYNC_STORAGE_KEYS: string[] = [];
 
 // Prefixes for dynamic keys
 const ASYNC_STORAGE_PREFIXES = [
-  "exchange_state_",
+  "exchange-state-",
 ];
 
-// SecureStore keys
+// SecureStore keys (includes old underscore names for migration cleanup)
 const SECURE_STORE_KEYS = [
-  "nekt_session_handoff",
-  "apple_refresh_token", // For future Apple token revocation
+  "nekt-session-handoff",
+  "nekt_session_handoff", // Legacy key
+  "apple-refresh-token",
+  "apple_refresh_token", // Legacy key
 ];
 
 // App Group for shared keychain access
@@ -127,7 +121,7 @@ export async function storeAppleRefreshToken(
   refreshToken: string
 ): Promise<void> {
   try {
-    const key = `apple_refresh_token_${userId}`;
+    const key = `apple-refresh-token-${userId}`;
     await SecureStore.setItemAsync(key, refreshToken);
     console.log("[cleanup] Stored Apple refresh token for user:", userId);
   } catch (error) {
@@ -142,7 +136,7 @@ export async function getAppleRefreshToken(
   userId: string
 ): Promise<string | null> {
   try {
-    const key = `apple_refresh_token_${userId}`;
+    const key = `apple-refresh-token-${userId}`;
     const token = await SecureStore.getItemAsync(key);
     return token;
   } catch (error) {
@@ -156,7 +150,7 @@ export async function getAppleRefreshToken(
  */
 export async function deleteAppleRefreshToken(userId: string): Promise<void> {
   try {
-    const key = `apple_refresh_token_${userId}`;
+    const key = `apple-refresh-token-${userId}`;
     await SecureStore.deleteItemAsync(key);
     console.log("[cleanup] Deleted Apple refresh token for user:", userId);
   } catch (error) {

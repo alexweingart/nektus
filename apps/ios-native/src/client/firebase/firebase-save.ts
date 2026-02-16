@@ -271,6 +271,39 @@ export const ClientProfileService = {
   },
 
   /**
+   * Subscribes to real-time updates for a user's contacts collection
+   * @param userId The ID of the user to subscribe to
+   * @param callback Function to call when contacts update
+   * @returns Unsubscribe function
+   */
+  subscribeToContacts(userId: string, callback: (contacts: SavedContact[]) => void): Unsubscribe {
+    try {
+      console.log('Setting up contacts subscription for user:', userId);
+
+      const unsubscribe = onSnapshot(
+        collection(db, 'profiles', userId, 'contacts'),
+        (snapshot) => {
+          const contacts = snapshot.docs.map(doc => doc.data() as SavedContact);
+          callback(contacts);
+        },
+        (error) => {
+          console.error('Error in contacts subscription:', error);
+          const firestoreError = error as { code?: string };
+          if (firestoreError.code === ERROR_CODES.PERMISSION_DENIED) {
+            console.warn('Permission denied for contacts subscription. User may need to sign in.');
+          }
+          callback([]);
+        }
+      );
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Failed to set up contacts subscription:', error);
+      return () => {};
+    }
+  },
+
+  /**
    * Deletes a contact from the user's contacts collection
    * @param userId The ID of the user who owns the contact list
    * @param contactUserId The ID of the contact to delete

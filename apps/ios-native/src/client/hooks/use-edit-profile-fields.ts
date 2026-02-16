@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ContactEntry, FieldSection, UserProfile } from '@nektus/shared-types';
 
 /**
@@ -280,42 +279,3 @@ export const useEditProfileFields = ({
   };
 };
 
-/**
- * Hook for managing profile view mode with AsyncStorage
- */
-export const useProfileViewMode = () => {
-  const [selectedMode, setSelectedMode] = useState<'Personal' | 'Work'>('Personal');
-
-  // Load from AsyncStorage on mount - returns the loaded mode
-  const loadFromStorage = useCallback(async (): Promise<'Personal' | 'Work'> => {
-    try {
-      const savedCategory = await AsyncStorage.getItem('nekt-sharing-category');
-      if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
-        setSelectedMode(savedCategory as 'Personal' | 'Work');
-        return savedCategory as 'Personal' | 'Work';
-      }
-    } catch (error) {
-      console.warn('[iOS] Failed to load sharing category:', error);
-    }
-    return 'Personal';
-  }, []);
-
-  // Save to AsyncStorage
-  const handleModeChange = useCallback(async (mode: 'Personal' | 'Work') => {
-    if (mode === selectedMode) return;
-
-    setSelectedMode(mode);
-
-    try {
-      await AsyncStorage.setItem('nekt-sharing-category', mode);
-    } catch (error) {
-      console.warn('[iOS] Failed to save sharing category:', error);
-    }
-  }, [selectedMode]);
-
-  return {
-    selectedMode,
-    loadFromStorage,
-    handleModeChange
-  };
-};

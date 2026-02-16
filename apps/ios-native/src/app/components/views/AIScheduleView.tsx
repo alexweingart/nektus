@@ -96,6 +96,7 @@ export function AIScheduleView() {
     visible: boolean;
     title: string;
     subtitle: string;
+    eventId: string;
     startDate: Date;
   } | null>(null);
 
@@ -369,7 +370,7 @@ And if you don't know any of those things, and just want me to suggest based off
       }
 
       try {
-        await createCalendarEvent({
+        const eventId = await createCalendarEvent({
           title: event.title,
           startDate,
           endDate,
@@ -384,6 +385,7 @@ And if you don't know any of those things, and just want me to suggest based off
           visible: true,
           title: 'Added to Calendar',
           subtitle: `${event.title} — ${dayStr} • ${timeStr} (${event.duration} min)`,
+          eventId,
           startDate,
         });
       } catch (error) {
@@ -469,8 +471,8 @@ And if you don't know any of those things, and just want me to suggest based off
               title="Added to Calendar ✓"
               subtitle={createdEventModal.subtitle}
               primaryButtonText="View Event"
-              onPrimaryButtonClick={() => {
-                openEventInCalendar(createdEventModal.startDate);
+              onPrimaryButtonClick={async () => {
+                await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
                 setCreatedEventModal(null);
               }}
               secondaryButtonText="Done"

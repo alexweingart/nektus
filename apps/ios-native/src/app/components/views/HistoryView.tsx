@@ -78,7 +78,7 @@ export function HistoryView() {
   const goBackWithFade = useGoBackWithFade();
   const navigateWithFade = useNavigateWithFade();
   const { data: session } = useSession();
-  const { contacts, loadContacts, profile: userProfile } = useProfile();
+  const { contacts, contactsLoading, profile: userProfile } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -89,34 +89,22 @@ export function HistoryView() {
   const [showAddCalendarModal, setShowAddCalendarModal] = useState(false);
   const [calendarContact, setCalendarContact] = useState<SavedContact | null>(null);
 
-  // Pull-to-refresh
+  // Pull-to-refresh (no-op: contacts are live via onSnapshot)
   const { isRefreshing, handleRefresh } = useScreenRefresh({
-    onRefresh: async () => {
-      await loadContacts(true);
-    },
+    onRefresh: async () => {},
   });
 
-  // Load contacts on mount
+  // Wait for contacts to load via onSnapshot
   useEffect(() => {
-    const fetchContacts = async () => {
-      if (!session?.user?.id) {
-        navigation.goBack();
-        return;
-      }
+    if (!session?.user?.id) {
+      navigation.goBack();
+      return;
+    }
 
-      try {
-        setError(null);
-        await loadContacts();
-        setIsLoading(false);
-      } catch (err) {
-        console.error('[HistoryView] Failed to load contacts:', err);
-        setError('Failed to load contact history');
-        setIsLoading(false);
-      }
-    };
-
-    fetchContacts();
-  }, [session, navigation, loadContacts]);
+    if (!contactsLoading) {
+      setIsLoading(false);
+    }
+  }, [session, navigation, contactsLoading]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -157,8 +145,7 @@ export function HistoryView() {
         throw new Error('Failed to delete contact');
       }
 
-      // Reload contacts with force refresh
-      await loadContacts(true);
+      // onSnapshot will auto-update the contacts list
     } catch (err) {
       console.error('[HistoryView] Failed to delete contact:', err);
       setError('Failed to delete contact');
@@ -166,7 +153,7 @@ export function HistoryView() {
       setDeletingContactId(null);
       setContactToDelete(null);
     }
-  }, [contactToDelete, session, apiBaseUrl, loadContacts]);
+  }, [contactToDelete, session, apiBaseUrl]);
 
   // Handle cancel delete
   const handleCancelDelete = useCallback(() => {
@@ -254,8 +241,7 @@ export function HistoryView() {
             size="xl"
             onPress={() => {
               setError(null);
-              setIsLoading(true);
-              loadContacts().then(() => setIsLoading(false));
+              // Contacts are live via onSnapshot — just clear error state
             }}
             style={styles.retryButton}
           >
@@ -332,7 +318,7 @@ export function HistoryView() {
           setCalendarContact(null);
         }}
         section={calendarContact?.contactType || 'personal'}
-        userEmail={session?.user?.email || userProfile?.fields?.find(f => f.fieldType === 'email')?.value || ''}
+        userEmail={session?.user?.email || userProfile?.contactEntries?.find((f: any) => f.fieldType === 'email')?.value || ''}
         onCalendarAdded={handleCalendarAdded}
       />
     </ScreenTransition>

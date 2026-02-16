@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Image, Text, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Rect } from 'react-native-svg';
 import { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN, TEXT_BLACK } from '../../../../shared/colors';
 
 interface AvatarProps {
@@ -50,9 +50,9 @@ const Avatar: React.FC<AvatarProps> = ({
   profileColors,
 }) => {
   // Derive gradient and text colors from profileColors or fall back to brand green
-  const gradientColors: [string, string] = profileColors
-    ? [profileColors[1], profileColors[0]]  // accent1 → dominant
-    : [BRAND_LIGHT_GREEN, BRAND_DARK_GREEN];
+  // Radial gradient: center = dominant (dark), edge = accent1 (lighter) - matches web
+  const gradientCenter = profileColors ? profileColors[0] : BRAND_DARK_GREEN;
+  const gradientEdge = profileColors ? profileColors[1] : BRAND_LIGHT_GREEN;
   const initialsColor = profileColors ? profileColors[2] : TEXT_BLACK;  // accent2 or dark teal
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
@@ -69,6 +69,19 @@ const Avatar: React.FC<AvatarProps> = ({
 
   const dimension = sizeNumeric ?? sizeMap[size];
   const fontSize = sizeNumeric ? Math.round(sizeNumeric * 0.375) : fontSizeMap[size];
+
+  // Radial gradient background for initials (matches web's radial-gradient(circle, dominant, accent1))
+  const renderRadialGradientBackground = (dim: number) => (
+    <Svg width={dim} height={dim} style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgRadialGradient id="avatarGrad" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor={gradientCenter} stopOpacity="1" />
+          <Stop offset="100%" stopColor={gradientEdge} stopOpacity="1" />
+        </SvgRadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={dim} height={dim} fill="url(#avatarGrad)" />
+    </Svg>
+  );
 
   React.useEffect(() => {
     // Only react to src changes, not hasError changes (prevents infinite loop)
@@ -151,23 +164,12 @@ const Avatar: React.FC<AvatarProps> = ({
           borderRadius: dimension / 2,
         }
       ]}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.initialsContainer,
-            {
-              width: dimension,
-              height: dimension,
-              borderRadius: dimension / 2,
-            }
-          ]}
-        >
+        {renderRadialGradientBackground(dimension)}
+        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
           <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -183,23 +185,12 @@ const Avatar: React.FC<AvatarProps> = ({
           borderRadius: dimension / 2,
         }
       ]}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.initialsContainer,
-            {
-              width: dimension,
-              height: dimension,
-              borderRadius: dimension / 2,
-            }
-          ]}
-        >
+        {renderRadialGradientBackground(dimension)}
+        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
           <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -220,23 +211,12 @@ const Avatar: React.FC<AvatarProps> = ({
           StyleSheet.absoluteFill,
           { opacity: fadeAnimInitials }
         ]}>
-          <LinearGradient
-            colors={gradientColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.initialsContainer,
-              {
-                width: dimension,
-                height: dimension,
-                borderRadius: dimension / 2,
-              }
-            ]}
-          >
+          {renderRadialGradientBackground(dimension)}
+          <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
             <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
               {initials}
             </Text>
-          </LinearGradient>
+          </View>
         </Animated.View>
 
         {/* Image fading in */}
@@ -274,23 +254,12 @@ const Avatar: React.FC<AvatarProps> = ({
           borderRadius: dimension / 2,
         }
       ]}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.initialsContainer,
-            {
-              width: dimension,
-              height: dimension,
-              borderRadius: dimension / 2,
-            }
-          ]}
-        >
+        {renderRadialGradientBackground(dimension)}
+        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
           <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
             {initials}
           </Text>
-        </LinearGradient>
+        </View>
       </View>
     );
   }

@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { BlurView } from 'expo-blur';
 import type { UserProfile } from '@nektus/shared-types';
 import { getOptimalProfileImageUrl } from '@nektus/shared-client';
 import Avatar from '../elements/Avatar';
@@ -31,7 +32,10 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
   const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
 
   const name = getFieldValue(profile?.contactEntries, 'name') || 'Anonymous';
-  const profileColors = generateProfileColors(name);
+  // Use actual profile colors when available (photo-extracted), fall back to name-generated
+  const profileColors = (profile.backgroundColors?.length === 3
+    ? profile.backgroundColors as [string, string, string]
+    : generateProfileColors(name));
 
   return (
     <View style={styles.container}>
@@ -48,8 +52,13 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
         </View>
       </View>
 
-      {/* Content with blur background */}
+      {/* Content with blur background - matches web bg-black/60 backdrop-blur-lg */}
       <View style={styles.contentCard}>
+        <BlurView
+          style={StyleSheet.absoluteFillObject}
+          tint="dark"
+          intensity={50}
+        />
         {/* Name */}
         <View style={styles.nameContainer}>
           <Text style={styles.name}>{name}</Text>
@@ -102,10 +111,11 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'transparent',
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 16,
+    overflow: 'hidden',
   },
   nameContainer: {
     alignItems: 'center',

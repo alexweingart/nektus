@@ -142,18 +142,25 @@ export const SocialIconsList: React.FC<SocialIconsListProps> = ({
       username: item.username
     });
 
-    try {
-      // For standard schemes (tel, mailto, http, https), skip canOpenURL check
-      // as it can sometimes fail even when the URL is valid
-      const isStandardScheme = item.url.startsWith('tel:') ||
-                               item.url.startsWith('mailto:') ||
-                               item.url.startsWith('http:') ||
-                               item.url.startsWith('https:');
+    // For standard schemes (tel, mailto, http, https), skip canOpenURL check
+    // and don't show error alerts - the app opens fine but Linking.openURL
+    // can reject when returning from the opened app (e.g. Instagram Universal Links)
+    const isStandardScheme = item.url.startsWith('tel:') ||
+                             item.url.startsWith('mailto:') ||
+                             item.url.startsWith('http:') ||
+                             item.url.startsWith('https:') ||
+                             item.url.startsWith('sms:');
 
-      if (isStandardScheme) {
-        console.log(`[SocialIconsList] Opening standard scheme directly:`, item.url);
-        await Linking.openURL(item.url);
-      } else {
+    if (isStandardScheme) {
+      console.log(`[SocialIconsList] Opening standard scheme directly:`, item.url);
+      Linking.openURL(item.url).catch((error) => {
+        // Don't show alert for standard URLs - the target app likely opened
+        // successfully via Universal Links, and the promise rejection happens
+        // when the user returns to this app
+        console.warn(`[SocialIconsList] openURL resolved with error for ${item.platform}:`, error);
+      });
+    } else {
+      try {
         const canOpen = await Linking.canOpenURL(item.url);
         console.log(`[SocialIconsList] canOpenURL result:`, canOpen);
         if (canOpen) {
@@ -162,10 +169,10 @@ export const SocialIconsList: React.FC<SocialIconsListProps> = ({
           console.error(`[SocialIconsList] Cannot open URL:`, item.url);
           Alert.alert('Error', `Cannot open ${item.platform}`);
         }
+      } catch (error) {
+        console.error(`[SocialIconsList] Failed to open ${item.platform}:`, error);
+        Alert.alert('Error', `Failed to open ${item.platform}`);
       }
-    } catch (error) {
-      console.error(`[SocialIconsList] Failed to open ${item.platform}:`, error);
-      Alert.alert('Error', `Failed to open ${item.platform}: ${error}`);
     }
   };
 

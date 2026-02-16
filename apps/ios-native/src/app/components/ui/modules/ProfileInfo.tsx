@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
@@ -17,11 +16,9 @@ import { SocialIconsList } from '../elements/SocialIconsList';
 import { ProfileViewSelector } from '../controls/ProfileViewSelector';
 import { Heading, BodyText } from '../Typography';
 import { getApiBaseUrl } from '@nektus/shared-client';
+import { useProfile, type SharingCategory } from '../../../../app/context/ProfileContext';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 import { useAdminModeActivator } from '../banners/AdminBanner';
-
-type ProfileViewMode = 'Personal' | 'Work';
-type SharingCategory = 'Personal' | 'Work';
 
 interface ProfileAnimatedValues {
   scale: Animated.Value;
@@ -89,12 +86,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const apiBaseUrl = getApiBaseUrl();
   // Convert API base URL to web URL (remove /api if present, use web domain)
   const webBaseUrl = apiBaseUrl.replace('/api', '').replace('api.', '');
-  const [selectedMode, setSelectedMode] = useState<ProfileViewMode>('Personal');
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+  // Sharing category from Context (replaces AsyncStorage)
+  const { sharingCategory, setSharingCategory } = useProfile();
   const [containerWidth, setContainerWidth] = useState(0);
   const [innerContentHeight, setInnerContentHeight] = useState(0); // Track inner content height (without padding) for stable QR transition
   const containerWidthRef = useRef(0);
-  const selectedModeRef = useRef<ProfileViewMode>('Personal');
+  const selectedModeRef = useRef<SharingCategory>(sharingCategory);
   const translateX = useRef(new Animated.Value(0)).current;
 
   // Keep showInitials true when we have Google initials, even when profileImageSrc arrives
@@ -104,46 +101,19 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Admin mode activator - double-tap on avatar to toggle
   const adminActivator = useAdminModeActivator();
 
-  // Load selected mode from AsyncStorage on mount
+  // Keep ref in sync with context
   useEffect(() => {
-    const loadCategory = async () => {
-      try {
-        const savedCategory = await AsyncStorage.getItem('nekt-sharing-category') as SharingCategory;
-        if (savedCategory && ['Personal', 'Work'].includes(savedCategory)) {
-          setSelectedMode(savedCategory);
-          selectedModeRef.current = savedCategory;
-        }
-        setHasLoadedFromStorage(true);
-      } catch (error) {
-        console.warn('Failed to load sharing category from AsyncStorage:', error);
-        setHasLoadedFromStorage(true);
-      }
-    };
-    loadCategory();
-  }, []);
-
-  // Save selected mode to AsyncStorage when it changes
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-
-    const saveCategory = async () => {
-      try {
-        await AsyncStorage.setItem('nekt-sharing-category', selectedMode);
-      } catch (error) {
-        console.warn('Failed to save sharing category to AsyncStorage:', error);
-      }
-    };
-    saveCategory();
-  }, [selectedMode, hasLoadedFromStorage]);
+    selectedModeRef.current = sharingCategory;
+  }, [sharingCategory]);
 
   // Filter contact entries based on selected mode
   const filteredContactEntries = React.useMemo(() => {
-    if (profile?.contactEntries && hasLoadedFromStorage) {
-      const filteredProfile = filterProfileByCategory(profile, selectedMode);
+    if (profile?.contactEntries) {
+      const filteredProfile = filterProfileByCategory(profile, sharingCategory);
       return filteredProfile.contactEntries;
     }
     return profile?.contactEntries || [];
-  }, [profile, selectedMode, hasLoadedFromStorage]);
+  }, [profile, sharingCategory]);
 
   // Handle layout to measure container width (card container)
   const handleContainerLayout = (event: LayoutChangeEvent) => {
@@ -164,10 +134,10 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   };
 
   // Handle mode change from selector
-  const handleModeChange = (mode: ProfileViewMode) => {
+  const handleModeChange = (mode: SharingCategory) => {
     if (mode === selectedModeRef.current || !containerWidthRef.current) return;
 
-    setSelectedMode(mode);
+    setSharingCategory(mode);
     selectedModeRef.current = mode;
 
     // Animate carousel - use measured container width
@@ -233,14 +203,14 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Update carousel position when mode changes
   useEffect(() => {
     if (!containerWidthRef.current) return;
-    const targetX = selectedMode === 'Work' ? -containerWidthRef.current : 0;
+    const targetX = sharingCategory === 'Work' ? -containerWidthRef.current : 0;
     Animated.spring(translateX, {
       toValue: targetX,
       useNativeDriver: true,
       tension: 50,
       friction: 9,
     }).start();
-  }, [selectedMode, translateX]);
+  }, [sharingCategory, translateX]);
 
   // Build rotation interpolation for the profile card wobble effect
   const rotationInterpolation = animatedValues?.rotation.interpolate({
@@ -411,7 +381,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         {/* Profile View Selector */}
         <View style={styles.selectorContainer}>
           <ProfileViewSelector
-            selected={selectedMode}
+            selected={sharingCategory}
             onSelect={handleModeChange}
             tintColor={profile?.backgroundColors?.[2]}
           />

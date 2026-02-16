@@ -34,7 +34,7 @@ export function LocationView() {
   const route = useRoute<LocationViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
   const { section } = route.params;
-  const { profile, saveProfile, refreshProfile, isLoading: profileLoading } = useProfile();
+  const { profile, saveProfile, isLoading: profileLoading } = useProfile();
   const apiBaseUrl = getApiBaseUrl();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -44,11 +44,9 @@ export function LocationView() {
   // Find the location for this section
   const location = profile?.locations?.find((loc: UserLocation) => loc.section === section);
 
-  // Pull-to-refresh - reloads profile and resets edits
+  // Pull-to-refresh — profile is live via onSnapshot, just reset local edits
   const { refreshControl } = useScreenRefresh({
     onRefresh: async () => {
-      await refreshProfile();
-      // Reset edited location to reload from fresh profile
       const freshLocation = profile?.locations?.find((loc: UserLocation) => loc.section === section);
       setEditedLocation(freshLocation ? { ...freshLocation } : null);
       setValidationError('');
