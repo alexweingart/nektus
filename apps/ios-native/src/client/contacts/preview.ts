@@ -23,7 +23,8 @@ export async function fetchProfilePreview(token: string): Promise<PreviewResult>
     const response = await fetch(`${apiBaseUrl}/api/exchange/preview/${token}`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch preview: ${response.status}`);
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.message || `Failed to fetch preview: ${response.status}`);
     }
 
     const result = await response.json();
