@@ -91,8 +91,8 @@ const Avatar: React.FC<AvatarProps> = ({
 
   // Determine what overlay to show while image isn't ready
   const hasValidSrc = !!src && !hasError;
-  const showSkeleton = isLoading || (hasValidSrc && !imageLoaded && !showInitials);
-  const showInitialsOverlay = (!hasValidSrc && showInitials) || (hasError && !isLoading);
+  const showSkeleton = isLoading || (hasValidSrc && !imageLoaded);
+  const showInitialsOverlay = !hasValidSrc && !isLoading;
 
   return (
     <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
