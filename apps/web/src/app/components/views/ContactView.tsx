@@ -305,7 +305,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
       // For historical mode, no delay needed
       setIsEntering(false);
     }
-  }, [isHistoricalMode, isReturningFromAuth]);
+  }, [isHistoricalMode, isReturningFromAuth, skipEnterAnimation]);
 
   if (!profile) {
     console.log('❌ ContactView: No profile provided, returning null');

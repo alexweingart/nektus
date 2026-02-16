@@ -243,7 +243,7 @@ function ConnectPageContent() {
     }
 
     fetchMatchedProfile();
-  }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile, phoneEntryComplete]);
+  }, [session, status, router, token, isHistoricalMode, contactProfile, previewProfile, phoneEntryComplete, getContacts]);
 
 
   // Show loading only for initial auth check — if we already have a

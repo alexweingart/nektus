@@ -123,7 +123,8 @@ describe('atomicExchangeAndMatch', () => {
     await atomicExchangeAndMatch('session-1', data1, makeLocation(), 1000);
 
     const data2 = { ...makeExchangeData('session-2', 'user-2', 0), location: undefined, serverTimestamp: undefined };
-    const result = await atomicExchangeAndMatch('session-2', data2 as any, undefined as any);
+    // @ts-expect-error — intentionally passing undefined to test fallback behavior
+    const result = await atomicExchangeAndMatch('session-2', data2, undefined);
 
     expect(result).not.toBeNull();
     expect(result!.sessionId).toBe('session-1');

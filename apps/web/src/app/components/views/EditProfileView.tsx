@@ -90,7 +90,7 @@ const EditProfileView: React.FC = () => {
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     handleCarouselModeChange(mode);
     setSelectedMode(mode);
-  }, [handleCarouselModeChange]);
+  }, [handleCarouselModeChange, setSelectedMode]);
 
   // Image upload handlers
   const handleProfileImageUpload = createUploadHandler('profile', (imageData) =>

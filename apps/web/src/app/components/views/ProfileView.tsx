@@ -21,13 +21,12 @@ import { getOptimalProfileImageUrl } from '@/client/profile/image';
 type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
 
 const ProfileView: React.FC = () => {
-  const { data: session, status: sessionStatus } = useSession();
+  const { status: sessionStatus } = useSession();
   
   const {
     profile,
     isLoading: isProfileLoading,
     isNavigatingFromSetup,
-    streamingSocialContacts,
     streamingProfileImage,
     isGoogleInitials,
     isCheckingGoogleImage
@@ -175,11 +174,6 @@ const ProfileView: React.FC = () => {
     const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
     return isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl);
   }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
-
-  // Contact channels with streaming support
-  const contactChannels = useMemo(() => {
-    return streamingSocialContacts || currentProfile?.contactEntries;
-  }, [streamingSocialContacts, currentProfile?.contactEntries]);
 
 
   // Show loading state while checking auth status or loading profile, but not when navigating from setup

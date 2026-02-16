@@ -11,7 +11,7 @@ import { firebaseAuth } from '@/client/auth/firebase';
 // The admin mode banner component
 export default function AdminBanner() {
   const { isAdminMode, closeAdminMode } = useAdminMode();
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSimulateNekt = useCallback(() => {
@@ -174,7 +174,7 @@ export default function AdminBanner() {
       console.error('[DELETE] Fatal error:', err);
       setDeleteStatus('error');
     }
-  }, [session, closeAdminMode, update]);
+  }, [session, closeAdminMode]);
 
   if (!isAdminMode) {
     return null;

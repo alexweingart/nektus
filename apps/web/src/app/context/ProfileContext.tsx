@@ -286,7 +286,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (firebaseAuth.getCurrentUser()) {
           try {
             await firebaseAuth.signOut();
-          } catch (error) {
+          } catch {
             // Ignore signout errors
           }
         }

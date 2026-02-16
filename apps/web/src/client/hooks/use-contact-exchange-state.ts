@@ -88,8 +88,7 @@ export function useContactExchangeState(
       }
     }
   // Only run once on mount — modal state is set before first paint
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setShowSuccessModal]);
 
   // Handle side effects: URL cleanup, state persistence, background Google save
   useEffect(() => {
@@ -201,7 +200,7 @@ export function useContactExchangeState(
     };
 
     checkExchangeState();
-  }, [profile, profile.userId, token, isHistoricalMode]);
+  }, [profile, profile.userId, token, isHistoricalMode, setShowSuccessModal]);
 
   return {
     showSuccessModal,
