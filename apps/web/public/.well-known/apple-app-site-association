@@ -17,7 +17,7 @@
     "details": [
       {
         "appID": "V4R5CSCQ2J.com.nektus.app.Clip",
-        "paths": ["/x/*", "/c/*"]
+        "paths": ["/x/*"]
       }
     ]
   }

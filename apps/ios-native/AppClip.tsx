@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, StyleSheet, ActivityIndicator, Clipboard } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
 
@@ -350,6 +350,59 @@ function AppClipContent() {
     );
   }
 
+  // No token state — show paste input for testing (e.g. launched from TestFlight at /x/)
+  if (error && !previewProfile && !token) {
+    return (
+      <View style={styles.container}>
+        <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
+        <View style={styles.centered}>
+          <Text style={styles.pasteTitle}>Paste Exchange Link</Text>
+          <Text style={styles.pasteSubtitle}>Scan a QR code in your browser, copy the URL, and paste it here</Text>
+          <TextInput
+            style={styles.pasteInput}
+            placeholder="https://nekt.us/x/..."
+            placeholderTextColor="rgba(255, 255, 255, 0.3)"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={(e) => {
+              const url = e.nativeEvent.text.trim();
+              const match = url.match(/\/x\/([^/?]+)/);
+              if (match?.[1]) {
+                setError(null);
+                setToken(match[1]);
+              } else {
+                setError("No token found in URL");
+              }
+            }}
+            returnKeyType="go"
+          />
+          <Button
+            variant="primary"
+            onPress={async () => {
+              try {
+                const text = await Clipboard.getString();
+                const match = text.match(/\/x\/([^/?]+)/);
+                if (match?.[1]) {
+                  setError(null);
+                  setToken(match[1]);
+                } else {
+                  setError("No exchange token found in clipboard");
+                }
+              } catch {
+                setError("Failed to read clipboard");
+              }
+            }}
+          >
+            Paste from Clipboard
+          </Button>
+          {error !== "Invalid link - no contact token found" && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   // Error state (only show if no profile to display behind it)
   if (error && !previewProfile) {
     return (
@@ -357,33 +410,6 @@ function AppClipContent() {
         <ParticleNetworkLite colors={DEFAULT_PARTICLE_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
-          <Button
-            variant="primary"
-            onPress={() => {
-              setError(null);
-              setIsLoading(true);
-              // Re-try loading
-              Linking.getInitialURL().then((url: string | null) => {
-                if (url) {
-                  const parsed = Linking.parse(url);
-                  // Extract token from path: /x/{token}
-                  const pathParts = parsed.path?.split('/').filter(Boolean) || [];
-                  if (pathParts[0] === 'x' && pathParts[1]) {
-                    setToken(pathParts[1]);
-                  } else {
-                    // Fallback: try query params
-                    const tokenParam = parsed.queryParams?.token as string | undefined;
-                    if (tokenParam) {
-                      setToken(tokenParam);
-                    }
-                  }
-                }
-                setIsLoading(false);
-              });
-            }}
-          >
-            Try Again
-          </Button>
         </View>
       </View>
     );
@@ -469,9 +495,33 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#ef4444",
-    fontSize: 16,
+    fontSize: 14,
     textAlign: "center",
+    marginTop: 8,
+  },
+  pasteTitle: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  pasteSubtitle: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 24,
+    paddingHorizontal: 32,
+  },
+  pasteInput: {
+    width: "85%",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    padding: 14,
+    color: "#ffffff",
+    fontSize: 15,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
   errorOverlay: {
     position: "absolute",
