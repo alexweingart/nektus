@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "deploymentTarget": "17.0",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
@@ -67,17 +67,29 @@
     },
     "plugins": [
       "expo-apple-authentication",
-      ["expo-calendar", {
-        "calendarPermission": "Nekt reads your calendar to find available meeting times. No event details are stored."
-      }],
-      ["expo-image-picker", {
-        "photosPermission": "Nekt needs access to your photos to set your profile picture"
-      }],
-      ["react-native-ble-plx", {
-        "isBackgroundEnabled": false,
-        "modes": ["peripheral", "central"],
-        "bluetoothAlwaysPermission": "Nekt uses Bluetooth to discover nearby friends"
-      }],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Nekt reads your calendar to find available meeting times. No event details are stored."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nekt needs access to your photos to set your profile picture"
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Nekt uses Bluetooth to discover nearby friends"
+        }
+      ],
       [
         "react-native-app-clip",
         {
