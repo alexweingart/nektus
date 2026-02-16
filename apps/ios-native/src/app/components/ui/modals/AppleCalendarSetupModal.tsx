@@ -4,7 +4,7 @@
  *
  * Changes from web:
  * - Replaced div with View
- * - Uses iOS StaticInput component (glassmorphic style)
+ * - Uses iOS SingleLineInput component (glassmorphic style)
  * - Replaced Tailwind with StyleSheet
  * - Uses Linking for external URL
  * - Link color uses dominant profile color (matching web's hsl(var(--primary)))
@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
 import { StandardModal } from './StandardModal';
-import { StaticInput } from '../inputs/StaticInput';
+import { SingleLineInput } from '../inputs/SingleLineInput';
 import { useProfile } from '../../../context/ProfileContext';
 import { ensureReadableColor } from '@nektus/shared-client';
 
@@ -100,7 +100,7 @@ export function AppleCalendarSetupModal({
         </View>
 
         <View style={styles.inputsContainer}>
-          <StaticInput
+          <SingleLineInput
             value={appleId}
             onChangeText={setAppleId}
             placeholder="Apple ID (iCloud Email)"
@@ -108,7 +108,7 @@ export function AppleCalendarSetupModal({
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <StaticInput
+          <SingleLineInput
             value={appPassword}
             onChangeText={(text: string) => setAppPassword(text.replace(/[\s-]/g, ''))}
             placeholder="16-character app-specific password"

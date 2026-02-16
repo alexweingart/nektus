@@ -1,5 +1,5 @@
 /**
- * ThemedTextInput - Base TextInput with app-wide defaults
+ * BaseTextInput - Base TextInput primitive with app-wide defaults
  * Centralizes cursor color and other theme settings
  *
  * IMPORTANT: Uses gesture-handler's TextInput to properly integrate with
@@ -10,7 +10,7 @@ import React, { forwardRef } from 'react';
 import { TextInput as RNTextInput, TextInputProps } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
 
-export interface ThemedTextInputProps extends Omit<TextInputProps, 'cursorColor' | 'selectionColor'> {
+export interface BaseTextInputProps extends Omit<TextInputProps, 'cursorColor' | 'selectionColor'> {
   /** Override the default cursor color theme (white for dark bg, black for light bg) */
   colorTheme?: 'light' | 'dark';
 }
@@ -22,7 +22,7 @@ export interface ThemedTextInputProps extends Omit<TextInputProps, 'cursorColor'
  * Uses react-native-gesture-handler's TextInput for proper integration
  * with parent gesture handlers like TouchableOpacity's onLongPress.
  */
-export const ThemedTextInput = forwardRef<RNTextInput, ThemedTextInputProps>(
+export const BaseTextInput = forwardRef<RNTextInput, BaseTextInputProps>(
   ({ colorTheme = 'light', ...props }, ref) => {
     // Resolve the actual color based on theme
     const resolvedColor = colorTheme === 'light' ? '#ffffff' : '#000000';
@@ -39,6 +39,6 @@ export const ThemedTextInput = forwardRef<RNTextInput, ThemedTextInputProps>(
   }
 );
 
-ThemedTextInput.displayName = 'ThemedTextInput';
+BaseTextInput.displayName = 'BaseTextInput';
 
-export default ThemedTextInput;
+export default BaseTextInput;

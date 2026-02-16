@@ -1,13 +1,13 @@
 /**
- * StaticInput - Fixed-height input field with optional icon and visibility toggle
- * For name, email, and other single-line text fields
+ * SingleLineInput - Fixed-height input field with optional icon and visibility toggle.
+ * For name, email, and other single-line text fields.
  */
 
 import React, { forwardRef, InputHTMLAttributes, ReactNode, useMemo, useRef } from 'react';
 import { EyeIcon } from '../elements/EyeIcon';
 import { isAndroidPlatform } from '@/client/platform-detection';
 
-interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface SingleLineInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: ReactNode;
   error?: string;
   className?: string;
@@ -19,7 +19,7 @@ interface StaticInputProps extends InputHTMLAttributes<HTMLInputElement> {
   onToggleHide?: () => void;
 }
 
-export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
+export const SingleLineInput = forwardRef<HTMLInputElement, SingleLineInputProps>(
   ({ label, error, className = '', inputClassName = '', icon, iconClassName = '', variant = 'default', isHidden = false, onToggleHide, ...props }, ref) => {
     const { onChange, ...inputProps } = props;
     const isComposingRef = useRef(false);
@@ -93,4 +93,4 @@ export const StaticInput = forwardRef<HTMLInputElement, StaticInputProps>(
   }
 );
 
-StaticInput.displayName = 'StaticInput';
+SingleLineInput.displayName = 'SingleLineInput';

@@ -1,5 +1,5 @@
 /**
- * PhoneEntryModal for iOS App Clip
+ * PostSignUpModal for iOS App Clip
  * Collects phone number (and optional social) after Apple Sign-in.
  * Non-dismissible — user must save before proceeding.
  */
@@ -22,7 +22,7 @@ import { SecondaryButton } from '../buttons/SecondaryButton';
 import { Heading, BodyText } from '../Typography';
 import type { ContactEntry } from '@nektus/shared-types';
 
-interface PhoneEntryModalProps {
+interface PostSignUpModalProps {
   isOpen: boolean;
   userName: string;
   isSaving: boolean;
@@ -31,7 +31,7 @@ interface PhoneEntryModalProps {
   scannedSection?: 'personal' | 'work';
 }
 
-export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
+export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   isOpen,
   userName,
   isSaving,
@@ -112,7 +112,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
     try {
       await onSave(digits, socialEntries);
     } catch (err) {
-      console.error('[PhoneEntryModal] Save failed:', err);
+      console.error('[PostSignUpModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
   }, [digits, socialInputs, isPhoneValid, isSaving, onSave]);
@@ -280,4 +280,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PhoneEntryModal;
+export default PostSignUpModal;

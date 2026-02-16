@@ -1,6 +1,7 @@
 /**
- * StaticInput for iOS
- * Adapted from: apps/web/src/app/components/ui/inputs/StaticInput.tsx
+ * SingleLineInput for iOS
+ * Fixed-height input field with optional icon and visibility toggle.
+ * For name, email, and other single-line text fields.
  *
  * Changes from web:
  * - Replaced HTML input with React Native TextInput
@@ -19,9 +20,9 @@ import {
   TextInputProps,
 } from 'react-native';
 import { EyeIcon } from '../elements/EyeIcon';
-import { ThemedTextInput } from './ThemedTextInput';
+import { BaseTextInput } from './BaseTextInput';
 
-interface StaticInputProps extends Omit<TextInputProps, 'style'> {
+interface SingleLineInputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
   error?: string;
   icon?: ReactNode;
@@ -30,7 +31,7 @@ interface StaticInputProps extends Omit<TextInputProps, 'style'> {
   onToggleHide?: () => void;
 }
 
-export function StaticInput({
+export function SingleLineInput({
   label,
   error,
   icon,
@@ -38,7 +39,7 @@ export function StaticInput({
   isHidden = false,
   onToggleHide,
   ...props
-}: StaticInputProps) {
+}: SingleLineInputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
   return (
@@ -63,7 +64,7 @@ export function StaticInput({
 
         {icon && <View style={styles.iconContainer}>{icon}</View>}
 
-        <ThemedTextInput
+        <BaseTextInput
           style={[
             styles.input,
             icon ? styles.inputWithIcon : styles.inputNoIcon,
@@ -179,4 +180,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default StaticInput;
+export default SingleLineInput;

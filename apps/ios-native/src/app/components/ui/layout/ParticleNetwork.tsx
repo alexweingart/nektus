@@ -136,7 +136,7 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
 // Color transition duration (matches web's 1000ms)
 const COLOR_TRANSITION_DURATION = 1000;
 
-export function ParticleNetworkLite({
+export function ParticleNetwork({
   colors,
   context = "signed-out",
 }: ParticleNetworkProps) {
@@ -179,7 +179,7 @@ export function ParticleNetworkLite({
   // Detect color changes and start transition
   useEffect(() => {
     if (!colorsEqual(targetColors, transitionRef.current.toColors)) {
-      console.log('[ParticleNetworkLite] Starting color transition');
+      console.log('[ParticleNetwork] Starting color transition');
       // Start transition from current display colors to new target
       transitionRef.current = {
         fromColors: displayColors,
@@ -393,4 +393,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ParticleNetworkLite;
+export default ParticleNetwork;

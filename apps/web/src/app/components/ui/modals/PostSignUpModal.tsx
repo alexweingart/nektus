@@ -10,7 +10,7 @@ import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import type { ContactEntry } from '@/types/profile';
 import { detectPlatform } from '@/client/platform-detection';
 
-interface PhoneEntryModalProps {
+interface PostSignUpModalProps {
   isOpen: boolean;
   userName: string;
   isSaving: boolean;
@@ -19,7 +19,7 @@ interface PhoneEntryModalProps {
   scannedSection?: 'personal' | 'work';
 }
 
-export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
+export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   isOpen,
   userName,
   isSaving,
@@ -99,7 +99,7 @@ export const PhoneEntryModal: React.FC<PhoneEntryModalProps> = ({
     try {
       await onSave(digits, socialEntries);
     } catch (err) {
-      console.error('[PhoneEntryModal] Save failed:', err);
+      console.error('[PostSignUpModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
   }, [digits, socialInputs, isPhoneValid, isSaving, onSave]);

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ParticleNetworkLite as ParticleNetwork, ParticleNetworkProps } from "./ParticleNetworkLite";
+import { ParticleNetwork, ParticleNetworkProps } from "./ParticleNetwork";
 import { useProfile } from "../../../../app/context/ProfileContext";
 import { useSession } from "../../../../app/providers/SessionProvider";
 import { useCurrentRoute } from "../../../../app/context/RouteContext";

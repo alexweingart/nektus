@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { StaticInput } from '../inputs/StaticInput';
+import { SingleLineInput } from '../inputs/SingleLineInput';
 import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import SocialIcon from './SocialIcon';
@@ -122,7 +122,7 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
           }
         />
       ) : (
-        <StaticInput
+        <SingleLineInput
           type={fieldType === 'email' ? 'email' : 'text'}
           id={fieldId}
           value={value}

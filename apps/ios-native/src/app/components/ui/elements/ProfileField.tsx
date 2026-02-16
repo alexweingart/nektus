@@ -4,13 +4,13 @@
  *
  * Changes from web:
  * - Uses React Native components
- * - Uses iOS input components (StaticInput, DropdownPhoneInput, ExpandingInput)
+ * - Uses iOS input components (SingleLineInput, DropdownPhoneInput, ExpandingInput)
  * - Drag handle implemented via ref/props instead of data-* attributes
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { StaticInput } from '../inputs/StaticInput';
+import { SingleLineInput } from '../inputs/SingleLineInput';
 import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import SocialIcon from './SocialIcon';
@@ -120,7 +120,7 @@ export function ProfileField({
   // Standard input with icon and visibility toggle
   return (
     <View style={styles.container}>
-      <StaticInput
+      <SingleLineInput
         value={value}
         onChangeText={(newValue) => {
           onChange(fieldType, newValue, profile.section);

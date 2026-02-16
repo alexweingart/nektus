@@ -32,7 +32,7 @@ import { useEditProfileFields } from '../../../client/hooks/use-edit-profile-fie
 import { useCalendarLocationManagement } from '../../../client/hooks/use-calendar-location-management';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ProfileViewSelector } from '../ui/controls/ProfileViewSelector';
-import { StaticInput } from '../ui/inputs/StaticInput';
+import { SingleLineInput } from '../ui/inputs/SingleLineInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
 import { FieldSection as FieldSectionComponent } from '../ui/modules/FieldSection';
 import { FieldList } from '../ui/modules/FieldList';
@@ -242,7 +242,7 @@ export function EditProfileView() {
             >
               {/* Name Input with Profile Image */}
               <View style={styles.nameInputContainer}>
-                <StaticInput
+                <SingleLineInput
                   value={fieldManager.getFieldValue('name')}
                   onChangeText={(value) => fieldManager.setFieldValue('name', value)}
                   placeholder="Full Name"

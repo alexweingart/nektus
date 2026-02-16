@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import SocialIcon from '../elements/SocialIcon';
-import { ThemedTextInput } from './ThemedTextInput';
+import { BaseTextInput } from './BaseTextInput';
 
 export interface CustomSocialInputAddRef {
   focus: () => void;
@@ -98,7 +98,7 @@ export const CustomSocialInputAdd = forwardRef<CustomSocialInputAddRef, CustomSo
         />
 
         {/* Username Input */}
-        <ThemedTextInput
+        <BaseTextInput
           ref={inputRef}
           style={styles.input}
           value={username}

@@ -15,14 +15,12 @@ import { LoadingSpinner } from '../elements/LoadingSpinner';
 interface ContactButtonProps {
   isSuccess: boolean;
   isSaving: boolean;
-  isLoading?: boolean;
   onPress: () => void;
 }
 
 export function ContactButton({
   isSuccess,
   isSaving,
-  isLoading = false,
   onPress,
 }: ContactButtonProps) {
   const getButtonContent = () => {
@@ -42,7 +40,7 @@ export function ContactButton({
     );
   };
 
-  const isDisabled = isSaving || isLoading;
+  const isDisabled = isSaving;
 
   return (
     <Button

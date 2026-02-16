@@ -5,7 +5,7 @@
 
 import type { UserProfile } from '@/types/profile';
 import { ClientProfileService as ProfileService } from '@/client/profile/firebase-save';
-import { isGoogleInitialsImage } from '@/client/profile/google-image';
+import { isGoogleInitialsImage } from '@nektus/shared-client';
 import type { MutableRefObject } from 'react';
 
 interface GenerateAssetsParams {

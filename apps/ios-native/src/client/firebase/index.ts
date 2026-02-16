@@ -4,7 +4,7 @@
  */
 
 // Initialization
-export { initializeFirebaseServices } from './init';
+export { initializeFirebaseServices } from './firebase-services';
 
 // Firestore services
 export { ClientProfileService } from './firebase-save';

@@ -10,7 +10,7 @@ import {
   listAll,
   deleteObject,
 } from 'firebase/storage';
-import { storage } from './firebase-init';
+import { storage } from './firebase-sdk';
 
 /**
  * Uploads an image to Firebase Storage

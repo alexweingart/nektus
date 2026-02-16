@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { StandardModal } from './StandardModal';
-import { StaticInput } from '../inputs/StaticInput';
+import { SingleLineInput } from '../inputs/SingleLineInput';
 import { useProfile } from '@/app/context/ProfileContext';
 import { ensureReadableColor } from '@/shared/colors';
 
@@ -87,13 +87,13 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
       </div>
 
       <div className="space-y-4">
-        <StaticInput
+        <SingleLineInput
           type="email"
           value={appleId}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppleId(e.target.value)}
           placeholder="Apple ID (iCloud Email)"
         />
-        <StaticInput
+        <SingleLineInput
           type="text"
           value={appPassword}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppPassword(e.target.value.replace(/[\s-]/g, ''))}

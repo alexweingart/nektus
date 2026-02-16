@@ -9,7 +9,7 @@ import PageHeader from '../ui/layout/PageHeader';
 import { useEditProfileFields, useImageUpload, useProfileViewMode } from '@/client/hooks/use-edit-profile-fields';
 import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
-import { StaticInput } from '../ui/inputs/StaticInput';
+import { SingleLineInput } from '../ui/inputs/SingleLineInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
 import { FieldSection as FieldSectionComponent } from '../ui/modules/FieldSection';
 import { FieldList } from '../ui/modules/FieldList';
@@ -208,7 +208,7 @@ const EditProfileView: React.FC = () => {
           >
             {/* Name Input with Profile Image */}
             <div className="w-full max-w-md mx-auto">
-              <StaticInput
+              <SingleLineInput
                 ref={nameInputRef}
                 type="text"
                 id="name"

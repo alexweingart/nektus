@@ -13,7 +13,7 @@ import {
   onSnapshot,
   Unsubscribe,
 } from 'firebase/firestore';
-import { db } from './firebase-init';
+import { db } from './firebase-sdk';
 import { UserProfile, SavedContact } from '@nektus/shared-types';
 
 // Error codes for Firebase operations

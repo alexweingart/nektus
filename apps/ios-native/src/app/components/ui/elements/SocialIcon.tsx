@@ -38,7 +38,7 @@ const SocialIcon: React.FC<SocialIconProps> = ({
   // lg: w-16 h-16 p-3 (64px container, 40px icon, 12px padding each side)
   const containerSize = size === 'sm' ? 24 : size === 'lg' ? 64 : 40;
   const iconSize = size === 'sm' ? 24 : size === 'lg' ? 40 : 24;
-  const color = variant === 'white' ? '#ffffff' : '#ffffff';
+  const color = '#ffffff';
 
   // Generate platform URL based on username
   const getPlatformUrl = (platform: string, username: string): string | null => {

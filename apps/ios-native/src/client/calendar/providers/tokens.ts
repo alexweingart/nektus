@@ -17,7 +17,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase/firebase-init';
+import { db } from '../../firebase/firebase-sdk';
 
 export interface CalendarTokens {
   email: string;

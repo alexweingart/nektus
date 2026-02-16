@@ -3,7 +3,7 @@
  * Used by both the main app (LayoutBackground) and the App Clip.
  */
 
-import type { ParticleNetworkProps } from '../components/ui/layout/ParticleNetworkLite';
+import type { ParticleNetworkProps } from '../components/ui/layout/ParticleNetwork';
 import { BACKGROUND_GREEN, BACKGROUND_BLACK } from '../../shared/colors';
 
 // Background theme constants

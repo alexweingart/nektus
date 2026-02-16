@@ -17,7 +17,7 @@ import {
   TextInputContentSizeChangeEventData,
 } from 'react-native';
 import { EyeIcon } from '../elements/EyeIcon';
-import { ThemedTextInput } from './ThemedTextInput';
+import { BaseTextInput } from './BaseTextInput';
 
 export interface ExpandingInputRef {
   focus: () => void;
@@ -137,7 +137,7 @@ export const ExpandingInput = forwardRef<ExpandingInputRef, ExpandingInputProps>
             )}
 
             {/* TextInput */}
-            <ThemedTextInput
+            <BaseTextInput
               ref={inputRef}
               style={[
                 styles.input,

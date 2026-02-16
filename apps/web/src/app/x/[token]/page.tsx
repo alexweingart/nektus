@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { ContactView } from '../../components/views/ContactView';
 import { AnonContactView } from '../../components/views/AnonContactView';
 import { Button } from '../../components/ui/buttons/Button';
-import { PhoneEntryModal } from '../../components/ui/modals/PhoneEntryModal';
+import { PostSignUpModal } from '../../components/ui/modals/PostSignUpModal';
 import { useProfile } from '../../context/ProfileContext';
 import type { UserProfile, ContactEntry } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
@@ -297,7 +297,7 @@ function ConnectPageContent() {
   if (session && contactProfile && token) {
     return (
       <>
-        <PhoneEntryModal
+        <PostSignUpModal
           isOpen={showPhoneModal}
           userName={session.user?.name || ''}
           isSaving={isModalSaving}
@@ -321,7 +321,7 @@ function ConnectPageContent() {
   if (session && showPhoneModal) {
     return (
       <>
-        <PhoneEntryModal
+        <PostSignUpModal
           isOpen={showPhoneModal}
           userName={session.user?.name || ''}
           isSaving={isModalSaving}

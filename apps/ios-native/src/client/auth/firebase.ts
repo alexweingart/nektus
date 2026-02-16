@@ -3,15 +3,15 @@
  *
  * This module provides a thin wrapper around Firebase JS SDK:
  * - Sign in with custom tokens (from backend OAuth exchange)
- * - Session restoration (persisted to AsyncStorage via firebase-init.ts)
+ * - Session restoration (persisted to AsyncStorage via firebase-sdk.ts)
  * - Auth state management
  *
  * Note: Firebase SDK handles token refresh automatically. Persistence is configured
- * in firebase-init.ts using AsyncStorage for React Native.
+ * in firebase-sdk.ts using AsyncStorage for React Native.
  */
 
 import { signInWithCustomToken, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase/firebase-init';
+import { auth } from '../firebase/firebase-sdk';
 import type { User, AuthStateCallback } from "../../types/firebase";
 
 // Re-export for backwards compatibility
@@ -20,7 +20,7 @@ export { getApiBaseUrl } from "../config";
 
 /**
  * Sign in to Firebase using a custom token
- * The session is automatically persisted to AsyncStorage (configured in firebase-init.ts)
+ * The session is automatically persisted to AsyncStorage (configured in firebase-sdk.ts)
  */
 export async function signInWithToken(
   firebaseToken: string,

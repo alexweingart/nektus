@@ -57,10 +57,6 @@ const Avatar: React.FC<AvatarProps> = ({
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('[Avatar] Props changed:', { src: src?.substring(0, 80), showInitials, isLoading, hasError, imgSrc: imgSrc?.substring(0, 80) });
-  }, [src, showInitials, isLoading, hasError, imgSrc]);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
   const [previouslyShowedInitials, setPreviouslyShowedInitials] = React.useState(false);
 
