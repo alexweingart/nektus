@@ -824,6 +824,7 @@ export function SmartScheduleView() {
     navigateWithFade('AISchedule', {
       contactUserId,
       backgroundColors: contactProfile?.backgroundColors || backgroundColors,
+      savedContact: contactProfile,
     });
   }, [navigateWithFade, contactUserId, contactProfile, backgroundColors]);
 

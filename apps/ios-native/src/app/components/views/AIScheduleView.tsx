@@ -31,6 +31,7 @@ import type { RootStackParamList } from '../../../../App';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile, type UserProfile, type SavedContact } from '../../context/ProfileContext';
 import { useStreamingAI, type ChatMessage } from '../../../client/hooks/use-streaming-ai';
+import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import type { Event, TimeSlot } from '@nektus/shared-types';
 import { isEventKitAvailable, getDeviceBusyTimes, createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
@@ -81,7 +82,7 @@ export function AIScheduleView() {
   const navigation = useNavigation<AIScheduleViewNavigationProp>();
   const route = useRoute<AIScheduleViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
-  const { contactUserId, backgroundColors } = route.params;
+  const { contactUserId, backgroundColors, savedContact: passedContact } = route.params;
 
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
@@ -175,12 +176,32 @@ export function AIScheduleView() {
     onUpdateConversationHistory: setConversationHistory,
   });
 
+  // Helper: apply a Firestore SavedContact (extends UserProfile) as contactProfile + savedContact
+  const applyFirestoreContact = useCallback((fsContact: any) => {
+    setContactProfile(fsContact as unknown as UserProfile);
+    const entries = fsContact.contactEntries || [];
+    setSavedContact({
+      odtId: fsContact.userId,
+      odtName: entries.find((e: any) => e.fieldType === 'name')?.value || '',
+      userId: fsContact.userId,
+      addedAt: fsContact.addedAt || Date.now(),
+      profileImage: fsContact.profileImage,
+      phone: entries.find((e: any) => e.fieldType === 'phone')?.value,
+      email: entries.find((e: any) => e.fieldType === 'email')?.value,
+      contactType: fsContact.contactType,
+      backgroundColors: fsContact.backgroundColors,
+    });
+    if (fsContact.backgroundColors?.length >= 3) {
+      emitMatchFound(fsContact.backgroundColors);
+    }
+  }, []);
+
   // Load contact profile
   const loadProfiles = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
-      // Get contact from cache
+      // 1. Try ProfileContext cache first
       const contact = getContact(contactUserId);
 
       if (contact) {
@@ -201,6 +222,15 @@ export function AIScheduleView() {
         if (contact.backgroundColors && contact.backgroundColors.length >= 3) {
           emitMatchFound(contact.backgroundColors);
         }
+      } else if (passedContact) {
+        // 2. Use contact passed from SmartScheduleView (Firestore SavedContact extends UserProfile)
+        applyFirestoreContact(passedContact);
+      } else {
+        // 3. Last resort: fetch directly from Firestore
+        const firestoreContact = await ClientProfileService.getContactById(session.user.id, contactUserId);
+        if (firestoreContact) {
+          applyFirestoreContact(firestoreContact);
+        }
       }
     } catch (error) {
       console.error('Error loading profiles:', error);
@@ -208,7 +238,7 @@ export function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [contactUserId, session?.user?.id, goBackWithFade, getContact]);
+  }, [contactUserId, session?.user?.id, goBackWithFade, getContact, passedContact, applyFirestoreContact]);
 
   useEffect(() => {
     loadProfiles();

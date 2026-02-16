@@ -47,7 +47,7 @@ export type RootStackParamList = {
   Calendar: { section: 'personal' | 'work' };
   Location: { section: 'personal' | 'work' };
   SmartSchedule: { contactUserId: string; backgroundColors?: string[]; contactProfile?: any };
-  AISchedule: { contactUserId: string; backgroundColors?: string[] };
+  AISchedule: { contactUserId: string; backgroundColors?: string[]; savedContact?: any };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
