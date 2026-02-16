@@ -312,14 +312,14 @@ And if you don't know any of those things, and just want me to suggest based off
       // Download ICS file for Apple Calendar
       const icsContent = event.calendar_urls.apple;
       if (icsContent) {
-        window.open(icsContent, '_blank');
+        window.location.href = icsContent;
       }
     } else {
       const calendarUrl = provider === 'microsoft'
         ? event.calendar_urls.outlook
         : event.calendar_urls.google;
       if (calendarUrl) {
-        window.open(calendarUrl, '_blank');
+        window.location.href = calendarUrl;
       }
     }
   };

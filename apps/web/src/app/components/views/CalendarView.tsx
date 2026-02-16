@@ -137,7 +137,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
           className="flex flex-col items-center justify-center text-center cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => {
             const calendarUrl = getCalendarUrl(calendar.provider, calendar.email);
-            if (calendarUrl) window.open(calendarUrl, '_blank');
+            if (calendarUrl) window.location.href = calendarUrl;
           }}
         >
           <Text className="font-medium text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>

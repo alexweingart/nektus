@@ -450,6 +450,6 @@ export async function composeAndOpenCalendarEvent(params: {
     downloadICSFile(icsContent, filename);
   } else {
     const calendarUrl = preferredProvider === 'microsoft' ? calendar_urls.outlook : calendar_urls.google;
-    window.open(calendarUrl, '_blank');
+    window.location.href = calendarUrl;
   }
 }

@@ -140,7 +140,7 @@ export function useStreamingAI({
                   // Auto-open calendar URL
                   if (data.calendarUrl) {
                     console.log('🔗 Auto-opening calendar:', data.calendarUrl);
-                    window.open(data.calendarUrl, '_blank');
+                    window.location.href = data.calendarUrl;
                   }
                   break;
 
