@@ -18,11 +18,12 @@ import * as Linking from "expo-linking";
 
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
 import { Button } from "./src/app/components/ui/buttons/Button";
-import { PhoneEntryModal } from "./src/app/components/ui/modals/PhoneEntryModal";
-import { ParticleNetworkLite } from "./src/app/components/ui/layout/ParticleNetworkLite";
-import type { ParticleNetworkProps } from "./src/app/components/ui/layout/ParticleNetworkLite";
+import { PostSignUpModal } from "./src/app/components/ui/modals/PostSignUpModal";
+import { ParticleNetwork } from "./src/app/components/ui/layout/ParticleNetwork";
+import type { ParticleNetworkProps } from "./src/app/components/ui/layout/ParticleNetwork";
 import type { UserProfile, ContactEntry } from "@nektus/shared-types";
 import { fetchProfilePreview } from "./src/client/contacts/preview";
+import { saveContactFlow } from "./src/client/contacts/save";
 import {
   signInWithApple,
   exchangeAppleTokenForFirebase,
@@ -31,6 +32,7 @@ import {
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/firebase";
 import { formatPhoneNumber } from "@nektus/shared-client";
+import { showAppStoreOverlay } from "./src/client/native/SKOverlayWrapper";
 import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
 
 // Session context for App Clip (simplified, no full Firebase SDK)
@@ -113,6 +115,8 @@ function AppClipContent() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -226,6 +230,28 @@ function AppClipContent() {
         userEmail: tokenResponse.user.email,
       });
 
+      // Signal match to web user by calling pair endpoint (also fetches full profile)
+      if (token) {
+        try {
+          const pairIdToken = await getIdToken();
+          if (pairIdToken) {
+            const pairResponse = await fetch(`${apiBaseUrl}/api/exchange/pair/${token}`, {
+              headers: { Authorization: `Bearer ${pairIdToken}` },
+            });
+            if (pairResponse.ok) {
+              const pairResult = await pairResponse.json();
+              if (pairResult.success && pairResult.profile) {
+                // Update with full profile (has actual social values, not just icons)
+                setPreviewProfile(pairResult.profile);
+              }
+            }
+          }
+        } catch (pairErr) {
+          console.error("[AppClip] Pair call failed:", pairErr);
+          // Non-fatal — user can still save with preview profile
+        }
+      }
+
       // If new user, show phone entry modal
       if (tokenResponse.needsSetup) {
         setNeedsSetup(true);
@@ -237,7 +263,7 @@ function AppClipContent() {
       console.error("[AppClip] Sign in error:", message);
       setError(`Sign-in failed: ${message}`);
     }
-  }, []);
+  }, [token, apiBaseUrl]);
 
   // Handle phone modal save
   const handlePhoneSave = useCallback(async (phone: string, socials: ContactEntry[]) => {
@@ -287,6 +313,31 @@ function AppClipContent() {
     }
   }, [apiBaseUrl]);
 
+  // Handle Save Contact
+  const handleSaveContact = useCallback(async () => {
+    if (isSaved || !previewProfile || !token) return;
+
+    setIsSaving(true);
+    try {
+      const result = await saveContactFlow(previewProfile, token);
+      if (result.success) {
+        setIsSaved(true);
+      } else {
+        setError('Failed to save contact');
+      }
+    } catch (err) {
+      console.error("[AppClip] Save contact error:", err);
+      setError('Failed to save contact');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isSaved, previewProfile, token]);
+
+  // Handle reject / dismiss
+  const handleReject = useCallback(() => {
+    showAppStoreOverlay();
+  }, []);
+
   // Determine particle colors based on current state
   const particleColors = getParticleColors(previewProfile);
 
@@ -294,7 +345,7 @@ function AppClipContent() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
+        <ParticleNetwork colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
           <Text style={styles.loadingText}>Loading...</Text>
@@ -307,7 +358,7 @@ function AppClipContent() {
   if (error && !previewProfile && !token) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
+        <ParticleNetwork colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.heading}>Paste Exchange Link</Text>
           <Text style={styles.subheading}>Scan a QR code in your browser, copy the URL, and paste it here</Text>
@@ -364,7 +415,7 @@ function AppClipContent() {
   if (error && !previewProfile) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
+        <ParticleNetwork colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
@@ -376,11 +427,11 @@ function AppClipContent() {
   if (session && showPhoneModal) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={particleColors} context="contact" />
+        <ParticleNetwork colors={particleColors} context="contact" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#22c55e" />
         </View>
-        <PhoneEntryModal
+        <PostSignUpModal
           isOpen={showPhoneModal}
           userName={session.userName || ''}
           isSaving={isPhoneSaving}
@@ -394,7 +445,7 @@ function AppClipContent() {
   if (previewProfile && token) {
     return (
       <View style={styles.container}>
-        <ParticleNetworkLite colors={particleColors} context="connect" />
+        <ParticleNetwork colors={particleColors} context="connect" />
         <AnonContactView
           profile={previewProfile}
           socialIconTypes={socialIconTypes}
@@ -402,6 +453,10 @@ function AppClipContent() {
           onSignIn={handleSignIn}
           isAuthenticated={!!session}
           isDemo={token === 'demo'}
+          onSaveContact={handleSaveContact}
+          onReject={handleReject}
+          isSaving={isSaving}
+          isSaved={isSaved}
         />
         {/* Show error overlay on the card if sign-in failed */}
         {error && (
@@ -416,7 +471,7 @@ function AppClipContent() {
   // Fallback - should not reach here
   return (
     <View style={styles.container}>
-      <ParticleNetworkLite colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
+      <ParticleNetwork colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
       <View style={styles.centered}>
         <Text style={styles.errorText}>Something went wrong</Text>
       </View>

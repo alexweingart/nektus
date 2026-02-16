@@ -34,6 +34,14 @@ interface AnonContactViewProps {
   isAuthenticated?: boolean;
   /** When true, show demo message instead of saving */
   isDemo?: boolean;
+  /** Called when user taps Save Contact */
+  onSaveContact?: () => void;
+  /** Called when user taps the dismiss/reject button */
+  onReject?: () => void;
+  /** Whether a save is in progress */
+  isSaving?: boolean;
+  /** Whether the contact has been saved */
+  isSaved?: boolean;
 }
 
 // Map icon type to display name
@@ -63,6 +71,10 @@ export function AnonContactView({
   onSignIn,
   isAuthenticated = false,
   isDemo = false,
+  onSaveContact,
+  onReject,
+  isSaving = false,
+  isSaved = false,
 }: AnonContactViewProps) {
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
@@ -145,18 +157,25 @@ export function AnonContactView({
                         },
                       ]
                     );
+                  } else if (!isSaved) {
+                    onSaveContact?.();
                   }
                 }}
+                disabled={isSaving}
                 style={styles.fullWidth}
               >
-                Save Contact
+                {isSaving ? 'Saving...' : isSaved ? 'Done' : 'Save Contact'}
               </Button>
               <View style={styles.secondaryButtonContainer}>
-                <SecondaryButton onPress={() => {
-                  showAppStoreOverlay();
-                }}>
-                  Get the Full App
-                </SecondaryButton>
+                {isSaved ? (
+                  <SecondaryButton onPress={() => showAppStoreOverlay()}>
+                    Get the Full App
+                  </SecondaryButton>
+                ) : (
+                  <SecondaryButton onPress={onReject} disabled={isSaving}>
+                    Nah, who this
+                  </SecondaryButton>
+                )}
               </View>
             </>
           ) : (
@@ -250,7 +269,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     marginTop: 24,
-    gap: 8,
+    gap: 12,
   },
   fullWidth: {
     width: '100%',

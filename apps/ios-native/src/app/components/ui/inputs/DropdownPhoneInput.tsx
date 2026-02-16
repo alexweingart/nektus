@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
-import { ThemedTextInput } from './ThemedTextInput';
+import { BaseTextInput } from './BaseTextInput';
 
 // Country type for phone input components
 export interface Country {
@@ -193,7 +193,7 @@ export function DropdownPhoneInput({
           />
 
           {/* Phone input */}
-          <ThemedTextInput
+          <BaseTextInput
             ref={inputRef}
             style={styles.input}
             value={phoneInput}
@@ -202,6 +202,7 @@ export function DropdownPhoneInput({
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             keyboardType="number-pad"
             textContentType="telephoneNumber"
+            autoComplete="tel"
             maxLength={14}
             editable={!isDisabled}
             onFocus={() => setIsFocused(true)}
