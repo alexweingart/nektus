@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clean prebuild script that restores Podfile customizations
+# Clean prebuild script that restores customizations after expo prebuild
 # Usage: ./scripts/clean-prebuild.sh
 
 set -e
@@ -21,10 +21,13 @@ else
     exit 1
 fi
 
+echo "📦 Injecting custom native modules..."
+node "$SCRIPT_DIR/inject-native-modules.js"
+
 echo "📦 Running pod install..."
 cd "$IOS_NATIVE_DIR/ios"
 pod install
 
 echo ""
 echo "✅ Clean prebuild complete!"
-echo "   You can now build with: npm run ios"
+echo "   You can now build with: bun run ios"

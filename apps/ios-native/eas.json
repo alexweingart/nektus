@@ -27,7 +27,8 @@
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium",
-        "image": "macos-sequoia-15.6-xcode-26.0"
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "prebuildCommand": "node scripts/generate-codegen.js && node scripts/inject-native-modules.js"
       }
     },
     "production": {
@@ -37,7 +38,7 @@
       "ios": {
         "resourceClass": "m-medium",
         "image": "macos-sequoia-15.6-xcode-26.0",
-        "prebuildCommand": "node scripts/generate-codegen.js"
+        "prebuildCommand": "node scripts/generate-codegen.js && node scripts/inject-native-modules.js"
       },
       "env": {
         "FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT": "120",
