@@ -333,9 +333,11 @@ function AppClipContent() {
     }
   }, [isSaved, previewProfile, token]);
 
-  // Handle reject / dismiss
+  // Handle reject / dismiss — navigate away to close the App Clip
   const handleReject = useCallback(() => {
-    showAppStoreOverlay();
+    Linking.openURL('https://nekt.us').catch((err) => {
+      console.error("[AppClip] Failed to open URL:", err);
+    });
   }, []);
 
   // Determine particle colors based on current state
