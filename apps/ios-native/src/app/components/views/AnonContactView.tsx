@@ -38,6 +38,8 @@ interface AnonContactViewProps {
   onSaveContact?: () => void;
   /** Called when user taps the dismiss/reject button */
   onReject?: () => void;
+  /** Called when user taps "Install App" after saving */
+  onInstallApp?: () => void;
   /** Whether a save is in progress */
   isSaving?: boolean;
   /** Whether the contact has been saved */
@@ -73,6 +75,7 @@ export function AnonContactView({
   isDemo = false,
   onSaveContact,
   onReject,
+  onInstallApp,
   isSaving = false,
   isSaved = false,
 }: AnonContactViewProps) {
@@ -139,44 +142,51 @@ export function AnonContactView({
         <View style={styles.actionsContainer}>
           {isAuthenticated ? (
             <>
-              <Button
-                variant="white"
-                size="xl"
-                onPress={() => {
-                  if (isDemo) {
-                    Alert.alert(
-                      'Demo Contact',
-                      'This is a demo contact for testing. Download the full app to exchange real contacts!',
-                      [
-                        { text: 'OK', style: 'cancel' },
-                        {
-                          text: 'Get the App',
-                          onPress: () => {
-                            showAppStoreOverlay();
-                          },
-                        },
-                      ]
-                    );
-                  } else if (!isSaved) {
-                    onSaveContact?.();
-                  }
-                }}
-                disabled={isSaving}
-                style={styles.fullWidth}
-              >
-                {isSaving ? 'Saving...' : isSaved ? 'Done' : 'Save Contact'}
-              </Button>
-              <View style={styles.secondaryButtonContainer}>
-                {isSaved ? (
-                  <SecondaryButton onPress={() => showAppStoreOverlay()}>
-                    Get the Full App
-                  </SecondaryButton>
-                ) : (
-                  <SecondaryButton onPress={onReject} disabled={isSaving}>
-                    Nah, who this
-                  </SecondaryButton>
-                )}
-              </View>
+              {isSaved ? (
+                /* Post-save: single "Install App" button */
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={onInstallApp}
+                  style={styles.fullWidth}
+                >
+                  Install App
+                </Button>
+              ) : (
+                /* Pre-save: Save Contact + Nah, who this */
+                <>
+                  <Button
+                    variant="white"
+                    size="xl"
+                    onPress={() => {
+                      if (isDemo) {
+                        Alert.alert(
+                          'Demo Contact',
+                          'This is a demo contact for testing. Download the full app to exchange real contacts!',
+                          [
+                            { text: 'OK', style: 'cancel' },
+                            {
+                              text: 'Get the App',
+                              onPress: () => showAppStoreOverlay(),
+                            },
+                          ]
+                        );
+                      } else {
+                        onSaveContact?.();
+                      }
+                    }}
+                    disabled={isSaving}
+                    style={styles.fullWidth}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Contact'}
+                  </Button>
+                  <View style={styles.secondaryButtonContainer}>
+                    <SecondaryButton onPress={onReject} disabled={isSaving}>
+                      Nah, who this
+                    </SecondaryButton>
+                  </View>
+                </>
+              )}
             </>
           ) : (
             <>

@@ -23,7 +23,6 @@ import { ParticleNetwork } from "./src/app/components/ui/layout/ParticleNetwork"
 import type { ParticleNetworkProps } from "./src/app/components/ui/layout/ParticleNetwork";
 import type { UserProfile, ContactEntry } from "@nektus/shared-types";
 import { fetchProfilePreview } from "./src/client/contacts/preview";
-import { saveContactFlow } from "./src/client/contacts/save";
 import {
   signInWithApple,
   exchangeAppleTokenForFirebase,
@@ -31,7 +30,7 @@ import {
 } from "./src/client/auth/apple";
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/firebase";
-import { formatPhoneNumber } from "@nektus/shared-client";
+import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
 import { showAppStoreOverlay } from "./src/client/native/SKOverlayWrapper";
 import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
 
@@ -117,6 +116,7 @@ function AppClipContent() {
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -313,31 +313,56 @@ function AppClipContent() {
     }
   }, [apiBaseUrl]);
 
-  // Handle Save Contact
+  // Handle Save Contact — inline logic since save.ts depends on excluded expo-file-system
   const handleSaveContact = useCallback(async () => {
     if (isSaved || !previewProfile || !token) return;
 
     setIsSaving(true);
     try {
-      const result = await saveContactFlow(previewProfile, token);
-      if (result.success) {
-        setIsSaved(true);
-      } else {
-        setError('Failed to save contact');
+      // 1. Firebase save (fire-and-forget — don't block the contact form)
+      const idToken = await getIdToken();
+      if (idToken) {
+        fetch(`${apiBaseUrl}/api/contacts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ token, skipGoogleContacts: true }),
+        }).catch(err => console.error("[AppClip] Firebase save error:", err));
       }
+
+      // 2. Open native "Add Contact" form (same end result as vCard on web)
+      const name = getFieldValue(previewProfile.contactEntries, 'name') || '';
+      const email = getFieldValue(previewProfile.contactEntries, 'email') || '';
+      const phone = getFieldValue(previewProfile.contactEntries, 'phone') || '';
+      const nameParts = name.split(' ');
+
+      try {
+        const Contacts = require('react-native-contacts').default;
+        await Contacts.openContactForm({
+          givenName: nameParts[0] || '',
+          familyName: nameParts.slice(1).join(' ') || '',
+          emailAddresses: email ? [{ label: 'home', email }] : [],
+          phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
+        });
+      } catch (contactErr) {
+        console.error("[AppClip] Contact form error:", contactErr);
+      }
+
+      // 3. Mark as saved
+      setIsSaved(true);
     } catch (err) {
       console.error("[AppClip] Save contact error:", err);
       setError('Failed to save contact');
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, previewProfile, token]);
+  }, [isSaved, previewProfile, token, apiBaseUrl]);
 
-  // Handle reject / dismiss — navigate away to close the App Clip
+  // Handle reject / dismiss
   const handleReject = useCallback(() => {
-    Linking.openURL('https://nekt.us').catch((err) => {
-      console.error("[AppClip] Failed to open URL:", err);
-    });
+    setIsDismissed(true);
   }, []);
 
   // Determine particle colors based on current state
@@ -443,6 +468,19 @@ function AppClipContent() {
     );
   }
 
+  // Dismissed state — user tapped "Nah, who this"
+  if (isDismissed) {
+    return (
+      <View style={styles.container}>
+        <ParticleNetwork colors={particleColors} context="connect" />
+        <View style={styles.centered}>
+          <Text style={styles.dismissedText}>No worries!</Text>
+          <Text style={styles.dismissedSubtext}>You can close this window</Text>
+        </View>
+      </View>
+    );
+  }
+
   // Show AnonContactView — buttons swap seamlessly after sign-in (no reload)
   if (previewProfile && token) {
     return (
@@ -457,6 +495,7 @@ function AppClipContent() {
           isDemo={token === 'demo'}
           onSaveContact={handleSaveContact}
           onReject={handleReject}
+          onInstallApp={() => showAppStoreOverlay()}
           isSaving={isSaving}
           isSaved={isSaved}
         />
@@ -561,6 +600,17 @@ const styles = StyleSheet.create({
   errorOverlayText: {
     color: "#ef4444",
     fontSize: 14,
+    textAlign: "center",
+  },
+  dismissedText: {
+    color: "#ffffff",
+    fontSize: 24,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  dismissedSubtext: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 16,
     textAlign: "center",
   },
 });
