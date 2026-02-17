@@ -143,15 +143,36 @@ export function AnonContactView({
           {isAuthenticated ? (
             <>
               {isSaved ? (
-                /* Post-save: single "Install App" button */
-                <Button
-                  variant="white"
-                  size="xl"
-                  onPress={onInstallApp}
-                  style={styles.fullWidth}
-                >
-                  Install App
-                </Button>
+                /* Post-save: value props + install CTA */
+                <>
+                  <View style={styles.valuePropsContainer}>
+                    <Text style={styles.valuePropItem}>
+                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
+                      Tap phones to exchange contacts instantly
+                    </Text>
+                    <Text style={styles.valuePropItem}>
+                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
+                      Auto-save new connections to your phone
+                    </Text>
+                    <Text style={styles.valuePropItem}>
+                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
+                      Find the perfect time to meet with AI scheduling
+                    </Text>
+                  </View>
+                  <Button
+                    variant="white"
+                    size="xl"
+                    onPress={onInstallApp}
+                    style={styles.fullWidth}
+                  >
+                    Get the App
+                  </Button>
+                  <View style={styles.secondaryButtonContainer}>
+                    <SecondaryButton onPress={onReject}>
+                      Continue on Web
+                    </SecondaryButton>
+                  </View>
+                </>
               ) : (
                 /* Pre-save: Save Contact + Nah, who this */
                 <>
@@ -291,6 +312,21 @@ const styles = StyleSheet.create({
   },
   secondaryButtonContainer: {
     alignItems: 'center',
+  },
+  valuePropsContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 10,
+  },
+  valuePropItem: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  valuePropBullet: {
+    color: 'rgba(255, 255, 255, 0.5)',
   },
 });
 
