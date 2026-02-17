@@ -116,7 +116,6 @@ function AppClipContent() {
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -360,9 +359,11 @@ function AppClipContent() {
     }
   }, [isSaved, previewProfile, token, apiBaseUrl]);
 
-  // Handle reject / dismiss
+  // Handle reject / dismiss — navigate to nekt.us (user is signed in, can see their profile)
   const handleReject = useCallback(() => {
-    setIsDismissed(true);
+    Linking.openURL('https://nekt.us').catch((err) => {
+      console.error("[AppClip] Failed to open URL:", err);
+    });
   }, []);
 
   // Determine particle colors based on current state
@@ -464,19 +465,6 @@ function AppClipContent() {
           isSaving={isPhoneSaving}
           onSave={handlePhoneSave}
         />
-      </View>
-    );
-  }
-
-  // Dismissed state — user tapped "Nah, who this"
-  if (isDismissed) {
-    return (
-      <View style={styles.container}>
-        <ParticleNetwork colors={particleColors} context="connect" />
-        <View style={styles.centered}>
-          <Text style={styles.dismissedText}>No worries!</Text>
-          <Text style={styles.dismissedSubtext}>You can close this window</Text>
-        </View>
       </View>
     );
   }
@@ -600,17 +588,6 @@ const styles = StyleSheet.create({
   errorOverlayText: {
     color: "#ef4444",
     fontSize: 14,
-    textAlign: "center",
-  },
-  dismissedText: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  dismissedSubtext: {
-    color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 16,
     textAlign: "center",
   },
 });
