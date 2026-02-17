@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nektus.app",
-      "buildNumber": "24",
+      "buildNumber": "25",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
       "associatedDomains": [
@@ -29,6 +29,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Nekt needs access to your photos to set your profile picture",
+        "NSCalendarsUsageDescription": "Nekt reads your calendar to find available meeting times. No event details are stored.",
         "NSBluetoothAlwaysUsageDescription": "Nekt uses Bluetooth to discover nearby friends for contact exchange",
         "NSBluetoothPeripheralUsageDescription": "Nekt uses Bluetooth to share your contact info with nearby friends",
         "CFBundleURLTypes": [
