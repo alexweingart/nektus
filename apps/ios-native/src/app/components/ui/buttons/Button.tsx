@@ -6,6 +6,7 @@
  */
 
 import React, { ReactNode, useRef, useCallback, useMemo } from "react";
+import { fontStyles } from "../Typography";
 import {
   TouchableOpacity,
   Text,
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
 
   // Text styles - matching web's Tailwind typography
   text: {
-    fontFamily: 'System', // San Francisco on iOS, matches web's system font
+    ...fontStyles.semibold,
     letterSpacing: 0.2, // Slight letter spacing for better readability
   },
   whiteText: {

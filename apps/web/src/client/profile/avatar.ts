@@ -75,7 +75,7 @@ export function generateInitialsAvatar(name: string, size: number = 200, gradien
         </radialGradient>
       </defs>
       <rect width="${size}" height="${size}" fill="url(#bg)"/>`;
-    textColor = customTextColor || '#ffffff';
+    textColor = customTextColor || '#FFFFFF';
   } else {
     // Original pastel background with dark text
     const backgroundColor = stringToColor(name);
@@ -91,9 +91,9 @@ export function generateInitialsAvatar(name: string, size: number = 200, gradien
         y="50%"
         dominant-baseline="central"
         text-anchor="middle"
-        font-family="system-ui, -apple-system, sans-serif"
+        font-family="Nunito, ui-rounded, system-ui, -apple-system, sans-serif"
         font-size="${fontSize}"
-        font-weight="600"
+        font-weight="700"
         fill="${textColor}"
       >${initials}</text>
     </svg>

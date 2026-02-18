@@ -145,7 +145,7 @@ body {
   padding: 0;
   position: relative;
 
-  font-family: var(--font-inter);
+  font-family: var(--font-nunito);
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

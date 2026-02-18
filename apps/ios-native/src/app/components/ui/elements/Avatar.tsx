@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Image, Text, StyleSheet, Animated } from 'react-native';
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Rect } from 'react-native-svg';
-import { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN, TEXT_BLACK } from '../../../../shared/colors';
+import { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN } from '../../../../shared/colors';
+import { fontStyles } from '../Typography';
 
 interface AvatarProps {
   src?: string;
@@ -53,7 +54,7 @@ const Avatar: React.FC<AvatarProps> = ({
   // Radial gradient: center = dominant (dark), edge = accent1 (lighter) - matches web
   const gradientCenter = profileColors ? profileColors[0] : BRAND_DARK_GREEN;
   const gradientEdge = profileColors ? profileColors[1] : BRAND_LIGHT_GREEN;
-  const initialsColor = profileColors ? profileColors[2] : TEXT_BLACK;  // accent2 or dark teal
+  const initialsColor = '#FFFFFF';
   const [imgSrc, setImgSrc] = React.useState(src);
   const [hasError, setHasError] = React.useState(false);
 
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   initialsText: {
-    fontWeight: '600',
+    ...fontStyles.bold,
   },
   image: {
     resizeMode: 'cover',

@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { fontStyles } from '../Typography';
 import { View, Text, StyleSheet } from 'react-native';
 import { Button } from './Button';
 import { LoadingSpinner } from '../elements/LoadingSpinner';
@@ -67,9 +68,8 @@ const styles = StyleSheet.create({
   },
   // Typography matching web's xl button: text-xl font-semibold (20px, 600)
   buttonText: {
-    fontFamily: 'System',
+    ...fontStyles.semibold,
     fontSize: 20,
-    fontWeight: '600',
     letterSpacing: 0.2,
     color: '#374151',
   },

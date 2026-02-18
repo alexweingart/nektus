@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import { Text, StyleSheet, TextStyle } from "react-native";
+import { SF_ROUNDED } from "../../../../shared/fonts";
 
 type HeadingVariant = "h1" | "h2" | "h3";
 
@@ -40,15 +41,15 @@ export function Label({ children, style }: Omit<HeadingProps, "variant">) {
 const headingVariantStyles = StyleSheet.create({
   h1: {
     fontSize: 24, // text-2xl
-    fontWeight: "700", // font-bold
+    fontFamily: SF_ROUNDED.bold,
   },
   h2: {
     fontSize: 20, // text-xl
-    fontWeight: "600", // font-semibold
+    fontFamily: SF_ROUNDED.semibold,
   },
   h3: {
     fontSize: 18, // text-lg
-    fontWeight: "500", // font-medium
+    fontFamily: SF_ROUNDED.medium,
   },
 });
 
@@ -68,6 +69,7 @@ const styles = StyleSheet.create({
     // No marginBottom - spacing should be controlled by parent containers
   },
   body: {
+    fontFamily: SF_ROUNDED.regular,
     color: "#ffffff",
     lineHeight: 24,
   },
@@ -76,10 +78,22 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: SF_ROUNDED.semibold,
     color: "#888888",
     marginBottom: 8,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
+});
+
+/**
+ * Reusable font styles for components that render text outside of Typography.
+ * Import these instead of SF_ROUNDED directly to keep font config centralized.
+ */
+export const fontStyles = StyleSheet.create({
+  regular: { fontFamily: SF_ROUNDED.regular },
+  medium: { fontFamily: SF_ROUNDED.medium },
+  semibold: { fontFamily: SF_ROUNDED.semibold },
+  bold: { fontFamily: SF_ROUNDED.bold },
+  heavy: { fontFamily: SF_ROUNDED.heavy },
 });

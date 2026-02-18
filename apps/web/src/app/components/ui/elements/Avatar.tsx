@@ -48,10 +48,9 @@ const Avatar: React.FC<AvatarProps> = ({
   // Generate gradient style from profile colors
   const getGradientStyle = React.useCallback(() => {
     if (!profileColors || profileColors.length < 3) return null;
-    const [dominant, accent1, accent2] = profileColors;
+    const [dominant, accent1] = profileColors;
     return {
       background: `radial-gradient(circle, ${dominant} 0%, ${accent1} 100%)`,
-      textColor: accent2
     };
   }, [profileColors]);
 
@@ -81,8 +80,8 @@ const Avatar: React.FC<AvatarProps> = ({
       style={gradientStyle ? { background: gradientStyle.background } : undefined}
     >
       <span
-        className={`${fontSize} font-semibold`}
-        style={{ color: gradientStyle?.textColor || '#004D40' }}
+        className={`${fontSize} font-bold`}
+        style={{ color: '#FFFFFF' }}
       >
         {initials}
       </span>

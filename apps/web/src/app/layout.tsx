@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import "./animations.css";
 import { SessionProvider } from "./providers/SessionProvider";
@@ -9,9 +9,9 @@ import AdminBanner from './components/ui/banners/AdminBanner';
 import { LayoutBackground } from './components/ui/layout/LayoutBackground';
 import { ScrollBehavior } from './components/ui/layout/ScrollBehavior';
 
-const inter = Inter({
+const nunito = Nunito({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-nunito",
 });
 
 // Theme color for PWA - transparent to let gradient show through
@@ -86,7 +86,7 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32" />
       </head>
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${nunito.variable} antialiased`}>
         <SessionProvider>
           <ProfileProvider>
             <AdminModeProvider>

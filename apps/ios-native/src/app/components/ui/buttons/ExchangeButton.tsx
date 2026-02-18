@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Text, View, ActivityIndicator, StyleSheet, Animated, DeviceEventEmitter } from "react-native";
+import { fontStyles } from "../Typography";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Button } from "./Button";
@@ -474,23 +475,20 @@ const styles = StyleSheet.create({
   },
   // Typography matching web's xl button: text-xl font-semibold (20px, 600)
   text: {
-    fontFamily: "System",
+    ...fontStyles.semibold,
     fontSize: 20,
-    fontWeight: "600",
     letterSpacing: 0.2,
     color: "#374151",
   },
   matchText: {
-    fontFamily: "System",
+    ...fontStyles.bold,
     fontSize: 20,
-    fontWeight: "700",
     letterSpacing: 0.2,
     color: "#374151",
   },
   errorText: {
-    fontFamily: "System",
+    ...fontStyles.semibold,
     fontSize: 20,
-    fontWeight: "600",
     letterSpacing: 0.2,
     color: "#ffffff",
   },
