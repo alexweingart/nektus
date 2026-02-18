@@ -20,6 +20,8 @@ import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { Heading, BodyText } from '../Typography';
+import { ToggleSetting } from '../controls/ToggleSetting';
+import { scrapeBio } from '../../../../client/profile/scrape-bio';
 import type { ContactEntry } from '@nektus/shared-types';
 
 interface PostSignUpModalProps {
@@ -41,6 +43,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   const [digits, setDigits] = useState('');
   const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [useForBio, setUseForBio] = useState(true);
 
   // Animation
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -111,11 +114,20 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
 
     try {
       await onSave(digits, socialEntries);
+
+      // Fire-and-forget bio scrape if toggle is on
+      if (useForBio && socialInputs[0]?.username.trim() &&
+          ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
+        scrapeBio(
+          socialInputs[0].platform as 'instagram' | 'linkedin',
+          socialInputs[0].username.trim()
+        ).catch(console.error);
+      }
     } catch (err) {
       console.error('[PostSignUpModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, socialInputs, isPhoneValid, isSaving, onSave]);
+  }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
 
   return (
     <Modal
@@ -124,11 +136,15 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
       animationType="none"
       statusBarTranslucent
     >
+      {/* Full-screen backdrop — stays fixed behind keyboard */}
+      <Animated.View style={[styles.backdrop, { opacity: backdropOpacityAnim }]} />
+
+      {/* Modal content — shifts up with keyboard */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <Animated.View style={[styles.overlay, { opacity: backdropOpacityAnim }]}>
+        <View style={styles.overlay}>
           <Animated.View
             style={[
               styles.modalContainer,
@@ -179,6 +195,15 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                     autoFocus={index === socialInputs.length - 1}
                   />
                 ))}
+
+                {/* Use for bio toggle */}
+                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+                  <ToggleSetting
+                    label="Use for bio"
+                    enabled={useForBio}
+                    onChange={setUseForBio}
+                  />
+                )}
               </View>
 
               {/* Error */}
@@ -217,19 +242,22 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
               </View>
             </View>
           </Animated.View>
-        </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   keyboardAvoidingView: {
     flex: 1,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
