@@ -207,10 +207,32 @@ export const authOptions: NextAuthOptions = {
       // Server-side profile management - create/check profile and determine redirects
       // This happens once during authentication - result cached in JWT
       if (isGoogleSignIn || isAppleCredentialsSignIn) {
-        const userId = user?.id || token.sub;
+        let userId = user?.id || token.sub;
         if (userId) {
           try {
             const { ServerProfileService } = await import('@/server/profile/create');
+
+            // Email-based account linking: check if a profile already exists with this email
+            // This allows users who signed in with one provider to sign in with another
+            // and be linked to the same profile (e.g., Google first, then Apple, or vice versa)
+            const signInEmail = user?.email;
+            if (signInEmail) {
+              const existingProfile = await ServerProfileService.findProfileByEmail(signInEmail);
+              if (existingProfile && existingProfile.userId !== userId) {
+                console.log(`[NextAuth] Email-based account linking: ${userId} -> ${existingProfile.userId} (email: ${signInEmail})`);
+                userId = existingProfile.userId;
+                token.sub = userId;
+                // Regenerate Firebase token for the linked userId
+                try {
+                  const firebaseToken = await createCustomTokenWithCorrectSub(userId);
+                  token.firebaseToken = firebaseToken;
+                  token.firebaseTokenCreatedAt = Date.now();
+                } catch (error) {
+                  console.error('[NextAuth] Failed to regenerate Firebase token after account linking:', error);
+                }
+              }
+            }
+
             const { profile, needsSetup } = await ServerProfileService.getOrCreateProfile(userId, {
               name: user?.name,
               email: user?.email,
