@@ -231,38 +231,40 @@ function AppClipContent() {
         userEmail: tokenResponse.user.email,
       });
 
-      // Signal match to web user by calling pair endpoint (also fetches full profile)
-      if (token) {
-        try {
-          const pairIdToken = await getIdToken();
-          if (pairIdToken) {
-            const pairResponse = await fetch(`${apiBaseUrl}/api/exchange/pair/${token}`, {
-              headers: { Authorization: `Bearer ${pairIdToken}` },
-            });
-            if (pairResponse.ok) {
-              const pairResult = await pairResponse.json();
-              if (pairResult.success && pairResult.profile) {
-                // Update with full profile (has actual social values, not just icons)
-                setPreviewProfile(pairResult.profile);
-              }
-            }
-          }
-        } catch (pairErr) {
-          console.error("[AppClip] Pair call failed:", pairErr);
-          // Non-fatal — user can still save with preview profile
-        }
-      }
-
-      // If new user, show phone entry modal
+      // If new user, show phone entry modal (defer pair signal until after phone setup)
       if (tokenResponse.needsSetup) {
         setNeedsSetup(true);
         setShowPhoneModal(true);
+      } else {
+        // Existing user — signal match to web user immediately
+        await sendPairSignal();
       }
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[AppClip] Sign in error:", message);
       setError(`Sign-in failed: ${message}`);
+    }
+  }, [token, apiBaseUrl]);
+
+  // Signal match to web user by calling pair endpoint (also fetches full profile)
+  const sendPairSignal = useCallback(async () => {
+    if (!token) return;
+    try {
+      const pairIdToken = await getIdToken();
+      if (pairIdToken) {
+        const pairResponse = await fetch(`${apiBaseUrl}/api/exchange/pair/${token}`, {
+          headers: { Authorization: `Bearer ${pairIdToken}` },
+        });
+        if (pairResponse.ok) {
+          const pairResult = await pairResponse.json();
+          if (pairResult.success && pairResult.profile) {
+            setPreviewProfile(pairResult.profile);
+          }
+        }
+      }
+    } catch (pairErr) {
+      console.error("[AppClip] Pair call failed:", pairErr);
     }
   }, [token, apiBaseUrl]);
 
@@ -306,13 +308,16 @@ function AppClipContent() {
       }
 
       setShowPhoneModal(false);
+
+      // Now that profile is set up, signal match to web user
+      await sendPairSignal();
     } catch (err) {
       console.error("[AppClip] Phone save error:", err);
       throw err; // Re-throw so modal shows error
     } finally {
       setIsPhoneSaving(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, sendPairSignal]);
 
   // Handle Save Contact — inline logic since save.ts depends on excluded expo-file-system
   const handleSaveContact = useCallback(async () => {
@@ -453,25 +458,8 @@ function AppClipContent() {
     );
   }
 
-  // Authenticated but needs phone setup — show loading bg with modal overlay
-  if (session && showPhoneModal) {
-    return (
-      <View style={styles.container}>
-        <ParticleNetwork colors={particleColors} context="contact" />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#22c55e" />
-        </View>
-        <PostSignUpModal
-          isOpen={showPhoneModal}
-          userName={session.userName || ''}
-          isSaving={isPhoneSaving}
-          onSave={handlePhoneSave}
-        />
-      </View>
-    );
-  }
-
   // Show AnonContactView — buttons swap seamlessly after sign-in (no reload)
+  // PostSignUpModal overlays on top when new user needs phone setup
   if (previewProfile && token) {
     return (
       <View style={styles.container}>
@@ -494,6 +482,15 @@ function AppClipContent() {
           <View style={styles.errorOverlay}>
             <Text style={styles.errorOverlayText}>{error}</Text>
           </View>
+        )}
+        {/* Phone setup modal overlays on top of profile (like web) */}
+        {session && showPhoneModal && (
+          <PostSignUpModal
+            isOpen={showPhoneModal}
+            userName={session.userName || ''}
+            isSaving={isPhoneSaving}
+            onSave={handlePhoneSave}
+          />
         )}
       </View>
     );
