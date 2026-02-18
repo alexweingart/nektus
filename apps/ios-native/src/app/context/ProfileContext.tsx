@@ -308,11 +308,13 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
 
           // Check if a new profile image was saved (different from previous)
           // and it's not an AI-generated avatar - trigger background color extraction
+          // Skip if backgroundColors were already provided (e.g. from the upload API response)
           const newProfileImage = data.profileImage;
           const isNewImage = newProfileImage && newProfileImage !== previousProfileImage;
           const isUserUploadedImage = !savedProfile.aiGeneration?.avatarGenerated;
+          const colorsAlreadyProvided = !!(data as any).backgroundColors;
 
-          if (isNewImage && isUserUploadedImage) {
+          if (isNewImage && isUserUploadedImage && !colorsAlreadyProvided) {
             console.log("[ProfileContext] New profile image detected, extracting background colors...");
             // Run color extraction async (don't block the save)
             // onSnapshot will pick up the new colors automatically

@@ -122,18 +122,24 @@ export class ProfileSaveService {
 
       }
 
-      // Validate image fields - prevent saving base64 data URLs to Firestore
+      // Validate image fields - prevent saving non-remote URLs to Firestore
       // Base64 data URLs can exceed Firestore's 1MB field limit
+      // file:// URIs are local device paths that won't work on other clients
       if (processedUpdates.backgroundImage && processedUpdates.backgroundImage.startsWith('data:image/')) {
         console.warn('[ProfileSaveService] Skipping base64 backgroundImage - waiting for upload to complete');
         delete processedUpdates.backgroundImage;
       }
-      if (processedUpdates.profileImage && processedUpdates.profileImage.startsWith('data:image/')) {
-        console.warn('[ProfileSaveService] Skipping base64 profileImage - waiting for upload to complete');
-        delete processedUpdates.profileImage;
+      if (processedUpdates.profileImage) {
+        if (processedUpdates.profileImage.startsWith('data:image/')) {
+          console.warn('[ProfileSaveService] Skipping base64 profileImage - waiting for upload to complete');
+          delete processedUpdates.profileImage;
+        } else if (processedUpdates.profileImage.startsWith('file://')) {
+          console.warn('[ProfileSaveService] Skipping file:// profileImage - waiting for upload to complete');
+          delete processedUpdates.profileImage;
+        }
       }
       
-      // Determine merge strategy
+      // Determine merge strategy for optimistic UI update (full profile)
       const merged = options.directUpdate
         ? {
             ...currentProfile,
@@ -147,17 +153,23 @@ export class ProfileSaveService {
           }
         : this.mergeNonEmpty(currentProfile, processedUpdates, userId);
 
+      // Build Firestore save data: ONLY write fields that are in processedUpdates.
+      // With setDoc({ merge: true }), unmentioned fields are preserved in Firestore.
+      // This prevents stale values from profileRef.current overwriting data that
+      // another process (e.g. the image upload API) has already saved.
+      const saveData: Record<string, unknown> = {
+        ...processedUpdates,
+        userId,
+        lastUpdated: Date.now(),
+      };
+
       // Never write an empty shortCode to Firestore — it's generated server-side
-      // and Firestore's { merge: true } will preserve the existing value if omitted.
-      // This prevents a race condition where the immediate/placeholder profile
-      // (shortCode: '') overwrites the server-generated shortCode during early saves.
-      const saveData = { ...merged };
       if (!saveData.shortCode) {
-        delete (saveData as Partial<UserProfile>).shortCode;
+        delete saveData.shortCode;
       }
 
       // Save to Firebase
-      await ClientProfileService.saveProfile(saveData as UserProfile);
+      await ClientProfileService.saveProfile(saveData as unknown as UserProfile);
 
       return { success: true, profile: merged };
     } catch (error) {

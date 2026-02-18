@@ -73,8 +73,9 @@ describe('ProfileSaveService.saveProfile', () => {
       profileImage: 'data:image/png;base64,abc123',
     });
     expect(result.success).toBe(true);
-    // base64 should have been stripped
-    expect(savedProfile!.profileImage).not.toContain('data:image');
+    // base64 should have been stripped from the save data (not written to Firestore)
+    const callArg = (mockService.saveProfile as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(callArg.profileImage).toBeUndefined();
   });
 
   it('rejects base64 backgroundImage', async () => {
@@ -82,7 +83,9 @@ describe('ProfileSaveService.saveProfile', () => {
       backgroundImage: 'data:image/jpeg;base64,xyz',
     });
     expect(result.success).toBe(true);
-    expect(savedProfile!.backgroundImage).not.toContain('data:image');
+    // base64 should have been stripped from the save data (not written to Firestore)
+    const callArg = (mockService.saveProfile as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(callArg.backgroundImage).toBeUndefined();
   });
 
   it('uses directUpdate when option is set', async () => {
@@ -107,8 +110,11 @@ describe('ProfileSaveService.saveProfile', () => {
       contactEntries: baseProfile.contactEntries,
     });
     expect(result.success).toBe(true);
+    // shortCode is NOT in the save data — Firestore merge: true preserves it
+    // The optimistic profile (returned to caller) still has the merged shortCode
     const callArg = (mockService.saveProfile as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(callArg.shortCode).toBe('abc12345');
+    expect(callArg.shortCode).toBeUndefined();
+    expect(result.profile!.shortCode).toBe('abc12345');
   });
 
   it('handles save failure gracefully', async () => {

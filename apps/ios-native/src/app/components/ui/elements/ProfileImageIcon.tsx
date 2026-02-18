@@ -9,25 +9,34 @@
  * - Added Firebase Storage upload via API (same as web)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Image, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getApiBaseUrl, getIdToken } from '../../../../client/auth/firebase';
+import Avatar from './Avatar';
 
 interface ProfileImageIconProps {
   imageUrl?: string;
   onUpload: (uri: string, backgroundColors?: string[]) => void;
   size?: number;
+  alt?: string;
+  profileColors?: [string, string, string];
 }
 
 export function ProfileImageIcon({
   imageUrl,
   onUpload,
   size = 32,
+  alt,
+  profileColors,
 }: ProfileImageIconProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Keep a ref to onUpload so the async handlePress always calls the latest version
+  const onUploadRef = useRef(onUpload);
+  useEffect(() => { onUploadRef.current = onUpload; }, [onUpload]);
 
   // Reset error state when imageUrl changes
   useEffect(() => {
@@ -47,14 +56,8 @@ export function ProfileImageIcon({
     if (isUploading) return;
 
     try {
-      // Request permission
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Permission to access media library denied');
-        return;
-      }
-
-      // Launch image picker
+      // iOS 14+ uses PHPicker which doesn't require photo library permission.
+      // Launch the picker directly — no need for requestMediaLibraryPermissionsAsync().
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -66,7 +69,7 @@ export function ProfileImageIcon({
         const localUri = result.assets[0].uri;
 
         // Show immediate preview with local URI
-        onUpload(localUri);
+        onUploadRef.current(localUri);
 
         // Upload to Firebase Storage via API (same as web)
         setIsUploading(true);
@@ -103,9 +106,9 @@ export function ProfileImageIcon({
           const data = await response.json();
           console.log('[ProfileImageIcon] Upload successful:', data);
 
-          // Update with permanent Firebase Storage URL and colors
+          // Update with permanent Firebase Storage URL and colors (use ref for latest callback)
           if (data.imageUrl) {
-            onUpload(data.imageUrl, data.backgroundColors);
+            onUploadRef.current(data.imageUrl, data.backgroundColors);
           }
         } catch (uploadError) {
           console.error('[ProfileImageIcon] Upload failed:', uploadError);
@@ -139,11 +142,18 @@ export function ProfileImageIcon({
           )}
         </View>
       ) : (
-        <View style={[styles.placeholder, { width: size, height: size }]}>
+        <View style={{ width: size, height: size }}>
           {isUploading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <View style={[styles.placeholder, { width: size, height: size }]}>
+              <ActivityIndicator size="small" color="#ffffff" />
+            </View>
           ) : (
-            <Text style={styles.placeholderEmoji}>👤</Text>
+            <Avatar
+              src={undefined}
+              alt={alt || 'Profile'}
+              sizeNumeric={size}
+              profileColors={profileColors}
+            />
           )}
         </View>
       )}

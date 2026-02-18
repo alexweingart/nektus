@@ -21,7 +21,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import type { RootStackParamList } from '../../../../App';
@@ -47,8 +47,11 @@ type EditProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, '
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CONTENT_PADDING = 16;
 
+type EditProfileRouteProp = RouteProp<RootStackParamList, 'EditProfile'>;
+
 export function EditProfileView() {
   const navigation = useNavigation<EditProfileNavigationProp>();
+  const route = useRoute<EditProfileRouteProp>();
   const goBackWithFade = useGoBackWithFade();
   const { data: session } = useSession();
   const { profile, saveProfile, isSaving, sharingCategory, setSharingCategory } = useProfile();
@@ -61,6 +64,10 @@ export function EditProfileView() {
 
   // selectedMode alias for readability in this component
   const selectedMode = sharingCategory;
+
+  // Track backgroundColors received from image upload API (ensures save includes them
+  // even if onSnapshot hasn't fired yet with the API-saved colors)
+  const [uploadedBackgroundColors, setUploadedBackgroundColors] = useState<string[] | undefined>(undefined);
 
   // Inline add link state
   const [showInlineAddLink, setShowInlineAddLink] = useState<{ personal: boolean; work: boolean }>({
@@ -108,6 +115,24 @@ export function EditProfileView() {
     },
   });
 
+  // Handle deep link to auto-open inline add link
+  useEffect(() => {
+    const section = route.params?.openInlineAddLink;
+    if (section) {
+      setShowInlineAddLink(prev => ({ ...prev, [section]: true }));
+      if (section === 'work' && selectedMode !== 'Work') {
+        const toValue = 1;
+        Animated.timing(slideAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+        setSharingCategory('Work');
+      } else if (section === 'personal' && selectedMode !== 'Personal') {
+        const toValue = 0;
+        Animated.timing(slideAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+        setSharingCategory('Personal');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handle mode change with slide animation
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     const toValue = mode === 'Work' ? 1 : 0;
@@ -131,29 +156,41 @@ export function EditProfileView() {
     if (!session?.user?.id) return;
 
     try {
-      const profileData = {
+      const profileData: Record<string, any> = {
         contactEntries: fieldManager.getAllFields(),
         profileImage: fieldManager.getImageValue('profileImage') || profile?.profileImage || '',
       };
+
+      // Include uploaded backgroundColors so save includes the latest colors
+      if (uploadedBackgroundColors) {
+        profileData.backgroundColors = uploadedBackgroundColors;
+      }
 
       await saveProfile(profileData);
       goBackWithFade();
     } catch (error) {
       console.error('[EditProfileView] Save failed:', error);
     }
-  }, [session, fieldManager, profile, saveProfile, goBackWithFade]);
+  }, [session, fieldManager, profile, saveProfile, goBackWithFade, uploadedBackgroundColors]);
 
   // Handle profile image upload
-  // When backgroundColors are provided (from API), refresh the profile to pick up the new colors
+  // When backgroundColors are provided (from API), immediately save to profile context + Firestore
+  // so ProfileView has the new image/colors before any navigation (Save or Back).
+  // This matches the web pattern where saveProfile is called right when the upload API returns.
   const handleProfileImageUpload = useCallback((uri: string, backgroundColors?: string[]) => {
+    console.log('[EditProfileView] handleProfileImageUpload called:', { uri: uri?.substring(0, 60), backgroundColors });
     fieldManager.setImageValue('profileImage', uri);
-    // onSnapshot will auto-update profile with new background colors
-  }, [fieldManager]);
+    if (backgroundColors) {
+      console.log('[EditProfileView] Setting uploadedBackgroundColors:', backgroundColors);
+      setUploadedBackgroundColors(backgroundColors);
+      // Save immediately: updates profile context (optimistic) and writes to Firestore (partial)
+      saveProfile({ profileImage: uri, backgroundColors });
+    }
+  }, [fieldManager, saveProfile]);
 
-  // Debug: log profile backgroundColors
-  React.useEffect(() => {
-    console.log('[EditProfileView] profile.backgroundColors:', profile?.backgroundColors);
-  }, [profile?.backgroundColors]);
+  // Use uploaded colors instantly, fall back to profile colors from Firestore
+  const activeTintColor = uploadedBackgroundColors?.[2] || profile?.backgroundColors?.[2];
+  console.log('[EditProfileView] activeTintColor:', activeTintColor, '| uploadedBgColors:', uploadedBackgroundColors, '| profileBgColors:', profile?.backgroundColors);
 
   // Handle field input change
   const handleFieldChange = useCallback((fieldType: string, value: string, section: FieldSection) => {
@@ -251,6 +288,8 @@ export function EditProfileView() {
                       imageUrl={fieldManager.getImageValue('profileImage')}
                       onUpload={handleProfileImageUpload}
                       size={32}
+                      alt={fieldManager.getFieldValue('name')}
+                      profileColors={profile?.backgroundColors as [string, string, string] | undefined}
                     />
                   }
                 />
@@ -316,7 +355,7 @@ export function EditProfileView() {
                   getFieldValue={getFieldValue}
                   handleFieldChange={handleFieldChange}
                   getFieldsForView={getFieldsForView}
-                  tintColor={profile?.backgroundColors?.[2]}
+                  tintColor={activeTintColor}
                   onDragStateChange={setIsDragging}
                 />
               </Animated.View>
@@ -356,7 +395,7 @@ export function EditProfileView() {
                   getFieldValue={getFieldValue}
                   handleFieldChange={handleFieldChange}
                   getFieldsForView={getFieldsForView}
-                  tintColor={profile?.backgroundColors?.[2]}
+                  tintColor={activeTintColor}
                   onDragStateChange={setIsDragging}
                 />
               </Animated.View>
@@ -372,7 +411,7 @@ export function EditProfileView() {
           <ProfileViewSelector
             selected={selectedMode}
             onSelect={handleModeChange}
-            tintColor={profile?.backgroundColors?.[2]}
+            tintColor={activeTintColor}
           />
         </View>
       </KeyboardAvoidingView>
