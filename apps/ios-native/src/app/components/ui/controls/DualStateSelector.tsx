@@ -4,7 +4,7 @@
  * Matches web implementation
  */
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   View,
   TouchableOpacity,
@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Animated,
   ViewStyle,
+  LayoutChangeEvent,
 } from "react-native";
 import { BlurView } from "expo-blur";
 
@@ -36,23 +37,41 @@ export function DualStateSelector<T extends string>({
   minWidth = 80,
   tintColor,
 }: DualStateSelectorProps<T>) {
+  // Measured container width (actual, after style overrides)
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const measuredWidthRef = useRef(0);
+
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w !== measuredWidthRef.current) {
+      measuredWidthRef.current = w;
+      setMeasuredWidth(w);
+    }
+  }, []);
+
   // Animated value for slider position (0 = left, 1 = right)
   const slideAnim = useRef(
     new Animated.Value(selectedOption === options[1] ? 1 : 0)
   ).current;
 
+  // Keep options in a ref so the useEffect only re-triggers on selectedOption changes
+  // (inline array literals like ["Personal","Work"] create new references every render)
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   useEffect(() => {
     Animated.timing(slideAnim, {
-      toValue: selectedOption === options[1] ? 1 : 0,
-      useNativeDriver: false,
+      toValue: selectedOption === optionsRef.current[1] ? 1 : 0,
+      useNativeDriver: true,
       duration: 200,
     }).start();
-  }, [selectedOption, slideAnim, options]);
+  }, [selectedOption, slideAnim]);
 
-  // Calculate slider position (0% for left, 50% for right)
-  const sliderLeft = slideAnim.interpolate({
+  // Slide distance = half the measured container width (each button is 50%)
+  const halfWidth = measuredWidth / 2;
+  const sliderTranslateX = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0%", "50%"],
+    outputRange: [0, halfWidth],
   });
 
   // Convert hex color to rgba with opacity - matches web's glass tint logic
@@ -77,7 +96,7 @@ export function DualStateSelector<T extends string>({
   const totalWidth = minWidth * 2;
 
   return (
-    <View style={[styles.container, { width: totalWidth }, style]}>
+    <View style={[styles.container, { width: totalWidth }, style]} onLayout={handleLayout}>
       {/* Blur background to match web's backdrop-blur-lg */}
       <BlurView
         style={StyleSheet.absoluteFillObject}
@@ -90,8 +109,8 @@ export function DualStateSelector<T extends string>({
         style={[
           styles.slider,
           {
-            left: sliderLeft,
             backgroundColor: getSliderBackground(),
+            transform: [{ translateX: sliderTranslateX }],
           },
         ]}
       >
@@ -141,10 +160,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
+    left: 0,
     width: "50%",
     borderRadius: 9999,
-    // backgroundColor set dynamically via inline style to use profile color
-    // Matches web's layered gradient approach with approximated opacity
   },
   sliderOverlay: {
     ...StyleSheet.absoluteFillObject,

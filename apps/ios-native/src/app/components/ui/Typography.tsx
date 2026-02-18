@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { Text, StyleSheet, TextStyle } from "react-native";
-import { SF_ROUNDED } from "../../../../shared/fonts";
+import { SF_ROUNDED } from "../../../shared/fonts";
 
 type HeadingVariant = "h1" | "h2" | "h3";
 
