@@ -19,6 +19,7 @@ import { getApiBaseUrl, getFieldValue } from '@nektus/shared-client';
 import { useProfile, type SharingCategory } from '../../../../app/context/ProfileContext';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 import { useAdminModeActivator } from '../banners/AdminBanner';
+import { generateProfileColors } from '../../../../shared/colors';
 
 interface ProfileAnimatedValues {
   scale: Animated.Value;
@@ -89,6 +90,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // This enables the Avatar component to crossfade from initials to the generated image
   const showInitialsValue = isGoogleInitials;
 
+  // Use actual profile colors when available (photo-extracted), fall back to name-generated
+  const name = getFieldValue(profile?.contactEntries, 'name') || 'User';
+  const profileColors = (profile.backgroundColors?.length === 3
+    ? profile.backgroundColors as [string, string, string]
+    : generateProfileColors(name));
+
   // Admin mode activator - double-tap on avatar to toggle
   const adminActivator = useAdminModeActivator();
 
@@ -133,11 +140,10 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
     // Animate carousel - use measured container width
     const targetX = mode === 'Work' ? -containerWidthRef.current : 0;
-    Animated.spring(translateX, {
+    Animated.timing(translateX, {
       toValue: targetX,
+      duration: 250,
       useNativeDriver: true,
-      tension: 50,
-      friction: 9,
     }).start();
   };
 
@@ -180,11 +186,10 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         } else {
           console.log('[ProfileInfo] Snapping back to current position');
           const targetX = currentMode === 'Work' ? -containerWidth : 0;
-          Animated.spring(translateX, {
+          Animated.timing(translateX, {
             toValue: targetX,
+            duration: 250,
             useNativeDriver: true,
-            tension: 50,
-            friction: 9,
           }).start();
         }
       },
@@ -195,11 +200,10 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   useEffect(() => {
     if (!containerWidthRef.current) return;
     const targetX = sharingCategory === 'Work' ? -containerWidthRef.current : 0;
-    Animated.spring(translateX, {
+    Animated.timing(translateX, {
       toValue: targetX,
+      duration: 250,
       useNativeDriver: true,
-      tension: 50,
-      friction: 9,
     }).start();
   }, [sharingCategory, translateX]);
 
@@ -236,6 +240,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             sizeNumeric={avatarSize}
             isLoading={isLoadingProfile}
             showInitials={showInitialsValue}
+            profileColors={profileColors}
           />
         </View>
       </TouchableOpacity>

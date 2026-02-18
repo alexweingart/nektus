@@ -1,0 +1,13 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload app privacy details to App Store Connect"
+  lane :upload_privacy do
+    upload_app_privacy_details_to_app_store(
+      username: "ajweingart@gmail.com",
+      team_name: "Alexander Weingart",
+      app_identifier: "com.nektus.app",
+      json_path: "fastlane/app_privacy_details.json"
+    )
+  end
+end

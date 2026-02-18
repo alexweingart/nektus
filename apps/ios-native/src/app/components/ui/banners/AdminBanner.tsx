@@ -92,38 +92,48 @@ export default function AdminBanner() {
               }
 
               // Step 2: Call the delete account API with Firebase ID token
-              try {
-                const baseUrl = getApiBaseUrl();
-                const response = await fetch(
-                  `${baseUrl}/api/delete-account`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${idToken}`,
-                    },
-                    body: JSON.stringify({
-                      timestamp: new Date().getTime(),
-                    }),
-                  }
-                );
-
-                if (response.ok) {
-                  console.log('[AdminBanner] Account deletion API call successful');
-                } else {
-                  const errorData = await response.json().catch(() => ({}));
-                  console.warn('[AdminBanner] Account deletion API returned:', response.status, errorData);
-                  // If unauthorized, the server couldn't verify our token
-                  if (response.status === 401) {
-                    Alert.alert('Error', 'Authentication failed. Please sign in again.');
-                    setDeleteStatus('error');
-                    return;
-                  }
+              const baseUrl = getApiBaseUrl();
+              const response = await fetch(
+                `${baseUrl}/api/delete-account`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                  },
+                  body: JSON.stringify({
+                    timestamp: new Date().getTime(),
+                  }),
                 }
-              } catch (apiError) {
-                console.error('[AdminBanner] Error calling delete account API:', apiError);
-                // Continue with local cleanup even if API fails
+              ).catch((fetchError) => {
+                console.error('[AdminBanner] Network error calling delete account API:', fetchError);
+                return null;
+              });
+
+              if (!response) {
+                Alert.alert(
+                  'Deletion Failed',
+                  'Could not reach the server. Check your internet connection and try again.'
+                );
+                setDeleteStatus('error');
+                return;
               }
+
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('[AdminBanner] Account deletion API returned:', response.status, errorData);
+                Alert.alert(
+                  'Deletion Failed',
+                  response.status === 401
+                    ? 'Authentication failed. Please sign in again.'
+                    : `Server error (${response.status}). Your account was NOT deleted. Please try again.`
+                );
+                setDeleteStatus('error');
+                return;
+              }
+
+              const result = await response.json().catch(() => ({}));
+              console.log('[AdminBanner] Account deletion API confirmed:', result);
 
               // Step 3: Sign out from Firebase BEFORE clearing storage
               // Firebase SDK relies on its own AsyncStorage keys for auth persistence.
@@ -144,10 +154,14 @@ export default function AdminBanner() {
 
               console.log('[AdminBanner] Account deletion complete');
 
-              // Show success with reminder about Apple
+              // Show success with device permission guidance
               Alert.alert(
                 'Account Deleted',
-                'Your account has been deleted.\n\nTo see "Join" instead of "Sign in" next time, revoke Apple access in Settings → Apple ID → Sign-In & Security → Sign in with Apple → Nekt → Stop Using Apple ID',
+                'Your profile data has been deleted from the server.\n\n' +
+                'To fully clean up, revoke these permissions in iOS Settings:\n\n' +
+                '• Apple Sign-In: Apple ID → Sign-In & Security → Sign in with Apple → Nekt\n' +
+                '• Contacts: Privacy & Security → Contacts → Nekt\n' +
+                '• Calendar: Privacy & Security → Calendars → Nekt',
                 [{ text: 'OK' }]
               );
             } catch (err) {

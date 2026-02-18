@@ -162,13 +162,13 @@ export function AnonContactView({
                   <Button
                     variant="white"
                     size="xl"
-                    onPress={onInstallApp}
+                    onPress={onInstallApp || (() => {})}
                     style={styles.fullWidth}
                   >
                     Get the App
                   </Button>
                   <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={onReject}>
+                    <SecondaryButton onPress={onReject || (() => {})}>
                       Continue on Web
                     </SecondaryButton>
                   </View>
@@ -202,7 +202,7 @@ export function AnonContactView({
                     {isSaving ? 'Saving...' : 'Save Contact'}
                   </Button>
                   <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={onReject} disabled={isSaving}>
+                    <SecondaryButton onPress={onReject || (() => {})} disabled={isSaving}>
                       Nah, who this
                     </SecondaryButton>
                   </View>

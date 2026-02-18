@@ -88,6 +88,21 @@ export async function POST(req: NextRequest) {
         // Don't fail deletion if token revocation fails
       }
 
+      // Revoke Google Sign-In access token from NextAuth session (if present)
+      // This covers web-created Google accounts being deleted from any client
+      try {
+        const session = await getServerSession(authOptions);
+        if (session?.accessToken) {
+          console.log('[DELETE-ACCOUNT] Revoking Google Sign-In access token from session');
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${session.accessToken}`, {
+            method: 'POST',
+          });
+          console.log('[DELETE-ACCOUNT] Revoked Google Sign-In access token');
+        }
+      } catch (revokeError) {
+        console.warn('[DELETE-ACCOUNT] Google Sign-In token revocation failed (non-fatal):', revokeError);
+      }
+
       // Delete the user's profile using the admin SDK
       console.log(`[DELETE-ACCOUNT] Deleting profile for user: ${userId}`);
       await deleteUserProfile(userId);

@@ -1,0 +1,40 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "en-US": {
+        "title": "Nekt",
+        "subtitle": "Conversations to Friendships",
+        "description": "You just had an amazing conversation with someone new. Now what?\n\nNekt makes staying connected effortless. Exchange contacts instantly, then find the perfect time to meet — all without the usual back-and-forth.\n\nINSTANT CONTACT EXCHANGE\nBump phones using Bluetooth to share your contact info and social profiles in one tap. Or scan a QR code if you prefer. No typing numbers, no searching usernames, no killing the moment. Your new contact is automatically saved to your phone.\n\nSHARE WHAT YOU WANT\nKeep personal and professional separate. Choose to share your personal info, work details, or both — you're always in control of what gets exchanged.\n\nAI-POWERED SCHEDULING\nFinding time to meet shouldn't be harder than the meeting itself. Connect your phone calendar and Nekt automatically finds when you're both free. Say \"lunch this week\" or \"drinks on Friday\" and our AI suggests the best time, place, and activity.\n\nWORKS EVEN WITHOUT THE APP\nYour new friend doesn't have Nekt? No problem. They can scan your QR code and see your profile instantly through our App Clip — no download required. When they're ready, one tap installs the full app with their contact already saved.\n\nWHY DOWNLOAD THE APP?\n• Seamless Bluetooth bump — exchange contacts just by tapping phones together\n• Automatic contact saving — new connections go straight to your phone's contacts\n• Phone calendar integration — connect Apple or Google Calendar to find time to meet\n• Lock screen widget — start exchanging with one tap, no unlock needed\n\nBUILT FOR REAL MOMENTS\nConferences, meetups, parties, coffee shops — wherever great conversations happen, Nekt helps you keep them going. Because the best connections deserve more than a forgotten phone number.",
+        "keywords": [
+          "contact exchange",
+          "networking",
+          "bump phones",
+          "schedule",
+          "social",
+          "calendar",
+          "events",
+          "conferences",
+          "connect",
+          "friends"
+        ],
+        "promoText": "Make real connections stick. Exchange contacts and find time to meet in seconds — whether it's a new friend or a professional contact.",
+        "marketingUrl": "https://nekt.us",
+        "supportUrl": "https://nekt.us",
+        "privacyPolicyUrl": "https://nekt.us/privacy"
+      }
+    },
+    "categories": ["SOCIAL_NETWORKING", "LIFESTYLE"],
+    "review": {
+      "firstName": "Alexander",
+      "lastName": "Weingart",
+      "email": "alex@nekt.us",
+      "phone": "+1 818-292-6036",
+      "demoRequired": false,
+      "notes": "To test the full experience:\n\n1. Launch the app and sign in with Apple to create a new account.\n2. Complete profile setup — add your name, a profile photo, and at least one social link.\n3. To test contact exchange: On a second device or browser, visit https://nekt.us, sign in with a different Apple account, and initiate a QR exchange. Scan the QR code from the app to complete the exchange. The new contact will automatically save to your phone.\n4. To test scheduling: Open any saved contact and tap \"Find Time to Meet\" to see AI-powered scheduling suggestions with time and place options.\n\nNote: The Bluetooth \"bump\" feature requires two physical iOS devices with the app installed in close proximity. QR code exchange is the recommended test path for review."
+    },
+    "release": {
+      "automaticRelease": true
+    }
+  }
+}

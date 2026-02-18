@@ -84,9 +84,9 @@
 		F11748612E0100010044C1D9 /* MeCardModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeCardModule.swift; path = Nekt/MeCardModule.swift; sourceTree = "<group>"; };
 		F11748632E0100020044C1D9 /* MeCardBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = MeCardBridge.m; path = Nekt/MeCardBridge.m; sourceTree = "<group>"; };
 		F519C527F9AF4931CB559F1F /* Pods-Nekt.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nekt.release.xcconfig"; path = "Target Support Files/Pods-Nekt/Pods-Nekt.release.xcconfig"; sourceTree = "<group>"; };
-		AAAA11110000000000000001 /* SKOverlayModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SKOverlayModule.swift; path = NektClip/SKOverlayModule.swift; sourceTree = "<group>"; };
-		AAAA11110000000000000002 /* SKOverlayBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SKOverlayBridge.m; path = NektClip/SKOverlayBridge.m; sourceTree = "<group>"; };
-		AAAA11110000000000000003 /* NektClip-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "NektClip-Bridging-Header.h"; path = "NektClip/NektClip-Bridging-Header.h"; sourceTree = "<group>"; };
+		AAAA11110000000000000001 /* SKOverlayModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SKOverlayModule.swift; path = SKOverlayModule.swift; sourceTree = "<group>"; };
+		AAAA11110000000000000002 /* SKOverlayBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SKOverlayBridge.m; path = SKOverlayBridge.m; sourceTree = "<group>"; };
+		AAAA11110000000000000003 /* NektClip-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "NektClip-Bridging-Header.h"; path = "NektClip-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
