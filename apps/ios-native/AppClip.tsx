@@ -30,6 +30,7 @@ import {
 } from "./src/client/auth/apple";
 import { storeSessionForHandoff } from "./src/client/auth/session-handoff";
 import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/firebase";
+import { ClientProfileService } from "./src/client/firebase/firebase-save";
 import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
 import { showAppStoreOverlay } from "./src/client/native/SKOverlayWrapper";
 import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
@@ -268,13 +269,11 @@ function AppClipContent() {
     }
   }, [token, apiBaseUrl]);
 
-  // Handle phone modal save
+  // Handle phone modal save — writes directly to Firestore (no REST endpoint needed)
   const handlePhoneSave = useCallback(async (phone: string, socials: ContactEntry[]) => {
+    if (!session) throw new Error("No session");
     setIsPhoneSaving(true);
     try {
-      const idToken = await getIdToken();
-      if (!idToken) throw new Error("No auth token");
-
       // Format phone number for storage
       const { internationalPhone } = formatPhoneNumber(phone);
 
@@ -294,18 +293,10 @@ function AppClipContent() {
         ...socials,
       ];
 
-      const response = await fetch(`${apiBaseUrl}/api/profile/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ contactEntries: entries }),
+      // Save directly to Firestore via merge
+      await ClientProfileService.updateProfile(session.userId, {
+        contactEntries: entries,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
 
       setShowPhoneModal(false);
 
@@ -317,7 +308,7 @@ function AppClipContent() {
     } finally {
       setIsPhoneSaving(false);
     }
-  }, [apiBaseUrl, sendPairSignal]);
+  }, [session, sendPairSignal]);
 
   // Handle Save Contact — inline logic since save.ts depends on excluded expo-file-system
   const handleSaveContact = useCallback(async () => {
