@@ -308,16 +308,18 @@ export function ContactView(props: ContactViewProps = {}) {
       }
     }
 
-    // Replace AI-generated avatar with Me Card photo
-    if (meCardData.imageBase64 && userProfile.aiGeneration?.avatarGenerated && session?.user?.id) {
+    // Set profile photo from Me Card if user has no photo or only an AI-generated one
+    if (meCardData.imageBase64 && (!userProfile.profileImage || userProfile.aiGeneration?.avatarGenerated) && session?.user?.id) {
       try {
         const { uploadProfileImage } = await import('../../../client/firebase/firebase-storage');
         const imageUrl = await uploadProfileImage(meCardData.imageBase64, session.user.id);
         updates.profileImage = imageUrl;
-        updates.aiGeneration = {
-          ...userProfile.aiGeneration,
-          avatarGenerated: false,
-        };
+        if (userProfile.aiGeneration?.avatarGenerated) {
+          updates.aiGeneration = {
+            ...userProfile.aiGeneration,
+            avatarGenerated: false,
+          };
+        }
       } catch (error) {
         console.error('[ContactView] Me Card: failed to upload photo:', error);
       }
