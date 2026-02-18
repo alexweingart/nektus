@@ -16,6 +16,7 @@ import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { BodyText } from '../ui/Typography';
+import { SF_ROUNDED } from '../../../shared/fonts';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 
 // Apple icon (dark logo for white button to match app style)
@@ -281,12 +282,13 @@ const styles = StyleSheet.create({
   name: {
     color: '#ffffff',
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: SF_ROUNDED.bold,
     textAlign: 'center',
     marginBottom: 16,
   },
   bio: {
     color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -307,6 +309,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -322,6 +325,7 @@ const styles = StyleSheet.create({
   },
   valuePropItem: {
     color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     lineHeight: 20,
   },

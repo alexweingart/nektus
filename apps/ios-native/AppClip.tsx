@@ -33,6 +33,7 @@ import { getApiBaseUrl, getIdToken, signInWithToken } from "./src/client/auth/fi
 import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
 import { showAppStoreOverlay } from "./src/client/native/SKOverlayWrapper";
 import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
+import { SF_ROUNDED } from "./src/shared/fonts";
 
 // Session context for App Clip (simplified, no full Firebase SDK)
 interface AppClipSession {
@@ -83,11 +84,12 @@ const errorBoundaryStyles = StyleSheet.create({
   title: {
     color: "#ef4444",
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: SF_ROUNDED.bold,
     marginBottom: 12,
   },
   message: {
     color: "rgba(255, 255, 255, 0.7)",
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     textAlign: "center",
   },
@@ -531,24 +533,27 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: "rgba(255, 255, 255, 0.7)",
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 16,
     marginTop: 16,
   },
   errorText: {
     color: "#ef4444",
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     textAlign: "center",
     marginTop: 8,
   },
   heading: {
     fontSize: 24,
-    fontWeight: "600",
+    fontFamily: SF_ROUNDED.semibold,
     color: "#ffffff",
     textAlign: "center",
     marginBottom: 12,
   },
   subheading: {
     fontSize: 18,
+    fontFamily: SF_ROUNDED.regular,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
     marginBottom: 40,
@@ -568,6 +573,7 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     paddingHorizontal: 24,
     color: "#ffffff",
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
@@ -587,6 +593,7 @@ const styles = StyleSheet.create({
   },
   errorOverlayText: {
     color: "#ef4444",
+    fontFamily: SF_ROUNDED.regular,
     fontSize: 14,
     textAlign: "center",
   },
