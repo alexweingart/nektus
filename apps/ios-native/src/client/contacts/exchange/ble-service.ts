@@ -155,7 +155,7 @@ export class BLEExchangeService {
           this.stop();
           this.callbacks.onError?.(new Error('BLE exchange timeout'));
         }
-      }, EXCHANGE_TIMEOUT.MEDIUM_MS);
+      }, EXCHANGE_TIMEOUT.SLOW_MS);
 
       // Start scanning for peers
       this.startScanning();
