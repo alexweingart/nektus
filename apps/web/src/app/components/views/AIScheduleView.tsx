@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStreamingAI, type ChatMessage } from '@/client/hooks/use-streaming-ai';
 import type { UserProfile, TimeSlot } from '@/types/profile';
@@ -14,6 +14,7 @@ import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { useProfile } from '@/app/context/ProfileContext';
 import { formatLocationString } from '@nektus/shared-client';
 import { auth } from '@/client/config/firebase';
+import { ensureReadableColor } from '@/shared/colors';
 
 // Helper: Generate unique message IDs
 function generateMessageId(offset = 0): string {
@@ -23,6 +24,8 @@ function generateMessageId(offset = 0): string {
 export default function AIScheduleView() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const shouldAutoFocus = searchParams.get('autoFocus') === 'true';
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact, getContacts } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
@@ -158,21 +161,16 @@ export default function AIScheduleView() {
 
   useEffect(() => {
     // Initialize chat with AI greeting when component mounts
-    if (contactProfile && messages.length === 0) {
-      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'this contact';
+    if (contactProfile && currentUserProfile && messages.length === 0) {
+      const userFirstName = (currentUserProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || '').split(' ')[0] || 'They-who-must-not-be-named';
+      const contactFirstName = (contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || '').split(' ')[0] || 'They-who-must-not-be-named';
       setMessages([{
         id: '1',
         type: 'ai',
-        content: `I'll help you find the perfect time & place to meet with **${contactName}**. Can you let me know:
-
-- How long you want to meet
-- Days or times you're free
-- What type of place you'd like to meet at
-
-And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!`,
+        content: `Hey ${userFirstName}! I'll help you find time to meet with **${contactFirstName}**.\n\nJust tell me days, times, duration, and/or type of activity. Or, just ask me to suggest something and I'll use your shared availability to plan something awesome.`,
       }]);
     }
-  }, [contactProfile, messages.length]);
+  }, [contactProfile, currentUserProfile, messages.length]);
 
   const prevMessagesLengthRef = useRef(messages.length);
 
@@ -242,7 +240,7 @@ And if you don't know any of those things, and just want me to suggest based off
       const contactCoordinates = contactLoc?.coordinates;
 
       const contactEmail = contactProfile.contactEntries?.find(e => e.fieldType === 'email')?.value || '';
-      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'Contact';
+      const contactName = contactProfile.contactEntries?.find(e => e.fieldType === 'name')?.value || 'They-who-must-not-be-named';
 
       // Get ID token for authentication
       const idToken = await auth?.currentUser?.getIdToken();
@@ -377,7 +375,7 @@ And if you don't know any of those things, and just want me to suggest based off
           ref={messagesContainerRef}
           className="w-full max-w-[var(--max-content-width,448px)] space-y-3 pt-4"
         >
-          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
+          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} dominantColor={contactProfile.backgroundColors?.[0] ? ensureReadableColor(contactProfile.backgroundColors[0]) : undefined} />
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -399,6 +397,7 @@ And if you don't know any of those things, and just want me to suggest based off
           disabled={false}
           sendDisabled={isProcessing}
           fadeIn={true}
+          autoFocus={shouldAutoFocus}
         />
       )}
     </>

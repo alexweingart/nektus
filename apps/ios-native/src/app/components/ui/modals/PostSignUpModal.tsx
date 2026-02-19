@@ -87,7 +87,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   // Check if phone is valid (10+ digits)
   const isPhoneValid = digits.replace(/\D/g, '').length >= 10;
 
-  const firstName = userName?.split(' ')[0] || 'there';
+  const firstName = userName?.split(' ')[0] || 'They-who-must-not-be-named';
 
   const handleSave = useCallback(async () => {
     if (!isPhoneValid || isSaving) return;

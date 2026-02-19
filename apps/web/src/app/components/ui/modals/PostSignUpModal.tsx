@@ -117,7 +117,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
 
   // Extract first name from full name
-  const firstName = userName?.split(' ')[0] || 'there';
+  const firstName = userName?.split(' ')[0] || 'They-who-must-not-be-named';
 
   return (
     <Dialog.Root open={isOpen}>

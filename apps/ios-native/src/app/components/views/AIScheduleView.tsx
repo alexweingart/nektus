@@ -8,7 +8,7 @@
  * - Replaced window.open with Linking.openURL
  * - Replaced div/className with View/StyleSheet
  * - Replaced ref scroll with ScrollView scrollToEnd
- * - Added KeyboardAvoidingView for proper keyboard handling
+ * - Added animated keyboard spacer for proper keyboard handling
  * - Removed visualViewport handling (iOS handles keyboard natively)
  * - Uses getApiBaseUrl for API calls
  */
@@ -39,8 +39,9 @@ import { StandardModal } from '../ui/modals/StandardModal';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { MessageList } from '../ui/chat/MessageList';
-import { ChatInput } from '../ui/chat/ChatInput';
+import { ChatInput, type ChatInputHandle } from '../ui/chat/ChatInput';
 import { emitMatchFound } from '../../utils/animationEvents';
+import { ensureReadableColor } from '@nektus/shared-client';
 
 type AIScheduleViewRouteProp = RouteProp<RootStackParamList, 'AISchedule'>;
 
@@ -60,7 +61,7 @@ function generateMessageId(offset = 0): string {
 export function AIScheduleView() {
   const route = useRoute<AIScheduleViewRouteProp>();
   const goBackWithFade = useGoBackWithFade();
-  const { contactUserId, backgroundColors, savedContact: passedContact } = route.params;
+  const { contactUserId, backgroundColors, savedContact: passedContact, autoFocus } = route.params;
 
   const { data: session } = useSession();
   const { profile: currentUserProfile, getContact } = useProfile();
@@ -87,7 +88,7 @@ export function AIScheduleView() {
     }
   }, [backgroundColors]);
 
-  // Keyboard tracking for chat layout
+  // Keyboard tracking for chat layout + auto-scroll
   const keyboardHeight = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
@@ -96,6 +97,10 @@ export function AIScheduleView() {
         duration: e.duration || 250,
         useNativeDriver: false,
       }).start();
+      // Auto-scroll messages when keyboard opens
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 150);
     });
     const hideSub = Keyboard.addListener('keyboardWillHide', (e) => {
       Animated.timing(keyboardHeight, {
@@ -113,6 +118,18 @@ export function AIScheduleView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
+  const chatInputRef = useRef<ChatInputHandle>(null);
+
+  // Auto-focus the input when navigating from SmartScheduleView
+  useEffect(() => {
+    if (autoFocus && !loading) {
+      // Short delay to let screen transition complete
+      const timer = setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus, loading]);
 
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
@@ -167,7 +184,7 @@ export function AIScheduleView() {
   });
 
   // Initialize streaming AI hook
-  const { handleStreamingResponse } = useStreamingAI({
+  const { sendStreamingRequest } = useStreamingAI({
     onUpdateMessages: setMessages,
     onUpdateConversationHistory: setConversationHistory,
   });
@@ -250,21 +267,16 @@ export function AIScheduleView() {
 
   // Initialize chat with AI greeting when component mounts
   useEffect(() => {
-    if (contactProfile && messages.length === 0) {
-      const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'this contact';
+    if (contactProfile && currentUserProfile && messages.length === 0) {
+      const userFirstName = (getFieldValue(currentUserProfile.contactEntries, 'name') || '').split(' ')[0] || 'They-who-must-not-be-named';
+      const contactFirstName = (getFieldValue(contactProfile.contactEntries, 'name') || '').split(' ')[0] || 'They-who-must-not-be-named';
       setMessages([{
         id: '1',
         type: 'ai',
-        content: `I'll help you find the perfect time & place to meet with **${contactName}**. Can you let me know:
-
-- How long you want to meet
-- Days or times you're free
-- What type of place you'd like to meet at
-
-And if you don't know any of those things, and just want me to suggest based off common available times, that's fine too!`,
+        content: `Hey ${userFirstName}! I'll help you find time to meet with **${contactFirstName}**.\n\nJust tell me days, times, duration, and/or type of activity. Or, just ask me to suggest something and I'll use your shared availability to plan something awesome.`,
       }]);
     }
-  }, [contactProfile, messages.length]);
+  }, [contactProfile, currentUserProfile, messages.length]);
 
   // Auto-scroll when new messages are added
   useEffect(() => {
@@ -319,39 +331,38 @@ And if you don't know any of those things, and just want me to suggest based off
       const contactCoordinates = contactLoc?.coordinates;
 
       const contactEmail = getFieldValue(contactProfile.contactEntries, 'email') || '';
-      const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'Contact';
+      const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'They-who-must-not-be-named';
 
       const idToken = await getIdToken();
 
-      const response = await fetch(`${apiBaseUrl}/api/scheduling/ai`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
+      // Use XHR-based streaming for real-time SSE on native
+      await sendStreamingRequest(
+        `${apiBaseUrl}/api/scheduling/ai`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            userMessage: actualInput,
+            conversationHistory,
+            user1Id: session.user.id,
+            user2Id: contactUserId,
+            user2Name: contactName,
+            user2Email: contactEmail,
+            user1Location: currentUserLocation,
+            user2Location: contactLocation,
+            user1Coordinates: currentUserCoordinates,
+            user2Coordinates: contactCoordinates,
+            calendarType: contactType,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            availableTimeSlots: commonTimeSlotsRef.current,
+          }),
         },
-        body: JSON.stringify({
-          userMessage: actualInput,
-          conversationHistory,
-          user1Id: session.user.id,
-          user2Id: contactUserId,
-          user2Name: contactName,
-          user2Email: contactEmail,
-          user1Location: currentUserLocation,
-          user2Location: contactLocation,
-          user1Coordinates: currentUserCoordinates,
-          user2Coordinates: contactCoordinates,
-          calendarType: contactType,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          availableTimeSlots: commonTimeSlotsRef.current,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`AI scheduling failed: ${response.statusText}`);
-      }
-
-      // Handle streaming response
-      await handleStreamingResponse(response, newUserAIMessage, generateMessageId);
+        newUserAIMessage,
+        generateMessageId,
+      );
 
     } catch (error) {
       console.error('Error processing AI request:', error);
@@ -366,7 +377,7 @@ And if you don't know any of those things, and just want me to suggest based off
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, handleStreamingResponse, apiBaseUrl]);
+  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, sendStreamingRequest, apiBaseUrl]);
 
   const handleScheduleEvent = useCallback(async (event: Event) => {
     // Determine user's calendar access method for this section
@@ -444,11 +455,12 @@ And if you don't know any of those things, and just want me to suggest based off
           keyboardShouldPersistTaps="handled"
           refreshControl={refreshControl}
         >
-          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} />
+          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} dominantColor={contactProfile.backgroundColors?.[0] ? ensureReadableColor(contactProfile.backgroundColors[0]) : undefined} />
         </ScrollView>
 
-        {/* Chat Input */}
+        {/* Chat Input — keyboard spacer is inside, covered by blur */}
         <ChatInput
+          ref={chatInputRef}
           value={input}
           onChange={(e) => {
             const newValue = e.target.value;
@@ -462,10 +474,8 @@ And if you don't know any of those things, and just want me to suggest based off
           disabled={false}
           sendDisabled={isProcessing}
           fadeIn={false}
+          keyboardHeight={keyboardHeight}
         />
-
-        {/* Keyboard spacer - animates to match keyboard height */}
-        <Animated.View style={{ height: keyboardHeight }} />
 
         {/* EventKit success modal */}
         {createdEventModal && (

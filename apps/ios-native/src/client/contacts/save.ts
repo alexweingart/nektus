@@ -162,9 +162,9 @@ async function saveToFirebase(token: string): Promise<{ success: boolean; error?
 export async function saveContactFlow(
   profile: UserProfile,
   token: string,
-  options: { saveToNative?: boolean; onMeCardExtracted?: (data: MeCardData) => void } = {}
+  options: { saveToNative?: boolean; onMeCardExtracted?: (data: MeCardData) => void; userEmail?: string } = {}
 ): Promise<ContactSaveResult> {
-  const { saveToNative = true, onMeCardExtracted } = options;
+  const { saveToNative = true, onMeCardExtracted, userEmail } = options;
 
   console.log('🔍 Starting iOS contact save flow');
   console.log(`📱 Running in: ${isAppClip() ? 'App Clip' : 'Full App'}`);
@@ -213,14 +213,25 @@ export async function saveContactFlow(
   // If native save succeeded, extract Me Card data for user's profile
   if (nativeResult.success && onMeCardExtracted) {
     console.log('📇 Extracting Me Card data...');
-    extractMeCardData().then(meCardData => {
+    extractMeCardData(userEmail).then(meCardData => {
       if (meCardData) {
-        console.log('📇 Me Card data extracted');
+        console.log('📇 Me Card data extracted:', {
+          firstName: meCardData.firstName,
+          lastName: meCardData.lastName,
+          hasPhone: !!meCardData.phone,
+          hasEmail: !!meCardData.email,
+          hasImage: !!meCardData.imageBase64,
+          imageLength: meCardData.imageBase64?.length,
+        });
         onMeCardExtracted(meCardData);
+      } else {
+        console.log('📇 No Me Card found — is "My Card" configured in iOS Contacts settings?');
       }
     }).catch(err => {
       console.warn('📇 Failed to extract Me Card:', err);
     });
+  } else if (nativeResult.success) {
+    console.log('📇 Native save succeeded but no onMeCardExtracted callback');
   }
 
   // If permission denied, fall back to vCard
@@ -250,9 +261,9 @@ export async function saveContactFlow(
  * Extract Me Card data for auto-filling user's profile
  * Only call this after contacts permission has been granted
  */
-export async function extractMeCardData(): Promise<MeCardData | null> {
+export async function extractMeCardData(userEmail?: string): Promise<MeCardData | null> {
   try {
-    const meCard = await getMeCard();
+    const meCard = await getMeCard(userEmail);
     if (!meCard) {
       return null;
     }
@@ -266,7 +277,7 @@ export async function extractMeCardData(): Promise<MeCardData | null> {
 
     // Get image if available
     if (meCard.hasImage) {
-      const imageBase64 = await getMeCardImage();
+      const imageBase64 = await getMeCardImage(userEmail);
       if (imageBase64) {
         data.imageBase64 = imageBase64;
       }
@@ -287,7 +298,7 @@ export function promptSaveToContacts(
   onSave: () => void,
   onSkip: () => void
 ): void {
-  const name = getFieldValue(profile.contactEntries, 'name') || 'this contact';
+  const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
 
   Alert.alert(
     'Save to Contacts',

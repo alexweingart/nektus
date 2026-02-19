@@ -5,8 +5,8 @@
  * Ported from: apps/web/src/app/components/views/AnonContactView.tsx
  */
 
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getOptimalProfileImageUrl } from '@nektus/shared-client';
@@ -83,8 +83,86 @@ export function AnonContactView({
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
 
-  const name = getFieldValue(profile.contactEntries, 'name') || 'User';
+  const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
   const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+
+  // --- Crossfade animation values ---
+  const profileOpacity = useRef(new Animated.Value(1)).current;
+  const upsellOpacity = useRef(new Animated.Value(0)).current;
+  const headlineAnim = useRef(new Animated.Value(0)).current;
+  const headlineSlide = useRef(new Animated.Value(15)).current;
+  const subheadAnim = useRef(new Animated.Value(0)).current;
+  const row1Anim = useRef(new Animated.Value(0)).current;
+  const row1Slide = useRef(new Animated.Value(15)).current;
+  const row2Anim = useRef(new Animated.Value(0)).current;
+  const row2Slide = useRef(new Animated.Value(15)).current;
+  const row3Anim = useRef(new Animated.Value(0)).current;
+  const row3Slide = useRef(new Animated.Value(15)).current;
+  const buttonsAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isSaved) return;
+
+    const easeOut = Easing.out(Easing.ease);
+    const baseDelay = 250;
+    const stagger = 150;
+
+    // Fade out profile card
+    Animated.timing(profileOpacity, {
+      toValue: 0,
+      duration: 350,
+      easing: easeOut,
+      useNativeDriver: true,
+    }).start();
+
+    // Upsell container becomes visible
+    Animated.sequence([
+      Animated.delay(baseDelay),
+      Animated.timing(upsellOpacity, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Headline
+    Animated.sequence([
+      Animated.delay(baseDelay),
+      Animated.parallel([
+        Animated.timing(headlineAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(headlineSlide, { toValue: 0, duration: 400, easing: easeOut, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    // Subhead "Your profile is ready."
+    Animated.sequence([
+      Animated.delay(baseDelay + stagger),
+      Animated.timing(subheadAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+    ]).start();
+
+    // Feature rows — staggered entrance
+    const rows = [
+      [row1Anim, row1Slide],
+      [row2Anim, row2Slide],
+      [row3Anim, row3Slide],
+    ] as const;
+
+    rows.forEach(([opacity, slide], i) => {
+      Animated.sequence([
+        Animated.delay(baseDelay + stagger * (i + 2)),
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(slide, { toValue: 0, duration: 350, easing: easeOut, useNativeDriver: true }),
+        ]),
+      ]).start();
+    });
+
+    // Buttons fade in last
+    Animated.sequence([
+      Animated.delay(baseDelay + stagger * 5),
+      Animated.timing(buttonsAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, [isSaved]);
 
   const handleSocialIconClick = useCallback((iconType: string) => {
     setClickedSocial(iconType);
@@ -98,137 +176,197 @@ export function AnonContactView({
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      {/* Pre-save: Profile card + sign-in or save buttons */}
+      <Animated.View
+        style={[styles.profileLayer, { opacity: profileOpacity }]}
+        pointerEvents={isSaved ? 'none' : 'auto'}
       >
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          {/* Profile Image */}
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarBorder}>
-              <Avatar
-                src={getOptimalProfileImageUrl(profile.profileImage, 256)}
-                size="lg"
-              />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            {/* Profile Image */}
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarBorder}>
+                <Avatar
+                  src={getOptimalProfileImageUrl(profile.profileImage, 256)}
+                  size="lg"
+                />
+              </View>
+            </View>
+
+            {/* Content Card */}
+            <View style={styles.contentCard}>
+              <Text style={styles.name}>{name}</Text>
+              <BodyText style={styles.bio}>{bio}</BodyText>
+              {socialIconTypes.length > 0 && (
+                <View style={styles.socialIconsContainer}>
+                  {socialIconTypes.map((iconType) => (
+                    <SocialIcon
+                      key={iconType}
+                      platform={iconType}
+                      size="md"
+                      variant="white"
+                      onPress={() => handleSocialIconClick(iconType)}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
-          {/* Content Card */}
-          <View style={styles.contentCard}>
-            {/* Name */}
-            <Text style={styles.name}>{name}</Text>
-
-            {/* Bio */}
-            <BodyText style={styles.bio}>{bio}</BodyText>
-
-            {/* Social Icons - non-clickable, trigger modal */}
-            {socialIconTypes.length > 0 && (
-              <View style={styles.socialIconsContainer}>
-                {socialIconTypes.map((iconType) => (
-                  <SocialIcon
-                    key={iconType}
-                    platform={iconType}
-                    size="md"
-                    variant="white"
-                    onPress={() => handleSocialIconClick(iconType)}
-                  />
-                ))}
-              </View>
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
+            {isAuthenticated ? (
+              <>
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={() => {
+                    if (isDemo) {
+                      Alert.alert(
+                        'Demo Contact',
+                        'This is a demo contact for testing. Download the full app to exchange real contacts!',
+                        [
+                          { text: 'OK', style: 'cancel' },
+                          {
+                            text: 'Get the App',
+                            onPress: () => showAppStoreOverlay(),
+                          },
+                        ]
+                      );
+                    } else {
+                      onSaveContact?.();
+                    }
+                  }}
+                  disabled={isSaving}
+                  style={styles.fullWidth}
+                >
+                  {isSaving ? 'Saving...' : 'Save Contact'}
+                </Button>
+                <View style={styles.secondaryButtonContainer}>
+                  <SecondaryButton onPress={onReject || (() => {})} disabled={isSaving}>
+                    Nah, who this
+                  </SecondaryButton>
+                </View>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="white"
+                  size="xl"
+                  onPress={handleSignIn}
+                  icon={<AppleIcon />}
+                  style={styles.fullWidth}
+                >
+                  Sign in with Apple
+                </Button>
+                <Text style={styles.helperText}>to get nekt&apos;d</Text>
+              </>
             )}
           </View>
-        </View>
+        </ScrollView>
+      </Animated.View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          {isAuthenticated ? (
-            <>
-              {isSaved ? (
-                /* Post-save: value props + install CTA */
-                <>
-                  <View style={styles.valuePropsContainer}>
-                    <Text style={styles.valuePropItem}>
-                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
-                      Tap phones to exchange contacts instantly
-                    </Text>
-                    <Text style={styles.valuePropItem}>
-                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
-                      Auto-save new connections to your phone
-                    </Text>
-                    <Text style={styles.valuePropItem}>
-                      <Text style={styles.valuePropBullet}>{'  \u2022  '}</Text>
-                      Find the perfect time to meet with AI scheduling
-                    </Text>
-                  </View>
-                  <Button
-                    variant="white"
-                    size="xl"
-                    onPress={onInstallApp || (() => {})}
-                    style={styles.fullWidth}
-                  >
-                    Get the App
-                  </Button>
-                  <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={onReject || (() => {})}>
-                      Continue on Web
-                    </SecondaryButton>
-                  </View>
-                </>
-              ) : (
-                /* Pre-save: Save Contact + Nah, who this */
-                <>
-                  <Button
-                    variant="white"
-                    size="xl"
-                    onPress={() => {
-                      if (isDemo) {
-                        Alert.alert(
-                          'Demo Contact',
-                          'This is a demo contact for testing. Download the full app to exchange real contacts!',
-                          [
-                            { text: 'OK', style: 'cancel' },
-                            {
-                              text: 'Get the App',
-                              onPress: () => showAppStoreOverlay(),
-                            },
-                          ]
-                        );
-                      } else {
-                        onSaveContact?.();
-                      }
-                    }}
-                    disabled={isSaving}
-                    style={styles.fullWidth}
-                  >
-                    {isSaving ? 'Saving...' : 'Save Contact'}
-                  </Button>
-                  <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={onReject || (() => {})} disabled={isSaving}>
-                      Nah, who this
-                    </SecondaryButton>
-                  </View>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Sign in with Apple button */}
+      {/* Post-save: Upsell page — crossfades in over the profile */}
+      {isSaved && (
+        <Animated.View
+          style={[styles.upsellLayer, { opacity: upsellOpacity }]}
+        >
+          <ScrollView
+            contentContainerStyle={styles.upsellScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Headline */}
+            <Animated.Text
+              style={[
+                styles.upsellHeadline,
+                { opacity: headlineAnim, transform: [{ translateY: headlineSlide }] },
+              ]}
+            >
+              More new friends await
+            </Animated.Text>
+
+            {/* Upsell Card */}
+            <View style={styles.upsellCard}>
+              <Animated.Text style={[styles.upsellSubhead, { opacity: subheadAnim }]}>
+                Your profile is ready.
+              </Animated.Text>
+
+              <Animated.View style={[styles.upsellDividerWrap, { opacity: subheadAnim }]}>
+                <View style={styles.upsellDivider} />
+              </Animated.View>
+
+              {/* Row 1 — Tap to connect */}
+              <Animated.View
+                style={[
+                  styles.upsellRow,
+                  { opacity: row1Anim, transform: [{ translateY: row1Slide }] },
+                ]}
+              >
+                <Text style={styles.upsellEmoji}>{'\u{1F4F2}'}</Text>
+                <View style={styles.upsellRowText}>
+                  <Text style={styles.upsellRowTitle}>Tap to connect</Text>
+                  <Text style={styles.upsellRowDesc}>
+                    Skip the QR — just tap phones next time
+                  </Text>
+                </View>
+              </Animated.View>
+
+              {/* Row 2 — Auto-save */}
+              <Animated.View
+                style={[
+                  styles.upsellRow,
+                  { opacity: row2Anim, transform: [{ translateY: row2Slide }] },
+                ]}
+              >
+                <Text style={styles.upsellEmoji}>{'\u2728'}</Text>
+                <View style={styles.upsellRowText}>
+                  <Text style={styles.upsellRowTitle}>Auto-save</Text>
+                  <Text style={styles.upsellRowDesc}>
+                    New connections go straight to your phone
+                  </Text>
+                </View>
+              </Animated.View>
+
+              {/* Row 3 — AI scheduling */}
+              <Animated.View
+                style={[
+                  styles.upsellRow,
+                  { opacity: row3Anim, transform: [{ translateY: row3Slide }] },
+                ]}
+              >
+                <Text style={styles.upsellEmoji}>{'\uD83D\uDCC5'}</Text>
+                <View style={styles.upsellRowText}>
+                  <Text style={styles.upsellRowTitle}>AI scheduling</Text>
+                  <Text style={styles.upsellRowDesc}>
+                    Find the perfect time to meet up
+                  </Text>
+                </View>
+              </Animated.View>
+            </View>
+
+            {/* Buttons */}
+            <Animated.View style={[styles.actionsContainer, { opacity: buttonsAnim }]}>
               <Button
                 variant="white"
                 size="xl"
-                onPress={handleSignIn}
-                icon={<AppleIcon />}
+                onPress={onInstallApp || (() => {})}
                 style={styles.fullWidth}
               >
-                Sign in with Apple
+                Get the App
               </Button>
-
-              {/* "to save contact" text */}
-              <Text style={styles.helperText}>to get nekt&apos;d</Text>
-            </>
-          )}
-        </View>
-      </ScrollView>
+              <View style={styles.secondaryButtonContainer}>
+                <SecondaryButton onPress={onReject || (() => {})}>
+                  Continue on Web
+                </SecondaryButton>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </Animated.View>
+      )}
 
       {/* Eager Beaver Modal */}
       <StandardModal
@@ -251,6 +389,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  profileLayer: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -265,7 +406,7 @@ const styles = StyleSheet.create({
   avatarBorder: {
     borderWidth: 4,
     borderColor: '#ffffff',
-    borderRadius: 68, // (128 avatar + 4*2 border) / 2
+    borderRadius: 68,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -316,21 +457,68 @@ const styles = StyleSheet.create({
   secondaryButtonContainer: {
     alignItems: 'center',
   },
-  valuePropsContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+
+  // --- Upsell page styles ---
+  upsellLayer: {
+    ...StyleSheet.absoluteFillObject,
+    paddingHorizontal: 16,
+  },
+  upsellScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  upsellHeadline: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontFamily: SF_ROUNDED.bold,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  upsellCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 16,
   },
-  valuePropItem: {
+  upsellSubhead: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    fontFamily: SF_ROUNDED.medium,
+    textAlign: 'center',
   },
-  valuePropBullet: {
-    color: 'rgba(255, 255, 255, 0.5)',
+  upsellDividerWrap: {
+    paddingHorizontal: 8,
+  },
+  upsellDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  upsellRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  upsellEmoji: {
+    fontSize: 28,
+    width: 36,
+    textAlign: 'center',
+  },
+  upsellRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  upsellRowTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: SF_ROUNDED.semibold,
+  },
+  upsellRowDesc: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontFamily: SF_ROUNDED.regular,
+    lineHeight: 20,
   },
 });
 

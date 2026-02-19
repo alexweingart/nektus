@@ -12,6 +12,7 @@ import { getFieldValue } from '@/client/profile/transforms';
 import QRCode from 'react-qr-code';
 import { useProfile } from '@/app/context/ProfileContext';
 import { SecondaryButton } from '../buttons/SecondaryButton';
+import { ensureReadableColor, DEFAULT_ACCENT_GREEN } from '@/shared/colors';
 
 interface ProfileInfoProps {
   profile: UserProfile;
@@ -188,7 +189,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
           <Avatar
             src={profileImageSrc}
-            alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
+            alt={getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}
             size="lg"
             isLoading={isLoadingProfile}
             showInitials={showInitialsValue}
@@ -275,7 +276,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
                     components={{
                       p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
                       a: ({ node: _node, ...props }) => (
-                        <a {...props} target="_blank" rel="noopener noreferrer" />
+                        <a {...props} target="_blank" rel="noopener noreferrer" style={{ color: profile.backgroundColors?.[0] ? ensureReadableColor(profile.backgroundColors[0]) : DEFAULT_ACCENT_GREEN }} />
                       )
                     }}
                   >
@@ -340,7 +341,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
                     components={{
                       p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
                       a: ({ node: _node, ...props }) => (
-                        <a {...props} target="_blank" rel="noopener noreferrer" />
+                        <a {...props} target="_blank" rel="noopener noreferrer" style={{ color: profile.backgroundColors?.[0] ? ensureReadableColor(profile.backgroundColors[0]) : DEFAULT_ACCENT_GREEN }} />
                       )
                     }}
                   >

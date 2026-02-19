@@ -195,7 +195,7 @@ export function HistoryView() {
             sizeNumeric={40}
           />
         }
-        title={item.odtName || 'Unknown Contact'}
+        title={item.odtName || 'They-who-must-not-be-named'}
         subtitle={formatMatchDate(item.addedAt)}
         truncateTitle
         onClick={() => handleContactTap(item)}

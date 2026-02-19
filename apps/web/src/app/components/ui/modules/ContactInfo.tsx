@@ -13,6 +13,7 @@ import { Text } from '../Typography';
 import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
+import { ensureReadableColor, DEFAULT_ACCENT_GREEN } from '@/shared/colors';
 
 interface ContactInfoProps {
   profile: UserProfile;
@@ -28,10 +29,14 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
   bioContent,
   markdownComponents
 }) => {
+  const linkColor = profile.backgroundColors?.[0]
+    ? ensureReadableColor(profile.backgroundColors[0])
+    : DEFAULT_ACCENT_GREEN;
+
   const defaultMarkdownComponents = {
     p: (props: React.ComponentProps<'p'>) => <Text variant="small" className="leading-relaxed mb-2" {...props} />,
     a: (props: React.ComponentProps<'a'>) => (
-      <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
+      <a className="underline" style={{ color: linkColor }} {...props} />
     ),
   };
 
@@ -42,7 +47,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
         <div className="border-4 border-white shadow-lg rounded-full">
           <Avatar
             src={getOptimalProfileImageUrl(profile.profileImage, 256)}
-            alt={getFieldValue(profile.contactEntries, 'name') || 'Contact'}
+            alt={getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named'}
             size="lg"
             showInitials={!profile.profileImage}
             profileColors={profile.backgroundColors}
@@ -54,7 +59,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
       <div className="w-full bg-black/30 backdrop-blur-xl px-6 py-4 rounded-2xl" style={{ maxWidth: 'var(--max-content-width, 448px)' }}>
         {/* Name */}
         <div className="text-center mb-4">
-          <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'Anonymous'}</h1>
+          <h1 className="text-white text-2xl font-bold">{getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named'}</h1>
         </div>
 
         {/* Bio */}

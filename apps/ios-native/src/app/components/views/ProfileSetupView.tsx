@@ -33,7 +33,7 @@ export function ProfileSetupView() {
 
   // Get user's first name from profile or session
   const userName = getFieldValue(profile?.contactEntries, 'name') || session?.user?.name;
-  const firstName = userName?.split(" ")[0] || "there";
+  const firstName = userName?.split(" ")[0] || "They-who-must-not-be-named";
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;

@@ -102,7 +102,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isFirstProfileCallbackRef.current = true;
 
         // Set immediate profile so saves work while real profile loads
-        const profileName = session.user.name || 'User';
+        const profileName = session.user.name || '';
         const immediateProfile: UserProfile = {
           userId: session.user.id,
           shortCode: '',
@@ -229,7 +229,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 if (isFirstProfileCallbackRef.current) {
                   isFirstProfileCallbackRef.current = false;
                   console.warn('[ProfileContext] Profile not found, creating fallback');
-                  const fallbackName = session.user.name || 'User';
+                  const fallbackName = session.user.name || '';
                   const defaultProfile: UserProfile = {
                     userId: session.user.id,
                     shortCode: '',

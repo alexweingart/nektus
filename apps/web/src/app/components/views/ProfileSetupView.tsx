@@ -183,7 +183,7 @@ function ProfileSetupView() {
                 className="cursor-pointer"
                 {...adminModeProps}
               >
-                Welcome, {session?.user?.name || 'there'}!
+                Welcome, {session?.user?.name || 'They-who-must-not-be-named'}!
               </Heading>
               <Text variant="base" className="text-white/70">
                 Your new friends will want your number
