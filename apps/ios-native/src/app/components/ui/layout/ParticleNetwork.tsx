@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { StyleSheet, View, Animated, Dimensions } from "react-native";
+import { StyleSheet, View, Animated, Dimensions, AppState, AppStateStatus } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Line } from "react-native-svg";
 
@@ -80,7 +80,7 @@ const DEFAULT_COLORS: ParticleColors = {
   gradientEnd: "rgb(10, 15, 26)",           // Dark color (top and bottom of gradient)
 };
 
-// Context-specific configuration
+// Context-specific configuration — reduced particle counts for performance
 interface ContextConfig {
   particleCount: number;
   particleSpeed: number;
@@ -90,51 +90,42 @@ interface ContextConfig {
 
 const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
   "signed-out": {
-    particleCount: 30,
-    particleSpeed: 0.6, // 2x web speed (0.3)
+    particleCount: 14,
+    particleSpeed: 0.6,
     connectionDistance: 150,
     connectionOpacity: 0.25,
   },
   profile: {
-    particleCount: 25,
-    particleSpeed: 0.6, // 2x web speed (0.3)
+    particleCount: 12,
+    particleSpeed: 0.6,
     connectionDistance: 100,
     connectionOpacity: 0.2,
   },
   "profile-default": {
-    particleCount: 20,
-    particleSpeed: 0.6, // 2x web speed (0.3)
+    particleCount: 10,
+    particleSpeed: 0.6,
     connectionDistance: 110,
     connectionOpacity: 0.2,
   },
   connect: {
-    particleCount: 20,
-    particleSpeed: 1.6, // 2x web speed (0.8)
+    particleCount: 10,
+    particleSpeed: 1.6,
     connectionDistance: 120,
     connectionOpacity: 0.25,
   },
   contact: {
-    particleCount: 25,
-    particleSpeed: 0.3, // 2x web speed (0.15)
+    particleCount: 12,
+    particleSpeed: 0.3,
     connectionDistance: 90,
     connectionOpacity: 0.3,
   },
 };
 
-/**
- * Lightweight ParticleNetwork using Animated API + SVG
- *
- * This version replaces @shopify/react-native-skia with native components
- * while maintaining particle connections using SVG for efficient line rendering.
- *
- * Features:
- * - Animated particles with realistic movement
- * - SVG-based particle connections (efficient rendering)
- * - LinearGradient background
- * - Configurable speed and connection distance
- */
 // Color transition duration (matches web's 1000ms)
 const COLOR_TRANSITION_DURATION = 1000;
+
+// Connection update frequency: every N frames (higher = less CPU, slightly choppier connections)
+const CONNECTION_UPDATE_INTERVAL = 6; // ~10fps for connection lines
 
 export function ParticleNetwork({
   colors,
@@ -146,6 +137,16 @@ export function ParticleNetwork({
 
   // Track displayed colors (interpolated during transition)
   const [displayColors, setDisplayColors] = useState<ParticleColors>(targetColors);
+
+  // App state — pause animation when backgrounded
+  const isActiveRef = useRef(AppState.currentState === 'active');
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      isActiveRef.current = nextState === 'active';
+    });
+    return () => sub.remove();
+  }, []);
 
   // Transition state ref
   const transitionRef = useRef<{
@@ -176,10 +177,12 @@ export function ParticleNetwork({
     };
   } | null>(null);
 
+  // Ref to hold the color transition RAF id so we can cancel it
+  const colorAnimIdRef = useRef<number | null>(null);
+
   // Detect color changes and start transition
   useEffect(() => {
     if (!colorsEqual(targetColors, transitionRef.current.toColors)) {
-      console.log('[ParticleNetwork] Starting color transition');
       // Start transition from current display colors to new target
       transitionRef.current = {
         fromColors: displayColors,
@@ -202,44 +205,50 @@ export function ParticleNetwork({
           gradientEnd: parseColor(targetColors.gradientEnd),
         },
       };
-    }
-  }, [targetColors, displayColors]);
 
-  // Color interpolation animation loop
-  useEffect(() => {
-    let animationId: number;
+      // Start color animation loop (only runs during transition)
+      if (colorAnimIdRef.current === null) {
+        const animateColors = () => {
+          const transition = transitionRef.current;
+          const parsed = parsedColorsRef.current;
 
-    const animateColors = () => {
-      const transition = transitionRef.current;
-      const parsed = parsedColorsRef.current;
+          if (!transition.isTransitioning || !parsed) {
+            colorAnimIdRef.current = null;
+            return; // Stop loop when transition is done
+          }
 
-      if (transition.isTransitioning && parsed) {
-        const elapsed = Date.now() - transition.startTime;
-        // Cubic ease-out: 1 - Math.pow(1 - progress, 3)
-        const linearProgress = Math.min(elapsed / COLOR_TRANSITION_DURATION, 1);
-        const progress = 1 - Math.pow(1 - linearProgress, 3);
+          const elapsed = Date.now() - transition.startTime;
+          const linearProgress = Math.min(elapsed / COLOR_TRANSITION_DURATION, 1);
+          const progress = 1 - Math.pow(1 - linearProgress, 3); // Cubic ease-out
 
-        if (linearProgress >= 1) {
-          // Transition complete
-          transition.isTransitioning = false;
-          setDisplayColors(transition.toColors);
-        } else {
-          // Interpolate colors
+          if (linearProgress >= 1) {
+            transition.isTransitioning = false;
+            setDisplayColors(transition.toColors);
+            colorAnimIdRef.current = null;
+            return; // Stop loop
+          }
+
           setDisplayColors({
             particle: interpolateColor(parsed.from.particle, parsed.to.particle, progress),
             connection: interpolateColor(parsed.from.connection, parsed.to.connection, progress),
             gradientStart: interpolateColor(parsed.from.gradientStart, parsed.to.gradientStart, progress),
             gradientEnd: interpolateColor(parsed.from.gradientEnd, parsed.to.gradientEnd, progress),
           });
-        }
+
+          colorAnimIdRef.current = requestAnimationFrame(animateColors);
+        };
+
+        colorAnimIdRef.current = requestAnimationFrame(animateColors);
       }
+    }
 
-      animationId = requestAnimationFrame(animateColors);
+    return () => {
+      if (colorAnimIdRef.current !== null) {
+        cancelAnimationFrame(colorAnimIdRef.current);
+        colorAnimIdRef.current = null;
+      }
     };
-
-    animateColors();
-    return () => cancelAnimationFrame(animationId);
-  }, []);
+  }, [targetColors, displayColors]);
 
   // Track connections for rendering
   const [connections, setConnections] = useState<Array<{
@@ -261,13 +270,19 @@ export function ParticleNetwork({
         y: new Animated.Value(startY),
         vx: (Math.random() - 0.5) * config.particleSpeed,
         vy: (Math.random() - 0.5) * config.particleSpeed,
-        size: Math.random() * 4 + 2, // Increased from (2 + 1) to (4 + 2) for better visibility
+        size: Math.random() * 4 + 2,
         currentX: startX,
         currentY: startY,
       });
     }
     return result;
   }, [config.particleCount, config.particleSpeed, width, height]);
+
+  // Cache parsed connection base opacity to avoid regex inside O(N²) loop
+  const connectionBaseOpacity = useMemo(() => {
+    const match = displayColors.connection.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+    return match ? parseFloat(match[4] || '1') : 0.15;
+  }, [displayColors.connection]);
 
   // Animation loop
   useEffect(() => {
@@ -277,43 +292,41 @@ export function ParticleNetwork({
     const animate = () => {
       frameCount++;
 
+      // Skip work when app is backgrounded
+      if (!isActiveRef.current) {
+        animationId = requestAnimationFrame(animate);
+        return;
+      }
+
       // Update particle positions
       particles.forEach((particle) => {
-        // Update position
         particle.currentX += particle.vx;
         particle.currentY += particle.vy;
 
-        // Wrap around edges
         if (particle.currentX < 0) particle.currentX = width;
         if (particle.currentX > width) particle.currentX = 0;
         if (particle.currentY < 0) particle.currentY = height;
         if (particle.currentY > height) particle.currentY = 0;
 
-        // Update animated values
         particle.x.setValue(particle.currentX);
         particle.y.setValue(particle.currentY);
       });
 
-      // Update connections every 2 frames for performance
-      if (frameCount % 2 === 0) {
+      // Update connections every N frames for performance (~10fps)
+      if (frameCount % CONNECTION_UPDATE_INTERVAL === 0) {
         const newConnections: typeof connections = [];
+        const distSq = config.connectionDistance * config.connectionDistance;
 
         for (let i = 0; i < particles.length; i++) {
           for (let j = i + 1; j < particles.length; j++) {
             const dx = particles[i].currentX - particles[j].currentX;
             const dy = particles[i].currentY - particles[j].currentY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const dSq = dx * dx + dy * dy;
 
-            if (distance < config.connectionDistance) {
+            if (dSq < distSq) {
+              const distance = Math.sqrt(dSq);
               const distanceFactor = 1 - distance / config.connectionDistance;
-
-              // Parse base opacity from connection color (matching web behavior)
-              const baseColor = displayColors.connection;
-              const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
-              const baseOpacity = match ? parseFloat(match[4] || '1') : 0.15;
-
-              // Add distance-based opacity to base (matching web)
-              const finalOpacity = baseOpacity + (distanceFactor * config.connectionOpacity);
+              const finalOpacity = connectionBaseOpacity + (distanceFactor * config.connectionOpacity);
 
               newConnections.push({
                 x1: particles[i].currentX,
@@ -334,7 +347,7 @@ export function ParticleNetwork({
 
     animate();
     return () => cancelAnimationFrame(animationId);
-  }, [particles, width, height, config.connectionDistance, config.connectionOpacity]);
+  }, [particles, width, height, config.connectionDistance, config.connectionOpacity, connectionBaseOpacity]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

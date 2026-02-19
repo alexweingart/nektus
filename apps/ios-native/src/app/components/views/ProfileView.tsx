@@ -83,7 +83,6 @@ export function ProfileView() {
 
   // Handle exchange status changes from ExchangeButton
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
-    console.log("[ProfileView] Exchange status changed:", status);
     setExchangeStatus(status);
 
     // Clear QR token when exchange ends (but keep it during match found state so QR remains visible)
@@ -94,14 +93,11 @@ export function ProfileView() {
 
   // Handle match token changes (for QR code display)
   const handleMatchTokenChange = useCallback((token: string | null) => {
-    console.log("[ProfileView] Match token changed:", token ? token.substring(0, 8) + "..." : null);
     setMatchToken(token);
   }, []);
 
   // Handle successful match - navigate directly to Contact view (like web)
   const handleMatch = useCallback((match: MatchResult) => {
-    const matchName = getFieldValue(match.profile.contactEntries, 'name') || 'New Contact';
-    console.log("[ProfileView] Match received:", matchName, "via", match.matchType);
     // Navigate directly to Contact view instead of showing modal
     navigation.navigate("Contact", {
       userId: match.profile.userId,
@@ -112,7 +108,6 @@ export function ProfileView() {
 
   // Handle cancel exchange
   const handleCancelExchange = useCallback(() => {
-    console.log("[ProfileView] Cancel exchange requested");
     // Emit cancel event for ExchangeButton to handle (stops services)
     emitCancelExchange();
     // Reset local state
@@ -146,12 +141,10 @@ export function ProfileView() {
   const profileImageSrc = useMemo(() => {
     // Use streaming image if available (during generation)
     if (streamingProfileImage) {
-      console.log('[ProfileView] Using streaming image');
       return streamingProfileImage;
     }
     // Hide Google image while checking or if confirmed as initials
     const baseImageUrl = profile?.profileImage || session?.user?.image;
-    console.log('[ProfileView] Profile image URL:', baseImageUrl?.substring(0, 100), { isGoogleInitials, isCheckingGoogleImage });
     const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
     if (isGoogleInitials || (isCheckingGoogleImage && isGoogleUrl)) {
       return undefined;

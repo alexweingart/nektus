@@ -147,7 +147,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const showInitialsValue = isGoogleInitials;
 
   // Use actual profile colors when available (photo-extracted), fall back to name-generated
-  const name = getFieldValue(profile?.contactEntries, 'name') || 'User';
+  const name = getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named';
   const profileColors = (profile.backgroundColors?.length === 3
     ? profile.backgroundColors as [string, string, string]
     : generateProfileColors(name));
@@ -198,7 +198,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Handle layout to measure container width (card container)
   const handleContainerLayout = (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    console.log('[ProfileInfo] Container width measured:', width);
     containerWidthRef.current = width;
     setContainerWidth(width);
   };
@@ -206,7 +205,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   // Handle layout to measure inner content height (without card padding) - matches web approach
   const handleInnerContentLayout = (event: LayoutChangeEvent) => {
     const { height } = event.nativeEvent.layout;
-    console.log('[ProfileInfo] Inner content height measured:', height);
     // Only capture height when not showing QR code (to maintain stable size)
     if (!showQRCode && height > 0) {
       setInnerContentHeight(height);
@@ -240,33 +238,24 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         const absY = Math.abs(gestureState.dy);
         return absX > 3 && absX > absY;
       },
-      onPanResponderGrant: () => {
-        console.log('[ProfileInfo] Pan responder granted, containerWidth:', containerWidthRef.current, 'mode:', selectedModeRef.current);
-      },
+      onPanResponderGrant: () => {},
       onPanResponderMove: (_, gestureState) => {
         const containerWidth = containerWidthRef.current;
-        if (!containerWidth) {
-          console.log('[ProfileInfo] Pan move blocked - no containerWidth');
-          return;
-        }
+        if (!containerWidth) return;
         const currentOffset = selectedModeRef.current === 'Work' ? -containerWidth : 0;
         translateX.setValue(currentOffset + gestureState.dx);
       },
       onPanResponderRelease: (_, gestureState) => {
         const containerWidth = containerWidthRef.current;
         const currentMode = selectedModeRef.current;
-        console.log('[ProfileInfo] Pan release - dx:', gestureState.dx, 'mode:', currentMode, 'containerWidth:', containerWidth);
         if (!containerWidth) return;
         const SWIPE_THRESHOLD = 50;
 
         if (gestureState.dx < -SWIPE_THRESHOLD && currentMode === 'Personal') {
-          console.log('[ProfileInfo] Swiping left to Work');
           handleModeChange('Work');
         } else if (gestureState.dx > SWIPE_THRESHOLD && currentMode === 'Work') {
-          console.log('[ProfileInfo] Swiping right to Personal');
           handleModeChange('Personal');
         } else {
-          console.log('[ProfileInfo] Snapping back to current position');
           const targetX = currentMode === 'Work' ? -containerWidth : 0;
           Animated.timing(translateX, {
             toValue: targetX,
@@ -319,7 +308,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
             <Avatar
               src={profileImageSrc}
-              alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
+              alt={getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}
               sizeNumeric={avatarSize}
               isLoading={isLoadingProfile}
               showInitials={showInitialsValue}

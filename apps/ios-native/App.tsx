@@ -47,7 +47,7 @@ export type RootStackParamList = {
   Calendar: { section: 'personal' | 'work' };
   Location: { section: 'personal' | 'work' };
   SmartSchedule: { contactUserId: string; backgroundColors?: string[]; contactProfile?: any };
-  AISchedule: { contactUserId: string; backgroundColors?: string[]; savedContact?: any };
+  AISchedule: { contactUserId: string; backgroundColors?: string[]; savedContact?: any; autoFocus?: boolean };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -83,9 +83,6 @@ function AppContent() {
   const { status } = useSession();
   const { needsSetup, isLoading: profileLoading } = useProfile();
   const [appIsReady, setAppIsReady] = useState(false);
-
-  // Debug logging
-  console.log("[AppContent] status:", status, "needsSetup:", needsSetup, "profileLoading:", profileLoading);
 
   // Determine if loading
   const isLoading = status === "loading" || (status === "authenticated" && profileLoading);

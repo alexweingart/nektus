@@ -61,10 +61,8 @@ export class MotionDetector {
    * Start a new motion detection session - clears priming state
    */
   static startNewSession(): void {
-    console.log('🔄 [iOS] startNewSession() called');
     this.sequentialState = this.createCleanState();
     this.isCancelled = false;
-    console.log('✅ [iOS] Motion state reset complete');
   }
 
   /**
@@ -76,12 +74,10 @@ export class MotionDetector {
     if (this.subscription) {
       this.subscription.remove();
       this.subscription = null;
-      console.log('🧹 [iOS] Removed accelerometer subscription');
     }
 
     this.sequentialState = this.createCleanState();
     this.sequentialState.sessionStartTime = 0;
-    console.log('🧹 [iOS] Motion session ended');
   }
 
   private static createCleanState(): SequentialState {
@@ -113,7 +109,7 @@ export class MotionDetector {
       // Expo sensors handle permissions automatically on iOS
       return { success: true };
     } catch (error) {
-      console.warn('❌ [iOS] Accelerometer permission check failed:', error);
+      console.warn('[iOS] Accelerometer permission check failed:', error);
       return {
         success: false,
         message: 'Failed to check accelerometer availability'
@@ -129,19 +125,15 @@ export class MotionDetector {
     try {
       const isAvailable = await Accelerometer.isAvailableAsync();
       if (!isAvailable) {
-        console.log('❌ [iOS] Accelerometer not available');
         return { hasMotion: false, magnitude: 0 };
       }
     } catch (error) {
-      console.warn('⚠️ [iOS] Accelerometer check failed (simulator?):', error);
+      console.warn('[iOS] Accelerometer check failed (simulator?):', error);
       return { hasMotion: false, magnitude: 0 };
     }
 
     // Reset cancellation for new detection
     this.isCancelled = false;
-
-    const callId = Math.random().toString(36).substring(2, 8);
-    console.log(`📱 [iOS] detectMotion() called [${callId}]`);
 
     // Reset primed states at start of each detectMotion call
     this.sequentialState.magnitudePrimed = false;
@@ -193,19 +185,15 @@ export class MotionDetector {
         // Update sequential detection state
         if (magnitude >= SEQUENTIAL_DETECTION.magnitudePrime.magnitude && !this.sequentialState.magnitudePrimed) {
           this.sequentialState.magnitudePrimed = true;
-          console.log(`📈 [iOS] Magnitude primed: ${magnitude.toFixed(2)}`);
         }
         if (magnitude >= SEQUENTIAL_DETECTION.strongMagnitudePrime.magnitude && !this.sequentialState.strongMagnitudePrimed) {
           this.sequentialState.strongMagnitudePrimed = true;
-          console.log(`📈 [iOS] Strong magnitude primed: ${magnitude.toFixed(2)}`);
         }
         if (jerk >= SEQUENTIAL_DETECTION.jerkPrime.jerk && !this.sequentialState.jerkPrimed) {
           this.sequentialState.jerkPrimed = true;
-          console.log(`📊 [iOS] Jerk primed: ${jerk.toFixed(1)}`);
         }
         if (jerk >= SEQUENTIAL_DETECTION.strongJerkPrime.jerk && !this.sequentialState.strongJerkPrimed) {
           this.sequentialState.strongJerkPrimed = true;
-          console.log(`📊 [iOS] Strong jerk primed: ${jerk.toFixed(1)}`);
         }
 
         // Check for sequential detection
@@ -222,9 +210,6 @@ export class MotionDetector {
 
         // Check for detection
         if (dualThresholdDetection || sequentialDetection) {
-          const detectionType = strongBumpDetection ? 'bump' : strongTapDetection ? 'tap' : 'sequential';
-          console.log(`🎯 [iOS] Motion detected (${detectionType}): mag=${magnitude.toFixed(2)}, jerk=${jerk.toFixed(1)}`);
-
           resolved = true;
           this.cleanup();
 
@@ -250,7 +235,6 @@ export class MotionDetector {
       // Cancellation check interval
       const cancellationInterval = setInterval(() => {
         if (this.isCancelled && !resolved) {
-          console.log(`⏰ [iOS] Motion detection cancelled after ${eventCount} events`);
           resolved = true;
           clearInterval(cancellationInterval);
           this.cleanup();

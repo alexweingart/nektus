@@ -234,7 +234,8 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         contactsUnsubRef.current = null;
       }
     };
-  }, [authStatus, session?.user?.id, profile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus, session?.user?.id]);
 
   // Update ref when profile changes
   useEffect(() => {
