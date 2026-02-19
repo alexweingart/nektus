@@ -1,12 +1,14 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Animated, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useIsFocused } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../../../App";
 import type { ExchangeStatus } from "@nektus/shared-types";
 import { getFieldValue } from "@nektus/shared-client";
 import { ProfileInfo } from "../ui/modules/ProfileInfo";
+import { BioModal } from "../ui/modals/BioModal";
+import { useProfileImagePicker } from "../../../client/hooks/use-profile-image-picker";
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { ExchangeButton, MatchResult } from "../ui/buttons/ExchangeButton";
@@ -27,9 +29,14 @@ export function ProfileView() {
     streamingProfileImage,
     isGoogleInitials,
     isCheckingGoogleImage,
+    saveProfile,
+    sharingCategory,
+    isBioLoading,
+    setIsBioLoading,
   } = useProfile();
   const navigation = useNavigation<ProfileViewNavigationProp>();
   const navigateWithFade = useNavigateWithFade();
+  const isFocused = useIsFocused();
   const adminModeProps = useAdminModeActivator();
 
   // Animation state
@@ -40,6 +47,18 @@ export function ProfileView() {
     resetAnimations,
     triggerEnterAnimation,
   } = useProfileAnimations();
+
+  // Bio modal state (loading state lives in ProfileContext to persist across navigation)
+  const [showBioModal, setShowBioModal] = useState(false);
+
+  // Camera overlay image picker
+  const { pickAndUploadImage } = useProfileImagePicker({
+    onUpload: (uri, backgroundColors) => {
+      const updates: any = { profileImage: uri };
+      if (backgroundColors) updates.backgroundColors = backgroundColors;
+      saveProfile(updates);
+    },
+  });
 
   // Exchange state
   const [exchangeStatus, setExchangeStatus] = useState<ExchangeStatus>("idle");
@@ -116,6 +135,13 @@ export function ProfileView() {
     return profileBio || 'My bio is going to be awesome once I create it.';
   }, [profile?.contactEntries]);
 
+  // Clear bio loading when bio content changes (real-time update from Firestore)
+  useEffect(() => {
+    if (isBioLoading && bioContent !== 'My bio is going to be awesome once I create it.') {
+      setIsBioLoading(false);
+    }
+  }, [bioContent, isBioLoading]);
+
   // Get profile image source - prioritize streaming image for immediate feedback
   const profileImageSrc = useMemo(() => {
     // Use streaming image if available (during generation)
@@ -132,6 +158,29 @@ export function ProfileView() {
     }
     return baseImageUrl || undefined;
   }, [profile?.profileImage, session?.user?.image, streamingProfileImage, isGoogleInitials, isCheckingGoogleImage]);
+
+  // Defer image updates to when this screen is focused so the Avatar crossfade is visible.
+  // Without this, the profile context updates while EditProfileView is shown and Avatar
+  // transitions in the background — the user never sees the crossfade.
+  const [deferredImageSrc, setDeferredImageSrc] = useState(profileImageSrc);
+  const latestImageRef = React.useRef(profileImageSrc);
+  latestImageRef.current = profileImageSrc;
+
+  // When screen gains focus, sync the deferred image to the latest value
+  useFocusEffect(
+    useCallback(() => {
+      if (latestImageRef.current !== deferredImageSrc) {
+        setDeferredImageSrc(latestImageRef.current);
+      }
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // While focused, keep in sync immediately (e.g. camera overlay upload on this screen)
+  useEffect(() => {
+    if (isFocused && profileImageSrc !== deferredImageSrc) {
+      setDeferredImageSrc(profileImageSrc);
+    }
+  }, [profileImageSrc, isFocused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate if we should show initials - true for confirmed Google initials or while checking
   const shouldShowInitials = useMemo(() => {
@@ -208,7 +257,7 @@ export function ProfileView() {
           >
             <ProfileInfo
               profile={profile}
-              profileImageSrc={profileImageSrc}
+              profileImageSrc={deferredImageSrc}
               bioContent={bioContent}
               isLoadingProfile={false}
               isGoogleInitials={shouldShowInitials}
@@ -219,6 +268,15 @@ export function ProfileView() {
                 translateY: animatedValues.profileTranslateY,
                 opacity: animatedValues.profileOpacity,
                 rotation: animatedValues.profileRotation,
+              }}
+              showCameraOverlay
+              onCameraPress={pickAndUploadImage}
+              onAddBioPress={() => setShowBioModal(true)}
+              isBioLoading={isBioLoading}
+              onAddLinkPress={() => {
+                navigateWithFade('EditProfile', {
+                  openInlineAddLink: sharingCategory === 'Work' ? 'work' : 'personal',
+                });
               }}
             />
           </TouchableOpacity>
@@ -254,6 +312,41 @@ export function ProfileView() {
 
       {/* Admin Banner - appears when admin mode is activated */}
       <AdminBanner />
+
+      {/* Bio Modal */}
+      {profile && (
+        <BioModal
+          isOpen={showBioModal}
+          onClose={() => setShowBioModal(false)}
+          currentSection={sharingCategory as 'Personal' | 'Work'}
+          profile={profile}
+          onBioSaved={(bio) => {
+            const entries = [...(profile.contactEntries || [])];
+            const bioIdx = entries.findIndex((e: any) => e.fieldType === 'bio' && e.section === 'universal');
+            const bioEntry = { fieldType: 'bio', section: 'universal' as const, value: bio, order: 0, isVisible: true, confirmed: true };
+            if (bioIdx >= 0) {
+              entries[bioIdx] = { ...entries[bioIdx], ...bioEntry };
+            } else {
+              entries.push(bioEntry);
+            }
+            saveProfile({ contactEntries: entries });
+          }}
+          onSocialEntrySaved={(platform, username) => {
+            const entries = [...(profile.contactEntries || [])];
+            const section = platform === 'linkedin' ? 'work' : 'personal';
+            const idx = entries.findIndex((e: any) => e.fieldType === platform);
+            const entry = { fieldType: platform, value: username, section: section as 'personal' | 'work', order: entries.length, isVisible: true, confirmed: true };
+            if (idx >= 0) {
+              entries[idx] = { ...entries[idx], ...entry };
+            } else {
+              entries.push(entry);
+            }
+            saveProfile({ contactEntries: entries });
+          }}
+          onScrapeStarted={() => setIsBioLoading(true)}
+          onScrapeFailed={() => setIsBioLoading(false)}
+        />
+      )}
     </ScreenTransition>
   );
 }

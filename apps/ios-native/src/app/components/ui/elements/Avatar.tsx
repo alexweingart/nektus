@@ -41,6 +41,8 @@ const getInitials = (name: string): string => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
+const CROSSFADE_MS = 400;
+
 const Avatar: React.FC<AvatarProps> = ({
   src,
   alt = 'Profile',
@@ -50,24 +52,30 @@ const Avatar: React.FC<AvatarProps> = ({
   showInitials = false,
   profileColors,
 }) => {
-  // Derive gradient and text colors from profileColors or fall back to brand green
-  // Radial gradient: center = dominant (dark), edge = accent1 (lighter) - matches web
   const gradientCenter = profileColors ? profileColors[0] : BRAND_DARK_GREEN;
   const gradientEdge = profileColors ? profileColors[1] : BRAND_LIGHT_GREEN;
   const initialsColor = '#FFFFFF';
-  const [imgSrc, setImgSrc] = React.useState(src);
+
+  // Current displayed image and the outgoing one (during crossfade)
+  const [displayedSrc, setDisplayedSrc] = React.useState(src);
+  const [outgoingSrc, setOutgoingSrc] = React.useState<string | undefined>(undefined);
   const [hasError, setHasError] = React.useState(false);
 
-  const [isTransitioning, setIsTransitioning] = React.useState(false);
+  // Initials → image transition state
+  const [isInitialsTransition, setIsInitialsTransition] = React.useState(false);
   const [previouslyShowedInitials, setPreviouslyShowedInitials] = React.useState(false);
 
   const fadeAnimInitials = React.useRef(new Animated.Value(1)).current;
   const fadeAnimImage = React.useRef(new Animated.Value(0)).current;
+  // New image opacity for image→image crossfade (driven by onLoad)
+  const crossfadeOpacity = React.useRef(new Animated.Value(1)).current;
+
+  // Track pending src so we can render it hidden and wait for onLoad
+  const [pendingSrc, setPendingSrc] = React.useState<string | undefined>(undefined);
 
   const dimension = sizeNumeric ?? sizeMap[size];
   const fontSize = sizeNumeric ? Math.round(sizeNumeric * 0.375) : fontSizeMap[size];
 
-  // Radial gradient background for initials (matches web's radial-gradient(circle, dominant, accent1))
   const renderRadialGradientBackground = (dim: number) => (
     <Svg width={dim} height={dim} style={StyleSheet.absoluteFillObject}>
       <Defs>
@@ -80,23 +88,21 @@ const Avatar: React.FC<AvatarProps> = ({
     </Svg>
   );
 
+  // Handle src prop changes
   React.useEffect(() => {
-    // Only react to src changes, not hasError changes (prevents infinite loop)
-    if (src === imgSrc) return;
+    if (src === displayedSrc && !pendingSrc) return;
+    if (src === pendingSrc) return; // Already waiting for this one
 
-    // Track if we're transitioning from initials to image
-    const wasShowingInitials = previouslyShowedInitials && !imgSrc;
-    const willShowImage = src && !hasError;
+    const wasShowingInitials = previouslyShowedInitials && !displayedSrc;
+    const willShowImage = !!src;
+    const hadImage = !!displayedSrc;
 
-    // If transitioning from initials to image, trigger crossfade
     if (wasShowingInitials && willShowImage) {
-      setIsTransitioning(true);
-
-      // Set new image immediately (will fade in)
-      setImgSrc(src);
+      // Initials → image crossfade (immediate, no onLoad wait needed for first image)
+      setIsInitialsTransition(true);
+      setDisplayedSrc(src);
       setHasError(false);
 
-      // Start crossfade animation
       Animated.parallel([
         Animated.timing(fadeAnimInitials, {
           toValue: 0,
@@ -109,17 +115,41 @@ const Avatar: React.FC<AvatarProps> = ({
           useNativeDriver: true,
         })
       ]).start(() => {
-        setIsTransitioning(false);
+        setIsInitialsTransition(false);
         setPreviouslyShowedInitials(false);
       });
-    } else {
-      // Normal image change (no transition)
+    } else if (hadImage && willShowImage && src !== displayedSrc) {
+      // Image → image: stage the new src as pending, wait for onLoad to crossfade
+      setPendingSrc(src);
       setHasError(false);
-      setImgSrc(src);
+    } else {
+      // Direct swap (no animation)
+      setHasError(false);
+      setDisplayedSrc(src);
+      setPendingSrc(undefined);
       fadeAnimInitials.setValue(1);
       fadeAnimImage.setValue(0);
+      crossfadeOpacity.setValue(1);
     }
-  }, [src]); // Only depend on src to prevent infinite loops
+  }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Called when the pending (new) image finishes loading — start the crossfade
+  const handlePendingLoad = React.useCallback(() => {
+    if (!pendingSrc) return;
+    // Swap: current becomes outgoing, pending becomes displayed
+    setOutgoingSrc(displayedSrc);
+    setDisplayedSrc(pendingSrc);
+    setPendingSrc(undefined);
+    crossfadeOpacity.setValue(0);
+
+    Animated.timing(crossfadeOpacity, {
+      toValue: 1,
+      duration: CROSSFADE_MS,
+      useNativeDriver: true,
+    }).start(() => {
+      setOutgoingSrc(undefined);
+    });
+  }, [pendingSrc, displayedSrc, crossfadeOpacity]);
 
   // Track when we start showing initials
   React.useEffect(() => {
@@ -129,160 +159,91 @@ const Avatar: React.FC<AvatarProps> = ({
   }, [showInitials, src]);
 
   const handleError = () => {
-    console.log('[Avatar] Image failed to load:', imgSrc?.substring(0, 80));
+    console.log('[Avatar] Image failed to load:', displayedSrc?.substring(0, 80));
     setHasError(true);
   };
 
-  // Show empty skeleton while loading OR waiting to determine if we should show initials
-  if (isLoading || (!imgSrc && !showInitials && !hasError)) {
+  // ── Render helpers ──
+
+  if (isLoading || (!displayedSrc && !showInitials && !hasError && !pendingSrc)) {
     return (
       <View style={[
         styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius: dimension / 2,
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        }
+        { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: 'rgba(255, 255, 255, 0.2)' }
       ]} />
     );
   }
 
   const initials = getInitials(alt);
 
-  // Show our custom initials if explicitly told to (Google had initials, not real photo)
-  if (showInitials && !imgSrc && !isTransitioning) {
-    return (
-      <View style={[
-        styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius: dimension / 2,
-        }
-      ]}>
-        {renderRadialGradientBackground(dimension)}
-        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
-          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
-            {initials}
-          </Text>
-        </View>
+  const imageStyle = [
+    styles.image,
+    { width: dimension, height: dimension, borderRadius: dimension / 2 },
+  ];
+
+  const containerStyle = [
+    styles.container,
+    { width: dimension, height: dimension, borderRadius: dimension / 2 },
+  ];
+
+  const renderInitials = () => (
+    <>
+      {renderRadialGradientBackground(dimension)}
+      <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
+        <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
+          {initials}
+        </Text>
       </View>
-    );
+    </>
+  );
+
+  // Show initials (no image, no transition)
+  if ((showInitials || hasError) && !displayedSrc && !isInitialsTransition) {
+    return <View style={containerStyle}>{renderInitials()}</View>;
   }
 
-  // Show initials if image failed to load
-  if (hasError && !isTransitioning) {
+  // Initials → image transition
+  if (isInitialsTransition) {
     return (
-      <View style={[
-        styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius: dimension / 2,
-        }
-      ]}>
-        {renderRadialGradientBackground(dimension)}
-        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
-          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
-            {initials}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // During transition, show both initials (fading out) and image (fading in)
-  if (isTransitioning) {
-    return (
-      <View style={[
-        styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius: dimension / 2,
-        }
-      ]}>
-        {/* Initials fading out */}
-        <Animated.View style={[
-          StyleSheet.absoluteFill,
-          { opacity: fadeAnimInitials }
-        ]}>
-          {renderRadialGradientBackground(dimension)}
-          <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
-            <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
-              {initials}
-            </Text>
-          </View>
+      <View style={containerStyle}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnimInitials }]}>
+          {renderInitials()}
         </Animated.View>
-
-        {/* Image fading in */}
-        {imgSrc && (
-          <Animated.View style={[
-            StyleSheet.absoluteFill,
-            { opacity: fadeAnimImage }
-          ]}>
-            <Image
-              source={{ uri: imgSrc }}
-              style={[
-                styles.image,
-                {
-                  width: dimension,
-                  height: dimension,
-                  borderRadius: dimension / 2,
-                }
-              ]}
-              onError={handleError}
-            />
+        {displayedSrc && (
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnimImage }]}>
+            <Image source={{ uri: displayedSrc }} style={imageStyle} onError={handleError} />
           </Animated.View>
         )}
       </View>
     );
   }
 
-  // If we get here without imgSrc, show initials fallback
-  if (!imgSrc) {
-    return (
-      <View style={[
-        styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius: dimension / 2,
-        }
-      ]}>
-        {renderRadialGradientBackground(dimension)}
-        <View style={[styles.initialsContainer, { width: dimension, height: dimension }]}>
-          <Text style={[styles.initialsText, { fontSize, color: initialsColor }]}>
-            {initials}
-          </Text>
-        </View>
-      </View>
-    );
+  // No image at all — initials fallback
+  if (!displayedSrc) {
+    return <View style={containerStyle}>{renderInitials()}</View>;
   }
 
+  // Normal image display (possibly with crossfade layers)
   return (
-    <View style={[
-      styles.container,
-      {
-        width: dimension,
-        height: dimension,
-        borderRadius: dimension / 2,
-      }
-    ]}>
-      <Image
-        key={imgSrc} // Force remount when image URL changes
-        source={{ uri: imgSrc }}
-        style={[
-          styles.image,
-          {
-            width: dimension,
-            height: dimension,
-            borderRadius: dimension / 2,
-          }
-        ]}
-        onError={handleError}
-      />
+    <View style={containerStyle}>
+      {/* Outgoing image (full opacity, behind new image during crossfade) */}
+      {outgoingSrc && (
+        <Image source={{ uri: outgoingSrc }} style={[StyleSheet.absoluteFill as any, ...imageStyle]} />
+      )}
+
+      {/* Current image */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: outgoingSrc ? crossfadeOpacity : 1 }]}>
+        <Image source={{ uri: displayedSrc }} style={imageStyle} onError={handleError} />
+      </Animated.View>
+
+      {/* Hidden pending image — just for triggering onLoad */}
+      {pendingSrc && (
+        <Image
+          source={{ uri: pendingSrc }}
+          style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}
+          onLoad={handlePendingLoad}
+        />
+      )}
     </View>
   );
 };

@@ -37,7 +37,58 @@ interface ProfileInfoProps {
   showQRCode?: boolean; // Whether to show QR code instead of profile details
   matchToken?: string; // Token for QR code URL
   animatedValues?: ProfileAnimatedValues; // Animation values from useProfileAnimations
+  showCameraOverlay?: boolean;
+  onCameraPress?: () => void;
+  onAddBioPress?: () => void;
+  isBioLoading?: boolean;
+  onAddLinkPress?: () => void;
 }
+
+/**
+ * Camera overlay button with scale press feedback (no opacity change to preserve blur)
+ */
+const CameraOverlayButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.9,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 4,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[styles.cameraOverlay, { transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        style={styles.cameraOverlayInner}
+      >
+        <BlurView
+          style={StyleSheet.absoluteFillObject}
+          tint="dark"
+          intensity={50}
+        />
+        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2}>
+          <Path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <Path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </Svg>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 /**
  * Filter profile by category (Personal or Work)
@@ -69,6 +120,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   showQRCode = false,
   matchToken,
   animatedValues,
+  showCameraOverlay = false,
+  onCameraPress,
+  onAddBioPress,
+  isBioLoading = false,
+  onAddLinkPress,
 }) => {
   // Dynamic avatar sizing based on screen width
   const { width: screenWidth } = useWindowDimensions();
@@ -112,6 +168,32 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }
     return profile?.contactEntries || [];
   }, [profile, sharingCategory]);
+
+  // Count visible non-empty social links (exclude name/bio)
+  const visibleLinkCount = React.useMemo(() => {
+    return (filteredContactEntries || []).filter(e =>
+      e.fieldType !== 'name' && e.fieldType !== 'bio' &&
+      e.isVisible !== false && !!e.value?.trim()
+    ).length;
+  }, [filteredContactEntries]);
+
+  const defaultBioPlaceholder = 'My bio is going to be awesome once I create it.';
+  const isBioPlaceholder = bioContent === defaultBioPlaceholder;
+
+  // Bio skeleton animation
+  const skeletonOpacity = React.useRef(new Animated.Value(0.3)).current;
+  React.useEffect(() => {
+    if (isBioLoading) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(skeletonOpacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+          Animated.timing(skeletonOpacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isBioLoading, skeletonOpacity]);
 
   // Handle layout to measure container width (card container)
   const handleContainerLayout = (event: LayoutChangeEvent) => {
@@ -233,15 +315,20 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         onPress={adminActivator.onPress}
         activeOpacity={1}
       >
-        <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
-          <Avatar
-            src={profileImageSrc}
-            alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
-            sizeNumeric={avatarSize}
-            isLoading={isLoadingProfile}
-            showInitials={showInitialsValue}
-            profileColors={profileColors}
-          />
+        <View style={{ position: 'relative' }}>
+          <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
+            <Avatar
+              src={profileImageSrc}
+              alt={getFieldValue(profile?.contactEntries, 'name') || 'Profile'}
+              sizeNumeric={avatarSize}
+              isLoading={isLoadingProfile}
+              showInitials={showInitialsValue}
+              profileColors={profileColors}
+            />
+          </View>
+          {showCameraOverlay && onCameraPress && (
+            <CameraOverlayButton onPress={onCameraPress} />
+          )}
         </View>
       </TouchableOpacity>
 
@@ -317,7 +404,18 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
             {/* Bio */}
             <View style={styles.bioContainer}>
-              <BodyText style={styles.bioText}>{bioContent}</BodyText>
+              {isBioLoading ? (
+                <View style={styles.skeletonContainer}>
+                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarLong, { opacity: skeletonOpacity }]} />
+                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarShort, { opacity: skeletonOpacity }]} />
+                </View>
+              ) : isBioPlaceholder && onAddBioPress ? (
+                <TouchableOpacity onPress={onAddBioPress} style={styles.addBioButton}>
+                  <BodyText style={styles.addBioText}>+ Add Bio</BodyText>
+                </TouchableOpacity>
+              ) : (
+                <BodyText style={styles.bioText}>{bioContent}</BodyText>
+              )}
             </View>
 
             {/* Contact Icons */}
@@ -325,6 +423,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               {filteredContactEntries && (
                 <SocialIconsList
                   contactEntries={filteredContactEntries}
+                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
+                  onAddPress={onAddLinkPress}
                 />
               )}
             </View>
@@ -360,7 +460,18 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
             {/* Bio */}
             <View style={styles.bioContainer}>
-              <BodyText style={styles.bioText}>{bioContent}</BodyText>
+              {isBioLoading ? (
+                <View style={styles.skeletonContainer}>
+                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarLong, { opacity: skeletonOpacity }]} />
+                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarShort, { opacity: skeletonOpacity }]} />
+                </View>
+              ) : isBioPlaceholder && onAddBioPress ? (
+                <TouchableOpacity onPress={onAddBioPress} style={styles.addBioButton}>
+                  <BodyText style={styles.addBioText}>+ Add Bio</BodyText>
+                </TouchableOpacity>
+              ) : (
+                <BodyText style={styles.bioText}>{bioContent}</BodyText>
+              )}
             </View>
 
             {/* Contact Icons */}
@@ -368,6 +479,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               {filteredContactEntries && (
                 <SocialIconsList
                   contactEntries={filteredContactEntries}
+                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
+                  onAddPress={onAddLinkPress}
                 />
               )}
             </View>
@@ -464,7 +577,53 @@ const styles = StyleSheet.create({
   selectorContainer: {
     marginTop: 16,
     alignItems: 'center',
-    // No horizontal padding - centered via flexbox like web version
+  },
+  cameraOverlay: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    zIndex: 20,
+  },
+  cameraOverlayInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  addBioButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  addBioText: {
+    textAlign: 'center',
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  skeletonContainer: {
+    gap: 8,
+    alignItems: 'center',
+  },
+  skeletonBar: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  skeletonBarLong: {
+    width: '75%',
+  },
+  skeletonBarShort: {
+    width: '50%',
   },
 });
 

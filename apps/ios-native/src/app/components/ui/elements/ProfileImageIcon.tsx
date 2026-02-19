@@ -9,8 +9,8 @@
  * - Added Firebase Storage upload via API (same as web)
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Image, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Image, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getApiBaseUrl, getIdToken } from '../../../../client/auth/firebase';
@@ -33,6 +33,15 @@ export function ProfileImageIcon({
 }: ProfileImageIconProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Scale animation for press feedback (matches Button pattern — no opacity change)
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const handlePressIn = useCallback(() => {
+    Animated.timing(scaleAnim, { toValue: 0.92, duration: 100, useNativeDriver: true }).start();
+  }, [scaleAnim]);
+  const handlePressOut = useCallback(() => {
+    Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
+  }, [scaleAnim]);
 
   // Keep a ref to onUpload so the async handlePress always calls the latest version
   const onUploadRef = useRef(onUpload);
@@ -126,7 +135,8 @@ export function ProfileImageIcon({
   const showPlaceholder = !imageUrl || hasError;
 
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.container} disabled={isUploading}>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <TouchableOpacity onPress={handlePress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={styles.container} disabled={isUploading} activeOpacity={1}>
       {!showPlaceholder ? (
         <View style={[styles.imageContainer, { width: size, height: size }]}>
           <Image
@@ -158,6 +168,7 @@ export function ProfileImageIcon({
         </View>
       )}
     </TouchableOpacity>
+    </Animated.View>
   );
 }
 
