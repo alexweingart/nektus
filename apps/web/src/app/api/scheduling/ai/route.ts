@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             user1Id: body.user1Id,
             user2Id: body.user2Id,
-            contactType: body.calendarType,
+            calendarType: body.calendarType,
             duration: 60, // Default duration for initial fetch
           }),
         });

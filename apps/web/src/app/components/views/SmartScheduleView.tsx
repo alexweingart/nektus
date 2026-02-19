@@ -317,9 +317,11 @@ export default function SmartScheduleView() {
             size="xl"
             className="w-full"
             onClick={() => {
-              // Preserve the 'from' parameter when navigating to AI schedule
-              const queryString = fromParam ? `?from=${fromParam}` : '';
-              router.push(`/c/${contactProfile?.shortCode}/ai-schedule${queryString}`);
+              // Preserve the 'from' parameter and add autoFocus when navigating to AI schedule
+              const params = new URLSearchParams();
+              if (fromParam) params.set('from', fromParam);
+              params.set('autoFocus', 'true');
+              router.push(`/c/${contactProfile?.shortCode}/ai-schedule?${params.toString()}`);
             }}
           >
             Find Custom Time & Place

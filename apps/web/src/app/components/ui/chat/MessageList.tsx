@@ -2,13 +2,15 @@ import ReactMarkdown from 'react-markdown';
 import EventCard from './EventCard';
 import type { Event } from '@/types/profile';
 import type { ChatMessage } from '@/client/hooks/use-streaming-ai';
+import { DEFAULT_ACCENT_GREEN } from '@/shared/colors';
 
 interface MessageListProps {
   messages: ChatMessage[];
   onCreateEvent: (event: Event) => void;
+  dominantColor?: string;
 }
 
-export default function MessageList({ messages, onCreateEvent }: MessageListProps) {
+export default function MessageList({ messages, onCreateEvent, dominantColor = DEFAULT_ACCENT_GREEN }: MessageListProps) {
   return (
     <>
       {messages.map((message) => (
@@ -33,7 +35,7 @@ export default function MessageList({ messages, onCreateEvent }: MessageListProp
             <>
               {message.isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: dominantColor, borderTopColor: 'transparent' }}></div>
                   <span className="text-sm text-gray-500">{message.greyStatusText || message.content}</span>
                 </div>
               ) : (
@@ -55,7 +57,8 @@ export default function MessageList({ messages, onCreateEvent }: MessageListProp
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-emerald-600 font-semibold hover:text-emerald-500 transition-colors"
+                          className="font-semibold transition-colors"
+                          style={{ color: dominantColor }}
                         >
                           {children}
                         </a>

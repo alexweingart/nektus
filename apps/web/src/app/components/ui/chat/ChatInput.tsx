@@ -12,6 +12,7 @@ interface ChatInputProps {
   sendDisabled?: boolean;
   placeholder?: string;
   fadeIn?: boolean;
+  autoFocus?: boolean;
 }
 
 export default function ChatInput({
@@ -21,7 +22,8 @@ export default function ChatInput({
   disabled,
   sendDisabled = false,
   placeholder = "What would you like to do?",
-  fadeIn = false
+  fadeIn = false,
+  autoFocus = false,
 }: ChatInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const backgroundExtensionRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,18 @@ export default function ChatInput({
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
     };
   }, []);
+
+  // Auto-focus the textarea when autoFocus is true
+  useEffect(() => {
+    if (!autoFocus) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const textarea = wrapper.querySelector('textarea');
+    if (textarea) {
+      // Short delay to let the component fully mount
+      setTimeout(() => textarea.focus(), 100);
+    }
+  }, [autoFocus]);
 
   // Background tester v4: Blur input on scroll to close keyboard
   useEffect(() => {
