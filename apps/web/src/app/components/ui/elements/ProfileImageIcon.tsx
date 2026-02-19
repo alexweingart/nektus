@@ -2,17 +2,22 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Avatar from './Avatar';
 
 interface ProfileImageIconProps {
   imageUrl?: string;
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
+  alt?: string;
+  profileColors?: string[];
 }
 
-const ProfileImageIcon: React.FC<ProfileImageIconProps> = ({ 
-  imageUrl, 
-  onUpload, 
-  className = "w-8 h-8" 
+const ProfileImageIcon: React.FC<ProfileImageIconProps> = ({
+  imageUrl,
+  onUpload,
+  className = "w-8 h-8",
+  alt,
+  profileColors
 }) => {
   // Helper function to handle Firebase image cache busting
   const getCachebustedImageUrl = (url: string): string => {
@@ -42,9 +47,7 @@ const ProfileImageIcon: React.FC<ProfileImageIconProps> = ({
           />
         </div>
       ) : (
-        <div className={`${className} rounded-full bg-white/20 flex items-center justify-center`}>
-          <span className="text-white text-xl">👤</span>
-        </div>
+        <Avatar src={undefined} alt={alt || 'Profile'} size="sm" profileColors={profileColors} className="w-8 h-8" />
       )}
       <input
         type="file"

@@ -11,6 +11,8 @@ import { Button } from "../ui/buttons/Button";
 import { DropdownPhoneInput } from "../ui/inputs/DropdownPhoneInput";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { CustomSocialInputAdd } from "../ui/inputs/CustomSocialInputAdd";
+import { ToggleSetting } from "../ui/controls/ToggleSetting";
+import { scrapeBio } from "../../../client/profile/scrape-bio";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile, UserProfile } from "../../../app/context/ProfileContext";
 import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
@@ -27,6 +29,7 @@ export function ProfileSetupView() {
   const [phoneDigits, setPhoneDigits] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
+  const [useForBio, setUseForBio] = useState(true);
 
   // Get user's first name from profile or session
   const userName = getFieldValue(profile?.contactEntries, 'name') || session?.user?.name;
@@ -99,11 +102,20 @@ export function ProfileSetupView() {
 
       await saveProfile(phoneUpdateData);
       console.log("[ProfileSetupView] Profile saved successfully");
+
+      // Fire-and-forget bio scrape if toggle is on
+      if (useForBio && socialInputs[0]?.username.trim() &&
+          ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
+        scrapeBio(
+          socialInputs[0].platform as 'instagram' | 'linkedin',
+          socialInputs[0].username.trim()
+        ).catch(console.error);
+      }
     } catch (err) {
       console.error("[ProfileSetupView] Save failed:", err);
       setError("Failed to save. Please try again.");
     }
-  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, socialInputs]);
+  }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, socialInputs, useForBio]);
 
   const isButtonDisabled =
     isSaving || phoneDigits.replace(/\D/g, "").length < 10;
@@ -165,6 +177,15 @@ export function ProfileSetupView() {
                 autoFocus={index === socialInputs.length - 1}
               />
             ))}
+
+            {/* Use for bio toggle */}
+            {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+              <ToggleSetting
+                label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
+                enabled={useForBio}
+                onChange={setUseForBio}
+              />
+            )}
 
             {/* Save Button */}
             <View>

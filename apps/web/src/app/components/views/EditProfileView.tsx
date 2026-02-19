@@ -86,6 +86,18 @@ const EditProfileView: React.FC = () => {
     syncCarousel(sharingCategory);
   }, [syncCarousel, sharingCategory]);
 
+  // Handle deep link to auto-open inline add link
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('openInlineAddLink') as 'personal' | 'work' | null;
+    if (section) {
+      setShowInlineAddLink(prev => ({ ...prev, [section]: true }));
+      if (section === 'work' && selectedMode !== 'Work') handleCarouselModeChange('Work');
+      else if (section === 'personal' && selectedMode !== 'Personal') handleCarouselModeChange('Personal');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handle mode change - update both carousel and local state
   const handleModeChange = useCallback((mode: 'Personal' | 'Work') => {
     handleCarouselModeChange(mode);
@@ -222,6 +234,8 @@ const EditProfileView: React.FC = () => {
                   <ProfileImageIcon
                     imageUrl={fieldSectionManager.getImageValue('profileImage')}
                     onUpload={handleProfileImageUpload}
+                    alt={fieldSectionManager.getFieldValue('name')}
+                    profileColors={profile?.backgroundColors}
                   />
                 }
               />

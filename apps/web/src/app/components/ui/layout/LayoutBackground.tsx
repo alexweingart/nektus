@@ -347,9 +347,9 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           context: 'profile'
         };
       }
-      // Otherwise fall back to black for first load fade effect
+      // While loading, always use black — never flash green
       return {
-        colors: cachedParticleColors || (isFirstPageLoad ? BLACK_COLORS : DEFAULT_COLORS),
+        colors: cachedParticleColors || BLACK_COLORS,
         context: 'signed-out'
       };
     }

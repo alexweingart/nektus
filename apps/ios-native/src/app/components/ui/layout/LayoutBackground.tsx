@@ -166,9 +166,14 @@ export function LayoutBackground({
       }
     }
 
-    // For contact context without contact colors - use default profile colors
+    // For contact context without contact colors - use dark while loading
     if (particleContext === "contact" || particleContext === "connect") {
-      return DEFAULT_PROFILE_COLORS;
+      return {
+        gradientStart: THEME_DARK,
+        gradientEnd: THEME_DARK,
+        particle: 'rgba(0, 0, 0, 0)',
+        connection: 'rgba(0, 0, 0, 0)',
+      };
     }
 
     // Default for profile contexts without custom colors — generate from name
@@ -178,8 +183,15 @@ export function LayoutBackground({
         if (name) {
           return convertToParticleColors(generateProfileColors(name));
         }
+        return DEFAULT_PROFILE_COLORS;
       }
-      return DEFAULT_PROFILE_COLORS;
+      // Profile still loading — use dark colors, never flash green
+      return {
+        gradientStart: THEME_DARK,
+        gradientEnd: THEME_DARK,
+        particle: 'rgba(0, 0, 0, 0)',
+        connection: 'rgba(0, 0, 0, 0)',
+      };
     }
 
     // Fallback

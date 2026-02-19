@@ -199,7 +199,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                 {/* Use for bio toggle */}
                 {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
                   <ToggleSetting
-                    label="Use for bio"
+                    label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
                     enabled={useForBio}
                     onChange={setUseForBio}
                   />

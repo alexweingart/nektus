@@ -11,7 +11,9 @@ import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import { ExchangeButton } from '../ui/buttons/ExchangeButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { ProfileInfo } from '../ui/modules/ProfileInfo';
+import { BioModal } from '../ui/modals/BioModal';
 import { useExchangeQRDisplay } from '@/client/hooks/use-exchange-qr-display';
+import { useImageUpload } from '@/client/hooks/use-edit-profile-fields';
 
 import { useRouter } from 'next/navigation';
 import { usePWAInstall } from '@/client/hooks/use-pwa-install';
@@ -29,7 +31,11 @@ const ProfileView: React.FC = () => {
     isNavigatingFromSetup,
     streamingProfileImage,
     isGoogleInitials,
-    isCheckingGoogleImage
+    isCheckingGoogleImage,
+    saveProfile,
+    sharingCategory,
+    isBioLoading,
+    setIsBioLoading
   } = useProfile();
 
   // Debug flash issue - track state changes
@@ -55,6 +61,29 @@ const ProfileView: React.FC = () => {
   const { showQRCode, matchToken } = useExchangeQRDisplay();
 
   const router = useRouter();
+
+  // Bio modal state (loading state lives in ProfileContext to persist across navigation)
+  const [showBioModal, setShowBioModal] = useState(false);
+
+  // Hidden file input for camera overlay upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraPreview, setCameraPreview] = useState<string | null>(null);
+  const { createUploadHandler } = useImageUpload((colors) => {
+    saveProfile({ backgroundColors: colors }, { skipUIUpdate: false });
+  });
+  const handleCameraUpload = createUploadHandler('profile', (imageData) => {
+    if (imageData.startsWith('data:')) {
+      // Base64 preview — show instantly, don't persist yet
+      setCameraPreview(imageData);
+    } else if (imageData) {
+      // Permanent URL from server — persist to Firestore
+      setCameraPreview(null);
+      saveProfile({ profileImage: imageData }, { skipUIUpdate: false });
+    } else {
+      // Error/revert
+      setCameraPreview(null);
+    }
+  });
 
   // Animation state
   const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
@@ -148,10 +177,20 @@ const ProfileView: React.FC = () => {
     return profileBio || 'My bio is going to be awesome once I create it.';
   }, [currentProfile?.contactEntries]);
 
+  // Clear bio loading when bio content changes (real-time update from Firestore)
+  useEffect(() => {
+    if (isBioLoading && bioContent !== 'My bio is going to be awesome once I create it.') {
+      setIsBioLoading(false);
+    }
+  }, [bioContent, isBioLoading]);
+
   // Profile image - use streaming value for immediate updates after generation
   // Filter out Google initials images to show our gradient instead
   // While checking Google image, hide it (src=undefined) to prevent flash
   const profileImageSrc = useMemo(() => {
+    // Camera preview takes priority — instant local display
+    if (cameraPreview) return cameraPreview;
+
     const baseImageUrl = streamingProfileImage || currentProfile?.profileImage;
     const isGoogleUrl = baseImageUrl?.includes('googleusercontent.com');
 
@@ -166,7 +205,7 @@ const ProfileView: React.FC = () => {
     }
 
     return getOptimalProfileImageUrl(baseImageUrl, 400);
-  }, [streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
+  }, [cameraPreview, streamingProfileImage, currentProfile?.profileImage, isGoogleInitials, isCheckingGoogleImage]);
 
   // Calculate if we should show initials - true for confirmed Google initials or while checking
   const shouldShowInitials = useMemo(() => {
@@ -283,6 +322,13 @@ const ProfileView: React.FC = () => {
               isGoogleInitials={shouldShowInitials}
               showQRCode={showQRCode}
               matchToken={matchToken || undefined}
+              showCameraOverlay
+              onCameraPress={() => fileInputRef.current?.click()}
+              onAddBioPress={() => setShowBioModal(true)}
+              isBioLoading={isBioLoading}
+              onAddLinkPress={() => {
+                router.push(`/edit?openInlineAddLink=${sharingCategory === 'Work' ? 'work' : 'personal'}`);
+              }}
             />
           )}
         </div>
@@ -357,6 +403,50 @@ const ProfileView: React.FC = () => {
         showSecondaryButton={false}
         showCloseButton={false}
       />
+
+      {/* Hidden file input for camera overlay upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleCameraUpload}
+      />
+
+      {/* Bio Modal */}
+      {currentProfile && (
+        <BioModal
+          isOpen={showBioModal}
+          onClose={() => setShowBioModal(false)}
+          currentSection={sharingCategory as 'Personal' | 'Work'}
+          profile={currentProfile}
+          onBioSaved={(bio) => {
+            const entries = [...(currentProfile.contactEntries || [])];
+            const bioIdx = entries.findIndex(e => e.fieldType === 'bio' && e.section === 'universal');
+            const bioEntry = { fieldType: 'bio', section: 'universal' as const, value: bio, order: 0, isVisible: true, confirmed: true };
+            if (bioIdx >= 0) {
+              entries[bioIdx] = { ...entries[bioIdx], ...bioEntry };
+            } else {
+              entries.push(bioEntry);
+            }
+            saveProfile({ contactEntries: entries });
+          }}
+          onSocialEntrySaved={(platform, username) => {
+            const entries = [...(currentProfile.contactEntries || [])];
+            const section = platform === 'linkedin' ? 'work' : 'personal';
+            const idx = entries.findIndex(e => e.fieldType === platform);
+            const entry = { fieldType: platform, value: username, section: section as 'personal' | 'work', order: entries.length, isVisible: true, confirmed: true };
+            if (idx >= 0) {
+              entries[idx] = { ...entries[idx], ...entry };
+            } else {
+              entries.push(entry);
+            }
+            saveProfile({ contactEntries: entries });
+          }}
+          onScrapeStarted={() => setIsBioLoading(true)}
+          onScrapeFailed={() => setIsBioLoading(false)}
+        />
+      )}
     </div>
   );
 };

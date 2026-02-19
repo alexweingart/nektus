@@ -70,6 +70,9 @@ interface ProfileContextType {
   contactsLoading: boolean;
   getContact: (contactUserId: string) => SavedContact | null;
   getContacts: () => SavedContact[];
+  // Bio scraping state (persists across navigation)
+  isBioLoading: boolean;
+  setIsBioLoading: (loading: boolean) => void;
   // Sharing category (Personal/Work toggle)
   sharingCategory: SharingCategory;
   setSharingCategory: (category: SharingCategory) => void;
@@ -97,6 +100,9 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   // Contacts state (live via onSnapshot)
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
   const [contactsLoading, setContactsLoading] = useState(true);
+
+  // Bio scraping loading state (persists across navigation)
+  const [isBioLoading, setIsBioLoading] = useState(false);
 
   // Sharing category state (replaces AsyncStorage 'nekt-sharing-category')
   const [sharingCategory, setSharingCategory] = useState<SharingCategory>('Personal');
@@ -374,6 +380,8 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         contactsLoading,
         getContact,
         getContacts,
+        isBioLoading,
+        setIsBioLoading,
         sharingCategory,
         setSharingCategory,
         assetGeneration,
@@ -409,6 +417,8 @@ export function useProfile(): ProfileContextType {
       contactsLoading: false,
       getContact: () => null,
       getContacts: () => [],
+      isBioLoading: false,
+      setIsBioLoading: () => {},
       sharingCategory: 'Personal',
       setSharingCategory: () => {},
       assetGeneration: {

@@ -9,6 +9,8 @@ import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import type { ContactEntry } from '@/types/profile';
 import { detectPlatform } from '@/client/platform-detection';
+import { ToggleSetting } from '../controls/ToggleSetting';
+import { scrapeBio } from '@/client/profile/scrape-bio';
 
 interface PostSignUpModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   const [digits, setDigits] = useState('');
   const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [useForBio, setUseForBio] = useState(true);
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   // Check if phone is valid (10+ digits)
@@ -98,11 +101,20 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
 
     try {
       await onSave(digits, socialEntries);
+
+      // Fire-and-forget bio scrape if toggle is on and first social is instagram/linkedin
+      if (useForBio && socialInputs[0]?.username.trim() &&
+          ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
+        scrapeBio(
+          socialInputs[0].platform as 'instagram' | 'linkedin',
+          socialInputs[0].username.trim()
+        ).catch(console.error);
+      }
     } catch (err) {
       console.error('[PostSignUpModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, socialInputs, isPhoneValid, isSaving, onSave]);
+  }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
 
   // Extract first name from full name
   const firstName = userName?.split(' ')[0] || 'there';
@@ -172,6 +184,15 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                   autoFocus={index === socialInputs.length - 1}
                 />
               ))}
+
+              {/* Use for bio toggle - show when first social is instagram or linkedin */}
+              {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+                <ToggleSetting
+                  label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
+                  enabled={useForBio}
+                  onChange={setUseForBio}
+                />
+              )}
             </div>
 
             {/* Error Message */}

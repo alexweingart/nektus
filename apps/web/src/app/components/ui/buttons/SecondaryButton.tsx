@@ -5,7 +5,7 @@ import { cn } from '@/client/cn';
 
 interface SecondaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  variant?: 'dark' | 'subtle' | 'destructive' | 'light';
+  variant?: 'dark' | 'subtle' | 'ghost' | 'destructive' | 'light';
 }
 
 export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
@@ -19,6 +19,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
     // Use @media (hover: hover) to only apply hover on non-touch devices
     dark: "bg-black/60 backdrop-blur-lg [@media(hover:hover)]:hover:bg-white/20",
     subtle: "bg-white/20 backdrop-blur-lg [@media(hover:hover)]:hover:bg-white/40",
+    ghost: "bg-white/10 [@media(hover:hover)]:hover:bg-white/20",
     destructive: "bg-red-500/50 backdrop-blur-lg [@media(hover:hover)]:hover:bg-red-500/70 text-white",
     light: "bg-white [@media(hover:hover)]:hover:bg-gray-100 text-gray-900"
   };

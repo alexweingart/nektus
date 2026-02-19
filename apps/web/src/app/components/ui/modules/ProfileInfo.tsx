@@ -11,6 +11,7 @@ import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
 import QRCode from 'react-qr-code';
 import { useProfile } from '@/app/context/ProfileContext';
+import { SecondaryButton } from '../buttons/SecondaryButton';
 
 interface ProfileInfoProps {
   profile: UserProfile;
@@ -21,6 +22,11 @@ interface ProfileInfoProps {
   isGoogleInitials?: boolean; // Whether Google profile has auto-generated initials
   showQRCode?: boolean; // Whether to show QR code instead of profile details
   matchToken?: string; // Token for QR code URL
+  showCameraOverlay?: boolean;
+  onCameraPress?: () => void;
+  onAddBioPress?: () => void;
+  isBioLoading?: boolean;
+  onAddLinkPress?: () => void;
 }
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({
@@ -31,7 +37,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   isLoadingProfile = false,
   isGoogleInitials = false,
   showQRCode = false,
-  matchToken
+  matchToken,
+  showCameraOverlay = false,
+  onCameraPress,
+  onAddBioPress,
+  isBioLoading = false,
+  onAddLinkPress
 }) => {
   const { sharingCategory, setSharingCategory } = useProfile();
   const selectedMode = sharingCategory as ProfileViewMode;
@@ -66,6 +77,17 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     }
     return profile?.contactEntries || [];
   }, [profile, selectedMode]);
+
+  // Count visible non-empty social links (exclude name/bio)
+  const visibleLinkCount = useMemo(() => {
+    return (filteredContactEntries || []).filter(e =>
+      e.fieldType !== 'name' && e.fieldType !== 'bio' &&
+      e.isVisible !== false && !!e.value?.trim()
+    ).length;
+  }, [filteredContactEntries]);
+
+  const defaultBioPlaceholder = 'My bio is going to be awesome once I create it.';
+  const isBioPlaceholder = bioContent === defaultBioPlaceholder;
 
   // Handle mode change from selector
   const handleModeChange = (mode: ProfileViewMode) => {
@@ -162,7 +184,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   return (
     <div className={className}>
       {/* Profile Image */}
-      <div className="mb-4">
+      <div className="mb-4 relative">
         <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
           <Avatar
             src={profileImageSrc}
@@ -173,12 +195,24 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             profileColors={profile?.backgroundColors}
           />
         </div>
+        {showCameraOverlay && onCameraPress && (
+          <button
+            onClick={onCameraPress}
+            className="absolute -bottom-1 -right-1 z-20 w-10 h-10 rounded-full bg-black/30 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-black/40 transition-colors"
+            aria-label="Upload photo"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Carousel Container - Full width background */}
       <div
         ref={containerRef}
-        className={`w-full bg-black/60 backdrop-blur-lg rounded-2xl overflow-hidden ${showQRCode ? 'py-6' : 'py-4'}`}
+        className={`w-full bg-black/30 backdrop-blur-xl rounded-2xl overflow-hidden ${showQRCode ? 'py-6' : 'py-4'}`}
       >
         {showQRCode && matchToken ? (
           <QRCodeDisplay token={matchToken} />
@@ -228,20 +262,29 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
                   color: rgba(255, 255, 255, 0.8);
                 }
               `}</style>
-              <div className="bio-content text-white">
-                <ReactMarkdown 
-                  components={{
-                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
-                    a: ({ node: _node, ...props }) => (
-                      <a {...props} target="_blank" rel="noopener noreferrer" />
-                    )
-                  }}
-                >
-                  {bioContent}
-                </ReactMarkdown>
-              </div>
+              {isBioLoading ? (
+                <div className="space-y-2">
+                  <div className="h-3 bg-white/20 rounded-full w-3/4 mx-auto animate-pulse" />
+                  <div className="h-3 bg-white/20 rounded-full w-1/2 mx-auto animate-pulse" />
+                </div>
+              ) : isBioPlaceholder && onAddBioPress ? (
+                <SecondaryButton variant="ghost" onClick={onAddBioPress}>+ Add Bio</SecondaryButton>
+              ) : (
+                <div className="bio-content text-white">
+                  <ReactMarkdown
+                    components={{
+                      p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
+                      a: ({ node: _node, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer" />
+                      )
+                    }}
+                  >
+                    {bioContent}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
-            
+
             {/* Contact Icons */}
             <div className="w-full text-center">
               {filteredContactEntries && (
@@ -249,11 +292,13 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
                   contactEntries={filteredContactEntries}
                   size="md"
                   variant="white"
+                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
+                  onAddPress={onAddLinkPress}
                 />
               )}
             </div>
           </div>
-          
+
           {/* Work View - Full container width with internal padding */}
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
@@ -282,20 +327,29 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
             {/* Bio with markdown support */}
             <div className="mb-4 text-center">
-              <div className="bio-content text-white">
-                <ReactMarkdown 
-                  components={{
-                    p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
-                    a: ({ node: _node, ...props }) => (
-                      <a {...props} target="_blank" rel="noopener noreferrer" />
-                    )
-                  }}
-                >
-                  {bioContent}
-                </ReactMarkdown>
-              </div>
+              {isBioLoading ? (
+                <div className="space-y-2">
+                  <div className="h-3 bg-white/20 rounded-full w-3/4 mx-auto animate-pulse" />
+                  <div className="h-3 bg-white/20 rounded-full w-1/2 mx-auto animate-pulse" />
+                </div>
+              ) : isBioPlaceholder && onAddBioPress ? (
+                <SecondaryButton variant="ghost" onClick={onAddBioPress}>+ Add Bio</SecondaryButton>
+              ) : (
+                <div className="bio-content text-white">
+                  <ReactMarkdown
+                    components={{
+                      p: ({node: _node, ...props}) => <Text variant="small" className="leading-relaxed mb-2 last:mb-0" {...props} />,
+                      a: ({ node: _node, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer" />
+                      )
+                    }}
+                  >
+                    {bioContent}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
-            
+
             {/* Contact Icons */}
             <div className="w-full text-center">
               {filteredContactEntries && (
@@ -303,6 +357,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
                   contactEntries={filteredContactEntries}
                   size="md"
                   variant="white"
+                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
+                  onAddPress={onAddLinkPress}
                 />
               )}
             </div>

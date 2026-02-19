@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import SocialIcon from '../elements/SocialIcon';
 import type { ContactEntry } from '../../../../app/context/ProfileContext';
 
@@ -9,6 +10,8 @@ interface SocialIconsListProps {
   contactEntries: ContactEntry[];
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'white';
+  showAddButton?: boolean;
+  onAddPress?: () => void;
 }
 
 // Define the platforms and their default sections and orders
@@ -46,7 +49,9 @@ interface SocialItem {
 export const SocialIconsList: React.FC<SocialIconsListProps> = ({
   contactEntries,
   size = 'md',
-  variant = 'default'
+  variant = 'default',
+  showAddButton = false,
+  onAddPress,
 }) => {
   // Helper function to get URL for platform
   const getUrlForPlatform = (platform: PlatformType, username: string): string => {
@@ -194,6 +199,17 @@ export const SocialIconsList: React.FC<SocialIconsListProps> = ({
           />
         </TouchableOpacity>
       ))}
+      {showAddButton && onAddPress && (
+        <TouchableOpacity
+          onPress={onAddPress}
+          style={styles.addButton}
+          activeOpacity={0.7}
+        >
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+            <Path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </Svg>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -203,8 +219,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    alignItems: 'center', // Vertically center icons
-    gap: 16, // Match web gap-4 (16px)
+    alignItems: 'center',
+    gap: 16,
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

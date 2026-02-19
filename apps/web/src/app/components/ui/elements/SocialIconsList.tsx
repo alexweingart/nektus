@@ -9,6 +9,8 @@ interface SocialIconsListProps {
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'white';
   className?: string;
+  showAddButton?: boolean;
+  onAddPress?: () => void;
 }
 
 // Define the platforms and their default sections and orders
@@ -47,7 +49,9 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   contactEntries,
   size = 'md',
   variant = 'default',
-  className = ''
+  className = '',
+  showAddButton = false,
+  onAddPress
 }) => {
   // Helper function to get URL for platform
   const getUrlForPlatform = (platform: PlatformType, username: string): string => {
@@ -184,6 +188,17 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
           />
         </a>
       ))}
+      {showAddButton && onAddPress && (
+        <button
+          onClick={onAddPress}
+          className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors p-2"
+          aria-label="Add link"
+        >
+          <svg className="w-6 h-6 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 };

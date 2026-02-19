@@ -4,7 +4,7 @@
  *
  * TODO: Refactor to match iOS architecture pattern
  * - Core ProfileSaveService already exists in @nektus/shared-client (lines 1-293 are identical)
- * - Keep web-specific helpers here: generateWhatsAppFromPhone, syncProfileToSession
+ * - Keep web-specific helpers here: syncProfileToSession
  * - Import ProfileSaveService from @nektus/shared-client instead of duplicating it
  * - This file will become web-specific helpers only (like iOS save-helpers.ts)
  */
@@ -250,99 +250,6 @@ export class ProfileSaveService {
       lastUpdated: Date.now(),
       contactEntries: []
     };
-  }
-}
-
-/**
- * Verification result from phone-based social generation
- */
-interface VerificationResult {
-  platform: string;
-  verified: boolean;
-}
-
-/**
- * Generate and verify WhatsApp profile from phone number
- * Saves to Firebase and returns updated contact entries
- */
-export async function generateWhatsAppFromPhone(
-  phoneNumber: string,
-  profileRef: React.MutableRefObject<UserProfile | null>,
-  session: { user?: { id?: string } } | null,
-  setProfile: (profile: UserProfile) => void,
-  setStreamingSocialContacts: (contacts: ContactEntry[] | null) => void
-): Promise<void> {
-  try {
-    // Generate and verify WhatsApp profile
-    const response = await fetch('/api/profile/generate/verify-phone-socials', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phoneNumber: phoneNumber,
-        platforms: ['whatsapp']
-      }),
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      console.error('[ProfileSave] WhatsApp verification API failed:', response.status);
-      return;
-    }
-
-    const data = await response.json();
-    const whatsappResult = data.results?.find((r: VerificationResult) => r.platform === 'whatsapp');
-
-    if (whatsappResult && whatsappResult.verified) {
-      // Create WhatsApp profile
-      const whatsappProfile = {
-        username: phoneNumber.replace(/\D/g, ''),
-        url: `https://wa.me/${phoneNumber.replace(/\D/g, '')}`,
-        userConfirmed: true
-      };
-
-      // Get fresh profile data to avoid overwriting concurrent AI social updates
-      const freshProfile = profileRef.current;
-      const baseEntries = freshProfile?.contactEntries || [];
-      const updatedEntries = [...baseEntries];
-
-      // Add or update WhatsApp entry
-      const whatsappIndex = updatedEntries.findIndex(e => e.fieldType === 'whatsapp');
-      const whatsappEntry: ContactEntry = {
-        fieldType: 'whatsapp',
-        value: whatsappProfile.username,
-        section: 'personal',
-        order: updatedEntries.length,
-        isVisible: true,
-        confirmed: true
-      };
-
-      if (whatsappIndex >= 0) {
-        updatedEntries[whatsappIndex] = whatsappEntry;
-      } else {
-        updatedEntries.push(whatsappEntry);
-      }
-
-      // Save to Firebase
-      if (session?.user?.id && profileRef.current) {
-        const saveResult = await ProfileSaveService.saveProfile(
-          session.user.id,
-          profileRef.current,
-          { contactEntries: updatedEntries },
-          { directUpdate: true }
-        );
-
-        if (saveResult.success && saveResult.profile) {
-          // Update React state for immediate UI feedback
-          profileRef.current = saveResult.profile;
-          setProfile(saveResult.profile);
-          setStreamingSocialContacts(updatedEntries);
-        } else {
-          console.error('[ProfileSave] Failed to save phone-based socials:', saveResult.error);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('[ProfileSave] WhatsApp verification request failed:', error);
   }
 }
 

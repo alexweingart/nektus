@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { ClientProfileService as ProfileService } from '@/client/profile/firebase-save';
-import { ProfileSaveService, generateWhatsAppFromPhone, syncProfileToSession } from '@/client/profile/save';
+import { ProfileSaveService, syncProfileToSession } from '@/client/profile/save';
 import { UserProfile } from '@/types/profile';
 import type { SavedContact } from '@/types/contactExchange';
 import { firebaseAuth } from '@/client/auth/firebase';
@@ -43,6 +43,9 @@ type ProfileContextType = {
   contactsLoading: boolean;
   getContact: (contactUserId: string) => SavedContact | null;
   getContacts: () => SavedContact[];
+  // Bio scraping state (persists across navigation)
+  isBioLoading: boolean;
+  setIsBioLoading: (loading: boolean) => void;
   // Sharing category (Personal/Work toggle)
   sharingCategory: SharingCategory;
   setSharingCategory: (category: SharingCategory) => void;
@@ -67,6 +70,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Track if current profile image is Google auto-generated initials
   const [isGoogleInitials, setIsGoogleInitials] = useState(false);
   const [isCheckingGoogleImage, setIsCheckingGoogleImage] = useState(false);
+
+  // Bio scraping loading state (persists across navigation)
+  const [isBioLoading, setIsBioLoading] = useState(false);
 
   // Contacts state (live via onSnapshot)
   const [contacts, setContacts] = useState<SavedContact[] | null>(null);
@@ -401,23 +407,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setProfile(merged);
       }
 
-      // Only trigger phone-based social generation if phone number was saved AND WhatsApp is blank
-      const mergedPhoneEntry = merged.contactEntries?.find(e => e.fieldType === 'phone');
-      const existingWhatsApp = merged.contactEntries?.find(e =>
-        e.fieldType === 'whatsapp' && e.value && e.value.trim() !== ''
-      );
-
-      if (wasFormSubmission && mergedPhoneEntry?.value && !existingWhatsApp) {
-        // Generate WhatsApp from phone number (async, non-blocking)
-        generateWhatsAppFromPhone(
-          mergedPhoneEntry.value,
-          profileRef,
-          session,
-          setProfile,
-          setStreamingSocialContacts
-        );
-      }
-
       // Sync profile data to session
       await syncProfileToSession(merged, session, wasFormSubmission || false, update);
     } catch (error) {
@@ -474,6 +463,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         contactsLoading,
         getContact,
         getContacts,
+        isBioLoading,
+        setIsBioLoading,
         sharingCategory,
         setSharingCategory,
       }}

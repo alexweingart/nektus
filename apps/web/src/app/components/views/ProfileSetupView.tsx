@@ -15,6 +15,8 @@ import { formatPhoneNumber } from '@/client/profile/phone-formatter';
 import { useRouter } from 'next/navigation';
 import { type CountryCode } from 'libphonenumber-js';
 import { detectPlatform } from '@/client/platform-detection';
+import { ToggleSetting } from '../ui/controls/ToggleSetting';
+import { scrapeBio } from '@/client/profile/scrape-bio';
 
 function ProfileSetupView() {
   // Session and authentication
@@ -28,6 +30,7 @@ function ProfileSetupView() {
   // Component state
   const [digits, setDigits] = useState('');
   const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
+  const [useForBio, setUseForBio] = useState(true);
 
   // Track country code for phone number formatting (updated by DropdownPhoneInput)
   const [countryCode, setCountryCode] = useState('US');
@@ -141,13 +144,21 @@ function ProfileSetupView() {
     // Save in background
     try {
       await saveProfile(phoneUpdateData);
+
+      // Fire-and-forget bio scrape if toggle is on and first social is instagram/linkedin
+      if (useForBio && socialInputs[0]?.username.trim() &&
+          ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
+        scrapeBio(
+          socialInputs[0].platform as 'instagram' | 'linkedin',
+          socialInputs[0].username.trim()
+        ).catch(console.error);
+      }
     } catch (err) {
       console.error('[ProfileSetup] Background save failed:', err);
-      // Could redirect back to setup or show error notification
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, socialInputs, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update]);
+  }, [digits, socialInputs, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update, useForBio]);
 
 
   if (sessionStatus === 'loading') {
@@ -219,6 +230,15 @@ function ProfileSetupView() {
                     autoFocus={index === socialInputs.length - 1}
                   />
                 ))}
+
+                {/* Use for bio toggle */}
+                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+                  <ToggleSetting
+                    label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
+                    enabled={useForBio}
+                    onChange={setUseForBio}
+                  />
+                )}
 
                 <Button
                   type="submit"

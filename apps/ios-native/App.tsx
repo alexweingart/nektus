@@ -39,7 +39,7 @@ export type RootStackParamList = {
   Terms: undefined;
   ProfileSetup: undefined;
   Profile: undefined;
-  EditProfile: undefined;
+  EditProfile: { openInlineAddLink?: 'personal' | 'work' } | undefined;
   Contact: { userId?: string; token: string; isHistoricalMode?: boolean; backgroundColors?: string[] };
   ContactProfile: { code: string };  // View profile via shortCode (/c/:code)
   History: undefined;
