@@ -298,14 +298,17 @@ export function ProfileView() {
               onMatch={handleMatch}
             />
 
-            {/* Cancel Button - shows during exchange and match found state */}
-            {(isExchanging || isMatchFound) && (
-              <View style={styles.cancelButtonContainer}>
-                <SecondaryButton onPress={handleCancelExchange}>
-                  Cancel
-                </SecondaryButton>
-              </View>
-            )}
+            {/* Cancel Button - always rendered to preserve layout, visibility toggled */}
+            <View
+              style={[
+                styles.cancelButtonContainer,
+                !(isExchanging || isMatchFound) && { opacity: 0, pointerEvents: 'none' },
+              ]}
+            >
+              <SecondaryButton onPress={handleCancelExchange}>
+                Cancel
+              </SecondaryButton>
+            </View>
           </Animated.View>
         </View>
       </PullToRefresh>
