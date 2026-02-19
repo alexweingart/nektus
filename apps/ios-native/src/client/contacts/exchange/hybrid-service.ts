@@ -92,8 +92,9 @@ export class HybridExchangeService {
     this.motionPermissionGranted = motionPermissionGranted;
     this.matchFound = false;
 
-    // Update status
-    this.updateStatus('waiting-for-bump');
+    // Update status based on BLE availability
+    // When BLE is available, BLE scanning handles proximity — show scanning status
+    this.updateStatus(this.bleAvailable ? 'ble-scanning' : 'waiting-for-bump');
 
     // Start BLE and server in parallel
     const blePromise = this.startBLE();
@@ -160,7 +161,10 @@ export class HybridExchangeService {
     const serverCategory = this.sharingCategory === 'Personal' ? 'Personal' : 'Work';
 
     try {
-      await this.serverService.startExchange(this.motionPermissionGranted, serverCategory);
+      // When BLE is available, disable motion detection for server matching
+      // BLE handles proximity via scanning; server only handles QR code matching
+      const motionForServer = this.bleAvailable ? false : this.motionPermissionGranted;
+      await this.serverService.startExchange(motionForServer, serverCategory);
     } catch (error) {
       console.warn('[Hybrid] Server start failed:', error);
       // BLE matching continues independently

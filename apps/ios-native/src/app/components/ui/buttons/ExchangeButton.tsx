@@ -344,8 +344,8 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
     'requesting-permission': { icon: 'spinner', text: 'Getting Ready...' },
     'waiting-for-bump':     { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
-    'ble-scanning':         { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
-    'ble-discovered':       { icon: 'dot',     text: 'Found nearby device...' },
+    'ble-scanning':         { icon: 'dot',     text: 'Looking for friends...' },
+    'ble-discovered':       { icon: 'dot',     text: 'Found nearby friend...' },
     'ble-connecting':       { icon: 'spinner', text: 'Connecting...' },
     'ble-exchanging':       { icon: 'spinner', text: 'Exchanging contacts...' },
     'processing':           { icon: 'spinner', text: 'Waiting for Match...' },
