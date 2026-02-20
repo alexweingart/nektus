@@ -4,6 +4,27 @@ import { timeToMinutes, getDayOfWeek } from './time';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS, UNIVERSAL_SCHEDULABLE_HOURS } from '@/shared/constants';
 import { createFallbackFromTemplate, getDateRange } from './slots-generator';
 
+type DayOfWeekKey = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+
+/**
+ * Get the user-local hours, minutes, and day-of-week for a UTC Date.
+ * Falls back to Date methods when no timezone is provided (client-side usage).
+ */
+function getLocalTime(date: Date, timezone?: string): { hour: number; minute: number; dayOfWeek: DayOfWeekKey } {
+  if (!timezone) {
+    const days: DayOfWeekKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return { hour: date.getHours(), minute: date.getMinutes(), dayOfWeek: days[date.getDay()] };
+  }
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric', minute: 'numeric', weekday: 'long', hour12: false,
+  }).formatToParts(date);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  const dayName = (parts.find(p => p.type === 'weekday')?.value || 'sunday').toLowerCase() as DayOfWeekKey;
+  return { hour, minute, dayOfWeek: dayName };
+}
+
 // Cold start flag — true on first request after page load, resets after use.
 // Browser refresh reloads all JS modules, so this naturally resets to true.
 let isColdStart = true;
@@ -117,11 +138,10 @@ function isSlotWithinSchedulableHours(
   preferredSchedulableHours: SchedulableHours,
   eventDurationOnly: number,
   beforeBuffer: number = 0,
-  afterBuffer: number = 0
+  afterBuffer: number = 0,
+  timezone?: string
 ): boolean {
-  const hour = slotTime.getHours();
-  const minute = slotTime.getMinutes();
-  const dayOfWeek = getDayOfWeek(slotTime);
+  const { hour, minute, dayOfWeek } = getLocalTime(slotTime, timezone);
   const timeInMinutes = hour * 60 + minute;
 
   const daySchedule = preferredSchedulableHours[dayOfWeek];
@@ -288,7 +308,8 @@ export function getAllValidSlots(
       description?: string;
     };
     travelBuffer?: { beforeMinutes: number; afterMinutes: number };
-  }
+  },
+  timezone?: string
 ): TimeSlot[] {
   // Sort slots by start time
   const sortedSlots = [...commonSlots].sort((a, b) =>
@@ -329,7 +350,8 @@ export function getAllValidSlots(
         eventTemplate.preferredSchedulableHours,
         eventDurationOnly,
         beforeBuffer,
-        afterBuffer
+        afterBuffer,
+        timezone
       );
       if (!isValid) {
         continue;
@@ -417,7 +439,8 @@ export function getCandidateSlotsWithFallback(
     preferredSchedulableDates?: { startDate: string; endDate: string; description?: string };
     travelBuffer?: { beforeMinutes: number; afterMinutes: number };
   },
-  calendarType: 'personal' | 'work'
+  calendarType: 'personal' | 'work',
+  timezone?: string
 ): {
   slots: TimeSlot[];
   hasNoCommonTime: boolean;
@@ -428,7 +451,7 @@ export function getCandidateSlotsWithFallback(
     preferredSchedulableHours: template.preferredSchedulableHours,
     preferredSchedulableDates: template.preferredSchedulableDates,
     travelBuffer: template.travelBuffer,
-  });
+  }, timezone);
 
   let hasNoCommonTime = false;
 
@@ -446,7 +469,8 @@ export function getCandidateSlotsWithFallback(
         preferredSchedulableDates: template.preferredSchedulableDates,
         travelBuffer: template.travelBuffer,
       },
-      calendarType
+      calendarType,
+      timezone
     );
     hasNoCommonTime = true;
   }

@@ -44,7 +44,8 @@ export async function handleProvideAlternatives({
       preferredSchedulableDates: template.preferredSchedulableDates,
       travelBuffer: template.travelBuffer,
       // NO schedulable hours constraint - get ALL times in date range
-    }
+    },
+    timezone
   );
 
   // If no slots found with their date constraint, widen to show alternatives from broader date range
@@ -68,7 +69,8 @@ export async function handleProvideAlternatives({
           description: 'that week'
         },
         travelBuffer: template.travelBuffer,
-      }
+      },
+      timezone
     );
   }
 

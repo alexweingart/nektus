@@ -300,7 +300,8 @@ export function createFallbackFromTemplate(
     };
     travelBuffer?: { beforeMinutes: number; afterMinutes: number };
   },
-  calendarType: 'personal' | 'work' = 'personal'
+  calendarType: 'personal' | 'work' = 'personal',
+  userTimezone?: string
 ): TimeSlot[] {
   const fallbackSlots: TimeSlot[] = [];
 
@@ -346,11 +347,14 @@ export function createFallbackFromTemplate(
       const windowEnd = parseTimeString(window.end);
 
       // Create slots every 30 minutes within the window
-      let slotTime = new Date(currentDate);
-      slotTime.setHours(windowStart.hour, windowStart.minute, 0, 0);
+      // Use timezone-aware date creation so "08:00" means 8am in user's timezone
+      let slotTime = userTimezone
+        ? createUserTimezoneDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), windowStart.hour, windowStart.minute, 0, userTimezone)
+        : new Date(new Date(currentDate).setHours(windowStart.hour, windowStart.minute, 0, 0));
 
-      const windowEndTime = new Date(currentDate);
-      windowEndTime.setHours(windowEnd.hour, windowEnd.minute, 0, 0);
+      const windowEndTime = userTimezone
+        ? createUserTimezoneDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), windowEnd.hour, windowEnd.minute, 0, userTimezone)
+        : new Date(new Date(currentDate).setHours(windowEnd.hour, windowEnd.minute, 0, 0));
 
       while (slotTime.getTime() + totalDurationNeeded * 60 * 1000 <= windowEndTime.getTime()) {
         const slotEnd = new Date(slotTime.getTime() + totalDurationNeeded * 60 * 1000);
@@ -372,14 +376,17 @@ export function createFallbackFromTemplate(
   }
 
   if (fallbackSlots.length === 0) {
+    // Last resort: 10am tomorrow in user's timezone
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
+    const fallbackStart = userTimezone
+      ? createUserTimezoneDate(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 10, 0, 0, userTimezone)
+      : new Date(new Date(tomorrow).setHours(10, 0, 0, 0));
 
-    const endTime = new Date(tomorrow.getTime() + totalDurationNeeded * 60 * 1000);
+    const endTime = new Date(fallbackStart.getTime() + totalDurationNeeded * 60 * 1000);
 
     return [{
-      start: tomorrow.toISOString(),
+      start: fallbackStart.toISOString(),
       end: endTime.toISOString()
     }];
   }

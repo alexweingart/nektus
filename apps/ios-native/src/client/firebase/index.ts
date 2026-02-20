@@ -7,7 +7,7 @@
 export { initializeFirebaseServices } from './firebase-services';
 
 // Firestore services
-export { ClientProfileService } from './firebase-save';
+export { ClientProfileService, syncTimezone } from './firebase-save';
 
 // Storage services
 export {

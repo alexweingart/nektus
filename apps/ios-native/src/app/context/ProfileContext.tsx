@@ -30,6 +30,7 @@ import type { SavedContact as SharedSavedContact } from "@nektus/shared-types";
 import {
   ClientProfileService,
   initializeFirebaseServices,
+  syncTimezone,
 } from "../../client/firebase";
 import {
   generateProfileAssets,
@@ -270,6 +271,15 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.userId, session?.user?.id, isLoading]);
+
+  // Sync device timezone to Firestore (once per session, after profile loads)
+  const timezoneSyncedRef = useRef(false);
+  useEffect(() => {
+    if (profile && session?.user?.id && !isLoading && !timezoneSyncedRef.current) {
+      timezoneSyncedRef.current = true;
+      syncTimezone(session.user.id, profile.timezone);
+    }
   }, [profile?.userId, session?.user?.id, isLoading]);
 
   // Save profile using ProfileSaveService

@@ -324,3 +324,19 @@ export const ClientProfileService = {
     }
   }
 };
+
+/**
+ * Sync device timezone to Firestore profile if it differs.
+ * Lightweight: only writes the timezone field, no full profile save.
+ */
+export async function syncTimezone(userId: string, currentTimezone: string | undefined): Promise<void> {
+  const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!deviceTimezone || deviceTimezone === currentTimezone) return;
+
+  try {
+    console.log(`[syncTimezone] Updating timezone: ${currentTimezone || 'undefined'} → ${deviceTimezone}`);
+    await updateDoc(doc(db, 'profiles', userId), { timezone: deviceTimezone });
+  } catch (error) {
+    console.error('[syncTimezone] Failed:', error);
+  }
+}

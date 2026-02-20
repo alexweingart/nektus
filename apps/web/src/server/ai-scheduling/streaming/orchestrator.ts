@@ -175,7 +175,8 @@ export async function streamSchedulingResponse(
             preferredSchedulableDates: templateResult.template.preferredSchedulableDates,
             travelBuffer: templateResult.template.travelBuffer,
           },
-          body.calendarType
+          body.calendarType,
+          body.timezone
         );
         let slots = result.slots;
         const hasNoCommonTime = result.hasNoCommonTime;
@@ -271,7 +272,8 @@ export async function streamSchedulingResponse(
                 preferredSchedulableDates: modifiedTemplate.preferredSchedulableDates,
                 travelBuffer: modifiedTemplate.travelBuffer,
               },
-              body.calendarType
+              body.calendarType,
+              body.timezone
             );
 
             // Add requested time as first slot (even though it conflicts/is unavailable)
