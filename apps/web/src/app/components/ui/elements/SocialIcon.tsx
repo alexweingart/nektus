@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
+import { FaPhone, FaComment, FaEnvelope, FaFacebook, FaInstagram, FaLinkedin, FaSnapchatGhost, FaWhatsapp, FaTelegram, FaWeixin } from 'react-icons/fa';
 import { openMessagingApp } from '@/client/contacts/messaging';
 
 // Custom X logo component (formerly Twitter)
@@ -82,6 +82,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       case 'email':
         return `mailto:${usernameFormatted}`;
       case 'phone':
+        return `tel:${usernameFormatted}`;
+      case 'text':
         return `sms:${usernameFormatted}`;
       default:
         return null;
@@ -111,8 +113,14 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       return;
     }
 
-    // Handle phone platform with messaging service
+    // Handle phone platform with dialer
     if (platform === 'phone' && username) {
+      window.location.href = `tel:${username}`;
+      return;
+    }
+
+    // Handle text platform with messaging service
+    if (platform === 'text' && username) {
       openMessagingApp('', username);
       return;
     }
@@ -160,6 +168,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
     switch (platform) {
       case 'phone':
         return <FaPhone className={getIconClass()} style={{ position: 'relative', top: '1px' }} />;
+      case 'text':
+        return <FaComment className={getIconClass()} />;
       case 'email':
         return <FaEnvelope className={getIconClass()} />;
       case 'facebook':

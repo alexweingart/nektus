@@ -66,6 +66,8 @@ const SocialIcon: React.FC<SocialIconProps> = ({
       case 'email':
         return `mailto:${usernameFormatted}`;
       case 'phone':
+        return `tel:${usernameFormatted}`;
+      case 'text':
         return `sms:${usernameFormatted}`;
       default:
         return null;
@@ -156,6 +158,12 @@ const SocialIcon: React.FC<SocialIconProps> = ({
         return (
           <Svg width={iconSize} height={iconSize} viewBox="0 0 512 512" fill={color}>
             <Path d="M493.4 24.6l-104-24c-11.3-2.6-22.9 3.3-27.5 13.9l-48 112c-4.2 9.8-1.4 21.3 6.9 28l60.6 49.6c-36 76.7-98.9 140.5-177.2 177.2l-49.6-60.6c-6.8-8.3-18.2-11.1-28-6.9l-112 48C3.9 366.5-2 378.1.6 389.4l24 104C27.1 504.2 36.7 512 48 512c256.1 0 464-207.5 464-464 0-11.2-7.7-20.9-18.6-23.4z" />
+          </Svg>
+        );
+      case 'text':
+        return (
+          <Svg width={iconSize} height={iconSize} viewBox="0 0 512 512" fill={color}>
+            <Path d="M256 32C114.6 32 0 125.1 0 240c0 49.6 21.4 95 57 130.7C44.5 421.1 2.7 466 2.2 466.5c-2.2 2.3-2.8 5.7-1.5 8.7S4.8 480 8 480c66.3 0 116-31.8 140.6-51.4 32.7 12.3 69 19.4 107.4 19.4 141.4 0 256-93.1 256-208S397.4 32 256 32z" />
           </Svg>
         );
       case 'email':

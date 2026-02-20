@@ -33,7 +33,7 @@ const PLATFORM_CONFIG = {
 } as const;
 
 // Define platform types
-type PlatformType = keyof typeof PLATFORM_CONFIG;
+type PlatformType = keyof typeof PLATFORM_CONFIG | 'text';
 
 interface SocialItem {
   platform: PlatformType;
@@ -102,24 +102,43 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
       // Only show entries that have content AND are visible
       if (hasContent && isVisible) {
         const username = entry.value;
-
-        // For custom links, the value IS the URL
-        const url = entry.linkType === 'custom' ? entry.value :
-                    entry.fieldType === 'phone' ? `sms:${entry.value}` :
-                    entry.fieldType === 'email' ? `mailto:${entry.value}` :
-                    getUrlForPlatform(entry.fieldType as PlatformType, entry.value);
-
         const config = PLATFORM_CONFIG[entry.fieldType as keyof typeof PLATFORM_CONFIG];
+        const baseOrder = entry.order ?? config?.defaultOrder ?? index;
 
-        socialItems.push({
-          platform: entry.fieldType as PlatformType,
-          username,
-          url,
-          section: entry.section,
-          order: entry.order ?? config?.defaultOrder ?? index, // Use saved order first, then defaultOrder, then index
-          customIcon: entry.icon,  // Pass the favicon for custom links
-          linkType: entry.linkType
-        });
+        // Phone produces two icons: phone (dialer) + text (sms)
+        if (entry.fieldType === 'phone') {
+          socialItems.push({
+            platform: 'phone' as PlatformType,
+            username,
+            url: `tel:${entry.value}`,
+            section: entry.section,
+            order: baseOrder,
+            linkType: entry.linkType
+          });
+          socialItems.push({
+            platform: 'text' as PlatformType,
+            username,
+            url: `sms:${entry.value}`,
+            section: entry.section,
+            order: baseOrder + 0.1,
+            linkType: entry.linkType
+          });
+        } else {
+          // For custom links, the value IS the URL
+          const url = entry.linkType === 'custom' ? entry.value :
+                      entry.fieldType === 'email' ? `mailto:${entry.value}` :
+                      getUrlForPlatform(entry.fieldType as PlatformType, entry.value);
+
+          socialItems.push({
+            platform: entry.fieldType as PlatformType,
+            username,
+            url,
+            section: entry.section,
+            order: baseOrder,
+            customIcon: entry.icon,
+            linkType: entry.linkType
+          });
+        }
       }
     });
   }
@@ -144,6 +163,7 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
   const getHoverColorClass = (platform: PlatformType): string => {
     switch (platform) {
       case 'phone':
+      case 'text':
       case 'whatsapp':
         return 'hover:text-green-300';
       case 'email':
@@ -174,8 +194,8 @@ const SocialIconsList: React.FC<SocialIconsListProps> = ({
         <a
           key={`${item.platform}-${item.section}-${index}`}
           href={item.url}
-          target={item.platform === 'phone' || item.platform === 'email' ? undefined : '_blank'}
-          rel={item.platform === 'phone' || item.platform === 'email' ? undefined : 'noopener noreferrer'}
+          target={item.platform === 'phone' || item.platform === 'text' || item.platform === 'email' ? undefined : '_blank'}
+          rel={item.platform === 'phone' || item.platform === 'text' || item.platform === 'email' ? undefined : 'noopener noreferrer'}
           className={`inline-block text-white transition-colors ${getHoverColorClass(item.platform)}`}
         >
           <SocialIcon
