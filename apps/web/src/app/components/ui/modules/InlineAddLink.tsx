@@ -225,7 +225,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
           key="custom-input"
           value={customLinkUrl}
           onChange={(value: string) => setCustomLinkUrl(stripProtocol(value))}
-          placeholder="https://example.com"
+          placeholder="example.com/username"
           autoFocus
         />
       )}

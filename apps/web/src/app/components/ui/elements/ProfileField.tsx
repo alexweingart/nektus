@@ -87,9 +87,10 @@ export const ProfileField: React.FC<ProfileFieldProps> = ({
         />
       ) : profile.linkType === 'custom' ? (
         <ExpandingInput
-          value={value}
+          value={value.replace(/^https?:\/\//i, '')}
           onChange={(newValue: string) => {
-            onChange(fieldType, newValue, profile.section);
+            const stripped = newValue.replace(/^https?:\/\//i, '');
+            onChange(fieldType, stripped ? `https://${stripped}` : '', profile.section);
           }}
           placeholder={placeholder}
           className="w-full"
