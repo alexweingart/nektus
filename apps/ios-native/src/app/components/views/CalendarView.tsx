@@ -246,13 +246,13 @@ export function CalendarView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 16,
   },
   loadingContainer: {
     flex: 1,
