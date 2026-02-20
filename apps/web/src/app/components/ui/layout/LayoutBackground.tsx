@@ -397,28 +397,6 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
     }
   }, [mounted, getParticleNetworkProps, session?.user?.id]);
 
-  // Manage default background visibility for prefers-reduced-motion fallback
-  useEffect(() => {
-    if (!mounted) return;
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const updateDefaultBackground = () => {
-      if (mediaQuery.matches) {
-        document.body.classList.add('show-default-background');
-      } else {
-        document.body.classList.remove('show-default-background');
-      }
-    };
-
-    updateDefaultBackground();
-    mediaQuery.addEventListener('change', updateDefaultBackground);
-
-    return () => {
-      mediaQuery.removeEventListener('change', updateDefaultBackground);
-      document.body.classList.remove('show-default-background');
-    };
-  }, [mounted]);
 
   if (!mounted) {
     return null;

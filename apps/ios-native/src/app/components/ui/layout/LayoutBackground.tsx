@@ -9,14 +9,6 @@ import { animationEvents } from "../../../utils/animationEvents";
 import { generateProfileColors } from "../../../../shared/colors";
 import { convertToParticleColors, THEME_GREEN, THEME_DARK, DEFAULT_SIGNED_OUT_COLORS } from "../../../utils/colors";
 
-// Default colors for profile context without extracted colors - matches web's DEFAULT_COLORS
-const DEFAULT_PROFILE_COLORS = {
-  gradientStart: THEME_GREEN,                // Green in middle (matches web)
-  gradientEnd: THEME_DARK,                   // Dark at top/bottom (matches web safe area)
-  particle: 'rgba(200, 255, 200, 0.6)',      // Match web particle opacity
-  connection: 'rgba(34, 197, 94, 0.15)'      // Match web connection opacity
-};
-
 // Map route names to particle contexts
 const ROUTE_TO_CONTEXT: Record<string, ParticleNetworkProps["context"]> = {
   // Unauthenticated
@@ -157,7 +149,13 @@ export function LayoutBackground({
         if (name) {
           return convertToParticleColors(generateProfileColors(name));
         }
-        return DEFAULT_PROFILE_COLORS;
+        // Profile exists but no name yet — use dark colors to avoid green flash
+        return {
+          gradientStart: THEME_DARK,
+          gradientEnd: THEME_DARK,
+          particle: 'rgba(0, 0, 0, 0)',
+          connection: 'rgba(0, 0, 0, 0)',
+        };
       }
       // Profile still loading — use dark colors, never flash green
       return {

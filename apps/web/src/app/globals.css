@@ -178,49 +178,6 @@ body {
   }
 }
 
-/* ============================================================================
-   BACKGROUND LAYER STACK (bottom to top)
-   ============================================================================
-
-   Layer -1: Canvas (ParticleNetwork)
-     - Personalized gradient with animated particles
-     - Colors extracted from profile images
-     - Shown for all users with fallback to theme colors
-     - Extends to full screen height (852px on iPhone 14)
-
-   Layer 1: Default Background (body::after)
-     - Static background image (default-background-image.png)
-     - Fallback for users with prefers-reduced-motion
-     - Controlled by body.show-default-background class
-
-   Layer 10: Page Content
-     - All UI elements, text, buttons, etc.
-     - z-index: 10 set in layout.tsx
-
-   ============================================================================ */
-
-/* Default background - shown as fallback for prefers-reduced-motion users */
-body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  background-image: url("/default-background-image.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 1000ms cubic-bezier(0.215, 0.61, 0.355, 1);
-  pointer-events: none;
-}
-
-body.show-default-background::after {
-  opacity: 1;
-}
-
 /* iOS specific fixes */
 @supports (-webkit-touch-callout: none) {
   /* Fix background-attachment: fixed on iOS by disabling it */
