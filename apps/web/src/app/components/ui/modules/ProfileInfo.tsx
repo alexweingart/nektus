@@ -184,9 +184,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
 
   return (
     <div className={className}>
-      {/* Profile Image */}
+      {/* Profile Image - tap/click entire image to change photo when camera overlay shown */}
       <div className="mb-4 relative">
-        <div className="relative z-10 border-4 border-white shadow-lg rounded-full">
+        <div
+          className={`relative z-10 border-4 border-white shadow-lg rounded-full ${showCameraOverlay && onCameraPress ? 'cursor-pointer' : ''}`}
+          onClick={showCameraOverlay && onCameraPress ? onCameraPress : undefined}
+        >
           <Avatar
             src={profileImageSrc}
             alt={getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}

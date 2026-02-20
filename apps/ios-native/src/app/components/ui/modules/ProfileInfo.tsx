@@ -298,11 +298,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
         },
       ]}
     >
-      {/* Profile Image - double-tap to toggle admin mode */}
+      {/* Profile Image - tap to change photo when camera overlay shown, double-tap for admin mode */}
       <TouchableOpacity
         style={styles.profileImageContainer}
-        onPress={adminActivator.onPress}
-        activeOpacity={1}
+        onPress={showCameraOverlay && onCameraPress ? onCameraPress : adminActivator.onPress}
+        activeOpacity={showCameraOverlay ? 0.8 : 1}
       >
         <View style={{ position: 'relative' }}>
           <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
