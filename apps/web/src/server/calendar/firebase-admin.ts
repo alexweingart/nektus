@@ -259,6 +259,8 @@ export const adminGetMultipleUserData = async (userIds: string[]) => {
       email: string;
       tokens: CalendarTokens[];
       providers: Calendar[];
+      deviceBusyTimes?: { slots: { start: string; end: string }[]; updatedAt: number; windowStart: string; windowEnd: string };
+      timezone?: string;
     }> = {};
 
     for (let i = 0; i < userIds.length; i++) {
@@ -301,7 +303,9 @@ export const adminGetMultipleUserData = async (userIds: string[]) => {
       userData[userId] = {
         email,
         tokens,
-        providers: calendars // Use the calendars from profile as providers
+        providers: calendars, // Use the calendars from profile as providers
+        deviceBusyTimes: profileData?.deviceBusyTimes || undefined,
+        timezone: profileData?.timezone || undefined,
       };
     }
 

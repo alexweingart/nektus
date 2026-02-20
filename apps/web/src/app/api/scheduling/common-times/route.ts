@@ -65,11 +65,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get requesting user's timezone for proper "next day" calculation
-    // Use user1Id since that's the authenticated user viewing the page
-    console.log(`🔍 Fetching timezone for user: ${user1Id}`);
-    const requestingUserTimezone = await adminGetUserTimezoneById(user1Id);
-    console.log(`🌍 Using timezone: ${requestingUserTimezone || 'UTC (fallback)'} for user ${user1Id}`);
+    // Get user data for both users in one batched call (also extracts timezones)
+    const usersData = await adminGetMultipleUserData([user1Id, user2Id]);
+
+    // Each user's own timezone for generating their free slots
+    const user1Timezone = usersData[user1Id]?.timezone || await adminGetUserTimezoneById(user1Id);
+    const user2Timezone = usersData[user2Id]?.timezone || await adminGetUserTimezoneById(user2Id);
+    // Use user1's timezone for display since they're the one viewing the results
+    const requestingUserTimezone = user1Timezone;
+    console.log(`🌍 User1 timezone: ${user1Timezone || 'UTC (fallback)'}, User2 timezone: ${user2Timezone || 'UTC (fallback)'}`);
 
     console.log('🔍 Finding common times:', {
       user1Id,
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate cache key with version (bump version to invalidate cache after bug fixes)
-    const CACHE_VERSION = 'v27'; // Bumped to v27 - standardized cache TTL, added skipCache
+    const CACHE_VERSION = 'v28'; // Bumped to v28 - per-user timezone for cross-timezone scheduling
     const hasDeviceBusyTimes = Array.isArray(user1BusyTimes) && user1BusyTimes.length > 0;
     const cacheKey = hasDeviceBusyTimes
       ? `common-times:${CACHE_VERSION}:${user1Id}:${user2Id}:${calendarType}:${duration}:local`
@@ -109,15 +113,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get user data for both users in one batched call
-    const usersData = await adminGetMultipleUserData([user1Id, user2Id]);
-
     let user1Slots: TimeSlot[];
     let user2Slots: TimeSlot[];
 
     if (hasDeviceBusyTimes) {
       // User1 sent device busy times (EventKit) — build free slots locally
-      const { startTime, endTime } = getAvailabilityTimeRange(requestingUserTimezone || undefined);
+      const { startTime, endTime } = getAvailabilityTimeRange(user1Timezone || undefined);
 
       // Get user1's schedulable hours from their profile calendar or defaults
       let user1SchedulableHours = getDefaultSchedulableHours(calendarType);
@@ -138,17 +139,17 @@ export async function POST(request: NextRequest) {
         user1SchedulableHours,
         new Date(startTime),
         new Date(endTime),
-        requestingUserTimezone || undefined
+        user1Timezone || undefined
       );
       console.log(`✅ Built ${user1Slots.length} free slots from ${(user1BusyTimes as TimeSlot[]).length} device busy times for user1`);
 
-      // user2 still uses server-side calendar fetching
-      user2Slots = await getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, requestingUserTimezone);
+      // user2 uses server-side calendar fetching with their OWN timezone
+      user2Slots = await getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, user2Timezone);
     } else {
-      // Standard server-side flow for both users
+      // Standard server-side flow — each user gets their own timezone
       [user1Slots, user2Slots] = await Promise.all([
-        getUserFreeSlotsWithData(user1Id, usersData[user1Id] || null, calendarType, requestingUserTimezone),
-        getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, requestingUserTimezone)
+        getUserFreeSlotsWithData(user1Id, usersData[user1Id] || null, calendarType, user1Timezone),
+        getUserFreeSlotsWithData(user2Id, usersData[user2Id] || null, calendarType, user2Timezone)
       ]);
     }
 
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
 
 async function getUserFreeSlotsWithData(
   userId: string,
-  userData: { email: string; tokens: CalendarTokens[]; providers: Calendar[] } | null,
+  userData: { email: string; tokens: CalendarTokens[]; providers: Calendar[]; deviceBusyTimes?: { slots: { start: string; end: string }[]; updatedAt: number; windowStart: string; windowEnd: string } } | null,
   calendarType: 'personal' | 'work' = 'personal',
   userTimezone?: string | null
 ): Promise<TimeSlot[]> {
@@ -223,6 +224,44 @@ async function getUserFreeSlotsWithData(
 
 
     if (allTokens.length === 0) {
+      // No OAuth tokens — but there may still be calendar providers (e.g. EventKit on iOS)
+      // that have user-configured schedulable hours. Use those instead of 24/7.
+      if (userCalendarProviders.length > 0) {
+        let schedulableHours = getDefaultSchedulableHours(calendarType);
+        const universalCal = userCalendarProviders.find(c => c.section === 'universal');
+        const matchingCal = userCalendarProviders.find(c => c.section === calendarType);
+
+        if (universalCal) {
+          schedulableHours = universalCal.schedulableHours;
+        } else if (matchingCal) {
+          schedulableHours = matchingCal.schedulableHours;
+        }
+
+        // Use cached device busy times if available (synced from EventKit)
+        const cachedBusy = userData.deviceBusyTimes;
+        let busyTimes: TimeSlot[] = [];
+        if (cachedBusy && cachedBusy.slots.length > 0) {
+          const staleness = Date.now() - cachedBusy.updatedAt;
+          const stalenessHours = Math.round(staleness / (1000 * 60 * 60));
+          console.log(`📱 Using ${cachedBusy.slots.length} cached device busy times (${stalenessHours}h old)`);
+          if (stalenessHours > 24) {
+            console.warn(`⚠️ Device busy times are ${stalenessHours}h stale — results may have conflicts`);
+          }
+          busyTimes = cachedBusy.slots;
+        } else {
+          console.log(`⚠️ No cached device busy times — using schedulable hours only`);
+        }
+
+        console.log(`⚠️ No OAuth tokens but found ${userCalendarProviders.length} calendar provider(s) — using their schedulable hours`);
+        return generateFreeSlots(
+          mergeBusyTimes([busyTimes]),
+          schedulableHours,
+          new Date(startTime),
+          new Date(endTime),
+          userTimezone || undefined
+        );
+      }
+
       console.log('⚠️ No calendar connections found, assuming 24/7 availability');
       return generate24x7Slots(startTime, endTime, userTimezone || undefined);
     }
