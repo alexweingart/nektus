@@ -69,8 +69,9 @@ export async function POST(request: NextRequest) {
     const usersData = await adminGetMultipleUserData([user1Id, user2Id]);
 
     // Each user's own timezone for generating their free slots
+    // Fall back to the other user's timezone (better than UTC) if one is missing
     const user1Timezone = usersData[user1Id]?.timezone || await adminGetUserTimezoneById(user1Id);
-    const user2Timezone = usersData[user2Id]?.timezone || await adminGetUserTimezoneById(user2Id);
+    const user2Timezone = usersData[user2Id]?.timezone || await adminGetUserTimezoneById(user2Id) || user1Timezone;
     // Use user1's timezone for display since they're the one viewing the results
     const requestingUserTimezone = user1Timezone;
     console.log(`🌍 User1 timezone: ${user1Timezone || 'UTC (fallback)'}, User2 timezone: ${user2Timezone || 'UTC (fallback)'}`);
