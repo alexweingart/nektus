@@ -15,6 +15,7 @@ import { BlurView } from 'expo-blur';
 import { Button } from '../buttons/Button';
 import type { Event } from '@nektus/shared-types';
 import { formatSmartDay } from '@nektus/shared-client';
+import { textSizes, fontStyles } from '../Typography';
 
 interface EventCardProps {
   event: Event;
@@ -82,12 +83,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.bold,
     color: '#ffffff',
   },
   subtitle: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
@@ -95,8 +96,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.regular,
     color: '#374151',
   },
 });

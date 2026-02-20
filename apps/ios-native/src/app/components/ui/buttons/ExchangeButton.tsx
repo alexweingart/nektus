@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Text, View, ActivityIndicator, StyleSheet, Animated, DeviceEventEmitter } from "react-native";
-import { fontStyles } from "../Typography";
+import { fontStyles, textSizes } from "../Typography";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Button } from "./Button";
@@ -34,6 +34,8 @@ import { useSession } from "../../../providers/SessionProvider";
 import { useProfile, type SharingCategory } from "../../../context/ProfileContext";
 import { getIdToken } from "../../../../client/auth/firebase";
 import { ADMIN_SIMULATE_NEKT_EVENT } from "../banners/AdminBanner";
+
+export const WIDGET_AUTO_NEKT_EVENT = 'WIDGET_AUTO_NEKT_EVENT';
 
 export interface MatchResult {
   token: string;
@@ -340,6 +342,14 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     return () => subscription.remove();
   }, [navigation]);
 
+  // Listen for widget auto-nekt trigger (real exchange, not simulation)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(WIDGET_AUTO_NEKT_EVENT, () => {
+      handleExchangeStart();
+    });
+    return () => sub.remove();
+  }, [handleExchangeStart]);
+
   // Button content config: icon type, label, and style variant per status
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
     'requesting-permission': { icon: 'spinner', text: 'Getting Ready...' },
@@ -473,22 +483,22 @@ const styles = StyleSheet.create({
     marginRight: 8,
     opacity: 0.7,
   },
-  // Typography matching web's xl button: text-xl font-semibold (20px, 600)
+  // Typography matching web's xl button: text-xl font-bold (20px, 700)
   text: {
     ...fontStyles.semibold,
-    fontSize: 20,
+    ...textSizes.xl,
     letterSpacing: 0.2,
     color: "#374151",
   },
   matchText: {
-    ...fontStyles.bold,
-    fontSize: 20,
+    ...fontStyles.semibold,
+    ...textSizes.xl,
     letterSpacing: 0.2,
     color: "#374151",
   },
   errorText: {
     ...fontStyles.semibold,
-    fontSize: 20,
+    ...textSizes.xl,
     letterSpacing: 0.2,
     color: "#ffffff",
   },

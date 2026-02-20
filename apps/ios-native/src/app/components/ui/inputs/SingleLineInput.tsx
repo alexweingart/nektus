@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { EyeIcon } from '../elements/EyeIcon';
 import { BaseTextInput } from './BaseTextInput';
+import { textSizes, fontStyles } from '../Typography';
 
 interface SingleLineInputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -100,8 +101,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#374151',
     marginBottom: 4,
   },
@@ -152,8 +153,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.regular,
   },
   inputWithIcon: {
     paddingLeft: 8,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: 4,
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#DC2626',
   },
 });

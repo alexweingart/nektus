@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Animated, StyleSheet, Alert, TouchableOpacity } from "react-native";
+import { View, Animated, StyleSheet, Alert, TouchableOpacity, DeviceEventEmitter } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useNavigation, useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useIsFocused, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { RootStackParamList } from "../../../../App";
 import type { ExchangeStatus } from "@nektus/shared-types";
 import { getFieldValue } from "@nektus/shared-client";
 import { ProfileInfo } from "../ui/modules/ProfileInfo";
 import { BioModal } from "../ui/modals/BioModal";
+import { StandardModal } from "../ui/modals/StandardModal";
 import { useProfileImagePicker } from "../../../client/hooks/use-profile-image-picker";
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
-import { ExchangeButton, MatchResult } from "../ui/buttons/ExchangeButton";
+import { ExchangeButton, MatchResult, WIDGET_AUTO_NEKT_EVENT } from "../ui/buttons/ExchangeButton";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
@@ -35,9 +37,14 @@ export function ProfileView() {
     setIsBioLoading,
   } = useProfile();
   const navigation = useNavigation<ProfileViewNavigationProp>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Profile'>>();
   const navigateWithFade = useNavigateWithFade();
   const isFocused = useIsFocused();
   const adminModeProps = useAdminModeActivator();
+
+  // Widget CTA state
+  const [showWidgetModal, setShowWidgetModal] = useState(false);
+  const [hasUsedWidget, setHasUsedWidget] = useState(true); // default true to avoid flash
 
   // Animation state
   const {
@@ -136,6 +143,26 @@ export function ProfileView() {
       setIsBioLoading(false);
     }
   }, [bioContent, isBioLoading]);
+
+  // Load widget usage flag from AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem('widget-opened-via-deep-link').then((val) => {
+      setHasUsedWidget(val === 'true');
+    });
+  }, []);
+
+  // Handle autoNekt deep link param from widget tap
+  useEffect(() => {
+    if (route.params?.autoNekt) {
+      // Mark widget as used — hides CTA permanently
+      AsyncStorage.setItem('widget-opened-via-deep-link', 'true');
+      setHasUsedWidget(true);
+      // Trigger exchange start via event
+      DeviceEventEmitter.emit(WIDGET_AUTO_NEKT_EVENT);
+      // Clear param to prevent re-trigger on re-render
+      navigation.setParams({ autoNekt: undefined });
+    }
+  }, [route.params?.autoNekt, navigation]);
 
   // Get profile image source - prioritize streaming image for immediate feedback
   const profileImageSrc = useMemo(() => {
@@ -291,17 +318,23 @@ export function ProfileView() {
               onMatch={handleMatch}
             />
 
-            {/* Cancel Button - always rendered to preserve layout, visibility toggled */}
-            <View
-              style={[
-                styles.cancelButtonContainer,
-                !(isExchanging || isMatchFound) && { opacity: 0, pointerEvents: 'none' },
-              ]}
-            >
-              <SecondaryButton onPress={handleCancelExchange}>
-                Cancel
-              </SecondaryButton>
-            </View>
+            {/* Cancel Button - only rendered during exchange, matching web pattern */}
+            {(isExchanging || isMatchFound) && (
+              <View style={styles.cancelButtonContainer}>
+                <SecondaryButton onPress={handleCancelExchange}>
+                  Cancel
+                </SecondaryButton>
+              </View>
+            )}
+
+            {/* Widget CTA - hidden after first widget use or during exchange */}
+            {!hasUsedWidget && !isExchanging && !isMatchFound && (
+              <View style={styles.widgetCtaContainer}>
+                <SecondaryButton onPress={() => setShowWidgetModal(true)}>
+                  Add to Lock Screen
+                </SecondaryButton>
+              </View>
+            )}
           </Animated.View>
         </View>
       </PullToRefresh>
@@ -343,6 +376,18 @@ export function ProfileView() {
           onScrapeFailed={() => setIsBioLoading(false)}
         />
       )}
+
+      {/* Widget Lock Screen CTA Modal */}
+      <StandardModal
+        isOpen={showWidgetModal}
+        onClose={() => setShowWidgetModal(false)}
+        title="Nekt from your Lock Screen"
+        subtitle="Long press your Lock Screen → Customize → Lock Screen → tap the widget area below the time → search for Nekt"
+        primaryButtonText="I'll do that right now!"
+        onPrimaryButtonClick={() => setShowWidgetModal(false)}
+        showSecondaryButton={false}
+        showCloseButton={false}
+      />
     </ScreenTransition>
   );
 }
@@ -374,6 +419,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cancelButtonContainer: {
+    alignItems: "center",
+  },
+  widgetCtaContainer: {
     alignItems: "center",
   },
 });

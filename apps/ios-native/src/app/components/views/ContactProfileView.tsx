@@ -12,6 +12,7 @@ import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { ContactView } from './ContactView';
 import { Button } from '../ui/buttons/Button';
+import { textSizes } from '../ui/Typography';
 
 type ContactProfileRouteProp = RouteProp<RootStackParamList, 'ContactProfile'>;
 
@@ -114,12 +115,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 16,
+    ...textSizes.base,
     marginTop: 16,
   },
   errorText: {
     color: '#ef4444',
-    fontSize: 16,
+    ...textSizes.base,
     textAlign: 'center',
     marginBottom: 16,
   },

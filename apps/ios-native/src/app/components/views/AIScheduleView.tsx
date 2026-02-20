@@ -229,6 +229,7 @@ export function AIScheduleView() {
             ...(contact.phone ? [{ fieldType: 'phone', value: contact.phone }] : []),
           ],
           profileImage: contact.profileImage,
+          backgroundColors: contact.backgroundColors,
         } as unknown as UserProfile);
         setSavedContact(contact);
         // Emit contact colors for LayoutBackground

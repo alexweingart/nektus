@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Button } from '../buttons/Button';
+import { textSizes, fontStyles } from '../Typography';
 
 interface PageHeaderProps {
   onBack?: () => void;
@@ -100,8 +101,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...textSizes.xxl,
+    ...fontStyles.bold,
     color: '#ffffff',
     textAlign: 'center',
   },

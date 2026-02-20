@@ -34,7 +34,9 @@ import { ClientProfileService } from "./src/client/firebase/firebase-save";
 import { formatPhoneNumber, getFieldValue } from "@nektus/shared-client";
 import { showAppStoreOverlay } from "./src/client/native/SKOverlayWrapper";
 import { THEME_DARK, convertToParticleColors, DEFAULT_SIGNED_OUT_COLORS } from "./src/app/utils/colors";
-import { SF_ROUNDED } from "./src/shared/fonts";
+import { useFonts } from "expo-font";
+import { SORA_FONT_MAP } from "./src/shared/fonts";
+import { fontStyles, textSizes } from "./src/app/components/ui/Typography";
 
 // Session context for App Clip (simplified, no full Firebase SDK)
 interface AppClipSession {
@@ -84,14 +86,14 @@ const errorBoundaryStyles = StyleSheet.create({
   },
   title: {
     color: "#ef4444",
-    fontSize: 20,
-    fontFamily: SF_ROUNDED.bold,
+    ...textSizes.xl,
+    ...fontStyles.bold,
     marginBottom: 12,
   },
   message: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
+    ...fontStyles.regular,
+    ...textSizes.sm,
     textAlign: "center",
   },
 });
@@ -105,6 +107,7 @@ function getParticleColors(profile: UserProfile | null): NonNullable<ParticleNet
 }
 
 function AppClipContent() {
+  const [fontsLoaded] = useFonts(SORA_FONT_MAP);
   const apiBaseUrl = getApiBaseUrl();
 
   // State
@@ -376,8 +379,8 @@ function AppClipContent() {
   // Determine particle colors based on current state
   const particleColors = getParticleColors(previewProfile);
 
-  // Loading state
-  if (isLoading) {
+  // Wait for fonts + data
+  if (!fontsLoaded || isLoading) {
     return (
       <View style={styles.container}>
         <ParticleNetwork colors={DEFAULT_SIGNED_OUT_COLORS} context="connect" />
@@ -530,32 +533,31 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 16,
+    ...fontStyles.regular,
+    ...textSizes.base,
     marginTop: 16,
   },
   errorText: {
     color: "#ef4444",
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
+    ...fontStyles.regular,
+    ...textSizes.sm,
     textAlign: "center",
     marginTop: 8,
   },
   heading: {
-    fontSize: 24,
-    fontFamily: SF_ROUNDED.semibold,
+    ...textSizes.xxl,
+    ...fontStyles.semibold,
     color: "#ffffff",
     textAlign: "center",
     marginBottom: 12,
   },
   subheading: {
-    fontSize: 18,
-    fontFamily: SF_ROUNDED.regular,
+    ...textSizes.lg,
+    ...fontStyles.regular,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
     marginBottom: 40,
     paddingHorizontal: 16,
-    lineHeight: 26,
   },
   buttonContainer: {
     width: "100%",
@@ -570,8 +572,8 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     paddingHorizontal: 24,
     color: "#ffffff",
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 16,
+    ...fontStyles.regular,
+    ...textSizes.base,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
   },
@@ -590,8 +592,8 @@ const styles = StyleSheet.create({
   },
   errorOverlayText: {
     color: "#ef4444",
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
+    ...fontStyles.regular,
+    ...textSizes.sm,
     textAlign: "center",
   },
 });

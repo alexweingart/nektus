@@ -6,7 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { Heading, BodyText } from "../ui/Typography";
+import { Heading, BodyText, textSizes } from "../ui/Typography";
 import { Button } from "../ui/buttons/Button";
 import { DropdownPhoneInput } from "../ui/inputs/DropdownPhoneInput";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#ef4444",
-    fontSize: 14,
+    ...textSizes.sm,
     textAlign: "center",
     marginTop: -8,
   },

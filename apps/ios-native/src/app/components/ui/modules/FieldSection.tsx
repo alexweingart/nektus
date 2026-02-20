@@ -11,6 +11,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { textSizes, fontStyles } from '../Typography';
 
 interface FieldSectionProps {
   title?: string;
@@ -83,8 +84,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...textSizes.xxl,
+    ...fontStyles.bold,
     color: '#ffffff',
   },
   topContent: {
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
   },

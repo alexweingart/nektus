@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { fontStyles } from '../Typography';
+import { fontStyles, textSizes } from '../Typography';
 import { View, Text, StyleSheet } from 'react-native';
 import { Button } from './Button';
 import { LoadingSpinner } from '../elements/LoadingSpinner';
@@ -66,10 +66,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  // Typography matching web's xl button: text-xl font-semibold (20px, 600)
+  // Typography matching web's xl button: text-xl font-bold (20px, 700)
   buttonText: {
     ...fontStyles.semibold,
-    fontSize: 20,
+    ...textSizes.xl,
     letterSpacing: 0.2,
     color: '#374151',
   },

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { EyeIcon } from '../elements/EyeIcon';
 import { BaseTextInput } from './BaseTextInput';
+import { textSizes, fontStyles } from '../Typography';
 
 export interface ExpandingInputRef {
   focus: () => void;
@@ -183,8 +184,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#374151',
     marginBottom: 4,
   },
@@ -250,9 +251,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 20,
+    ...textSizes.base,
+    ...fontStyles.regular,
     padding: 0,
     textAlignVertical: 'center',
   },

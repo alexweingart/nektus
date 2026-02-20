@@ -1,12 +1,12 @@
 import React, { ReactNode } from "react";
 import { Text, StyleSheet, TextStyle } from "react-native";
-import { SF_ROUNDED } from "../../../shared/fonts";
+import { SORA } from "../../../shared/fonts";
 
 type HeadingVariant = "h1" | "h2" | "h3";
 
 interface HeadingProps {
   children: ReactNode;
-  /** Heading variant - h1: 24px/bold, h2: 20px/semibold, h3: 18px/medium */
+  /** Heading variant - h1: 24px, h2: 20px, h3: 18px (all bold, size creates hierarchy) */
   variant?: HeadingVariant;
   className?: string;
   style?: TextStyle;
@@ -38,18 +38,22 @@ export function Label({ children, style }: Omit<HeadingProps, "variant">) {
 }
 
 // Heading variant styles matching web Typography
+// All headings use bold — size creates the visual hierarchy
 const headingVariantStyles = StyleSheet.create({
   h1: {
     fontSize: 24, // text-2xl
-    fontFamily: SF_ROUNDED.bold,
+    lineHeight: 32,
+    fontFamily: SORA.bold,
   },
   h2: {
     fontSize: 20, // text-xl
-    fontFamily: SF_ROUNDED.semibold,
+    lineHeight: 28,
+    fontFamily: SORA.bold,
   },
   h3: {
     fontSize: 18, // text-lg
-    fontFamily: SF_ROUNDED.medium,
+    lineHeight: 28,
+    fontFamily: SORA.bold,
   },
 });
 
@@ -60,16 +64,16 @@ const bodyVariantStyles = StyleSheet.create({
   },
   small: {
     fontSize: 14, // text-sm
+    lineHeight: 20,
   },
 });
 
 const styles = StyleSheet.create({
   heading: {
     color: "#ffffff",
-    // No marginBottom - spacing should be controlled by parent containers
   },
   body: {
-    fontFamily: SF_ROUNDED.regular,
+    fontFamily: SORA.regular,
     color: "#ffffff",
     lineHeight: 24,
   },
@@ -78,7 +82,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontFamily: SF_ROUNDED.semibold,
+    lineHeight: 20,
+    fontFamily: SORA.bold,
     color: "#888888",
     marginBottom: 8,
     textTransform: "uppercase",
@@ -87,13 +92,33 @@ const styles = StyleSheet.create({
 });
 
 /**
- * Reusable font styles for components that render text outside of Typography.
- * Import these instead of SF_ROUNDED directly to keep font config centralized.
+ * Three font weights: regular (body), semibold (buttons/CTAs), bold (headings/titles).
+ * Import these instead of SORA directly to keep font config centralized.
  */
 export const fontStyles = StyleSheet.create({
-  regular: { fontFamily: SF_ROUNDED.regular },
-  medium: { fontFamily: SF_ROUNDED.medium },
-  semibold: { fontFamily: SF_ROUNDED.semibold },
-  bold: { fontFamily: SF_ROUNDED.bold },
-  heavy: { fontFamily: SF_ROUNDED.heavy },
+  regular: { fontFamily: SORA.regular },
+  semibold: { fontFamily: SORA.semibold },
+  bold: { fontFamily: SORA.bold },
+});
+
+/**
+ * Tailwind-equivalent text size styles (fontSize + lineHeight).
+ * Use these instead of inline fontSize to ensure line-height parity with web.
+ *
+ *   textSizes.xs   = text-xs   (12px / 16px)
+ *   textSizes.sm   = text-sm   (14px / 20px)
+ *   textSizes.base = text-base (16px / 24px)
+ *   textSizes.lg   = text-lg   (18px / 28px)
+ *   textSizes.xl   = text-xl   (20px / 28px)
+ *   textSizes.xxl  = text-2xl  (24px / 32px)
+ *   textSizes.xxxl = text-3xl  (30px / 36px)
+ */
+export const textSizes = StyleSheet.create({
+  xs: { fontSize: 12, lineHeight: 16 },
+  sm: { fontSize: 14, lineHeight: 20 },
+  base: { fontSize: 16, lineHeight: 24 },
+  lg: { fontSize: 18, lineHeight: 28 },
+  xl: { fontSize: 20, lineHeight: 28 },
+  xxl: { fontSize: 24, lineHeight: 32 },
+  xxxl: { fontSize: 30, lineHeight: 36 },
 });

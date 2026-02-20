@@ -8,6 +8,8 @@ import { NavigationContainer, useNavigationContainerRef, LinkingOptions } from "
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Linking from "expo-linking";
 import * as SplashScreenModule from "expo-splash-screen";
+import { useFonts } from "expo-font";
+import { SORA_FONT_MAP } from "./src/shared/fonts";
 import { SessionProvider, useSession } from "./src/app/providers/SessionProvider";
 import { ProfileProvider, useProfile } from "./src/app/context/ProfileContext";
 import { RouteContext } from "./src/app/context/RouteContext";
@@ -26,6 +28,7 @@ import { CalendarView } from "./src/app/components/views/CalendarView";
 import { LocationView } from "./src/app/components/views/LocationView";
 import { SmartScheduleView } from "./src/app/components/views/SmartScheduleView";
 import { AIScheduleView } from "./src/app/components/views/AIScheduleView";
+import { useCalendarSync } from "./src/client/hooks/use-calendar-sync";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();
@@ -38,7 +41,7 @@ export type RootStackParamList = {
   Privacy: undefined;
   Terms: undefined;
   ProfileSetup: undefined;
-  Profile: undefined;
+  Profile: { autoNekt?: boolean } | undefined;
   EditProfile: { openInlineAddLink?: 'personal' | 'work' } | undefined;
   Contact: { userId?: string; token: string; isHistoricalMode?: boolean; backgroundColors?: string[] };
   ContactProfile: { code: string };  // View profile via shortCode (/c/:code)
@@ -59,13 +62,23 @@ const linking: LinkingOptions<RootStackParamList> = {
     'https://www.nekt.us',
     'nekt://', // Custom scheme
   ],
+  // Custom subscribe ensures deep links are received when app resumes from background
+  subscribe(listener) {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      listener(url);
+    });
+    return () => subscription.remove();
+  },
   config: {
     screens: {
       Home: '',
       Privacy: 'privacy',
       Terms: 'terms',
       ProfileSetup: 'setup',
-      Profile: 'profile',
+      Profile: {
+        path: 'profile',
+        parse: { autoNekt: (v: string) => v === 'true' },
+      },
       EditProfile: 'edit-profile',
       Contact: 'x/:token',
       ContactProfile: 'c/:code',
@@ -83,6 +96,9 @@ function AppContent() {
   const { status } = useSession();
   const { needsSetup, isLoading: profileLoading } = useProfile();
   const [appIsReady, setAppIsReady] = useState(false);
+
+  // Sync EventKit busy times to server for cross-user scheduling
+  useCalendarSync();
 
   // Determine if loading
   const isLoading = status === "loading" || (status === "authenticated" && profileLoading);
@@ -172,6 +188,10 @@ function AppContent() {
 export default function App() {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [currentRoute, setCurrentRoute] = useState<string | null>(null);
+  const [fontsLoaded] = useFonts(SORA_FONT_MAP);
+
+  // Keep splash visible until fonts are ready
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0a0f1a" }}>

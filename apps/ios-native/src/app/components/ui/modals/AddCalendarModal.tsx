@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as ExpoLinking from 'expo-linking';
+import { textSizes } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
@@ -29,6 +30,12 @@ import {
   isEventKitAvailable,
   requestCalendarPermission,
 } from '../../../../client/calendar/eventkit-service';
+import {
+  configureCalendarSync,
+  syncDeviceBusyTimesNow,
+  scheduleBackgroundCalendarSync,
+  startCalendarChangeListener,
+} from '../../../../client/calendar/calendar-sync';
 
 // Try to load expo-web-browser, fall back gracefully in App Clip where native module is excluded
 let WebBrowser: typeof import('expo-web-browser') | null = null;
@@ -207,6 +214,17 @@ export function AddCalendarModal({
       ];
 
       await saveProfile({ calendars: updatedCalendars });
+
+      // Initial sync: upload device busy times to server for cross-user scheduling
+      const idToken = await getIdToken();
+      if (idToken && session?.user?.id) {
+        configureCalendarSync(session.user.id, idToken, getApiBaseUrl());
+        startCalendarChangeListener();
+        scheduleBackgroundCalendarSync();
+        syncDeviceBusyTimesNow().then((synced) => {
+          if (synced !== null) console.log(`[CalendarSync] Initial sync: ${synced} busy times`);
+        });
+      }
 
       onCalendarAdded();
       onClose();
@@ -456,7 +474,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 13,
+    ...textSizes.sm,
     marginHorizontal: 12,
   },
 });

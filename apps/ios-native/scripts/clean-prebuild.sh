@@ -24,6 +24,9 @@ fi
 echo "📦 Injecting custom native modules..."
 node "$SCRIPT_DIR/inject-native-modules.js"
 
+echo "📦 Injecting NektWidget target..."
+node "$SCRIPT_DIR/inject-widget-target.js"
+
 echo "📦 Running pod install..."
 cd "$IOS_NATIVE_DIR/ios"
 pod install

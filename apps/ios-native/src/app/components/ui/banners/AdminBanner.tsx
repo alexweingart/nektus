@@ -13,6 +13,7 @@ import { SecondaryButton } from '../buttons/SecondaryButton';
 import { getIdToken, signOut as firebaseSignOut } from '../../../../client/auth/firebase';
 import { getApiBaseUrl } from '../../../../client/config';
 import { clearAllLocalStorage, getAppleRefreshToken, deleteAppleRefreshToken } from '../../../../client/auth/cleanup';
+import { textSizes, fontStyles } from '../Typography';
 
 // Event name for simulating a Nekt (bump)
 export const ADMIN_SIMULATE_NEKT_EVENT = 'admin-simulate-nekt';
@@ -268,8 +269,8 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 16,
-    fontWeight: '600',
+    ...textSizes.base,
+    ...fontStyles.bold,
   },
   header: {
     paddingRight: 32,
@@ -277,8 +278,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.regular,
   },
   buttonRow: {
     flexDirection: 'row',

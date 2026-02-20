@@ -15,6 +15,7 @@ import {
   GestureResponderEvent,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { textSizes, fontStyles } from '../Typography';
 
 interface ItemChipProps {
   icon: ReactNode;
@@ -219,12 +220,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.bold,
     color: '#ffffff',
   },
   subtitle: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: 'rgba(209, 213, 219, 1)', // text-gray-300
     marginTop: 2,
   },

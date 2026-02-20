@@ -14,6 +14,7 @@ import { ToggleSetting } from '../controls/ToggleSetting';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import type { ContactEntry, FieldSection } from '@nektus/shared-types';
+import { textSizes, fontStyles } from '../Typography';
 
 type LinkType = 'Social' | 'Custom';
 
@@ -338,14 +339,14 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...textSizes.base,
+    ...fontStyles.bold,
   },
   actionButtonTextDisabled: {
     opacity: 0.5,
   },
   error: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#F87171',
     textAlign: 'center',
   },

@@ -5,6 +5,9 @@
 export const BRAND_LIGHT_GREEN = '#E7FED2';
 export const BRAND_DARK_GREEN = '#71E454';
 
+// Default accent color (used for links, loading indicators when no profile color)
+export const DEFAULT_ACCENT_GREEN = '#10B981';  // emerald-500
+
 // Background colors (particle network gradient endpoints)
 export const BACKGROUND_BLACK = '#0a0f1a';    // rgb(10, 15, 26)
 export const BACKGROUND_GREEN = '#145835';    // rgb(20, 88, 53)

@@ -6,7 +6,7 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import { fontStyles } from "../Typography";
+import { fontStyles, textSizes } from "../Typography";
 
 type SecondaryButtonVariant = "dark" | "subtle" | "destructive" | "light";
 
@@ -84,9 +84,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    ...fontStyles.bold,
+    ...fontStyles.semibold,
     color: "#ffffff",
-    fontSize: 14, // text-sm
+    ...textSizes.sm, // text-sm
   },
   darkText: {
     color: "#ffffff",

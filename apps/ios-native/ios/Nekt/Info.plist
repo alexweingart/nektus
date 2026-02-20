@@ -97,10 +97,15 @@
     <string>Allow $(PRODUCT_NAME) to access your reminders</string>
     <key>RCTNewArchEnabled</key>
     <true/>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+      <string>com.nektus.app.calendar-sync</string>
+    </array>
     <key>UIBackgroundModes</key>
     <array>
       <string>bluetooth-central</string>
       <string>bluetooth-peripheral</string>
+      <string>fetch</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>

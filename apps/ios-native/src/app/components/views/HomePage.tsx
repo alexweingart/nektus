@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { NektLogo } from "../ui/elements/NektLogo";
 import { Button } from "../ui/buttons/Button";
+import { textSizes, fontStyles } from "../ui/Typography";
 import { ScreenTransition, useNavigateWithFade } from "../ui/layout/ScreenTransition";
 import type { RootStackParamList } from "../../../../App";
 
@@ -111,19 +112,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heading: {
-    fontSize: 24,
-    fontWeight: "600",
+    ...textSizes.xxl,
+    ...fontStyles.bold,
     color: "#ffffff",
     textAlign: "center",
     marginBottom: 12,
   },
   subheading: {
-    fontSize: 18,
+    ...textSizes.lg,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
     marginBottom: 40,
     paddingHorizontal: 16,
-    lineHeight: 26,
   },
   buttonContainer: {
     width: "100%",
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   subtext: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: "rgba(255, 255, 255, 0.6)",
     marginTop: 4,
     marginBottom: 20,
@@ -149,17 +149,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   footerLink: {
-    fontSize: 14,
-    fontWeight: "600",
+    ...textSizes.sm,
+    ...fontStyles.bold,
     color: "#ffffff",
   },
   footerDivider: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: "#ffffff",
     marginHorizontal: 12,
   },
   copyright: {
-    fontSize: 12,
+    ...textSizes.xs,
     color: "rgba(255, 255, 255, 0.6)",
   },
 });

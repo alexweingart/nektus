@@ -17,6 +17,7 @@ import {
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import SocialIcon from '../elements/SocialIcon';
 import { BaseTextInput } from './BaseTextInput';
+import { textSizes, fontStyles } from '../Typography';
 
 export interface CustomSocialInputAddRef {
   focus: () => void;
@@ -164,8 +165,8 @@ const styles = StyleSheet.create({
     height: '100%',
     paddingHorizontal: 12,
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.regular,
     textAlignVertical: 'center',
   },
 });

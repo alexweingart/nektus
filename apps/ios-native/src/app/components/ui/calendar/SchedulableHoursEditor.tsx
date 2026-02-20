@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { TimePicker } from '../inputs/TimePicker';
+import { textSizes, fontStyles } from '../Typography';
 import type { SchedulableHours, TimeSlot } from '@nektus/shared-types';
 
 interface SchedulableHoursEditorProps {
@@ -154,8 +155,8 @@ const styles = StyleSheet.create({
   },
   dayText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    ...textSizes.base,
+    ...fontStyles.bold,
   },
   addButton: {
     paddingHorizontal: 12,
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#ffffff',
-    fontSize: 14,
+    ...textSizes.sm,
   },
   slotsContainer: {
     paddingHorizontal: 16,
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   },
   toText: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
+    ...textSizes.sm,
   },
   removeButton: {
     width: 40,
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
   },
   noHoursText: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 14,
+    ...textSizes.sm,
     fontStyle: 'italic',
     marginTop: 12,
   },

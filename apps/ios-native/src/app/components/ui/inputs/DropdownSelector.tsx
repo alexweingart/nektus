@@ -21,6 +21,7 @@ import {
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
+import { textSizes } from '../Typography';
 
 export interface DropdownOption {
   label: string;
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   iconText: {
-    fontSize: 24,
+    ...textSizes.xxl,
   },
   iconContainer: {
     width: 24,
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     color: '#9CA3AF',
-    fontSize: 16,
+    ...textSizes.base,
     marginRight: 8,
   },
   chevrons: {
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     color: '#ffffff',
-    fontSize: 16,
+    ...textSizes.base,
   },
 });
 

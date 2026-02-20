@@ -70,10 +70,8 @@ export const useEditProfileFields = ({
   // Unified state: ALL field data in one place
   const [fields, setFields] = useState<ContactEntry[]>(() => calculateInitialFields());
 
-  // Update fields when profile changes
+  // Update fields when profile changes (including reset to defaults when profile is cleared)
   useEffect(() => {
-    if (!profile?.contactEntries) return;
-
     const newInitialFields = calculateInitialFields();
     if (newInitialFields && newInitialFields.length > 0) {
       setFields(newInitialFields);
@@ -88,6 +86,7 @@ export const useEditProfileFields = ({
   // Sync profile image when profile changes (handles async profile loading)
   // Only sync if: profile has an image AND (we have no image OR our image is a remote URL that differs)
   // Don't overwrite local file:// previews (user just picked an image)
+  // Clear image when profile is null/cleared (account deletion)
   useEffect(() => {
     if (profile?.profileImage) {
       const currentImage = images.profileImage;
@@ -96,8 +95,10 @@ export const useEditProfileFields = ({
       if (shouldSync) {
         setImages({ profileImage: profile.profileImage });
       }
+    } else if (!profile) {
+      setImages({ profileImage: '' });
     }
-  }, [profile?.profileImage, images.profileImage]);
+  }, [profile?.profileImage, images.profileImage, profile]);
 
   // Keep refs updated
   useEffect(() => {

@@ -20,7 +20,7 @@ import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
-import { Heading, BodyText } from '../ui/Typography';
+import { Heading, BodyText, textSizes } from '../ui/Typography';
 import Avatar from '../ui/elements/Avatar';
 
 type HistoryViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 16,
+    ...textSizes.base,
     textAlign: 'center',
     marginBottom: 16,
   },

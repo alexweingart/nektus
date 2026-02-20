@@ -11,6 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { NumberInput } from './NumberInput';
+import { textSizes, fontStyles } from '../Typography';
 
 interface TimePickerProps {
   value: string; // "HH:mm" in 24-hour format
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     color: '#ffffff',
-    fontSize: 14,
+    ...textSizes.sm,
   },
   periodButton: {
     paddingHorizontal: 8,
@@ -122,8 +123,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   periodText: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#ffffff',
   },
 });

@@ -11,6 +11,7 @@ import { getOptimalProfileImageUrl, getFieldValue } from '@nektus/shared-client'
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 import { generateProfileColors } from '../../../../shared/colors';
+import { textSizes, fontStyles } from '../Typography';
 
 interface ContactInfoProps {
   profile: UserProfile;
@@ -114,8 +115,8 @@ const styles = StyleSheet.create({
   },
   name: {
     color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '700',
+    ...textSizes.xxl,
+    ...fontStyles.bold,
   },
   bioContainer: {
     alignItems: 'center',
@@ -123,8 +124,7 @@ const styles = StyleSheet.create({
   },
   bio: {
     color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
+    ...textSizes.sm,
     textAlign: 'center',
   },
   socialContainer: {

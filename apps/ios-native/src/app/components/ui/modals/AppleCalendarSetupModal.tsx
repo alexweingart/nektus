@@ -12,6 +12,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
+import { textSizes } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { SingleLineInput } from '../inputs/SingleLineInput';
 import { useProfile } from '../../../context/ProfileContext';
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   instructionsText: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#ffffff',
     textAlign: 'center',
   },
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#DC2626',
   },
 });

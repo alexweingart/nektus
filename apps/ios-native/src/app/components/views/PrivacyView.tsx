@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { PullToRefresh } from "../ui/layout/PullToRefresh";
+import { textSizes, fontStyles } from "../ui/Typography";
 import { ScreenTransition, useGoBackWithFade } from "../ui/layout/ScreenTransition";
 
 export function PrivacyView() {
@@ -182,12 +183,13 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...textSizes.base,
+    ...fontStyles.bold,
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
+    lineHeight: 36,
+    ...fontStyles.bold,
     color: "#ffffff",
     textAlign: "center",
     marginBottom: 24,
@@ -200,30 +202,30 @@ const styles = StyleSheet.create({
   },
   effectiveDate: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
+    ...textSizes.sm,
     marginBottom: 8,
   },
   bold: {
-    fontWeight: "600",
+    ...fontStyles.bold,
     color: "#ffffff",
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    ...textSizes.lg,
+    ...fontStyles.bold,
     color: "#ffffff",
     marginBottom: 8,
   },
   subheading: {
     fontSize: 15,
-    fontWeight: "500",
+    lineHeight: 24,
+    ...fontStyles.regular,
     color: "#ffffff",
     marginTop: 8,
     marginBottom: 4,
   },
   paragraph: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
-    lineHeight: 22,
+    ...textSizes.sm,
   },
   list: {
     gap: 4,
@@ -231,8 +233,7 @@ const styles = StyleSheet.create({
   },
   listItem: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
-    lineHeight: 22,
+    ...textSizes.sm,
   },
 });
 

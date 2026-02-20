@@ -42,6 +42,7 @@ export interface UserProfile {
   calendars?: Calendar[];       // Max 2: one personal, one work
   locations?: UserLocation[];   // Max 2: one personal, one work
   timezone?: string;            // User's timezone for scheduling
+  deviceBusyTimes?: DeviceBusyTimesCache;  // Cached EventKit busy times (synced from device)
 }
 
 // Unified bio and social generation types
@@ -72,6 +73,13 @@ export interface AIBioAndSocialResult {
 export interface TimeSlot {
   start: string;
   end: string;
+}
+
+export interface DeviceBusyTimesCache {
+  slots: TimeSlot[];       // Busy time slots synced from device (EventKit)
+  updatedAt: number;       // Timestamp of last sync (ms since epoch)
+  windowStart: string;     // ISO date — start of the cached window
+  windowEnd: string;       // ISO date — end of the cached window
 }
 
 export interface SchedulableHours {

@@ -14,6 +14,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import type { ValidationResult } from '@nektus/shared-types';
 import { BaseTextInput } from './BaseTextInput';
+import { textSizes, fontStyles } from '../Typography';
 
 interface ValidatedInputProps extends Omit<TextInputProps, 'style'> {
   validation?: ValidationResult;
@@ -123,8 +124,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     height: '100%',
     color: '#ffffff',
-    fontWeight: '500',
-    fontSize: 16,
+    ...fontStyles.regular,
+    ...textSizes.base,
   },
   iconContainer: {
     paddingRight: 16,
@@ -136,12 +137,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   errorText: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#F87171',
   },
   suggestionText: {
     marginTop: 4,
-    fontSize: 12,
+    ...textSizes.xs,
     color: '#FCA5A5',
   },
 });

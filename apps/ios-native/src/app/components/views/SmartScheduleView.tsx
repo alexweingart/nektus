@@ -37,6 +37,7 @@ import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/
 import Svg, { Path } from 'react-native-svg';
 import { Button } from '../ui/buttons/Button';
 import { ItemChip } from '../ui/modules/ItemChip';
+import { textSizes, fontStyles } from '../ui/Typography';
 import { emitMatchFound } from '../../utils/animationEvents';
 
 type SmartScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SmartSchedule'>;
@@ -481,6 +482,7 @@ export function SmartScheduleView() {
       contactUserId,
       backgroundColors: contactProfile?.backgroundColors || backgroundColors,
       savedContact: contactProfile,
+      autoFocus: true,
     });
   }, [navigateWithFade, contactUserId, contactProfile, backgroundColors]);
 
@@ -614,8 +616,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   customButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...textSizes.lg,
+    ...fontStyles.bold,
     color: '#374151',
   },
 });

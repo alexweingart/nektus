@@ -39,6 +39,8 @@
             ]
           }
         ],
+        "UIBackgroundModes": ["fetch"],
+        "BGTaskSchedulerPermittedIdentifiers": ["com.nektus.app.calendar-sync"],
         "LSApplicationQueriesSchemes": [
           "tel",
           "mailto",

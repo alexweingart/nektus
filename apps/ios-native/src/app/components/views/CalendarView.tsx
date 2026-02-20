@@ -23,6 +23,7 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { SchedulableHoursEditor } from '../ui/calendar/SchedulableHoursEditor';
+import { textSizes, fontStyles } from '../ui/Typography';
 
 type CalendarViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Calendar'>;
 type CalendarViewRouteProp = RouteProp<RootStackParamList, 'Calendar'>;
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 16,
+    ...textSizes.base,
   },
   calendarInfo: {
     alignItems: 'center',
@@ -274,12 +275,12 @@ const styles = StyleSheet.create({
   },
   providerName: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '500',
+    ...textSizes.lg,
+    ...fontStyles.bold,
   },
   email: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
+    ...textSizes.sm,
     marginTop: 4,
   },
   editorContainer: {

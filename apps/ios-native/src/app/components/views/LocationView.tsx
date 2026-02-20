@@ -25,6 +25,7 @@ import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { ValidatedInput } from '../ui/inputs/ValidatedInput';
+import { textSizes } from '../ui/Typography';
 
 type LocationViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Location'>;
 type LocationViewRouteProp = RouteProp<RootStackParamList, 'Location'>;
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 16,
+    ...textSizes.base,
   },
   scrollView: {
     flex: 1,
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#F87171',
-    fontSize: 14,
+    ...textSizes.sm,
     marginTop: 8,
   },
   footer: {

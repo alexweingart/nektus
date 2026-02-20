@@ -76,6 +76,20 @@ bun run build:ios
 - Only suggest clean builds for dependency changes or build errors
 - **Use subagents (Task tool) for running builds** to avoid polluting the main conversation context
 
+## Auto-Build Rule
+**After editing native iOS files, ALWAYS kick off a local simulator build in the background.** Native files are those that cannot hot reload via Metro:
+- Podfile, pbxproj, xcconfig files
+- Info.plist files
+- Swift/ObjC source files (.swift, .m, .mm, .h)
+- Native module files under `native-modules/`
+
+When you detect that your session edits include any of the above, proactively:
+1. Boot iPhone Air simulator if not running (`xcrun simctl boot "iPhone Air"` + `open -a Simulator`)
+2. Run `cd apps/ios-native && npx expo run:ios` in background
+3. Continue the conversation — don't wait for the build to finish
+
+JS/TS-only changes do NOT need a rebuild — Metro hot reload handles them automatically.
+
 ---
 
 # iOS Build Issue Writeup (January 2026)

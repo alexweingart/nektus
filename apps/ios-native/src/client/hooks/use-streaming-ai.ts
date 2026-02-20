@@ -9,7 +9,7 @@
  * - Firebase auth import adjusted for iOS
  */
 
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import type { Event } from '@nektus/shared-types';
 import { getApiBaseUrl, getIdToken } from '../auth/firebase';
 
@@ -153,11 +153,16 @@ export function useStreamingAI({
     }
   };
 
-  const handleStreamingResponse = async (
-    response: Response,
+  /**
+   * Send a request and stream SSE events via XHR onprogress (native) or
+   * ReadableStream (web). Processes events in real-time as they arrive.
+   */
+  const sendStreamingRequest = (
+    url: string,
+    options: { method: string; headers: Record<string, string>; body: string },
     userAIMessage: AIMessage,
     generateMessageId: (offset?: number) => string
-  ) => {
+  ): Promise<void> => {
     const state = {
       acknowledgmentMessageId: generateMessageId(1),
       contentMessageId: generateMessageId(2),
@@ -166,16 +171,7 @@ export function useStreamingAI({
       currentEvent: undefined as Event | undefined,
     };
 
-    // React Native's fetch doesn't support ReadableStream on response.body.
-    // Fall back to reading the full response text and parsing SSE events.
-    const reader = response.body?.getReader();
-    if (!reader) {
-      const text = await response.text();
-      const lines = text.split('\n');
-      for (const line of lines) {
-        processSSELine(line, state, generateMessageId);
-      }
-
+    const finalizeConversation = () => {
       onUpdateConversationHistory(prev => [
         ...prev,
         userAIMessage,
@@ -185,35 +181,86 @@ export function useStreamingAI({
           timestamp: new Date(),
         },
       ]);
-      return;
+    };
+
+    // Native: use XMLHttpRequest with onprogress for real-time SSE streaming
+    if (Platform.OS !== 'web') {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        let lastIndex = 0;
+        let buffer = '';
+
+        xhr.onprogress = () => {
+          const newText = xhr.responseText.substring(lastIndex);
+          lastIndex = xhr.responseText.length;
+          buffer += newText;
+
+          // Split by newlines, keep last (possibly incomplete) line in buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            processSSELine(line, state, generateMessageId);
+          }
+        };
+
+        xhr.onloadend = () => {
+          // Process any remaining buffered text
+          if (buffer) {
+            processSSELine(buffer, state, generateMessageId);
+            buffer = '';
+          }
+          finalizeConversation();
+          resolve();
+        };
+
+        xhr.onerror = () => {
+          reject(new Error(`XHR streaming request failed`));
+        };
+
+        xhr.open(options.method, url);
+        Object.entries(options.headers).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+        xhr.send(options.body);
+      });
     }
 
-    // Web path: stream via ReadableStream
-    const decoder = new TextDecoder();
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    // Web: use fetch + ReadableStream
+    return (async () => {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`AI scheduling failed: ${response.statusText}`);
+      }
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+      const reader = response.body?.getReader();
+      if (!reader) {
+        const text = await response.text();
+        const lines = text.split('\n');
         for (const line of lines) {
           processSSELine(line, state, generateMessageId);
         }
+        finalizeConversation();
+        return;
       }
 
-      onUpdateConversationHistory(prev => [
-        ...prev,
-        userAIMessage,
-        {
-          role: 'assistant',
-          content: state.finalMessageContent || state.currentContentMessage,
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      reader.releaseLock();
-    }
+      const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            processSSELine(line, state, generateMessageId);
+          }
+        }
+        finalizeConversation();
+      } finally {
+        reader.releaseLock();
+      }
+    })();
   };
 
   const pollForEnhancement = async (processingId: string, generateMessageId: (offset?: number) => string) => {
@@ -289,7 +336,7 @@ export function useStreamingAI({
   };
 
   return {
-    handleStreamingResponse,
+    sendStreamingRequest,
   };
 }
 
