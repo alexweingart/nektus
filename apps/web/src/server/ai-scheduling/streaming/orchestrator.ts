@@ -196,6 +196,21 @@ export async function streamSchedulingResponse(
           });
         }
 
+        // Create fallback place for personal locations (no Foursquare search)
+        if (places.length === 0 && !templateResult.needsPlaceSearch) {
+          const templateAny = templateResult.template as Record<string, unknown>;
+          const placeName = templateAny.specificPlaceName as string;
+          if (placeName) {
+            places = [{
+              place_id: `personal-${Date.now()}`,
+              name: placeName,
+              address: '',
+              coordinates: { lat: 0, lng: 0 },
+              google_maps_url: '',
+            }];
+          }
+        }
+
         // ===================================================================
         // STAGE 5: LLM Selection - Conditional Routing
         // ===================================================================

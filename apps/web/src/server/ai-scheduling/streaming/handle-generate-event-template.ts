@@ -172,12 +172,12 @@ export async function handleGenerateEventTemplate(
     template: eventTemplate,
     mode: 'new',
     isSuggestedEvent,
-    needsPlaceSearch: eventTemplate.eventType === 'in-person',
+    needsPlaceSearch: eventTemplate.eventType === 'in-person' && eventTemplate.searchForPlaces !== false,
     placeSearchParams: eventTemplate.eventType === 'in-person' ? {
       suggestedPlaceTypes: eventTemplate.suggestedPlaceTypes,
       intentSpecificity: (isSuggestedEvent ? 'specific_place' : eventTemplate.intentSpecificity) as 'specific_place' | 'activity_type' | 'generic',
       activitySearchQuery: eventTemplate.activitySearchQuery || eventTemplate.placeSearchQuery,
-      specificPlace: isSuggestedEvent ? venueName : undefined,
+      specificPlace: isSuggestedEvent ? venueName : eventTemplate.specificPlaceName,
     } : undefined
   };
 }

@@ -160,6 +160,13 @@ For in-person events:
   * Set specificPlaceName: "Rich Table" (the exact venue name)
   * Set intentSpecificity: "specific_place"
   * Still provide suggestedPlaceTypes as a hint for the search
+- If user specifies a personal or informal location (e.g., "Rina's apt", "my place", "Sarah's house", "the office", "home"):
+  * Set explicitUserPlace: true
+  * Set specificPlaceName to a cleaned-up version (e.g., "Rina's Apartment", "My Place", "Sarah's House")
+  * Set intentSpecificity: "specific_place"
+  * Set searchForPlaces: false (personal locations are not searchable venues)
+  * Do NOT set suggestedPlaceTypes or activitySearchQuery
+  * The user can add a full address to the invite later if needed
 - If user mentions activity type but NOT a specific venue (e.g., "grab coffee", "play tennis"):
   * Set explicitUserPlace: false
   * Set intentSpecificity: "activity_type"
