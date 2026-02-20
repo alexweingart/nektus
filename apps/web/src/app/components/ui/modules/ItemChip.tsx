@@ -109,7 +109,7 @@ export const ItemChip: React.FC<ItemChipProps> = ({
 
         {/* Content */}
         <div className={`flex-1 ml-4 min-w-0 ${hasAction ? 'mr-3' : ''}`}>
-          <h3 className={`text-white font-medium text-base ${truncateTitle ? 'truncate' : ''}`}>
+          <h3 className={`text-white font-bold text-base ${truncateTitle ? 'truncate' : ''}`}>
             {title}
           </h3>
           {subtitle && (

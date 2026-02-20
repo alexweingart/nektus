@@ -151,7 +151,7 @@ export const CustomSocialInputAdd: React.FC<CustomSocialInputAddProps> = ({
             backgroundColor: 'transparent',
             color: 'white'
           }}
-          className="flex-1 pr-3 pl-3 h-full focus:outline-none text-white font-medium text-base rounded-r-full placeholder-white/40"
+          className="flex-1 pr-3 pl-3 h-full focus:outline-none text-white text-base rounded-r-full placeholder-white/40"
         />
       </div>
     </div>

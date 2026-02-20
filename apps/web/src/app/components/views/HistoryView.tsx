@@ -367,7 +367,7 @@ export const HistoryView: React.FC = () => {
                   />
                 </svg>
               </div>
-              <Heading as="h2" className="text-lg font-medium mb-2">No contacts yet</Heading>
+              <Heading as="h2" className="text-lg font-bold mb-2">No contacts yet</Heading>
               <Text variant="small" className="mb-6">
                 When you nekt with someone, they&apos;ll appear here so you can easily reconnect later.
               </Text>

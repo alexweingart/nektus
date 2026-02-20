@@ -405,7 +405,7 @@ export const DropdownPhoneInput = React.forwardRef<HTMLInputElement, DropdownPho
           WebkitBoxShadow: '0 0 0 1000px transparent inset',
           transition: 'background-color 0s 50000s, color 0s 50000s'
         }}
-        className="flex-1 pr-3 pl-3 h-full focus:outline-none text-white font-medium text-base rounded-r-full placeholder-white/40"
+        className="flex-1 pr-3 pl-3 h-full focus:outline-none text-white text-base rounded-r-full placeholder-white/40"
         placeholder={placeholder}
         value={phoneInput}
         onChange={handlePhoneChange}

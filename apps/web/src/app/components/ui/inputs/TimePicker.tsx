@@ -94,7 +94,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
       <button
         type="button"
         onClick={togglePeriod}
-        className="px-2 py-2 text-sm font-medium text-white hover:bg-white/20 rounded transition-colors select-none focus:outline-none focus:ring-0 focus:border-transparent leading-none"
+        className="px-2 py-2 text-sm text-white hover:bg-white/20 rounded transition-colors select-none focus:outline-none focus:ring-0 focus:border-transparent leading-none"
       >
         {period}
       </button>

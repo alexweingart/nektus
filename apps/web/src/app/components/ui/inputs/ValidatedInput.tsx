@@ -58,7 +58,7 @@ export function ValidatedInput({
         }}
       >
         <input
-          className="flex-1 px-6 h-full bg-transparent focus:outline-none text-white font-medium text-base w-full rounded-full placeholder-white/40"
+          className="flex-1 px-6 h-full bg-transparent focus:outline-none text-white text-base w-full rounded-full placeholder-white/40"
           style={{
             border: 'none',
             outline: 'none',

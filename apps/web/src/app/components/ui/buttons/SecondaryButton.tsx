@@ -27,7 +27,7 @@ export const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   return (
     <button
       className={cn(
-        "px-3 py-1 rounded-full text-white font-bold text-sm disabled:opacity-50 button-release select-none [-webkit-tap-highlight-color:transparent]",
+        "px-3 py-1 rounded-full text-white font-semibold text-sm disabled:opacity-50 button-release select-none [-webkit-tap-highlight-color:transparent]",
         variantStyles[variant],
         className
       )}

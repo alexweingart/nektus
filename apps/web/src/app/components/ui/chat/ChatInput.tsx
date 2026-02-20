@@ -154,7 +154,7 @@ export default function ChatInput({
             />
             {/* Custom placeholder that shows when unfocused and only zero-width space */}
             {!isFocused && value.replace(/\u200B/g, '').trim() === '' && (
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 font-medium text-base">
+              <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-base">
                 {placeholder}
               </div>
             )}

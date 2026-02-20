@@ -322,7 +322,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
 
       case 'qr-scan-matched':
         return (
-          <span className="text-xl font-bold">Match Found!</span>
+          <span className="text-xl font-semibold">Match Found!</span>
         );
 
       case 'timeout':
@@ -343,7 +343,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       
               default:
           return (
-            <span className="text-xl font-bold">Nekt</span>
+            <span className="text-xl font-semibold">Nekt</span>
           );
     }
   };

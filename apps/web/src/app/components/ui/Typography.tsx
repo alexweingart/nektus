@@ -7,8 +7,8 @@ import { HTMLAttributes } from 'react';
 // Define heading styles
 const headingStyles = {
   h1: 'text-2xl font-bold text-white',
-  h2: 'text-xl font-semibold text-white',
-  h3: 'text-lg font-medium',
+  h2: 'text-xl font-bold text-white',
+  h3: 'text-lg font-bold',
 } as const;
 
 interface HeadingProps extends HTMLAttributes<HTMLHeadingElement> {
@@ -63,7 +63,7 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn('block text-sm font-medium mb-1', className)}
+      className={cn('block text-sm font-bold mb-1', className)}
       {...props}
     />
   );

@@ -50,7 +50,7 @@ export default function AboutPage() {
 
       <div className="space-y-10 leading-relaxed">
         <section>
-          <Text className="text-lg mb-6 text-center font-medium">
+          <Text className="text-lg mb-6 text-center font-bold">
             Turning Conversations into Friendships
           </Text>
           <Text className="mb-4">

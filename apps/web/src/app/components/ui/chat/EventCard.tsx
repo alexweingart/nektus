@@ -57,7 +57,7 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
   return (
     <div className="mt-3 p-4 bg-black/60 border border-white/10 rounded-2xl glass-tinted overflow-hidden">
       <div className="mb-3">
-        <div className="text-base font-medium text-white">
+        <div className="text-base font-bold text-white">
           {event.title}
         </div>
         <div className="text-sm text-gray-300">

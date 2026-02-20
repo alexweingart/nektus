@@ -28,7 +28,7 @@ export const SingleLineInput = forwardRef<HTMLInputElement, SingleLineInputProps
     return (
       <div className={`w-full ${className}`}>
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-gray-700 mb-1">
             {label}
           </label>
         )}
@@ -48,7 +48,7 @@ export const SingleLineInput = forwardRef<HTMLInputElement, SingleLineInputProps
           )}
           <input
             ref={ref}
-            className={`flex-1 h-full bg-transparent focus:outline-none text-white font-medium text-base w-full placeholder-white/40 ${
+            className={`flex-1 h-full bg-transparent focus:outline-none text-white text-base w-full placeholder-white/40 ${
               icon ? 'px-2' : 'px-6'
             } ${
               variant === 'hideable' ? 'pr-8' : icon ? 'pr-6' : 'pr-6'

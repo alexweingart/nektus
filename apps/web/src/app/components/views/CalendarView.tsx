@@ -137,7 +137,7 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
             if (calendarUrl) window.location.href = calendarUrl;
           }}
         >
-          <Text className="font-medium text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>
+          <Text className="font-bold text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>
           <Text variant="small" className="text-white/60">
             {calendar.accessMethod === 'eventkit' ? 'Only available in iOS app' : calendar.email}
           </Text>

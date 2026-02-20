@@ -126,7 +126,7 @@ export default function DebugLogsPage() {
                 <button
                   key={device}
                   onClick={() => setActiveTab(device)}
-                  className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 rounded text-sm font-bold transition-colors ${
                     activeTab === device
                       ? 'bg-white text-blue-600 shadow'
                       : 'text-gray-600 hover:text-gray-900'
@@ -143,7 +143,7 @@ export default function DebugLogsPage() {
 
           {/* Logs */}
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-700">
+            <h2 className="text-xl font-bold mb-4 text-gray-700">
               {activeTab === 'all' ? 'All Logs' : `${activeTab} Logs`}
             </h2>
             <div className="bg-gray-50 border border-gray-300 rounded p-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
@@ -157,7 +157,7 @@ export default function DebugLogsPage() {
                   <div key={index} className="mb-3 p-3 bg-white rounded border border-gray-200 text-xs">
                     <div className="flex justify-between items-start">
                       <div className="font-mono text-gray-500 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</div>
-                      <div className="font-semibold text-blue-600">{log.event}</div>
+                      <div className="font-bold text-blue-600">{log.event}</div>
                     </div>
                     <div className="mt-1 text-gray-900 break-all">{log.message}</div>
                     {log.sessionId && (

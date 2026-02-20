@@ -68,7 +68,7 @@ export const SchedulableHoursEditor: React.FC<SchedulableHoursEditorProps> = ({
           <div key={day} className="bg-black/40 border border-white/10 rounded-2xl overflow-hidden">
             {/* Day Header */}
             <div className="w-full px-4 py-3 flex items-center justify-between">
-              <Text variant="base" className="text-white font-medium capitalize">
+              <Text variant="base" className="text-white font-bold capitalize">
                 {day}
               </Text>
               <button

@@ -261,7 +261,7 @@ function ConnectPageContent() {
         <div className="text-center max-w-sm">
           {errorCode === 'ALREADY_SCANNED' ? (
             <>
-              <p className="text-white text-xl font-semibold mb-2">Already Scanned</p>
+              <p className="text-white text-xl font-bold mb-2">Already Scanned</p>
               <p className="text-gray-400 mb-6">
                 Someone else already scanned this QR code. Ask your new friend to show you a new one.
               </p>

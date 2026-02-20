@@ -48,7 +48,7 @@ export function DualStateSelector<T extends string>({
           type="button"
           onClick={() => onOptionChange(option)}
           className={cn(
-            "relative z-10 px-3 py-1 text-sm font-bold rounded-full flex-1 text-center",
+            "relative z-10 px-3 py-1 text-sm font-semibold rounded-full flex-1 text-center",
             "text-white hover:text-white/90 button-release",
             selectedOption === option
               ? "text-white"

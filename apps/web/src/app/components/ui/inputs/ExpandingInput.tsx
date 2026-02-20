@@ -81,7 +81,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
     return (
       <>
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-gray-700 mb-1">
             {label}
           </label>
         )}
@@ -123,7 +123,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               className={`
                 flex-1 bg-transparent focus:outline-none ${
                   isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
-                } font-medium text-base resize-none
+                } text-base resize-none
                 ${icon ? 'pr-2' : 'pr-2 pl-6'}
                 ${inputClassName}
               `}
@@ -179,7 +179,7 @@ export const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProp
               className={`
                 w-full bg-transparent focus:outline-none ${
                   isWhiteVariant ? 'text-gray-900 placeholder-gray-400 caret-gray-900' : 'text-white placeholder-white/40 caret-white'
-                } font-medium text-base resize-none
+                } text-base resize-none
                 ${inputClassName}
               `}
               style={{
