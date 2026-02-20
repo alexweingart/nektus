@@ -201,7 +201,7 @@ function extractLinkedInBio(html: string): string | null {
   if (jsonLdMatch?.[1]) {
     try {
       const jsonLd = JSON.parse(jsonLdMatch[1]);
-      const person = jsonLd['@graph']?.find((x: any) => x['@type'] === 'Person');
+      const person = jsonLd['@graph']?.find((x: Record<string, unknown>) => x['@type'] === 'Person');
       if (person?.description && person.description.length > 5) {
         console.log(`[API/SCRAPE-BIO] Found LinkedIn bio via JSON-LD Person.description`);
         return person.description.trim();

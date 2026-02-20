@@ -182,7 +182,7 @@ const ProfileView: React.FC = () => {
     if (isBioLoading && bioContent !== 'My bio is going to be awesome once I create it.') {
       setIsBioLoading(false);
     }
-  }, [bioContent, isBioLoading]);
+  }, [bioContent, isBioLoading, setIsBioLoading]);
 
   // Profile image - use streaming value for immediate updates after generation
   // Filter out Google initials images to show our gradient instead
