@@ -18,6 +18,7 @@ interface SocialIconsListProps {
 const PLATFORM_CONFIG = {
   // Universal section
   phone: { section: 'universal', defaultOrder: 0 },
+  text: { section: 'universal', defaultOrder: 0.1 },
   email: { section: 'universal', defaultOrder: 1 },
 
   // Personal section
@@ -33,8 +34,7 @@ const PLATFORM_CONFIG = {
   linkedin: { section: 'work', defaultOrder: 9 },
 } as const;
 
-// Define platform types
-type PlatformType = keyof typeof PLATFORM_CONFIG | 'text';
+type PlatformType = keyof typeof PLATFORM_CONFIG;
 
 interface SocialItem {
   platform: PlatformType;
