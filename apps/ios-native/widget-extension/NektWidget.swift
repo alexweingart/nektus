@@ -30,8 +30,18 @@ struct NektWidgetEntryView: View {
     var body: some View {
         ZStack {
             AccessoryWidgetBackground()
-            Image(systemName: "person.line.dotted.person")
-                .font(.system(size: 20, weight: .semibold))
+            Text("N")
+                .font(.system(size: 28, weight: .black, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white.opacity(0.55), location: 1.0),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         }
         .widgetURL(URL(string: "nekt://profile?autoNekt=true"))
     }

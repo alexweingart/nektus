@@ -6,9 +6,9 @@ Parse the argument for a build target: `dev` (default if omitted), `preview`, or
 ## Step 1: Pre-push checks
 
 ### Web checks (always run):
-1. `cd apps/web && npm run typecheck` — abort on failure
-2. `cd apps/web && npm run lint` — abort on failure
-3. `cd apps/web && npm run build` — abort on failure
+1. `cd apps/web && bun run typecheck` — abort on failure
+2. `cd apps/web && bun run lint` — abort on failure
+3. `cd apps/web && bun run build` — abort on failure
 
 ### iOS checks:
 1. `cd apps/ios-native && npx tsc --noEmit` — abort on failure (if tsconfig exists)

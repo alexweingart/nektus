@@ -16,9 +16,9 @@ Parse for an optional commit message (in quotes). Web pushes don't have build ta
    `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 
 ## Step 2: Pre-push checks (web only)
-1. `cd apps/web && npm run typecheck` — abort on failure
-2. `cd apps/web && npm run lint` — abort on failure
-3. `cd apps/web && npm run build` — abort on failure
+1. `cd apps/web && bun run typecheck` — abort on failure
+2. `cd apps/web && bun run lint` — abort on failure
+3. `cd apps/web && bun run build` — abort on failure
 
 ## Step 3: Push
 - `git push --no-verify`
