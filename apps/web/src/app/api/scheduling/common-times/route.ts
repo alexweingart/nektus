@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       calendarType = 'personal', // Default to personal if not specified
       user1BusyTimes, // Optional: device busy times from EventKit (iOS)
       skipCache = false, // Skip Redis cache (e.g. on cold app start)
+      timezone, // Optional: client's device timezone as fallback
     } = await request.json();
 
     // Validate inputs first
@@ -69,8 +70,8 @@ export async function POST(request: NextRequest) {
     const usersData = await adminGetMultipleUserData([user1Id, user2Id]);
 
     // Each user's own timezone for generating their free slots
-    // Fall back to the other user's timezone (better than UTC) if one is missing
-    const user1Timezone = usersData[user1Id]?.timezone || await adminGetUserTimezoneById(user1Id);
+    // Fallback chain: Firestore profile → Firestore (legacy path) → client-sent timezone → null (UTC)
+    const user1Timezone = usersData[user1Id]?.timezone || await adminGetUserTimezoneById(user1Id) || timezone || null;
     const user2Timezone = usersData[user2Id]?.timezone || await adminGetUserTimezoneById(user2Id) || user1Timezone;
     // Use user1's timezone for display since they're the one viewing the results
     const requestingUserTimezone = user1Timezone;

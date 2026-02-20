@@ -92,6 +92,7 @@ export function useSchedulingPreFetch({
             user2Id: profile.userId,
             duration: 30,
             calendarType: contactType,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...(await getEventKitBusyTimesIfNeeded(userCalendars)),
             ...(isColdStart ? { skipCache: true } : {}),
           }),

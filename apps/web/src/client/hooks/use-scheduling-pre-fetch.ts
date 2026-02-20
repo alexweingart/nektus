@@ -58,6 +58,7 @@ export function useSchedulingPreFetch({
             user2Id: profile.userId,
             duration: 30,
             calendarType: contactType,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
           signal: abortController.signal, // Allow request to be cancelled
         });
