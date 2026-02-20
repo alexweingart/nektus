@@ -9,7 +9,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
-import { getFieldValue, getOptimalProfileImageUrl } from '@nektus/shared-client';
+import { getFieldValue, getOptimalProfileImageUrl, ANIMATION } from '@nektus/shared-client';
 import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import { Button } from '../ui/buttons/Button';
@@ -106,20 +106,20 @@ export function AnonContactView({
     const baseDelay = 250;
     const stagger = 150;
 
-    // Fade out profile card
+    // Fade out profile card (page-level crossfade)
     Animated.timing(profileOpacity, {
       toValue: 0,
-      duration: 300,
+      duration: ANIMATION.NAVIGATION_MS,
       easing: easeOut,
       useNativeDriver: true,
     }).start();
 
-    // Upsell container becomes visible
+    // Upsell container becomes visible (page-level crossfade)
     Animated.sequence([
       Animated.delay(baseDelay),
       Animated.timing(upsellOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: ANIMATION.NAVIGATION_MS,
         useNativeDriver: true,
       }),
     ]).start();
@@ -128,15 +128,15 @@ export function AnonContactView({
     Animated.sequence([
       Animated.delay(baseDelay),
       Animated.parallel([
-        Animated.timing(headlineAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(headlineSlide, { toValue: 0, duration: 300, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(headlineAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
+        Animated.timing(headlineSlide, { toValue: 0, duration: ANIMATION.UI_MS, easing: easeOut, useNativeDriver: true }),
       ]),
     ]).start();
 
     // Subhead "Your profile is ready."
     Animated.sequence([
       Animated.delay(baseDelay + stagger),
-      Animated.timing(subheadAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(subheadAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
     ]).start();
 
     // Feature rows — staggered entrance
@@ -150,8 +150,8 @@ export function AnonContactView({
       Animated.sequence([
         Animated.delay(baseDelay + stagger * (i + 2)),
         Animated.parallel([
-          Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(slide, { toValue: 0, duration: 300, easing: easeOut, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
+          Animated.timing(slide, { toValue: 0, duration: ANIMATION.UI_MS, easing: easeOut, useNativeDriver: true }),
         ]),
       ]).start();
     });
@@ -159,7 +159,7 @@ export function AnonContactView({
     // Buttons fade in last
     Animated.sequence([
       Animated.delay(baseDelay + stagger * 5),
-      Animated.timing(buttonsAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(buttonsAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
     ]).start();
   }, [isSaved]);
 
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   upsellSubhead: {
     color: 'rgba(255, 255, 255, 0.9)',
     ...textSizes.base,
-    ...fontStyles.medium,
+    ...fontStyles.bold,
     textAlign: 'center',
   },
   upsellDividerWrap: {
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   upsellRowTitle: {
     color: '#ffffff',
     ...textSizes.base,
-    ...fontStyles.semibold,
+    ...fontStyles.bold,
   },
   upsellRowDesc: {
     color: 'rgba(255, 255, 255, 0.7)',

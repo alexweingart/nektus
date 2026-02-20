@@ -14,6 +14,7 @@ import { getFieldValue, getFirstName } from '@nektus/shared-client';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { isAppClip } from '../../../client/auth/session-handoff';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
@@ -29,6 +30,7 @@ import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateMessageText } from '../../../client/contacts/messaging';
 import { useContactEnterAnimation } from '../../../client/hooks/use-exchange-animations';
 import { emitMatchFound } from '../../utils/animationEvents';
+import { textSizes, fontStyles } from '../ui/Typography';
 
 // Demo robot avatar for test mode simulation
 const demoRobotAvatarAsset = require('../../../../assets/demo-robot-avatar.png');
@@ -282,7 +284,11 @@ export function ContactView(props: ContactViewProps = {}) {
 
   // Handle Me Card data extraction callback
   const handleMeCardExtracted = useCallback(async (meCardData: MeCardData) => {
-    if (!saveProfile || !userProfile) return;
+    if (!saveProfile || !userProfile) {
+      console.log('[ContactView] Me Card: skipping — saveProfile:', !!saveProfile, 'userProfile:', !!userProfile);
+      return;
+    }
+    console.log('[ContactView] Me Card: processing extraction, hasImage:', !!meCardData.imageFileUri, 'currentProfileImage:', !!userProfile.profileImage);
 
     const updates: Partial<UserProfile> = {};
     const entries = [...(userProfile.contactEntries || [])];
@@ -309,16 +315,45 @@ export function ContactView(props: ContactViewProps = {}) {
     }
 
     // Set profile photo from Me Card if user has no photo or only an AI-generated one
-    if (meCardData.imageBase64 && (!userProfile.profileImage || userProfile.aiGeneration?.avatarGenerated) && session?.user?.id) {
+    if (meCardData.imageFileUri && (!userProfile.profileImage || userProfile.aiGeneration?.avatarGenerated) && session?.user?.id) {
       try {
-        const { uploadProfileImage } = await import('../../../client/firebase/firebase-storage');
-        const imageUrl = await uploadProfileImage(meCardData.imageBase64, session.user.id);
-        updates.profileImage = imageUrl;
-        if (userProfile.aiGeneration?.avatarGenerated) {
-          updates.aiGeneration = {
-            ...userProfile.aiGeneration,
-            avatarGenerated: false,
-          };
+        // Read image file as base64 using expo-file-system (same as ProfileImageIcon).
+        // This avoids passing large base64 through the RN bridge which triggers
+        // Hermes's "ArrayBuffer blob not supported" error.
+        const base64 = await FileSystem.readAsStringAsync(meCardData.imageFileUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const imageData = `data:image/jpeg;base64,${base64}`;
+
+        console.log('[ContactView] Me Card: uploading photo via API...', `(${Math.round(base64.length / 1024)}KB)`);
+        const apiBaseUrl = getApiBaseUrl();
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('No Firebase ID token');
+
+        const response = await fetch(`${apiBaseUrl}/api/profile/generate/profile-image`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ imageData }),
+        });
+
+        if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+        const data = await response.json();
+
+        if (data.imageUrl) {
+          updates.profileImage = data.imageUrl;
+          if (data.backgroundColors) {
+            updates.backgroundColors = data.backgroundColors;
+          }
+          if (userProfile.aiGeneration?.avatarGenerated) {
+            updates.aiGeneration = {
+              ...userProfile.aiGeneration,
+              avatarGenerated: false,
+            };
+          }
+          console.log('[ContactView] Me Card: photo uploaded successfully');
         }
       } catch (error) {
         console.error('[ContactView] Me Card: failed to upload photo:', error);
@@ -590,7 +625,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#ffffff',
-    fontSize: 16,
+    ...textSizes.base,
   },
   content: {
     flex: 1,
@@ -605,8 +640,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   buttonText: {
-    fontSize: 20,
-    fontWeight: '600',
+    ...textSizes.xl,
+    ...fontStyles.bold,
     color: '#374151',
   },
   secondaryButtonContainer: {

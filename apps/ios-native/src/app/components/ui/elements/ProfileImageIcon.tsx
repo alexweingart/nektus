@@ -13,8 +13,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Image, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { ANIMATION } from '@nektus/shared-client';
 import { getApiBaseUrl, getIdToken } from '../../../../client/auth/firebase';
 import Avatar from './Avatar';
+import { textSizes } from '../Typography';
 
 interface ProfileImageIconProps {
   imageUrl?: string;
@@ -37,7 +39,7 @@ export function ProfileImageIcon({
   // Scale animation for press feedback (matches Button pattern — no opacity change)
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const handlePressIn = useCallback(() => {
-    Animated.timing(scaleAnim, { toValue: 0.92, duration: 100, useNativeDriver: true }).start();
+    Animated.timing(scaleAnim, { toValue: 0.92, duration: ANIMATION.MICRO_MS, useNativeDriver: true }).start();
   }, [scaleAnim]);
   const handlePressOut = useCallback(() => {
     Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
@@ -203,7 +205,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   placeholderEmoji: {
-    fontSize: 20,
+    ...textSizes.xl,
   },
 });
 

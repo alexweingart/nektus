@@ -82,3 +82,22 @@ export const EXCHANGE_TIMEOUT = {
   /** 60 seconds - scan, bump, QR/OAuth exchange timeouts */
   SLOW_MS: 60_000,
 } as const;
+
+// ============================================================================
+// ANIMATION DURATION TIERS
+// ============================================================================
+
+/** Standardized animation durations in milliseconds */
+export const ANIMATION = {
+  /** 1000ms - exchange reveal, background color transitions, avatar crossfades */
+  CINEMATIC_MS: 1_000,
+
+  /** 500ms - page transitions, screen fades, exchange enter */
+  NAVIGATION_MS: 500,
+
+  /** 300ms - modals, button fades, slides, UI element transitions */
+  UI_MS: 300,
+
+  /** 100ms - touch feedback, instant interactions */
+  MICRO_MS: 100,
+} as const;

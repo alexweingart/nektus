@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animation duration tiers (mirrors ANIMATION constant from @nektus/shared-client) */
+:root {
+  --anim-cinematic: 1000ms;
+  --anim-navigation: 500ms;
+  --anim-ui: 300ms;
+  --anim-micro: 100ms;
+}
+
 /* Enable View Transitions API for smooth page transitions */
 @view-transition {
   navigation: auto;
@@ -10,7 +18,7 @@
 /* Customize the view transition animation */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.2s;
+  animation-duration: var(--anim-navigation);
 }
 
 ::view-transition-old(root) {
@@ -145,7 +153,7 @@ body {
   padding: 0;
   position: relative;
 
-  font-family: var(--font-nunito);
+  font-family: var(--font-sora);
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

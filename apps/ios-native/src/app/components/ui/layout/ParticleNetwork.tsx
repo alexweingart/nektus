@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { ANIMATION } from '@nektus/shared-client';
 import { StyleSheet, View, Animated, Dimensions, AppState, AppStateStatus } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Line } from "react-native-svg";
@@ -122,7 +123,7 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
 };
 
 // Color transition duration (matches web's 1000ms)
-const COLOR_TRANSITION_DURATION = 1000;
+const COLOR_TRANSITION_DURATION = ANIMATION.CINEMATIC_MS;
 
 // Connection update frequency: every N frames (higher = less CPU, slightly choppier connections)
 const CONNECTION_UPDATE_INTERVAL = 6; // ~10fps for connection lines

@@ -29,7 +29,8 @@ export interface MeCardData {
   lastName?: string;
   phone?: string;
   email?: string;
-  imageBase64?: string;
+  /** file:// URI to a temp JPEG of the Me card photo */
+  imageFileUri?: string;
 }
 
 /**
@@ -162,9 +163,9 @@ async function saveToFirebase(token: string): Promise<{ success: boolean; error?
 export async function saveContactFlow(
   profile: UserProfile,
   token: string,
-  options: { saveToNative?: boolean; onMeCardExtracted?: (data: MeCardData) => void; userEmail?: string } = {}
+  options: { saveToNative?: boolean; onMeCardExtracted?: (data: MeCardData) => void } = {}
 ): Promise<ContactSaveResult> {
-  const { saveToNative = true, onMeCardExtracted, userEmail } = options;
+  const { saveToNative = true, onMeCardExtracted } = options;
 
   console.log('🔍 Starting iOS contact save flow');
   console.log(`📱 Running in: ${isAppClip() ? 'App Clip' : 'Full App'}`);
@@ -213,15 +214,14 @@ export async function saveContactFlow(
   // If native save succeeded, extract Me Card data for user's profile
   if (nativeResult.success && onMeCardExtracted) {
     console.log('📇 Extracting Me Card data...');
-    extractMeCardData(userEmail).then(meCardData => {
+    extractMeCardData().then(meCardData => {
       if (meCardData) {
         console.log('📇 Me Card data extracted:', {
           firstName: meCardData.firstName,
           lastName: meCardData.lastName,
           hasPhone: !!meCardData.phone,
           hasEmail: !!meCardData.email,
-          hasImage: !!meCardData.imageBase64,
-          imageLength: meCardData.imageBase64?.length,
+          hasImage: !!meCardData.imageFileUri,
         });
         onMeCardExtracted(meCardData);
       } else {
@@ -261,9 +261,9 @@ export async function saveContactFlow(
  * Extract Me Card data for auto-filling user's profile
  * Only call this after contacts permission has been granted
  */
-export async function extractMeCardData(userEmail?: string): Promise<MeCardData | null> {
+export async function extractMeCardData(): Promise<MeCardData | null> {
   try {
-    const meCard = await getMeCard(userEmail);
+    const meCard = await getMeCard();
     if (!meCard) {
       return null;
     }
@@ -275,11 +275,11 @@ export async function extractMeCardData(userEmail?: string): Promise<MeCardData 
       email: meCard.emails?.[0],
     };
 
-    // Get image if available
+    // Get image file if available (native module writes to temp JPEG file)
     if (meCard.hasImage) {
-      const imageBase64 = await getMeCardImage(userEmail);
-      if (imageBase64) {
-        data.imageBase64 = imageBase64;
+      const imageFileUri = await getMeCardImage();
+      if (imageFileUri) {
+        data.imageFileUri = imageFileUri;
       }
     }
 

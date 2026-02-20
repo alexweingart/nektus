@@ -5,6 +5,7 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import { ANIMATION } from '@nektus/shared-client';
 import {
   View,
   TouchableOpacity,
@@ -15,6 +16,7 @@ import {
   LayoutChangeEvent,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import { textSizes, fontStyles } from "../Typography";
 
 interface DualStateSelectorProps<T extends string> {
   options: [T, T]; // Exactly two options
@@ -63,7 +65,7 @@ export function DualStateSelector<T extends string>({
     Animated.timing(slideAnim, {
       toValue: selectedOption === optionsRef.current[1] ? 1 : 0,
       useNativeDriver: true,
-      duration: 200,
+      duration: ANIMATION.UI_MS,
     }).start();
   }, [selectedOption, slideAnim]);
 
@@ -180,9 +182,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: {
-    fontSize: 14, // text-sm
-    fontWeight: "700", // font-bold
-    lineHeight: 20, // Default line-height for text-sm in Tailwind (~1.43x)
+    ...textSizes.sm,
+    ...fontStyles.semibold,
     textAlign: "center",
   },
   buttonTextSelected: {

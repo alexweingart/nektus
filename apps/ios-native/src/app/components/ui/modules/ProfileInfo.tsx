@@ -14,8 +14,8 @@ import QRCode from 'react-native-qrcode-svg';
 import Avatar from '../elements/Avatar';
 import { SocialIconsList } from '../elements/SocialIconsList';
 import { ProfileViewSelector } from '../controls/ProfileViewSelector';
-import { Heading, BodyText } from '../Typography';
-import { getApiBaseUrl, getFieldValue } from '@nektus/shared-client';
+import { Heading, BodyText, textSizes, fontStyles } from '../Typography';
+import { getApiBaseUrl, getFieldValue, ANIMATION } from '@nektus/shared-client';
 import { useProfile, type SharingCategory } from '../../../../app/context/ProfileContext';
 import type { UserProfile, ContactEntry } from '../../../../app/context/ProfileContext';
 import { useAdminModeActivator } from '../banners/AdminBanner';
@@ -53,7 +53,7 @@ const CameraOverlayButton: React.FC<{ onPress: () => void }> = ({ onPress }) => 
   const handlePressIn = () => {
     Animated.timing(scaleAnim, {
       toValue: 0.9,
-      duration: 100,
+      duration: ANIMATION.MICRO_MS,
       useNativeDriver: true,
     }).start();
   };
@@ -186,8 +186,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     if (isBioLoading) {
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(skeletonOpacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-          Animated.timing(skeletonOpacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+          Animated.timing(skeletonOpacity, { toValue: 0.7, duration: ANIMATION.CINEMATIC_MS, useNativeDriver: true }),
+          Animated.timing(skeletonOpacity, { toValue: 0.3, duration: ANIMATION.CINEMATIC_MS, useNativeDriver: true }),
         ])
       );
       pulse.start();
@@ -222,7 +222,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     const targetX = mode === 'Work' ? -containerWidthRef.current : 0;
     Animated.timing(translateX, {
       toValue: targetX,
-      duration: 250,
+      duration: ANIMATION.UI_MS,
       useNativeDriver: true,
     }).start();
   };
@@ -259,7 +259,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           const targetX = currentMode === 'Work' ? -containerWidth : 0;
           Animated.timing(translateX, {
             toValue: targetX,
-            duration: 250,
+            duration: ANIMATION.UI_MS,
             useNativeDriver: true,
           }).start();
         }
@@ -273,7 +273,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
     const targetX = sharingCategory === 'Work' ? -containerWidthRef.current : 0;
     Animated.timing(translateX, {
       toValue: targetX,
-      duration: 250,
+      duration: ANIMATION.UI_MS,
       useNativeDriver: true,
     }).start();
   }, [sharingCategory, translateX]);
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
+    ...textSizes.sm,
   },
   bioContainer: {
     marginBottom: 16,
@@ -556,8 +556,7 @@ const styles = StyleSheet.create({
   bioText: {
     textAlign: 'center',
     color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 22,
+    ...textSizes.sm,
   },
   iconsContainer: {
     width: '100%',
@@ -596,8 +595,8 @@ const styles = StyleSheet.create({
   addBioText: {
     textAlign: 'center',
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
+    ...textSizes.sm,
+    ...fontStyles.bold,
   },
   skeletonContainer: {
     gap: 8,

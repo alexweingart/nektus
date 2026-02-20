@@ -54,9 +54,9 @@ export async function getMeCard(): Promise<MeCardResult | null> {
 }
 
 /**
- * Get the profile image from the Me card as base64
+ * Get the profile image from the Me card as a file:// URI
  *
- * Returns a base64-encoded string of the image data,
+ * Returns a file path to a temp JPEG file with the image data,
  * or null if not available.
  */
 export async function getMeCardImage(): Promise<string | null> {
@@ -71,13 +71,13 @@ export async function getMeCardImage(): Promise<string | null> {
   }
 
   try {
-    const base64 = await MeCardModule.getMeCardImage();
-    if (base64) {
-      console.log("[MeCardWrapper] Retrieved Me card image");
+    const fileUri = await MeCardModule.getMeCardImage();
+    if (fileUri) {
+      console.log("[MeCardWrapper] Retrieved Me card image file:", fileUri);
     } else {
       console.log("[MeCardWrapper] No Me card image found");
     }
-    return base64;
+    return fileUri;
   } catch (error) {
     console.error("[MeCardWrapper] Error getting Me card image:", error);
     return null;

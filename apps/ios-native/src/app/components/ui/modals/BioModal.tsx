@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { ANIMATION } from '@nektus/shared-client';
 import {
   View,
   Modal,
@@ -16,7 +17,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
-import { Heading, BodyText } from '../Typography';
+import { Heading, BodyText, textSizes } from '../Typography';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { ExpandingInput } from '../inputs/ExpandingInput';
@@ -74,11 +75,11 @@ export const BioModal: React.FC<BioModalProps> = ({
 
       Animated.parallel([
         Animated.sequence([
-          Animated.timing(scaleAnim, { toValue: 1.02, duration: 200, useNativeDriver: true }),
-          Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+          Animated.timing(scaleAnim, { toValue: 1.02, duration: ANIMATION.UI_MS, useNativeDriver: true }),
+          Animated.timing(scaleAnim, { toValue: 1, duration: ANIMATION.MICRO_MS, useNativeDriver: true }),
         ]),
-        Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(backdropOpacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
+        Animated.timing(backdropOpacityAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
       ]).start();
     }
   }, [isOpen, scaleAnim, opacityAnim, backdropOpacityAnim]);
@@ -262,8 +263,7 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    lineHeight: 22,
+    ...textSizes.sm,
   },
   secondaryButtonContainer: {
     alignItems: 'center',

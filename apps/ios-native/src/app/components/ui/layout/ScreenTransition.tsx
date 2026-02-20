@@ -17,10 +17,11 @@
 import React, { useEffect, useRef, createContext, useContext, useCallback, useState } from 'react';
 import { Animated, StyleSheet, ViewStyle } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { ANIMATION } from '@nektus/shared-client';
 import type { RootStackParamList } from '../../../../../App';
 
-// Transition duration matching web's crossfade (1 second)
-const FADE_DURATION = 1000;
+// Navigation-tier transition
+const FADE_DURATION = ANIMATION.NAVIGATION_MS;
 
 // Context for triggering fade-out from anywhere in the screen
 interface ScreenTransitionContextType {

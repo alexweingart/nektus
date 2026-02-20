@@ -148,39 +148,39 @@
 }
 
 .animate-wind-up {
-  animation: windUp 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: windUp var(--anim-ui) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-float-down {
-  animation: floatDown 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: floatDown var(--anim-ui) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-profile-exit {
-  animation: profileExit 500ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: profileExit var(--anim-navigation) cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .animate-contact-enter {
-  animation: contactEnter 500ms cubic-bezier(0, 0, 0.2, 1) forwards;
+  animation: contactEnter var(--anim-navigation) cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 
 .animate-fade-blur-out {
-  animation: fadeBlurOut 350ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: fadeBlurOut var(--anim-ui) cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .animate-button-fade-out {
-  animation: buttonFadeOut 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: buttonFadeOut var(--anim-ui) cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 200ms cubic-bezier(0, 0, 0.2, 1) forwards;
+  animation: fadeInUp var(--anim-ui) cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 
 .animate-crossfade-exit {
-  animation: crossfadeExit 300ms ease-out forwards;
+  animation: crossfadeExit var(--anim-navigation) ease-out forwards;
 }
 
 .animate-crossfade-enter {
-  animation: crossfadeEnter 300ms ease-in forwards;
+  animation: crossfadeEnter var(--anim-navigation) ease-in forwards;
 }
 
 .animate-color-pulse {
@@ -257,20 +257,20 @@ button {
 .button-release {
   transform: scale(1);
   filter: brightness(1);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-              filter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--anim-ui) cubic-bezier(0.34, 1.56, 0.64, 1),
+              filter var(--anim-ui) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .button-release:active {
   transform: scale(0.96);
   filter: brightness(1.1);
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1),
-              filter 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--anim-micro) cubic-bezier(0.4, 0, 0.2, 1),
+              filter var(--anim-micro) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Animation utility classes for modals */
 .animate-modal-enter {
-  animation: modalEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: modalEnter var(--anim-ui) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .animate-modal-exit {
@@ -278,7 +278,7 @@ button {
 }
 
 .animate-backdrop-enter {
-  animation: backdropEnter 0.3s ease forwards;
+  animation: backdropEnter var(--anim-ui) ease forwards;
 }
 
 /* Respect reduced motion for new animations */

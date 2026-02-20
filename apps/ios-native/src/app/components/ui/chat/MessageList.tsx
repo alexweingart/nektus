@@ -16,10 +16,14 @@ import Markdown from 'react-native-markdown-display';
 import { EventCard } from './EventCard';
 import type { Event } from '@nektus/shared-types';
 import type { ChatMessage } from '../../../../client/hooks/use-streaming-ai';
+import { ANIMATION } from '@nektus/shared-client';
+import { DEFAULT_ACCENT_GREEN } from '../../../../shared/colors';
+import { textSizes, fontStyles } from '../Typography';
 
 interface MessageListProps {
   messages: ChatMessage[];
   onCreateEvent: (event: Event) => void;
+  dominantColor?: string;
 }
 
 /**
@@ -37,13 +41,13 @@ function TypingIndicator() {
           Animated.delay(delay),
           Animated.timing(animValue, {
             toValue: -6,
-            duration: 300,
+            duration: ANIMATION.UI_MS,
             easing: Easing.out(Easing.ease),
             useNativeDriver: true,
           }),
           Animated.timing(animValue, {
             toValue: 0,
-            duration: 300,
+            duration: ANIMATION.UI_MS,
             easing: Easing.in(Easing.ease),
             useNativeDriver: true,
           }),
@@ -76,20 +80,19 @@ function TypingIndicator() {
   );
 }
 
-export function MessageList({ messages, onCreateEvent }: MessageListProps) {
+export function MessageList({ messages, onCreateEvent, dominantColor = DEFAULT_ACCENT_GREEN }: MessageListProps) {
   // Markdown styles matching web
   const markdownStyles = {
     body: {
       color: '#111827',
-      fontSize: 14,
-      lineHeight: 20,
+      ...textSizes.sm,
     },
     paragraph: {
       marginBottom: 8,
       marginTop: 0,
     },
     strong: {
-      fontWeight: '600' as const,
+      ...fontStyles.bold,
       color: '#111827',
     },
     em: {
@@ -108,24 +111,24 @@ export function MessageList({ messages, onCreateEvent }: MessageListProps) {
       marginBottom: 8,
     },
     link: {
-      color: '#059669',
-      fontWeight: '600' as const,
+      color: dominantColor,
+      ...fontStyles.bold,
     },
     heading1: {
-      fontSize: 18,
-      fontWeight: '600' as const,
+      ...textSizes.lg,
+      ...fontStyles.bold,
       marginBottom: 8,
       color: '#111827',
     },
     heading2: {
-      fontSize: 16,
-      fontWeight: '600' as const,
+      ...textSizes.base,
+      ...fontStyles.bold,
       marginBottom: 8,
       color: '#111827',
     },
     heading3: {
-      fontSize: 14,
-      fontWeight: '600' as const,
+      ...textSizes.sm,
+      ...fontStyles.bold,
       marginBottom: 4,
       color: '#111827',
     },
@@ -134,7 +137,7 @@ export function MessageList({ messages, onCreateEvent }: MessageListProps) {
       paddingHorizontal: 4,
       paddingVertical: 2,
       borderRadius: 4,
-      fontSize: 13,
+      ...textSizes.sm,
       fontFamily: 'monospace',
       color: '#1f2937',
     },
@@ -166,15 +169,17 @@ export function MessageList({ messages, onCreateEvent }: MessageListProps) {
               <>
                 {message.isLoading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#10B981" />
+                    <ActivityIndicator size="small" color={dominantColor} />
                     <Text style={styles.loadingText}>
                       {message.greyStatusText || message.content}
                     </Text>
                   </View>
                 ) : (
-                  <Markdown style={markdownStyles}>
-                    {message.content}
-                  </Markdown>
+                  <View style={styles.markdownWrapper}>
+                    <Markdown style={markdownStyles}>
+                      {message.content}
+                    </Markdown>
+                  </View>
                 )}
               </>
             ) : (
@@ -225,8 +230,7 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
+    ...textSizes.sm,
   },
   typingContainer: {
     flexDirection: 'row',
@@ -244,8 +248,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  markdownWrapper: {
+    marginBottom: -8, // Cancel last paragraph's marginBottom so bubble padding is symmetric
+  },
   loadingText: {
-    fontSize: 14,
+    ...textSizes.sm,
     color: '#6B7280',
   },
 });

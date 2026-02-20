@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, Text, StyleSheet, Animated } from 'react-native';
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Rect } from 'react-native-svg';
+import { ANIMATION } from '@nektus/shared-client';
 import { BRAND_LIGHT_GREEN, BRAND_DARK_GREEN } from '../../../../shared/colors';
 import { fontStyles } from '../Typography';
 
@@ -41,7 +42,7 @@ const getInitials = (name: string): string => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-const CROSSFADE_MS = 400;
+const CROSSFADE_MS = ANIMATION.CINEMATIC_MS;
 
 const Avatar: React.FC<AvatarProps> = ({
   src,
@@ -106,12 +107,12 @@ const Avatar: React.FC<AvatarProps> = ({
       Animated.parallel([
         Animated.timing(fadeAnimInitials, {
           toValue: 0,
-          duration: 1000,
+          duration: CROSSFADE_MS,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnimImage, {
           toValue: 1,
-          duration: 1000,
+          duration: CROSSFADE_MS,
           useNativeDriver: true,
         })
       ]).start(() => {

@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ANIMATION } from '@nektus/shared-client';
 import {
   View,
   Text,
@@ -19,7 +20,7 @@ import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
-import { Heading, BodyText } from '../Typography';
+import { Heading, BodyText, textSizes } from '../Typography';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { scrapeBio } from '../../../../client/profile/scrape-bio';
 import type { ContactEntry } from '@nektus/shared-types';
@@ -61,23 +62,23 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
         Animated.sequence([
           Animated.timing(scaleAnim, {
             toValue: 1.02,
-            duration: 200,
+            duration: ANIMATION.UI_MS,
             useNativeDriver: true,
           }),
           Animated.timing(scaleAnim, {
             toValue: 1,
-            duration: 100,
+            duration: ANIMATION.MICRO_MS,
             useNativeDriver: true,
           }),
         ]),
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 300,
+          duration: ANIMATION.UI_MS,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacityAnim, {
           toValue: 1,
-          duration: 300,
+          duration: ANIMATION.UI_MS,
           useNativeDriver: true,
         }),
       ]).start();
@@ -285,8 +286,7 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
-    lineHeight: 22,
+    ...textSizes.sm,
   },
   inputContainer: {
     width: '100%',
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#F87171',
-    fontSize: 14,
+    ...textSizes.sm,
     textAlign: 'center',
   },
   saveButtonContainer: {

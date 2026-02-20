@@ -8,7 +8,7 @@
  * - Replaced div with View/StyleSheet
  */
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,6 +19,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { ANIMATION } from '@nektus/shared-client';
 import { ExpandingInput } from '../inputs/ExpandingInput';
 import { Button } from '../buttons/Button';
 
@@ -30,9 +31,14 @@ interface ChatInputProps {
   sendDisabled?: boolean;
   placeholder?: string;
   fadeIn?: boolean;
+  keyboardHeight?: Animated.Value;
 }
 
-export function ChatInput({
+export interface ChatInputHandle {
+  focus: () => void;
+}
+
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput({
   value,
   onChange,
   onSend,
@@ -40,11 +46,17 @@ export function ChatInput({
   sendDisabled = false,
   placeholder = "What would you like to do?",
   fadeIn = false,
-}: ChatInputProps) {
+  keyboardHeight,
+}, ref) {
   const insets = useSafeAreaInsets();
+  const expandingInputRef = useRef<{ focus: () => void }>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(fadeIn ? 0 : 1)).current;
+
+  useImperativeHandle(ref, () => ({
+    focus: () => expandingInputRef.current?.focus(),
+  }));
 
   // Track keyboard visibility for safe area padding
   useEffect(() => {
@@ -58,7 +70,7 @@ export function ChatInput({
     if (fadeIn) {
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 500,
+        duration: ANIMATION.NAVIGATION_MS,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }).start();
@@ -87,8 +99,8 @@ export function ChatInput({
   const displayValue = !isFocused && !actualContent ? '' : value;
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, paddingBottom: keyboardVisible ? 12 : Math.max(24, insets.bottom) }]}>
-      {/* Backdrop blur */}
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      {/* Backdrop blur — absoluteFill covers content + keyboard spacer */}
       <BlurView
         style={StyleSheet.absoluteFillObject}
         tint="light"
@@ -99,9 +111,10 @@ export function ChatInput({
       <View style={styles.borderOverlay} />
 
       {/* Content */}
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: keyboardVisible ? 12 : Math.max(24, insets.bottom) }]}>
         <View style={styles.inputWrapper}>
           <ExpandingInput
+            ref={expandingInputRef}
             value={displayValue}
             onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
@@ -130,9 +143,12 @@ export function ChatInput({
           </Svg>
         </Button>
       </View>
+
+      {/* Keyboard spacer — inside the blurred container so blur covers it */}
+      {keyboardHeight && <Animated.View style={{ height: keyboardHeight }} />}
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -155,3 +171,4 @@ const styles = StyleSheet.create({
 });
 
 export default ChatInput;
+export type { ChatInputProps };

@@ -9,6 +9,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Animated, Easing } from 'react-native';
+import { ANIMATION } from '@nektus/shared-client';
 import { animationEvents, floatAnimationStart } from '../../app/utils/animationEvents';
 
 export type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
@@ -38,13 +39,14 @@ interface UseProfileAnimationsReturn {
 }
 
 // Animation timing constants (matching web)
-const FLOAT_DURATION = 1500; // Half cycle of 3s
-const WIND_UP_DURATION = 300;
-const EXIT_DURATION = 500;
-const ENTER_DURATION = 300;
-const BUTTON_FADE_DURATION = 300;
-const ACTION_BUTTONS_DURATION = 200;
-const ACTION_BUTTONS_DELAY = 100;
+// Tiers: Cinematic=1000ms, Navigation=500ms, UI=300ms, Micro=100ms
+const FLOAT_DURATION = 1500; // Half cycle of 3s (ambient exception)
+const WIND_UP_DURATION = ANIMATION.UI_MS;
+const EXIT_DURATION = ANIMATION.NAVIGATION_MS;
+const ENTER_DURATION = ANIMATION.NAVIGATION_MS;
+const BUTTON_FADE_DURATION = ANIMATION.UI_MS;
+const ACTION_BUTTONS_DURATION = ANIMATION.UI_MS;
+const ACTION_BUTTONS_DELAY = ANIMATION.MICRO_MS;
 
 // Easing presets
 const EASE_EXIT = Easing.bezier(0.4, 0, 1, 1);

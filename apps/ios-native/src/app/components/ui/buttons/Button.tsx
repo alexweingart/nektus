@@ -6,7 +6,8 @@
  */
 
 import React, { ReactNode, useRef, useCallback, useMemo } from "react";
-import { fontStyles } from "../Typography";
+import { ANIMATION } from '@nektus/shared-client';
+import { fontStyles, textSizes } from "../Typography";
 import {
   TouchableOpacity,
   Text,
@@ -58,7 +59,7 @@ export function Button({
   const handlePressIn = useCallback(() => {
     Animated.timing(scaleAnim, {
       toValue: 0.96,
-      duration: 100,
+      duration: ANIMATION.MICRO_MS,
       useNativeDriver: true,
     }).start();
   }, [scaleAnim]);
@@ -88,10 +89,10 @@ export function Button({
 
   // Size configurations matching web
   const sizeConfig = {
-    md: { height: 48, paddingHorizontal: 24, fontSize: 16, fontWeight: '500' as const, minWidth: 200 }, // h-12 px-6 text-base
-    lg: { height: 56, paddingHorizontal: 32, fontSize: 18, fontWeight: '500' as const, minWidth: 200 }, // h-14 px-8 text-lg
-    xl: { height: 64, paddingHorizontal: 40, fontSize: 20, fontWeight: '600' as const, minWidth: 200 }, // h-16 px-10 text-xl font-semibold
-    icon: { height: 56, paddingHorizontal: 0, fontSize: 14, fontWeight: '500' as const, minWidth: 56 }, // h-14 w-14 p-0 text-sm
+    md: { height: 48, paddingHorizontal: 24, ...textSizes.base, minWidth: 200 }, // h-12 px-6 text-base
+    lg: { height: 56, paddingHorizontal: 32, ...textSizes.lg, minWidth: 200 }, // h-14 px-8 text-lg
+    xl: { height: 64, paddingHorizontal: 40, ...textSizes.xl, minWidth: 200 }, // h-16 px-10 text-xl
+    icon: { height: 56, paddingHorizontal: 0, ...textSizes.sm, minWidth: 56 }, // h-14 w-14 p-0 text-sm
   };
 
   const currentSize = sizeConfig[size];
@@ -117,7 +118,7 @@ export function Button({
   // Text styles
   const textStyles: TextStyle[] = [
     styles.text,
-    { fontSize: currentSize.fontSize, fontWeight: currentSize.fontWeight },
+    { fontSize: currentSize.fontSize, lineHeight: currentSize.lineHeight },
     styles[`${variant}Text` as keyof typeof styles] as TextStyle,
     textStyle,
   ].filter((s): s is TextStyle => s !== undefined);

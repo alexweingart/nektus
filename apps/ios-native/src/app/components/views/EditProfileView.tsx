@@ -25,6 +25,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
 import type { RootStackParamList } from '../../../../App';
+import { ANIMATION } from '@nektus/shared-client';
 import type { ContactEntry, FieldSection } from '@nektus/shared-types';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
@@ -122,11 +123,11 @@ export function EditProfileView() {
       setShowInlineAddLink(prev => ({ ...prev, [section]: true }));
       if (section === 'work' && selectedMode !== 'Work') {
         const toValue = 1;
-        Animated.timing(slideAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+        Animated.timing(slideAnim, { toValue, duration: ANIMATION.UI_MS, useNativeDriver: true }).start();
         setSharingCategory('Work');
       } else if (section === 'personal' && selectedMode !== 'Personal') {
         const toValue = 0;
-        Animated.timing(slideAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+        Animated.timing(slideAnim, { toValue, duration: ANIMATION.UI_MS, useNativeDriver: true }).start();
         setSharingCategory('Personal');
       }
     }
@@ -139,7 +140,7 @@ export function EditProfileView() {
 
     Animated.timing(slideAnim, {
       toValue,
-      duration: 250,
+      duration: ANIMATION.UI_MS,
       useNativeDriver: true,
     }).start();
 
