@@ -133,11 +133,18 @@ export function ParticleNetwork({
   context = "signed-out",
 }: ParticleNetworkProps) {
   const { width, height } = Dimensions.get("window");
-  const targetColors = colors || DEFAULT_COLORS;
+  // Memoize by value so referentially-different-but-equal objects don't restart transitions
+  const targetColors = useMemo(
+    () => colors || DEFAULT_COLORS,
+    [colors?.particle, colors?.connection, colors?.gradientStart, colors?.gradientEnd]
+  );
   const config = CONTEXT_CONFIGS[context] || CONTEXT_CONFIGS["signed-out"];
 
   // Track displayed colors (interpolated during transition)
   const [displayColors, setDisplayColors] = useState<ParticleColors>(targetColors);
+  // Ref to current display colors so transition can read latest without re-triggering effect
+  const displayColorsRef = useRef<ParticleColors>(targetColors);
+  displayColorsRef.current = displayColors;
 
   // App state — pause animation when backgrounded
   const isActiveRef = useRef(AppState.currentState === 'active');
@@ -184,9 +191,17 @@ export function ParticleNetwork({
   // Detect color changes and start transition
   useEffect(() => {
     if (!colorsEqual(targetColors, transitionRef.current.toColors)) {
+      // Cancel any in-progress transition before starting a new one
+      if (colorAnimIdRef.current !== null) {
+        cancelAnimationFrame(colorAnimIdRef.current);
+        colorAnimIdRef.current = null;
+      }
+
+      const currentDisplay = displayColorsRef.current;
+
       // Start transition from current display colors to new target
       transitionRef.current = {
-        fromColors: displayColors,
+        fromColors: currentDisplay,
         toColors: targetColors,
         startTime: Date.now(),
         isTransitioning: true,
@@ -194,10 +209,10 @@ export function ParticleNetwork({
       // Parse colors for interpolation
       parsedColorsRef.current = {
         from: {
-          particle: parseColor(displayColors.particle),
-          connection: parseColor(displayColors.connection),
-          gradientStart: parseColor(displayColors.gradientStart),
-          gradientEnd: parseColor(displayColors.gradientEnd),
+          particle: parseColor(currentDisplay.particle),
+          connection: parseColor(currentDisplay.connection),
+          gradientStart: parseColor(currentDisplay.gradientStart),
+          gradientEnd: parseColor(currentDisplay.gradientEnd),
         },
         to: {
           particle: parseColor(targetColors.particle),
@@ -207,49 +222,48 @@ export function ParticleNetwork({
         },
       };
 
-      // Start color animation loop (only runs during transition)
-      if (colorAnimIdRef.current === null) {
-        const animateColors = () => {
-          const transition = transitionRef.current;
-          const parsed = parsedColorsRef.current;
+      // Start color animation loop (runs independently of React render cycle)
+      const animateColors = () => {
+        const transition = transitionRef.current;
+        const parsed = parsedColorsRef.current;
 
-          if (!transition.isTransitioning || !parsed) {
-            colorAnimIdRef.current = null;
-            return; // Stop loop when transition is done
-          }
+        if (!transition.isTransitioning || !parsed) {
+          colorAnimIdRef.current = null;
+          return; // Stop loop when transition is done
+        }
 
-          const elapsed = Date.now() - transition.startTime;
-          const linearProgress = Math.min(elapsed / COLOR_TRANSITION_DURATION, 1);
-          const progress = 1 - Math.pow(1 - linearProgress, 3); // Cubic ease-out
+        const elapsed = Date.now() - transition.startTime;
+        const linearProgress = Math.min(elapsed / COLOR_TRANSITION_DURATION, 1);
+        const progress = 1 - Math.pow(1 - linearProgress, 3); // Cubic ease-out
 
-          if (linearProgress >= 1) {
-            transition.isTransitioning = false;
-            setDisplayColors(transition.toColors);
-            colorAnimIdRef.current = null;
-            return; // Stop loop
-          }
+        if (linearProgress >= 1) {
+          transition.isTransitioning = false;
+          setDisplayColors(transition.toColors);
+          colorAnimIdRef.current = null;
+          return; // Stop loop
+        }
 
-          setDisplayColors({
-            particle: interpolateColor(parsed.from.particle, parsed.to.particle, progress),
-            connection: interpolateColor(parsed.from.connection, parsed.to.connection, progress),
-            gradientStart: interpolateColor(parsed.from.gradientStart, parsed.to.gradientStart, progress),
-            gradientEnd: interpolateColor(parsed.from.gradientEnd, parsed.to.gradientEnd, progress),
-          });
-
-          colorAnimIdRef.current = requestAnimationFrame(animateColors);
-        };
+        setDisplayColors({
+          particle: interpolateColor(parsed.from.particle, parsed.to.particle, progress),
+          connection: interpolateColor(parsed.from.connection, parsed.to.connection, progress),
+          gradientStart: interpolateColor(parsed.from.gradientStart, parsed.to.gradientStart, progress),
+          gradientEnd: interpolateColor(parsed.from.gradientEnd, parsed.to.gradientEnd, progress),
+        });
 
         colorAnimIdRef.current = requestAnimationFrame(animateColors);
-      }
+      };
+
+      colorAnimIdRef.current = requestAnimationFrame(animateColors);
     }
 
+    // Only cancel on unmount, NOT on every re-render
     return () => {
       if (colorAnimIdRef.current !== null) {
         cancelAnimationFrame(colorAnimIdRef.current);
         colorAnimIdRef.current = null;
       }
     };
-  }, [targetColors, displayColors]);
+  }, [targetColors]); // Only re-run when target colors change (not on displayColors updates)
 
   // Track connections for rendering
   const [connections, setConnections] = useState<Array<{

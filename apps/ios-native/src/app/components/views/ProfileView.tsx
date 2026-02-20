@@ -110,6 +110,7 @@ export function ProfileView() {
       userId: match.profile.userId,
       token: match.token,
       isHistoricalMode: false,
+      backgroundColors: match.profile.backgroundColors,
     });
   }, [navigation]);
 
