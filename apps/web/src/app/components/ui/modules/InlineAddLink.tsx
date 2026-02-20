@@ -41,11 +41,13 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
   const [customLinkUrl, setCustomLinkUrl] = useState('');
 
   // Duplicate to other section
-  const [duplicateToOther, setDuplicateToOther] = useState(false);
+  const [duplicateToOther, setDuplicateToOther] = useState(true);
 
   const [error, setError] = useState('');
 
   const otherSection = section === 'personal' ? 'work' : 'personal';
+
+  const stripProtocol = (url: string) => url.replace(/^https?:\/\//i, '');
 
   // Utility function to extract domain for fieldType
   const extractDomainForFieldType = (url: string): string => {
@@ -99,7 +101,10 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
         };
       } else {
         // Custom link
-        const url = customLinkUrl.trim();
+        let url = customLinkUrl.trim();
+        if (url && !/^https?:\/\//i.test(url)) {
+          url = `https://${url}`;
+        }
         const fieldType = extractDomainForFieldType(url);
         const faviconUrl = `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`;
 
@@ -219,7 +224,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
         <ExpandingInput
           key="custom-input"
           value={customLinkUrl}
-          onChange={(value: string) => setCustomLinkUrl(value)}
+          onChange={(value: string) => setCustomLinkUrl(stripProtocol(value))}
           placeholder="https://example.com"
           autoFocus
         />
