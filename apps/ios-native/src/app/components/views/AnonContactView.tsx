@@ -15,8 +15,7 @@ import SocialIcon from '../ui/elements/SocialIcon';
 import { Button } from '../ui/buttons/Button';
 import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
-import { BodyText } from '../ui/Typography';
-import { SF_ROUNDED } from '../../../shared/fonts';
+import { BodyText, textSizes, fontStyles } from '../ui/Typography';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 
 // Apple icon (dark logo for white button to match app style)
@@ -110,7 +109,7 @@ export function AnonContactView({
     // Fade out profile card
     Animated.timing(profileOpacity, {
       toValue: 0,
-      duration: 350,
+      duration: 300,
       easing: easeOut,
       useNativeDriver: true,
     }).start();
@@ -120,7 +119,7 @@ export function AnonContactView({
       Animated.delay(baseDelay),
       Animated.timing(upsellOpacity, {
         toValue: 1,
-        duration: 100,
+        duration: 300,
         useNativeDriver: true,
       }),
     ]).start();
@@ -129,15 +128,15 @@ export function AnonContactView({
     Animated.sequence([
       Animated.delay(baseDelay),
       Animated.parallel([
-        Animated.timing(headlineAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(headlineSlide, { toValue: 0, duration: 400, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(headlineAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(headlineSlide, { toValue: 0, duration: 300, easing: easeOut, useNativeDriver: true }),
       ]),
     ]).start();
 
     // Subhead "Your profile is ready."
     Animated.sequence([
       Animated.delay(baseDelay + stagger),
-      Animated.timing(subheadAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(subheadAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
 
     // Feature rows — staggered entrance
@@ -151,8 +150,8 @@ export function AnonContactView({
       Animated.sequence([
         Animated.delay(baseDelay + stagger * (i + 2)),
         Animated.parallel([
-          Animated.timing(opacity, { toValue: 1, duration: 350, useNativeDriver: true }),
-          Animated.timing(slide, { toValue: 0, duration: 350, easing: easeOut, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(slide, { toValue: 0, duration: 300, easing: easeOut, useNativeDriver: true }),
         ]),
       ]).start();
     });
@@ -160,7 +159,7 @@ export function AnonContactView({
     // Buttons fade in last
     Animated.sequence([
       Animated.delay(baseDelay + stagger * 5),
-      Animated.timing(buttonsAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(buttonsAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
   }, [isSaved]);
 
@@ -422,16 +421,15 @@ const styles = StyleSheet.create({
   },
   name: {
     color: '#ffffff',
-    fontSize: 24,
-    fontFamily: SF_ROUNDED.bold,
+    ...textSizes.xxl,
+    ...fontStyles.bold,
     textAlign: 'center',
     marginBottom: 16,
   },
   bio: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    ...fontStyles.regular,
+    ...textSizes.sm,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -450,8 +448,8 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontFamily: SF_ROUNDED.regular,
-    fontSize: 14,
+    ...fontStyles.regular,
+    ...textSizes.sm,
     textAlign: 'center',
   },
   secondaryButtonContainer: {
@@ -471,7 +469,8 @@ const styles = StyleSheet.create({
   upsellHeadline: {
     color: '#ffffff',
     fontSize: 28,
-    fontFamily: SF_ROUNDED.bold,
+    lineHeight: 36,
+    ...fontStyles.bold,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -484,8 +483,8 @@ const styles = StyleSheet.create({
   },
   upsellSubhead: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 16,
-    fontFamily: SF_ROUNDED.medium,
+    ...textSizes.base,
+    ...fontStyles.medium,
     textAlign: 'center',
   },
   upsellDividerWrap: {
@@ -502,6 +501,7 @@ const styles = StyleSheet.create({
   },
   upsellEmoji: {
     fontSize: 28,
+    lineHeight: 36,
     width: 36,
     textAlign: 'center',
   },
@@ -511,14 +511,13 @@ const styles = StyleSheet.create({
   },
   upsellRowTitle: {
     color: '#ffffff',
-    fontSize: 16,
-    fontFamily: SF_ROUNDED.semibold,
+    ...textSizes.base,
+    ...fontStyles.semibold,
   },
   upsellRowDesc: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    fontFamily: SF_ROUNDED.regular,
-    lineHeight: 20,
+    ...textSizes.sm,
+    ...fontStyles.regular,
   },
 });
 

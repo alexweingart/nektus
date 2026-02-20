@@ -364,6 +364,15 @@ function AppClipContent() {
     });
   }, []);
 
+  // Auto-show SKOverlay when contact is saved (after contact form dismissed)
+  useEffect(() => {
+    if (!isSaved) return;
+    const timer = setTimeout(() => {
+      showAppStoreOverlay();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [isSaved]);
+
   // Determine particle colors based on current state
   const particleColors = getParticleColors(previewProfile);
 
