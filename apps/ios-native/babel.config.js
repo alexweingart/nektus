@@ -7,6 +7,16 @@ module.exports = function (api) {
   const projectRoot = __dirname;
   const monorepoRoot = path.resolve(projectRoot, "../..");
 
+  const plugins = [];
+
+  // Strip console.log/warn/info in production builds (keeps console.error)
+  if (process.env.NODE_ENV === "production") {
+    plugins.push([
+      require.resolve("babel-plugin-transform-remove-console"),
+      { exclude: ["error"] },
+    ]);
+  }
+
   return {
     presets: [
       [
@@ -15,5 +25,6 @@ module.exports = function (api) {
       ],
       require.resolve("nativewind/babel"),
     ],
+    plugins,
   };
 };

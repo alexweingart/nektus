@@ -67,6 +67,7 @@
     "@react-native-community/cli": "^18.0.0",
     "@react-native/metro-config": "^0.81.5",
     "@types/react": "~19.1.0",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "~54.0.10",
     "canvas": "^3.2.0",
     "patch-package": "^8.0.1",

@@ -125,8 +125,10 @@ const CONTEXT_CONFIGS: Record<string, ContextConfig> = {
 // Color transition duration (matches web's 1000ms)
 const COLOR_TRANSITION_DURATION = ANIMATION.CINEMATIC_MS;
 
-// Connection update frequency: every N frames (higher = less CPU, slightly choppier connections)
-const CONNECTION_UPDATE_INTERVAL = 6; // ~10fps for connection lines
+// Target ~20fps for particle updates (50ms per frame)
+const FRAME_INTERVAL_MS = 50;
+// Connection update frequency: every N *rendered* frames (~4fps at 20fps base)
+const CONNECTION_UPDATE_INTERVAL = 5;
 
 export function ParticleNetwork({
   colors,
@@ -146,15 +148,8 @@ export function ParticleNetwork({
   const displayColorsRef = useRef<ParticleColors>(targetColors);
   displayColorsRef.current = displayColors;
 
-  // App state — pause animation when backgrounded
+  // App state — fully stop animation loop when backgrounded
   const isActiveRef = useRef(AppState.currentState === 'active');
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      isActiveRef.current = nextState === 'active';
-    });
-    return () => sub.remove();
-  }, []);
 
   // Transition state ref
   const transitionRef = useRef<{
@@ -265,14 +260,15 @@ export function ParticleNetwork({
     };
   }, [targetColors]); // Only re-run when target colors change (not on displayColors updates)
 
-  // Track connections for rendering
-  const [connections, setConnections] = useState<Array<{
+  // Track connections via ref to avoid React re-renders on every update
+  const connectionsRef = useRef<Array<{
     x1: number;
     y1: number;
     x2: number;
     y2: number;
     opacity: number;
   }>>([]);
+  const [connectionsTick, setConnectionsTick] = useState(0);
 
   // Initialize particles
   const particles = useMemo(() => {
@@ -299,19 +295,22 @@ export function ParticleNetwork({
     return match ? parseFloat(match[4] || '1') : 0.15;
   }, [displayColors.connection]);
 
-  // Animation loop
-  useEffect(() => {
-    let animationId: number;
+  // Animation loop — throttled to ~20fps, fully stops when backgrounded
+  const animationIdRef = useRef<number | null>(null);
+
+  const startAnimation = useCallback(() => {
+    if (animationIdRef.current !== null) return; // already running
     let frameCount = 0;
+    let lastFrameTime = 0;
 
-    const animate = () => {
-      frameCount++;
-
-      // Skip work when app is backgrounded
-      if (!isActiveRef.current) {
-        animationId = requestAnimationFrame(animate);
+    const animate = (timestamp: number) => {
+      // Throttle: skip frames until enough time has passed
+      if (timestamp - lastFrameTime < FRAME_INTERVAL_MS) {
+        animationIdRef.current = requestAnimationFrame(animate);
         return;
       }
+      lastFrameTime = timestamp;
+      frameCount++;
 
       // Update particle positions
       particles.forEach((particle) => {
@@ -327,9 +326,9 @@ export function ParticleNetwork({
         particle.y.setValue(particle.currentY);
       });
 
-      // Update connections every N frames for performance (~10fps)
+      // Update connections every N rendered frames (~4fps)
       if (frameCount % CONNECTION_UPDATE_INTERVAL === 0) {
-        const newConnections: typeof connections = [];
+        const newConnections: Array<{ x1: number; y1: number; x2: number; y2: number; opacity: number }> = [];
         const distSq = config.connectionDistance * config.connectionDistance;
 
         for (let i = 0; i < particles.length; i++) {
@@ -354,15 +353,44 @@ export function ParticleNetwork({
           }
         }
 
-        setConnections(newConnections);
+        connectionsRef.current = newConnections;
+        setConnectionsTick(prev => prev + 1);
       }
 
-      animationId = requestAnimationFrame(animate);
+      animationIdRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
-    return () => cancelAnimationFrame(animationId);
+    animationIdRef.current = requestAnimationFrame(animate);
   }, [particles, width, height, config.connectionDistance, config.connectionOpacity, connectionBaseOpacity]);
+
+  const stopAnimation = useCallback(() => {
+    if (animationIdRef.current !== null) {
+      cancelAnimationFrame(animationIdRef.current);
+      animationIdRef.current = null;
+    }
+  }, []);
+
+  // Start/stop based on app state — fully stops the loop when backgrounded
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      isActiveRef.current = nextState === 'active';
+      if (nextState === 'active') {
+        startAnimation();
+      } else {
+        stopAnimation();
+      }
+    });
+
+    // Start immediately if app is active
+    if (isActiveRef.current) {
+      startAnimation();
+    }
+
+    return () => {
+      sub.remove();
+      stopAnimation();
+    };
+  }, [startAnimation, stopAnimation]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -379,7 +407,7 @@ export function ParticleNetwork({
 
       {/* Particle connections using SVG */}
       <Svg style={StyleSheet.absoluteFill}>
-        {connections.map((conn, index) => (
+        {connectionsRef.current.map((conn, index) => (
           <Line
             key={`conn-${index}`}
             x1={conn.x1}
