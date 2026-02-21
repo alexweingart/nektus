@@ -172,32 +172,26 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
     }
   }, [isValid, buildEntries, onLinkAdded]);
 
-  // Handle blur - save if valid, cancel if empty
-  // Check internalInteractionRef to avoid triggering when tapping internal controls
+  // Handle blur - auto-save if valid content exists
+  // Unlike web, React Native has no relatedTarget to detect if focus truly left the component,
+  // so we only auto-save on blur (never auto-cancel — user has the ✕ button for that)
   const handleBlur = useCallback(() => {
-    // Delay to allow for tapping internal elements (dropdown, toggle, etc.)
     setTimeout(() => {
-      // If an internal interaction is in progress, don't do anything
       if (internalInteractionRef.current) {
         return;
       }
 
-      // Check if current input has value
       const currentValue = linkType === 'Social' ? socialUsername.trim() : customLinkUrl.trim();
 
       if (currentValue) {
-        // Has value - auto-save
         setError('');
         const entries = buildEntries();
         if (entries) {
           onLinkAdded(entries);
         }
-      } else {
-        // Empty - cancel
-        onCancel();
       }
     }, 300);
-  }, [socialUsername, customLinkUrl, linkType, buildEntries, onLinkAdded, onCancel]);
+  }, [socialUsername, customLinkUrl, linkType, buildEntries, onLinkAdded]);
 
   // Save method exposed via ref
   const handleSave = useCallback((): ContactEntry[] | null => {
