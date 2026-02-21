@@ -5,15 +5,6 @@ import type { AISchedulingRequest } from '@/types/ai-scheduling';
 import type { Event, TimeSlot } from '@/types';
 import type { EventSearchResult } from '@/server/ai-scheduling/helpers/search-events';
 
-// Extract street address from full address (e.g., "1326 Scott Street, San Francisco, CA 94115" -> "1326 Scott Street")
-// Disabled: not currently used but kept for potential future use
-// function getStreetAddress(fullAddress: string): string {
-//   if (!fullAddress) return fullAddress;
-//   // Split by comma and take the first part (street address)
-//   const parts = fullAddress.split(',');
-//   return parts[0]?.trim() || fullAddress;
-// }
-
 export async function handleSearchEvents(
   processingId: string,
   location: string,

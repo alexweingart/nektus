@@ -117,7 +117,6 @@ function AppClipContent() {
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [needsSetup, setNeedsSetup] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -237,7 +236,6 @@ function AppClipContent() {
 
       // If new user, show phone entry modal (defer pair signal until after phone setup)
       if (tokenResponse.needsSetup) {
-        setNeedsSetup(true);
         setShowPhoneModal(true);
       } else {
         // Existing user — signal match to web user immediately

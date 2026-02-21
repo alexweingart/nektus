@@ -70,18 +70,17 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     const prevStatus = prevStatusRef.current;
 
     // Emit animation events based on status transitions
-    // Include BLE scanning states as "waiting" states
     const isWaitingStatus = status === "waiting-for-bump" || status === "ble-scanning";
     const wasWaitingStatus = prevStatus === "waiting-for-bump" || prevStatus === "ble-scanning";
 
     if (isWaitingStatus && !wasWaitingStatus) {
-      // Started waiting for bump/BLE - start floating animation
+      // Started scanning/waiting - start floating/breathing animation
       emitStartFloating();
     } else if (status === "processing" && wasWaitingStatus) {
-      // Bump detected - trigger wind-up animation
+      // Bump detected - trigger wind-up/jiggle animation
       emitBumpDetected();
-    } else if (status === "ble-connecting" && (prevStatus === "ble-discovered" || prevStatus === "ble-scanning")) {
-      // BLE peer found - trigger wind-up animation (like bump detected)
+    } else if (status === "ble-discovered" && prevStatus === "ble-scanning") {
+      // BLE found a nearby friend - trigger wind-up/jiggle animation
       emitBumpDetected();
     } else if (["idle", "error", "timeout", "ble-unavailable"].includes(status) &&
                ["waiting-for-bump", "processing", "qr-scan-pending", "ble-scanning", "ble-discovered", "ble-connecting", "ble-exchanging"].includes(prevStatus)) {
@@ -156,11 +155,10 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         },
       });
 
-      // Check BLE availability on first initialization
-      if (bleAvailable === null) {
-        const available = await service.checkBLEAvailability();
-        setBleAvailable(available);
-      }
+      // Always check BLE availability on new service instance
+      // (each new service starts with bleAvailable=false internally)
+      const available = await service.checkBLEAvailability();
+      setBleAvailable(available);
 
       setHybridService(service);
       return service;
@@ -354,10 +352,10 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
     'requesting-permission': { icon: 'spinner', text: 'Warming up...' },
     'waiting-for-bump':     { icon: 'dot',     text: 'Bump or scan when ready...' },
-    'ble-scanning':         { icon: 'dot',     text: 'Looking for friends...' },
-    'ble-discovered':       { icon: 'dot',     text: 'Found nearby friend...' },
-    'ble-connecting':       { icon: 'spinner', text: 'Connecting...' },
-    'ble-exchanging':       { icon: 'spinner', text: 'Exchanging contacts...' },
+    'ble-scanning':         { icon: 'dot',     text: 'Bump or scan when ready...' },
+    'ble-discovered':       { icon: 'spinner', text: 'Finding your person...' },
+    'ble-connecting':       { icon: 'spinner', text: 'Finding your person...' },
+    'ble-exchanging':       { icon: 'spinner', text: 'Finding your person...' },
     'processing':           { icon: 'spinner', text: 'Finding your person...' },
     'qr-scan-pending':      { icon: 'dot',     text: 'Finding your person...' },
     'qr-scan-matched':      { icon: 'none',    text: 'Match Found!', match: true },
@@ -369,7 +367,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
   const getButtonContent = () => {
     const config = BUTTON_CONTENT[status] || { icon: 'none' as const, text: 'Nekt' };
-    const textStyle = config.error ? styles.errorText : config.match ? styles.matchText : styles.text;
+    const textStyle = config.error ? styles.errorText : styles.text;
     if (config.icon === 'none') return <Text style={textStyle}>{config.text}</Text>;
     return (
       <View style={styles.contentRow}>
@@ -485,12 +483,6 @@ const styles = StyleSheet.create({
   },
   // Typography matching web's xl button: text-xl font-bold (20px, 700)
   text: {
-    ...fontStyles.semibold,
-    ...textSizes.xl,
-    letterSpacing: 0.2,
-    color: "#374151",
-  },
-  matchText: {
     ...fontStyles.semibold,
     ...textSizes.xl,
     letterSpacing: 0.2,

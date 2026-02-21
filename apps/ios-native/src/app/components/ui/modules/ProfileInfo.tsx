@@ -111,6 +111,72 @@ const filterProfileByCategory = (profile: UserProfile, category: SharingCategory
   };
 };
 
+/**
+ * Single carousel panel for Personal or Work view
+ */
+const ProfilePanel: React.FC<{
+  section: 'personal' | 'work';
+  profile: UserProfile;
+  containerWidth: number;
+  isBioLoading: boolean;
+  isBioPlaceholder: boolean;
+  bioContent: string;
+  skeletonOpacity: Animated.Value;
+  onAddBioPress?: () => void;
+  filteredContactEntries: ContactEntry[];
+  visibleLinkCount: number;
+  onAddLinkPress?: () => void;
+}> = ({ section, profile, containerWidth, isBioLoading, isBioPlaceholder, bioContent, skeletonOpacity, onAddBioPress, filteredContactEntries, visibleLinkCount, onAddLinkPress }) => {
+  const location = profile?.locations?.find(loc => loc.section === section);
+
+  return (
+    <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
+      <View style={[styles.nameContainer, location && { marginBottom: 4 }]}>
+        <Heading style={styles.name}>
+          {getFieldValue(profile?.contactEntries, 'name')}
+        </Heading>
+      </View>
+
+      {location && (
+        <View style={styles.locationRow}>
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+            <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </Svg>
+          <BodyText style={styles.locationText}>
+            {location.city}, {location.region}
+          </BodyText>
+        </View>
+      )}
+
+      <View style={styles.bioContainer}>
+        {isBioLoading ? (
+          <View style={styles.skeletonContainer}>
+            <Animated.View style={[styles.skeletonBar, styles.skeletonBarLong, { opacity: skeletonOpacity }]} />
+            <Animated.View style={[styles.skeletonBar, styles.skeletonBarShort, { opacity: skeletonOpacity }]} />
+          </View>
+        ) : isBioPlaceholder && onAddBioPress ? (
+          <TouchableOpacity onPress={onAddBioPress} style={styles.addBioButton}>
+            <BodyText style={styles.addBioText}>+ Add Bio</BodyText>
+          </TouchableOpacity>
+        ) : (
+          <BodyText style={styles.bioText}>{bioContent}</BodyText>
+        )}
+      </View>
+
+      <View style={styles.iconsContainer}>
+        {filteredContactEntries && (
+          <SocialIconsList
+            contactEntries={filteredContactEntries}
+            showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
+            onAddPress={onAddLinkPress}
+          />
+        )}
+      </View>
+    </View>
+  );
+};
+
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   profile,
   profileImageSrc,
@@ -364,116 +430,34 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           {...panResponder.panHandlers}
         >
           {/* Personal View */}
-          <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
-            {/* Profile Name */}
-            <View style={[styles.nameContainer, profile?.locations?.find(loc => loc.section === 'personal') && { marginBottom: 4 }]}>
-              <Heading style={styles.name}>
-                {getFieldValue(profile?.contactEntries, 'name')}
-              </Heading>
-            </View>
-
-            {/* Location Display */}
-            {(() => {
-              const personalLocation = profile?.locations?.find(loc => loc.section === 'personal');
-              if (personalLocation) {
-                return (
-                  <View style={styles.locationRow}>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-                      <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </Svg>
-                    <BodyText style={styles.locationText}>
-                      {personalLocation.city}, {personalLocation.region}
-                    </BodyText>
-                  </View>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Bio */}
-            <View style={styles.bioContainer}>
-              {isBioLoading ? (
-                <View style={styles.skeletonContainer}>
-                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarLong, { opacity: skeletonOpacity }]} />
-                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarShort, { opacity: skeletonOpacity }]} />
-                </View>
-              ) : isBioPlaceholder && onAddBioPress ? (
-                <TouchableOpacity onPress={onAddBioPress} style={styles.addBioButton}>
-                  <BodyText style={styles.addBioText}>+ Add Bio</BodyText>
-                </TouchableOpacity>
-              ) : (
-                <BodyText style={styles.bioText}>{bioContent}</BodyText>
-              )}
-            </View>
-
-            {/* Contact Icons */}
-            <View style={styles.iconsContainer}>
-              {filteredContactEntries && (
-                <SocialIconsList
-                  contactEntries={filteredContactEntries}
-                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
-                  onAddPress={onAddLinkPress}
-                />
-              )}
-            </View>
-          </View>
+          <ProfilePanel
+            section="personal"
+            profile={profile}
+            containerWidth={containerWidth}
+            isBioLoading={isBioLoading}
+            isBioPlaceholder={isBioPlaceholder}
+            bioContent={bioContent}
+            skeletonOpacity={skeletonOpacity}
+            onAddBioPress={onAddBioPress}
+            filteredContactEntries={filteredContactEntries}
+            visibleLinkCount={visibleLinkCount}
+            onAddLinkPress={onAddLinkPress}
+          />
 
           {/* Work View */}
-          <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
-            {/* Profile Name */}
-            <View style={[styles.nameContainer, profile?.locations?.find(loc => loc.section === 'work') && { marginBottom: 4 }]}>
-              <Heading style={styles.name}>
-                {getFieldValue(profile?.contactEntries, 'name')}
-              </Heading>
-            </View>
-
-            {/* Location Display */}
-            {(() => {
-              const workLocation = profile?.locations?.find(loc => loc.section === 'work');
-              if (workLocation) {
-                return (
-                  <View style={styles.locationRow}>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-                      <Path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <Path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </Svg>
-                    <BodyText style={styles.locationText}>
-                      {workLocation.city}, {workLocation.region}
-                    </BodyText>
-                  </View>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Bio */}
-            <View style={styles.bioContainer}>
-              {isBioLoading ? (
-                <View style={styles.skeletonContainer}>
-                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarLong, { opacity: skeletonOpacity }]} />
-                  <Animated.View style={[styles.skeletonBar, styles.skeletonBarShort, { opacity: skeletonOpacity }]} />
-                </View>
-              ) : isBioPlaceholder && onAddBioPress ? (
-                <TouchableOpacity onPress={onAddBioPress} style={styles.addBioButton}>
-                  <BodyText style={styles.addBioText}>+ Add Bio</BodyText>
-                </TouchableOpacity>
-              ) : (
-                <BodyText style={styles.bioText}>{bioContent}</BodyText>
-              )}
-            </View>
-
-            {/* Contact Icons */}
-            <View style={styles.iconsContainer}>
-              {filteredContactEntries && (
-                <SocialIconsList
-                  contactEntries={filteredContactEntries}
-                  showAddButton={visibleLinkCount <= 4 && !!onAddLinkPress}
-                  onAddPress={onAddLinkPress}
-                />
-              )}
-            </View>
-          </View>
+          <ProfilePanel
+            section="work"
+            profile={profile}
+            containerWidth={containerWidth}
+            isBioLoading={isBioLoading}
+            isBioPlaceholder={isBioPlaceholder}
+            bioContent={bioContent}
+            skeletonOpacity={skeletonOpacity}
+            onAddBioPress={onAddBioPress}
+            filteredContactEntries={filteredContactEntries}
+            visibleLinkCount={visibleLinkCount}
+            onAddLinkPress={onAddLinkPress}
+          />
         </Animated.View>
 
         {/* Profile View Selector */}

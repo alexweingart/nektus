@@ -130,11 +130,6 @@ export interface NavigateToBookingResult {
   showCreateButton: boolean;
 }
 
-export interface TimeSlotSelection {
-  timeSlot: TimeSlot;
-  wasExplicitOverride: boolean;
-}
-
 export interface OpenAIFunction {
   name: string;
   description: string;

@@ -46,21 +46,3 @@ export interface PlacesResponse {
   };
 }
 
-// Internal processing types
-export interface MidpointCalculation {
-  coordinates: Coordinates;
-  search_radius_meters: number;
-}
-
-export interface GeocodeResult {
-  coordinates: Coordinates;
-  formatted_address: string;
-  place_id?: string;
-}
-
-// Error types - renamed from LocationError
-export interface PlaceError {
-  code: 'GEOCODING_FAILED' | 'NO_RESULTS' | 'API_ERROR' | 'INVALID_ADDRESS' | 'QUOTA_EXCEEDED';
-  message: string;
-  details?: unknown;
-}

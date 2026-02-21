@@ -17,7 +17,7 @@ import { useScreenRefresh } from '../../../client/hooks/use-screen-refresh';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
-import type { UserProfile, TimeSlot, Place } from '@nektus/shared-types';
+import type { UserProfile, TimeSlot, Place, SuggestionChip } from '@nektus/shared-types';
 import {
   getApiBaseUrl,
   getFieldValue,
@@ -43,12 +43,6 @@ import { emitMatchFound } from '../../utils/animationEvents';
 type SmartScheduleViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SmartSchedule'>;
 type SmartScheduleViewRouteProp = RouteProp<RootStackParamList, 'SmartSchedule'>;
 
-
-interface SuggestionChip {
-  id: string;
-  eventId: string;
-  icon: string;
-}
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },

@@ -14,7 +14,6 @@ export * from '@nektus/shared-types';
 // Firebase configuration (shared across platforms)
 export {
   firebaseConfig,
-  isFirebaseConfigValid,
   getApiBaseUrl,
 } from './config/firebase';
 
@@ -45,8 +44,3 @@ export * from './scheduling';
 // Constants (business logic defaults)
 export * from './constants';
 
-// ============================================================================
-// VERSION
-// ============================================================================
-
-export const SHARED_CLIENT_VERSION = '0.1.0';

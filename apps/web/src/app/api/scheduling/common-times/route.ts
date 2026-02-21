@@ -5,9 +5,8 @@ import { getGoogleBusyTimes, refreshGoogleToken } from '@/client/calendar/provid
 import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/client/calendar/providers/microsoft';
 import { getAppleBusyTimes } from '@/client/calendar/providers/apple';
 import { findSlotIntersection, generateFreeSlots, mergeBusyTimes, getAvailabilityTimeRange } from '@/server/calendar/slots-generator';
-import { TimeSlot, Calendar } from '@/types';
+import { TimeSlot, Calendar, CalendarTokens } from '@/types';
 import { getDefaultSchedulableHours } from '@/server/calendar/scheduling';
-import { CalendarTokens } from '@/types';
 import { Redis } from '@upstash/redis';
 import { CACHE_TTL } from '@nektus/shared-client';
 
@@ -216,7 +215,7 @@ async function getUserFreeSlotsWithData(
       console.log(`❌ User with ID ${userId} not found in batched data`);
       // Generate 24/7 availability as fallback
       const { startTime, endTime } = getAvailabilityTimeRange(userTimezone || undefined);
-      return generate24x7Slots(startTime, endTime, userTimezone || undefined);
+      return generate24x7Slots(startTime, endTime);
     }
 
     const { email: userEmail, tokens: allTokens, providers: userCalendarProviders } = userData;
@@ -265,7 +264,7 @@ async function getUserFreeSlotsWithData(
       }
 
       console.log('⚠️ No calendar connections found, assuming 24/7 availability');
-      return generate24x7Slots(startTime, endTime, userTimezone || undefined);
+      return generate24x7Slots(startTime, endTime);
     }
 
     // Get user's schedulable hours based on calendar state and selected type
@@ -427,7 +426,7 @@ async function getUserFreeSlotsWithData(
 
 
 // Generate 24/7 availability slots dynamically using user timezone
-function generate24x7Slots(startTime: string, endTime: string, userTimezone?: string): TimeSlot[] {
+function generate24x7Slots(startTime: string, endTime: string): TimeSlot[] {
   const slots: TimeSlot[] = [];
 
   // Parse the provided time range (already timezone-aware from getAvailabilityTimeRange)
@@ -459,7 +458,7 @@ function generate24x7Slots(startTime: string, endTime: string, userTimezone?: st
     current.setTime(current.getTime() + 30 * 60 * 1000);
   }
 
-  console.log(`Generated ${slots.length} 24/7 availability slots using timezone: ${userTimezone || 'UTC'} (range: ${startTime} to ${endTime})`);
+  console.log(`Generated ${slots.length} 24/7 availability slots (range: ${startTime} to ${endTime})`);
   return slots;
 }
 

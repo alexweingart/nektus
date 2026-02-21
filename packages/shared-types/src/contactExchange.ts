@@ -42,15 +42,6 @@ export interface SavedContact extends UserProfile {
   contactType: 'personal' | 'work';  // Type of contact relationship (personal or work)
 }
 
-// WebSocket message types
-export type ContactExchangeMessage = 
-  | { type: 'connected'; sessionId: string; timestamp: number }
-  | { type: 'match'; token: string; youAre: 'A' | 'B' }
-  | { type: 'accept'; profile: UserProfile }
-  | { type: 'reject' }
-  | { type: 'timeout' }
-  | { type: 'error'; message: string };
-
 // Motion detection types
 export interface MotionDetectionResult {
   hasMotion: boolean;
@@ -142,8 +133,3 @@ export interface ContactSaveResult {
   contact?: UserProfile;
 }
 
-export interface GoogleContactsResult {
-  success: boolean;
-  contactId?: string;
-  error?: string;
-}

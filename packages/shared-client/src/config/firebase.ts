@@ -38,17 +38,6 @@ export const firebaseConfig = {
   appId: getEnvVar('FIREBASE_APP_ID'),
 };
 
-/**
- * Check if Firebase config is valid (all required fields present)
- */
-export function isFirebaseConfigValid(): boolean {
-  return Boolean(
-    firebaseConfig.apiKey &&
-      firebaseConfig.authDomain &&
-      firebaseConfig.projectId
-  );
-}
-
 // Dev server URL (Tailscale)
 const DEV_API_URL = 'https://nekt.tail768878.ts.net';
 // Production URL
