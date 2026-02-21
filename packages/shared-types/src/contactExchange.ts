@@ -2,7 +2,7 @@ import { UserProfile } from './profile';
 
 export interface ContactExchangeRequest {
   ts?: number;       // client timestamp in ms (optional, for logging only)
-  mag: number;       // acceleration magnitude
+  mag?: number;      // acceleration magnitude (optional, legacy)
   vector?: string;   // SHA-256 hash of acceleration vector
   session: string;   // Session ID
   tSent?: number;    // Performance timing when request was sent (for diagnostics)

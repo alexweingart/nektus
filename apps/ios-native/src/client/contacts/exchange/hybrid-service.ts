@@ -45,7 +45,6 @@ export class HybridExchangeService {
   private userProfile: UserProfile | null = null;
   private userId: string = '';
   private sharingCategory: SharingCategory = 'Personal';
-  private motionPermissionGranted: boolean = false;
   private bleAvailable: boolean = false;
   private currentStatus: ExchangeStatus = 'idle';
 
@@ -77,8 +76,7 @@ export class HybridExchangeService {
   async start(
     userId: string,
     userProfile: UserProfile,
-    sharingCategory: SharingCategory,
-    motionPermissionGranted: boolean
+    sharingCategory: SharingCategory
   ): Promise<void> {
     if (this.matchFound) {
       console.warn('[Hybrid] Already matched, ignoring start');
@@ -89,7 +87,6 @@ export class HybridExchangeService {
     this.userId = userId;
     this.userProfile = userProfile;
     this.sharingCategory = sharingCategory;
-    this.motionPermissionGranted = motionPermissionGranted;
     this.matchFound = false;
 
     // Update status based on BLE availability
@@ -161,10 +158,7 @@ export class HybridExchangeService {
     const serverCategory = this.sharingCategory === 'Personal' ? 'Personal' : 'Work';
 
     try {
-      // When BLE is available, disable motion detection for server matching
-      // BLE handles proximity via scanning; server only handles QR code matching
-      const motionForServer = this.bleAvailable ? false : this.motionPermissionGranted;
-      await this.serverService.startExchange(motionForServer, serverCategory);
+      await this.serverService.startExchange(serverCategory);
     } catch (error) {
       console.warn('[Hybrid] Server start failed:', error);
       // BLE matching continues independently

@@ -25,6 +25,10 @@ import {
   requestBluetoothPermissions,
   waitForBluetoothReady,
   startScanning,
+  startAdvertising,
+  stopAdvertising,
+  setupGATTServer,
+  onPeripheralWriteReceived,
   connectToDevice,
   disconnectDevice,
   writeProfileToDevice,
@@ -71,6 +75,12 @@ export class BLEExchangeService {
   // Connection state
   private connectedDevice: Device | null = null;
   private connectionMonitor: { cancel: () => void } | null = null;
+
+  // Peripheral write listener unsubscribe
+  private writeListenerUnsubscribe: (() => void) | null = null;
+
+  // Received chunks from initiator's write (responder side)
+  private receivedChunks: Map<string, { totalChunks: number; chunks: string[] }> = new Map();
 
   // Timeout handle
   private timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -157,13 +167,28 @@ export class BLEExchangeService {
         }
       }, EXCHANGE_TIMEOUT.SLOW_MS);
 
-      // Start scanning for peers
+      // Prepare our profile payload for GATT server
+      const filteredProfile = filterProfileByCategory(this.userProfile!, this.sharingCategory);
+      const ourPayload: BLEProfilePayload = {
+        userId: this.userProfile!.userId,
+        profileImage: this.userProfile!.profileImage,
+        backgroundColors: this.userProfile!.backgroundColors,
+        contactEntries: filteredProfile.contactEntries,
+      };
+
+      // Set up GATT server with our profile data (for centrals to read)
+      setupGATTServer(ourPayload);
+
+      // Start advertising so other devices can discover us
+      const category = this.sharingCategory === 'Personal' ? 'P' as const : 'W' as const;
+      startAdvertising(userId, category, this.buttonPressTimestamp);
+
+      // Listen for writes from connecting centrals (responder side)
+      this.setupWriteListener();
+
+      // Start scanning for peers (central side)
       this.startScanning();
       this.setState('scanning');
-
-      // Note: iOS doesn't support BLE peripheral advertising from apps
-      // We rely on both devices scanning and connecting as centrals
-      // The initiator (earlier timestamp) will attempt connection
 
     } catch (error) {
       console.error('[BLE Service] Failed to start:', error);
@@ -191,6 +216,15 @@ export class BLEExchangeService {
       this.scanHandle = null;
     }
 
+    // Stop advertising
+    stopAdvertising();
+
+    // Remove write listener
+    if (this.writeListenerUnsubscribe) {
+      this.writeListenerUnsubscribe();
+      this.writeListenerUnsubscribe = null;
+    }
+
     // Cancel connection monitor
     if (this.connectionMonitor) {
       this.connectionMonitor.cancel();
@@ -203,8 +237,9 @@ export class BLEExchangeService {
       this.connectedDevice = null;
     }
 
-    // Clear peers
+    // Clear peers and received chunks
     this.discoveredPeers.clear();
+    this.receivedChunks.clear();
 
     // Reset state
     if (this.state !== 'completed') {
@@ -221,6 +256,90 @@ export class BLEExchangeService {
       (device, advertisementData) => this.handleDeviceDiscovered(device, advertisementData),
       (error) => this.handleScanError(error)
     );
+  }
+
+  /**
+   * Set up listener for GATT write events (responder side).
+   * When an initiator writes their profile to us, we treat it as a match.
+   */
+  private setupWriteListener(): void {
+    this.writeListenerUnsubscribe = onPeripheralWriteReceived((event) => {
+      if (this.cancelled || this.state === 'completed') return;
+
+      console.log(`[BLE Service] Received write from central: ${event.centralId}`);
+
+      try {
+        // Parse the incoming data — could be metadata header or profile chunk
+        const parsed = JSON.parse(event.data);
+
+        if ('totalChunks' in parsed) {
+          // Metadata header — initialize chunk storage
+          this.receivedChunks.set(event.centralId, {
+            totalChunks: parsed.totalChunks,
+            chunks: new Array(parsed.totalChunks),
+          });
+          console.log(`[BLE Service] Expecting ${parsed.totalChunks} chunks from ${event.centralId}`);
+          return;
+        }
+
+        if ('index' in parsed && 'data' in parsed) {
+          // Profile chunk
+          const storage = this.receivedChunks.get(event.centralId);
+          if (!storage) {
+            // No header received yet — treat as single chunk
+            this.handleReceivedProfile(parsed.data);
+            return;
+          }
+
+          storage.chunks[parsed.index] = parsed.data;
+          const receivedCount = storage.chunks.filter(Boolean).length;
+          console.log(`[BLE Service] Received chunk ${parsed.index + 1}/${storage.totalChunks}`);
+
+          if (receivedCount === storage.totalChunks) {
+            // All chunks received — reassemble profile
+            const fullJson = storage.chunks.join('');
+            this.handleReceivedProfile(fullJson);
+          }
+          return;
+        }
+
+        // Fallback: try to parse as full profile JSON
+        this.handleReceivedProfile(event.data);
+      } catch (error) {
+        console.error('[BLE Service] Failed to parse write data:', error);
+      }
+    });
+  }
+
+  /**
+   * Handle a fully received profile from the initiator (responder side).
+   */
+  private handleReceivedProfile(profileJson: string): void {
+    if (this.cancelled || this.state === 'completed') return;
+
+    try {
+      const peerPayload = JSON.parse(profileJson) as BLEProfilePayload;
+
+      const matchResult: BLEMatchResult = {
+        token: generateBLEMatchToken(),
+        youAre: 'B', // We are the responder
+        profile: {
+          userId: peerPayload.userId,
+          shortCode: '',
+          profileImage: peerPayload.profileImage,
+          backgroundImage: '',
+          backgroundColors: peerPayload.backgroundColors,
+          lastUpdated: Date.now(),
+          contactEntries: peerPayload.contactEntries,
+        },
+        matchType: 'ble',
+      };
+
+      console.log('[BLE Service] Responder match from write!');
+      this.handleMatchSuccess(matchResult);
+    } catch (error) {
+      console.error('[BLE Service] Failed to parse received profile:', error);
+    }
   }
 
   /**

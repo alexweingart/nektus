@@ -123,7 +123,8 @@
             "expo-keep-awake",
             "react-native-qrcode-svg",
             "react-native-markdown-display",
-            "expo-calendar"
+            "expo-calendar",
+            "react-native-ble-plx"
           ]
         }
       ]

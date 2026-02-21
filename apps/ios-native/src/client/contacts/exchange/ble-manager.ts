@@ -23,6 +23,7 @@ type State = typeof State[keyof typeof State];
 import { Platform } from 'react-native';
 import type { BLEAdvertisementData, BLEProfilePayload } from '@nektus/shared-types';
 import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
+import * as BLEPeripheral from '../../native/BLEPeripheralWrapper';
 
 // Polyfill for base64 encoding/decoding in React Native
 function base64Encode(str: string): string {
@@ -488,4 +489,47 @@ export function getSecondsSinceMidnightUTC(): number {
 export function generateBLEMatchToken(): string {
   const randomPart = Math.random().toString(36).substring(2, 10);
   return `ble-${Date.now()}-${randomPart}`;
+}
+
+// ─── Peripheral (Advertising) API ──────────────────────────────
+
+/**
+ * Start BLE peripheral advertising with Nektus service UUID.
+ * Advertises userId, sharingCategory, and buttonPressTimestamp
+ * via the GATT metadata characteristic.
+ */
+export function startAdvertising(
+  userId: string,
+  sharingCategory: 'P' | 'W',
+  buttonPressTimestamp: number
+): void {
+  BLEPeripheral.startAdvertising(userId, sharingCategory, buttonPressTimestamp);
+  console.log('[BLE] Started peripheral advertising');
+}
+
+/**
+ * Stop BLE peripheral advertising.
+ */
+export function stopAdvertising(): void {
+  BLEPeripheral.stopAdvertising();
+  console.log('[BLE] Stopped peripheral advertising');
+}
+
+/**
+ * Set up the GATT server and load profile data for read requests.
+ */
+export function setupGATTServer(profile: BLEProfilePayload): void {
+  BLEPeripheral.setupGATTServer();
+  BLEPeripheral.setProfileData(JSON.stringify(profile));
+  console.log('[BLE] GATT server ready with profile data');
+}
+
+/**
+ * Listen for write events from connecting centrals (responder receives initiator's profile).
+ * Returns an unsubscribe function.
+ */
+export function onPeripheralWriteReceived(
+  callback: (data: { data: string; centralId: string }) => void
+): () => void {
+  return BLEPeripheral.onWriteReceived(callback);
 }

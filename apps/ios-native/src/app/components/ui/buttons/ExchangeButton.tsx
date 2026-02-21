@@ -20,7 +20,6 @@ import {
   createHybridExchangeService,
   type HybridMatchResult,
 } from "../../../../client/contacts/exchange/hybrid-service";
-import { MotionDetector } from "../../../../client/contacts/motion";
 import type { RootStackParamList } from "../../../../../App";
 import {
   animationEvents,
@@ -186,24 +185,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     // share the same Context value, so it's always in sync)
     const currentCategory = sharingCategory;
 
-    let permissionGranted = false;
-
-    // Request motion permission - gracefully handle simulator/no accelerometer
-    try {
-      setStatus("requesting-permission");
-      const permissionResult = await MotionDetector.requestPermission();
-
-      if (!permissionResult.success) {
-        // In simulator or device without accelerometer, just skip motion detection
-        // and use QR code only mode
-        permissionGranted = false; // Will skip motion detection
-      } else {
-        permissionGranted = true;
-      }
-    } catch (error) {
-      permissionGranted = false; // Will skip motion detection
-    }
-
     try {
       // Clean up any existing service first
       if (hybridService) {
@@ -225,8 +206,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       await service.start(
         session.user.id,
         profile,
-        currentCategory,
-        permissionGranted
+        currentCategory
       );
     } catch (error) {
       console.error("[iOS] Failed to start exchange:", error);
@@ -350,7 +330,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
   // Button content config: icon type, label, and style variant per status
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
-    'requesting-permission': { icon: 'spinner', text: 'Warming up...' },
     'waiting-for-bump':     { icon: 'dot',     text: 'Bump or scan when ready...' },
     'ble-scanning':         { icon: 'dot',     text: 'Bump or scan when ready...' },
     'ble-discovered':       { icon: 'spinner', text: 'Finding your person...' },
@@ -385,7 +364,6 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
   // Determine if button should be disabled
   const isDisabled = [
-    "requesting-permission",
     "waiting-for-bump",
     "processing",
     "qr-scan-pending",

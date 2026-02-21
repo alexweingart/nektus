@@ -10,6 +10,7 @@
 		028938C2D56BA672C87BB1E3 /* NektWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DADAF0987C12BD37CBF42864 /* NektWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		08499DD75B478F087313B699 /* CalendarSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 3712FAAB227834D671F66140 /* CalendarSyncBridge.m */; };
 		0E67DA430BB342B287AC9199 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FFB31CCB5D409082F3ED3D /* AppDelegate.swift */; };
+		1227CAB069ABDB2903D87013 /* BLEPeripheralModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCF253C0A81D090B4CC8807 /* BLEPeripheralModule.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		311C41919805AD810E2001F8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726FBB8E2F20AF2448A2C2FB /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
@@ -19,6 +20,7 @@
 		550EA7A639604ADF8197E57C /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0E5BFB13A91C41E088C44687 /* SplashScreen.storyboard */; };
 		625C3BEF24F1460F86A2DC2A /* NektClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 20D08CED9B4648B7B8D9CE32 /* NektClip.app */; };
 		66A86780569549B2B5D9AD1B /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = D15AB5A4D1B0490FAD83F2B0 /* GoogleService-Info.plist */; };
+		67C466469A68D8D81FA262FE /* BLEPeripheralBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 2D032BA9EBFD4077000D1992 /* BLEPeripheralBridge.m */; };
 		7965AB0D17904E368B5802C1 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 62AFC407483E419EB0362091 /* Images.xcassets */; };
 		AAAA11120000000000000001 /* SKOverlayModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA11110000000000000001 /* SKOverlayModule.swift */; };
 		AAAA11120000000000000002 /* SKOverlayBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = AAAA11110000000000000002 /* SKOverlayBridge.m */; };
@@ -86,6 +88,7 @@
 		21ECECF400854999974318C4 /* NektClip.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = NektClip.entitlements; path = NektClip.entitlements; sourceTree = "<group>"; };
 		259EE502C4C1B1AA44333CE6 /* libPods-Nekt.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Nekt.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B3A58FB87DC15E02256148A /* NektWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NektWidget.swift; path = NektWidget.swift; sourceTree = "<group>"; };
+		2D032BA9EBFD4077000D1992 /* BLEPeripheralBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BLEPeripheralBridge.m; path = Nekt/BLEPeripheralBridge.m; sourceTree = "<group>"; };
 		3712FAAB227834D671F66140 /* CalendarSyncBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CalendarSyncBridge.m; path = Nekt/CalendarSyncBridge.m; sourceTree = "<group>"; };
 		45E0CA310B8D8C1EAC6FFEDD /* NektWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = NektWidget.entitlements; path = NektWidget.entitlements; sourceTree = "<group>"; };
 		4B1D1684243EB9788FFEA21A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -93,6 +96,7 @@
 		62AFC407483E419EB0362091 /* Images.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Images.xcassets; sourceTree = "<group>"; };
 		62B972944E8B7DBF96127022 /* Pods-Nekt.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nekt.debug.xcconfig"; path = "Target Support Files/Pods-Nekt/Pods-Nekt.debug.xcconfig"; sourceTree = "<group>"; };
 		726FBB8E2F20AF2448A2C2FB /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Nekt/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		7CCF253C0A81D090B4CC8807 /* BLEPeripheralModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEPeripheralModule.swift; path = Nekt/BLEPeripheralModule.swift; sourceTree = "<group>"; };
 		7D81114927E8C7DF6CB62358 /* Pods-Nekt-NektClip.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nekt-NektClip.debug.xcconfig"; path = "Target Support Files/Pods-Nekt-NektClip/Pods-Nekt-NektClip.debug.xcconfig"; sourceTree = "<group>"; };
 		7FDE4945E3F14DC1ABB1A05A /* Expo.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Expo.plist; path = Supporting/Expo.plist; sourceTree = "<group>"; };
 		827E3FDF8F54450415C46016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -175,6 +179,8 @@
 				CD2A9E77C3DFEA8DC71BC972 /* PrivacyInfo.xcprivacy */,
 				3712FAAB227834D671F66140 /* CalendarSyncBridge.m */,
 				F3A8974946767F98FB8F91C0 /* CalendarSyncModule.swift */,
+				2D032BA9EBFD4077000D1992 /* BLEPeripheralBridge.m */,
+				7CCF253C0A81D090B4CC8807 /* BLEPeripheralModule.swift */,
 			);
 			name = Nekt;
 			sourceTree = "<group>";
@@ -701,6 +707,8 @@
 				311C41919805AD810E2001F8 /* ExpoModulesProvider.swift in Sources */,
 				08499DD75B478F087313B699 /* CalendarSyncBridge.m in Sources */,
 				F0366564E448368AEDBFD8B8 /* CalendarSyncModule.swift in Sources */,
+				67C466469A68D8D81FA262FE /* BLEPeripheralBridge.m in Sources */,
+				1227CAB069ABDB2903D87013 /* BLEPeripheralModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
