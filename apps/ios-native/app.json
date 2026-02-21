@@ -120,7 +120,6 @@
             "expo-web-browser",
             "expo-crypto",
             "expo-file-system",
-            "expo-font",
             "expo-keep-awake",
             "expo-asset",
             "react-native-qrcode-svg",
