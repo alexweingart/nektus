@@ -201,10 +201,18 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
             profileColors={profile?.backgroundColors}
           />
         </div>
-        {showCameraOverlay && onCameraPress && (
+        {showCameraOverlay && onCameraPress && (() => {
+          // Position camera button on the circle edge at ~45° (bottom-right)
+          // The avatar container is avatarSize + 8px (border-4 each side)
+          const containerRadius = (avatarSize + 8) / 2;
+          const edgeToCorner = containerRadius * (1 - Math.cos(Math.PI / 4));
+          const cameraButtonRadius = 28; // half of 56px
+          const offset = edgeToCorner - cameraButtonRadius - 4; // -4 so it slightly overlaps the edge
+          return (
           <button
             onClick={onCameraPress}
-            className="absolute -bottom-1 -right-1 z-20 w-14 h-14 rounded-full bg-black/30 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-black/40 transition-colors"
+            className="absolute z-20 w-14 h-14 rounded-full bg-black/30 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-black/40 transition-colors"
+            style={{ bottom: offset, right: offset }}
             aria-label="Upload photo"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,7 +220,8 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
-        )}
+          );
+        })()}
       </div>
 
       {/* Carousel Container - Full width background */}

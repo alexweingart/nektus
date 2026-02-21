@@ -285,7 +285,7 @@ const ProfileView: React.FC = () => {
       </div>
       
       {/* Fixed Content Area - No scroll */}
-      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-visible">
+      <div className="w-full max-w-[var(--max-content-width,448px)] flex flex-col items-center flex-1 overflow-visible -mt-6">
         {/* Profile Info with Carousel */}
         <div
           ref={profileInfoRef}
