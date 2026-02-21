@@ -31,8 +31,10 @@ type HistoryViewNavigationProp = NativeStackNavigationProp<RootStackParamList, '
 const formatMatchDate = (timestamp: number): string => {
   const date = new Date(timestamp);
   const now = new Date();
-  const diffTime = Math.abs(now.getTime() - date.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  // Compare by calendar day in local timezone (not raw ms difference)
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
     const timeString = date.toLocaleTimeString('en-US', {
