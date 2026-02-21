@@ -232,7 +232,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           {/* Personal View - Full container width with internal padding */}
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
-            <div className="mb-3 text-center">
+            <div className={`${profile?.locations?.find(loc => loc.section === 'personal') ? 'mb-1' : 'mb-3'} text-center`}>
               <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
 
@@ -241,7 +241,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               const personalLocation = profile?.locations?.find(loc => loc.section === 'personal');
               if (personalLocation) {
                 return (
-                  <div className="flex items-center justify-center gap-1 mb-2">
+                  <div className="flex items-center justify-center gap-1 mb-4">
                     <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -306,7 +306,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           {/* Work View - Full container width with internal padding */}
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
-            <div className="mb-3 text-center">
+            <div className={`${profile?.locations?.find(loc => loc.section === 'work') ? 'mb-1' : 'mb-3'} text-center`}>
               <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
             </div>
 
@@ -315,7 +315,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
               const workLocation = profile?.locations?.find(loc => loc.section === 'work');
               if (workLocation) {
                 return (
-                  <div className="flex items-center justify-center gap-1 mb-2">
+                  <div className="flex items-center justify-center gap-1 mb-4">
                     <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />

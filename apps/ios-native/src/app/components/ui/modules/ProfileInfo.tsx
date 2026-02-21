@@ -366,7 +366,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           {/* Personal View */}
           <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
             {/* Profile Name */}
-            <View style={styles.nameContainer}>
+            <View style={[styles.nameContainer, profile?.locations?.find(loc => loc.section === 'personal') && { marginBottom: 4 }]}>
               <Heading style={styles.name}>
                 {getFieldValue(profile?.contactEntries, 'name')}
               </Heading>
@@ -422,7 +422,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           {/* Work View */}
           <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
             {/* Profile Name */}
-            <View style={styles.nameContainer}>
+            <View style={[styles.nameContainer, profile?.locations?.find(loc => loc.section === 'work') && { marginBottom: 4 }]}>
               <Heading style={styles.name}>
                 {getFieldValue(profile?.contactEntries, 'name')}
               </Heading>
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   locationText: {
     color: 'rgba(255, 255, 255, 0.9)',
