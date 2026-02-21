@@ -77,7 +77,7 @@ function generateProfileImagePrompt(name: string, accent2Color: string): string 
     `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot face structure. ` +
     `CRITICAL: Do not include any text, letters as text, or typography. The "${firstLetter}" should be formed by negative space only. ` +
     `CRITICAL: Only show the robot's head/face - no body parts below the head. ` +
-    `Color palette: Robot should use ONLY ${accent2Color} (this exact bright, vivid color). The entire robot should be this single color. ` +
+    `Color palette: Robot should use ONLY white (#FFFFFF). The entire robot should be pure white. ` +
     `Keep it simple, iconic, and instantly recognizable as a robot face on a transparent background.`;
 }
 
