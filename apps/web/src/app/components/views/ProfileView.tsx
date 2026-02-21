@@ -227,7 +227,7 @@ const ProfileView: React.FC = () => {
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
           <LoadingSpinner size="sm" className="mx-auto mb-4" />
-          <p className="text-white">Deleting account...</p>
+          <p className="text-white">Saying goodbye...</p>
         </div>
       </div>
     );
@@ -237,22 +237,10 @@ const ProfileView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8">
         <div className="text-center">
-          <p className="text-white mb-4">Unable to load profile</p>
+          <p className="text-white mb-4">Couldn&apos;t load your profile</p>
           <Button onClick={() => router.push('/setup')}>
-            Go to Setup
+            Let&apos;s set you up
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // If navigating from setup and no profile yet, show a minimal loading state
-  if (isNavigatingFromSetup && !profile) {
-    return (
-      <div className="flex flex-col items-center justify-center px-4 py-2">
-        <div className="flex flex-col items-center">
-          <LoadingSpinner size="sm" className="mb-4" />
-          <p className="text-white">Saving your profile...</p>
         </div>
       </div>
     );
@@ -373,7 +361,7 @@ const ProfileView: React.FC = () => {
                   }
                 }}
               >
-                {isExchanging ? 'Cancel' : 'Add to home screen'}
+                {isExchanging ? 'Never mind' : 'Add to home screen'}
               </SecondaryButton>
             </div>
           )}

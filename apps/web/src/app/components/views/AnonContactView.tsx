@@ -63,7 +63,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
   } = useAuthSignIn({ callbackUrl: `/x/${token}` });
 
   const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
-  const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+  const bio = getFieldValue(profile.contactEntries, 'bio') || 'Too cool for a bio. Google me.';
 
   const handleSocialIconClick = (iconType: string) => {
     setClickedSocial(iconType);

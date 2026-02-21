@@ -227,10 +227,10 @@ export default function SmartScheduleView() {
           currentUserId: session.user.id
         });
       } else {
-        alert('No available time slots found in the next 14 days');
+        // No available time — chip subtitle already shows the state, no-op
       }
     } else {
-      alert('Please wait for scheduling data to load');
+      // Data still loading — ignore tap
     }
   };
 
@@ -272,7 +272,7 @@ export default function SmartScheduleView() {
 
               // Build subtitle with time information like CalConnect
               const subtitle = loadingTimes
-                ? 'Finding times...'
+                ? 'Crunching calendars...'
                 : suggestedTime && eventTemplate
                 ? (() => {
                     const slotStart = new Date(suggestedTime.start);
@@ -287,8 +287,8 @@ export default function SmartScheduleView() {
                     return `${dayString} • ${startTime} (${eventTemplate.duration} min)`;
                   })()
                 : isUnavailable
-                ? 'No times in next 2 weeks'
-                : 'Finding times...';
+                ? 'Booked solid for 2 weeks'
+                : 'Crunching calendars...';
 
               // Format title - for in-person events with place, use "@Location" format
               const title = eventTemplate?.eventType === 'in-person' && place
@@ -324,7 +324,7 @@ export default function SmartScheduleView() {
               router.push(`/c/${contactProfile?.shortCode}/ai-schedule?${params.toString()}`);
             }}
           >
-            Find Custom Time & Place
+            Something more specific
           </Button>
         </div>
       </div>

@@ -235,7 +235,7 @@ export function HistoryView() {
             }}
             style={styles.retryButton}
           >
-            Try Again
+            Let me try that again
           </Button>
         </View>
       </View>
@@ -253,9 +253,9 @@ export function HistoryView() {
             <View style={styles.emptyIconContainer}>
               <EmptyIcon />
             </View>
-            <Heading variant="h3" style={styles.emptyTitle}>No contacts yet</Heading>
+            <Heading variant="h3" style={styles.emptyTitle}>It's quiet in here...</Heading>
             <BodyText variant="small" style={styles.emptySubtitle}>
-              When you nekt with someone, they'll appear here so you can easily reconnect later.
+              Your future friends are waiting. Go bump into someone.
             </BodyText>
             <Button
               variant="white"
@@ -263,7 +263,7 @@ export function HistoryView() {
               onPress={handleBack}
               style={styles.startButton}
             >
-              Start Nekt'ing
+              Let's go
             </Button>
           </View>
         ) : (
@@ -291,11 +291,11 @@ export function HistoryView() {
         <StandardModal
           isOpen={showDeleteModal}
           onClose={handleCancelDelete}
-          title="Delete Contact?"
-          subtitle={`Are you sure you want to delete ${contactToDelete.odtName}? This cannot be undone.`}
-          primaryButtonText="Delete"
+          title={`Remove ${contactToDelete.odtName}?`}
+          subtitle="They'll disappear from your history for good."
+          primaryButtonText="Remove"
           onPrimaryButtonClick={handleDeleteContact}
-          secondaryButtonText="Cancel"
+          secondaryButtonText="Never mind"
           showCloseButton={false}
         />
       )}

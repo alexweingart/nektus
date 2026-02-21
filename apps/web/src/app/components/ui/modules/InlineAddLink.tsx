@@ -78,7 +78,7 @@ export const InlineAddLink: React.FC<InlineAddLinkProps> = ({
     console.log('[InlineAddLink] Save clicked', { linkType, socialUsername, customLinkUrl, isValid });
 
     if (!isValid) {
-      setError('Please enter a link');
+      setError('Add a link first');
       return;
     }
 

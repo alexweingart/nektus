@@ -180,10 +180,10 @@ export function AddCalendarModal({
       const granted = await requestCalendarPermission();
       if (!granted) {
         Alert.alert(
-          'Calendar Access Required',
-          'Please enable calendar access in Settings > Nekt to use iPhone Calendar.',
+          'We need calendar access',
+          'Head to Settings → Nekt and flip on calendar access',
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: 'Never mind', style: 'cancel' },
             { text: 'Open Settings', onPress: () => Linking.openSettings() },
           ]
         );
@@ -230,7 +230,7 @@ export function AddCalendarModal({
       onClose();
     } catch (error) {
       console.error('[AddCalendarModal] EventKit connection error:', error);
-      Alert.alert('Error', 'Failed to connect iPhone Calendar. Please try again.');
+      Alert.alert('That didn\'t work', 'Calendar connection failed — give it another shot?');
     } finally {
       setIsConnecting(null);
     }
@@ -364,11 +364,11 @@ export function AddCalendarModal({
       <StandardModal
         isOpen={isOpen && !showAppleModal}
         onClose={onClose}
-        title="Add Calendar"
-        subtitle="Make finding time effortless! Nekt only reads free/busy info and stores no data."
+        title="Connect your calendar"
+        subtitle="Let Nekt find the perfect time. We only check when you're free — nothing else."
         showPrimaryButton={false}
         showSecondaryButton={true}
-        secondaryButtonText="Cancel"
+        secondaryButtonText="Never mind"
         showCloseButton={false}
       >
         <View style={styles.buttonsContainer}>
@@ -381,7 +381,7 @@ export function AddCalendarModal({
                 onPress={handleEventKitConnect}
                 disabled={isConnecting === 'eventkit'}
                 loading={isConnecting === 'eventkit'}
-                loadingText="Connecting..."
+                loadingText="Syncing up..."
                 icon={<IPhoneIcon />}
                 style={styles.providerButton}
               >

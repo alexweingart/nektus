@@ -112,7 +112,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
       }
     } catch (err) {
       console.error('[PostSignUpModal] Save failed:', err);
-      setError('Failed to save. Please try again.');
+      setError('Couldn\'t save — try again?');
     }
   }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
 
@@ -142,7 +142,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
               {/* Subtitle */}
               <Dialog.Description asChild>
                 <Text variant="small" className="leading-relaxed break-words">
-                  Your new friends will want your number
+                  Your new friends will want your number and socials
                 </Text>
               </Dialog.Description>
             </div>

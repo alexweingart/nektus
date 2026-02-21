@@ -24,12 +24,12 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
 
   const handleConnect = async () => {
     if (!appleId || !appPassword) {
-      setError('Please enter both Apple ID and app-specific password');
+      setError('Need both your Apple ID and app-specific password');
       return;
     }
 
     if (appPassword.length !== 16) {
-      setError('App-specific password should be 16 characters');
+      setError('That password should be exactly 16 characters');
       return;
     }
 
@@ -64,11 +64,11 @@ export default function AppleCalendarSetupModal({ isOpen, onClose, onConnect }: 
       isOpen={isOpen}
       onClose={handleClose}
       title="Connect Apple Calendar"
-      primaryButtonText={isConnecting ? 'Connecting...' : 'Connect Calendar'}
+      primaryButtonText={isConnecting ? 'Linking up...' : 'Connect Calendar'}
       onPrimaryButtonClick={handleConnect}
       primaryButtonDisabled={!appleId || !appPassword || isConnecting}
       showSecondaryButton={true}
-      secondaryButtonText="Cancel"
+      secondaryButtonText="Never mind"
       showCloseButton={false}
     >
       <div className="text-center mb-6">

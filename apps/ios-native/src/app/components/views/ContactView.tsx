@@ -243,7 +243,7 @@ export function ContactView(props: ContactViewProps = {}) {
         }
       } catch (error) {
         console.error('[ContactView] Failed to fetch profile:', error);
-        Alert.alert('Error', 'Failed to load contact');
+        Alert.alert('Couldn\'t load this person', 'Something went wrong pulling up their profile');
         navigation?.goBack();
       } finally {
         setIsLoading(false);
@@ -380,7 +380,7 @@ export function ContactView(props: ContactViewProps = {}) {
     }
 
     if (!profile || !token) {
-      Alert.alert('Error', 'Cannot save contact - missing data');
+      Alert.alert('Hmm, that didn\'t work', 'Cannot save contact — missing data');
       return;
     }
 
@@ -398,7 +398,7 @@ export function ContactView(props: ContactViewProps = {}) {
         setShowSuccessModal(true);
       } else {
         console.error('[ContactView] Save failed:', result);
-        Alert.alert('Error', 'Failed to save contact. Please try again.');
+        Alert.alert('Hmm, that didn\'t work', 'Couldn\'t save — try one more time?');
       }
     } catch (error) {
       console.error('[ContactView] Save failed:', error);
@@ -427,10 +427,10 @@ export function ContactView(props: ContactViewProps = {}) {
     if (phoneNumber) {
       const smsUrl = `sms:${phoneNumber}&body=${encodeURIComponent(message)}`;
       Linking.openURL(smsUrl).catch(() => {
-        Alert.alert('Error', 'Could not open messaging app');
+        Alert.alert('Can\'t open messages', 'Something\'s off with the messaging app');
       });
     } else {
-      Alert.alert('No Phone Number', 'This contact doesn\'t have a phone number');
+      Alert.alert('No number yet', 'They haven\'t added their phone number');
     }
     // Note: SKOverlay is shown when user taps "Done", not after messaging
   }, [profile, props.sessionUserName, session, userProfile?.contactEntries, userProfile?.shortCode]);
@@ -482,13 +482,13 @@ export function ContactView(props: ContactViewProps = {}) {
       <>
         <PageHeader title="Contact" onBack={isHistoricalMode ? handleBack : undefined} />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Contact not found</Text>
+          <Text style={styles.errorText}>This person is a ghost</Text>
         </View>
       </>
     );
   }
 
-  const bioContent = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+  const bioContent = getFieldValue(profile.contactEntries, 'bio') || 'Too cool for a bio. Google me.';
   const contactName = getFieldValue(profile.contactEntries, 'name');
 
   return (
@@ -558,7 +558,7 @@ export function ContactView(props: ContactViewProps = {}) {
                 {isSaved && (
                   <View style={styles.secondaryButtonContainer}>
                     <SecondaryButton onPress={handleScheduleMeetUp}>
-                      Schedule next meet up now!
+                      When are we hanging out?
                     </SecondaryButton>
                   </View>
                 )}
@@ -581,7 +581,7 @@ export function ContactView(props: ContactViewProps = {}) {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         title="Contact Saved! 🎉"
-        subtitle={`${contactName}'s contact has been saved successfully!`}
+        subtitle={`You and ${contactName} are officially nekt'd!`}
         primaryButtonText="Say hi 👋"
         onPrimaryButtonClick={handleSayHi}
         secondaryButtonText="Nah, they'll text me"

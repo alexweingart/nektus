@@ -30,12 +30,12 @@ export const ContactButton: React.FC<ContactButtonProps> = ({
       return (
         <div className="flex items-center justify-center gap-2">
           <LoadingSpinner size="sm" />
-          <span>Saving...</span>
+          <span>Hang on...</span>
         </div>
       );
     }
 
-    return isSuccess ? "Done" : 'Save Contact';
+    return isSuccess ? "All good" : 'Save';
   };
 
   const isDisabled = isSaving || isLoading;

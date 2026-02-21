@@ -72,7 +72,7 @@ export function LocationView() {
 
     // Client-side validation
     if (!editedLocation.city.trim() || !editedLocation.region.trim() || !editedLocation.country?.trim()) {
-      setValidationError('City, region, and country are required');
+      setValidationError('We need at least a city, region, and country');
       return;
     }
 
@@ -103,7 +103,7 @@ export function LocationView() {
 
       // Check confidence level
       if (data.confidence === 'low') {
-        setValidationError('Address confidence is low. Please verify your address.');
+        setValidationError('Hmm, we\'re not sure about this address. Double-check it?');
         setIsSaving(false);
         return;
       }
@@ -131,7 +131,7 @@ export function LocationView() {
       goBackWithFade();
     } catch (error) {
       console.error('[LocationView] Error saving location:', error);
-      setValidationError('Failed to save location. Please try again.');
+      setValidationError('Couldn\'t save that — try again?');
     } finally {
       setIsSaving(false);
     }
@@ -142,12 +142,12 @@ export function LocationView() {
     if (!location || !profile) return;
 
     Alert.alert(
-      'Delete Location',
-      'Are you sure you want to remove this location?',
+      'Remove this location?',
+      'It\'ll be gone — you can always add it back.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Never mind', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Remove',
           style: 'destructive',
           onPress: async () => {
             setIsSaving(true);

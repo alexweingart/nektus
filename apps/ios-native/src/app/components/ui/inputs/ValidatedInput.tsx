@@ -93,7 +93,7 @@ export function ValidatedInput({
       {showValidation && hasError && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            {isRequiredEmpty ? 'Required' : validation?.message}
+            {isRequiredEmpty ? 'Can\'t be blank' : validation?.message}
           </Text>
           {validation?.suggestion && !isRequiredEmpty && (
             <Text style={styles.suggestionText}>

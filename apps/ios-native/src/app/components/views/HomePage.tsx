@@ -39,7 +39,7 @@ const HomeFooter = ({ navigateWithFade }: { navigateWithFade: (screen: keyof Roo
           <Text style={styles.footerLink}>Terms</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.copyright}>© 2025 Nekt, Inc. All rights reserved.</Text>
+      <Text style={styles.copyright}>© 2026 Nekt, Inc.</Text>
     </View>
   );
 };

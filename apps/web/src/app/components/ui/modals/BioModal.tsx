@@ -125,7 +125,7 @@ export const BioModal: React.FC<BioModalProps> = ({
                 <Text variant="small" className="leading-relaxed text-white/70">
                   {mode === 'social-input'
                     ? `Enter your ${platformLabel} username to import your bio`
-                    : 'Write a short bio or import from social media'}
+                    : 'Tell people what you\'re about (or steal your bio from socials)'}
                 </Text>
               </Dialog.Description>
             </div>
@@ -135,7 +135,7 @@ export const BioModal: React.FC<BioModalProps> = ({
                 <ExpandingInput
                   value={bioText}
                   onChange={setBioText}
-                  placeholder="Write something about yourself..."
+                  placeholder="The world's shortest autobiography..."
                   maxLength={280}
                 />
 
@@ -176,7 +176,7 @@ export const BioModal: React.FC<BioModalProps> = ({
                   className="w-full"
                   disabled={!socialUsername.trim() || isLoading}
                 >
-                  {isLoading ? 'Importing...' : `Import ${platformLabel} Bio`}
+                  {isLoading ? 'Snooping...' : `Import ${platformLabel} Bio`}
                 </Button>
 
                 <div className="flex justify-center">
@@ -184,7 +184,7 @@ export const BioModal: React.FC<BioModalProps> = ({
                     variant="subtle"
                     onClick={() => setMode('input')}
                   >
-                    Write my own instead
+                    I&apos;ll write my own
                   </SecondaryButton>
                 </div>
               </>

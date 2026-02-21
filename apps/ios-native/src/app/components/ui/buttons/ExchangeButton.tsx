@@ -352,19 +352,19 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
   // Button content config: icon type, label, and style variant per status
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
-    'requesting-permission': { icon: 'spinner', text: 'Getting Ready...' },
-    'waiting-for-bump':     { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
+    'requesting-permission': { icon: 'spinner', text: 'Warming up...' },
+    'waiting-for-bump':     { icon: 'dot',     text: 'Bump or scan when ready...' },
     'ble-scanning':         { icon: 'dot',     text: 'Looking for friends...' },
     'ble-discovered':       { icon: 'dot',     text: 'Found nearby friend...' },
     'ble-connecting':       { icon: 'spinner', text: 'Connecting...' },
     'ble-exchanging':       { icon: 'spinner', text: 'Exchanging contacts...' },
-    'processing':           { icon: 'spinner', text: 'Waiting for Match...' },
-    'qr-scan-pending':      { icon: 'dot',     text: 'Waiting for Match...' },
+    'processing':           { icon: 'spinner', text: 'Finding your person...' },
+    'qr-scan-pending':      { icon: 'dot',     text: 'Finding your person...' },
     'qr-scan-matched':      { icon: 'none',    text: 'Match Found!', match: true },
     'ble-matched':          { icon: 'none',    text: 'Match Found!', match: true },
-    'ble-unavailable':      { icon: 'dot',     text: 'Waiting for Bump or Scan...' },
-    'timeout':              { icon: 'spinner', text: 'Timed out, try again!', error: true },
-    'error':                { icon: 'spinner', text: 'Error - Cleaning up...', error: true },
+    'ble-unavailable':      { icon: 'dot',     text: 'Bump or scan when ready...' },
+    'timeout':              { icon: 'spinner', text: 'Missed it — give it another bump!', error: true },
+    'error':                { icon: 'spinner', text: 'Oops, hang tight...', error: true },
   };
 
   const getButtonContent = () => {

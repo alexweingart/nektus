@@ -469,10 +469,10 @@ export function SmartScheduleView() {
           );
         });
       } else {
-        Alert.alert('No Available Time', 'No available time slots found in the next 14 days');
+        // No available time — chip subtitle already shows the state, no-op
       }
     } else {
-      Alert.alert('Loading', 'Please wait for scheduling data to load');
+      // Data still loading — ignore tap
     }
   }, [currentUserProfile, contactProfile, session, suggestedTimes, chipPlaces, section]);
 
@@ -521,12 +521,12 @@ export function SmartScheduleView() {
 
               // Build subtitle with time information
               const subtitle = loadingTimes
-                ? 'Finding times...'
+                ? 'Crunching calendars...'
                 : suggestedTime && eventTemplate
                 ? formatTimeSlot(suggestedTime, eventTemplate.duration)
                 : isUnavailable
-                ? 'No times in next 2 weeks'
-                : 'Finding times...';
+                ? 'Booked solid for 2 weeks'
+                : 'Crunching calendars...';
 
               const place = chipPlaces[chip.id];
               const title = eventTemplate?.eventType === 'in-person' && place
@@ -557,7 +557,7 @@ export function SmartScheduleView() {
             onPress={handleCustomTimePlace}
             style={styles.customButton}
           >
-            <Text style={styles.customButtonText}>Find Custom Time & Place</Text>
+            <Text style={styles.customButtonText}>Something more specific</Text>
           </Button>
         </ScrollView>
 
@@ -566,14 +566,14 @@ export function SmartScheduleView() {
           <StandardModal
             isOpen={createdEventModal.visible}
             onClose={() => setCreatedEventModal(null)}
-            title="Added to Calendar ✓"
+            title="You're on the books ✓"
             subtitle={createdEventModal.subtitle}
-            primaryButtonText="View Event"
+            primaryButtonText="See it in my calendar"
             onPrimaryButtonClick={async () => {
               await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
               setCreatedEventModal(null);
             }}
-            secondaryButtonText="Done"
+            secondaryButtonText="Nice"
             onSecondaryButtonClick={() => setCreatedEventModal(null)}
             showCloseButton={false}
           />

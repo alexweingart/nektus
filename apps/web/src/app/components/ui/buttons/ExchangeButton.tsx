@@ -292,7 +292,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Getting Ready...</span>
+            <span>Warming up...</span>
           </div>
         );
       
@@ -300,7 +300,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <div className="animate-pulse w-4 h-4 bg-current rounded-full"></div>
-            <span>Waiting for Bump or Scan...</span>
+            <span>Bump or scan when ready...</span>
           </div>
         );
       
@@ -308,7 +308,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Waiting for Match...</span>
+            <span>Finding your person...</span>
           </div>
         );
 
@@ -316,7 +316,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <div className="animate-pulse w-4 h-4 bg-current rounded-full"></div>
-            <span>Waiting for Match...</span>
+            <span>Finding your person...</span>
           </div>
         );
 
@@ -329,7 +329,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Timed out, try bumping again!</span>
+            <span>Missed it — give it another bump!</span>
           </div>
         );
       
@@ -337,7 +337,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Error - Cleaning up...</span>
+            <span>Oops, hang tight...</span>
           </div>
         );
       

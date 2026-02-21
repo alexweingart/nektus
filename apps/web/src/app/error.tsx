@@ -22,10 +22,10 @@ export default function Error({
     <div className="min-h-dvh flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 text-center">
         <h2 className="mt-6 text-3xl font-bold text-gray-900">
-          Something went wrong!
+          Well, that wasn&apos;t supposed to happen
         </h2>
         <p className="mt-2 text-sm text-gray-600">
-          {error.message || 'An unexpected error occurred'}
+          {error.message || 'Something broke and we\'re pretending it\'s fine'}
         </p>
         <div className="mt-6">
           <Button
@@ -37,7 +37,7 @@ export default function Error({
             size="xl"
             className="w-full"
           >
-            Go back home
+            Take me back
           </Button>
         </div>
       </div>

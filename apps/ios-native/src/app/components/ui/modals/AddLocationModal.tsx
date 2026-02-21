@@ -141,7 +141,7 @@ export function AddLocationModal({
   const handleSave = async () => {
     // Client-side validation
     if (!city.trim() || !region.trim() || !country.trim()) {
-      setValidationError('City, region, and country are required');
+      setValidationError('We need at least a city, region, and country');
       return;
     }
 
@@ -215,7 +215,7 @@ export function AddLocationModal({
 
       // Check confidence level
       if (data.confidence === 'low') {
-        setValidationError('Address confidence is low. Please verify your address.');
+        setValidationError('Hmm, we\'re not sure about this address. Double-check it?');
         setIsSaving(false);
         return;
       }
@@ -258,7 +258,7 @@ export function AddLocationModal({
       onClose();
     } catch (error) {
       console.error('[AddLocationModal] Save error:', error);
-      setValidationError('Failed to save location. Please try again.');
+      setValidationError('Couldn\'t save that — try again?');
     } finally {
       setIsSaving(false);
     }
@@ -278,14 +278,14 @@ export function AddLocationModal({
       subtitle={
         isLoadingLocation
           ? 'Detecting your location...'
-          : 'Nekt uses your location to find things to do close to where you live and work'
+          : 'Help us find cool spots near you'
       }
       showPrimaryButton={true}
-      primaryButtonText={isSaving ? 'Validating...' : 'Save'}
+      primaryButtonText={isSaving ? 'Checking...' : 'Save'}
       onPrimaryButtonClick={handleSave}
       primaryButtonDisabled={isSaving || isLoadingLocation}
       showSecondaryButton={true}
-      secondaryButtonText="Cancel"
+      secondaryButtonText="Never mind"
       showCloseButton={false}
     >
       <ScrollView

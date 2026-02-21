@@ -138,11 +138,11 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
     <StandardModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add Calendar"
-      subtitle="Make finding time effortless! Nekt uses only reads free/busy info, and stores no data."
+      title="Connect your calendar"
+      subtitle="Let Nekt find the perfect time. We only check when you're free — nothing else."
       showPrimaryButton={false}
       showSecondaryButton={true}
-      secondaryButtonText="Cancel"
+      secondaryButtonText="Never mind"
       showCloseButton={false}
     >
       <div className="space-y-3">

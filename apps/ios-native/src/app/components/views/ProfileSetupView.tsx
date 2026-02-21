@@ -41,7 +41,7 @@ export function ProfileSetupView() {
     // Validate phone FIRST
     const cleanDigits = phoneDigits.replace(/\D/g, "");
     if (cleanDigits.length < 10) {
-      setError("Please enter a valid 10-digit phone number");
+      setError("That doesn't look like a phone number");
       return;
     }
 
@@ -51,7 +51,7 @@ export function ProfileSetupView() {
     );
 
     if (!isValid || !internationalPhone) {
-      setError("Please enter a valid phone number");
+      setError("That doesn't look right");
       return;
     }
 
@@ -113,7 +113,7 @@ export function ProfileSetupView() {
       }
     } catch (err) {
       console.error("[ProfileSetupView] Save failed:", err);
-      setError("Failed to save. Please try again.");
+      setError("Couldn't save — try again?");
     }
   }, [phoneDigits, isSaving, saveProfile, profile?.contactEntries, socialInputs, useForBio]);
 
@@ -145,7 +145,7 @@ export function ProfileSetupView() {
               </Heading>
             </TouchableOpacity>
             <BodyText style={styles.subtitle}>
-              Your new friends will want your number
+              Your new friends will want your number and socials
             </BodyText>
           </View>
 

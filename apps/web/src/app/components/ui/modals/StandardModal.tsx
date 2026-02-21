@@ -32,7 +32,7 @@ export const StandardModal: React.FC<StandardModalProps> = ({
   primaryButtonIcon,
   onPrimaryButtonClick,
   primaryButtonDisabled = false,
-  secondaryButtonText = "Maybe later",
+  secondaryButtonText = "Not right now",
   showSecondaryButton = true,
   showPrimaryButton = true,
   showCloseButton = true,

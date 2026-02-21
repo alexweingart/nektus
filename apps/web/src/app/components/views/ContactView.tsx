@@ -255,7 +255,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   });
 
   const bioContent = useMemo(() => {
-    return getFieldValue(profile?.contactEntries, 'bio') || 'Welcome to my profile!';
+    return getFieldValue(profile?.contactEntries, 'bio') || 'Too cool for a bio. Google me.';
   }, [profile?.contactEntries]);
 
   const markdownComponents = useMemo(() => ({
@@ -407,7 +407,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                       variant="dark"
                       onClick={handleScheduleMeetUp}
                     >
-                      Schedule next meet up now!
+                      When are we hanging out?
                     </SecondaryButton>
                   </div>
                 )}
@@ -433,7 +433,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showSuccessModal}
           onClose={handleSuccessModalClose}
           title="Contact Saved! 🎉"
-          subtitle={`${getFieldValue(profile.contactEntries, 'name')}'s contact has been saved successfully!`}
+          subtitle={`You and ${getFieldValue(profile.contactEntries, 'name')} are officially nekt'd!`}
           primaryButtonText="Say hi 👋"
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"

@@ -323,7 +323,7 @@ export function ProfileView() {
             {(isExchanging || isMatchFound) && (
               <View style={styles.cancelButtonContainer}>
                 <SecondaryButton onPress={handleCancelExchange}>
-                  Cancel
+                  Never mind
                 </SecondaryButton>
               </View>
             )}
@@ -382,7 +382,7 @@ export function ProfileView() {
       <StandardModal
         isOpen={showWidgetModal}
         onClose={() => setShowWidgetModal(false)}
-        title="Nekt from your Lock Screen"
+        title="One-tap Nekt from your Lock Screen"
         subtitle="Long press your Lock Screen → Customize → Lock Screen → tap the widget area below the time → search for Nekt"
         primaryButtonText="I'll do that right now!"
         onPrimaryButtonClick={() => setShowWidgetModal(false)}
