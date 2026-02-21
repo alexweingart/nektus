@@ -18,6 +18,7 @@ import { getFieldValue } from '@/client/profile/transforms';
 import ReactMarkdown from 'react-markdown';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import { useAuthSignIn } from '@/client/auth/use-auth-sign-in';
+import { useProfileAvatarSize } from '@/client/hooks/use-profile-avatar-size';
 
 interface AnonContactViewProps {
   profile: UserProfile;
@@ -52,6 +53,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
   token,
   hideActions = false
 }) => {
+  const avatarSize = useProfileAvatarSize();
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
 
@@ -84,7 +86,7 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
               <Avatar
                 src={getOptimalProfileImageUrl(profile.profileImage, 256)}
                 alt={name}
-                size="lg"
+                sizeNumeric={avatarSize}
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useProfileAvatarSize } from '@/client/hooks/use-profile-avatar-size';
 import Avatar from '../elements/Avatar';
 import SocialIconsList from '../elements/SocialIconsList';
 import { ProfileViewSelector, type ProfileViewMode } from '../controls/ProfileViewSelector';
@@ -45,6 +46,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   isBioLoading = false,
   onAddLinkPress
 }) => {
+  const avatarSize = useProfileAvatarSize();
   const { sharingCategory, setSharingCategory } = useProfile();
   const selectedMode = sharingCategory as ProfileViewMode;
   const setSelectedMode = setSharingCategory;
@@ -193,7 +195,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <Avatar
             src={profileImageSrc}
             alt={getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}
-            size="lg"
+            sizeNumeric={avatarSize}
             isLoading={isLoadingProfile}
             showInitials={showInitialsValue}
             profileColors={profile?.backgroundColors}

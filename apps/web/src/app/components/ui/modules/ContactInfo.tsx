@@ -14,6 +14,7 @@ import type { UserProfile } from '@/types/profile';
 import { getFieldValue } from '@/client/profile/transforms';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
 import { ensureReadableColor, DEFAULT_ACCENT_GREEN } from '@/shared/colors';
+import { useProfileAvatarSize } from '@/client/hooks/use-profile-avatar-size';
 
 interface ContactInfoProps {
   profile: UserProfile;
@@ -29,6 +30,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
   bioContent,
   markdownComponents
 }) => {
+  const avatarSize = useProfileAvatarSize();
   const linkColor = profile.backgroundColors?.[0]
     ? ensureReadableColor(profile.backgroundColors[0])
     : DEFAULT_ACCENT_GREEN;
@@ -48,7 +50,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
           <Avatar
             src={getOptimalProfileImageUrl(profile.profileImage, 256)}
             alt={getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named'}
-            size="lg"
+            sizeNumeric={avatarSize}
             showInitials={!profile.profileImage}
             profileColors={profile.backgroundColors}
           />

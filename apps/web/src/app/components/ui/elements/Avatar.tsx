@@ -5,6 +5,7 @@ interface AvatarProps {
   src?: string;
   alt?: string;
   size?: 'sm' | 'md' | 'lg';
+  sizeNumeric?: number; // Exact pixel size (overrides size prop)
   className?: string;
   isLoading?: boolean;
   showInitials?: boolean; // Explicitly control when to show initials
@@ -36,6 +37,7 @@ const Avatar: React.FC<AvatarProps> = ({
   src,
   alt = 'Profile',
   size = 'md',
+  sizeNumeric,
   className = '',
   isLoading = false,
   showInitials: _showInitials = false,
@@ -43,7 +45,7 @@ const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const [hasError, setHasError] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
-  const sizeClass = sizeClasses[size];
+  const sizeClass = sizeNumeric ? '' : sizeClasses[size];
 
   // Generate gradient style from profile colors
   const getGradientStyle = React.useCallback(() => {
@@ -71,7 +73,10 @@ const Avatar: React.FC<AvatarProps> = ({
   };
 
   const initials = getInitials(alt);
-  const fontSize = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
+  const fontSize = sizeNumeric
+    ? undefined
+    : size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-4xl' : 'text-5xl';
+  const fontSizeStyle = sizeNumeric ? { fontSize: Math.round(sizeNumeric * 0.375) } : undefined;
 
   // Initials display (used for explicit showInitials or error fallback)
   const InitialsDisplay = () => (
@@ -80,8 +85,8 @@ const Avatar: React.FC<AvatarProps> = ({
       style={gradientStyle ? { background: gradientStyle.background } : undefined}
     >
       <span
-        className={`${fontSize} font-bold`}
-        style={{ color: '#FFFFFF' }}
+        className={`${fontSize || ''} font-bold`}
+        style={{ color: '#FFFFFF', ...fontSizeStyle }}
       >
         {initials}
       </span>
@@ -94,7 +99,10 @@ const Avatar: React.FC<AvatarProps> = ({
   const showInitialsOverlay = !hasValidSrc && !isLoading;
 
   return (
-    <div className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}>
+    <div
+      className={`relative rounded-full overflow-hidden ${sizeClass} ${className}`}
+      style={sizeNumeric ? { width: sizeNumeric, height: sizeNumeric } : undefined}
+    >
       {/* Always render Image in DOM when we have src, so onLoad can fire */}
       {src && !hasError && (
         <Image
@@ -103,7 +111,7 @@ const Avatar: React.FC<AvatarProps> = ({
           alt={alt}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority={size === 'lg'}
+          priority={size === 'lg' || !!sizeNumeric}
           className={`object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onError={handleError}
           onLoad={handleLoad}
