@@ -63,7 +63,7 @@ function getInitials(name: string): string {
  * Creates a robot glyph avatar on transparent background.
  * We'll composite it onto our own radial gradient background.
  */
-function generateProfileImagePrompt(name: string, accent2Color: string): string {
+function generateProfileImagePrompt(name: string, _accent2Color: string): string {
   const initials = getInitials(name);
   const firstLetter = initials.charAt(0);
 
