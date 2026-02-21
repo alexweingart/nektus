@@ -34,6 +34,7 @@ export const BaseTextInput = forwardRef<RNTextInput, BaseTextInputProps>(
         {...props}
         selectionColor={resolvedColor}
         cursorColor={resolvedColor}
+        tintColor={resolvedColor}
       />
     );
   }

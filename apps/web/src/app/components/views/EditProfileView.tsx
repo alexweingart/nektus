@@ -249,7 +249,7 @@ const EditProfileView: React.FC = () => {
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   fieldSectionManager.setFieldValue('bio', e.target.value)
                 }
-                placeholder="Add a short bio..."
+                placeholder="Enter autobiography here..."
                 className="w-full"
                 maxLength={280}
               />

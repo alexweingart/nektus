@@ -167,7 +167,7 @@ export const BioModal: React.FC<BioModalProps> = ({
                   <ExpandingInput
                     value={bioText}
                     onChange={setBioText}
-                    placeholder="The world's shortest autobiography..."
+                    placeholder="Enter autobiography here..."
                     maxLength={280}
                   />
 

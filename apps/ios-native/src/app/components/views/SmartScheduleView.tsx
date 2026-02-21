@@ -557,7 +557,7 @@ export function SmartScheduleView() {
             onPress={handleCustomTimePlace}
             style={styles.customButton}
           >
-            <Text style={styles.customButtonText}>Something more specific</Text>
+            <Text style={styles.customButtonText}>Custom time & place</Text>
           </Button>
         </ScrollView>
 

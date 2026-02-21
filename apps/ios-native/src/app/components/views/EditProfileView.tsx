@@ -301,7 +301,7 @@ export function EditProfileView() {
                 <ExpandingInput
                   value={fieldManager.getFieldValue('bio')}
                   onChange={(value) => fieldManager.setFieldValue('bio', value)}
-                  placeholder="Add a short bio..."
+                  placeholder="Enter autobiography here..."
                   maxLength={280}
                 />
               </View>

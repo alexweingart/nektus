@@ -324,7 +324,7 @@ export default function SmartScheduleView() {
               router.push(`/c/${contactProfile?.shortCode}/ai-schedule?${params.toString()}`);
             }}
           >
-            Something more specific
+            Custom time & place
           </Button>
         </div>
       </div>
