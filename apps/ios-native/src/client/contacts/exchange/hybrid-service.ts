@@ -207,8 +207,12 @@ export class HybridExchangeService {
     this.callbacks.onStateChange?.(state);
 
     // Update status if not BLE status
+    // When BLE is available, don't let server's bump/processing override BLE scanning
     if (!this.matchFound && !state.status.startsWith('ble-')) {
-      this.updateStatus(state.status);
+      const isBumpStatus = state.status === 'waiting-for-bump' || state.status === 'processing';
+      if (!(this.bleAvailable && isBumpStatus)) {
+        this.updateStatus(state.status);
+      }
     }
 
     // Handle server match

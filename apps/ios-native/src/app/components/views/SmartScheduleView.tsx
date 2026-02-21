@@ -532,7 +532,7 @@ export function SmartScheduleView() {
                   key={chip.id}
                   icon={
                     <View style={styles.chipIcon}>
-                      <ChipIcon name={chip.icon} />
+                      <ChipIcon name={chip.icon || ''} />
                     </View>
                   }
                   title={title}
