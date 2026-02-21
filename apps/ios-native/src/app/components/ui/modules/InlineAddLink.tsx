@@ -52,13 +52,15 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
   const [customLinkUrl, setCustomLinkUrl] = useState('');
 
   // Duplicate to other section
-  const [duplicateToOther, setDuplicateToOther] = useState(false);
+  const [duplicateToOther, setDuplicateToOther] = useState(true);
 
   const [error, setError] = useState('');
 
   // Track if an internal interaction is in progress (dropdown open, toggle tapped, etc.)
   // This prevents blur from triggering cancel when user is interacting with controls
   const internalInteractionRef = useRef(false);
+
+  const stripProtocol = (url: string) => url.replace(/^https?:\/\//i, '');
 
   const otherSection = section === 'personal' ? 'work' : 'personal';
 
@@ -122,7 +124,10 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
           icon: `/icons/default/${socialPlatform}.svg`,
         };
       } else {
-        const url = customLinkUrl.trim();
+        let url = customLinkUrl.trim();
+        if (url && !/^https?:\/\//i.test(url)) {
+          url = `https://${url}`;
+        }
         const fieldType = extractDomainForFieldType(url);
         const faviconUrl = `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`;
 
@@ -268,7 +273,7 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
         ) : (
           <ExpandingInput
             value={customLinkUrl}
-            onChange={setCustomLinkUrl}
+            onChange={(value: string) => setCustomLinkUrl(stripProtocol(value))}
             placeholder="https://example.com"
             onSubmit={handleSubmit}
             onInputBlur={handleBlur}
