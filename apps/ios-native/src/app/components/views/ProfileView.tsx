@@ -384,7 +384,7 @@ export function ProfileView() {
         onClose={() => setShowWidgetModal(false)}
         title="One-tap Nekt from your Lock Screen"
         subtitle="Long press your Lock Screen → Customize → Lock Screen → tap the widget area below the time → search for Nekt"
-        primaryButtonText="I'll do that right now!"
+        primaryButtonText="On it!"
         onPrimaryButtonClick={() => setShowWidgetModal(false)}
         showSecondaryButton={false}
         showCloseButton={false}

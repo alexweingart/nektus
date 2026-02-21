@@ -374,7 +374,7 @@ const ProfileView: React.FC = () => {
         onClose={closeIOSModal}
         title="Nekt in a tap"
         subtitle="Tap the share icon, then select &quot;Add to Home Screen&quot;"
-        primaryButtonText="I&apos;ll do that right now!"
+        primaryButtonText="On it!"
         onPrimaryButtonClick={closeIOSModal}
         showSecondaryButton={false}
         showCloseButton={false}
@@ -386,7 +386,7 @@ const ProfileView: React.FC = () => {
         onClose={closeAndroidModal}
         title="Nekt in a tap"
         subtitle="Tap the menu (three dots), then select &quot;Add to Home Screen&quot; or &quot;Install app&quot;"
-        primaryButtonText="I&apos;ll do that right now!"
+        primaryButtonText="On it!"
         onPrimaryButtonClick={closeAndroidModal}
         showSecondaryButton={false}
         showCloseButton={false}
