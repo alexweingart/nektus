@@ -13,8 +13,8 @@ OUTPUT_DIR="$PROJECT_DIR/screenshots"
 RAW_DIR="$OUTPUT_DIR/raw"
 
 # Simulator UDIDs
-SIM_PRO_MAX="9D3DAF73-4534-4E6E-86B9-8BBD788A2266"  # iPhone 16 Pro Max (6.9")
-SIM_PRO="5092CD05-4F36-48BC-92E6-B235E81E62A6"       # iPhone 16 Pro (6.3")
+SIM_PRO_MAX="4C208E0C-252D-4A69-A2D9-F2F81B49891D"  # iPhone 16 Pro Max (6.9")
+SIM_PRO="28A2AFE7-67DD-42EE-A639-FC15C4059A84"       # iPhone 16 Pro (6.3")
 
 # Screenshot definitions: slug|caption|deep_link_or_manual
 SCREENSHOTS=(
