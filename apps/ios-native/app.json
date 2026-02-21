@@ -121,7 +121,6 @@
             "expo-crypto",
             "expo-file-system",
             "expo-keep-awake",
-            "expo-asset",
             "react-native-qrcode-svg",
             "react-native-markdown-display",
             "expo-calendar"
