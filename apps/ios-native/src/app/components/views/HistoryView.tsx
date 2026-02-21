@@ -195,6 +195,7 @@ export function HistoryView() {
             src={getOptimalProfileImageUrl(item.profileImage, 128)}
             alt={item.odtName}
             sizeNumeric={40}
+            showInitials={!item.profileImage}
           />
         }
         title={item.odtName || 'They-who-must-not-be-named'}
