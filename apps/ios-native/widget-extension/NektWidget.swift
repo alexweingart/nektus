@@ -25,25 +25,36 @@ struct NektWidgetEntry: TimelineEntry {
 }
 
 struct NektWidgetEntryView: View {
+    @Environment(\.widgetRenderingMode) var renderingMode
     var entry: NektWidgetProvider.Entry
 
     var body: some View {
         ZStack {
             AccessoryWidgetBackground()
-            Text("N")
-                .font(.system(size: 28, weight: .black, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
+            nektLabel
+        }
+        .widgetURL(URL(string: "nekt://profile?autoNekt=true"))
+        .containerBackground(for: .widget) { }
+    }
+
+    private var nektLabel: some View {
+        Text("N")
+            .font(.system(size: 38, weight: .black, design: .rounded))
+            .foregroundStyle(
+                renderingMode == .fullColor
+                    ? AnyShapeStyle(LinearGradient(
                         stops: [
                             .init(color: .white, location: 0.0),
-                            .init(color: .white.opacity(0.55), location: 1.0),
+                            .init(color: .white, location: 0.45),
+                            .init(color: .white.opacity(0.7), location: 1.0),
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
-                    )
-                )
-        }
-        .widgetURL(URL(string: "nekt://profile?autoNekt=true"))
+                    ))
+                    : AnyShapeStyle(.white)
+            )
+            .shadow(color: .white.opacity(0.3), radius: 2)
+            .widgetAccentable()
     }
 }
 
