@@ -19,6 +19,8 @@ import * as Linking from "expo-linking";
 import { AnonContactView } from "./src/app/components/views/AnonContactView";
 import { Button } from "./src/app/components/ui/buttons/Button";
 import { PostSignUpModal } from "./src/app/components/ui/modals/PostSignUpModal";
+import { StandardModal } from "./src/app/components/ui/modals/StandardModal";
+import { generateMessageText } from "./src/client/contacts/messaging";
 import { ParticleNetwork } from "./src/app/components/ui/layout/ParticleNetwork";
 import type { ParticleNetworkProps } from "./src/app/components/ui/layout/ParticleNetwork";
 import type { UserProfile, ContactEntry } from "@nektus/shared-types";
@@ -121,6 +123,7 @@ function AppClipContent() {
   const [isPhoneSaving, setIsPhoneSaving] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -402,8 +405,8 @@ function AppClipContent() {
         console.error("[AppClip] Contact form error:", contactErr);
       }
 
-      // 3. Mark as saved
-      setIsSaved(true);
+      // 3. Show success modal (upsell screen triggers when modal is dismissed)
+      setShowSuccessModal(true);
     } catch (err) {
       console.error("[AppClip] Save contact error:", err);
       setError('Failed to save contact');
@@ -411,6 +414,34 @@ function AppClipContent() {
       setIsSaving(false);
     }
   }, [isSaved, previewProfile, token, apiBaseUrl]);
+
+  // Handle "Say hi" from success modal — open SMS with pre-populated message
+  const handleSayHi = useCallback(() => {
+    if (!previewProfile) return;
+
+    const phoneNumber = getFieldValue(previewProfile.contactEntries, 'phone');
+    const contactName = getFieldValue(previewProfile.contactEntries, 'name') || '';
+    const contactFirstName = contactName.split(' ')[0] || '';
+    const senderFirstName = session?.userName?.split(' ')[0] || '';
+
+    const message = generateMessageText(contactFirstName, senderFirstName);
+
+    setShowSuccessModal(false);
+    setIsSaved(true);
+
+    if (phoneNumber) {
+      const smsUrl = `sms:${phoneNumber}&body=${encodeURIComponent(message)}`;
+      Linking.openURL(smsUrl).catch(() => {
+        // Silently fail — contact is already saved
+      });
+    }
+  }, [previewProfile, session]);
+
+  // Handle dismiss of success modal — proceed to upsell screen
+  const handleSuccessModalDismiss = useCallback(() => {
+    setShowSuccessModal(false);
+    setIsSaved(true);
+  }, []);
 
   // Handle reject / dismiss — navigate to nekt.us (user is signed in, can see their profile)
   const handleReject = useCallback(() => {
@@ -547,6 +578,18 @@ function AppClipContent() {
             onSave={handlePhoneSave}
           />
         )}
+        {/* Success modal — shown after contact form, before upsell screen */}
+        <StandardModal
+          isOpen={showSuccessModal}
+          onClose={handleSuccessModalDismiss}
+          title="Contact Saved!"
+          subtitle={`You and ${(getFieldValue(previewProfile.contactEntries, 'name') || '').split(' ')[0] || 'they'} are officially nekt'd!`}
+          primaryButtonText="Say hi"
+          onPrimaryButtonClick={handleSayHi}
+          secondaryButtonText="Nah, they'll text me"
+          onSecondaryButtonClick={handleSuccessModalDismiss}
+          showCloseButton={false}
+        />
       </View>
     );
   }
