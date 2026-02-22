@@ -7,7 +7,9 @@
  *   - Twilio (SMS/WhatsApp): HMAC-SHA1 of URL + sorted params, compared to X-Twilio-Signature
  *   - Telegram: Secret token in X-Telegram-Bot-Api-Secret-Token header
  *   - Meta WhatsApp Cloud API: HMAC-SHA256 of body with app secret
- *   - SendGrid (Email): OAuth-based or signed event webhook (ECDSA)
+ *   - Resend (Email): SVIX webhook signatures (HMAC-SHA256)
+ *   - Slack: HMAC-SHA256 of "v0:{timestamp}:{body}" with signing secret
+ *   - Teams (Azure Bot Framework): JWT verification against Microsoft's public keys
  *   - Apple Business Chat (iMessage): JWT-based verification
  *
  * IMPORTANT: These are stubs for Phase 0. Each channel adapter calls its own
@@ -101,6 +103,81 @@ export function verifyMetaSignature(
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Slack
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify a Slack webhook signature.
+ * Slack sends X-Slack-Signature: v0=<HMAC-SHA256 hash>
+ * The signed content is: "v0:{timestamp}:{rawBody}"
+ * @see https://api.slack.com/authentication/verifying-requests-from-slack
+ */
+export function verifySlackSignature(
+  signingSecret: string,
+  signature: string,
+  timestamp: string,
+  rawBody: string
+): boolean {
+  // Slack signatures always start with "v0="
+  const baseString = `v0:${timestamp}:${rawBody}`;
+
+  const expectedHash = createHmac('sha256', signingSecret)
+    .update(baseString)
+    .digest('hex');
+
+  const expectedSignature = `v0=${expectedHash}`;
+
+  try {
+    return timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Microsoft Teams (Azure Bot Framework)
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify a Teams Bot Framework webhook.
+ *
+ * Teams sends a JWT Bearer token in the Authorization header. Full verification
+ * requires fetching Microsoft's OpenID configuration and validating the JWT
+ * against their public keys.
+ *
+ * Phase 0: Stub that checks the Authorization header format.
+ * Phase 1: Will validate the JWT against Microsoft's JWKS endpoint:
+ *   https://login.botframework.com/v1/.well-known/openidconfiguration
+ *
+ * @see https://learn.microsoft.com/en-us/azure/bot-service/rest-api/bot-framework-rest-connector-authentication
+ */
+export function verifyTeamsToken(
+  authorizationHeader: string,
+  _expectedAudience: string
+): { valid: boolean; error?: string } {
+  // Authorization header should be "Bearer <jwt>"
+  if (!authorizationHeader.startsWith('Bearer ')) {
+    return { valid: false, error: 'Missing Bearer token' };
+  }
+
+  const token = authorizationHeader.slice(7);
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return { valid: false, error: 'Invalid JWT format' };
+  }
+
+  // TODO Phase 1: Validate JWT signature against Microsoft's JWKS
+  // - Fetch OpenID config from https://login.botframework.com/v1/.well-known/openidconfiguration
+  // - Get JWKS URI from config
+  // - Verify JWT signature, issuer, audience, and expiry
+  // For now, accept any well-formed JWT (dev mode only)
+  return { valid: true };
 }
 
 // ---------------------------------------------------------------------------

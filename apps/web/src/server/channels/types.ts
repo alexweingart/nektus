@@ -2,7 +2,7 @@
  * Multi-Channel Agent — Core Types
  *
  * Channel-agnostic message types that normalize inbound messages from any
- * channel (web, SMS, WhatsApp, iMessage, email, Telegram) into a common
+ * channel (web, SMS, WhatsApp, iMessage, email, Telegram, Slack, Teams) into a common
  * format the AI scheduling pipeline can consume, and define the outbound
  * response format that channel adapters render into channel-specific payloads.
  */
@@ -13,11 +13,13 @@
 
 export type ChannelId =
   | 'web'        // Existing Next.js SSE chat
-  | 'sms'        // Twilio / carrier gateway
-  | 'whatsapp'   // WhatsApp Business API (via Twilio or Meta Cloud API)
-  | 'imessage'   // Apple Business Chat or Mac mini relay
-  | 'email'      // SendGrid / Mailgun inbound parse
-  | 'telegram';  // Telegram Bot API
+  | 'sms'        // Mac mini relay (carrier SMS)
+  | 'whatsapp'   // Meta Cloud API (WhatsApp Business)
+  | 'imessage'   // Mac mini relay (BlueBubbles)
+  | 'email'      // Resend / Mailgun inbound parse
+  | 'telegram'   // Telegram Bot API
+  | 'slack'      // Slack App (Events API, DM only)
+  | 'teams';     // Microsoft Teams Bot (Azure Bot Framework, DM only)
 
 // ---------------------------------------------------------------------------
 // Inbound: Raw webhook payloads (channel-specific, pre-normalization)
@@ -162,10 +164,28 @@ export interface ConversationState {
   channel: ChannelId;
   /** The Nektus user who initiated (or the user we resolved from sender) */
   userId: string;
-  /** The contact they're scheduling with */
+  /**
+   * The contact they're scheduling with (1:1 case).
+   * For group scheduling, this is the first contact; use `participantIds` for all.
+   */
   contactId: string;
   /** Contact's display name */
   contactName?: string;
+
+  /**
+   * All participant user IDs for group scheduling (includes userId + all contacts).
+   * For 1:1 conversations this is [userId, contactId].
+   * For groups this is [userId, contactId1, contactId2, ...].
+   */
+  participantIds: string[];
+  /** Display names keyed by user ID */
+  participantNames?: Record<string, string>;
+  /**
+   * RSVP status for each participant (keyed by user ID).
+   * The initiator (userId) is always 'accepted'.
+   */
+  participantRSVPs?: Record<string, 'pending' | 'accepted' | 'declined' | 'counter_proposed'>;
+
   /** Full message history in OpenAI format */
   messages: ConversationMessage[];
   /** When the conversation started */
@@ -230,6 +250,78 @@ export interface WebhookVerificationResult {
   error?: string;
   /** Parsed channel-specific data after verification */
   channelData?: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Identity verification (tap-to-link flow)
+// ---------------------------------------------------------------------------
+
+/**
+ * When an unknown sender messages the bot, we send them a verification link.
+ * Tapping the link opens a web page where the user logs in (or is already
+ * logged in) and their channel address gets linked to their Nektus account.
+ *
+ * Stored in Redis with a short TTL (15 min).
+ */
+export interface VerificationToken {
+  /** Random token used in the /verify/[token] URL */
+  token: string;
+  /** The channel the message came from */
+  channel: ChannelId;
+  /** The sender's address on that channel (phone number, email, Slack user ID, etc.) */
+  address: string;
+  /** Display name from the channel, if available */
+  displayName?: string;
+  /** When this token was created */
+  createdAt: Date;
+  /** When this token expires (15 minutes from creation) */
+  expiresAt: Date;
+  /** Whether this token has been used */
+  used: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// RSVP (multi-person scheduling confirmation)
+// ---------------------------------------------------------------------------
+
+/**
+ * When the bot schedules a group event, each participant who isn't the
+ * initiator gets an RSVP link. Tapping it opens a web page where they
+ * can accept, decline, or suggest an alternative time.
+ *
+ * Stored in Redis (or Firestore) with the event's TTL.
+ */
+export interface RSVPToken {
+  /** Random token used in the /rsvp/[token] URL */
+  token: string;
+  /** The scheduling conversation that generated this RSVP */
+  conversationId: string;
+  /** The Nektus user being asked to confirm */
+  participantUserId: string;
+  /** The Nektus user who initiated the scheduling */
+  initiatorUserId: string;
+  /** The proposed event details */
+  proposedEvent: {
+    title: string;
+    startTime: string;     // ISO 8601
+    endTime: string;       // ISO 8601
+    location?: string;
+    eventType: 'video' | 'in-person';
+  };
+  /** All participant user IDs (for group visibility) */
+  allParticipantIds: string[];
+  /** Current RSVP status */
+  status: 'pending' | 'accepted' | 'declined' | 'counter_proposed';
+  /** If counter-proposed, the alternative time */
+  counterProposal?: {
+    startTime: string;
+    endTime: string;
+    note?: string;
+  };
+  /** When this RSVP was created */
+  createdAt: Date;
+  /** When this RSVP expires */
+  expiresAt: Date;
 }
 
 // ---------------------------------------------------------------------------

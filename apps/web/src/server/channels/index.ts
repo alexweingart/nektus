@@ -23,6 +23,8 @@ export type {
   InboundWebhookMeta,
   WebhookVerificationResult,
   MessageAttachment,
+  VerificationToken,
+  RSVPToken,
 } from './types';
 
 // Adapter base
@@ -56,6 +58,8 @@ export {
   verifyTwilioSignature,
   verifyTelegramSecret,
   verifyMetaSignature,
+  verifySlackSignature,
+  verifyTeamsToken,
   isTimestampFresh,
   checkRateLimit,
 } from './security/verify';
@@ -80,8 +84,13 @@ export function initializeChannels(): void {
 
   // Future channels will be conditionally registered based on env vars:
   //
-  // if (process.env.TWILIO_AUTH_TOKEN) {
+  // Mac mini relay (SMS + iMessage via same device)
+  // if (process.env.MAC_RELAY_URL) {
   //   channelRegistry.register(smsChannelAdapter);
+  //   channelRegistry.register(imessageChannelAdapter);
+  // }
+  //
+  // if (process.env.WHATSAPP_PHONE_NUMBER_ID) {
   //   channelRegistry.register(whatsappChannelAdapter);
   // }
   //
@@ -89,12 +98,16 @@ export function initializeChannels(): void {
   //   channelRegistry.register(telegramChannelAdapter);
   // }
   //
-  // if (process.env.SENDGRID_INBOUND_KEY) {
+  // if (process.env.RESEND_API_KEY) {
   //   channelRegistry.register(emailChannelAdapter);
   // }
   //
-  // if (process.env.IMESSAGE_RELAY_URL) {
-  //   channelRegistry.register(imessageChannelAdapter);
+  // if (process.env.SLACK_SIGNING_SECRET) {
+  //   channelRegistry.register(slackChannelAdapter);
+  // }
+  //
+  // if (process.env.TEAMS_APP_ID) {
+  //   channelRegistry.register(teamsChannelAdapter);
   // }
 
   console.log(`📡 Channels initialized: [${channelRegistry.listChannels().join(', ')}]`);

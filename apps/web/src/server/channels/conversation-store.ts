@@ -49,12 +49,21 @@ class ConversationStore {
   }
 
   /**
-   * Build a deterministic key for a conversation.
+   * Build a deterministic key for a 1:1 conversation.
    * Sorted user IDs ensure the same conversation regardless of who initiates.
    */
   private buildKey(userId: string, contactId: string, channel: ChannelId): string {
     const sorted = [userId, contactId].sort();
     return `${KEY_PREFIX}:${channel}:${sorted[0]}:${sorted[1]}`;
+  }
+
+  /**
+   * Build a deterministic key for a group conversation (3+ participants).
+   * All participant IDs are sorted so order doesn't matter.
+   */
+  private buildGroupKey(participantIds: string[], channel: ChannelId): string {
+    const sorted = [...participantIds].sort();
+    return `${KEY_PREFIX}:${channel}:group:${sorted.join(':')}`;
   }
 
   /**
@@ -79,6 +88,7 @@ class ConversationStore {
       channel,
       userId,
       contactId,
+      participantIds: [userId, contactId].filter(id => id !== 'pending'),
       messages: [],
       createdAt: new Date(),
       lastActiveAt: new Date(),
@@ -149,6 +159,83 @@ class ConversationStore {
       conversation.status = 'completed';
       await this.save(key, conversation);
     }
+  }
+
+  /**
+   * Get or create a group conversation (3+ participants).
+   * The conversation is always initiated by the userId who DMs the bot.
+   * The bot coordinates with all participants via separate RSVP links.
+   */
+  async getOrCreateGroup(
+    userId: string,
+    participantIds: string[],
+    channel: ChannelId,
+    context?: Partial<ConversationContext>,
+    participantNames?: Record<string, string>
+  ): Promise<ConversationState> {
+    const allIds = [userId, ...participantIds.filter(id => id !== userId)];
+    const key = this.buildGroupKey(allIds, channel);
+    const existing = await this.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    // Initialize RSVPs: initiator is always accepted, everyone else is pending
+    const rsvps: Record<string, 'pending' | 'accepted' | 'declined' | 'counter_proposed'> = {};
+    rsvps[userId] = 'accepted';
+    for (const id of participantIds) {
+      if (id !== userId) {
+        rsvps[id] = 'pending';
+      }
+    }
+
+    const conversation: ConversationState = {
+      id: key,
+      channel,
+      userId,
+      contactId: participantIds[0] || 'pending',
+      participantIds: allIds,
+      participantNames,
+      participantRSVPs: rsvps,
+      messages: [],
+      createdAt: new Date(),
+      lastActiveAt: new Date(),
+      context: {
+        calendarType: context?.calendarType || 'personal',
+        timezone: context?.timezone || 'America/Los_Angeles',
+        userLocation: context?.userLocation,
+        userCoordinates: context?.userCoordinates,
+        contactLocation: context?.contactLocation,
+        contactCoordinates: context?.contactCoordinates,
+        contactEmail: context?.contactEmail,
+      },
+      status: 'active',
+    };
+
+    await this.save(key, conversation);
+    return conversation;
+  }
+
+  /**
+   * Update an RSVP status for a participant in a group conversation.
+   */
+  async updateRSVP(
+    conversationId: string,
+    participantId: string,
+    status: 'accepted' | 'declined' | 'counter_proposed'
+  ): Promise<ConversationState | null> {
+    const conversation = await this.get(conversationId);
+    if (!conversation) return null;
+
+    if (!conversation.participantRSVPs) {
+      conversation.participantRSVPs = {};
+    }
+    conversation.participantRSVPs[participantId] = status;
+    conversation.lastActiveAt = new Date();
+
+    await this.save(conversationId, conversation);
+    return conversation;
   }
 
   /**

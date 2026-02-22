@@ -25,7 +25,7 @@ import { channelRegistry } from '@/server/channels/registry';
 import type { ChannelId, InboundWebhookMeta } from '@/server/channels/types';
 
 // Valid channel IDs for type checking
-const VALID_CHANNELS = new Set<string>(['web', 'sms', 'whatsapp', 'imessage', 'email', 'telegram']);
+const VALID_CHANNELS = new Set<string>(['web', 'sms', 'whatsapp', 'imessage', 'email', 'telegram', 'slack', 'teams']);
 
 /**
  * POST — Receive an inbound message from a channel provider.
@@ -59,6 +59,7 @@ export async function POST(
     channel: channelId,
     signature: extractSignature(request, channelId),
     timestamp: request.headers.get('x-twilio-timestamp') ||
+               request.headers.get('x-slack-request-timestamp') ||
                request.headers.get('x-request-timestamp') ||
                undefined,
     sourceIp: request.headers.get('x-forwarded-for')?.split(',')[0] ||
@@ -164,11 +165,21 @@ function extractSignature(request: NextRequest, channel: ChannelId): string | un
       return request.headers.get('x-telegram-bot-api-secret-token') || undefined;
 
     case 'email':
-      // SendGrid: X-Twilio-Email-Event-Webhook-Signature
-      return request.headers.get('x-twilio-email-event-webhook-signature') || undefined;
+      // Resend: svix-signature (webhook verification)
+      return request.headers.get('svix-signature') ||
+             request.headers.get('x-twilio-email-event-webhook-signature') ||
+             undefined;
 
     case 'imessage':
-      // Apple Business Chat: Authorization header with JWT
+      // Mac mini relay: shared secret in Authorization header
+      return request.headers.get('authorization') || undefined;
+
+    case 'slack':
+      // Slack: X-Slack-Signature (HMAC-SHA256 with v0: prefix)
+      return request.headers.get('x-slack-signature') || undefined;
+
+    case 'teams':
+      // Teams: Authorization header with JWT (Azure Bot Framework)
       return request.headers.get('authorization') || undefined;
 
     default:
