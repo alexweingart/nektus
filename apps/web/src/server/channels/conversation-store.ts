@@ -164,7 +164,13 @@ class ConversationStore {
   /**
    * Get or create a group conversation (3+ participants).
    * The conversation is always initiated by the userId who DMs the bot.
-   * The bot coordinates with all participants via separate RSVP links.
+   *
+   * When the bot creates the event, calendar invites handle accept/decline
+   * natively — no custom RSVP flow needed.
+   *
+   * Note: when web group chat ships, this method will need to be aware of
+   * group-context so the AI knows which participants are in the conversation
+   * and doesn't leak cross-conversation context.
    */
   async getOrCreateGroup(
     userId: string,
@@ -181,15 +187,6 @@ class ConversationStore {
       return existing;
     }
 
-    // Initialize RSVPs: initiator is always accepted, everyone else is pending
-    const rsvps: Record<string, 'pending' | 'accepted' | 'declined' | 'counter_proposed'> = {};
-    rsvps[userId] = 'accepted';
-    for (const id of participantIds) {
-      if (id !== userId) {
-        rsvps[id] = 'pending';
-      }
-    }
-
     const conversation: ConversationState = {
       id: key,
       channel,
@@ -197,7 +194,6 @@ class ConversationStore {
       contactId: participantIds[0] || 'pending',
       participantIds: allIds,
       participantNames,
-      participantRSVPs: rsvps,
       messages: [],
       createdAt: new Date(),
       lastActiveAt: new Date(),
@@ -214,27 +210,6 @@ class ConversationStore {
     };
 
     await this.save(key, conversation);
-    return conversation;
-  }
-
-  /**
-   * Update an RSVP status for a participant in a group conversation.
-   */
-  async updateRSVP(
-    conversationId: string,
-    participantId: string,
-    status: 'accepted' | 'declined' | 'counter_proposed'
-  ): Promise<ConversationState | null> {
-    const conversation = await this.get(conversationId);
-    if (!conversation) return null;
-
-    if (!conversation.participantRSVPs) {
-      conversation.participantRSVPs = {};
-    }
-    conversation.participantRSVPs[participantId] = status;
-    conversation.lastActiveAt = new Date();
-
-    await this.save(conversationId, conversation);
     return conversation;
   }
 

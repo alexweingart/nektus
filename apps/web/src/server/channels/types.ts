@@ -173,18 +173,17 @@ export interface ConversationState {
   contactName?: string;
 
   /**
-   * All participant user IDs for group scheduling (includes userId + all contacts).
+   * All participant user IDs (includes userId + all contacts).
    * For 1:1 conversations this is [userId, contactId].
    * For groups this is [userId, contactId1, contactId2, ...].
+   *
+   * Note: when group chat lands on web, this will also be used for
+   * group-context awareness (e.g. knowing which participants are in
+   * the conversation so the AI doesn't leak cross-conversation context).
    */
   participantIds: string[];
   /** Display names keyed by user ID */
   participantNames?: Record<string, string>;
-  /**
-   * RSVP status for each participant (keyed by user ID).
-   * The initiator (userId) is always 'accepted'.
-   */
-  participantRSVPs?: Record<string, 'pending' | 'accepted' | 'declined' | 'counter_proposed'>;
 
   /** Full message history in OpenAI format */
   messages: ConversationMessage[];
@@ -261,6 +260,15 @@ export interface WebhookVerificationResult {
  * Tapping the link opens a web page where the user logs in (or is already
  * logged in) and their channel address gets linked to their Nektus account.
  *
+ * Flow:
+ *   1. Unknown sender texts "Schedule coffee with Alex"
+ *   2. Bot replies: "Tap to verify your Nektus account: nekt.us/verify/abc123"
+ *   3. User taps → lands on /verify/[token] → authenticates (NextAuth)
+ *   4. Server links their channel address to their Nektus userId
+ *   5. Page shows "Verified!" with a deep link back to the channel
+ *      (e.g. sms:+1234567890, slack://channel/..., whatsapp://send?...)
+ *   6. User returns to the channel → bot picks up the conversation
+ *
  * Stored in Redis with a short TTL (15 min).
  */
 export interface VerificationToken {
@@ -272,56 +280,38 @@ export interface VerificationToken {
   address: string;
   /** Display name from the channel, if available */
   displayName?: string;
+
+  /**
+   * Deep link that sends the user back to the originating channel after
+   * verification completes. Built by the channel adapter at token creation.
+   *
+   * Examples:
+   *   sms:  "sms:+15551234567"
+   *   whatsapp: "https://wa.me/15551234567"
+   *   telegram: "https://t.me/NektusBot"
+   *   slack: "slack://channel?team=T123&id=D456"
+   *   teams: "https://teams.microsoft.com/l/chat/0/0?users=bot@nektus.com"
+   *   email: "mailto:schedule@nekt.us"
+   */
+  returnDeepLink?: string;
+  /** Human-readable channel name for the verification page (e.g. "iMessage", "Slack DM") */
+  returnChannelLabel?: string;
+
+  /**
+   * Session ID that ties the verification to the conversation the user
+   * was having when they got the link. After verification, the bot resumes
+   * this session so the user doesn't have to repeat their request.
+   */
+  pendingSessionId?: string;
+  /** The original message text so the bot can replay it after linking */
+  pendingMessageText?: string;
+
   /** When this token was created */
   createdAt: Date;
   /** When this token expires (15 minutes from creation) */
   expiresAt: Date;
   /** Whether this token has been used */
   used: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// RSVP (multi-person scheduling confirmation)
-// ---------------------------------------------------------------------------
-
-/**
- * When the bot schedules a group event, each participant who isn't the
- * initiator gets an RSVP link. Tapping it opens a web page where they
- * can accept, decline, or suggest an alternative time.
- *
- * Stored in Redis (or Firestore) with the event's TTL.
- */
-export interface RSVPToken {
-  /** Random token used in the /rsvp/[token] URL */
-  token: string;
-  /** The scheduling conversation that generated this RSVP */
-  conversationId: string;
-  /** The Nektus user being asked to confirm */
-  participantUserId: string;
-  /** The Nektus user who initiated the scheduling */
-  initiatorUserId: string;
-  /** The proposed event details */
-  proposedEvent: {
-    title: string;
-    startTime: string;     // ISO 8601
-    endTime: string;       // ISO 8601
-    location?: string;
-    eventType: 'video' | 'in-person';
-  };
-  /** All participant user IDs (for group visibility) */
-  allParticipantIds: string[];
-  /** Current RSVP status */
-  status: 'pending' | 'accepted' | 'declined' | 'counter_proposed';
-  /** If counter-proposed, the alternative time */
-  counterProposal?: {
-    startTime: string;
-    endTime: string;
-    note?: string;
-  };
-  /** When this RSVP was created */
-  createdAt: Date;
-  /** When this RSVP expires */
-  expiresAt: Date;
 }
 
 // ---------------------------------------------------------------------------

@@ -24,7 +24,6 @@ export type {
   WebhookVerificationResult,
   MessageAttachment,
   VerificationToken,
-  RSVPToken,
 } from './types';
 
 // Adapter base
