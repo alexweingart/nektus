@@ -7,7 +7,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing, useWindowDimensions } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getOptimalProfileImageUrl, ANIMATION } from '@nektus/shared-client';
 import { BlurView } from 'expo-blur';
@@ -19,6 +19,33 @@ import { StandardModal } from '../ui/modals/StandardModal';
 import { BodyText, textSizes, fontStyles } from '../ui/Typography';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateProfileColors } from '../../../shared/colors';
+
+// Lucide-style SVG icons for upsell features (matching about page)
+const SmartphoneIcon = () => (
+  <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x={5} y={2} width={14} height={20} rx={2} ry={2} />
+    <Path d="M12 18h.01" />
+  </Svg>
+);
+
+const UserPlusIcon = () => (
+  <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M2 21a8 8 0 0 1 13.292-6" />
+    <Circle cx={10} cy={8} r={5} />
+    <Path d="M19 16v6" />
+    <Path d="M22 19h-6" />
+  </Svg>
+);
+
+const CalendarCheckIcon = () => (
+  <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M8 2v4" />
+    <Path d="M16 2v4" />
+    <Rect x={3} y={4} width={18} height={18} rx={2} />
+    <Path d="M3 10h18" />
+    <Path d="M9 16l2 2 4-4" />
+  </Svg>
+);
 
 // Apple icon (dark logo for white button to match app style)
 const AppleIcon = () => (
@@ -142,7 +169,7 @@ export function AnonContactView({
       ]),
     ]).start();
 
-    // Subhead "Your profile is ready."
+    // Subtitle "Your profile is ready in the Nekt app"
     Animated.sequence([
       Animated.delay(baseDelay + stagger),
       Animated.timing(subheadAnim, { toValue: 1, duration: ANIMATION.UI_MS, useNativeDriver: true }),
@@ -305,67 +332,65 @@ export function AnonContactView({
               More new friends await
             </Animated.Text>
 
-            {/* Upsell Card */}
+            {/* Subtitle — outside card */}
+            <Animated.Text style={[styles.upsellSubtitle, { opacity: subheadAnim }]}>
+              Your profile is ready in the Nekt app
+            </Animated.Text>
+
+            {/* Features Card */}
             <View style={styles.upsellCard}>
               <BlurView
                 style={StyleSheet.absoluteFillObject}
                 tint="dark"
                 intensity={50}
               />
-              <Animated.Text style={[styles.upsellSubhead, { opacity: subheadAnim }]}>
-                Your profile is ready.
-              </Animated.Text>
 
-              <Animated.View style={[styles.upsellDividerWrap, { opacity: subheadAnim }]}>
-                <View style={styles.upsellDivider} />
-              </Animated.View>
-
-              {/* Row 1 — Tap to connect */}
+              {/* Feature 1 — Tap to connect */}
               <Animated.View
                 style={[
-                  styles.upsellRow,
+                  styles.upsellFeature,
                   { opacity: row1Anim, transform: [{ translateY: row1Slide }] },
                 ]}
               >
-                <Text style={styles.upsellEmoji}>{'\u{1F4F2}'}</Text>
-                <View style={styles.upsellRowText}>
-                  <Text style={styles.upsellRowTitle}>Tap to connect</Text>
-                  <Text style={styles.upsellRowDesc}>
-                    Skip the QR — tap phones to instantly connect
-                  </Text>
+                <View style={styles.upsellIconWrap}>
+                  <SmartphoneIcon />
                 </View>
+                <Text style={styles.upsellFeatureTitle}>Tap to connect</Text>
+                <Text style={styles.upsellFeatureDesc}>
+                  Skip the QR — tap phones to instantly connect
+                </Text>
               </Animated.View>
 
-              {/* Row 2 — Auto-save */}
+              {/* Feature 2 — Auto-save */}
               <Animated.View
                 style={[
-                  styles.upsellRow,
+                  styles.upsellFeature,
                   { opacity: row2Anim, transform: [{ translateY: row2Slide }] },
                 ]}
               >
-                <Text style={styles.upsellEmoji}>{'\u2728'}</Text>
-                <View style={styles.upsellRowText}>
-                  <Text style={styles.upsellRowTitle}>Auto-save</Text>
-                  <Text style={styles.upsellRowDesc}>
-                    Connections go directly to Contacts app
-                  </Text>
+                <View style={styles.upsellIconWrap}>
+                  <UserPlusIcon />
                 </View>
+                <Text style={styles.upsellFeatureTitle}>Auto-save</Text>
+                <Text style={styles.upsellFeatureDesc}>
+                  Connections go directly to Contacts app
+                </Text>
               </Animated.View>
 
-              {/* Row 3 — AI scheduling */}
+              {/* Feature 3 — AI scheduling */}
               <Animated.View
                 style={[
-                  styles.upsellRow,
+                  styles.upsellFeature,
                   { opacity: row3Anim, transform: [{ translateY: row3Slide }] },
                 ]}
               >
-                <Text style={styles.upsellEmoji}>{'\uD83D\uDCC5'}</Text>
-                <View style={styles.upsellRowText}>
-                  <Text style={styles.upsellRowTitle}>AI scheduling</Text>
-                  <Text style={styles.upsellRowDesc}>
-                    Find the perfect time to meet up
-                  </Text>
+                <View style={styles.upsellIconWrap}>
+                  <CalendarCheckIcon />
                 </View>
+                <Text style={styles.upsellFeatureTitle}>AI scheduling</Text>
+                <Text style={styles.upsellFeatureDesc}>
+                  Find the perfect time to meet up
+                </Text>
               </Animated.View>
             </View>
 
@@ -495,53 +520,47 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     ...fontStyles.bold,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  upsellSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    ...textSizes.base,
+    ...fontStyles.regular,
+    textAlign: 'center',
     marginBottom: 24,
   },
   upsellCard: {
     backgroundColor: 'transparent',
     borderRadius: 16,
     paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 16,
+    paddingVertical: 24,
+    gap: 24,
     overflow: 'hidden',
   },
-  upsellSubhead: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    ...textSizes.base,
-    ...fontStyles.bold,
-    textAlign: 'center',
-  },
-  upsellDividerWrap: {
-    paddingHorizontal: 8,
-  },
-  upsellDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  upsellRow: {
-    flexDirection: 'row',
+  upsellFeature: {
     alignItems: 'center',
-    gap: 16,
+    gap: 6,
   },
-  upsellEmoji: {
-    fontSize: 28,
-    lineHeight: 36,
-    width: 36,
-    textAlign: 'center',
+  upsellIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  upsellRowText: {
-    flex: 1,
-    gap: 2,
-  },
-  upsellRowTitle: {
+  upsellFeatureTitle: {
     color: '#ffffff',
     ...textSizes.base,
     ...fontStyles.bold,
+    textAlign: 'center',
   },
-  upsellRowDesc: {
+  upsellFeatureDesc: {
     color: 'rgba(255, 255, 255, 0.7)',
     ...textSizes.sm,
     ...fontStyles.regular,
+    textAlign: 'center',
   },
 });
 
