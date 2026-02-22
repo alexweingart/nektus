@@ -116,6 +116,7 @@ function AppClipContent() {
   const [token, setToken] = useState<string | null>(null);
   const [session, setSession] = useState<AppClipSession | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
+  const [senderProfile, setSenderProfile] = useState<UserProfile | null>(null);
   const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +237,11 @@ function AppClipContent() {
         userName: tokenResponse.user.name,
         userEmail: tokenResponse.user.email,
       });
+
+      // Fetch sender's own profile for Say Hi message (name + shortCode)
+      ClientProfileService.getProfile(tokenResponse.userId)
+        .then(p => { if (p) setSenderProfile(p); })
+        .catch(err => console.warn("[AppClip] Failed to fetch sender profile:", err));
 
       // If new user, show phone entry modal (defer pair signal until after phone setup)
       if (tokenResponse.needsSetup) {
@@ -375,17 +381,21 @@ function AppClipContent() {
           const social = SOCIAL_URLS[entry.fieldType.toLowerCase()];
           if (social) {
             urlAddresses.push({ url: `${social.url}${entry.value}`, label: social.label });
-          } else if (entry.linkType === 'custom' && entry.value.startsWith('http')) {
-            // Custom link — extract domain for label (e.g., "substack.com" → "Substack")
+          } else if (entry.value) {
+            // Custom link or unknown type — treat as URL
+            let url = entry.value;
+            if (!url.startsWith('http')) {
+              url = `https://${url}`;
+            }
             try {
-              const domain = new URL(entry.value).hostname.replace('www.', '');
-              const domainLabel = domain.split('.')[0];
+              const hostname = new URL(url).hostname.replace('www.', '');
+              const domainLabel = hostname.split('.')[0];
               urlAddresses.push({
-                url: entry.value,
+                url,
                 label: domainLabel.charAt(0).toUpperCase() + domainLabel.slice(1),
               });
             } catch {
-              urlAddresses.push({ url: entry.value, label: 'Website' });
+              // Not a valid URL — skip
             }
           }
         }
@@ -393,13 +403,16 @@ function AppClipContent() {
 
       try {
         const Contacts = require('react-native-contacts').default;
+        const photoUrl = previewProfile.profileImage || '';
+        console.log("[AppClip] Opening contact form with photo URL:", photoUrl);
+        console.log("[AppClip] Contact name:", name, "| URLs:", urlAddresses.length);
         await Contacts.openContactForm({
           givenName: nameParts[0] || '',
           familyName: nameParts.slice(1).join(' ') || '',
           emailAddresses: email ? [{ label: 'home', email }] : [],
           phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
           urlAddresses,
-          thumbnailPath: previewProfile.profileImage || '',
+          thumbnailPath: photoUrl,
         });
       } catch (contactErr) {
         console.error("[AppClip] Contact form error:", contactErr);
@@ -422,9 +435,12 @@ function AppClipContent() {
     const phoneNumber = getFieldValue(previewProfile.contactEntries, 'phone');
     const contactName = getFieldValue(previewProfile.contactEntries, 'name') || '';
     const contactFirstName = contactName.split(' ')[0] || '';
-    const senderFirstName = session?.userName?.split(' ')[0] || '';
+    // Use sender's profile name (from Firestore), fall back to Apple Sign In name
+    const senderName = getFieldValue(senderProfile?.contactEntries, 'name') || session?.userName || '';
+    const senderFirstName = senderName.split(' ')[0] || '';
+    const senderShortCode = senderProfile?.shortCode;
 
-    const message = generateMessageText(contactFirstName, senderFirstName);
+    const message = generateMessageText(contactFirstName, senderFirstName, undefined, senderShortCode);
 
     setShowSuccessModal(false);
     setIsSaved(true);
@@ -435,7 +451,7 @@ function AppClipContent() {
         // Silently fail — contact is already saved
       });
     }
-  }, [previewProfile, session]);
+  }, [previewProfile, senderProfile, session]);
 
   // Handle dismiss of success modal — proceed to upsell screen
   const handleSuccessModalDismiss = useCallback(() => {
@@ -582,9 +598,9 @@ function AppClipContent() {
         <StandardModal
           isOpen={showSuccessModal}
           onClose={handleSuccessModalDismiss}
-          title="Contact Saved!"
-          subtitle={`You and ${(getFieldValue(previewProfile.contactEntries, 'name') || '').split(' ')[0] || 'they'} are officially nekt'd!`}
-          primaryButtonText="Say hi"
+          title={`Contact Saved! \uD83C\uDF89`}
+          subtitle={`You and ${getFieldValue(previewProfile.contactEntries, 'name') || 'they'} are officially nekt'd!`}
+          primaryButtonText={`Say hi \uD83D\uDC4B`}
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"
           onSecondaryButtonClick={handleSuccessModalDismiss}

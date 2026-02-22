@@ -106,16 +106,21 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
         const social = SOCIAL_URLS[entry.fieldType.toLowerCase()];
         if (social) {
           urlAddresses.push({ url: `${social.url}${entry.value}`, label: social.label });
-        } else if (entry.linkType === 'custom' && entry.value.startsWith('http')) {
+        } else if (entry.value) {
+          // Custom link or unknown type — treat as URL
+          let url = entry.value;
+          if (!url.startsWith('http')) {
+            url = `https://${url}`;
+          }
           try {
-            const domain = new URL(entry.value).hostname.replace('www.', '');
-            const domainLabel = domain.split('.')[0];
+            const hostname = new URL(url).hostname.replace('www.', '');
+            const domainLabel = hostname.split('.')[0];
             urlAddresses.push({
-              url: entry.value,
+              url,
               label: domainLabel.charAt(0).toUpperCase() + domainLabel.slice(1),
             });
           } catch {
-            urlAddresses.push({ url: entry.value, label: 'Website' });
+            // Not a valid URL — skip
           }
         }
       }
