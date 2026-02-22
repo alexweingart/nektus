@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
   },
   subheading: {
     ...textSizes.lg,
+    ...fontStyles.regular,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
     marginBottom: 40,
@@ -135,6 +136,7 @@ const styles = StyleSheet.create({
   },
   subtext: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: "rgba(255, 255, 255, 0.6)",
     marginTop: 4,
     marginBottom: 20,
@@ -155,11 +157,13 @@ const styles = StyleSheet.create({
   },
   footerDivider: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: "#ffffff",
     marginHorizontal: 12,
   },
   copyright: {
     ...textSizes.xs,
+    ...fontStyles.regular,
     color: "rgba(255, 255, 255, 0.6)",
   },
 });

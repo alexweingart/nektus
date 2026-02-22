@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: 'rgba(209, 213, 219, 1)', // text-gray-300
     marginTop: 2,
   },

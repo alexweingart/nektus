@@ -626,6 +626,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ffffff',
     ...textSizes.base,
+    ...fontStyles.regular,
   },
   content: {
     flex: 1,

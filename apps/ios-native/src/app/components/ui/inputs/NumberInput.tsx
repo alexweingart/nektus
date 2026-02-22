@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import { BaseTextInput } from './BaseTextInput';
-import { textSizes } from '../Typography';
+import { textSizes, fontStyles } from '../Typography';
 
 interface NumberInputProps {
   value: string;
@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
     width: 28,
     textAlign: 'center',
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#ffffff',
     padding: 0,
   },

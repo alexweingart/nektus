@@ -125,6 +125,7 @@ const styles = StyleSheet.create({
   bio: {
     color: '#ffffff',
     ...textSizes.sm,
+    ...fontStyles.regular,
     textAlign: 'center',
   },
   socialContainer: {

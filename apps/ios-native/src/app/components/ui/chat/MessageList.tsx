@@ -86,6 +86,7 @@ export function MessageList({ messages, onCreateEvent, dominantColor = DEFAULT_A
     body: {
       color: '#111827',
       ...textSizes.sm,
+      ...fontStyles.regular,
     },
     paragraph: {
       marginBottom: 8,
@@ -98,6 +99,7 @@ export function MessageList({ messages, onCreateEvent, dominantColor = DEFAULT_A
     em: {
       fontStyle: 'italic' as const,
       color: '#374151',
+      ...fontStyles.regular,
     },
     bullet_list: {
       marginLeft: 0,
@@ -231,6 +233,7 @@ const styles = StyleSheet.create({
   userText: {
     color: '#ffffff',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   typingContainer: {
     flexDirection: 'row',
@@ -253,6 +256,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#6B7280',
   },
 });

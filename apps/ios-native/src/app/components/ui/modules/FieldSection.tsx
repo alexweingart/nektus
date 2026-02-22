@@ -101,6 +101,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
   },

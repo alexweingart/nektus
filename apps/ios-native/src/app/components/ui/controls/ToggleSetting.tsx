@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View, Text, Switch, StyleSheet } from 'react-native';
-import { textSizes } from '../Typography';
+import { textSizes, fontStyles } from '../Typography';
 
 interface ToggleSettingProps {
   label: string;
@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#ffffff',
   },
 });

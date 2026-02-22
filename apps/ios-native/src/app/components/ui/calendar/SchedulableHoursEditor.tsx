@@ -169,6 +169,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#ffffff',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   slotsContainer: {
     paddingHorizontal: 16,
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
   toText: {
     color: 'rgba(255, 255, 255, 0.6)',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   removeButton: {
     width: 40,
@@ -205,6 +207,7 @@ const styles = StyleSheet.create({
   noHoursText: {
     color: 'rgba(255, 255, 255, 0.4)',
     ...textSizes.sm,
+    ...fontStyles.regular,
     fontStyle: 'italic',
     marginTop: 12,
   },

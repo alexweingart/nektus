@@ -20,7 +20,7 @@ import { DropdownPhoneInput } from '../inputs/DropdownPhoneInput';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
-import { Heading, BodyText, textSizes } from '../Typography';
+import { Heading, BodyText, textSizes, fontStyles } from '../Typography';
 import { ToggleSetting } from '../controls/ToggleSetting';
 import { scrapeBio } from '../../../../client/profile/scrape-bio';
 import type { ContactEntry } from '@nektus/shared-types';
@@ -295,6 +295,7 @@ const styles = StyleSheet.create({
   error: {
     color: '#F87171',
     ...textSizes.sm,
+    ...fontStyles.regular,
     textAlign: 'center',
   },
   saveButtonContainer: {

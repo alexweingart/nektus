@@ -268,6 +268,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'rgba(255, 255, 255, 0.6)',
     ...textSizes.base,
+    ...fontStyles.regular,
   },
   calendarInfo: {
     alignItems: 'center',
@@ -281,6 +282,7 @@ const styles = StyleSheet.create({
   email: {
     color: 'rgba(255, 255, 255, 0.6)',
     ...textSizes.sm,
+    ...fontStyles.regular,
     marginTop: 4,
   },
   editorContainer: {

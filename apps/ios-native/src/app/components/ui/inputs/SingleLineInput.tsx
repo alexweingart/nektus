@@ -177,6 +177,7 @@ const styles = StyleSheet.create({
   error: {
     marginTop: 4,
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#DC2626',
   },
 });

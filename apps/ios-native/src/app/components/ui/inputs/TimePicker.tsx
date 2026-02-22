@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
   separator: {
     color: '#ffffff',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   periodButton: {
     paddingHorizontal: 8,

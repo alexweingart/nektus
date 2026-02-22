@@ -138,11 +138,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#F87171',
   },
   suggestionText: {
     marginTop: 4,
     ...textSizes.xs,
+    ...fontStyles.regular,
     color: '#FCA5A5',
   },
 });

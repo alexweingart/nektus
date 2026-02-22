@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
