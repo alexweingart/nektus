@@ -167,7 +167,7 @@ export default function AIScheduleView() {
       setMessages([{
         id: '1',
         type: 'ai',
-        content: `Hey ${userFirstName}! I'll help you find time to meet with **${contactFirstName}**.\n\nJust tell me days, times, duration, and/or type of activity. Or, just ask me to suggest something and I'll use your shared availability to plan something awesome.`,
+        content: `Hey ${userFirstName}! I'll help you find time to meet with **${contactFirstName}**.\n\nJust tell me days, times, duration, and/or type of activity. Or, ask me to suggest something — I got you.`,
       }]);
     }
   }, [contactProfile, currentUserProfile, messages.length]);

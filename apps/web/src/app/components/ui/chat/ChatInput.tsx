@@ -146,6 +146,16 @@ export default function ChatInput({
               onFocus={() => {
                 lastFocusTimeRef.current = Date.now();
                 setIsFocused(true);
+                // Prevent iOS Safari from auto-scrolling the page when
+                // focusing an input inside a position:fixed container.
+                // Safari tries to scroll the input into view even though
+                // it's already visible, pushing the content off-screen.
+                // Run at multiple points during the keyboard animation (~300ms).
+                const scrollY = window.scrollY;
+                const restore = () => window.scrollTo(0, scrollY);
+                requestAnimationFrame(restore);
+                setTimeout(restore, 150);
+                setTimeout(restore, 350);
               }}
               onBlur={() => setIsFocused(false)}
               placeholder="" // Disable native placeholder, we'll handle it ourselves
