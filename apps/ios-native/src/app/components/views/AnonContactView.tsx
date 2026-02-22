@@ -6,10 +6,11 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getOptimalProfileImageUrl, ANIMATION } from '@nektus/shared-client';
+import { BlurView } from 'expo-blur';
 import Avatar from '../ui/elements/Avatar';
 import SocialIcon from '../ui/elements/SocialIcon';
 import { Button } from '../ui/buttons/Button';
@@ -17,6 +18,7 @@ import { SecondaryButton } from '../ui/buttons/SecondaryButton';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { BodyText, textSizes, fontStyles } from '../ui/Typography';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
+import { generateProfileColors } from '../../../shared/colors';
 
 // Apple icon (dark logo for white button to match app style)
 const AppleIcon = () => (
@@ -82,8 +84,15 @@ export function AnonContactView({
   const [showEagerBeaverModal, setShowEagerBeaverModal] = useState(false);
   const [clickedSocial, setClickedSocial] = useState<string>('');
 
+  // Dynamic avatar sizing matching ProfileInfo/ContactInfo
+  const { width: screenWidth } = useWindowDimensions();
+  const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
+
   const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
   const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+  const profileColors = (profile.backgroundColors?.length === 3
+    ? profile.backgroundColors as [string, string, string]
+    : generateProfileColors(name));
 
   // --- Crossfade animation values ---
   const profileOpacity = useRef(new Animated.Value(1)).current;
@@ -188,16 +197,24 @@ export function AnonContactView({
           <View style={styles.profileCard}>
             {/* Profile Image */}
             <View style={styles.avatarContainer}>
-              <View style={styles.avatarBorder}>
+              <View style={[styles.avatarBorder, { borderRadius: (avatarSize + 8) / 2 }]}>
                 <Avatar
                   src={getOptimalProfileImageUrl(profile.profileImage, 256)}
-                  size="lg"
+                  alt={name}
+                  sizeNumeric={avatarSize}
+                  showInitials={!profile.profileImage}
+                  profileColors={profileColors}
                 />
               </View>
             </View>
 
             {/* Content Card */}
             <View style={styles.contentCard}>
+              <BlurView
+                style={StyleSheet.absoluteFillObject}
+                tint="dark"
+                intensity={50}
+              />
               <Text style={styles.name}>{name}</Text>
               <BodyText style={styles.bio}>{bio}</BodyText>
               {socialIconTypes.length > 0 && (
@@ -290,6 +307,11 @@ export function AnonContactView({
 
             {/* Upsell Card */}
             <View style={styles.upsellCard}>
+              <BlurView
+                style={StyleSheet.absoluteFillObject}
+                tint="dark"
+                intensity={50}
+              />
               <Animated.Text style={[styles.upsellSubhead, { opacity: subheadAnim }]}>
                 Your profile is ready.
               </Animated.Text>
@@ -309,7 +331,7 @@ export function AnonContactView({
                 <View style={styles.upsellRowText}>
                   <Text style={styles.upsellRowTitle}>Tap to connect</Text>
                   <Text style={styles.upsellRowDesc}>
-                    Skip the QR — just tap phones next time
+                    Skip the QR — tap phones to instantly connect
                   </Text>
                 </View>
               </Animated.View>
@@ -325,7 +347,7 @@ export function AnonContactView({
                 <View style={styles.upsellRowText}>
                   <Text style={styles.upsellRowTitle}>Auto-save</Text>
                   <Text style={styles.upsellRowDesc}>
-                    New connections go straight to your phone
+                    Connections go directly to Contacts app
                   </Text>
                 </View>
               </Animated.View>
@@ -405,7 +427,7 @@ const styles = StyleSheet.create({
   avatarBorder: {
     borderWidth: 4,
     borderColor: '#ffffff',
-    borderRadius: 68,
+    // borderRadius is set dynamically based on avatarSize
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -414,10 +436,11 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'transparent',
     borderRadius: 16,
     paddingHorizontal: 24,
     paddingVertical: 16,
+    overflow: 'hidden',
   },
   name: {
     color: '#ffffff',
@@ -437,7 +460,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 12,
+    gap: 16,
   },
   actionsContainer: {
     marginTop: 24,
@@ -475,11 +498,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   upsellCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'transparent',
     borderRadius: 16,
     paddingHorizontal: 24,
     paddingVertical: 20,
     gap: 16,
+    overflow: 'hidden',
   },
   upsellSubhead: {
     color: 'rgba(255, 255, 255, 0.9)',

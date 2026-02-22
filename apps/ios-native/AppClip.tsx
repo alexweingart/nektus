@@ -336,6 +336,58 @@ function AppClipContent() {
       const phone = getFieldValue(previewProfile.contactEntries, 'phone') || '';
       const nameParts = name.split(' ');
 
+      // Build URL addresses: Nekt link first, then social/custom links
+      const urlAddresses: { url: string; label: string }[] = [];
+
+      // Nekt homepage link (first)
+      if (previewProfile.shortCode) {
+        urlAddresses.push({
+          url: `https://nekt.us/c/${previewProfile.shortCode}`,
+          label: 'Nekt',
+        });
+      }
+
+      // Social and custom link URLs from contact entries
+      const SOCIAL_URLS: Record<string, { url: string; label: string }> = {
+        instagram: { url: 'https://instagram.com/', label: 'Instagram' },
+        x: { url: 'https://x.com/', label: 'X' },
+        twitter: { url: 'https://twitter.com/', label: 'X' },
+        linkedin: { url: 'https://linkedin.com/in/', label: 'LinkedIn' },
+        facebook: { url: 'https://facebook.com/', label: 'Facebook' },
+        tiktok: { url: 'https://tiktok.com/@', label: 'TikTok' },
+        youtube: { url: 'https://youtube.com/@', label: 'YouTube' },
+        snapchat: { url: 'https://snapchat.com/add/', label: 'Snapchat' },
+        threads: { url: 'https://threads.net/@', label: 'Threads' },
+        github: { url: 'https://github.com/', label: 'GitHub' },
+        telegram: { url: 'https://t.me/', label: 'Telegram' },
+        whatsapp: { url: 'https://wa.me/', label: 'WhatsApp' },
+        wechat: { url: 'https://weixin.qq.com/r/', label: 'WeChat' },
+      };
+
+      if (previewProfile.contactEntries) {
+        for (const entry of previewProfile.contactEntries) {
+          if (!entry.value || !entry.isVisible) continue;
+          if (['name', 'bio', 'phone', 'email'].includes(entry.fieldType)) continue;
+
+          const social = SOCIAL_URLS[entry.fieldType.toLowerCase()];
+          if (social) {
+            urlAddresses.push({ url: `${social.url}${entry.value}`, label: social.label });
+          } else if (entry.linkType === 'custom' && entry.value.startsWith('http')) {
+            // Custom link — extract domain for label (e.g., "substack.com" → "Substack")
+            try {
+              const domain = new URL(entry.value).hostname.replace('www.', '');
+              const domainLabel = domain.split('.')[0];
+              urlAddresses.push({
+                url: entry.value,
+                label: domainLabel.charAt(0).toUpperCase() + domainLabel.slice(1),
+              });
+            } catch {
+              urlAddresses.push({ url: entry.value, label: 'Website' });
+            }
+          }
+        }
+      }
+
       try {
         const Contacts = require('react-native-contacts').default;
         await Contacts.openContactForm({
@@ -343,6 +395,8 @@ function AppClipContent() {
           familyName: nameParts.slice(1).join(' ') || '',
           emailAddresses: email ? [{ label: 'home', email }] : [],
           phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
+          urlAddresses,
+          thumbnailPath: previewProfile.profileImage || '',
         });
       } catch (contactErr) {
         console.error("[AppClip] Contact form error:", contactErr);

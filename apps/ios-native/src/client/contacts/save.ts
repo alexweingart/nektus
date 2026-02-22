@@ -76,12 +76,57 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
+    // Build URL addresses: Nekt link first, then social/custom links
+    const urlAddresses: { url: string; label: string }[] = [];
+    if (contactUrl) {
+      urlAddresses.push({ url: contactUrl, label: 'Nekt' });
+    }
+
+    const SOCIAL_URLS: Record<string, { url: string; label: string }> = {
+      instagram: { url: 'https://instagram.com/', label: 'Instagram' },
+      x: { url: 'https://x.com/', label: 'X' },
+      twitter: { url: 'https://twitter.com/', label: 'X' },
+      linkedin: { url: 'https://linkedin.com/in/', label: 'LinkedIn' },
+      facebook: { url: 'https://facebook.com/', label: 'Facebook' },
+      tiktok: { url: 'https://tiktok.com/@', label: 'TikTok' },
+      youtube: { url: 'https://youtube.com/@', label: 'YouTube' },
+      snapchat: { url: 'https://snapchat.com/add/', label: 'Snapchat' },
+      threads: { url: 'https://threads.net/@', label: 'Threads' },
+      github: { url: 'https://github.com/', label: 'GitHub' },
+      telegram: { url: 'https://t.me/', label: 'Telegram' },
+      whatsapp: { url: 'https://wa.me/', label: 'WhatsApp' },
+      wechat: { url: 'https://weixin.qq.com/r/', label: 'WeChat' },
+    };
+
+    if (profile.contactEntries) {
+      for (const entry of profile.contactEntries) {
+        if (!entry.value || !entry.isVisible) continue;
+        if (['name', 'bio', 'phone', 'email'].includes(entry.fieldType)) continue;
+
+        const social = SOCIAL_URLS[entry.fieldType.toLowerCase()];
+        if (social) {
+          urlAddresses.push({ url: `${social.url}${entry.value}`, label: social.label });
+        } else if (entry.linkType === 'custom' && entry.value.startsWith('http')) {
+          try {
+            const domain = new URL(entry.value).hostname.replace('www.', '');
+            const domainLabel = domain.split('.')[0];
+            urlAddresses.push({
+              url: entry.value,
+              label: domainLabel.charAt(0).toUpperCase() + domainLabel.slice(1),
+            });
+          } catch {
+            urlAddresses.push({ url: entry.value, label: 'Website' });
+          }
+        }
+      }
+    }
+
     const newContact: Partial<Contact> = {
       givenName: firstName,
       familyName: lastName,
       emailAddresses: email ? [{ label: 'home', email }] : [],
       phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
-      urlAddresses: contactUrl ? [{ url: contactUrl, label: 'Nekt' }] : [],
+      urlAddresses,
       note: contactUrl
         ? `Added via Nekt on ${new Date().toLocaleDateString()} | ${contactUrl}`
         : `Added via Nekt on ${new Date().toLocaleDateString()}`,
