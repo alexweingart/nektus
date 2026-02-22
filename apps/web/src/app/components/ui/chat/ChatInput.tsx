@@ -39,43 +39,48 @@ export default function ChatInput({
     }
   };
 
-  // Track keyboard and show/hide background extension
+  // Track keyboard via visualViewport and position ChatInput above it
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const wrapper = wrapperRef.current;
     const bgExtension = backgroundExtensionRef.current;
     if (!wrapper || !bgExtension) return;
 
-    const handleViewportResize = () => {
+    const handleViewportChange = () => {
       if (!window.visualViewport) return;
 
-      // Always use fixed positioning, force refresh via DOM
+      // On iOS Safari, position:fixed bottom:0 is relative to the layout viewport,
+      // which does NOT shrink when the keyboard opens. We must manually calculate
+      // the offset from the bottom of the layout viewport to the bottom of the
+      // visual viewport (i.e. the top of the keyboard).
+      const offsetBottom = window.innerHeight -
+        (window.visualViewport.offsetTop + window.visualViewport.height);
+
       wrapper.style.position = 'fixed';
-      wrapper.style.bottom = '0px';
+      wrapper.style.bottom = `${Math.max(0, offsetBottom)}px`;
 
-      // Calculate keyboard height
-      const keyboardHeight = window.innerHeight - window.visualViewport.height;
-
-      if (keyboardHeight > 0) {
-        // Keyboard is open - show background extension below viewport
-        // Add extra height and offset to overlap and hide the seam
-        bgExtension.style.height = `${keyboardHeight + 2}px`;
-        bgExtension.style.bottom = `-${keyboardHeight - 1}px`; // Overlap by 1px
+      if (offsetBottom > 0) {
+        // Keyboard is open - show background extension filling gap below ChatInput
+        bgExtension.style.height = `${offsetBottom + 2}px`;
+        bgExtension.style.bottom = '0px';
         bgExtension.style.display = 'block';
       } else {
-        // Keyboard is closed - hide background extension
+        // Keyboard is closed
         bgExtension.style.display = 'none';
-        bgExtension.style.bottom = '0px'; // Reset position
       }
     };
 
     // Initial call
-    handleViewportResize();
+    handleViewportChange();
 
-    window.visualViewport.addEventListener('resize', handleViewportResize);
+    // Listen to both resize (keyboard height changes) and scroll
+    // (iOS Safari scrolls the visual viewport when keyboard opens)
+    window.visualViewport.addEventListener('resize', handleViewportChange);
+    window.visualViewport.addEventListener('scroll', handleViewportChange);
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
     };
   }, []);
 
