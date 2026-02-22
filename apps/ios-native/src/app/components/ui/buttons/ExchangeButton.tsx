@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Text, View, ActivityIndicator, StyleSheet, Animated, DeviceEventEmitter } from "react-native";
+import { Text, View, ActivityIndicator, StyleSheet, Animated, Easing, DeviceEventEmitter } from "react-native";
 import { fontStyles, textSizes } from "../Typography";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -332,17 +332,52 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const BUTTON_CONTENT: Record<string, { icon: 'spinner' | 'dot' | 'none'; text: string; error?: boolean; match?: boolean }> = {
     'waiting-for-bump':     { icon: 'dot',     text: 'Bump or scan when ready...' },
     'ble-scanning':         { icon: 'dot',     text: 'Bump or scan when ready...' },
-    'ble-discovered':       { icon: 'spinner', text: 'Finding your person...' },
-    'ble-connecting':       { icon: 'spinner', text: 'Finding your person...' },
-    'ble-exchanging':       { icon: 'spinner', text: 'Finding your person...' },
-    'processing':           { icon: 'spinner', text: 'Finding your person...' },
+    'ble-discovered':       { icon: 'dot',     text: 'Finding your person...' },
+    'ble-connecting':       { icon: 'dot',     text: 'Finding your person...' },
+    'ble-exchanging':       { icon: 'dot',     text: 'Finding your person...' },
+    'processing':           { icon: 'dot',     text: 'Finding your person...' },
     'qr-scan-pending':      { icon: 'dot',     text: 'Finding your person...' },
     'qr-scan-matched':      { icon: 'none',    text: 'Match Found!', match: true },
     'ble-matched':          { icon: 'none',    text: 'Match Found!', match: true },
     'ble-unavailable':      { icon: 'dot',     text: 'Bump or scan when ready...' },
-    'timeout':              { icon: 'spinner', text: 'Missed it — give it another bump!', error: true },
+    'timeout':              { icon: 'spinner', text: 'Missed it — bump again!', error: true },
     'error':                { icon: 'spinner', text: 'Oops, hang tight...', error: true },
   };
+
+  // Animated pulsing dot opacity
+  const dotOpacity = useRef(new Animated.Value(0.7)).current;
+  const dotAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    const config = BUTTON_CONTENT[status];
+    if (config?.icon === 'dot') {
+      // Start pulsing animation
+      dotOpacity.setValue(0.7);
+      dotAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotOpacity, {
+            toValue: 0.3,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotOpacity, {
+            toValue: 0.7,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      dotAnimRef.current.start();
+    } else {
+      dotAnimRef.current?.stop();
+      dotOpacity.setValue(0.7);
+    }
+    return () => {
+      dotAnimRef.current?.stop();
+    };
+  }, [status, dotOpacity]);
 
   const getButtonContent = () => {
     const config = BUTTON_CONTENT[status] || { icon: 'none' as const, text: 'Nekt' };
@@ -352,7 +387,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       <View style={styles.contentRow}>
         {config.icon === 'spinner'
           ? <ActivityIndicator size="small" color={config.error ? '#ffffff' : '#374151'} style={styles.spinner} />
-          : <View style={styles.pulsingDot} />}
+          : <Animated.View style={[styles.pulsingDot, { opacity: dotOpacity }]} />}
         <Text style={textStyle}>{config.text}</Text>
       </View>
     );
@@ -457,7 +492,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#374151",
     marginRight: 8,
-    opacity: 0.7,
   },
   // Typography matching web's xl button: text-xl font-bold (20px, 700)
   text: {

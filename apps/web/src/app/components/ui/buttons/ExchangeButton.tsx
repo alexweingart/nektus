@@ -307,7 +307,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
       case 'processing':
         return (
           <div className="flex items-center space-x-2">
-            <LoadingSpinner size="sm" />
+            <div className="animate-pulse w-4 h-4 bg-current rounded-full"></div>
             <span>Finding your person...</span>
           </div>
         );
@@ -329,7 +329,7 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         return (
           <div className="flex items-center space-x-2">
             <LoadingSpinner size="sm" />
-            <span>Missed it — give it another bump!</span>
+            <span>Missed it — bump again!</span>
           </div>
         );
       
