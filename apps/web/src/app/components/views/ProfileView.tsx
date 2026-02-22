@@ -20,7 +20,7 @@ import { usePWAInstall } from '@/client/hooks/use-pwa-install';
 import { getFieldValue } from '@/client/profile/transforms';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
 
-type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
+type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'aftershock' | 'exiting' | 'entering';
 
 const ProfileView: React.FC = () => {
   const { status: sessionStatus } = useSession();
@@ -108,13 +108,25 @@ const ProfileView: React.FC = () => {
     };
 
     const handleStopFloating = () => {
-      setShouldStopFloating(true);
       setIsExchanging(false);
-      // Don't change animation phase yet - let animation iteration event handle it
+      // For wind-up and aftershock phases, immediately return to idle
+      // (animationiteration only works for the infinite floating animation)
+      setAnimationPhase(prev => {
+        if (prev === 'wind-up' || prev === 'aftershock') {
+          return 'idle';
+        }
+        // For floating, let animationiteration handle graceful stop
+        setShouldStopFloating(true);
+        return prev;
+      });
     };
 
     const handleBumpDetected = () => {
       setAnimationPhase('wind-up');
+      // After wind-up completes (300ms), transition to aftershock
+      setTimeout(() => {
+        setAnimationPhase(prev => prev === 'wind-up' ? 'aftershock' : prev);
+      }, 300);
     };
 
     const handleMatchFound = (_event: CustomEvent) => {
@@ -253,7 +265,7 @@ const ProfileView: React.FC = () => {
       <div
         ref={topButtonsRef}
         className={`w-full max-w-[var(--max-content-width,448px)] flex justify-between items-center py-4 flex-shrink-0 transition-opacity duration-300 z-10 ${
-          animationPhase === 'wind-up' ? 'animate-[subtlePulse_300ms]' : ''
+          (animationPhase === 'wind-up' || animationPhase === 'aftershock') ? 'animate-[subtlePulse_300ms]' : ''
         } ${
           animationPhase === 'exiting' ? 'animate-fade-blur-out' : ''
         } ${
@@ -293,6 +305,8 @@ const ProfileView: React.FC = () => {
             animationPhase === 'floating' ? 'animate-float z-20' : ''
           } ${
             animationPhase === 'wind-up' ? 'animate-wind-up z-20' : ''
+          } ${
+            animationPhase === 'aftershock' ? 'animate-aftershock z-20' : ''
           } ${
             animationPhase === 'exiting' ? 'animate-profile-exit z-[100]' : ''
           } ${

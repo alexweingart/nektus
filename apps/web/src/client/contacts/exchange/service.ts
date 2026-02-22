@@ -3,11 +3,12 @@
  * Replaces the simulated exchange with real server communication
  */
 
-import type { 
-  ContactExchangeRequest, 
+import type {
+  ContactExchangeRequest,
   ContactExchangeResponse,
   ContactExchangeState
 } from '@/types/contactExchange';
+import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
 
 // Generate a unique session ID
 function generateSessionId(): string {
@@ -140,16 +141,16 @@ export class RealTimeContactExchangeService {
 
       // Start listening for motion (but don't send hit yet)
       this.updateState({ status: 'waiting-for-bump' });
-      console.log('👂 Waiting for bump (20s timeout)...');
+      console.log('👂 Waiting for bump (60s timeout)...');
 
       // Start polling immediately for QR scan matches (not just after motion detected)
       this.startMatchPolling();
       console.log('🔄 Started polling for QR scan matches');
 
-      // Set single 20-second timeout for entire exchange process
-      // Will be extended to 60s if QR scan detected (User B signing in)
+      // Set 60-second timeout for entire exchange process (matches iOS)
+      // Will be reset to fresh 60s if QR scan detected (User B signing in)
       this.waitingForBumpTimeout = setTimeout(async () => {
-        console.log('⏰ Exchange timed out after 20 seconds');
+        console.log('⏰ Exchange timed out after 60 seconds');
 
         // Stop motion detection and polling immediately
         await this.disconnect();
@@ -161,7 +162,7 @@ export class RealTimeContactExchangeService {
         } else {
           console.log('✅ Match found - not showing timeout');
         }
-      }, 20000);
+      }, EXCHANGE_TIMEOUT.SLOW_MS);
       
       // Start the motion detection loop
       await this.waitForBump(true, sharingCategory);
@@ -268,17 +269,17 @@ export class RealTimeContactExchangeService {
         if (result.success && result.scanStatus === 'pending_auth') {
           console.log('⏳ QR scanned - User B is signing in...');
 
-          // Extend timeout to 60 seconds to give User B time to complete OAuth
+          // Reset timeout to fresh 60 seconds to give User B time to complete OAuth
           if (this.waitingForBumpTimeout) {
             clearTimeout(this.waitingForBumpTimeout);
-            console.log('⏰ Extending timeout to 60 seconds for OAuth sign-in');
+            console.log('⏰ Resetting timeout to 60 seconds for OAuth sign-in');
             this.waitingForBumpTimeout = setTimeout(async () => {
               console.log('⏰ Exchange timed out after 60 seconds (QR scan)');
               await this.disconnect();
               if (this.state.status !== 'matched') {
                 this.updateState({ status: 'timeout' });
               }
-            }, 60000);
+            }, EXCHANGE_TIMEOUT.SLOW_MS);
           }
 
           this.updateState({ status: 'qr-scan-pending' });

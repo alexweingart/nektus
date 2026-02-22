@@ -12,7 +12,7 @@ import { Animated, Easing } from 'react-native';
 import { ANIMATION } from '@nektus/shared-client';
 import { animationEvents, floatAnimationStart } from '../../app/utils/animationEvents';
 
-export type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'exiting' | 'entering';
+export type AnimationPhase = 'idle' | 'floating' | 'wind-up' | 'aftershock' | 'exiting' | 'entering';
 
 interface ProfileAnimationValues {
   // Profile card animations
@@ -57,6 +57,7 @@ export function useProfileAnimations(): UseProfileAnimationsReturn {
   const [isExchanging, setIsExchanging] = useState(false);
   const shouldStopFloatingRef = useRef(false);
   const floatAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const aftershockAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Initialize animated values
   const animatedValues = useRef<ProfileAnimationValues>({
@@ -74,6 +75,8 @@ export function useProfileAnimations(): UseProfileAnimationsReturn {
   const resetAnimations = useCallback(() => {
     floatAnimationRef.current?.stop();
     floatAnimationRef.current = null;
+    aftershockAnimRef.current?.stop();
+    aftershockAnimRef.current = null;
 
     animatedValues.profileScale.setValue(1);
     animatedValues.profileTranslateY.setValue(0);
@@ -177,9 +180,51 @@ export function useProfileAnimations(): UseProfileAnimationsReturn {
     ]).start();
   }, [animatedValues]);
 
+  // Aftershock animation (periodic micro-wiggle while compressed at scale 0.96)
+  const startAftershockAnimation = useCallback(() => {
+    // Scale should already be at 0.96 from wind-up
+    aftershockAnimRef.current = Animated.loop(
+      Animated.sequence([
+        // 2s static hold at scale 0.96
+        Animated.delay(2000),
+        // Diminishing rotation wiggle (~400ms)
+        Animated.timing(animatedValues.profileRotation, {
+          toValue: -0.5,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValues.profileRotation, {
+          toValue: 0.5,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValues.profileRotation, {
+          toValue: -0.3,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValues.profileRotation, {
+          toValue: 0.2,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValues.profileRotation, {
+          toValue: 0,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        // Remaining ~600ms of the 3s cycle
+        Animated.delay(600),
+      ])
+    );
+    aftershockAnimRef.current.start();
+  }, [animatedValues]);
+
   // Exit animation (profile flies up and fades)
   const startExitAnimation = useCallback((onComplete?: () => void) => {
     floatAnimationRef.current?.stop();
+    aftershockAnimRef.current?.stop();
+    aftershockAnimRef.current = null;
 
     Animated.parallel([
       // Profile card: fly up, shrink, fade
@@ -317,14 +362,35 @@ export function useProfileAnimations(): UseProfileAnimationsReturn {
   }, [startFloatAnimation]);
 
   const handleStopFloating = useCallback(() => {
-    shouldStopFloatingRef.current = true;
     setIsExchanging(false);
-  }, []);
+    // For wind-up and aftershock phases, immediately reset to idle
+    // (the shouldStopFloatingRef mechanism only works for the floating loop)
+    setAnimationPhase(prev => {
+      if (prev === 'wind-up' || prev === 'aftershock') {
+        aftershockAnimRef.current?.stop();
+        aftershockAnimRef.current = null;
+        resetAnimations();
+        return 'idle';
+      }
+      shouldStopFloatingRef.current = true;
+      return prev;
+    });
+  }, [resetAnimations]);
 
   const handleBumpDetected = useCallback(() => {
     setAnimationPhase('wind-up');
     startWindUpAnimation();
-  }, [startWindUpAnimation]);
+    // After wind-up completes, transition to aftershock
+    setTimeout(() => {
+      setAnimationPhase(prev => {
+        if (prev === 'wind-up') {
+          startAftershockAnimation();
+          return 'aftershock';
+        }
+        return prev;
+      });
+    }, WIND_UP_DURATION);
+  }, [startWindUpAnimation, startAftershockAnimation]);
 
   const handleMatchFound = useCallback(() => {
     setAnimationPhase('exiting');
@@ -344,6 +410,7 @@ export function useProfileAnimations(): UseProfileAnimationsReturn {
       unsubscribeBump();
       unsubscribeMatch();
       floatAnimationRef.current?.stop();
+      aftershockAnimRef.current?.stop();
     };
   }, [handleStartFloating, handleStopFloating, handleBumpDetected, handleMatchFound]);
 
