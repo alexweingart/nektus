@@ -274,7 +274,7 @@ export const InlineAddLink = forwardRef<InlineAddLinkRef, InlineAddLinkProps>(fu
           <ExpandingInput
             value={customLinkUrl}
             onChange={(value: string) => setCustomLinkUrl(stripProtocol(value))}
-            placeholder="https://example.com"
+            placeholder="example.com/username"
             onSubmit={handleSubmit}
             onInputBlur={handleBlur}
             singleLine

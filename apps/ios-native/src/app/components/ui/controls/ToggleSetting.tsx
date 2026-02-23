@@ -32,9 +32,9 @@ export function ToggleSetting({
         value={enabled}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#ffffff' }}
-        thumbColor={enabled ? '#6B7280' : '#ffffff'}
-        ios_backgroundColor="rgba(255, 255, 255, 0.2)"
+        trackColor={{ false: 'rgba(255, 255, 255, 0.15)', true: 'rgba(255, 255, 255, 0.5)' }}
+        thumbColor="#ffffff"
+        ios_backgroundColor="rgba(255, 255, 255, 0.15)"
       />
     </View>
   );

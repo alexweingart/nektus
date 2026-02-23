@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     color: '#ffffff',
-    ...textSizes.base,
+    fontSize: 16,
     ...fontStyles.regular,
   },
   inputWithIcon: {

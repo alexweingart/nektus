@@ -18,7 +18,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { DropdownSelector, DropdownOption } from './DropdownSelector';
 import { BaseTextInput } from './BaseTextInput';
-import { textSizes, fontStyles } from '../Typography';
+import { fontStyles } from '../Typography';
 
 // Country type for phone input components
 export interface Country {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     height: '100%',
     paddingRight: 16,
     color: '#ffffff',
-    ...textSizes.base,
+    fontSize: 16,
     ...fontStyles.regular,
   },
 });

@@ -91,11 +91,12 @@ export function ProfileField({
     return (
       <View style={styles.container}>
         <ExpandingInput
-          value={value}
+          value={value.replace(/^https?:\/\//i, '')}
           onChange={(newValue) => {
-            onChange(fieldType, newValue, profile.section);
+            const stripped = newValue.replace(/^https?:\/\//i, '');
+            onChange(fieldType, stripped ? `https://${stripped}` : '', profile.section);
           }}
-          placeholder={placeholder}
+          placeholder="example.com/username"
           variant="hideable"
           isHidden={shouldShowAsHidden}
           onToggleHide={() => {

@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    ...textSizes.base,
+    fontSize: 16,
     ...fontStyles.regular,
     padding: 0,
     textAlignVertical: 'center',
