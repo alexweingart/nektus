@@ -38,7 +38,6 @@ export default function AIScheduleView() {
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('\u200B'); // Zero-width space to prevent iOS positioning bug
-  const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -194,7 +193,7 @@ export default function AIScheduleView() {
     // Strip zero-width space for actual content
     const actualInput = input.replace(/\u200B/g, '').trim();
 
-    if (!actualInput || isProcessing || !currentUserProfile || !contactProfile || !session) return;
+    if (!actualInput || !currentUserProfile || !contactProfile || !session) return;
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
@@ -221,7 +220,6 @@ export default function AIScheduleView() {
     };
 
     setInput('\u200B'); // Reset to zero-width space
-    setIsProcessing(true);
 
     try {
       // Get user locations from the locations array
@@ -285,10 +283,8 @@ export default function AIScheduleView() {
       };
 
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsProcessing(false);
     }
-  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
+  }, [input, currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
 
   const handleScheduleEvent = (event: Event) => {
     if (!event.calendar_urls) return;
@@ -395,7 +391,7 @@ export default function AIScheduleView() {
           }}
           onSend={handleSend}
           disabled={false}
-          sendDisabled={isProcessing}
+          sendDisabled={false}
           fadeIn={true}
           autoFocus={shouldAutoFocus}
         />

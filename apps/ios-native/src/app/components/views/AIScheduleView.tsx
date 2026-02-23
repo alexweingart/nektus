@@ -115,7 +115,6 @@ export function AIScheduleView() {
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('\u200B'); // Zero-width space to prevent iOS positioning bug
-  const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -292,7 +291,7 @@ export function AIScheduleView() {
   const handleSend = useCallback(async () => {
     const actualInput = input.replace(/\u200B/g, '').trim();
 
-    if (!actualInput || isProcessing || !currentUserProfile || !contactProfile || !session) return;
+    if (!actualInput || !currentUserProfile || !contactProfile || !session) return;
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
@@ -319,7 +318,6 @@ export function AIScheduleView() {
     };
 
     setInput('\u200B');
-    setIsProcessing(true);
 
     try {
       // Get user locations from the locations array
@@ -375,10 +373,8 @@ export function AIScheduleView() {
       };
 
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsProcessing(false);
     }
-  }, [input, isProcessing, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, sendStreamingRequest, apiBaseUrl]);
+  }, [input, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, sendStreamingRequest, apiBaseUrl]);
 
   const handleScheduleEvent = useCallback(async (event: Event) => {
     // Determine user's calendar access method for this section
@@ -473,7 +469,7 @@ export function AIScheduleView() {
           }}
           onSend={handleSend}
           disabled={false}
-          sendDisabled={isProcessing}
+          sendDisabled={false}
           fadeIn={false}
           keyboardHeight={keyboardHeight}
         />
