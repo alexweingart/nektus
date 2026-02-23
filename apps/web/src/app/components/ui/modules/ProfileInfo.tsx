@@ -244,7 +244,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
             <div className={`${profile?.locations?.find(loc => loc.section === 'personal') ? 'mb-1' : 'mb-3'} text-center`}>
-              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
+              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}</Heading>
             </div>
 
             {/* Location Display */}
@@ -318,7 +318,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
           <div className="w-full flex-shrink-0 px-6">
             {/* Profile Name */}
             <div className={`${profile?.locations?.find(loc => loc.section === 'work') ? 'mb-1' : 'mb-3'} text-center`}>
-              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name')}</Heading>
+              <Heading as="h1">{getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}</Heading>
             </div>
 
             {/* Location Display */}

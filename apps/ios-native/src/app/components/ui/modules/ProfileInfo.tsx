@@ -133,7 +133,7 @@ const ProfilePanel: React.FC<{
     <View style={[styles.viewContainer, { width: containerWidth || '100%' }]}>
       <View style={[styles.nameContainer, location && { marginBottom: 4 }]}>
         <Heading style={styles.name}>
-          {getFieldValue(profile?.contactEntries, 'name')}
+          {getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named'}
         </Heading>
       </View>
 
