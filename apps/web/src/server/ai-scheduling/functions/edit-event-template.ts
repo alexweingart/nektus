@@ -1,7 +1,14 @@
 import type { OpenAIFunction } from '@/types/ai-scheduling';
 import type { SchedulableHours } from '@/types';
 
-export const editEventTemplateFunction: OpenAIFunction = {
+/**
+ * Factory that returns a fresh editEventTemplate function schema per request.
+ * Computing `today` at call time prevents stale dates on warm Vercel instances.
+ */
+export function getEditEventTemplateFunction(): OpenAIFunction {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return {
   name: 'editEventTemplate',
   description: 'Parse the user\'s edit request to modify an existing event template. Return ONLY the changes requested - the handler will merge them into the cached template.',
   parameters: {
@@ -23,7 +30,7 @@ export const editEventTemplateFunction: OpenAIFunction = {
       },
       newPreferredSchedulableDates: {
         type: 'object',
-        description: `New date range if user wants to change the day. Only provide if editType includes "date". Today is ${new Date().toISOString().split('T')[0]}. IMPORTANT: When user says "next week" or "the week after", calculate dates RELATIVE TO THE CURRENTLY SCHEDULED EVENT (from conversation history), NOT relative to today. If event is on Oct 11 and user says "next week", that means Oct 18. If they then say "the week after", that means Oct 25.`,
+        description: `New date range if user wants to change the day. Only provide if editType includes "date". Today is ${todayStr}. IMPORTANT: When user says "next week" or "the week after", calculate dates RELATIVE TO THE CURRENTLY SCHEDULED EVENT (from conversation history), NOT relative to today. If event is on Oct 11 and user says "next week", that means Oct 18. If they then say "the week after", that means Oct 25.`,
         properties: {
           startDate: {
             type: 'string',
@@ -78,7 +85,8 @@ export const editEventTemplateFunction: OpenAIFunction = {
     },
     required: ['editType', 'isConditional'],
   },
-};
+  };
+}
 
 export interface EditEventTemplateResult {
   editType: 'time' | 'date' | 'place' | 'duration' | 'multiple';

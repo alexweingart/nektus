@@ -78,9 +78,28 @@ This takes priority over other classifications.`;
 
 /**
  * Template Generation System Prompt for Stage 3 (MINI)
- * Extracts event details and generates event template
+ * Extracts event details and generates event template.
+ * Factory function so that today's date is computed per-request (not at module load).
  */
-export const TEMPLATE_GENERATION_SYSTEM_PROMPT = `You are extracting event details from the user's request and generating an event template.
+export function getTemplateGenerationSystemPrompt(): string {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const calendarEntries: string[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    calendarEntries.push(`${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`);
+  }
+  const referenceCalendar = calendarEntries.join(', ');
+
+  return `You are extracting event details from the user's request and generating an event template.
+
+TODAY: ${todayStr}
+REFERENCE CALENDAR (use this to convert day names to dates — do NOT compute dates yourself):
+${referenceCalendar}
 
 YOUR ROLE:
 - Extract event details from natural language (activity, time preferences, place preferences)
@@ -221,6 +240,7 @@ IMPORTANT RULES:
 - For in-person events, ALWAYS determine place requirements AND travel buffers
 - Extract details from conversation history when handling edits
 - Focus on accurate extraction, not message generation (that's Stage 5's job)`;
+}
 
 /**
  * Event Selection System Prompt for Stage 5 (MINI)

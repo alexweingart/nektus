@@ -352,7 +352,7 @@ export async function composeAndOpenCalendarEvent(params: {
   section: 'personal' | 'work';
   currentUserId: string;
 }): Promise<void> {
-  const { slot, eventTemplate, place, currentUserProfile, contactProfile, section, currentUserId } = params;
+  const { slot, eventTemplate, place, currentUserProfile, contactProfile, section } = params;
 
   // Calculate actual meeting times
   const slotStartDate = new Date(slot.start);

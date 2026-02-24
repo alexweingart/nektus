@@ -1,9 +1,9 @@
 import { createCompletion, AI_MODELS, getModelForTask, getReasoningEffortForTask } from '@/server/ai-scheduling/openai-client';
-import { TEMPLATE_GENERATION_SYSTEM_PROMPT, getIntentClassificationPrompt, EVENT_SELECTION_SYSTEM_PROMPT } from '@/server/ai-scheduling/system-prompts';
+import { getTemplateGenerationSystemPrompt, getIntentClassificationPrompt, EVENT_SELECTION_SYSTEM_PROMPT } from '@/server/ai-scheduling/system-prompts';
 import { getGenerateEventTemplateFunction } from '@/server/ai-scheduling/functions/generate-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/server/ai-scheduling/functions/generate-event';
 import { navigateToBookingLinkFunction } from '@/server/ai-scheduling/functions/navigate-to-booking';
-import { editEventTemplateFunction } from '@/server/ai-scheduling/functions/edit-event-template';
+import { getEditEventTemplateFunction } from '@/server/ai-scheduling/functions/edit-event-template';
 import { searchPlaces } from '@/server/ai-scheduling/helpers/search-places';
 import { processingStateManager } from '@/server/ai-scheduling/processing';
 import { getCandidateSlotsWithFallback } from '@/server/calendar/scheduling';
@@ -119,7 +119,7 @@ export async function streamSchedulingResponse(
         const tools = [
           { type: 'function' as const, function: getGenerateEventTemplateFunction() },
           ...(hasExistingEvent ? [{ type: 'function' as const, function: navigateToBookingLinkFunction }] : []),
-          { type: 'function' as const, function: editEventTemplateFunction },
+          { type: 'function' as const, function: getEditEventTemplateFunction() },
         ];
 
         const extraction = await createCompletion({
@@ -127,7 +127,7 @@ export async function streamSchedulingResponse(
           reasoning_effort: 'low',
           verbosity: 'low',
           messages: [
-            { role: 'system', content: TEMPLATE_GENERATION_SYSTEM_PROMPT },
+            { role: 'system', content: getTemplateGenerationSystemPrompt() },
             { role: 'system', content: contextMessage },
             ...conversationHistory,
             { role: 'user', content: body.userMessage },
