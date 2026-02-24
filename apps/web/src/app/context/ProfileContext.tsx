@@ -327,17 +327,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Liquid Glass: Set global color tint from user's profile
   // Note: background-color and --safe-area-bg are managed by LayoutBackground, not here
+  // Skip when on contact pages (/c/) — ContactLayout manages the tint there
   useEffect(() => {
-    if (profile?.backgroundColors && profile.backgroundColors.length >= 3) {
-      const [, accent1, accent2] = profile.backgroundColors;
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/c/')) return;
 
-      // Use accent2 for glass tint (the bright, vivid color)
-      const profileColor = accent2 || accent1;
-      if (profileColor) {
-        const rgb = hexToRgb(profileColor);
-        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
-      }
+    if (profile?.backgroundColors?.[0]) {
+      const rgb = hexToRgb(profile.backgroundColors[0]);
+      const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+      document.documentElement.style.setProperty('--glass-tint-color', rgbString);
     } else {
       // No profile colors - remove inline override so CSS default (brand green) applies
       document.documentElement.style.removeProperty('--glass-tint-color');
