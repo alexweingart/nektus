@@ -321,11 +321,22 @@ export default function AIScheduleView() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Resize layout container to match the visual viewport (handles iOS Safari keyboard).
-  // Instead of using position:fixed on the ChatInput and fighting Safari's auto-scroll,
-  // the entire view is a fixed container whose height tracks the visual viewport.
-  // When the keyboard opens, the container shrinks → flex layout compresses the
-  // messages area → ChatInput stays at the bottom naturally. No page scrolling needed.
+  // Lock page scroll so Safari can't auto-scroll when the keyboard opens.
+  // All scrolling happens inside the messages container (overflow-y: auto).
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+
+    return () => {
+      html.style.overflow = '';
+      body.style.overflow = '';
+    };
+  }, []);
+
+  // Resize layout container to match the visual viewport when keyboard opens.
+  // With page scroll locked, offsetTop is always 0 — we only track height.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const container = layoutContainerRef.current;
@@ -334,17 +345,14 @@ export default function AIScheduleView() {
     const handleViewportChange = () => {
       const vv = window.visualViewport!;
       container.style.height = `${vv.height}px`;
-      container.style.top = `${vv.offsetTop}px`;
     };
 
     handleViewportChange();
 
     window.visualViewport.addEventListener('resize', handleViewportChange);
-    window.visualViewport.addEventListener('scroll', handleViewportChange);
 
     return () => {
       window.visualViewport?.removeEventListener('resize', handleViewportChange);
-      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
     };
   }, []);
 
