@@ -41,6 +41,7 @@ export default function AIScheduleView() {
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
   const [showChatInput, setShowChatInput] = useState(false);
 
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
@@ -177,14 +178,7 @@ export default function AIScheduleView() {
     // Only auto-scroll when new messages are added, not when existing messages are updated
     // Skip auto-scroll for the initial greeting message (messages.length === 1)
     if (messages.length > prevMessagesLengthRef.current && messages.length > 1) {
-      // Signal that this is a programmatic scroll (don't blur input)
-      (window as Window & { __programmaticScroll?: boolean }).__programmaticScroll = true;
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-
-      // Clear flag after scroll completes (~500ms for smooth scroll)
-      setTimeout(() => {
-        (window as Window & { __programmaticScroll?: boolean }).__programmaticScroll = false;
-      }, 600);
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
@@ -327,26 +321,30 @@ export default function AIScheduleView() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Track keyboard appearance for debugging (no state updates to avoid re-render issues)
+  // Resize layout container to match the visual viewport (handles iOS Safari keyboard).
+  // Instead of using position:fixed on the ChatInput and fighting Safari's auto-scroll,
+  // the entire view is a fixed container whose height tracks the visual viewport.
+  // When the keyboard opens, the container shrinks → flex layout compresses the
+  // messages area → ChatInput stays at the bottom naturally. No page scrolling needed.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
+    const container = layoutContainerRef.current;
+    if (!container) return;
 
-    const handleViewportResize = () => {
-      if (!window.visualViewport) return;
-      const keyboardHeight = window.innerHeight - window.visualViewport.height;
-      console.log('[AIScheduleView] Visual viewport resize:', {
-        keyboardHeight,
-        visualViewportHeight: window.visualViewport.height,
-        windowInnerHeight: window.innerHeight,
-        keyboardOpen: keyboardHeight > 0,
-      });
-      // Note: Not updating state to avoid re-renders that break iOS fixed positioning
+    const handleViewportChange = () => {
+      const vv = window.visualViewport!;
+      container.style.height = `${vv.height}px`;
+      container.style.top = `${vv.offsetTop}px`;
     };
 
-    window.visualViewport.addEventListener('resize', handleViewportResize);
+    handleViewportChange();
+
+    window.visualViewport.addEventListener('resize', handleViewportChange);
+    window.visualViewport.addEventListener('scroll', handleViewportChange);
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
     };
   }, []);
 
@@ -356,33 +354,38 @@ export default function AIScheduleView() {
   }
 
   return (
-    <>
-      <div className="flex flex-col items-center px-4 py-2 pb-32">
-        {/* Header */}
-        <div className="w-full max-w-[var(--max-content-width,448px)]">
+    <div
+      ref={layoutContainerRef}
+      className="fixed left-0 right-0 flex flex-col"
+      style={{ top: 0, height: '100dvh' }}
+    >
+      {/* Header */}
+      <div className="shrink-0 px-4 py-2">
+        <div className="max-w-[var(--max-content-width,448px)] mx-auto">
           <PageHeader
             onBack={handleBack}
             title="Find a Time"
           />
         </div>
+      </div>
 
-        {/* Messages - extra padding for fixed input */}
-        <div
-          ref={messagesContainerRef}
-          className="w-full max-w-[var(--max-content-width,448px)] space-y-3 pt-4"
-        >
+      {/* Messages - scrollable area that compresses when keyboard opens */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto px-4"
+      >
+        <div className="max-w-[var(--max-content-width,448px)] mx-auto space-y-3 pt-4 pb-4">
           <MessageList messages={messages} onCreateEvent={handleScheduleEvent} dominantColor={contactProfile.backgroundColors?.[0] ? ensureReadableColor(contactProfile.backgroundColors[0]) : undefined} />
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Chat Input - appears at 1.5s, content fades in */}
+      {/* Chat Input - normal flex child, stays at bottom */}
       {showChatInput && (
         <ChatInput
           value={input}
           onChange={(e) => {
             const newValue = e.target.value;
-            // Ensure we always have at least the zero-width space
             if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
               setInput('\u200B');
             } else {
@@ -396,6 +399,6 @@ export default function AIScheduleView() {
           autoFocus={shouldAutoFocus}
         />
       )}
-    </>
+    </div>
   );
 }
