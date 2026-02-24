@@ -1,10 +1,11 @@
 import { createCompleteCalendarEvent, calculateCalendarBlockTimes } from '@/server/calendar/events';
 import { processingStateManager } from '@/server/ai-scheduling/processing';
+import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils';
 import type { AISchedulingRequest, GenerateEventResult } from '@/types/ai-scheduling';
 import type { Event } from '@/types';
 import type { Place } from '@/types/places';
-import { CACHE_TTL } from '@nektus/shared-client';
+import { CACHE_TTL, getFieldValue, buildCalendarEventDescription } from '@nektus/shared-client';
 
 /**
  * Simplified event finalization handler for new 5-stage pipeline.
@@ -37,27 +38,45 @@ export async function handleFinalizeEvent(
     selectedPlaceURL: eventResult.place?.google_maps_url?.substring(0, 100) || 'N/A'
   });
 
-  // Build event description and location
-  const baseDescription = template.description || `${template.title || 'Event'} with ${body.user2Name || 'contact'}`;
+  // Look up organizer profile for shortCode and name
+  const organizerProfile = await AdminProfileService.getProfile(body.user1Id);
+  const organizerShortCode = organizerProfile?.shortCode;
+  const organizerName = organizerProfile
+    ? getFieldValue(organizerProfile.contactEntries, 'name')
+    : undefined;
+
+  // Resolve attendee email: prefer passed email, fall back to profile lookup
+  let attendeeEmail = body.user2Email || '';
+  if (!attendeeEmail) {
+    const attendeeProfile = await AdminProfileService.getProfile(body.user2Id);
+    if (attendeeProfile) {
+      attendeeEmail = getFieldValue(attendeeProfile.contactEntries, 'email')
+        || attendeeProfile.authEmail
+        || '';
+    }
+  }
+
+  // Build location string
   const location = eventResult.place
     ? `${eventResult.place.name}${eventResult.place.address ? `, ${eventResult.place.address}` : ''}`
     : '';
 
-  // Build description with travel buffer information for in-person events
-  let description = baseDescription;
-  if (template.eventType === 'in-person' && template.travelBuffer && eventResult.startTime) {
-    const actualStart = new Date(eventResult.startTime);
-    const actualEnd = new Date(actualStart.getTime() + (template.duration || 60) * 60 * 1000);
-    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: body.timezone || 'UTC' };
-    const startTimeStr = actualStart.toLocaleTimeString('en-US', timeOptions);
-    const endTimeStr = actualEnd.toLocaleTimeString('en-US', timeOptions);
-    const placeName = eventResult.place?.name || 'the venue';
-    description = `Meeting time: ${startTimeStr} - ${endTimeStr}\nIncludes ${template.travelBuffer.beforeMinutes} min of travel time to ${placeName} and ${template.travelBuffer.afterMinutes} min back`;
-  }
-
   // Convert ISO strings to Date objects
   const eventStartDate = new Date(eventResult.startTime);
   const eventEndDate = new Date(eventResult.endTime);
+
+  // Build standardized description using shared builder
+  const description = buildCalendarEventDescription({
+    eventType: (template.eventType || 'in-person') as 'video' | 'in-person',
+    contactName: body.user2Name || 'contact',
+    travelBuffer: template.travelBuffer,
+    actualStart: eventStartDate,
+    actualEnd: eventEndDate,
+    placeName: eventResult.place?.name,
+    organizerName: organizerName || undefined,
+    shortCode: organizerShortCode,
+    timezone: body.timezone,
+  });
 
   // Calculate actual calendar block times (including buffers)
   const { calendarBlockStart, calendarBlockEnd } = calculateCalendarBlockTimes(
@@ -78,10 +97,10 @@ export async function handleFinalizeEvent(
     preferredPlaces: eventResult.place ? [eventResult.place] : undefined,
   };
 
-  // Generate calendar URLs
+  // Generate calendar URLs with actual attendee email (not Firebase UID)
   const { calendar_urls } = createCompleteCalendarEvent(
     calendarEvent,
-    { email: body.user2Id },
+    { email: attendeeEmail },
     body.timezone
   );
 

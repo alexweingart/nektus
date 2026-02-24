@@ -27,6 +27,7 @@ export interface ContactEntry {
 export interface UserProfile {
   userId: string;
   shortCode: string;  // 8-char base62 identifier for short URLs (/c/{shortCode})
+  authEmail?: string;  // OAuth-provided email (stored separately from contactEntries, e.g. Apple private relay)
   profileImage: string;
   backgroundImage: string;
   backgroundColors?: string[];  // Extracted colors for ParticleNetwork: [dominant, accent1, accent2]

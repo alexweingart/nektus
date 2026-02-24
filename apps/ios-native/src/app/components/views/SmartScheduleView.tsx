@@ -24,6 +24,7 @@ import {
   EVENT_TEMPLATES,
   formatSmartDay,
   processCommonSlots,
+  buildCalendarEventDescription,
 } from '@nektus/shared-client';
 import { getIdToken } from '../../../client/auth/firebase';
 import { createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
@@ -399,6 +400,19 @@ export function SmartScheduleView() {
 
         const title = `${eventTemplate.title} with ${contactName}`;
         const location = (eventTemplate.eventType === 'in-person' && place) ? place.name : '';
+        const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
+
+        // Generate standardized description with Nekt branding
+        const description = buildCalendarEventDescription({
+          eventType: eventTemplate.eventType,
+          contactName,
+          travelBuffer: eventTemplate.travelBuffer,
+          actualStart: startDate,
+          actualEnd: endDate,
+          placeName: place?.name,
+          organizerName: currentUserName || undefined,
+          shortCode: currentUserProfile.shortCode,
+        });
 
         // Determine user's calendar access method for this section
         const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
@@ -413,6 +427,7 @@ export function SmartScheduleView() {
               startDate,
               endDate,
               location: location || undefined,
+              notes: description,
             });
             setCreatedEventModal({
               visible: true,
@@ -438,6 +453,7 @@ export function SmartScheduleView() {
             startdt: startDate.toISOString(),
             enddt: endDate.toISOString(),
             location,
+            body: description,
             path: '/calendar/action/compose',
             rru: 'addevent',
           });
@@ -450,6 +466,7 @@ export function SmartScheduleView() {
             text: title,
             dates: `${formatDateForGoogle(startDate)}/${formatDateForGoogle(endDate)}`,
             location,
+            details: description,
           });
           if (contactEmail) params.append('add', contactEmail);
           calendarUrl = `https://calendar.google.com/calendar/render?${params.toString()}`;

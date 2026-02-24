@@ -37,6 +37,9 @@ export * from './contacts';
 // Scheduling logic (event templates, slot evaluation, processCommonSlots)
 export * from './scheduling';
 
+// Scheduling description builder (shared across all scheduling paths)
+export * from './scheduling-description';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================

@@ -147,7 +147,7 @@ export function generateVCardLines(
     }
 
     const emailEntry = profile.contactEntries.find(e => e.fieldType === 'email');
-    if (emailEntry?.value) {
+    if (emailEntry?.value && !emailEntry.value.endsWith('@privaterelay.appleid.com')) {
       lines.push(`EMAIL:${escapeVCardValue(emailEntry.value)}`);
     }
   }

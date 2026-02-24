@@ -1,6 +1,7 @@
 import { getCurrentTimeInUserTimezone } from './time';
 import { getEventTimeFromSlotWithBuffer } from './event-templates';
 import { getFieldValue } from '@/client/profile/transforms';
+import { buildCalendarEventDescription } from '@nektus/shared-client';
 import type { Event, EventTemplate, UserProfile, TimeSlot } from '@/types';
 import type { Place } from '@/types/places';
 
@@ -313,7 +314,8 @@ export function formatEventName(
 }
 
 /**
- * Generate event description with travel buffer information and Nekt branding
+ * Generate event description with travel buffer information and Nekt branding.
+ * Delegates to the shared buildCalendarEventDescription() builder.
  */
 export function generateEventDescription(
   contactName: string,
@@ -323,36 +325,19 @@ export function generateEventDescription(
   videoPlatform?: string,
   organizerName?: string,
   placeName?: string,
-  currentUserId?: string
+  shortCode?: string
 ): string {
-  let description = '';
-
-  if (eventTemplate?.eventType === 'in-person' && eventTemplate?.travelBuffer && actualStart && actualEnd) {
-    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
-    const startTime = actualStart.toLocaleTimeString('en-US', timeOptions);
-    const endTime = actualEnd.toLocaleTimeString('en-US', timeOptions);
-    const beforeBuffer = eventTemplate.travelBuffer.beforeMinutes;
-    const afterBuffer = eventTemplate.travelBuffer.afterMinutes;
-    const place = placeName || 'the venue';
-
-    description = `Meeting time: ${startTime} - ${endTime}\nIncludes ${beforeBuffer} min of travel time to ${place} and ${afterBuffer} min back`;
-  } else if (eventTemplate?.eventType === 'video') {
-    const platform = videoPlatform || 'platform TBD';
-    if (platform === 'Google Meet' || platform === 'Microsoft Teams') {
-      description = `Video call on ${platform}`;
-    } else {
-      const organizer = organizerName || 'organizer';
-      description = `Video call on ${platform} - ${organizer} to send video link or phone #`;
-    }
-  } else {
-    description = `Meeting with ${contactName}`;
-  }
-
-  // Add Nekt branding footer
-  const profileUrl = currentUserId ? `https://nekt.us/${currentUserId}` : 'https://nekt.us';
-  description += `\n\nScheduled via Nekt (nekt.us). You can check out my profile here: ${profileUrl}`;
-
-  return description;
+  return buildCalendarEventDescription({
+    eventType: eventTemplate?.eventType || 'in-person',
+    contactName,
+    travelBuffer: eventTemplate?.travelBuffer,
+    actualStart,
+    actualEnd,
+    placeName,
+    videoPlatform,
+    organizerName,
+    shortCode,
+  });
 }
 
 /**
@@ -408,7 +393,7 @@ export async function composeAndOpenCalendarEvent(params: {
     'Google Meet',
     currentUserName,
     place?.name,
-    currentUserId
+    currentUserProfile.shortCode
   );
 
   const event = {

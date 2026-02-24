@@ -133,6 +133,11 @@ export class ServerProfileService {
     userInfo: { name?: string | null; email?: string | null; image?: string | null },
     shortCode: string
   ): UserProfile {
+    const email = userInfo.email || '';
+    const isPrivateRelay = email.endsWith('@privaterelay.appleid.com');
+    // Private relay emails are auth-only — don't expose in contactEntries
+    const contactEmail = isPrivateRelay ? '' : email;
+
     const baseFields: ContactEntry[] = [
       {
         fieldType: 'name',
@@ -160,7 +165,7 @@ export class ServerProfileService {
       },
       {
         fieldType: 'email',
-        value: userInfo.email || '',
+        value: contactEmail,
         section: 'personal',
         order: 1,
         isVisible: true,
@@ -176,7 +181,7 @@ export class ServerProfileService {
       },
       {
         fieldType: 'email',
-        value: userInfo.email || '',
+        value: contactEmail,
         section: 'work',
         order: 1,
         isVisible: true,
@@ -192,6 +197,7 @@ export class ServerProfileService {
     return {
       userId,
       shortCode,
+      authEmail: email || undefined,
       profileImage: userInfo.image || '',
       backgroundImage: '',
       backgroundColors,
