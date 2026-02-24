@@ -1,6 +1,6 @@
 import { createCompletion, AI_MODELS, getModelForTask, getReasoningEffortForTask } from '@/server/ai-scheduling/openai-client';
 import { TEMPLATE_GENERATION_SYSTEM_PROMPT, getIntentClassificationPrompt, EVENT_SELECTION_SYSTEM_PROMPT } from '@/server/ai-scheduling/system-prompts';
-import { generateEventTemplateFunction } from '@/server/ai-scheduling/functions/generate-event-template';
+import { getGenerateEventTemplateFunction } from '@/server/ai-scheduling/functions/generate-event-template';
 import { generateEventFunction, processGenerateEventResult } from '@/server/ai-scheduling/functions/generate-event';
 import { navigateToBookingLinkFunction } from '@/server/ai-scheduling/functions/navigate-to-booking';
 import { editEventTemplateFunction } from '@/server/ai-scheduling/functions/edit-event-template';
@@ -117,7 +117,7 @@ export async function streamSchedulingResponse(
         const hasExistingEvent = !!cachedEvent?.finalEvent;
 
         const tools = [
-          { type: 'function' as const, function: generateEventTemplateFunction },
+          { type: 'function' as const, function: getGenerateEventTemplateFunction() },
           ...(hasExistingEvent ? [{ type: 'function' as const, function: navigateToBookingLinkFunction }] : []),
           { type: 'function' as const, function: editEventTemplateFunction },
         ];

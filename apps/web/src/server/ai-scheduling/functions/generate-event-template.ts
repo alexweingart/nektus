@@ -1,7 +1,31 @@
 import type { OpenAIFunction } from '@/types/ai-scheduling';
 import type { Event } from '@/types';
 
-export const generateEventTemplateFunction: OpenAIFunction = {
+/**
+ * Factory that returns a fresh generateEventTemplate function schema per request.
+ * Computing `today` at call time (instead of module-load time) prevents stale
+ * dates on warm Vercel instances. The 14-day reference calendar lets the LLM
+ * look up day→date mappings instead of doing unreliable calendar math.
+ */
+export function getGenerateEventTemplateFunction(): OpenAIFunction {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Build a 14-day reference calendar so the LLM can look up day-of-week → date
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const calendarEntries: string[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    calendarEntries.push(`${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`);
+  }
+  const referenceCalendar = calendarEntries.join(', ');
+
+  const dateDescription = (field: string) =>
+    `${field} date for availability window (YYYY-MM-DD). REQUIRED when user specifies date constraints. Today is ${todayStr}. Reference calendar: ${referenceCalendar}. Use this calendar to look up the correct date for day names — do NOT compute dates yourself. When user says a day like "Sunday", pick the NEXT occurrence from the calendar (not today if today is that day). Examples: "next week" = start of next week, "Sunday" = next Sunday. Always provide YYYY-MM-DD format.`;
+
+  return {
   name: 'generateEventTemplate',
   description: 'Create event template with preferences and constraints. REQUIRED: Add travelBuffer for ALL in-person events.',
   parameters: {
@@ -56,12 +80,12 @@ When in doubt, choose 'in-person' - most social activities benefit from being to
           startDate: {
             type: 'string',
             format: 'date',
-            description: `Start date for availability window (YYYY-MM-DD). REQUIRED when user specifies date constraints. Today is ${new Date().toISOString().split('T')[0]}. When user says a day like "Sunday", calculate the NEXT occurrence of that day (not today if today is that day). Examples: "next week" = start of next week, "Sunday" = next Sunday. Always provide YYYY-MM-DD format.`
+            description: dateDescription('Start'),
           },
           endDate: {
             type: 'string',
             format: 'date',
-            description: `End date for availability window (YYYY-MM-DD). REQUIRED when user specifies date constraints. For single days, use same date as startDate. For ranges like "next week", include full 7-day range. Today is ${new Date().toISOString().split('T')[0]}. Always provide YYYY-MM-DD format.`
+            description: dateDescription('End'),
           },
           description: {
             type: 'string',
@@ -202,7 +226,8 @@ Format as 24-hour time strings (e.g., "11:00", "14:30").`,
     },
     required: ['eventType', 'title', 'duration', 'intent', 'explicitUserTimes', 'explicitUserPlace'],
   },
-};
+  };
+}
 
 export function processGenerateEventTemplateResult(args: string): Partial<Event> & {
   intentSpecificity?: string;
