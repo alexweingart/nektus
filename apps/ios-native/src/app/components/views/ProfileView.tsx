@@ -319,23 +319,22 @@ export function ProfileView() {
               onMatch={handleMatch}
             />
 
-            {/* Cancel Button - only rendered during exchange, matching web pattern */}
-            {(isExchanging || isMatchFound) && (
-              <View style={styles.cancelButtonContainer}>
+            {/* Secondary button area - always rendered to prevent layout shift */}
+            <View style={styles.cancelButtonContainer}>
+              {(isExchanging || isMatchFound) ? (
                 <SecondaryButton onPress={handleCancelExchange}>
                   Never mind
                 </SecondaryButton>
-              </View>
-            )}
-
-            {/* Widget CTA - hidden after first widget use or during exchange */}
-            {!hasUsedWidget && !isExchanging && !isMatchFound && (
-              <View style={styles.widgetCtaContainer}>
+              ) : !hasUsedWidget ? (
                 <SecondaryButton onPress={() => setShowWidgetModal(true)}>
                   Add to Lock Screen
                 </SecondaryButton>
-              </View>
-            )}
+              ) : (
+                <SecondaryButton onPress={() => {}} disabled style={{ opacity: 0 }}>
+                  Never mind
+                </SecondaryButton>
+              )}
+            </View>
           </Animated.View>
         </View>
       </PullToRefresh>
@@ -420,9 +419,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cancelButtonContainer: {
-    alignItems: "center",
-  },
-  widgetCtaContainer: {
     alignItems: "center",
   },
 });
