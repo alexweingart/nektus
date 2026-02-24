@@ -3,8 +3,8 @@ set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────────
 # App Store Screenshot Capture Script
-# Boots simulator, navigates to screens via deep links, captures
-# raw PNGs, then calls composite-screenshots.js for final output.
+# Boots simulator, starts Metro, navigates to screens via deep
+# links, captures raw PNGs, then composites final marketing images.
 # ─────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,9 +12,11 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="$PROJECT_DIR/screenshots"
 RAW_DIR="$OUTPUT_DIR/raw"
 
-# Simulator UDIDs
-SIM_PRO_MAX="4C208E0C-252D-4A69-A2D9-F2F81B49891D"  # iPhone 16 Pro Max (6.9")
-SIM_PRO="28A2AFE7-67DD-42EE-A639-FC15C4059A84"       # iPhone 16 Pro (6.3")
+# Simulator device types
+SIM_TYPE_PRO_MAX="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max"
+SIM_TYPE_PRO="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
+
+METRO_PID=""
 
 # Screenshot definitions: slug|caption|deep_link_or_manual
 SCREENSHOTS=(
@@ -39,6 +41,109 @@ wait_for_enter() {
   read -rp "   Press ENTER when ready to capture..." _
 }
 
+cleanup() {
+  if [[ -n "$METRO_PID" ]] && kill -0 "$METRO_PID" 2>/dev/null; then
+    info "Stopping Metro dev server (PID $METRO_PID)..."
+    kill "$METRO_PID" 2>/dev/null || true
+    wait "$METRO_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+# ─────────────────────────────────────────────────────────────────
+# Preflight Checks
+# ─────────────────────────────────────────────────────────────────
+
+preflight() {
+  local errors=0
+
+  info "Running preflight checks..."
+
+  # Required CLI tools
+  for tool in xcodebuild xcrun node; do
+    if ! command -v "$tool" &>/dev/null; then
+      warn "Missing required tool: $tool"
+      errors=$((errors + 1))
+    fi
+  done
+
+  # Xcode workspace
+  if [[ ! -d "$PROJECT_DIR/ios/Nekt.xcworkspace" ]]; then
+    warn "Xcode workspace not found at ios/Nekt.xcworkspace"
+    warn "Run: cd apps/ios-native && npx expo prebuild"
+    errors=$((errors + 1))
+  fi
+
+  # Pods installed
+  if [[ ! -d "$PROJECT_DIR/ios/Pods" ]]; then
+    warn "CocoaPods not installed. Run: cd ios && pod install"
+    errors=$((errors + 1))
+  fi
+
+  # canvas npm package (needed for compositing)
+  if ! node -e "require('canvas')" 2>/dev/null; then
+    warn "Missing npm package 'canvas'. Run: bun add -D canvas"
+    errors=$((errors + 1))
+  fi
+
+  if [[ $errors -gt 0 ]]; then
+    echo ""
+    echo "Preflight failed with $errors error(s). Fix the issues above and retry."
+    exit 1
+  fi
+
+  info "Preflight passed."
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Simulator Resolution — find or create the right device
+# ─────────────────────────────────────────────────────────────────
+
+resolve_simulator() {
+  local device_type="$1"
+  local device_name="$2"
+
+  # Look for an existing simulator of this type
+  local udid
+  udid=$(xcrun simctl list devices available -j 2>/dev/null \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for runtime, devices in data['devices'].items():
+    for d in devices:
+        if d['name'] == '$device_name' and d['isAvailable']:
+            print(d['udid'])
+            sys.exit(0)
+" 2>/dev/null || true)
+
+  if [[ -n "$udid" ]]; then
+    echo "$udid"
+    return
+  fi
+
+  # Find the latest iOS runtime
+  local runtime
+  runtime=$(xcrun simctl list runtimes -j 2>/dev/null \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+ios_runtimes = [r for r in data['runtimes'] if r['platform'] == 'iOS' and r['isAvailable']]
+if ios_runtimes:
+    # Sort by version descending
+    ios_runtimes.sort(key=lambda r: r['version'], reverse=True)
+    print(ios_runtimes[0]['identifier'])
+" 2>/dev/null || true)
+
+  if [[ -z "$runtime" ]]; then
+    warn "No iOS simulator runtime found. Install one via Xcode → Settings → Platforms."
+    exit 1
+  fi
+
+  info "Creating $device_name simulator (runtime: $runtime)..."
+  udid=$(xcrun simctl create "$device_name" "$device_type" "$runtime")
+  echo "$udid"
+}
+
 ensure_sim_booted() {
   local udid="$1"
   local name="$2"
@@ -61,7 +166,6 @@ ensure_sim_booted() {
     xcrun simctl boot "$udid" 2>/dev/null || true
     open -a Simulator --args -CurrentDeviceUDID "$udid"
     info "Waiting for simulator to finish booting..."
-    # Poll until the device reports as Booted (up to 60s)
     local elapsed=0
     while [[ $elapsed -lt 60 ]]; do
       if xcrun simctl list devices | grep "$udid" | grep -q "(Booted)"; then
@@ -70,13 +174,47 @@ ensure_sim_booted() {
       sleep 2
       elapsed=$((elapsed + 2))
     done
-    # Extra wait for SpringBoard to be ready
     sleep 5
     info "$name booted."
   else
     info "$name already booted"
   fi
 }
+
+# ─────────────────────────────────────────────────────────────────
+# Metro Dev Server
+# ─────────────────────────────────────────────────────────────────
+
+ensure_metro_running() {
+  # Check if Metro is already running on port 8081
+  if curl -s http://localhost:8081/status 2>/dev/null | grep -q "packager-status:running"; then
+    info "Metro dev server already running"
+    return
+  fi
+
+  info "Starting Metro dev server..."
+  cd "$PROJECT_DIR"
+  npx expo start --port 8081 &>/dev/null &
+  METRO_PID=$!
+
+  # Wait for Metro to be ready (up to 30s)
+  local elapsed=0
+  while [[ $elapsed -lt 30 ]]; do
+    if curl -s http://localhost:8081/status 2>/dev/null | grep -q "packager-status:running"; then
+      info "Metro dev server ready (PID $METRO_PID)"
+      return
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  warn "Metro dev server didn't start within 30s. The app may not load JS correctly."
+  warn "You can start it manually: cd apps/ios-native && npx expo start"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Capture helpers
+# ─────────────────────────────────────────────────────────────────
 
 capture_raw() {
   local udid="$1"
@@ -97,7 +235,7 @@ navigate() {
 # ─────────────────────────────────────────────────────────────────
 
 main() {
-  local device_udid="$SIM_PRO_MAX"
+  local device_type="$SIM_TYPE_PRO_MAX"
   local device_name="iPhone 16 Pro Max"
   local device_key="promax"
 
@@ -105,7 +243,7 @@ main() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --device=pro)
-        device_udid="$SIM_PRO"
+        device_type="$SIM_TYPE_PRO"
         device_name="iPhone 16 Pro"
         device_key="pro"
         shift ;;
@@ -129,23 +267,32 @@ main() {
     esac
   done
 
+  # 0. Preflight
+  cd "$PROJECT_DIR"
+  preflight
+
   mkdir -p "$RAW_DIR"
 
   echo ""
   echo "╔══════════════════════════════════════════════════════╗"
-  echo "║   App Store Screenshot Capture                       ║"
-  echo "║   Device: $device_name                               ║"
+  echo "║   App Store Screenshot Capture                      ║"
+  echo "║   Device: $device_name                              ║"
   echo "╚══════════════════════════════════════════════════════╝"
   echo ""
 
-  # 1. Boot simulator
+  # 1. Resolve & boot simulator
+  local device_udid
+  device_udid=$(resolve_simulator "$device_type" "$device_name")
+  info "Using simulator: $device_name ($device_udid)"
   ensure_sim_booted "$device_udid" "$device_name"
 
-  # 2. Build & install app if needed
+  # 2. Start Metro dev server (Debug builds need it for JS)
+  ensure_metro_running
+
+  # 3. Build & install app if needed
   if ! xcrun simctl listapps "$device_udid" 2>/dev/null | grep -q "com.nektus.app"; then
     info "App not installed on $device_name. Building..."
     cd "$PROJECT_DIR"
-    # Build with xcodebuild (more reliable than expo run:ios with Xcode betas)
     info "Building with xcodebuild..."
     if ! xcodebuild -workspace ios/Nekt.xcworkspace -scheme Nekt -configuration Debug \
         -destination "id=$device_udid" build 2>&1 | tail -5; then
@@ -171,14 +318,14 @@ main() {
     info "Build complete."
   fi
 
-  # 3. Launch app
+  # 4. Launch app
   info "Launching Nekt..."
   xcrun simctl launch "$device_udid" com.nektus.app 2>/dev/null || true
   sleep 3
   info "App launched. Sign in if needed before continuing."
   wait_for_enter
 
-  # 4. Capture each screenshot
+  # 5. Capture each screenshot
   for entry in "${SCREENSHOTS[@]}"; do
     IFS='|' read -r slug caption deep_link <<< "$entry"
     local raw_file="$RAW_DIR/${slug}_${device_name// /-}.png"
@@ -213,14 +360,14 @@ main() {
     capture_raw "$device_udid" "$raw_file"
   done
 
-  # 5. Composite all screenshots into marketing images
+  # 6. Composite all screenshots into marketing images
   echo ""
   info "Compositing marketing screenshots..."
   cd "$PROJECT_DIR"
   node scripts/composite-screenshots.js --device="$device_key"
 
   echo ""
-  echo "✓ All done for $device_name!"
+  echo "All done for $device_name!"
   echo "  Raw:   screenshots/raw/"
   echo "  Final: screenshots/final/$device_name/"
   echo ""

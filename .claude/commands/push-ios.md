@@ -3,14 +3,19 @@ Push current branch with checks, scoped to iOS context.
 Arguments: $ARGUMENTS
 Parse the argument for a build target: `dev` (default if omitted), `preview`, or `prod`.
 
-## Step 1: Pre-push checks
+## Step 1: Pre-push checks (only for affected platforms)
 
-### Web checks (always run):
+Determine which platforms are affected by files in unpushed commits:
+- `apps/web/` → web is affected
+- `apps/ios-native/` → iOS is affected
+- `packages/` or root-level shared files → both platforms are affected
+
+### Web checks (only if web or shared code changed):
 1. `cd apps/web && bun run typecheck` — abort on failure
 2. `cd apps/web && bun run lint` — abort on failure
 3. `cd apps/web && bun run build` — abort on failure
 
-### iOS checks:
+### iOS checks (only if iOS or shared code changed):
 1. `cd apps/ios-native && npx tsc --noEmit` — abort on failure (if tsconfig exists)
 
 ## Step 2: Push
