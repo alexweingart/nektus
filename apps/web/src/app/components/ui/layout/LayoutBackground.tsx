@@ -8,7 +8,7 @@ import { useProfile } from '../../../context/ProfileContext';
 import { ParticleNetwork } from './ParticleNetwork';
 import type { ParticleNetworkProps } from './ParticleNetwork';
 import { PullToRefresh } from './PullToRefresh';
-import { BACKGROUND_BLACK, BACKGROUND_GREEN, BRAND_LIGHT_GREEN, BRAND_DARK_GREEN } from '@/shared/colors';
+import { BACKGROUND_BLACK, BACKGROUND_GREEN, BRAND_LIGHT_GREEN, BRAND_DARK_GREEN, generateProfileColors } from '@/shared/colors';
 
 // Track first page load to prevent cache restoration on refresh
 let isFirstPageLoad = true;
@@ -158,6 +158,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
 
       if (contact?.backgroundColors) {
         setContactProfile({ backgroundColors: contact.backgroundColors });
+      } else if (contact) {
+        // Contact exists but has no backgroundColors — generate from name
+        const name = contact.contactEntries?.find(e => e.fieldType === 'name')?.value;
+        if (name) {
+          setContactProfile({ backgroundColors: generateProfileColors(name) });
+        } else {
+          setContactProfile(null);
+        }
       } else {
         setContactProfile(null);
       }
@@ -231,9 +239,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       applySafeAreaColor(dominant);
       sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
     } else if (!isOnContactPage && profile) {
-      // Profile loaded with no colors - use themeDark
-      applySafeAreaColor(COLORS.themeDark);
-      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, COLORS.themeDark);
+      // Profile loaded with no colors — generate from name (matches particle fallback)
+      const name = profile.contactEntries?.find(e => e.fieldType === 'name')?.value;
+      const dominant = name ? generateProfileColors(name)[0] : COLORS.themeDark;
+      applySafeAreaColor(dominant);
+      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
     } else if (status === 'authenticated') {
       // Fallback while profile is loading
       applySafeAreaColor(COLORS.themeDark);
@@ -378,6 +388,14 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           context: 'profile'
         };
       } else {
+        // Generate personalized colors from the user's name (same as iOS fallback)
+        const name = profile?.contactEntries?.find(e => e.fieldType === 'name')?.value;
+        if (name) {
+          return {
+            colors: convertToParticleColors(generateProfileColors(name)),
+            context: 'profile-default'
+          };
+        }
         return {
           colors: DEFAULT_COLORS,
           context: 'profile-default'

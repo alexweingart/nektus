@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../App';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getFirstName } from '@nektus/shared-client';
+import { generateProfileColors } from '../../../shared/colors';
 import { getApiBaseUrl, getIdToken } from '../../../client/auth/firebase';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { isAppClip } from '../../../client/auth/session-handoff';
@@ -212,8 +213,15 @@ export function ContactView(props: ContactViewProps = {}) {
           if (contact) {
             setProfile(contact);
             // Emit match-found to update LayoutBackground colors
-            if (contact.backgroundColors) {
-              emitMatchFound(contact.backgroundColors);
+            // Generate fallback colors from name if contact has no backgroundColors
+            const colors = contact.backgroundColors?.length && contact.backgroundColors.length >= 3
+              ? contact.backgroundColors
+              : (() => {
+                  const name = getFieldValue(contact.contactEntries, 'name');
+                  return name ? generateProfileColors(name) : undefined;
+                })();
+            if (colors) {
+              emitMatchFound(colors);
             }
           } else {
             throw new Error('Contact not found');

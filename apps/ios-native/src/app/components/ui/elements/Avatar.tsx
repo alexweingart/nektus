@@ -162,6 +162,7 @@ const Avatar: React.FC<AvatarProps> = ({
   const handleError = () => {
     console.log('[Avatar] Image failed to load:', displayedSrc?.substring(0, 80));
     setHasError(true);
+    setDisplayedSrc(undefined); // Clear so initials fallback at line 202/223 can trigger
   };
 
   // ── Render helpers ──

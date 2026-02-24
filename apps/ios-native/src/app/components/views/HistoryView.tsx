@@ -13,6 +13,7 @@ import { ScreenTransition, useGoBackWithFade, useNavigateWithFade } from '../ui/
 import type { SavedContact } from '../../context/ProfileContext';
 import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { getOptimalProfileImageUrl } from '@nektus/shared-client';
+import { generateProfileColors } from '../../../shared/colors';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
 import { PageHeader } from '../ui/layout/PageHeader';
@@ -196,6 +197,11 @@ export function HistoryView() {
             alt={item.odtName}
             sizeNumeric={40}
             showInitials={!item.profileImage}
+            profileColors={
+              item.backgroundColors?.length === 3
+                ? item.backgroundColors as [string, string, string]
+                : item.odtName ? generateProfileColors(item.odtName) : undefined
+            }
           />
         }
         title={item.odtName || 'They-who-must-not-be-named'}

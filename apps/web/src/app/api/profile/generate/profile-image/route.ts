@@ -147,6 +147,30 @@ async function createRadialGradientBackground(
 }
 
 /**
+ * Force all non-transparent pixels to pure white.
+ * GPT-image-1.5 doesn't always comply with "only white" instruction,
+ * so we post-process the robot PNG to guarantee white-on-transparent.
+ */
+async function forceWhitePixels(robotBuffer: Buffer): Promise<Buffer> {
+  const { data, info } = await sharp(robotBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 0) { // alpha > 0
+      data[i] = 255;     // R
+      data[i + 1] = 255; // G
+      data[i + 2] = 255; // B
+    }
+  }
+
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .png()
+    .toBuffer();
+}
+
+/**
  * Composite robot image onto radial gradient background
  */
 async function compositeRobotOnGradient(
@@ -159,11 +183,14 @@ async function compositeRobotOnGradient(
   // Create the radial gradient background (dominant dark center → accent1 light edge)
   const gradientBuffer = await createRadialGradientBackground(size, dominant, accent1);
 
+  // Force robot pixels to pure white (GPT-image-1.5 sometimes adds color)
+  const whiteRobotBuffer = await forceWhitePixels(robotBuffer);
+
   // Composite the robot (with transparency) on top of the gradient
   const composited = await sharp(gradientBuffer)
     .composite([
       {
-        input: robotBuffer,
+        input: whiteRobotBuffer,
         blend: 'over',
       },
     ])
