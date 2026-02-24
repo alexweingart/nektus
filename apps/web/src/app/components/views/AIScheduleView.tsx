@@ -26,7 +26,7 @@ export default function AIScheduleView() {
   const searchParams = useSearchParams();
   const shouldAutoFocus = searchParams.get('autoFocus') === 'true';
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, contactsLoading } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [savedContact, setSavedContact] = useState<SavedContact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,7 @@ export default function AIScheduleView() {
   });
 
   const loadProfiles = useCallback(async () => {
-    if (!session?.user?.id || !code) return;
+    if (!session?.user?.id || !code || contactsLoading) return;
 
     try {
       // Get contact from cache - try by userId first, then by shortCode
@@ -88,7 +88,7 @@ export default function AIScheduleView() {
     } finally {
       setLoading(false);
     }
-  }, [code, session?.user?.id, router, getContact, getContacts]);
+  }, [code, session?.user?.id, router, getContact, getContacts, contactsLoading]);
 
   useEffect(() => {
     loadProfiles();

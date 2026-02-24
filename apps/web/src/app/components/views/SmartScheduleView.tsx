@@ -37,7 +37,7 @@ export default function SmartScheduleView() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { profile: currentUserProfile, getContact, getContacts } = useProfile();
+  const { profile: currentUserProfile, getContact, getContacts, contactsLoading } = useProfile();
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
@@ -58,7 +58,7 @@ export default function SmartScheduleView() {
   useEffect(() => {
     async function loadContact() {
       const code = params.code as string;
-      if (!session?.user?.id || !code) return;
+      if (!session?.user?.id || !code || contactsLoading) return;
 
       try {
         console.log('🔍 [SmartScheduleView] Loading contact:', code);
@@ -121,7 +121,7 @@ export default function SmartScheduleView() {
     }
 
     loadContact();
-  }, [session, params.code, router, getContact, getContacts]);
+  }, [session, params.code, router, getContact, getContacts, contactsLoading]);
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
