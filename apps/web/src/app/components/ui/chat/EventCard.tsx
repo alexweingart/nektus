@@ -7,9 +7,18 @@ interface EventCardProps {
   event: Event;
   showCreateButton?: boolean;
   onCreateEvent: (event: Event) => void;
+  accentColor?: string;
 }
 
-export default function EventCard({ event, showCreateButton = false, onCreateEvent }: EventCardProps) {
+function hexToRgb(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+export default function EventCard({ event, showCreateButton = false, onCreateEvent, accentColor }: EventCardProps) {
 
   const formatEventSubtitle = (event: Event) => {
     if (!event.startTime || !event.endTime) return '';
@@ -55,7 +64,10 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
 
 
   return (
-    <div className="mt-3 p-4 bg-black/60 border border-white/10 rounded-2xl glass-tinted overflow-hidden">
+    <div
+      className="mt-3 p-4 bg-black/60 border border-white/10 rounded-2xl glass-tinted overflow-hidden"
+      style={accentColor ? { '--glass-tint-color': hexToRgb(accentColor) } as React.CSSProperties : undefined}
+    >
       <div className="mb-3">
         <div className="text-base font-bold text-white">
           {event.title}

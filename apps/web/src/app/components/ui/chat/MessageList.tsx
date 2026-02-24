@@ -82,6 +82,7 @@ export default function MessageList({ messages, onCreateEvent, dominantColor = D
               event={message.event}
               showCreateButton={message.showCreateButton}
               onCreateEvent={onCreateEvent}
+              accentColor={dominantColor}
             />
           )}
         </div>
