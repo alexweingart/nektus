@@ -255,6 +255,7 @@ const styles = StyleSheet.create({
   effectiveDate: {
     color: "rgba(255, 255, 255, 0.7)",
     ...textSizes.sm,
+    ...fontStyles.regular,
     marginBottom: 8,
   },
   bold: {
@@ -278,6 +279,7 @@ const styles = StyleSheet.create({
   paragraph: {
     color: "rgba(255, 255, 255, 0.7)",
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   list: {
     gap: 4,
@@ -286,6 +288,7 @@ const styles = StyleSheet.create({
   listItem: {
     color: "rgba(255, 255, 255, 0.7)",
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   acknowledgment: {
     borderTopWidth: 1,
@@ -296,6 +299,7 @@ const styles = StyleSheet.create({
   acknowledgmentText: {
     color: "rgba(255, 255, 255, 0.5)",
     ...textSizes.xs,
+    ...fontStyles.regular,
     textAlign: "center",
   },
 });

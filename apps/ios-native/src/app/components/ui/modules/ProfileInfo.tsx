@@ -532,6 +532,7 @@ const styles = StyleSheet.create({
   locationText: {
     color: 'rgba(255, 255, 255, 0.9)',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   bioContainer: {
     marginBottom: 16,
@@ -541,6 +542,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ffffff',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   iconsContainer: {
     width: '100%',

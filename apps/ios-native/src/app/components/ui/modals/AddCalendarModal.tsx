@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as ExpoLinking from 'expo-linking';
-import { textSizes } from '../Typography';
+import { textSizes, fontStyles } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
@@ -475,6 +475,7 @@ const styles = StyleSheet.create({
   dividerText: {
     color: 'rgba(255, 255, 255, 0.4)',
     ...textSizes.sm,
+    ...fontStyles.regular,
     marginHorizontal: 12,
   },
 });

@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
-import { textSizes } from '../Typography';
+import { textSizes, fontStyles } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { ValidatedInput } from '../inputs/ValidatedInput';
 import { ToggleSetting } from '../controls/ToggleSetting';
@@ -366,6 +366,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#F87171',
     ...textSizes.sm,
+    ...fontStyles.regular,
     marginTop: 8,
   },
 });

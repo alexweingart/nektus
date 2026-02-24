@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
-import { Heading, BodyText, textSizes } from '../Typography';
+import { Heading, BodyText, textSizes, fontStyles } from '../Typography';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
 import { ExpandingInput } from '../inputs/ExpandingInput';
@@ -264,6 +264,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'rgba(255, 255, 255, 0.7)',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   secondaryButtonContainer: {
     alignItems: 'center',

@@ -12,7 +12,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
-import { textSizes } from '../Typography';
+import { textSizes, fontStyles } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { SingleLineInput } from '../inputs/SingleLineInput';
 import { useProfile } from '../../../context/ProfileContext';
@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   },
   instructionsText: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#ffffff',
     textAlign: 'center',
   },
@@ -154,6 +155,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#DC2626',
   },
 });

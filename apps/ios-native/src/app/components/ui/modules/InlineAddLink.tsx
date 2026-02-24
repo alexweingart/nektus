@@ -346,6 +346,7 @@ const styles = StyleSheet.create({
   },
   error: {
     ...textSizes.sm,
+    ...fontStyles.regular,
     color: '#F87171',
     textAlign: 'center',
   },

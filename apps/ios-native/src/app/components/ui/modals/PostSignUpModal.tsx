@@ -287,6 +287,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'rgba(255, 255, 255, 0.8)',
     ...textSizes.sm,
+    ...fontStyles.regular,
   },
   inputContainer: {
     width: '100%',
