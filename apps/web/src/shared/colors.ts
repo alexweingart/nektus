@@ -53,10 +53,12 @@ export function hslToHex(h: number, s: number, l: number): string {
 }
 
 /**
- * Ensure a hex color is light enough to be readable on dark backgrounds.
- * Converts to HSL, clamps lightness to a minimum, and converts back to hex.
+ * Ensure a hex color has readable lightness by clamping to a range.
+ * Converts to HSL, clamps lightness between min and max, and converts back.
+ * - For dark backgrounds: ensureReadableColor(hex, 60) — lightens dark colors
+ * - For light backgrounds: ensureReadableColor(hex, 40, 40) — darkens light colors
  */
-export function ensureReadableColor(hex: string, minLightness = 60): string {
+export function ensureReadableColor(hex: string, minLightness = 60, maxLightness = 100): string {
   const clean = hex.replace('#', '');
   const r = parseInt(clean.substring(0, 2), 16) / 255;
   const g = parseInt(clean.substring(2, 4), 16) / 255;
@@ -77,6 +79,7 @@ export function ensureReadableColor(hex: string, minLightness = 60): string {
   }
 
   l = Math.max(l, minLightness / 100);
+  l = Math.min(l, maxLightness / 100);
 
   const hue2rgb = (p: number, q: number, t: number) => {
     if (t < 0) t += 1;

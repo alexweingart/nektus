@@ -51,8 +51,7 @@ export default function ContactLayout({
   // Liquid Glass: Override global color with contact's color
   useEffect(() => {
     if (contactBackgroundColors) {
-      // Use accent2 to match particle dots
-      const contactColor = contactBackgroundColors[2] || contactBackgroundColors[1] || contactBackgroundColors[0];
+      const contactColor = contactBackgroundColors[0];
       if (contactColor) {
         const rgb = hexToRgb(contactColor);
         const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
@@ -64,7 +63,7 @@ export default function ContactLayout({
     // Cleanup: Restore user's color when leaving contact page
     return () => {
       if (userProfile?.backgroundColors) {
-        const userColor = userProfile.backgroundColors[2] || userProfile.backgroundColors[1] || userProfile.backgroundColors[0];
+        const userColor = userProfile.backgroundColors[0];
         if (userColor) {
           const rgb = hexToRgb(userColor);
           const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;

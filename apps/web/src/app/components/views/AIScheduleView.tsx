@@ -382,7 +382,7 @@ export default function AIScheduleView() {
         className="flex-1 min-h-0 overflow-y-auto px-4"
       >
         <div className="max-w-[var(--max-content-width,448px)] mx-auto space-y-3 pt-4 pb-4">
-          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} dominantColor={contactProfile.backgroundColors?.[2] || undefined} />
+          <MessageList messages={messages} onCreateEvent={handleScheduleEvent} dominantColor={contactProfile.backgroundColors?.[0] || undefined} />
           <div ref={messagesEndRef} />
         </div>
       </div>
