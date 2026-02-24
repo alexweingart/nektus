@@ -4,6 +4,16 @@ import type { Event } from '@/types/profile';
 import type { ChatMessage } from '@/client/hooks/use-streaming-ai';
 import { DEFAULT_ACCENT_GREEN } from '@/shared/colors';
 
+// Darken a hex color by multiplying RGB channels, approximating the
+// bg-black/60 + glass-tinted overlay used on the event card.
+function darkenHex(hex: string, factor = 0.4): string {
+  const clean = hex.replace('#', '');
+  const r = Math.round(parseInt(clean.substring(0, 2), 16) * factor);
+  const g = Math.round(parseInt(clean.substring(2, 4), 16) * factor);
+  const b = Math.round(parseInt(clean.substring(4, 6), 16) * factor);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 interface MessageListProps {
   messages: ChatMessage[];
   onCreateEvent: (event: Event) => void;
@@ -11,6 +21,7 @@ interface MessageListProps {
 }
 
 export default function MessageList({ messages, onCreateEvent, dominantColor = DEFAULT_ACCENT_GREEN }: MessageListProps) {
+  const darkColor = darkenHex(dominantColor);
   return (
     <>
       {messages.map((message) => (
@@ -35,7 +46,7 @@ export default function MessageList({ messages, onCreateEvent, dominantColor = D
             <>
               {message.isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: dominantColor, borderTopColor: 'transparent' }}></div>
+                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: darkColor, borderTopColor: 'transparent' }}></div>
                   <span className="text-sm text-gray-500">{message.greyStatusText || message.content}</span>
                 </div>
               ) : (
@@ -58,7 +69,7 @@ export default function MessageList({ messages, onCreateEvent, dominantColor = D
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-bold transition-colors"
-                          style={{ color: dominantColor }}
+                          style={{ color: darkColor }}
                         >
                           {children}
                         </a>
