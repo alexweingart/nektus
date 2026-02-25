@@ -88,6 +88,11 @@ export function ProfileView() {
   // Determine if QR code should be shown (keep showing during match found state)
   const showQRCode = (isExchanging || isMatchFound) && matchToken !== null;
 
+  // Debug
+  if (isExchanging || isMatchFound || matchToken) {
+    console.log('[DEBUG-QR] ProfileView: isExchanging=', isExchanging, 'isMatchFound=', isMatchFound, 'matchToken=', matchToken?.substring(0, 8) ?? 'null', 'showQRCode=', showQRCode, 'exchangeStatus=', exchangeStatus);
+  }
+
   // Handle exchange status changes from ExchangeButton
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
     setExchangeStatus(status);
@@ -100,6 +105,7 @@ export function ProfileView() {
 
   // Handle match token changes (for QR code display)
   const handleMatchTokenChange = useCallback((token: string | null) => {
+    console.log('[DEBUG-QR] ProfileView.handleMatchTokenChange called, token:', token?.substring(0, 8) ?? 'null');
     setMatchToken(token);
   }, []);
 

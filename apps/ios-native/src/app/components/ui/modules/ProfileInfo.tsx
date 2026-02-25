@@ -200,6 +200,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const apiBaseUrl = getApiBaseUrl();
   // Convert API base URL to web URL (remove /api if present, use web domain)
   const webBaseUrl = apiBaseUrl.replace('/api', '').replace('api.', '');
+
+  // Debug QR code rendering
+  if (showQRCode || matchToken) {
+    console.log('[DEBUG-QR] ProfileInfo render: showQRCode=', showQRCode, 'matchToken=', matchToken?.substring(0, 8) ?? 'undefined', 'containerWidth=', containerWidth, 'innerContentHeight=', innerContentHeight, 'webBaseUrl=', webBaseUrl);
+  }
   // Sharing category from Context (replaces AsyncStorage)
   const { sharingCategory, setSharingCategory } = useProfile();
   const [containerWidth, setContainerWidth] = useState(0);

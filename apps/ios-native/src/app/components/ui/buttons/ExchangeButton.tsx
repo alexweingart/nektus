@@ -92,12 +92,14 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
 
   // Notify parent of QR token changes
   useEffect(() => {
+    console.log('[DEBUG-QR] qrToken effect firing, qrToken:', qrToken?.substring(0, 8) ?? 'null');
     onMatchTokenChange?.(qrToken);
   }, [qrToken, onMatchTokenChange]);
 
   // Listen for exchange initiated events (for QR code display)
   useEffect(() => {
     const unsubscribe = exchangeEvents.onExchangeInitiated(({ token }) => {
+      console.log('[DEBUG-QR] exchangeEvents.onExchangeInitiated fired, token:', token?.substring(0, 8));
       setQrToken(token);
     });
     return unsubscribe;
