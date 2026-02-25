@@ -557,16 +557,27 @@ export function ContactView(props: ContactViewProps = {}) {
             ) : (
               // New contact mode buttons
               <>
-                <ContactButton
-                  isSuccess={isSaved}
-                  isSaving={isSaving}
-                  onPress={handleSaveContact}
-                />
+                {isSaved ? (
+                  <Button
+                    variant="white"
+                    size="xl"
+                    onPress={handleScheduleMeetUp}
+                    style={{ width: '100%' }}
+                  >
+                    Let's hang
+                  </Button>
+                ) : (
+                  <ContactButton
+                    isSuccess={isSaved}
+                    isSaving={isSaving}
+                    onPress={handleSaveContact}
+                  />
+                )}
 
                 {isSaved && (
                   <View style={styles.secondaryButtonContainer}>
-                    <SecondaryButton onPress={handleScheduleMeetUp}>
-                      When are we hanging out?
+                    <SecondaryButton onPress={handleSaveContact}>
+                      I'm good
                     </SecondaryButton>
                   </View>
                 )}

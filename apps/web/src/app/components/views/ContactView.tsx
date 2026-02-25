@@ -390,24 +390,33 @@ export const ContactView: React.FC<ContactViewProps> = ({
             ) : (
               // Normal contact exchange mode buttons
               <>
-                {/* Save Contact Button (Primary) */}
-                <ContactButton
-                  isSuccess={isSuccess}
-                  isSaving={isSaving}
-                  isLoading={isLoading}
-                  onClick={handleSaveContact}
-                />
+                {/* Primary CTA: Save Contact (before save) / Let's hang (after save) */}
+                {isSuccess ? (
+                  <Button
+                    variant="white"
+                    size="xl"
+                    className="w-full"
+                    onClick={handleScheduleMeetUp}
+                  >
+                    {"Let's hang"}
+                  </Button>
+                ) : (
+                  <ContactButton
+                    isSuccess={isSuccess}
+                    isSaving={isSaving}
+                    isLoading={isLoading}
+                    onClick={handleSaveContact}
+                  />
+                )}
 
-                {/* Success/Error Messages - handled by modals now */}
-
-                {/* Phase 6: Smart Schedule CTA - shown when contact is saved (Done state) */}
+                {/* Secondary CTA: Dismiss (after save) */}
                 {isSuccess && (
                   <div className="flex justify-center">
                     <SecondaryButton
                       variant="dark"
-                      onClick={handleScheduleMeetUp}
+                      onClick={handleSaveContact}
                     >
-                      When are we hanging out?
+                      {"I'm good"}
                     </SecondaryButton>
                   </div>
                 )}
