@@ -20,11 +20,15 @@ import { BodyText, textSizes, fontStyles } from '../ui/Typography';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateProfileColors } from '../../../shared/colors';
 
-// Lucide-style SVG icons for upsell features (matching about page)
-const SmartphoneIcon = () => (
-  <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <Rect x={5} y={2} width={14} height={20} rx={2} ry={2} />
-    <Path d="M12 18h.01" />
+// Lucide-style SVG icons for upsell features
+const PhoneExchangeIcon = () => (
+  <Svg width={32} height={28} viewBox="0 0 32 28" fill="none" stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    {/* Left phone, tilted -12deg */}
+    <Rect x={2} y={4} width={10} height={16} rx={2} ry={2} transform="rotate(-12, 7, 12)" />
+    <Path d="M7 17h.01" transform="rotate(-12, 7, 12)" />
+    {/* Right phone, tilted 12deg */}
+    <Rect x={20} y={4} width={10} height={16} rx={2} ry={2} transform="rotate(12, 25, 12)" />
+    <Path d="M25 17h.01" transform="rotate(12, 25, 12)" />
   </Svg>
 );
 
@@ -355,7 +359,7 @@ export function AnonContactView({
                 intensity={50}
               />
 
-              {/* Feature 1 — Tap to connect */}
+              {/* Feature 1 — Connect instantly */}
               <Animated.View
                 style={[
                   styles.upsellFeature,
@@ -363,15 +367,17 @@ export function AnonContactView({
                 ]}
               >
                 <View style={styles.upsellIconWrap}>
-                  <SmartphoneIcon />
+                  <PhoneExchangeIcon />
                 </View>
-                <Text style={styles.upsellFeatureTitle}>Tap to connect</Text>
-                <Text style={styles.upsellFeatureDesc}>
-                  Skip the QR — tap phones to instantly connect
-                </Text>
+                <View style={styles.upsellFeatureText}>
+                  <Text style={styles.upsellFeatureTitle}>Connect instantly</Text>
+                  <Text style={styles.upsellFeatureDesc}>
+                    Bump phones to share info
+                  </Text>
+                </View>
               </Animated.View>
 
-              {/* Feature 2 — Auto-save */}
+              {/* Feature 2 — Save automatically */}
               <Animated.View
                 style={[
                   styles.upsellFeature,
@@ -381,13 +387,15 @@ export function AnonContactView({
                 <View style={styles.upsellIconWrap}>
                   <UserPlusIcon />
                 </View>
-                <Text style={styles.upsellFeatureTitle}>Auto-save</Text>
-                <Text style={styles.upsellFeatureDesc}>
-                  Connections go directly to Contacts app
-                </Text>
+                <View style={styles.upsellFeatureText}>
+                  <Text style={styles.upsellFeatureTitle}>Save automatically</Text>
+                  <Text style={styles.upsellFeatureDesc}>
+                    Never lose a new connection
+                  </Text>
+                </View>
               </Animated.View>
 
-              {/* Feature 3 — AI scheduling */}
+              {/* Feature 3 — Schedule effortlessly */}
               <Animated.View
                 style={[
                   styles.upsellFeature,
@@ -397,10 +405,12 @@ export function AnonContactView({
                 <View style={styles.upsellIconWrap}>
                   <CalendarCheckIcon />
                 </View>
-                <Text style={styles.upsellFeatureTitle}>AI scheduling</Text>
-                <Text style={styles.upsellFeatureDesc}>
-                  Find the perfect time to meet up
-                </Text>
+                <View style={styles.upsellFeatureText}>
+                  <Text style={styles.upsellFeatureTitle}>Schedule effortlessly</Text>
+                  <Text style={styles.upsellFeatureDesc}>
+                    Find the perfect time to hang
+                  </Text>
+                </View>
               </Animated.View>
             </View>
 
@@ -548,8 +558,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   upsellFeature: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 14,
   },
   upsellIconWrap: {
     width: 48,
@@ -558,19 +569,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+  },
+  upsellFeatureText: {
+    flex: 1,
+    gap: 2,
   },
   upsellFeatureTitle: {
     color: '#ffffff',
     ...textSizes.base,
     ...fontStyles.bold,
-    textAlign: 'center',
   },
   upsellFeatureDesc: {
     color: 'rgba(255, 255, 255, 0.7)',
     ...textSizes.sm,
     ...fontStyles.regular,
-    textAlign: 'center',
   },
 });
 
