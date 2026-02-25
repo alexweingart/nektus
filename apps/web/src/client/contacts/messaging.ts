@@ -19,7 +19,7 @@ export function generateMessageText(
   const baseMessage = `👋 Hi ${contactFirstName}, this is ${senderFirstName}. We nekt'd on ${dateStr}. It was great meeting you - let's hang out soon!`;
 
   if (senderShortCode) {
-    return `${baseMessage} Here's my profile: https://nekt.us/c/${senderShortCode}`;
+    return `${baseMessage} Here's my profile: nekt.us/c/${senderShortCode}`;
   }
 
   return baseMessage;
