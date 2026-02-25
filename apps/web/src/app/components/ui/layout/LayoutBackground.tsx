@@ -222,14 +222,8 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       applySafeAreaColor(dominant);
       sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
     } else if (isOnContactPage && !contactProfile) {
-      // Contact not loaded yet - use cached or themeDark
-      const lastColor = sessionStorage.getItem(STORAGE_KEYS.safeAreaColor);
-
-      if (lastColor && status === 'authenticated') {
-        applySafeAreaColor(lastColor);
-      } else {
-        applySafeAreaColor(COLORS.themeDark);
-      }
+      // Contact not loaded yet - always use themeDark to avoid flashing user's own color
+      applySafeAreaColor(COLORS.themeDark);
     } else if (isOnContactPage && contactProfile && (!contactColors || contactColors.length < 3)) {
       // Contact loaded but no colors - use themeDark
       applySafeAreaColor(COLORS.themeDark);

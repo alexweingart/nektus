@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProfile } from '@/app/context/ProfileContext';
 import { hexToRgb } from '@/client/cn';
-import { BRAND_DARK_GREEN_RGB } from '@/shared/colors';
 
 /**
  * Layout for contact pages - applies contact's background image
@@ -48,17 +47,10 @@ export default function ContactLayout({
     fetchProfileColors();
   }, [session, code]);
 
-  // Liquid Glass: Override global color with contact's color
+  // Liquid Glass: Clear user's tint immediately on mount, apply contact's when loaded
   useEffect(() => {
-    if (contactBackgroundColors) {
-      const contactColor = contactBackgroundColors[0];
-      if (contactColor) {
-        const rgb = hexToRgb(contactColor);
-        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        console.log('[ContactLayout] Overriding glass tint with contact color:', contactColor, '->', rgbString);
-        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
-      }
-    }
+    // Clear user's color right away so it doesn't show on the contact page
+    document.documentElement.style.removeProperty('--glass-tint-color');
 
     // Cleanup: Restore user's color when leaving contact page
     return () => {
@@ -67,16 +59,25 @@ export default function ContactLayout({
         if (userColor) {
           const rgb = hexToRgb(userColor);
           const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-          console.log('[ContactLayout] Restoring user color on unmount:', userColor, '->', rgbString);
           document.documentElement.style.setProperty('--glass-tint-color', rgbString);
         }
       } else {
-        // No user colors, reset to default green
-        console.log('[ContactLayout] Restoring default green on unmount');
-        document.documentElement.style.setProperty('--glass-tint-color', BRAND_DARK_GREEN_RGB);
+        document.documentElement.style.removeProperty('--glass-tint-color');
       }
     };
-  }, [contactBackgroundColors, userProfile?.backgroundColors]);
+  }, [userProfile?.backgroundColors]);
+
+  // Apply contact's glass tint once their colors load
+  useEffect(() => {
+    if (contactBackgroundColors) {
+      const contactColor = contactBackgroundColors[0];
+      if (contactColor) {
+        const rgb = hexToRgb(contactColor);
+        const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        document.documentElement.style.setProperty('--glass-tint-color', rgbString);
+      }
+    }
+  }, [contactBackgroundColors]);
 
   return <>{children}</>;
 }
