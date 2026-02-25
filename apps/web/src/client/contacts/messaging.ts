@@ -16,10 +16,10 @@ export function generateMessageText(
     day: 'numeric'
   });
 
-  const baseMessage = `👋 Hi ${contactFirstName}, this is ${senderFirstName}. We nekt'd on ${dateStr}. It was great meeting you - let's hang out soon!`;
+  const baseMessage = `Hey ${contactFirstName}, it's ${senderFirstName}!`;
 
   if (senderShortCode) {
-    return `${baseMessage} Here's my profile: nekt.us/c/${senderShortCode}`;
+    return `${baseMessage} You can stalk me here: nekt.us/c/${senderShortCode}`;
   }
 
   return baseMessage;
