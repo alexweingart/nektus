@@ -97,6 +97,12 @@ export function ProfileView() {
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
     setExchangeStatus(status);
 
+    // DEBUG: Immediately set a test token when exchange starts
+    if (status === 'waiting-for-bump' || status === 'ble-scanning') {
+      console.log('[DEBUG-QR] Setting test token on exchange start');
+      setMatchToken('DEBUG123');
+    }
+
     // Clear QR token when exchange ends (but keep it during match found state so QR remains visible)
     if (["idle", "error", "timeout", "matched"].includes(status)) {
       setMatchToken(null);
