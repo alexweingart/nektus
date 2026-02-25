@@ -36,7 +36,6 @@ export default function AIScheduleView() {
 
   // Chat interface state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('\u200B'); // Zero-width space to prevent iOS positioning bug
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -182,16 +181,13 @@ export default function AIScheduleView() {
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
 
-  const handleSend = useCallback(async () => {
-    // Strip zero-width space for actual content
-    const actualInput = input.replace(/\u200B/g, '').trim();
-
-    if (!actualInput || !currentUserProfile || !contactProfile || !session) return;
+  const handleSend = useCallback(async (text: string) => {
+    if (!text || !currentUserProfile || !contactProfile || !session) return;
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
       type: 'user',
-      content: actualInput,
+      content: text,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -208,11 +204,9 @@ export default function AIScheduleView() {
     // Add user message to conversation history
     const newUserAIMessage: AIMessage = {
       role: 'user',
-      content: actualInput,
+      content: text,
       timestamp: new Date(),
     };
-
-    setInput('\u200B'); // Reset to zero-width space
 
     try {
       // Get user locations from the locations array
@@ -243,7 +237,7 @@ export default function AIScheduleView() {
           'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
-          userMessage: actualInput,
+          userMessage: text,
           conversationHistory,
           user1Id: session.user.id,
           user2Id: savedContact?.userId,
@@ -277,7 +271,7 @@ export default function AIScheduleView() {
 
       setMessages(prev => [...prev, errorMessage]);
     }
-  }, [input, currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
+  }, [currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
 
   const handleScheduleEvent = (event: Event) => {
     if (!event.calendar_urls) return;
@@ -390,15 +384,6 @@ export default function AIScheduleView() {
       {/* Chat Input - normal flex child, stays at bottom */}
       {showChatInput && (
         <ChatInput
-          value={input}
-          onChange={(e) => {
-            const newValue = e.target.value;
-            if (newValue === '' || newValue.replace(/\u200B/g, '') === '') {
-              setInput('\u200B');
-            } else {
-              setInput(newValue);
-            }
-          }}
           onSend={handleSend}
           disabled={false}
           sendDisabled={false}
