@@ -67,18 +67,19 @@ function generateProfileImagePrompt(name: string, _accent2Color: string): string
   const initials = getInitials(name);
   const firstLetter = initials.charAt(0);
 
-  return `Create a minimalist robot face/head icon in a bold, vector logo style on a TRANSPARENT background. ` +
-    `IMPORTANT: Show only the robot's face/head - no body, no torso, no shoulders. Just the head. ` +
-    `The robot face should be a single iconic glyph composed of simple geometric shapes (circles, rounded rectangles, rounded triangles). ` +
-    `CRITICAL: Use negative space within the robot's face/screen to form the letter "${firstLetter}". The letter should be clearly readable and integrated into the design, not added as text. ` +
+  return `Create a minimalist robot face/head icon as a LINE ART / OUTLINE drawing on a TRANSPARENT background. ` +
+    `CRITICAL STYLE: The robot must be drawn with STROKES/OUTLINES ONLY — NO solid fills, NO filled shapes. ` +
+    `Think of it like a white wireframe or line drawing. Every shape (head, eyes, antenna, mouth) should be an outlined stroke, not a filled solid. ` +
+    `Use thick, consistent white strokes (like a 6-8px pen) with rounded corners throughout. ` +
+    `IMPORTANT: Show only the robot's face/head — no body, no torso, no shoulders. Just the head. ` +
+    `The robot face should be composed of simple geometric outlines (circles, rounded rectangles, rounded triangles). ` +
+    `CRITICAL: Place the letter "${firstLetter}" prominently in the center of the robot's face/screen area. The letter should be large, clearly readable, and drawn in the same white outline stroke style — NOT as solid filled text. ` +
     `CRITICAL: The background MUST be completely transparent (alpha = 0). No background color, no gradient, just the robot floating on transparency. ` +
-    `The robot face should be centered and use thick, consistent strokes with rounded corners throughout. ` +
-    `Style: modern, friendly, tech-forward. Think mascot-like but minimal—like a logo mark for a tech company. ` +
-    `The person's name is "${name}" - use subtle design cues to suggest personality (e.g., bolder/angular shapes for masculine names, softer/rounder shapes for feminine names, balanced for neutral), but keep the core robot face structure. ` +
-    `CRITICAL: Do not include any text, letters as text, or typography. The "${firstLetter}" should be formed by negative space only. ` +
-    `CRITICAL: Only show the robot's head/face - no body parts below the head. ` +
-    `Color palette: Robot should use ONLY white (#FFFFFF). The entire robot should be pure white. ` +
-    `Keep it simple, iconic, and instantly recognizable as a robot face on a transparent background.`;
+    `Style: modern, friendly, tech-forward. Think single-weight line icon or wireframe logo mark. ` +
+    `The person's name is "${name}" — use subtle design cues to suggest personality (e.g., angular shapes for masculine names, rounder shapes for feminine names, balanced for neutral), but keep the core robot face structure. ` +
+    `CRITICAL: Only show the robot's head/face — no body parts below the head. ` +
+    `Color palette: ALL strokes and outlines must be pure white (#FFFFFF). No other colors. No fills — only outlines and strokes. ` +
+    `Keep it simple, iconic, and instantly recognizable as a robot face outline on a transparent background.`;
 }
 
 /**
