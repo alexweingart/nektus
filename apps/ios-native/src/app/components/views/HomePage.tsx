@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heading: {
-    ...textSizes.xxl,
+    ...textSizes.xl,
     ...fontStyles.bold,
     color: "#ffffff",
     textAlign: "center",

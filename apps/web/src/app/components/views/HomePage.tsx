@@ -107,7 +107,7 @@ const HomePage: React.FC = () => {
             />
           </div>
         </div>
-        <Heading as="h1" className="text-center w-full mb-3">
+        <Heading as="h2" className="text-center w-full mb-3">
           Conversations → Friendships
         </Heading>
         <Text variant="base" className="text-center text-lg opacity-90 mb-10 px-4">
