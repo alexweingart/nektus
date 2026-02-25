@@ -35,7 +35,7 @@ export const ContactButton: React.FC<ContactButtonProps> = ({
       );
     }
 
-    return isSuccess ? "I'm good" : 'Save';
+    return isSuccess ? "Maybe later" : 'Save';
   };
 
   const isDisabled = isSaving || isLoading;

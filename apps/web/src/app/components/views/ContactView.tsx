@@ -408,7 +408,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                       variant="dark"
                       onClick={handleSaveContact}
                     >
-                      {"I'm good"}
+                      {"Maybe later"}
                     </SecondaryButton>
                   </div>
                 )}

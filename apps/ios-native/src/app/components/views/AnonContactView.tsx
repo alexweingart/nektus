@@ -426,7 +426,7 @@ export function AnonContactView({
               </Button>
               <View style={styles.secondaryButtonContainer}>
                 <SecondaryButton onPress={onReject || (() => {})}>
-                  I'm good
+                  Maybe later
                 </SecondaryButton>
               </View>
             </Animated.View>

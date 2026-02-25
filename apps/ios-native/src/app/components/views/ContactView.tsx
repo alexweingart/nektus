@@ -577,7 +577,7 @@ export function ContactView(props: ContactViewProps = {}) {
                 {isSaved && (
                   <View style={styles.secondaryButtonContainer}>
                     <SecondaryButton onPress={handleSaveContact}>
-                      I'm good
+                      Maybe later
                     </SecondaryButton>
                   </View>
                 )}

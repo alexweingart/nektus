@@ -19,7 +19,7 @@ export function generateMessageText(
   const baseMessage = `Hey ${contactFirstName}, it's ${senderFirstName}!`;
 
   if (senderShortCode) {
-    return `${baseMessage} You can stalk me here: nekt.us/c/${senderShortCode}`;
+    return `${baseMessage} Find time to hang: nekt.us/c/${senderShortCode}`;
   }
 
   return baseMessage;

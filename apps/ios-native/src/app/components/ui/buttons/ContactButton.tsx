@@ -36,7 +36,7 @@ export function ContactButton({
 
     return (
       <Text style={styles.buttonText}>
-        {isSuccess ? "I'm good" : 'Save Contact'}
+        {isSuccess ? "Maybe later" : 'Save Contact'}
       </Text>
     );
   };
