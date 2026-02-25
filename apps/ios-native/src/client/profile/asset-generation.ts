@@ -25,7 +25,6 @@ export interface GenerateAssetsParams {
   } | null;
   currentState: AssetGenerationState;
   onStateChange: (updates: Partial<AssetGenerationState>) => void;
-  onProfileUpdate: (profile: UserProfile) => void;
 }
 
 /**
@@ -39,7 +38,6 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
     session,
     currentState,
     onStateChange,
-    onProfileUpdate,
   } = params;
 
   const apiBaseUrl = getApiBaseUrl();
@@ -233,20 +231,15 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
     generations.push(backgroundGeneration);
   }
 
-  // Wait for all generations to complete, then reload profile from Firebase
+  // Wait for all generations to complete
+  // Don't manually reload profile or clear streaming — Firestore subscription
+  // handles profile updates, and clearing streaming can race with the subscription
+  // (getProfile may return stale cached data that overwrites the fresh subscription data)
   if (generations.length > 0) {
     try {
       await Promise.all(generations);
-
-      // Reload the complete profile from Firebase
-      const updatedProfile = await ClientProfileService.getProfile(userId);
-      if (updatedProfile) {
-        // Clear streaming state and set final profile
-        onStateChange({ streamingProfileImage: null });
-        onProfileUpdate(updatedProfile);
-      }
     } catch (error) {
-      console.error('[AssetGeneration] Error waiting for generations or reloading profile:', error);
+      console.error('[AssetGeneration] Error waiting for generations:', error);
     }
   }
 }

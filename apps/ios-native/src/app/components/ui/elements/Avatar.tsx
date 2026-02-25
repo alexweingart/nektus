@@ -167,7 +167,7 @@ const Avatar: React.FC<AvatarProps> = ({
 
   // ── Render helpers ──
 
-  if (isLoading || (!displayedSrc && !showInitials && !hasError && !pendingSrc)) {
+  if (isLoading) {
     return (
       <View style={[
         styles.container,

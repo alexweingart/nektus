@@ -262,10 +262,6 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         currentState: assetGeneration,
         onStateChange: (updates) =>
           setAssetGeneration((prev) => ({ ...prev, ...updates })),
-        onProfileUpdate: (updatedProfile) => {
-          setProfile(updatedProfile);
-          profileRef.current = updatedProfile;
-        },
       }).catch((error) => {
         console.error("[ProfileContext] Asset generation failed:", error);
       });
