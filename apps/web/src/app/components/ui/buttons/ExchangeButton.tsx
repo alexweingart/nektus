@@ -183,23 +183,20 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
     }
 
     let permissionGranted = false;
-    
+
     // For iOS, request permission IMMEDIATELY as the first action
     // NO async operations before this call to preserve user gesture context
     const DeviceMotionEventWithPermission = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
     if (typeof DeviceMotionEventWithPermission.requestPermission === 'function') {
       try {
         const permission = await DeviceMotionEventWithPermission.requestPermission!();
-        
-        if (permission !== 'granted') {
-          setStatus('error');
-          return;
+        permissionGranted = permission === 'granted';
+        if (!permissionGranted) {
+          console.log('⚠️ Motion permission denied — falling back to QR-only exchange');
         }
-        permissionGranted = true;
       } catch (error) {
-        console.error('❌ iOS permission request failed:', error);
-        setStatus('error');
-        return;
+        console.error('❌ iOS permission request failed — falling back to QR-only exchange:', error);
+        permissionGranted = false;
       }
     } else {
       // For non-iOS, permission will be handled by the service

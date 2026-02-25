@@ -62,7 +62,7 @@ export class RealTimeContactExchangeService {
    * Start the contact exchange process with single timeout control
    */
   async startExchange(
-    _permissionAlreadyGranted: boolean = false,
+    permissionAlreadyGranted: boolean = false,
     sharingCategory: 'All' | 'Personal' | 'Work' = 'All'
   ): Promise<void> {
     try {
@@ -109,39 +109,41 @@ export class RealTimeContactExchangeService {
       // Reset cancellation flag and motion state for new exchange
       this.motionDetectionCancelled = false;
 
-      // Send debug log before calling startNewSession
-      fetch('/api/debug/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'before_session_start',
-          message: `About to call MotionDetector.startNewSession()`,
-          timestamp: new Date().toISOString()
-        })
-      }).catch(() => {});
+      if (permissionAlreadyGranted) {
+        // Send debug log before calling startNewSession
+        fetch('/api/debug/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'before_session_start',
+            message: `About to call MotionDetector.startNewSession()`,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(() => {});
 
-      // Start fresh motion detection session
-      const MotionDetector = await this.getMotionDetector();
-      MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
+        // Start fresh motion detection session
+        const MotionDetector = await this.getMotionDetector();
+        MotionDetector.startNewSession(); // Clears any priming state and prepares for detection
 
-      // Send debug log after calling startNewSession
-      fetch('/api/debug/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'after_session_start',
-          message: `MotionDetector.startNewSession() completed`,
-          timestamp: new Date().toISOString()
-        })
-      }).catch(() => {});
-      
-      
-      // Permission is always handled by ExchangeButton - no need to check again
-      console.log('✅ Service using permission granted by ExchangeButton');
+        // Send debug log after calling startNewSession
+        fetch('/api/debug/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'after_session_start',
+            message: `MotionDetector.startNewSession() completed`,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(() => {});
 
-      // Start listening for motion (but don't send hit yet)
+        console.log('✅ Service using motion permission granted by ExchangeButton');
+      } else {
+        console.log('⚠️ Motion permission not granted — QR-only exchange');
+      }
+
+      // Start listening for motion/QR (shows QR code + floating animation)
       this.updateState({ status: 'waiting-for-bump' });
-      console.log('👂 Waiting for bump (60s timeout)...');
+      console.log('👂 Waiting for bump/scan (60s timeout)...');
 
       // Start polling immediately for QR scan matches (not just after motion detected)
       this.startMatchPolling();
@@ -163,9 +165,11 @@ export class RealTimeContactExchangeService {
           console.log('✅ Match found - not showing timeout');
         }
       }, EXCHANGE_TIMEOUT.SLOW_MS);
-      
-      // Start the motion detection loop
-      await this.waitForBump(true, sharingCategory);
+
+      // Start the motion detection loop only if permission was granted
+      if (permissionAlreadyGranted) {
+        await this.waitForBump(true, sharingCategory);
+      }
 
     } catch (error) {
       console.error('Exchange failed:', error);
