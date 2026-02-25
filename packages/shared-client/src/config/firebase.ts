@@ -41,7 +41,7 @@ export const firebaseConfig = {
 // Dev server URL (Tailscale)
 const DEV_API_URL = 'https://nekt.tail768878.ts.net';
 // Production URL
-const PROD_API_URL = 'https://www.nekt.us';
+const PROD_API_URL = 'https://nekt.us';
 
 /**
  * API base URL for backend calls

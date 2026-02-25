@@ -7,8 +7,8 @@
 
 // Dev server URL (Tailscale)
 const DEV_API_URL = "https://nekt.tail768878.ts.net";
-// Production URL
-const PROD_API_URL = "https://www.nekt.us";
+// Production URL (must match NEXT_PUBLIC_BASE_URL for OAuth redirect_uri matching)
+const PROD_API_URL = "https://nekt.us";
 
 /**
  * Get the API base URL for backend calls

@@ -238,30 +238,26 @@ export function AddCalendarModal({
 
   /**
    * Run the OAuth browser flow for Google/Microsoft and exchange the code.
+   *
+   * Both providers use the same server-redirect pattern:
+   * 1. Open OAuth provider in WebBrowser
+   * 2. Provider redirects to server callback with auth code
+   * 3. Server sees platform=ios and 302-redirects code back to app via custom URL scheme
+   * 4. WebBrowser catches the custom URL and returns the code
+   * 5. App exchanges the code via /api/calendar-connections/mobile-token
    */
   const runOAuthFlow = async (provider: 'google' | 'microsoft'): Promise<boolean> => {
-    const isGoogleNative = provider === 'google' && process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-
     const oauthEndpoint = provider === 'google'
       ? 'https://accounts.google.com/o/oauth2/v2/auth'
       : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 
-    let clientId: string;
-    let redirectUri: string;
-    let callbackUrl: string;
+    const clientId = (provider === 'google'
+      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+      : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID) || '';
+    if (!clientId) throw new Error(`${provider} client ID not configured`);
 
-    if (isGoogleNative) {
-      clientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
-      redirectUri = `com.googleusercontent.apps.${clientId.split('.')[0]}:/oauthredirect`;
-      callbackUrl = redirectUri;
-    } else {
-      clientId = (provider === 'google'
-        ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-        : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID) || '';
-      if (!clientId) throw new Error(`${provider} client ID not configured`);
-      redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
-      callbackUrl = ExpoLinking.createURL('calendar-callback');
-    }
+    const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
+    const callbackUrl = ExpoLinking.createURL('calendar-callback');
 
     const scope = provider === 'google'
       ? 'https://www.googleapis.com/auth/calendar.readonly'
@@ -270,7 +266,8 @@ export function AddCalendarModal({
     const state = encodeURIComponent(JSON.stringify({
       userEmail,
       section,
-      ...(isGoogleNative ? {} : { platform: 'ios', appCallbackUrl: callbackUrl }),
+      platform: 'ios',
+      appCallbackUrl: callbackUrl,
     }));
 
     const params = new URLSearchParams({
@@ -288,18 +285,16 @@ export function AddCalendarModal({
 
     const authUrl = `${oauthEndpoint}?${params.toString()}`;
 
-    console.log('[AddCalendarModal] provider:', provider, 'isGoogleNative:', !!isGoogleNative);
+    console.log('[AddCalendarModal] provider:', provider);
     console.log('[AddCalendarModal] callbackUrl:', callbackUrl);
     console.log('[AddCalendarModal] redirectUri:', redirectUri);
 
     if (WebBrowser) {
-      const callbackScheme = callbackUrl.split(':')[0];
-      console.log('[AddCalendarModal] Opening auth session, scheme:', callbackScheme);
+      console.log('[AddCalendarModal] Opening auth session...');
 
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
         callbackUrl,
-        { preferEphemeralSession: isGoogleNative }
       );
 
       console.log('[AddCalendarModal] Auth result:', JSON.stringify(result).substring(0, 500));
@@ -321,7 +316,6 @@ export function AddCalendarModal({
           redirectUri,
           section,
           userEmail,
-          ...(isGoogleNative ? { useIosClientId: 'true' } : {}),
         });
 
         return true;
