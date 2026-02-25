@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '../buttons/Button';
 import { SecondaryButton } from '../buttons/SecondaryButton';
@@ -9,6 +9,7 @@ import { ExpandingInput } from '../inputs/ExpandingInput';
 import { CustomSocialInputAdd } from '../inputs/CustomSocialInputAdd';
 import type { UserProfile } from '@/types/profile';
 import { scrapeBio } from '@/client/profile/scrape-bio';
+import { detectPlatform } from '@/client/platform-detection';
 
 interface BioModalProps {
   isOpen: boolean;
@@ -39,6 +40,39 @@ export const BioModal: React.FC<BioModalProps> = ({
   );
   const [isLoading, setIsLoading] = useState(false);
   const modalContentRef = useRef<HTMLDivElement>(null);
+  const bioInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus autobiography input when modal opens in input mode
+  useEffect(() => {
+    if (!isOpen || mode !== 'input') return;
+
+    const focusInput = () => {
+      if (bioInputRef.current) {
+        bioInputRef.current.focus();
+        if (detectPlatform().isAndroid) {
+          bioInputRef.current.click();
+        }
+      }
+    };
+
+    const { isIOS, isAndroid } = detectPlatform();
+
+    if (isIOS) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(focusInput);
+      });
+    } else if (isAndroid) {
+      const timer1 = setTimeout(focusInput, 100);
+      const timer2 = setTimeout(focusInput, 500);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    } else {
+      const timer = setTimeout(focusInput, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, mode]);
 
   const targetPlatform = currentSection === 'Work' ? 'linkedin' : 'instagram';
   const platformLabel = targetPlatform === 'instagram' ? 'Instagram' : 'LinkedIn';
@@ -133,6 +167,7 @@ export const BioModal: React.FC<BioModalProps> = ({
             {mode === 'input' ? (
               <>
                 <ExpandingInput
+                  ref={bioInputRef}
                   value={bioText}
                   onChange={setBioText}
                   placeholder="Enter autobiography here..."

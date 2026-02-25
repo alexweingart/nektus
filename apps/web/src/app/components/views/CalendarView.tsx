@@ -133,13 +133,17 @@ export default function CalendarView({ calendarId }: CalendarViewProps) {
         <div
           className="flex flex-col items-center justify-center text-center cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => {
+            if (calendar.accessMethod === 'eventkit') {
+              window.location.href = 'calshow://';
+              return;
+            }
             const calendarUrl = getCalendarUrl(calendar.provider, calendar.email);
             if (calendarUrl) window.location.href = calendarUrl;
           }}
         >
           <Text className="font-bold text-white">{getProviderName(calendar.provider, calendar.accessMethod)}</Text>
           <Text variant="small" className="text-white/60">
-            {calendar.accessMethod === 'eventkit' ? 'Only available in iOS app' : calendar.email}
+            {calendar.accessMethod === 'eventkit' ? 'Tap to open Calendar app' : calendar.email}
           </Text>
         </div>
 

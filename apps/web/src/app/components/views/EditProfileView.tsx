@@ -9,6 +9,7 @@ import PageHeader from '../ui/layout/PageHeader';
 import { useEditProfileFields, useImageUpload, useProfileViewMode } from '@/client/hooks/use-edit-profile-fields';
 import { useCalendarLocationManagement } from '@/client/hooks/use-calendar-location-management';
 import { getOptimalProfileImageUrl } from '@/client/profile/image';
+import { scrapeBio } from '@/client/profile/scrape-bio';
 import { SingleLineInput } from '../ui/inputs/SingleLineInput';
 import { ExpandingInput } from '../ui/inputs/ExpandingInput';
 import { FieldSection as FieldSectionComponent } from '../ui/modules/FieldSection';
@@ -126,6 +127,22 @@ const EditProfileView: React.FC = () => {
     fieldSectionManager.addFields(entries);
     // Close inline add link for all sections
     setShowInlineAddLink({ personal: false, work: false });
+
+    // Auto-pull bio when Instagram/LinkedIn is added and bio is empty
+    const socialEntry = entries.find(e =>
+      ['instagram', 'linkedin'].includes(e.fieldType) && e.value?.trim()
+    );
+    if (socialEntry && !fieldSectionManager.getFieldValue('bio')?.trim()) {
+      scrapeBio(
+        socialEntry.fieldType as 'instagram' | 'linkedin',
+        socialEntry.value
+      ).then(result => {
+        // Only populate if bio is still empty (user hasn't typed anything)
+        if (result.success && result.bio && !fieldSectionManager.getFieldValue('bio')?.trim()) {
+          fieldSectionManager.setFieldValue('bio', result.bio);
+        }
+      }).catch(console.error);
+    }
   };
 
   // Get field value using unified state

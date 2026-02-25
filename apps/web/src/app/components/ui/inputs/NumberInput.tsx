@@ -111,7 +111,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
       placeholder={showPlaceholder ? '00' : ''}
       maxLength={2}
       className={`
-        w-7 text-center text-sm bg-transparent outline-none cursor-pointer text-white p-0 leading-none
+        w-7 h-full text-center text-sm bg-transparent outline-none cursor-pointer text-white p-0
         focus:outline-none focus:ring-0 focus:border-0
         ${showPlaceholder ? 'placeholder-white/40' : ''}
         ${className}

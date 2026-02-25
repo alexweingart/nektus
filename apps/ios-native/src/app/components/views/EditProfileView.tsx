@@ -42,6 +42,7 @@ import { ProfileImageIcon } from '../ui/elements/ProfileImageIcon';
 import { AddCalendarModal } from '../ui/modals/AddCalendarModal';
 import { AddLocationModal } from '../ui/modals/AddLocationModal';
 import { SelectedSections } from './SelectedSections';
+import { scrapeBio } from '../../../client/profile/scrape-bio';
 
 type EditProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EditProfile'>;
 
@@ -210,6 +211,21 @@ export function EditProfileView() {
   const handleLinkAdded = useCallback((entries: ContactEntry[]) => {
     fieldManager.addFields(entries);
     setShowInlineAddLink({ personal: false, work: false });
+
+    // Auto-pull bio when Instagram/LinkedIn is added and bio is empty
+    const socialEntry = entries.find(e =>
+      ['instagram', 'linkedin'].includes(e.fieldType) && e.value?.trim()
+    );
+    if (socialEntry && !fieldManager.getFieldValue('bio')?.trim()) {
+      scrapeBio(
+        socialEntry.fieldType as 'instagram' | 'linkedin',
+        socialEntry.value
+      ).then(result => {
+        if (result.success && result.bio && !fieldManager.getFieldValue('bio')?.trim()) {
+          fieldManager.setFieldValue('bio', result.bio);
+        }
+      }).catch(console.error);
+    }
   }, [fieldManager]);
 
   // Get field value using unified state

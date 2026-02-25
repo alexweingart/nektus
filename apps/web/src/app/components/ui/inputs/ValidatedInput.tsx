@@ -49,7 +49,7 @@ export function ValidatedInput({
   return (
     <div className={`w-full ${className}`}>
       <div
-        className={`flex w-full bg-black/40 border rounded-full transition-all text-white text-base h-12 focus-within:bg-black/50 ${getBorderClass()}`}
+        className={`flex w-full bg-black/40 border rounded-full transition-all text-white text-base focus-within:bg-black/50 ${getBorderClass()}`}
         style={{
           height: '3.5rem',
           minHeight: '3.5rem',
@@ -58,11 +58,12 @@ export function ValidatedInput({
         }}
       >
         <input
-          className="flex-1 px-6 h-full bg-transparent focus:outline-none text-white text-base w-full rounded-full placeholder-white/40"
+          className="flex-1 px-6 h-full bg-transparent focus:outline-none text-white text-base w-full placeholder-white/40"
           style={{
             border: 'none',
             outline: 'none',
-            boxShadow: 'none'
+            boxShadow: 'none',
+            borderRadius: '9999px'
           }}
           {...inputProps}
           onChange={(e) => {

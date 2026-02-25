@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { getFirebaseAdmin } from '@/server/config/firebase';
 
 /**
@@ -258,40 +257,7 @@ export async function POST(req: NextRequest) {
 
     const bio = await scrapeBioFromUrl(platform, username.replace(/^@/, ''));
 
-    if (bio) {
-      // Save scraped bio to profile contactEntries
-      const profile = await AdminProfileService.getProfile(userId);
-      if (profile) {
-        const updatedEntries = [...(profile.contactEntries || [])];
-
-        // Find and update existing bio entry, or add new one
-        const bioIndex = updatedEntries.findIndex(
-          e => e.fieldType === 'bio' && e.section === 'universal'
-        );
-
-        const bioEntry = {
-          fieldType: 'bio',
-          section: 'universal' as const,
-          value: bio,
-          order: 0,
-          isVisible: true,
-          confirmed: true,
-        };
-
-        if (bioIndex >= 0) {
-          updatedEntries[bioIndex] = { ...updatedEntries[bioIndex], ...bioEntry };
-        } else {
-          updatedEntries.push(bioEntry);
-        }
-
-        await AdminProfileService.updateProfile(userId, {
-          contactEntries: updatedEntries,
-        });
-
-        console.log(`[API/SCRAPE-BIO] Bio saved for user ${userId}`);
-      }
-    }
-
+    // Return scraped bio to client — client handles saving to avoid race conditions
     return NextResponse.json({ bio: bio || null, success: !!bio });
   } catch (error) {
     console.error(`[API/SCRAPE-BIO] Error:`, error);
