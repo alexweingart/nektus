@@ -70,6 +70,7 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
     const name = getFieldValue(profile.contactEntries, 'name') || '';
     const email = getFieldValue(profile.contactEntries, 'email') || '';
     const phone = getFieldValue(profile.contactEntries, 'phone') || '';
+    const bio = getFieldValue(profile.contactEntries, 'bio') || '';
     const contactUrl = getContactUrl(profile);
 
     const nameParts = name.split(' ');
@@ -109,7 +110,7 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
         } else if (entry.value) {
           // Custom link or unknown type — treat as URL
           let url = entry.value;
-          if (!url.startsWith('http')) {
+          if (!url.toLowerCase().startsWith('http')) {
             url = `https://${url}`;
           }
           try {
@@ -132,9 +133,12 @@ async function saveToNativeContacts(profile: UserProfile): Promise<{ success: bo
       emailAddresses: email ? [{ label: 'home', email }] : [],
       phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
       urlAddresses,
-      note: contactUrl
-        ? `Added via Nekt on ${new Date().toLocaleDateString()} | ${contactUrl}`
-        : `Added via Nekt on ${new Date().toLocaleDateString()}`,
+      note: [
+        bio,
+        contactUrl
+          ? `Added via Nekt on ${new Date().toLocaleDateString()} | ${contactUrl}`
+          : `Added via Nekt on ${new Date().toLocaleDateString()}`,
+      ].filter(Boolean).join('\n\n'),
     };
 
     // Set profile image URL — the native iOS Contacts bridge fetches it directly

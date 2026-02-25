@@ -213,6 +213,26 @@ export async function generateVCard(profile: UserProfile, options: VCardOptions 
     lines.push(`URL:${contactUrl}`);
   }
 
+  // Add custom links as additional URL fields
+  if (profile.contactEntries) {
+    profile.contactEntries.forEach((entry) => {
+      if (!entry.value || !entry.isVisible) return;
+      if (['phone', 'email', 'name', 'bio'].includes(entry.fieldType)) return;
+      if (getSocialMediaUrl(entry.fieldType, entry.value)) return;
+
+      let url = entry.value;
+      if (!url.toLowerCase().startsWith('http')) {
+        url = `https://${url}`;
+      }
+      try {
+        new URL(url);
+        lines.push(`URL:${url}`);
+      } catch {
+        // Not a valid URL — skip
+      }
+    });
+  }
+
   // Notes (bio)
   if (includeNotes) {
     const bio = getFieldValue(profile.contactEntries, 'bio');
