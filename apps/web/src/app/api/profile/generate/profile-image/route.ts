@@ -326,8 +326,8 @@ export async function POST(req: NextRequest) {
       const profileName = getFieldValue(profile.contactEntries, 'name') || 'User';
       const profileColors = generateProfileColors(profileName);
       // Radial gradient: dominant (dark center) → accent1 (light edge)
-      // Text color: accent2 (bright, vivid) for contrast
-      const initialsDataUrl = generateInitialsAvatar(profileName, 1024, [profileColors[0], profileColors[1]], profileColors[2]);
+      // Text color: white for consistency with Avatar component fallback
+      const initialsDataUrl = generateInitialsAvatar(profileName, 1024, [profileColors[0], profileColors[1]], '#FFFFFF');
       const initialsBuffer = dataUrlToBuffer(initialsDataUrl);
       console.log('[API/PROFILE-IMAGE] Uploading initials avatar immediately');
       const initialsUrl = await uploadImageBuffer(initialsBuffer, userId, 'profile');
