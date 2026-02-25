@@ -285,9 +285,9 @@ function AppClipContent() {
       // Format phone number for storage
       const { internationalPhone } = formatPhoneNumber(phone);
 
-      // Build contact entries to save (phone added to both personal and work sections)
+      // Build new contact entries (phone added to both personal and work sections)
       const phoneValue = internationalPhone || phone;
-      const entries: ContactEntry[] = [
+      const newEntries: ContactEntry[] = [
         ...(['personal', 'work'] as const).map((section, i) => ({
           fieldType: 'phone' as const,
           value: phoneValue,
@@ -300,6 +300,16 @@ function AppClipContent() {
         })),
         ...socials,
       ];
+
+      // Fetch existing profile to preserve name/email/bio entries created during sign-up
+      const existingProfile = await ClientProfileService.getProfile(session.userId);
+      const existingEntries = existingProfile?.contactEntries || [];
+
+      // Keep existing entries that aren't being replaced by new ones
+      const newFieldTypes = new Set(newEntries.map(e => e.fieldType));
+      const preservedEntries = existingEntries.filter(e => !newFieldTypes.has(e.fieldType));
+
+      const entries: ContactEntry[] = [...preservedEntries, ...newEntries];
 
       // Save directly to Firestore via merge
       await ClientProfileService.updateProfile(session.userId, {
