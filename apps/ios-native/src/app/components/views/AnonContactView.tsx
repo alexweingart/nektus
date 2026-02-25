@@ -402,11 +402,11 @@ export function AnonContactView({
                 onPress={onInstallApp || (() => {})}
                 style={styles.fullWidth}
               >
-                Get the App
+                Get Nekt
               </Button>
               <View style={styles.secondaryButtonContainer}>
                 <SecondaryButton onPress={onReject || (() => {})}>
-                  Continue on Web
+                  I'm good
                 </SecondaryButton>
               </View>
             </Animated.View>
