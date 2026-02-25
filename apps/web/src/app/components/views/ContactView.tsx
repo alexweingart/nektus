@@ -149,11 +149,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
   const handleSayHi = () => {
     const senderName = getFieldValue(userProfile?.contactEntries, 'name') || session?.user?.name;
-    if (!senderName) {
-      return;
-    }
-
-    const senderFirstName = getFirstName(senderName);
+    const senderFirstName = senderName ? getFirstName(senderName) : 'your new friend';
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
     // Use shortCode if available, fall back to userId (both work with /c/ route)
     const senderProfileId = userProfile?.shortCode;
@@ -169,11 +165,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
   // Handle messaging for historical contacts
   const handleHistoricalMessage = () => {
     const senderName = getFieldValue(userProfile?.contactEntries, 'name') || session?.user?.name;
-    if (!senderName) {
-      return;
-    }
-
-    const senderFirstName = getFirstName(senderName);
+    const senderFirstName = senderName ? getFirstName(senderName) : 'your new friend';
     const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
     const senderProfileId = userProfile?.shortCode;
     const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
