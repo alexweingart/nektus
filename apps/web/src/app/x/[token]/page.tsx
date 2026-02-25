@@ -29,7 +29,6 @@ function ConnectPageContent() {
 
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
-  const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [sharingCategory, setSharingCategory] = useState<'Personal' | 'Work'>('Personal');
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -140,7 +139,6 @@ function ConnectPageContent() {
                 }
                 if (previewResult.profile) {
                   setPreviewProfile(previewResult.profile);
-                  setSocialIconTypes(previewResult.socialIconTypes || []);
                   // Dispatch match-found so LayoutBackground uses contact colors
                   window.dispatchEvent(new CustomEvent('match-found', {
                     detail: {
@@ -216,7 +214,6 @@ function ConnectPageContent() {
 
           if (result.success && result.profile) {
             setPreviewProfile(result.profile);
-            setSocialIconTypes(result.socialIconTypes || []);
             if (result.sharingCategory) {
               setSharingCategory(result.sharingCategory);
             }
@@ -287,7 +284,6 @@ function ConnectPageContent() {
     return (
       <AnonContactView
         profile={previewProfile}
-        socialIconTypes={socialIconTypes}
         token={token}
       />
     );
@@ -331,7 +327,6 @@ function ConnectPageContent() {
         {previewProfile && (
           <AnonContactView
             profile={previewProfile}
-            socialIconTypes={socialIconTypes}
             token={token}
           />
         )}
@@ -344,7 +339,6 @@ function ConnectPageContent() {
     return (
       <AnonContactView
         profile={previewProfile}
-        socialIconTypes={socialIconTypes}
         token={token}
         hideActions
       />

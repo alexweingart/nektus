@@ -22,7 +22,6 @@ import { useProfileAvatarSize } from '@/client/hooks/use-profile-avatar-size';
 
 interface AnonContactViewProps {
   profile: UserProfile;
-  socialIconTypes: string[];
   token: string;
   hideActions?: boolean;
 }
@@ -42,14 +41,14 @@ const getSocialDisplayName = (type: string) => {
     github: 'GitHub',
     whatsapp: 'WhatsApp',
     phone: 'phone number',
-    email: 'email'
+    email: 'email',
+    custom: 'link',
   };
-  return names[type] || type;
+  return names[type] || 'link';
 };
 
 export const AnonContactView: React.FC<AnonContactViewProps> = ({
   profile,
-  socialIconTypes,
   token,
   hideActions = false
 }) => {
@@ -66,6 +65,11 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
 
   const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
   const bio = getFieldValue(profile.contactEntries, 'bio') || 'Too cool for a bio. Google me.';
+
+  // Derive social entries from contactEntries (excludes name/bio)
+  const socialEntries = (profile.contactEntries || [])
+    .filter(e => e.isVisible && !['name', 'bio'].includes(e.fieldType))
+    .sort((a, b) => a.order - b.order);
 
   const handleSocialIconClick = (iconType: string) => {
     setClickedSocial(iconType);
@@ -111,18 +115,23 @@ export const AnonContactView: React.FC<AnonContactViewProps> = ({
             </div>
 
             {/* Social Icons - non-clickable, trigger modal */}
-            {socialIconTypes.length > 0 && (
+            {socialEntries.length > 0 && (
               <div className="w-full mb-4">
                 <div className="flex flex-wrap justify-center gap-3">
-                  {socialIconTypes.map((iconType) => (
-                    <SocialIcon
-                      key={iconType}
-                      platform={iconType}
-                      size="md"
-                      variant="white"
-                      onClick={() => handleSocialIconClick(iconType)}
-                    />
-                  ))}
+                  {socialEntries.map((entry, i) => {
+                    const isCustom = entry.linkType === 'custom';
+                    return (
+                      <SocialIcon
+                        key={`${entry.fieldType}-${entry.section}-${i}`}
+                        platform={isCustom ? 'custom' : entry.fieldType}
+                        customIcon={isCustom ? entry.icon : undefined}
+                        linkType={isCustom ? 'custom' : undefined}
+                        size="md"
+                        variant="white"
+                        onClick={() => handleSocialIconClick(isCustom ? 'custom' : entry.fieldType)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}

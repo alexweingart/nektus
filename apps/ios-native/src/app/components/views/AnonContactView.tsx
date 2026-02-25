@@ -56,7 +56,6 @@ const AppleIcon = () => (
 
 interface AnonContactViewProps {
   profile: UserProfile;
-  socialIconTypes: string[];
   token: string;
   onSignIn: () => void;
   /** When set, user is authenticated — show save/download buttons instead of sign-in */
@@ -91,13 +90,13 @@ const getSocialDisplayName = (type: string): string => {
     whatsapp: 'WhatsApp',
     phone: 'phone number',
     email: 'email',
+    custom: 'link',
   };
-  return names[type] || type;
+  return names[type] || 'link';
 };
 
 export function AnonContactView({
   profile,
-  socialIconTypes,
   token,
   onSignIn,
   isAuthenticated = false,
@@ -117,6 +116,12 @@ export function AnonContactView({
 
   const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
   const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+
+  // Derive social entries from contactEntries (excludes name/bio)
+  const socialEntries = (profile.contactEntries || [])
+    .filter(e => e.isVisible && !['name', 'bio'].includes(e.fieldType))
+    .sort((a, b) => a.order - b.order);
+
   const profileColors = (profile.backgroundColors?.length === 3
     ? profile.backgroundColors as [string, string, string]
     : generateProfileColors(name));
@@ -244,17 +249,22 @@ export function AnonContactView({
               />
               <Text style={styles.name}>{name}</Text>
               <BodyText style={styles.bio}>{bio}</BodyText>
-              {socialIconTypes.length > 0 && (
+              {socialEntries.length > 0 && (
                 <View style={styles.socialIconsContainer}>
-                  {socialIconTypes.map((iconType) => (
-                    <SocialIcon
-                      key={iconType}
-                      platform={iconType}
-                      size="md"
-                      variant="white"
-                      onPress={() => handleSocialIconClick(iconType)}
-                    />
-                  ))}
+                  {socialEntries.map((entry, i) => {
+                    const isCustom = entry.linkType === 'custom';
+                    return (
+                      <SocialIcon
+                        key={`${entry.fieldType}-${entry.section}-${i}`}
+                        platform={isCustom ? 'custom' : entry.fieldType}
+                        customIcon={isCustom ? entry.icon : undefined}
+                        linkType={isCustom ? 'custom' : undefined}
+                        size="md"
+                        variant="white"
+                        onPress={() => handleSocialIconClick(isCustom ? 'custom' : entry.fieldType)}
+                      />
+                    );
+                  })}
                 </View>
               )}
             </View>

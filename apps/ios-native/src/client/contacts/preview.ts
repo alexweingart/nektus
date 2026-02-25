@@ -9,7 +9,6 @@ import { getApiBaseUrl } from '../auth/firebase';
 export interface PreviewResult {
   success: boolean;
   profile?: UserProfile;
-  socialIconTypes?: string[];
   error?: string;
 }
 
@@ -33,7 +32,6 @@ export async function fetchProfilePreview(token: string): Promise<PreviewResult>
       return {
         success: true,
         profile: result.profile,
-        socialIconTypes: result.socialIconTypes || [],
       };
     }
 

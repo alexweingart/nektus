@@ -117,7 +117,6 @@ function AppClipContent() {
   const [session, setSession] = useState<AppClipSession | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
   const [senderProfile, setSenderProfile] = useState<UserProfile | null>(null);
-  const [socialIconTypes, setSocialIconTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
@@ -174,7 +173,6 @@ function AppClipContent() {
         const result = await fetchProfilePreview(token);
         if (result.success && result.profile) {
           setPreviewProfile(result.profile);
-          setSocialIconTypes(result.socialIconTypes || []);
         } else {
           setError(result.error || "Failed to load contact preview");
         }
@@ -343,6 +341,7 @@ function AppClipContent() {
       const name = getFieldValue(previewProfile.contactEntries, 'name') || '';
       const email = getFieldValue(previewProfile.contactEntries, 'email') || '';
       const phone = getFieldValue(previewProfile.contactEntries, 'phone') || '';
+      const bio = getFieldValue(previewProfile.contactEntries, 'bio') || '';
       const nameParts = name.split(' ');
 
       // Build URL addresses: Nekt link first, then social/custom links
@@ -384,7 +383,7 @@ function AppClipContent() {
           } else if (entry.value) {
             // Custom link or unknown type — treat as URL
             let url = entry.value;
-            if (!url.startsWith('http')) {
+            if (!url.toLowerCase().startsWith('http')) {
               url = `https://${url}`;
             }
             try {
@@ -413,6 +412,7 @@ function AppClipContent() {
           phoneNumbers: phone ? [{ label: 'mobile', number: phone }] : [],
           urlAddresses,
           thumbnailPath: photoUrl,
+          note: bio || undefined,
         });
       } catch (contactErr) {
         console.error("[AppClip] Contact form error:", contactErr);
@@ -568,7 +568,6 @@ function AppClipContent() {
         <ParticleNetwork colors={particleColors} context="connect" />
         <AnonContactView
           profile={previewProfile}
-          socialIconTypes={socialIconTypes}
           token={token}
           onSignIn={handleSignIn}
           isAuthenticated={!!session}

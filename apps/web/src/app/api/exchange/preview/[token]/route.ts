@@ -55,12 +55,18 @@ export async function GET(
         ]
       };
 
-      const demoSocialIconTypes = ['phone', 'email', 'instagram', 'x', 'linkedin'];
+      // Add social entries (without values) so AnonContactView can render icons
+      demoProfile.contactEntries.push(
+        { fieldType: 'phone', value: '', section: 'personal' as const, order: 2, isVisible: true, confirmed: true, icon: '/icons/default/phone.svg' },
+        { fieldType: 'email', value: '', section: 'personal' as const, order: 3, isVisible: true, confirmed: true, icon: '/icons/default/email.svg' },
+        { fieldType: 'instagram', value: '', section: 'personal' as const, order: 4, isVisible: true, confirmed: true, icon: '/icons/default/instagram.svg' },
+        { fieldType: 'x', value: '', section: 'personal' as const, order: 5, isVisible: true, confirmed: true, icon: '/icons/default/x.svg' },
+        { fieldType: 'linkedin', value: '', section: 'personal' as const, order: 6, isVisible: true, confirmed: true, icon: '/icons/default/linkedin.svg' },
+      );
 
       return NextResponse.json({
         success: true,
         profile: demoProfile,
-        socialIconTypes: demoSocialIconTypes,
         sharingCategory: 'All'
       });
     }
@@ -110,39 +116,23 @@ export async function GET(
       calendars: []
     };
 
-    // Filter contact entries to only include name and bio (no contact details)
-    const allowedFields = ['name', 'bio'];
+    // Include all visible entries: name/bio keep values, others are stripped
+    const nameFields = ['name', 'bio'];
     const filteredEntries = (userAProfile.contactEntries || [])
       .filter(entry => {
-        // Only include visible entries
         if (!entry.isVisible) return false;
-
-        // Filter by sharing category
         if (sharingCategory === 'Personal' && entry.section === 'work') return false;
         if (sharingCategory === 'Work' && entry.section === 'personal') return false;
-
-        // Only allow name and bio
-        return allowedFields.includes(entry.fieldType);
+        return true;
+      })
+      .map(entry => {
+        if (nameFields.includes(entry.fieldType)) return entry;
+        // Strip value from non-name/bio entries (don't leak contact details in preview)
+        const { value, ...rest } = entry;
+        return { ...rest, value: '' };
       });
 
     limitedProfile.contactEntries = filteredEntries;
-
-    // Extract social icon types (fieldType only, no values)
-    const socialIconTypes = (userAProfile.contactEntries || [])
-      .filter(entry => {
-        if (!entry.isVisible) return false;
-        if (sharingCategory === 'Personal' && entry.section === 'work') return false;
-        if (sharingCategory === 'Work' && entry.section === 'personal') return false;
-
-        // Social platforms and contact methods
-        const socialFields = [
-          'phone', 'email', 'whatsapp',
-          'instagram', 'x', 'linkedin', 'facebook', 'tiktok',
-          'youtube', 'snapchat', 'threads', 'github', 'telegram'
-        ];
-        return socialFields.includes(entry.fieldType);
-      })
-      .map(entry => entry.fieldType);
 
     // Mark that someone accessed the preview (scanning while signed out)
     // Extend TTL to 5 minutes to give user time to complete OAuth sign-in
@@ -156,11 +146,10 @@ export async function GET(
       await redis.setex(matchKey, 300, JSON.stringify(matchData));
     }
 
-    console.log(`✅ Returning preview for token: ${token}, socialIcons: ${socialIconTypes.length}, backgroundColors:`, limitedProfile.backgroundColors);
+    console.log(`✅ Returning preview for token: ${token}, entries: ${filteredEntries.length}, backgroundColors:`, limitedProfile.backgroundColors);
     return NextResponse.json({
       success: true,
       profile: limitedProfile,
-      socialIconTypes,
       sharingCategory
     });
 
