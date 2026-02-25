@@ -9,6 +9,7 @@ import { getApiBaseUrl } from '../auth/firebase';
 export interface PreviewResult {
   success: boolean;
   profile?: UserProfile;
+  sharingCategory?: 'Personal' | 'Work';
   error?: string;
 }
 
@@ -32,6 +33,7 @@ export async function fetchProfilePreview(token: string): Promise<PreviewResult>
       return {
         success: true,
         profile: result.profile,
+        sharingCategory: result.sharingCategory,
       };
     }
 

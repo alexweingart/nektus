@@ -2,6 +2,9 @@
  * PostSignUpModal for iOS App Clip
  * Collects phone number (and optional social) after Apple Sign-in.
  * Non-dismissible — user must save before proceeding.
+ *
+ * Work exchanges: LinkedIn OR phone required (LinkedIn shown first).
+ * Personal exchanges: Phone required.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -42,9 +45,14 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   scannedSection = 'personal',
 }) => {
   const [digits, setDigits] = useState('');
-  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
+  // Work mode: pre-populate with LinkedIn row so it's visible immediately
+  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>(
+    scannedSection === 'work' ? [{ platform: 'linkedin', username: '' }] : []
+  );
   const [error, setError] = useState<string | null>(null);
   const [useForBio, setUseForBio] = useState(true);
+
+  const isWork = scannedSection === 'work';
 
   // Animation
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -88,10 +96,16 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   // Check if phone is valid (10+ digits)
   const isPhoneValid = digits.replace(/\D/g, '').length >= 10;
 
+  // Check if any social has a username filled in
+  const hasAnySocial = socialInputs.some(s => s.username.trim().length > 0);
+
+  // For work: either a social (LinkedIn) or phone. For personal: phone required.
+  const canSave = isWork ? (hasAnySocial || isPhoneValid) : isPhoneValid;
+
   const firstName = userName?.split(' ')[0] || 'They-who-must-not-be-named';
 
   const handleSave = useCallback(async () => {
-    if (!isPhoneValid || isSaving) return;
+    if (!canSave || isSaving) return;
     setError(null);
 
     // Collect all social inputs with non-empty usernames
@@ -128,7 +142,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
       console.error('[PostSignUpModal] Save failed:', err);
       setError('Failed to save. Please try again.');
     }
-  }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
+  }, [digits, socialInputs, canSave, isSaving, onSave, useForBio]);
 
   return (
     <Modal
@@ -167,21 +181,15 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
               <View style={styles.textContainer}>
                 <Heading style={styles.title}>Welcome, {firstName}!</Heading>
                 <BodyText style={styles.subtitle}>
-                  Your new friends will want your number
+                  {isWork
+                    ? 'Don\u2019t ghost them \u2014 drop your LinkedIn or number'
+                    : 'Your new friends will want your number'}
                 </BodyText>
               </View>
 
-              {/* Phone Input */}
+              {/* Inputs */}
               <View style={styles.inputContainer}>
-                <DropdownPhoneInput
-                  value={digits}
-                  onChange={setDigits}
-                  placeholder="Phone number"
-                  isDisabled={isSaving}
-                  autoFocus
-                />
-
-                {/* Social Inputs - each button tap adds a new persistent row */}
+                {/* Social Inputs - for work, LinkedIn is pre-populated first */}
                 {socialInputs.map((input, index) => (
                   <CustomSocialInputAdd
                     key={index}
@@ -193,12 +201,21 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                     onUsernameChange={(username) =>
                       setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
                     }
-                    autoFocus={index === socialInputs.length - 1}
+                    autoFocus={isWork && index === 0 ? true : index === socialInputs.length - 1 && index > 0}
                   />
                 ))}
 
+                {/* Phone Input */}
+                <DropdownPhoneInput
+                  value={digits}
+                  onChange={setDigits}
+                  placeholder="Phone number"
+                  isDisabled={isSaving}
+                  autoFocus={!isWork}
+                />
+
                 {/* Use for bio toggle */}
-                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && socialInputs[0].username.trim() && (
                   <ToggleSetting
                     label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
                     enabled={useForBio}
@@ -218,7 +235,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                   variant="white"
                   size="xl"
                   onPress={handleSave}
-                  disabled={isSaving || !isPhoneValid}
+                  disabled={isSaving || !canSave}
                   style={styles.fullWidth}
                   loading={isSaving}
                   loadingText="Saving..."
@@ -227,18 +244,18 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                 </Button>
               </View>
 
-              {/* Add Socials Button - always visible */}
+              {/* Add Socials Button */}
               <View style={styles.secondaryButtonContainer}>
                 <SecondaryButton
                   variant="subtle"
                   onPress={() => {
                     setSocialInputs(prev => [
                       ...prev,
-                      { platform: prev.length === 0 ? (scannedSection === 'work' ? 'linkedin' : 'instagram') : 'facebook', username: '' }
+                      { platform: prev.length === 0 ? (isWork ? 'linkedin' : 'instagram') : 'facebook', username: '' }
                     ]);
                   }}
                 >
-                  {socialInputs.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
+                  {socialInputs.length > 0 ? 'Add Socials' : (isWork ? 'Add LinkedIn' : 'Add Instagram')}
                 </SecondaryButton>
               </View>
             </View>

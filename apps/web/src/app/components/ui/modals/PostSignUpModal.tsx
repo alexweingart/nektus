@@ -29,17 +29,31 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   scannedSection = 'personal'
 }) => {
   const [digits, setDigits] = useState('');
-  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>([]);
+  // Work mode: pre-populate with LinkedIn row so it's visible immediately
+  const [socialInputs, setSocialInputs] = useState<Array<{platform: string, username: string}>>(
+    scannedSection === 'work' ? [{ platform: 'linkedin', username: '' }] : []
+  );
   const [error, setError] = useState<string | null>(null);
   const [useForBio, setUseForBio] = useState(true);
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
+  const isWork = scannedSection === 'work';
+
   // Check if phone is valid (10+ digits)
   const isPhoneValid = digits.replace(/\D/g, '').length >= 10;
+
+  // Check if any social has a username filled in
+  const hasAnySocial = socialInputs.some(s => s.username.trim().length > 0);
+
+  // For work: either a social (LinkedIn) or phone is enough. For personal: phone required.
+  const canSave = isWork ? (hasAnySocial || isPhoneValid) : isPhoneValid;
 
   // Platform-specific delayed focus for keyboard tray behavior
   useEffect(() => {
     if (!isOpen) return;
+
+    // For work mode, don't auto-focus phone — the social input handles its own focus
+    if (isWork) return;
 
     const focusInput = () => {
       if (phoneInputRef.current) {
@@ -73,11 +87,11 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
       const timer = setTimeout(focusInput, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, isWork]);
 
   // Handle save - build social entries if username provided
   const handleSave = useCallback(async () => {
-    if (!isPhoneValid || isSaving) return;
+    if (!canSave || isSaving) return;
     setError(null);
 
     // Collect all social inputs with non-empty usernames
@@ -114,7 +128,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
       console.error('[PostSignUpModal] Save failed:', err);
       setError('Couldn\'t save — try again?');
     }
-  }, [digits, socialInputs, isPhoneValid, isSaving, onSave, useForBio]);
+  }, [digits, socialInputs, canSave, isSaving, onSave, useForBio]);
 
   // Extract first name from full name
   const firstName = userName?.split(' ')[0] || 'They-who-must-not-be-named';
@@ -142,34 +156,16 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
               {/* Subtitle */}
               <Dialog.Description asChild>
                 <Text variant="small" className="leading-relaxed break-words">
-                  Your new friends will want your number and socials
+                  {isWork
+                    ? 'Don\u2019t ghost them \u2014 drop your LinkedIn or number'
+                    : 'Your new friends will want your number and socials'}
                 </Text>
               </Dialog.Description>
             </div>
 
-            {/* Phone Input */}
+            {/* Inputs */}
             <div className="w-full space-y-4">
-              <DropdownPhoneInput
-                ref={phoneInputRef}
-                value={digits}
-                onChange={setDigits}
-                placeholder="Phone number"
-                className="w-full"
-                autoFocus={false}
-                inputProps={{
-                  required: true,
-                  'aria-label': 'Phone number',
-                  disabled: isSaving,
-                  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-                    if (e.key === 'Enter' && !isSaving && isPhoneValid) {
-                      e.preventDefault();
-                      handleSave();
-                    }
-                  }
-                }}
-              />
-
-              {/* Social Inputs - each button tap adds a new one */}
+              {/* Social Inputs - for work, LinkedIn is pre-populated first */}
               {socialInputs.map((input, index) => (
                 <CustomSocialInputAdd
                   key={index}
@@ -181,12 +177,33 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                   onUsernameChange={(username) =>
                     setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
                   }
-                  autoFocus={index === socialInputs.length - 1}
+                  autoFocus={isWork && index === 0 ? true : index === socialInputs.length - 1 && index > 0}
                 />
               ))}
 
+              {/* Phone Input */}
+              <DropdownPhoneInput
+                ref={phoneInputRef}
+                value={digits}
+                onChange={setDigits}
+                placeholder="Phone number"
+                className="w-full"
+                autoFocus={false}
+                inputProps={{
+                  required: !isWork,
+                  'aria-label': 'Phone number',
+                  disabled: isSaving,
+                  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+                    if (e.key === 'Enter' && !isSaving && canSave) {
+                      e.preventDefault();
+                      handleSave();
+                    }
+                  }
+                }}
+              />
+
               {/* Use for bio toggle - show when first social is instagram or linkedin */}
-              {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
+              {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && socialInputs[0].username.trim() && (
                 <ToggleSetting
                   label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
                   enabled={useForBio}
@@ -209,7 +226,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                 variant="white"
                 size="xl"
                 className="w-full"
-                disabled={isSaving || !isPhoneValid}
+                disabled={isSaving || !canSave}
               >
                 {isSaving ? (
                   <span className="flex items-center justify-center">
@@ -223,18 +240,18 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
               </Button>
             </div>
 
-            {/* Add Socials Button - always visible */}
+            {/* Add Socials Button */}
             <div className="flex justify-center">
               <SecondaryButton
                 variant="subtle"
                 onClick={() => {
                   setSocialInputs(prev => [
                     ...prev,
-                    { platform: prev.length === 0 ? (scannedSection === 'work' ? 'linkedin' : 'instagram') : 'facebook', username: '' }
+                    { platform: prev.length === 0 ? (isWork ? 'linkedin' : 'instagram') : 'facebook', username: '' }
                   ]);
                 }}
               >
-                {socialInputs.length > 0 ? 'Add Socials' : (scannedSection === 'work' ? 'Add LinkedIn' : 'Add Instagram')}
+                {socialInputs.length > 0 ? 'Add Socials' : (isWork ? 'Add LinkedIn' : 'Add Instagram')}
               </SecondaryButton>
             </div>
           </div>

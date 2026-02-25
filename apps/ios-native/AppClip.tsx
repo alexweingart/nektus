@@ -124,6 +124,7 @@ function AppClipContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [scannedSection, setScannedSection] = useState<'personal' | 'work'>('personal');
 
   // Parse token from invocation URL (now from path: /x/{token})
   useEffect(() => {
@@ -173,6 +174,9 @@ function AppClipContent() {
         const result = await fetchProfilePreview(token);
         if (result.success && result.profile) {
           setPreviewProfile(result.profile);
+          if (result.sharingCategory) {
+            setScannedSection(result.sharingCategory.toLowerCase() as 'personal' | 'work');
+          }
         } else {
           setError(result.error || "Failed to load contact preview");
         }
@@ -282,24 +286,25 @@ function AppClipContent() {
     if (!session) throw new Error("No session");
     setIsPhoneSaving(true);
     try {
-      // Format phone number for storage
-      const { internationalPhone } = formatPhoneNumber(phone);
+      // Build new contact entries — phone only if provided, plus any socials
+      const newEntries: ContactEntry[] = [...socials];
 
-      // Build new contact entries (phone added to both personal and work sections)
-      const phoneValue = internationalPhone || phone;
-      const newEntries: ContactEntry[] = [
-        ...(['personal', 'work'] as const).map((section, i) => ({
-          fieldType: 'phone' as const,
-          value: phoneValue,
-          order: i,
-          isVisible: true,
-          confirmed: true,
-          linkType: 'default' as const,
-          icon: '/icons/default/phone.svg',
-          section,
-        })),
-        ...socials,
-      ];
+      if (phone.replace(/\D/g, '').length >= 10) {
+        const { internationalPhone } = formatPhoneNumber(phone);
+        const phoneValue = internationalPhone || phone;
+        newEntries.unshift(
+          ...(['personal', 'work'] as const).map((section, i) => ({
+            fieldType: 'phone' as const,
+            value: phoneValue,
+            order: i,
+            isVisible: true,
+            confirmed: true,
+            linkType: 'default' as const,
+            icon: '/icons/default/phone.svg',
+            section,
+          })),
+        );
+      }
 
       // Fetch existing profile to preserve name/email/bio entries created during sign-up
       const existingProfile = await ClientProfileService.getProfile(session.userId);
@@ -601,6 +606,7 @@ function AppClipContent() {
             userName={session.userName || ''}
             isSaving={isPhoneSaving}
             onSave={handlePhoneSave}
+            scannedSection={scannedSection}
           />
         )}
         {/* Success modal — shown after contact form, before upsell screen */}

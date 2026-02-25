@@ -42,16 +42,19 @@ function ConnectPageContent() {
   const handlePhoneSave = useCallback(async (phone: string, socials: ContactEntry[]) => {
     setIsModalSaving(true);
     try {
-      // Format phone number
-      const phoneResult = formatPhoneNumber(phone);
-      const internationalPhone = phoneResult.internationalPhone;
+      // Build contact entries array — phone only if provided, plus any socials
+      const entries: ContactEntry[] = [...socials];
 
-      // Build contact entries array with phone in both sections + any added socials
-      const phoneEntries: ContactEntry[] = [
-        { fieldType: 'phone', section: 'personal', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
-        { fieldType: 'phone', section: 'work', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
-        ...socials
-      ];
+      if (phone.replace(/\D/g, '').length >= 10) {
+        const phoneResult = formatPhoneNumber(phone);
+        const internationalPhone = phoneResult.internationalPhone;
+        entries.unshift(
+          { fieldType: 'phone', section: 'personal', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
+          { fieldType: 'phone', section: 'work', value: internationalPhone, order: 0, isVisible: true, confirmed: true },
+        );
+      }
+
+      const phoneEntries: ContactEntry[] = entries;
 
       // Save phone via ProfileContext (same pattern as ProfileSetupView)
       await saveProfile({ contactEntries: phoneEntries });
