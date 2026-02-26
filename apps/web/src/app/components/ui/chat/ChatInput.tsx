@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { ExpandingInput } from '@/app/components/ui/inputs/ExpandingInput';
 import { Button } from '@/app/components/ui/buttons/Button';
 
 interface ChatInputProps {
@@ -20,90 +21,54 @@ export default function ChatInput({
   fadeIn = false,
   autoFocus = false,
 }: ChatInputProps) {
-  const editableRef = useRef<HTMLDivElement>(null);
-  const [hasContent, setHasContent] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-
-  const getTextContent = useCallback(() => {
-    return editableRef.current?.textContent?.trim() || '';
-  }, []);
-
-  const handleInput = useCallback(() => {
-    setHasContent(!!getTextContent());
-  }, [getTextContent]);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [value, setValue] = useState('');
 
   const handleSend = useCallback(() => {
-    const text = getTextContent();
+    const text = value.trim();
     if (!text || disabled) return;
     onSend(text);
-    if (editableRef.current) {
-      editableRef.current.textContent = '';
-    }
-    setHasContent(false);
-  }, [getTextContent, disabled, onSend]);
+    setValue('');
+  }, [value, disabled, onSend]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !disabled && hasContent) {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !disabled && value.trim()) {
       e.preventDefault();
       handleSend();
     }
-  }, [disabled, hasContent, handleSend]);
+  };
 
-  // Paste as plain text only
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, text);
-  }, []);
-
-  // Auto-focus
+  // Auto-focus the textarea when autoFocus is true
   useEffect(() => {
     if (!autoFocus) return;
-    const el = editableRef.current;
-    if (el) {
-      setTimeout(() => el.focus(), 100);
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const textarea = wrapper.querySelector('textarea');
+    if (textarea) {
+      setTimeout(() => textarea.focus(), 100);
     }
   }, [autoFocus]);
 
   return (
     <div
+      ref={wrapperRef}
       className="shrink-0 px-6 pt-4 pb-6 bg-white/20 backdrop-blur-lg border-t border-white/20"
       style={fadeIn ? { animation: 'crossfadeEnter 500ms ease-out' } : undefined}
     >
       <div className="max-w-[var(--max-content-width,448px)] mx-auto flex items-end gap-3">
         <div className="relative w-[80%]">
-          <div
-            className="flex items-center rounded-[1.75rem] min-h-[56px] px-6 py-3 bg-white border border-gray-200 focus-within:bg-gray-50 focus-within:border-gray-300 focus-within:shadow-sm transition-all"
-          >
-            <div
-              ref={editableRef}
-              contentEditable={!disabled}
-              role="textbox"
-              onInput={handleInput}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              className="w-full bg-transparent focus:outline-none text-gray-900 caret-gray-900 text-base"
-              style={{
-                lineHeight: '1.4',
-                maxHeight: '200px',
-                overflowY: 'auto',
-                outline: 'none',
-                wordBreak: 'break-word',
-              }}
-            />
-          </div>
-          {/* Placeholder */}
-          {!isFocused && !hasContent && (
-            <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-base">
-              {placeholder}
-            </div>
-          )}
+          <ExpandingInput
+            value={value}
+            onChange={(val: string) => setValue(val)}
+            onKeyPress={handleKeyPress}
+            placeholder={placeholder}
+            disabled={disabled}
+            variant="white"
+          />
         </div>
         <Button
           onClick={handleSend}
-          disabled={!hasContent || sendDisabled}
+          disabled={!value.trim() || sendDisabled}
           variant="circle"
           size="icon"
           className="w-14 h-14 shrink-0 mt-0"
