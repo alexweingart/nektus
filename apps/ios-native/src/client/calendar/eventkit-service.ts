@@ -42,7 +42,7 @@ export async function getDeviceBusyTimes(
 ): Promise<TimeSlot[]> {
   if (!ExpoCalendar) return [];
 
-  // Get all calendars on the device
+  // Get all calendars on the device (throws if no calendar permission)
   const calendars = await ExpoCalendar.getCalendarsAsync(
     ExpoCalendar.EntityTypes.EVENT
   );

@@ -228,6 +228,10 @@ export function SmartScheduleView() {
       const idToken = await getIdToken();
       if (!idToken) throw new Error('No auth token');
 
+      // Timeout after 30s to avoid stuck loading state (calendar API can be slow on cold start)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
         method: 'POST',
         headers: {
@@ -239,10 +243,13 @@ export function SmartScheduleView() {
           user2Id: contactProfile.userId,
           calendarType: section,
           duration: 30,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
           ...(isColdStart.current || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       isColdStart.current = false;
       skipCacheOnRefresh.current = false;
@@ -250,6 +257,7 @@ export function SmartScheduleView() {
       if (response.ok) {
         const data = await response.json();
         const commonSlots: TimeSlot[] = data.slots || [];
+        console.log(`[SmartScheduleView] API returned ${commonSlots.length} common slots`);
 
         // Process slots using template-aware scheduling (preferred hours, middle-time, travel buffers)
         const templateIds = SUGGESTION_CHIPS.map(chip => chip.eventId);
@@ -263,10 +271,12 @@ export function SmartScheduleView() {
 
         setSuggestedTimes(times);
       } else {
+        const errorBody = await response.text().catch(() => 'unknown');
+        console.warn(`[SmartScheduleView] API returned ${response.status}: ${errorBody}`);
         throw new Error(`API call failed: ${response.status}`);
       }
     } catch (error) {
-      console.error('[SmartScheduleView] Error fetching suggested times:', error);
+      console.warn('[SmartScheduleView] Error fetching suggested times:', error);
       const errorTimes: Record<string, TimeSlot | null> = {};
       SUGGESTION_CHIPS.forEach(chip => {
         errorTimes[chip.id] = null;

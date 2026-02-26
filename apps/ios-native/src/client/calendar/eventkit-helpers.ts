@@ -25,7 +25,7 @@ export async function getEventKitBusyTimesForProfile(
     const busyTimes = await getDeviceBusyTimes(now, twoWeeksOut);
     return { user1BusyTimes: busyTimes };
   } catch (error) {
-    console.error('[EventKit] Failed to get busy times:', error);
+    console.warn('[EventKit] Failed to get busy times (permission not granted?):', error);
     return {};
   }
 }
