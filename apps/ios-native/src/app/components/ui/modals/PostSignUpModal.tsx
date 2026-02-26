@@ -194,10 +194,10 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                 </BodyText>
               </View>
 
-              {/* Inputs */}
+              {/* Inputs — work: LinkedIn first, personal: phone first */}
               <View style={styles.inputContainer}>
-                {/* Social Inputs - for work, LinkedIn is pre-populated first */}
-                {socialInputs.map((input, index) => (
+                {/* Work: pre-populated LinkedIn shown first */}
+                {isWork && socialInputs.map((input, index) => (
                   <CustomSocialInputAdd
                     key={index}
                     platform={input.platform}
@@ -208,7 +208,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                     onUsernameChange={(username) =>
                       setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
                     }
-                    autoFocus={isWork && index === 0 ? true : index === socialInputs.length - 1 && index > 0}
+                    autoFocus={index === 0 ? true : index === socialInputs.length - 1 && index > 0}
                   />
                 ))}
 
@@ -221,8 +221,24 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
                   autoFocus={!isWork}
                 />
 
+                {/* Personal: socials added below phone */}
+                {!isWork && socialInputs.map((input, index) => (
+                  <CustomSocialInputAdd
+                    key={index}
+                    platform={input.platform}
+                    username={input.username}
+                    onPlatformChange={(platform) =>
+                      setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, platform } : s))
+                    }
+                    onUsernameChange={(username) =>
+                      setSocialInputs(prev => prev.map((s, i) => i === index ? { ...s, username } : s))
+                    }
+                    autoFocus={index === socialInputs.length - 1}
+                  />
+                ))}
+
                 {/* Use for bio toggle */}
-                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && socialInputs[0].username.trim() && (
+                {socialInputs.length > 0 && ['instagram', 'linkedin'].includes(socialInputs[0].platform) && (
                   <ToggleSetting
                     label={`Use ${socialInputs[0].platform === 'linkedin' ? 'LinkedIn' : 'Instagram'} for bio`}
                     enabled={useForBio}
