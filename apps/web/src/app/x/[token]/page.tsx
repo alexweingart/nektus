@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 function ConnectPageContent() {
   const { data: session, status, update } = useSession();
-  const { saveProfile, getContacts } = useProfile(); // Uses ProfileProvider from root layout
+  const { saveProfile, getContacts, getLatestProfile } = useProfile(); // Uses ProfileProvider from root layout
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -75,6 +75,18 @@ function ConnectPageContent() {
       setIsModalSaving(false);
     }
   }, [saveProfile, update]);
+
+  const handleBioScraped = useCallback((bio: string) => {
+    const latest = getLatestProfile();
+    const entries = latest?.contactEntries || [];
+    saveProfile({
+      contactEntries: [
+        ...entries.filter((e: ContactEntry) => e.fieldType !== 'bio'),
+        { fieldType: 'bio', section: 'personal', value: bio, order: 0, isVisible: true, confirmed: true },
+        { fieldType: 'bio', section: 'work', value: bio, order: 0, isVisible: true, confirmed: true },
+      ],
+    }).catch(console.error);
+  }, [saveProfile, getLatestProfile]);
 
   useEffect(() => {
     async function fetchMatchedProfile() {
@@ -301,6 +313,7 @@ function ConnectPageContent() {
           userName={session.user?.name || ''}
           isSaving={isModalSaving}
           onSave={handlePhoneSave}
+          onBioScraped={handleBioScraped}
           scannedSection={sharingCategory.toLowerCase() as 'personal' | 'work'}
         />
         <ContactView
@@ -325,6 +338,7 @@ function ConnectPageContent() {
           userName={session.user?.name || ''}
           isSaving={isModalSaving}
           onSave={handlePhoneSave}
+          onBioScraped={handleBioScraped}
           scannedSection={sharingCategory.toLowerCase() as 'personal' | 'work'}
         />
         {previewProfile && (

@@ -24,7 +24,7 @@ function ProfileSetupView() {
     required: true,
   });
   
-  const { saveProfile, isSaving: isProfileSaving, setNavigatingFromSetup } = useProfile();
+  const { saveProfile, isSaving: isProfileSaving, setNavigatingFromSetup, getLatestProfile } = useProfile();
   const router = useRouter();
 
   // Component state
@@ -145,13 +145,25 @@ function ProfileSetupView() {
     try {
       await saveProfile(phoneUpdateData);
 
-      // Fire-and-forget bio scrape if toggle is on and first social is instagram/linkedin
+      // Fire-and-forget bio scrape if toggle is on — save result to profile
       if (useForBio && socialInputs[0]?.username.trim() &&
           ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
         scrapeBio(
           socialInputs[0].platform as 'instagram' | 'linkedin',
           socialInputs[0].username.trim()
-        ).catch(console.error);
+        ).then(result => {
+          if (result.success && result.bio) {
+            const latest = getLatestProfile();
+            const entries = latest?.contactEntries || [];
+            saveProfile({
+              contactEntries: [
+                ...entries.filter((e: ContactEntry) => e.fieldType !== 'bio'),
+                { fieldType: 'bio', section: 'personal', value: result.bio, order: 0, isVisible: true, confirmed: true },
+                { fieldType: 'bio', section: 'work', value: result.bio, order: 0, isVisible: true, confirmed: true },
+              ],
+            });
+          }
+        }).catch(console.error);
       }
     } catch (err) {
       console.error('[ProfileSetup] Background save failed:', err);

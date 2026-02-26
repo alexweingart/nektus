@@ -117,6 +117,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const profileRef = useRef<UserProfile | null>(null);
   const initializedRef = useRef(false);
   const assetGenerationTriggeredRef = useRef(false);
+  const assetGenerationRef = useRef(assetGeneration);
 
   // Subscription unsubscribe refs
   const profileUnsubRef = useRef<(() => void) | null>(null);
@@ -238,12 +239,15 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus, session?.user?.id]);
 
-  // Update ref when profile changes
+  // Update refs when state changes
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+  useEffect(() => {
+    assetGenerationRef.current = assetGeneration;
+  }, [assetGeneration]);
 
-  // Trigger asset generation after profile loads
+  // Trigger asset generation after profile loads (with retry on failure)
   useEffect(() => {
     if (
       profile &&
@@ -253,18 +257,32 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     ) {
       assetGenerationTriggeredRef.current = true;
 
-      console.log("[ProfileContext] Triggering asset generation");
+      const attemptGeneration = (attempt: number) => {
+        console.log(`[ProfileContext] Triggering asset generation (attempt ${attempt})`);
 
-      generateProfileAssets({
-        userId: session.user.id,
-        profile,
-        session,
-        currentState: assetGeneration,
-        onStateChange: (updates) =>
-          setAssetGeneration((prev) => ({ ...prev, ...updates })),
-      }).catch((error) => {
-        console.error("[ProfileContext] Asset generation failed:", error);
-      });
+        generateProfileAssets({
+          userId: session.user.id,
+          profile: profileRef.current || profile,
+          session,
+          currentState: assetGenerationRef.current,
+          onStateChange: (updates) =>
+            setAssetGeneration((prev) => ({ ...prev, ...updates })),
+        }).then((allSucceeded) => {
+          if (!allSucceeded && attempt < 3) {
+            const delay = attempt * 5000; // 5s, 10s
+            console.log(`[ProfileContext] Asset generation had failures, retrying in ${delay}ms`);
+            setTimeout(() => attemptGeneration(attempt + 1), delay);
+          }
+        }).catch((error) => {
+          console.error("[ProfileContext] Asset generation failed:", error);
+          if (attempt < 3) {
+            const delay = attempt * 5000;
+            setTimeout(() => attemptGeneration(attempt + 1), delay);
+          }
+        });
+      };
+
+      attemptGeneration(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.userId, session?.user?.id, isLoading]);

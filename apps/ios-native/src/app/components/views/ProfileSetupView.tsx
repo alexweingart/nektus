@@ -23,7 +23,7 @@ import type { ContactEntry } from "@nektus/shared-types";
 
 export function ProfileSetupView() {
   const { data: session } = useSession();
-  const { saveProfile, isSaving, profile } = useProfile();
+  const { saveProfile, isSaving, profile, getLatestProfile } = useProfile();
   const adminModeProps = useAdminModeActivator();
 
   const [phoneDigits, setPhoneDigits] = useState("");
@@ -103,13 +103,25 @@ export function ProfileSetupView() {
       await saveProfile(phoneUpdateData);
       console.log("[ProfileSetupView] Profile saved successfully");
 
-      // Fire-and-forget bio scrape if toggle is on
+      // Fire-and-forget bio scrape if toggle is on — save result to profile
       if (useForBio && socialInputs[0]?.username.trim() &&
           ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
         scrapeBio(
           socialInputs[0].platform as 'instagram' | 'linkedin',
           socialInputs[0].username.trim()
-        ).catch(console.error);
+        ).then(result => {
+          if (result.success && result.bio) {
+            console.log("[ProfileSetupView] Scraped bio, saving to profile");
+            const latest = getLatestProfile();
+            saveProfile({
+              contactEntries: [
+                ...(latest?.contactEntries || []).filter(e => e.fieldType !== 'bio'),
+                { fieldType: 'bio', section: 'personal', value: result.bio, order: 0, isVisible: true, confirmed: true },
+                { fieldType: 'bio', section: 'work', value: result.bio, order: 0, isVisible: true, confirmed: true },
+              ],
+            });
+          }
+        }).catch(console.error);
       }
     } catch (err) {
       console.error("[ProfileSetupView] Save failed:", err);

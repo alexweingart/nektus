@@ -606,6 +606,19 @@ function AppClipContent() {
             userName={session.userName || ''}
             isSaving={isPhoneSaving}
             onSave={handlePhoneSave}
+            onBioScraped={(bio) => {
+              if (!session) return;
+              ClientProfileService.getProfile(session.userId).then(existing => {
+                const entries = existing?.contactEntries || [];
+                ClientProfileService.updateProfile(session.userId, {
+                  contactEntries: [
+                    ...entries.filter(e => e.fieldType !== 'bio'),
+                    { fieldType: 'bio', section: 'personal', value: bio, order: 0, isVisible: true, confirmed: true },
+                    { fieldType: 'bio', section: 'work', value: bio, order: 0, isVisible: true, confirmed: true },
+                  ],
+                });
+              }).catch(console.error);
+            }}
             scannedSection={scannedSection}
           />
         )}

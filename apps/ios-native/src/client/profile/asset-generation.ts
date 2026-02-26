@@ -30,8 +30,9 @@ export interface GenerateAssetsParams {
 /**
  * Generate profile assets (profile image and background colors)
  * This function orchestrates AI-powered asset generation based on user's current state
+ * Returns true if all generations completed, false if any failed (caller should retry)
  */
-export async function generateProfileAssets(params: GenerateAssetsParams): Promise<void> {
+export async function generateProfileAssets(params: GenerateAssetsParams): Promise<boolean> {
   const {
     userId,
     profile,
@@ -43,6 +44,7 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
   const apiBaseUrl = getApiBaseUrl();
   const generations: Promise<unknown>[] = [];
   let localIsGoogleInitials = false;
+  let hadFailure = false;
 
   // Check if we need to generate a profile image
   let shouldGenerateProfileImage = false;
@@ -130,6 +132,7 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
         })
         .catch(error => {
           console.error('[AssetGeneration] Profile image generation failed:', error);
+          hadFailure = true;
           onStateChange({ profileImageGenerationTriggered: false });
         });
       })();
@@ -240,8 +243,11 @@ export async function generateProfileAssets(params: GenerateAssetsParams): Promi
       await Promise.all(generations);
     } catch (error) {
       console.error('[AssetGeneration] Error waiting for generations:', error);
+      hadFailure = true;
     }
   }
+
+  return !hadFailure;
 }
 
 /**

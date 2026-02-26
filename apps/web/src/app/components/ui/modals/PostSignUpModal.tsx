@@ -17,6 +17,8 @@ interface PostSignUpModalProps {
   userName: string;
   isSaving: boolean;
   onSave: (phone: string, socials: ContactEntry[]) => Promise<void>;
+  /** Called when bio is scraped from social profile — caller saves to Firestore */
+  onBioScraped?: (bio: string) => void;
   /** Which profile was scanned - determines default social platform */
   scannedSection?: 'personal' | 'work';
 }
@@ -26,6 +28,7 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
   userName,
   isSaving,
   onSave,
+  onBioScraped,
   scannedSection = 'personal'
 }) => {
   const [digits, setDigits] = useState('');
@@ -116,19 +119,23 @@ export const PostSignUpModal: React.FC<PostSignUpModalProps> = ({
     try {
       await onSave(digits, socialEntries);
 
-      // Fire-and-forget bio scrape if toggle is on and first social is instagram/linkedin
+      // Fire-and-forget bio scrape if toggle is on — pass result to caller
       if (useForBio && socialInputs[0]?.username.trim() &&
           ['instagram', 'linkedin'].includes(socialInputs[0].platform)) {
         scrapeBio(
           socialInputs[0].platform as 'instagram' | 'linkedin',
           socialInputs[0].username.trim()
-        ).catch(console.error);
+        ).then(result => {
+          if (result.success && result.bio) {
+            onBioScraped?.(result.bio);
+          }
+        }).catch(console.error);
       }
     } catch (err) {
       console.error('[PostSignUpModal] Save failed:', err);
       setError('Couldn\'t save — try again?');
     }
-  }, [digits, socialInputs, canSave, isSaving, onSave, useForBio]);
+  }, [digits, socialInputs, canSave, isSaving, onSave, onBioScraped, useForBio]);
 
   // Extract first name from full name
   const firstName = userName?.split(' ')[0] || 'They-who-must-not-be-named';
