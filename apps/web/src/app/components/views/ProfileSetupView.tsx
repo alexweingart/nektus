@@ -170,7 +170,7 @@ function ProfileSetupView() {
     } finally {
       setNavigatingFromSetup(false);
     }
-  }, [digits, socialInputs, isProfileSaving, countryCode, session?.user?.email, saveProfile, router, setNavigatingFromSetup, update, useForBio]);
+  }, [digits, socialInputs, isProfileSaving, countryCode, session?.user?.email, saveProfile, getLatestProfile, router, setNavigatingFromSetup, update, useForBio]);
 
 
   if (sessionStatus === 'loading') {
