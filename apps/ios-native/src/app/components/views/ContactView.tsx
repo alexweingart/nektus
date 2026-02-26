@@ -235,7 +235,8 @@ export function ContactView(props: ContactViewProps = {}) {
           });
 
           if (!response.ok) {
-            throw new Error('Failed to fetch contact');
+            const body = await response.text();
+            throw new Error(`Failed to fetch contact (${response.status}): ${body}`);
           }
 
           const result = await response.json();
@@ -421,10 +422,11 @@ export function ContactView(props: ContactViewProps = {}) {
     if (!profile) return;
 
     const phoneNumber = getFieldValue(profile.contactEntries, 'phone');
-    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
+    const contactName = getFieldValue(profile.contactEntries, 'name');
+    const contactFirstName = contactName ? getFirstName(contactName) : '';
     // Get sender name: profile contactEntries first (most reliable), then session, then App Clip prop
-    const senderName = getFieldValue(userProfile?.contactEntries, 'name') || props.sessionUserName || session?.user?.name || '';
-    const senderFirstName = getFirstName(senderName);
+    const senderName = getFieldValue(userProfile?.contactEntries, 'name') || props.sessionUserName || session?.user?.name;
+    const senderFirstName = senderName ? getFirstName(senderName) : 'your new friend';
 
     // Use shortCode if available, fall back to userId (both work with /c/ route)
     const senderProfileId = userProfile?.shortCode;
@@ -600,7 +602,7 @@ export function ContactView(props: ContactViewProps = {}) {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         title="Contact Saved! 🎉"
-        subtitle={`You and ${contactName} are officially nekt'd!`}
+        subtitle={`You and ${contactName || 'They-who-must-not-be-named'} are officially nekt'd!`}
         primaryButtonText="Say hi 👋"
         onPrimaryButtonClick={handleSayHi}
         secondaryButtonText="Nah, they'll text me"

@@ -23,7 +23,7 @@ export function ContactInfo({ profile, bioContent }: ContactInfoProps) {
   const { width: screenWidth } = useWindowDimensions();
   const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
 
-  const name = getFieldValue(profile?.contactEntries, 'name') || 'Anonymous';
+  const name = getFieldValue(profile?.contactEntries, 'name') || 'They-who-must-not-be-named';
   // Use actual profile colors when available (photo-extracted), fall back to name-generated
   const profileColors = (profile.backgroundColors?.length === 3
     ? profile.backgroundColors as [string, string, string]

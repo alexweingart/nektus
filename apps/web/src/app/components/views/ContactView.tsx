@@ -150,7 +150,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleSayHi = () => {
     const senderName = getFieldValue(userProfile?.contactEntries, 'name') || session?.user?.name;
     const senderFirstName = senderName ? getFirstName(senderName) : 'your new friend';
-    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
+    const contactName = getFieldValue(profile.contactEntries, 'name');
+    const contactFirstName = contactName ? getFirstName(contactName) : '';
     // Use shortCode if available, fall back to userId (both work with /c/ route)
     const senderProfileId = userProfile?.shortCode;
     const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
@@ -166,7 +167,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   const handleHistoricalMessage = () => {
     const senderName = getFieldValue(userProfile?.contactEntries, 'name') || session?.user?.name;
     const senderFirstName = senderName ? getFirstName(senderName) : 'your new friend';
-    const contactFirstName = getFirstName(getFieldValue(profile.contactEntries, 'name'));
+    const contactName = getFieldValue(profile.contactEntries, 'name');
+    const contactFirstName = contactName ? getFirstName(contactName) : '';
     const senderProfileId = userProfile?.shortCode;
     const messageText = generateMessageText(contactFirstName, senderFirstName, undefined, senderProfileId);
     const phoneNumber = getPhoneNumber(profile.contactEntries);
@@ -434,7 +436,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
           isOpen={showSuccessModal}
           onClose={handleSuccessModalClose}
           title="Contact Saved! 🎉"
-          subtitle={`You and ${getFieldValue(profile.contactEntries, 'name')} are officially nekt'd!`}
+          subtitle={`You and ${getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named'} are officially nekt'd!`}
           primaryButtonText="Say hi 👋"
           onPrimaryButtonClick={handleSayHi}
           secondaryButtonText="Nah, they'll text me"

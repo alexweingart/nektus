@@ -24,7 +24,9 @@ export function generateMessageText(
     day: 'numeric',
   });
 
-  const baseMessage = `Hey ${contactFirstName}, it's ${senderFirstName}!`;
+  const baseMessage = contactFirstName
+    ? `Hey ${contactFirstName}, it's ${senderFirstName}!`
+    : `Hey, it's ${senderFirstName}!`;
 
   if (senderShortCode) {
     return `${baseMessage} Find time to hang: nekt.us/c/${senderShortCode}`;
