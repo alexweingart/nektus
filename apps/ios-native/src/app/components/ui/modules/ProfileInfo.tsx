@@ -206,10 +206,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({
   const [containerWidth, setContainerWidth] = useState(0);
   const [innerContentHeight, setInnerContentHeight] = useState(0); // Track inner content height (without padding) for stable QR transition
 
-  // Debug QR code rendering
-  if (showQRCode || matchToken) {
-    console.log('[DEBUG-QR] ProfileInfo render: showQRCode=', showQRCode, 'matchToken=', matchToken?.substring(0, 8) ?? 'undefined', 'containerWidth=', containerWidth, 'innerContentHeight=', innerContentHeight, 'webBaseUrl=', webBaseUrl);
-  }
   const containerWidthRef = useRef(0);
   const selectedModeRef = useRef<SharingCategory>(sharingCategory);
   const translateX = useRef(new Animated.Value(0)).current;

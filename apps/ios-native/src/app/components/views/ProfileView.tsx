@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Animated, StyleSheet, Alert, TouchableOpacity, DeviceEventEmitter } from "react-native";
+import { View, Animated, StyleSheet, TouchableOpacity, DeviceEventEmitter } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useNavigation, useFocusEffect, useIsFocused, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,6 +14,7 @@ import { useProfileImagePicker } from "../../../client/hooks/use-profile-image-p
 import { Button } from "../ui/buttons/Button";
 import { SecondaryButton } from "../ui/buttons/SecondaryButton";
 import { ExchangeButton, MatchResult, WIDGET_AUTO_NEKT_EVENT } from "../ui/buttons/ExchangeButton";
+import { EXCHANGE_TOKEN_EVENT } from "../../../client/contacts/exchange/service";
 import AdminBanner, { useAdminModeActivator } from "../ui/banners/AdminBanner";
 import { useSession } from "../../../app/providers/SessionProvider";
 import { useProfile } from "../../../app/context/ProfileContext";
@@ -88,20 +89,17 @@ export function ProfileView() {
   // Determine if QR code should be shown (keep showing during match found state)
   const showQRCode = (isExchanging || isMatchFound) && matchToken !== null;
 
-  // Debug
-  if (isExchanging || isMatchFound || matchToken) {
-    console.log('[DEBUG-QR] ProfileView: isExchanging=', isExchanging, 'isMatchFound=', isMatchFound, 'matchToken=', matchToken?.substring(0, 8) ?? 'null', 'showQRCode=', showQRCode, 'exchangeStatus=', exchangeStatus);
-  }
+  // Listen for exchange token via DeviceEventEmitter (most reliable propagation path)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(EXCHANGE_TOKEN_EVENT, (data: any) => {
+      setMatchToken(data?.token);
+    });
+    return () => sub.remove();
+  }, []);
 
   // Handle exchange status changes from ExchangeButton
   const handleExchangeStatusChange = useCallback((status: ExchangeStatus) => {
     setExchangeStatus(status);
-
-    // DEBUG: Immediately set a test token when exchange starts
-    if (status === 'waiting-for-bump' || status === 'ble-scanning') {
-      console.log('[DEBUG-QR] Setting test token on exchange start');
-      setMatchToken('DEBUG123');
-    }
 
     // Clear QR token when exchange ends (but keep it during match found state so QR remains visible)
     if (["idle", "error", "timeout", "matched"].includes(status)) {
@@ -111,7 +109,6 @@ export function ProfileView() {
 
   // Handle match token changes (for QR code display)
   const handleMatchTokenChange = useCallback((token: string | null) => {
-    console.log('[DEBUG-QR] ProfileView.handleMatchTokenChange called, token:', token?.substring(0, 8) ?? 'null');
     setMatchToken(token);
   }, []);
 

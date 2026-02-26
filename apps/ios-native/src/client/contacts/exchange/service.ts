@@ -3,12 +3,16 @@
  * Uses polling for match detection (QR scan matches)
  */
 
+import { DeviceEventEmitter } from 'react-native';
 import { getApiBaseUrl, getIdToken } from '../../auth/firebase';
 import type {
   ContactExchangeResponse,
   ContactExchangeState
 } from '@nektus/shared-types';
 import { EXCHANGE_TIMEOUT } from '@nektus/shared-client';
+
+// DeviceEventEmitter event for reliable token propagation to ProfileView
+export const EXCHANGE_TOKEN_EVENT = 'EXCHANGE_TOKEN_CHANGED';
 
 // Simple event callback system for exchange events
 type ExchangeEventCallback = (data: { token: string }) => void;
@@ -41,6 +45,7 @@ export class RealTimeContactExchangeService {
   private state: ContactExchangeState;
   private onStateChange?: (state: ContactExchangeState) => void;
   private cancelled: boolean = false;
+  private abortController: AbortController = new AbortController();
   private waitingForBumpTimeout: ReturnType<typeof setTimeout> | null = null;
   private matchPollingInterval: ReturnType<typeof setInterval> | null = null;
   private matchToken: string | null = null;
@@ -95,7 +100,8 @@ export class RealTimeContactExchangeService {
         body: JSON.stringify({
           sessionId: this.sessionId,
           sharingCategory
-        })
+        }),
+        signal: this.abortController.signal,
       });
 
       if (!initiateResponse.ok) {
@@ -107,10 +113,13 @@ export class RealTimeContactExchangeService {
       const { token } = await initiateResponse.json();
       this.matchToken = token;
 
-      // Emit event with token for ProfileView to show QR code
+      // Emit token via DeviceEventEmitter for reliable propagation to ProfileView
+      DeviceEventEmitter.emit(EXCHANGE_TOKEN_EVENT, { token });
+
+      // Also emit via module-level callbacks (legacy path)
       exchangeEvents.emit('exchange-initiated', { token });
 
-      console.log(`[iOS] Exchange initiated with token: ${token.substring(0, 8)}...`);
+      console.log(`[iOS] Exchange initiated with token: ${token?.substring(0, 8)}...`);
 
       // Reset cancellation flag
       this.cancelled = false;
@@ -158,6 +167,9 @@ export class RealTimeContactExchangeService {
   async disconnect(): Promise<void> {
     this.cancelled = true;
 
+    // Abort all pending fetch requests to free connection slots
+    this.abortController.abort();
+
     // Clear any active timeouts
     if (this.waitingForBumpTimeout) {
       clearTimeout(this.waitingForBumpTimeout);
@@ -191,6 +203,7 @@ export class RealTimeContactExchangeService {
         const idToken = await getIdToken();
         const response = await fetch(`${this.apiBaseUrl}/api/exchange/status/${this.sessionId}`, {
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+          signal: this.abortController.signal,
         });
 
         if (!response.ok) {
@@ -281,6 +294,7 @@ export class RealTimeContactExchangeService {
       const idToken = await getIdToken();
       const response = await fetch(`${this.apiBaseUrl}/api/exchange/pair/${token}`, {
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        signal: this.abortController.signal,
       });
 
       if (!response.ok) {

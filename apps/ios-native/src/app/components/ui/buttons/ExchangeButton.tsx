@@ -59,6 +59,11 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const apiBaseUrl = getApiBaseUrl();
   const prevStatusRef = useRef<ExchangeStatus>("idle");
 
+  // Ref to hold latest onMatchTokenChange callback so async service callbacks
+  // can call it directly without stale closure issues
+  const onMatchTokenChangeRef = useRef(onMatchTokenChange);
+  onMatchTokenChangeRef.current = onMatchTokenChange;
+
   // Pulse animation for "Match Found!" state
   const pulseAnim = usePulseAnimation(status);
 
@@ -90,17 +95,17 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     prevStatusRef.current = status;
   }, [status, onStateChange]);
 
-  // Notify parent of QR token changes
+  // Notify parent of QR token changes (backup — primary path is direct ref calls below)
   useEffect(() => {
-    console.log('[DEBUG-QR] qrToken effect firing, qrToken:', qrToken?.substring(0, 8) ?? 'null');
     onMatchTokenChange?.(qrToken);
   }, [qrToken, onMatchTokenChange]);
 
   // Listen for exchange initiated events (for QR code display)
   useEffect(() => {
     const unsubscribe = exchangeEvents.onExchangeInitiated(({ token }) => {
-      console.log('[DEBUG-QR] exchangeEvents.onExchangeInitiated fired, token:', token?.substring(0, 8));
       setQrToken(token);
+      // Call parent directly via ref — useEffect relay above is unreliable
+      onMatchTokenChangeRef.current?.(token);
     });
     return unsubscribe;
   }, []);
@@ -113,6 +118,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
           // Save QR token for qr-scan-matched state
           if (state.qrToken) {
             setQrToken(state.qrToken);
+            onMatchTokenChangeRef.current?.(state.qrToken);
           }
 
           // Handle timeout
@@ -136,6 +142,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
         },
         onMatchTokenChange: (token) => {
           setQrToken(token);
+          onMatchTokenChangeRef.current?.(token);
         },
         onMatch: (match: HybridMatchResult) => {
           // Emit match-found animation event with contact's background colors
