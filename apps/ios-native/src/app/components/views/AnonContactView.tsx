@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated, Easing, useWindowDimensions, Linking } from 'react-native';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import type { UserProfile } from '@nektus/shared-types';
 import { getFieldValue, getOptimalProfileImageUrl, ANIMATION } from '@nektus/shared-client';
@@ -119,7 +119,7 @@ export function AnonContactView({
   const avatarSize = Math.min(Math.max(screenWidth * 0.5, 120), 300);
 
   const name = getFieldValue(profile.contactEntries, 'name') || 'They-who-must-not-be-named';
-  const bio = getFieldValue(profile.contactEntries, 'bio') || 'Welcome to my profile!';
+  const bio = getFieldValue(profile.contactEntries, 'bio') || 'Too cool for a bio. Google me.';
 
   // Derive social entries from contactEntries (excludes name/bio)
   const socialEntries = (profile.contactEntries || [])
@@ -208,10 +208,45 @@ export function AnonContactView({
     ]).start();
   }, [isSaved]);
 
-  const handleSocialIconClick = useCallback((iconType: string) => {
-    setClickedSocial(iconType);
-    setShowEagerBeaverModal(true);
-  }, []);
+  // URL generation for social platforms (matches SocialIconsList/AppClip)
+  const SOCIAL_URLS: Record<string, string> = {
+    phone: 'tel:',
+    email: 'mailto:',
+    instagram: 'https://instagram.com/',
+    x: 'https://x.com/',
+    twitter: 'https://x.com/',
+    linkedin: 'https://linkedin.com/in/',
+    facebook: 'https://facebook.com/',
+    tiktok: 'https://tiktok.com/@',
+    youtube: 'https://youtube.com/@',
+    snapchat: 'https://snapchat.com/add/',
+    threads: 'https://threads.net/@',
+    github: 'https://github.com/',
+    telegram: 'https://t.me/',
+    whatsapp: 'https://wa.me/',
+    wechat: 'weixin://dl/chat?',
+  };
+
+  const handleSocialIconClick = useCallback((entry: { fieldType: string; value?: string; linkType?: string }) => {
+    if (isAuthenticated && entry.value) {
+      // Authenticated: open the social URL directly
+      let url: string;
+      if (entry.linkType === 'custom') {
+        url = entry.value.startsWith('http') ? entry.value : `https://${entry.value}`;
+      } else {
+        const prefix = SOCIAL_URLS[entry.fieldType] || '';
+        url = prefix ? `${prefix}${entry.value}` : entry.value;
+      }
+      Linking.openURL(url).catch((err) => {
+        console.warn('[AnonContactView] Failed to open URL:', url, err);
+      });
+    } else {
+      // Not authenticated: show eager beaver modal
+      const iconType = entry.linkType === 'custom' ? 'custom' : entry.fieldType;
+      setClickedSocial(iconType);
+      setShowEagerBeaverModal(true);
+    }
+  }, [isAuthenticated]);
 
   const handleSignIn = useCallback(() => {
     setShowEagerBeaverModal(false);
@@ -265,7 +300,7 @@ export function AnonContactView({
                         linkType={isCustom ? 'custom' : undefined}
                         size="md"
                         variant="white"
-                        onPress={() => handleSocialIconClick(isCustom ? 'custom' : entry.fieldType)}
+                        onPress={() => handleSocialIconClick(entry)}
                       />
                     );
                   })}
