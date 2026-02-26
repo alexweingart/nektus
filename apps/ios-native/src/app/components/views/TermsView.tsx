@@ -239,8 +239,7 @@ const styles = StyleSheet.create({
     ...fontStyles.bold,
   },
   title: {
-    fontSize: 28,
-    lineHeight: 36,
+    ...textSizes.xxxl,
     ...fontStyles.bold,
     color: "#ffffff",
     textAlign: "center",
@@ -269,8 +268,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subheading: {
-    fontSize: 15,
-    lineHeight: 24,
+    ...textSizes.sm,
     ...fontStyles.regular,
     color: "#ffffff",
     marginTop: 8,

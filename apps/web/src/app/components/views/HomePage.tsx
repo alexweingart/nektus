@@ -3,7 +3,7 @@ import { useAdminModeActivator } from '../ui/banners/AdminBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '../ui/buttons/Button';
-import { Heading, Text } from '../ui/Typography';
+import { Text } from '../ui/Typography';
 import { useAuthSignIn } from '@/client/auth/use-auth-sign-in';
 
 /**
@@ -107,9 +107,9 @@ const HomePage: React.FC = () => {
             />
           </div>
         </div>
-        <Heading as="h2" className="text-center w-full mb-3">
+        <Text variant="base" className="text-center w-full mb-3 text-2xl">
           Conversations → Friendships
-        </Heading>
+        </Text>
         <Text variant="base" className="text-center text-lg opacity-90 mb-10 px-4">
           Exchange contacts & socials and schedule meetings in seconds
         </Text>

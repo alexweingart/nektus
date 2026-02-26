@@ -536,8 +536,7 @@ const styles = StyleSheet.create({
   },
   upsellHeadline: {
     color: '#ffffff',
-    fontSize: 28,
-    lineHeight: 36,
+    ...textSizes.xxxl,
     ...fontStyles.bold,
     textAlign: 'center',
     marginBottom: 8,
