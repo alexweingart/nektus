@@ -10,7 +10,7 @@ import { fontStyles, textSizes } from "../Typography";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Button } from "./Button";
-import type { ExchangeStatus, ContactExchangeState, UserProfile } from "@nektus/shared-types";
+import type { ExchangeStatus, ContactExchangeState, ContactExchangeMatch, UserProfile } from "@nektus/shared-types";
 import { getApiBaseUrl } from "@nektus/shared-client";
 import {
   exchangeEvents,
@@ -55,6 +55,7 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   const [status, setStatus] = useState<ExchangeStatus>("idle");
   const [hybridService, setHybridService] = useState<HybridExchangeService | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrMatchData, setQrMatchData] = useState<(ContactExchangeMatch & { profile: UserProfile }) | null>(null);
   const [bleAvailable, setBleAvailable] = useState<boolean | null>(null);
   const apiBaseUrl = getApiBaseUrl();
   const prevStatusRef = useRef<ExchangeStatus>("idle");
@@ -115,10 +116,13 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
     try {
       const service = createHybridExchangeService({
         onStateChange: (state: ContactExchangeState) => {
-          // Save QR token for qr-scan-matched state
+          // Save QR token and pre-fetched match data for qr-scan-matched state
           if (state.qrToken) {
             setQrToken(state.qrToken);
             onMatchTokenChangeRef.current?.(state.qrToken);
+          }
+          if (state.match) {
+            setQrMatchData(state.match);
           }
 
           // Handle timeout
@@ -224,24 +228,35 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
   }, [status, hybridService, initializeHybridService, profile, session?.user?.id, sharingCategory]);
 
   const handleButtonPress = useCallback(async () => {
-    // Handle QR scan matched state - fetch profile and notify parent
+    // Handle QR scan matched state - use pre-fetched profile or fetch as fallback
     if (status === "qr-scan-matched" && qrToken) {
       try {
-        const idToken = await getIdToken();
-        const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${qrToken}`, {
-          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch matched profile');
+        let matchProfile: UserProfile | null = qrMatchData?.profile ?? null;
+
+        // Fallback: fetch if service didn't pre-fetch the profile
+        if (!matchProfile) {
+          console.warn('[iOS] QR match profile not pre-fetched, fetching now...');
+          const idToken = await getIdToken();
+          const response = await fetch(`${apiBaseUrl}/api/exchange/pair/${qrToken}`, {
+            headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+          });
+          if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Fetch profile failed (${response.status}, idToken=${idToken ? 'present' : 'NULL'}, url=${apiBaseUrl}): ${body}`);
+          }
+          const result = await response.json();
+          if (result.success && result.profile) {
+            matchProfile = result.profile;
+          }
         }
-        const result = await response.json();
-        if (result.success && result.profile) {
+
+        if (matchProfile) {
           // Emit match-found animation event with contact's background colors
-          emitMatchFound(result.profile.backgroundColors);
+          emitMatchFound(matchProfile.backgroundColors);
 
           const matchResult: MatchResult = {
             token: qrToken,
-            profile: result.profile,
+            profile: matchProfile,
             matchType: 'qr-scan',
           };
 
@@ -254,12 +269,13 @@ export function ExchangeButton({ onStateChange, onMatchTokenChange, onMatch }: E
       }
       setStatus("idle");
       setQrToken(null);
+      setQrMatchData(null);
       return;
     }
 
     // Normal exchange start
     handleExchangeStart();
-  }, [status, qrToken, apiBaseUrl, onMatch, handleExchangeStart]);
+  }, [status, qrToken, qrMatchData, apiBaseUrl, onMatch, handleExchangeStart]);
 
   // Cleanup on unmount
   useEffect(() => {

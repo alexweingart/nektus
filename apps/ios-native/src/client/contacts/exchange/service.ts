@@ -256,7 +256,33 @@ export class RealTimeContactExchangeService {
             // Clear polling
             this.clearPolling();
 
-            this.updateState({ status: 'qr-scan-matched', qrToken: result.match.token });
+            // Pre-fetch profile while auth is still fresh from polling
+            const matchToken = result.match.token;
+            const matchYouAre = result.match.youAre;
+            try {
+              const idToken = await getIdToken();
+              const profileResponse = await fetch(`${this.apiBaseUrl}/api/exchange/pair/${matchToken}`, {
+                headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+              });
+              if (profileResponse.ok) {
+                const profileResult = await profileResponse.json();
+                if (profileResult.success && profileResult.profile) {
+                  console.log(`👤 [iOS] QR match pre-fetched profile: ${profileResult.profile.name}`);
+                  this.updateState({
+                    status: 'qr-scan-matched',
+                    qrToken: matchToken,
+                    match: { token: matchToken, youAre: matchYouAre, profile: profileResult.profile },
+                  });
+                  return;
+                }
+              }
+              console.warn(`[iOS] QR match pre-fetch failed (${profileResponse.status}), component will retry`);
+            } catch (prefetchError) {
+              console.warn('[iOS] QR match pre-fetch error:', prefetchError);
+            }
+
+            // Fallback: pass token only, let component fetch
+            this.updateState({ status: 'qr-scan-matched', qrToken: matchToken });
           } else {
             // Regular bump match
             this.clearPolling();
@@ -298,7 +324,8 @@ export class RealTimeContactExchangeService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch matched profile');
+        const body = await response.text();
+        throw new Error(`Failed to fetch matched profile (${response.status}): ${body}`);
       }
 
       const result = await response.json();
