@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     color: '#ffffff',
-    ...textSizes.sm,
+    fontSize: 14,
     ...fontStyles.regular,
   },
   periodButton: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   periodText: {
-    ...textSizes.sm,
+    fontSize: 14,
     ...fontStyles.regular,
     color: '#ffffff',
   },

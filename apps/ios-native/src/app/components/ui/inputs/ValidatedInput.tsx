@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     height: '100%',
     color: '#ffffff',
     ...fontStyles.regular,
-    ...textSizes.base,
+    fontSize: 16,
   },
   iconContainer: {
     paddingRight: 16,

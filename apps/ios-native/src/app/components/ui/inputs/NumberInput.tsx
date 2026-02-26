@@ -120,10 +120,12 @@ const styles = StyleSheet.create({
   input: {
     width: 28,
     textAlign: 'center',
-    ...textSizes.sm,
+    textAlignVertical: 'center',
+    fontSize: 14,
     ...fontStyles.regular,
     color: '#ffffff',
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
   },
 });
 
