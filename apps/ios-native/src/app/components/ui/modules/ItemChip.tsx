@@ -96,12 +96,22 @@ export function ItemChip({
   onLongPress,
   truncateTitle = false,
 }: ItemChipProps) {
-  const handlePress = onClick || onPress;
+  const pressHandler = onClick || onPress;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  const handlePress = () => {
+    if (longPressFired.current) {
+      return;
+    }
+    pressHandler?.();
+  };
 
   const handlePressIn = () => {
+    longPressFired.current = false;
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
+        longPressFired.current = true;
         onLongPress();
       }, 500);
     }
@@ -143,9 +153,9 @@ export function ItemChip({
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={handlePress ? 0.7 : 1}
+        activeOpacity={pressHandler ? 0.7 : 1}
         delayLongPress={500}
-        disabled={!handlePress}
+        disabled={!pressHandler}
       >
         {/* Icon */}
         <View style={styles.iconContainer}>
