@@ -107,9 +107,9 @@ const HomePage: React.FC = () => {
             />
           </div>
         </div>
-        <Text variant="base" className="text-center w-full mb-3 text-2xl">
+        <p className="text-2xl text-white text-center w-full mb-3">
           Conversations → Friendships
-        </Text>
+        </p>
         <Text variant="base" className="text-center text-lg opacity-90 mb-10 px-4">
           Exchange contacts & socials and schedule meetings in seconds
         </Text>
