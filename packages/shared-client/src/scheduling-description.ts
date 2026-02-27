@@ -47,17 +47,9 @@ export function buildCalendarEventDescription(params: CalendarDescriptionParams)
 
   let description = '';
 
-  if (eventType === 'in-person' && travelBuffer && actualStart && actualEnd) {
-    const timeOptions: Intl.DateTimeFormatOptions = {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      ...(timezone && { timeZone: timezone }),
-    };
-    const startTime = actualStart.toLocaleTimeString('en-US', timeOptions);
-    const endTime = actualEnd.toLocaleTimeString('en-US', timeOptions);
+  if (eventType === 'in-person') {
     const place = placeName || 'the venue';
-    description = `Meeting time: ${startTime} - ${endTime}\nIncludes ${travelBuffer.beforeMinutes} min of travel time to ${place} and ${travelBuffer.afterMinutes} min back`;
+    description = `Meeting with ${contactName} at ${place}`;
   } else if (eventType === 'video') {
     const platform = videoPlatform || 'platform TBD';
     if (platform === 'Google Meet' || platform === 'Microsoft Teams') {

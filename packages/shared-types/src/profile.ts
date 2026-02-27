@@ -109,6 +109,7 @@ export interface Calendar {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiry?: number;
+  calendarWriteScope?: boolean;  // Whether this connection has write permissions
   createdAt: Date;
   updatedAt: Date;
 }
@@ -163,6 +164,12 @@ export interface Event {
 
   // Calendar URLs for this specific event (generated when event is scheduled)
   calendar_urls?: CalendarUrls;
+
+  // API-created event fields
+  calendarEventUrl?: string;
+  calendarEventId?: string;
+  inviteCode?: string;
+  addedToRecipient?: boolean;
 
   travelBuffer?: {
     beforeMinutes: number;

@@ -84,7 +84,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID!,
           redirect_uri: `${baseUrl}/api/calendar-connections/google/callback`,
           response_type: 'code',
-          scope: 'https://www.googleapis.com/auth/calendar.readonly',
+          scope: 'https://www.googleapis.com/auth/calendar.events',
           access_type: 'offline',
           include_granted_scopes: 'true', // Key for incremental auth - keeps existing permissions
           login_hint: userEmail, // Suggest the correct account
@@ -108,7 +108,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
           redirect_uri: `${baseUrl}/api/calendar-connections/microsoft/callback`,
           response_type: 'code',
-          scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access',
+          scope: 'https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access',
           login_hint: userEmail,
           // Omit prompt to skip picker when login_hint matches
           state: encodeURIComponent(JSON.stringify({

@@ -11,8 +11,9 @@ import type { Event } from '@/types/profile';
 import MessageList from '@/app/components/ui/chat/MessageList';
 import ChatInput from '@/app/components/ui/chat/ChatInput';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
+import { StandardModal } from '@/app/components/ui/modals/StandardModal';
 import { useProfile } from '@/app/context/ProfileContext';
-import { formatLocationString } from '@nektus/shared-client';
+import { formatLocationString, getFieldValue } from '@nektus/shared-client';
 import { auth } from '@/client/config/firebase';
 
 // Helper: Generate unique message IDs
@@ -45,6 +46,18 @@ export default function AIScheduleView() {
   // Pre-fetched common time slots (using ref to avoid re-renders that blur input)
   const commonTimeSlotsRef = useRef<TimeSlot[]>([]);
   const hasFetchedSlotsRef = useRef(false);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    subtitle: string;
+    calendarEventUrl?: string;
+    inviteCode?: string;
+    attendeePhone?: string;
+    attendeeName?: string;
+    addedToRecipient?: boolean;
+  }>({ visible: false, title: '', subtitle: '' });
 
   // Initialize streaming AI hook
   const { handleStreamingResponse } = useStreamingAI({
@@ -273,26 +286,95 @@ export default function AIScheduleView() {
     }
   }, [currentUserProfile, contactProfile, session, conversationHistory, savedContact, contactType, handleStreamingResponse]);
 
-  const handleScheduleEvent = (event: Event) => {
+  const handleScheduleEvent = async (event: Event) => {
+    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
+
+    // Try API creation if user has a calendar with write scope
+    if (userCalendar?.calendarWriteScope && contactProfile) {
+      try {
+        const idToken = await auth?.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Not authenticated');
+
+        const response = await fetch('/api/scheduling/create-event', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            attendeeId: contactProfile.userId,
+            eventTitle: event.title,
+            eventDescription: event.description || '',
+            startTime: event.startTime,
+            endTime: event.endTime,
+            location: event.location,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            calendarSection: contactType,
+            travelBuffer: event.travelBuffer,
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          if (err.error === 'RECONNECT_REQUIRED') {
+            // Fall through to URL-based flow
+            throw new Error('RECONNECT_REQUIRED');
+          }
+          throw new Error(err.error || 'Failed to create event');
+        }
+
+        const result = await response.json();
+
+        // Update event object with API result
+        event.calendarEventUrl = result.calendarEventUrl;
+        event.calendarEventId = result.calendarEventId;
+        event.inviteCode = result.inviteCode;
+        event.addedToRecipient = result.addedToRecipient;
+
+        // Build subtitle
+        const start = new Date(event.startTime!);
+        const timeStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const dayStr = start.toLocaleDateString('en-US', { weekday: 'long' });
+        const duration = event.duration || 30;
+        const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
+        const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
+
+        let subtitle = `${event.title} — ${dayStr} \u2022 ${timeStr} (${duration} min)`;
+        if (result.addedToRecipient) {
+          subtitle += `\nInvite sent to ${contactName}!`;
+        } else if (result.notificationSent) {
+          subtitle += `\nNotification sent to ${contactName}!`;
+        }
+
+        setConfirmModal({
+          visible: true,
+          title: 'Added to Calendar \u2713',
+          subtitle,
+          calendarEventUrl: result.calendarEventUrl,
+          inviteCode: result.inviteCode,
+          attendeePhone: contactPhone,
+          attendeeName: contactName,
+          addedToRecipient: result.addedToRecipient,
+        });
+
+        return; // Success — don't fall through
+      } catch (err) {
+        console.warn('[AISchedule] API event creation failed, falling back to URL:', err);
+      }
+    }
+
+    // Fallback: open calendar URL
     if (!event.calendar_urls) return;
 
-    // Use the calendar provider matching the user's connected calendar for this section
-    const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
     const provider = userCalendar?.provider || 'google';
-
     if (provider === 'apple') {
-      // Download ICS file for Apple Calendar
       const icsContent = event.calendar_urls.apple;
-      if (icsContent) {
-        window.location.href = icsContent;
-      }
+      if (icsContent) window.location.href = icsContent;
     } else {
       const calendarUrl = provider === 'microsoft'
         ? event.calendar_urls.outlook
         : event.calendar_urls.google;
-      if (calendarUrl) {
-        window.location.href = calendarUrl;
-      }
+      if (calendarUrl) window.location.href = calendarUrl;
     }
   };
 
@@ -391,6 +473,35 @@ export default function AIScheduleView() {
           autoFocus={shouldAutoFocus}
         />
       )}
+
+      {/* Confirmation Modal */}
+      <StandardModal
+        isOpen={confirmModal.visible}
+        onClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+        title={confirmModal.title}
+        subtitle={confirmModal.subtitle}
+        primaryButtonText={confirmModal.attendeePhone
+          ? `Text invite to ${confirmModal.attendeeName || 'contact'}`
+          : 'View Event'}
+        onPrimaryButtonClick={() => {
+          if (confirmModal.attendeePhone) {
+            const inviteUrl = confirmModal.inviteCode ? `nekt.us/i/${confirmModal.inviteCode}` : '';
+            const message = `Hey ${confirmModal.attendeeName || ''}! Here are the details for our hangout: ${inviteUrl}`;
+            window.open(`sms:${confirmModal.attendeePhone}?body=${encodeURIComponent(message)}`, '_blank');
+          } else if (confirmModal.calendarEventUrl) {
+            window.open(confirmModal.calendarEventUrl, '_blank');
+          }
+          setConfirmModal(prev => ({ ...prev, visible: false }));
+        }}
+        secondaryButtonText={confirmModal.attendeePhone ? 'View Event' : undefined}
+        showSecondaryButton={!!confirmModal.attendeePhone && !!confirmModal.calendarEventUrl}
+        onSecondaryButtonClick={() => {
+          if (confirmModal.calendarEventUrl) {
+            window.open(confirmModal.calendarEventUrl, '_blank');
+          }
+          setConfirmModal(prev => ({ ...prev, visible: false }));
+        }}
+      />
     </div>
   );
 }

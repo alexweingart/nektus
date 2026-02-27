@@ -13,9 +13,11 @@ import type { UserProfile, TimeSlot, SuggestionChip } from '@/types/profile';
 import type { Place } from '@/types/places';
 import { ItemChip } from '@/app/components/ui/modules/ItemChip';
 import { Button } from '@/app/components/ui/buttons/Button';
+import { StandardModal } from '@/app/components/ui/modals/StandardModal';
 import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { auth } from '@/client/config/firebase';
+import { getFieldValue, buildCalendarEventDescription } from '@nektus/shared-client';
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },
@@ -53,6 +55,17 @@ export default function SmartScheduleView() {
   const [suggestedTimes, setSuggestedTimes] = useState<Record<string, TimeSlot | null>>({});
   const [chipPlaces, setChipPlaces] = useState<Record<string, Place | null>>({});
   const [loadingTimes, setLoadingTimes] = useState(false);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    subtitle: string;
+    calendarEventUrl?: string;
+    inviteCode?: string;
+    attendeePhone?: string;
+    attendeeName?: string;
+  }>({ visible: false, title: '', subtitle: '' });
 
   // Load contact profile
   useEffect(() => {
@@ -215,23 +228,83 @@ export default function SmartScheduleView() {
     const existingTime = suggestedTimes[chip.id];
     const hasCheckedChip = chip.id in suggestedTimes;
 
-    if (hasCheckedChip) {
-      if (existingTime) {
-        composeAndOpenCalendarEvent({
-          slot: existingTime,
-          eventTemplate,
-          place: chipPlaces[chip.id] || null,
-          currentUserProfile,
-          contactProfile,
-          section,
-          currentUserId: session.user.id
+    if (!hasCheckedChip || !existingTime) return; // Still loading or no time
+
+    const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
+    const place = chipPlaces[chip.id] || null;
+
+    // Try API creation if calendar has write scope
+    if (userCalendar?.calendarWriteScope) {
+      try {
+        const slotStart = new Date(existingTime.start);
+        const { start: actualStart, end: actualEnd } = getEventTimeFromSlotWithBuffer(
+          slotStart, eventTemplate.duration, eventTemplate.travelBuffer
+        );
+
+        const idToken = await auth?.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Not authenticated');
+
+        const response = await fetch('/api/scheduling/create-event', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            attendeeId: contactProfile.userId,
+            eventTitle: eventTemplate.title || 'Event',
+            eventDescription: buildCalendarEventDescription({
+              eventType: eventTemplate.eventType,
+              contactName: getFieldValue(contactProfile.contactEntries, 'name') || 'contact',
+              placeName: place?.name,
+              shortCode: currentUserProfile.shortCode,
+            }),
+            startTime: actualStart.toISOString(),
+            endTime: actualEnd.toISOString(),
+            location: place ? `${place.name}${place.address ? `, ${place.address}` : ''}` : undefined,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            calendarSection: section,
+            travelBuffer: eventTemplate.travelBuffer,
+          }),
         });
-      } else {
-        // No available time — chip subtitle already shows the state, no-op
+
+        if (response.ok) {
+          const result = await response.json();
+          const timeStr = actualStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const dayStr = formatSmartDay(actualStart);
+          const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
+          const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
+
+          let subtitle = `${eventTemplate.title} — ${dayStr} \u2022 ${timeStr} (${eventTemplate.duration} min)`;
+          if (result.addedToRecipient) subtitle += `\nInvite sent to ${contactName}!`;
+          else if (result.notificationSent) subtitle += `\nNotification sent to ${contactName}!`;
+
+          setConfirmModal({
+            visible: true,
+            title: 'Added to Calendar \u2713',
+            subtitle,
+            calendarEventUrl: result.calendarEventUrl,
+            inviteCode: result.inviteCode,
+            attendeePhone: contactPhone,
+            attendeeName: contactName,
+          });
+          return; // Success
+        }
+      } catch (err) {
+        console.warn('[SmartSchedule] API creation failed, falling back to URL:', err);
       }
-    } else {
-      // Data still loading — ignore tap
     }
+
+    // Fallback: open calendar URL
+    composeAndOpenCalendarEvent({
+      slot: existingTime,
+      eventTemplate,
+      place,
+      currentUserProfile,
+      contactProfile,
+      section,
+      currentUserId: session.user.id,
+    });
   };
 
   // Loading state
@@ -328,6 +401,35 @@ export default function SmartScheduleView() {
           </Button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <StandardModal
+        isOpen={confirmModal.visible}
+        onClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+        title={confirmModal.title}
+        subtitle={confirmModal.subtitle}
+        primaryButtonText={confirmModal.attendeePhone
+          ? `Text invite to ${confirmModal.attendeeName || 'contact'}`
+          : 'View Event'}
+        onPrimaryButtonClick={() => {
+          if (confirmModal.attendeePhone) {
+            const inviteUrl = confirmModal.inviteCode ? `nekt.us/i/${confirmModal.inviteCode}` : '';
+            const message = `Hey ${confirmModal.attendeeName || ''}! Here are the details for our hangout: ${inviteUrl}`;
+            window.open(`sms:${confirmModal.attendeePhone}?body=${encodeURIComponent(message)}`, '_blank');
+          } else if (confirmModal.calendarEventUrl) {
+            window.open(confirmModal.calendarEventUrl, '_blank');
+          }
+          setConfirmModal(prev => ({ ...prev, visible: false }));
+        }}
+        secondaryButtonText={confirmModal.attendeePhone ? 'View Event' : undefined}
+        showSecondaryButton={!!confirmModal.attendeePhone && !!confirmModal.calendarEventUrl}
+        onSecondaryButtonClick={() => {
+          if (confirmModal.calendarEventUrl) {
+            window.open(confirmModal.calendarEventUrl, '_blank');
+          }
+          setConfirmModal(prev => ({ ...prev, visible: false }));
+        }}
+      />
     </div>
   );
 }

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: 'https://www.googleapis.com/auth/calendar.readonly',
+        scope: 'https://www.googleapis.com/auth/calendar.events',
         access_type: 'offline',
         include_granted_scopes: 'true',
         login_hint: stateData.userEmail,
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
         redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || request.url.split('/api')[0]}/api/calendar-connections/google/callback`,
         response_type: 'code',
-        scope: 'https://www.googleapis.com/auth/calendar.readonly',
+        scope: 'https://www.googleapis.com/auth/calendar.events',
         access_type: 'offline',
         prompt: 'consent', // Force consent to get refresh token
         include_granted_scopes: 'true', // Keep existing permissions
@@ -195,6 +195,7 @@ export async function GET(request: NextRequest) {
       tokenExpiry: encryptedTokens.tokenExpiry,
       connectionStatus: 'connected',
       accessMethod: 'oauth',
+      calendarWriteScope: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -204,6 +205,10 @@ export async function GET(request: NextRequest) {
     await AdminProfileService.updateProfile(session.user.id, {
       calendars: updatedCalendars
     });
+
+    // Invalidate common-times cache so new calendar availability is reflected immediately
+    const { invalidateCommonTimesCache } = await import('@/server/calendar/cache-invalidation');
+    await invalidateCommonTimesCache(session.user.id);
 
     console.log(`[Google OAuth] Calendar added for ${session.user.id} (${section})`);
 

@@ -9,6 +9,12 @@
     },
     "src/app/api/bio-and-social/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/scheduling/common-times/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/scheduling/ai/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [

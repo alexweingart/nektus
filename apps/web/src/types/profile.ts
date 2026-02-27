@@ -101,6 +101,7 @@ export interface Calendar {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiry?: number;
+  calendarWriteScope?: boolean;  // Whether this connection has write permissions (calendar.events / Calendars.ReadWrite)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -155,6 +156,12 @@ export interface Event {
 
   // Calendar URLs for this specific event (generated when event is scheduled)
   calendar_urls?: CalendarUrls;
+
+  // API-created event fields
+  calendarEventUrl?: string;   // URL to view event in Google Calendar / Outlook
+  calendarEventId?: string;    // Provider event ID (for updates/cancellation)
+  inviteCode?: string;         // Code for /i/{code} invite page
+  addedToRecipient?: boolean;  // Whether attendee was added to the calendar event (Path A vs B)
 
   travelBuffer?: {
     beforeMinutes: number;

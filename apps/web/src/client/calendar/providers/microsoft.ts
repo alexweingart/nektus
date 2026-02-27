@@ -76,7 +76,7 @@ export async function refreshMicrosoftToken(refreshToken: string): Promise<{
         refresh_token: refreshToken,
         client_id: process.env.MICROSOFT_CLIENT_ID!,
         client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
-        scope: 'https://graph.microsoft.com/Calendars.Read',
+        scope: 'https://graph.microsoft.com/Calendars.ReadWrite',
       }),
     });
 

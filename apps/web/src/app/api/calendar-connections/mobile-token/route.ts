@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
         tokenExpiry: 0,
         connectionStatus: 'connected',
         accessMethod: 'caldav',
+        calendarWriteScope: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -236,6 +237,7 @@ export async function POST(request: NextRequest) {
         tokenExpiry: encryptedTokens.tokenExpiry,
         connectionStatus: 'connected',
         accessMethod: 'oauth',
+        calendarWriteScope: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -249,6 +251,10 @@ export async function POST(request: NextRequest) {
     // Save calendar to profile
     const updatedCalendars = [...(profile.calendars || []), newCalendar];
     await AdminProfileService.updateProfile(userId, { calendars: updatedCalendars });
+
+    // Invalidate common-times cache so new calendar availability is reflected immediately
+    const { invalidateCommonTimesCache } = await import('@/server/calendar/cache-invalidation');
+    await invalidateCommonTimesCache(userId);
 
     console.log(`[mobile-token] Calendar added for ${userId} (${provider}/${section})`);
 

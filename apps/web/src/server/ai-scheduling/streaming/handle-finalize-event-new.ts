@@ -1,4 +1,4 @@
-import { createCompleteCalendarEvent, calculateCalendarBlockTimes } from '@/server/calendar/events';
+import { createCompleteCalendarEvent } from '@/server/calendar/events';
 import { processingStateManager } from '@/server/ai-scheduling/processing';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { enqueueProgress, enqueueContent, enqueueEvent } from './streaming-utils';
@@ -78,26 +78,19 @@ export async function handleFinalizeEvent(
     timezone: body.timezone,
   });
 
-  // Calculate actual calendar block times (including buffers)
-  const { calendarBlockStart, calendarBlockEnd } = calculateCalendarBlockTimes(
-    eventStartDate,
-    eventEndDate,
-    template.travelBuffer
-  );
-
-  // Create calendar event with buffers
+  // Generate calendar URLs at ACTUAL meeting time (travel buffers are now separate events)
   const calendarEvent = {
     title: template.title || 'Event',
     description,
     location,
-    startTime: calendarBlockStart,
-    endTime: calendarBlockEnd,
+    startTime: eventStartDate,
+    endTime: eventEndDate,
     eventType: (template.eventType || 'in-person') as 'video' | 'in-person',
     travelBuffer: template.travelBuffer,
     preferredPlaces: eventResult.place ? [eventResult.place] : undefined,
   };
 
-  // Generate calendar URLs with actual attendee email (not Firebase UID)
+  // Generate fallback calendar URLs with actual attendee email (not Firebase UID)
   const { calendar_urls } = createCompleteCalendarEvent(
     calendarEvent,
     { email: attendeeEmail },
@@ -120,7 +113,7 @@ export async function handleFinalizeEvent(
     intent: (template.intent || 'custom') as Event['intent'],
     preferredPlaces: eventResult.place ? [eventResult.place] : undefined,
     travelBuffer: template.travelBuffer,
-    status: 'scheduled' as const,
+    status: 'template' as const, // Pending until user taps "Create Event"
     createdAt: new Date(),
     updatedAt: new Date(),
   };

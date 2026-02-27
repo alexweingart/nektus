@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
       calendars: updatedCalendars
     });
 
+    // Invalidate common-times cache so new calendar availability is reflected immediately
+    const { invalidateCommonTimesCache } = await import('@/server/calendar/cache-invalidation');
+    await invalidateCommonTimesCache(session.user.id);
+
     console.log(`[Apple CalDAV] Calendar added for ${session.user.id} (${section})`);
 
     // Return success

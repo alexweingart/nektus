@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '../buttons/Button';
 import type { Event } from '@/types/profile';
 
@@ -10,6 +11,8 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, showCreateButton = false, onCreateEvent }: EventCardProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [isCreated, setIsCreated] = useState(!!event.calendarEventUrl);
 
   const formatEventSubtitle = (event: Event) => {
     if (!event.startTime || !event.endTime) return '';
@@ -17,9 +20,6 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
     const start = new Date(event.startTime);
     const end = new Date(event.endTime);
 
-    // event.startTime is ALREADY the actual event start time (after buffer)
-    // event.endTime is ALREADY the actual event end time (before after-buffer)
-    // No need to add buffer again - just display the times as-is
     const displayStart = start;
     const duration = event.duration || Math.round((end.getTime() - start.getTime()) / (1000 * 60));
 
@@ -27,7 +27,6 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
     const startTime = displayStart.toLocaleTimeString('en-US', timeOptions);
     const dayString = formatSmartDay(displayStart);
 
-    // Show event duration: "Tomorrow • 10:30 AM (60 min)"
     return `${dayString} • ${startTime} (${duration} min)`;
   };
 
@@ -37,13 +36,8 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    if (inputDate.getTime() === today.getTime()) {
-      return 'Today';
-    }
-
-    if (inputDate.getTime() === tomorrow.getTime()) {
-      return 'Tomorrow';
-    }
+    if (inputDate.getTime() === today.getTime()) return 'Today';
+    if (inputDate.getTime() === tomorrow.getTime()) return 'Tomorrow';
 
     const daysDiff = Math.floor((inputDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff > 0 && daysDiff <= 7) {
@@ -53,6 +47,23 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const handleCreate = async () => {
+    setIsCreating(true);
+    try {
+      await onCreateEvent(event);
+      setIsCreated(true);
+    } catch {
+      // Fallback handled by parent
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleViewEvent = () => {
+    if (event.calendarEventUrl) {
+      window.open(event.calendarEventUrl, '_blank');
+    }
+  };
 
   return (
     <div className="mt-3 p-4 bg-black/60 border border-white/10 rounded-2xl glass-tinted overflow-hidden">
@@ -65,14 +76,26 @@ export default function EventCard({ event, showCreateButton = false, onCreateEve
         </div>
       </div>
 
-      {showCreateButton && (
+      {showCreateButton && !isCreated && (
         <Button
-          onClick={() => onCreateEvent(event)}
+          onClick={handleCreate}
+          className="w-full"
+          variant="white"
+          size="md"
+          disabled={isCreating}
+        >
+          {isCreating ? 'Creating...' : 'Create Event'}
+        </Button>
+      )}
+
+      {isCreated && event.calendarEventUrl && (
+        <Button
+          onClick={handleViewEvent}
           className="w-full"
           variant="white"
           size="md"
         >
-          Create Event
+          View Event
         </Button>
       )}
     </div>

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/server/config/firebase';
 import { adminUpdateMicrosoftTokens, adminGetMultipleUserData, adminGetUserTimezoneById } from '@/server/calendar/firebase-admin';
-import { getGoogleBusyTimes, refreshGoogleToken } from '@/client/calendar/providers/google';
-import { getMicrosoftBusyTimes, refreshMicrosoftToken } from '@/client/calendar/providers/microsoft';
-import { getAppleBusyTimes } from '@/client/calendar/providers/apple';
+// Calendar providers are dynamic-imported inside switch cases to avoid loading
+// all three OAuth provider modules on cold start (saves ~40-60s for EventKit-only users)
 import { findSlotIntersection, generateFreeSlots, mergeBusyTimes, getAvailabilityTimeRange } from '@/server/calendar/slots-generator';
 import { TimeSlot, Calendar, CalendarTokens } from '@/types';
 import { getDefaultSchedulableHours } from '@/server/calendar/scheduling';
@@ -309,15 +308,15 @@ async function getUserFreeSlotsWithData(
             const validTokens = tokens;
 
             switch (validTokens.provider) {
-              case 'google':
-                const googleToken = await validateAndRefreshGoogleToken(validTokens, userId);
+              case 'google': {
+                const { refreshGoogleToken, getGoogleBusyTimes, getGoogleCalendarList } = await import('@/client/calendar/providers/google');
+                const googleToken = await validateAndRefreshGoogleToken(validTokens, userId, refreshGoogleToken);
                 if (!googleToken) {
                   console.warn('Google token validation/refresh failed, skipping');
                   return [];
                 }
 
                 // Get all owned calendars for this user (automatic - no UI selection needed)
-                const { getGoogleCalendarList } = await import('@/client/calendar/providers/google');
                 const availableCalendars = await getGoogleCalendarList(googleToken);
                 const calendarIds = availableCalendars.length > 0
                   ? availableCalendars.map(cal => cal.id)
@@ -326,21 +325,26 @@ async function getUserFreeSlotsWithData(
                 console.log(`🗓️ Fetching Google busy times from ${calendarIds.length} owned calendars: ${calendarIds.join(', ')}`);
 
                 return await getGoogleBusyTimes(googleToken, startTime, endTime, calendarIds);
+              }
 
-              case 'microsoft':
-                const microsoftToken = await validateAndRefreshMicrosoftToken(validTokens, userEmail);
+              case 'microsoft': {
+                const { refreshMicrosoftToken, getMicrosoftBusyTimes } = await import('@/client/calendar/providers/microsoft');
+                const microsoftToken = await validateAndRefreshMicrosoftToken(validTokens, userEmail, refreshMicrosoftToken);
                 if (!microsoftToken) {
                   console.warn('Microsoft token validation/refresh failed, skipping');
                   return [];
                 }
                 return await getMicrosoftBusyTimes(microsoftToken, validTokens.email, startTime, endTime);
+              }
 
-              case 'apple':
+              case 'apple': {
                 if (validTokens.appleId && validTokens.appSpecificPassword) {
+                  const { getAppleBusyTimes } = await import('@/client/calendar/providers/apple');
                   return await getAppleBusyTimes(validTokens.appleId, validTokens.appSpecificPassword, startTime, endTime);
                 }
                 console.warn('Apple credentials missing');
                 return [];
+              }
 
               default:
                 console.warn(`Unknown provider: ${validTokens.provider}`);
@@ -512,14 +516,22 @@ async function validateAndRefreshToken(
   }
 }
 
-async function validateAndRefreshMicrosoftToken(tokens: CalendarTokens, userEmail: string): Promise<string | null> {
-  return validateAndRefreshToken('Microsoft', tokens, refreshMicrosoftToken, (accessToken, expiresAt) =>
+async function validateAndRefreshMicrosoftToken(
+  tokens: CalendarTokens,
+  userEmail: string,
+  refreshMicrosoftTokenFn: (refreshToken: string) => Promise<{ accessToken: string; expiresAt: Date }>
+): Promise<string | null> {
+  return validateAndRefreshToken('Microsoft', tokens, refreshMicrosoftTokenFn, (accessToken, expiresAt) =>
     adminUpdateMicrosoftTokens(userEmail, accessToken, expiresAt)
   );
 }
 
-async function validateAndRefreshGoogleToken(tokens: CalendarTokens, userId: string): Promise<string | null> {
-  return validateAndRefreshToken('Google', tokens, refreshGoogleToken, async (accessToken, expiresAt) => {
+async function validateAndRefreshGoogleToken(
+  tokens: CalendarTokens,
+  userId: string,
+  refreshGoogleTokenFn: (refreshToken: string) => Promise<{ accessToken: string; expiresAt: Date }>
+): Promise<string | null> {
+  return validateAndRefreshToken('Google', tokens, refreshGoogleTokenFn, async (accessToken, expiresAt) => {
     const { adminUpdateCalendarTokens } = await import('@/server/calendar/firebase-admin');
     await adminUpdateCalendarTokens(userId, 'google', accessToken, expiresAt);
   });

@@ -206,21 +206,9 @@ export function createCompleteCalendarEvent(
   description: string;
   calendar_urls: CalendarUrls;
 } {
-  // 1. Format title with "• Starts at" for in-person events with travel buffer
-  let formattedTitle = event.title;
-  if (event.eventType === 'in-person' && event.travelBuffer) {
-    // Calculate actual meeting start (after travel buffer)
-    const actualMeetingStart = new Date(event.startTime.getTime() + event.travelBuffer.beforeMinutes * 60 * 1000);
-    // Use local timezone if no timezone specified
-    const timeOptions: Intl.DateTimeFormatOptions = {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      ...(timezone && { timeZone: timezone })
-    };
-    const startTimeString = actualMeetingStart.toLocaleTimeString('en-US', timeOptions);
-    formattedTitle += ` • Starts at ${startTimeString}`;
-  }
+  // Event title (no longer needs "Starts at" suffix — events are at actual meeting time,
+  // travel buffers are separate calendar blocks)
+  const formattedTitle = event.title;
 
   // 2. Use existing description or create a basic one
   const description = event.description || 'Meeting scheduled via CalConnect';

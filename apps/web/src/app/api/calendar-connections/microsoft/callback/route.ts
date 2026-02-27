@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
       tokenExpiry: encryptedTokens.tokenExpiry,
       connectionStatus: 'connected',
       accessMethod: 'oauth',
+      calendarWriteScope: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -145,6 +146,10 @@ export async function GET(request: NextRequest) {
     await AdminProfileService.updateProfile(session.user.id, {
       calendars: updatedCalendars
     });
+
+    // Invalidate common-times cache so new calendar availability is reflected immediately
+    const { invalidateCommonTimesCache } = await import('@/server/calendar/cache-invalidation');
+    await invalidateCommonTimesCache(session.user.id);
 
     console.log(`[Microsoft OAuth] Calendar added for ${session.user.id} (${section})`);
 
