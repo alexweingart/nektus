@@ -32,8 +32,23 @@ async function getUserId(req: NextRequest): Promise<string | null> {
 /**
  * Scrape bio from Instagram or LinkedIn public profile page.
  * Instagram requires Googlebot UA to get server-rendered meta tags (browser UA gets JS-only shell).
+ * Falls back to DuckDuckGo search results if direct scraping fails (e.g. cloud IP blocked).
  */
 async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
+  // Try direct scraping first
+  const directResult = await scrapeBioDirect(platform, username);
+  if (directResult) return directResult;
+
+  // Fallback: search engine snippet (Instagram blocks cloud IPs like Vercel)
+  if (platform === 'instagram') {
+    console.log(`[API/SCRAPE-BIO] Direct scrape failed, trying search fallback for ${username}`);
+    return scrapeInstagramBioViaSearch(username);
+  }
+
+  return null;
+}
+
+async function scrapeBioDirect(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
   const url = platform === 'instagram'
     ? `https://www.instagram.com/${username}/`
     : `https://www.linkedin.com/in/${username}/`;
@@ -84,6 +99,67 @@ async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: st
       console.log(`[API/SCRAPE-BIO] Timeout scraping ${platform} for ${username}`);
     } else {
       console.error(`[API/SCRAPE-BIO] Error scraping ${platform}:`, error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Fallback: fetch Instagram bio from DuckDuckGo search snippet.
+ * DDG caches Instagram's meta description which contains the bio in the format:
+ *   "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
+ */
+async function scrapeInstagramBioViaSearch(username: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const searchUrl = `https://html.duckduckgo.com/html/?q=site:instagram.com/${encodeURIComponent(username)}`;
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.log(`[API/SCRAPE-BIO] DDG search returned ${response.status}`);
+      return null;
+    }
+
+    const html = await response.text();
+
+    // Check for bot detection
+    if (html.includes('anomaly') || html.includes('botnet')) {
+      console.log(`[API/SCRAPE-BIO] DDG bot detection triggered`);
+      return null;
+    }
+
+    // DDG snippets contain the Instagram meta description with HTML entities
+    const decoded = decodeHtmlEntities(html);
+
+    // Look for the Instagram description pattern anywhere in the DDG results
+    // Format: "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
+    const snippetMatch = decoded.match(/on Instagram:\s*"(.+?)"/);
+    if (snippetMatch?.[1]) {
+      const bio = snippetMatch[1].trim();
+      if (bio.length > 0) {
+        console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG search: "${bio.substring(0, 50)}..."`);
+        return bio;
+      }
+    }
+
+    console.log(`[API/SCRAPE-BIO] DDG search returned no bio for ${username}`);
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log(`[API/SCRAPE-BIO] DDG search timeout for ${username}`);
+    } else {
+      console.error(`[API/SCRAPE-BIO] DDG search error:`, error);
     }
     return null;
   }
