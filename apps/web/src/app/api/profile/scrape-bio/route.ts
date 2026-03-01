@@ -194,6 +194,48 @@ function extractLinkedInBio(html: string): string | null {
   return null;
 }
 
+// TODO: Remove this debug endpoint after fixing Instagram scraping
+export async function GET(req: NextRequest) {
+  const username = req.nextUrl.searchParams.get('u') || 'ajweingart';
+  const url = `https://www.instagram.com/${username}/`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        'Accept': 'text/html',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+
+    clearTimeout(timeout);
+
+    const html = await response.text();
+    const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]*?)"/i)
+      || html.match(/<meta\s+content="([^"]*?)"\s+name="description"/i);
+    const desc = descMatch?.[1] ? decodeHtmlEntities(descMatch[1]) : null;
+    const bioMatch = desc?.match(/on Instagram:\s*"(.+)"$/);
+
+    return NextResponse.json({
+      debug: true,
+      httpStatus: response.status,
+      finalUrl: response.url,
+      htmlLength: html.length,
+      hasLoginPage: html.includes('/accounts/login'),
+      metaDescription: desc?.substring(0, 300) || null,
+      extractedBio: bioMatch?.[1]?.trim() || null,
+      htmlSnippet: html.substring(0, 500),
+    });
+  } catch (error) {
+    return NextResponse.json({ debug: true, error: String(error) });
+  }
+}
+
 export async function POST(req: NextRequest) {
   const userId = await getUserId(req);
   if (!userId) {
