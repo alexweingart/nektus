@@ -31,40 +31,33 @@ async function getUserId(req: NextRequest): Promise<string | null> {
 
 /**
  * Scrape bio from Instagram or LinkedIn public profile page.
- * Instagram requires Googlebot UA to get server-rendered meta tags (browser UA gets JS-only shell).
- * Falls back to DuckDuckGo search results if direct scraping fails (e.g. cloud IP blocked).
+ * Instagram: DDG search (Instagram blocks cloud IPs like Vercel).
+ * LinkedIn: direct scrape with browser UA.
  */
 async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
-  // Try direct scraping first
-  const directResult = await scrapeBioDirect(platform, username);
-  if (directResult) return directResult;
-
-  // Fallback: search engine snippet (Instagram blocks cloud IPs like Vercel)
   if (platform === 'instagram') {
-    console.log(`[API/SCRAPE-BIO] Direct scrape failed, trying search fallback for ${username}`);
+    // Instagram blocks cloud IPs (Vercel) — use DDG search which caches the meta description
     return scrapeInstagramBioViaSearch(username);
   }
 
-  return null;
+  // LinkedIn: direct scrape still works from Vercel
+  return scrapeLinkedInBio(username);
 }
 
-async function scrapeBioDirect(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
-  const url = platform === 'instagram'
-    ? `https://www.instagram.com/${username}/`
-    : `https://www.linkedin.com/in/${username}/`;
+/**
+ * Direct scrape for LinkedIn — cloud IPs aren't blocked.
+ * Extracts About section from meta description, stripping boilerplate.
+ */
+async function scrapeLinkedInBio(username: string): Promise<string | null> {
+  const url = `https://www.linkedin.com/in/${username}/`;
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-    // Instagram serves JS-only shell to browser UAs — must use Googlebot to get SSR meta tags
-    const userAgent = platform === 'instagram'
-      ? 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-      : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
     const response = await fetch(url, {
       headers: {
-        'User-Agent': userAgent,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -75,30 +68,19 @@ async function scrapeBioDirect(platform: 'instagram' | 'linkedin', username: str
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.log(`[API/SCRAPE-BIO] ${platform} returned ${response.status} for ${username}`);
+      console.log(`[API/SCRAPE-BIO] LinkedIn returned ${response.status} for ${username}`);
       return null;
     }
 
-    // Detect if we were redirected to a login page (common with cloud IPs)
-    const finalUrl = response.url;
-    if (finalUrl && !finalUrl.includes(username)) {
-      console.log(`[API/SCRAPE-BIO] Redirected away from profile: ${url} → ${finalUrl}`);
-    }
-
     const html = await response.text();
-    console.log(`[API/SCRAPE-BIO] Got ${html.length} chars from ${platform}/${username}`);
+    console.log(`[API/SCRAPE-BIO] Got ${html.length} chars from linkedin/${username}`);
 
-    if (platform === 'instagram') {
-      return extractInstagramBio(html);
-    }
-
-    // LinkedIn: extract About section from meta description (headline isn't in server-rendered HTML)
     return extractLinkedInBio(html);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.log(`[API/SCRAPE-BIO] Timeout scraping ${platform} for ${username}`);
+      console.log(`[API/SCRAPE-BIO] Timeout scraping LinkedIn for ${username}`);
     } else {
-      console.error(`[API/SCRAPE-BIO] Error scraping ${platform}:`, error);
+      console.error(`[API/SCRAPE-BIO] Error scraping LinkedIn:`, error);
     }
     return null;
   }
@@ -174,106 +156,6 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
-}
-
-function decodeJsonString(text: string): string {
-  return text
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '')
-    .replace(/\\t/g, ' ')
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, '\\')
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
-    .trim();
-}
-
-function extractInstagramBio(html: string): string | null {
-  // 1. Try "biography" field in embedded JSON data (most reliable, if present)
-  const bioPatterns = [
-    /"biography"\s*:\s*"((?:[^"\\]|\\.)*)"/,
-    /"bio"\s*:\s*"((?:[^"\\]|\\.)*)"/,
-    /biography['"]\s*:\s*['"]((?:[^'"\\]|\\.)*)['"]/,
-  ];
-
-  for (const pattern of bioPatterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) {
-      const bio = decodeJsonString(match[1]);
-      if (bio.length > 0) {
-        console.log(`[API/SCRAPE-BIO] Found Instagram bio via JSON pattern: "${bio.substring(0, 50)}..."`);
-        return bio;
-      }
-    }
-  }
-
-  // 2. Try JSON-LD structured data
-  const jsonLdMatch = html.match(/<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-  if (jsonLdMatch?.[1]) {
-    try {
-      const jsonLd = JSON.parse(jsonLdMatch[1]);
-      if (jsonLd.description && jsonLd.description.length > 5) {
-        console.log(`[API/SCRAPE-BIO] Found Instagram bio via JSON-LD`);
-        return jsonLd.description.trim();
-      }
-    } catch {
-      // Fall through
-    }
-  }
-
-  // 3. Extract bio from meta description (Googlebot UA)
-  // Instagram meta description format with bio:
-  //   "177 Followers, 34 Following, 0 Posts - Name (@user) on Instagram: "Bio text here.""
-  // Without bio:
-  //   "177 Followers, 34 Following, 0 Posts - See Instagram photos and videos from Name (@user)"
-  const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]*?)"/i)
-    || html.match(/<meta\s+content="([^"]*?)"\s+name="description"/i);
-  if (descMatch?.[1]) {
-    const desc = decodeHtmlEntities(descMatch[1]);
-    const bio = extractBioFromInstagramDescription(desc);
-    if (bio) {
-      console.log(`[API/SCRAPE-BIO] Found Instagram bio from meta description: "${bio.substring(0, 50)}..."`);
-      return bio;
-    }
-  }
-
-  // 4. Same extraction from og:description
-  const ogDescMatch = html.match(/<meta\s+(?:property|name)="og:description"\s+content="([^"]*?)"/i)
-    || html.match(/<meta\s+content="([^"]*?)"\s+(?:property|name)="og:description"/i);
-  if (ogDescMatch?.[1]) {
-    const desc = decodeHtmlEntities(ogDescMatch[1]);
-    const bio = extractBioFromInstagramDescription(desc);
-    if (bio) {
-      console.log(`[API/SCRAPE-BIO] Found Instagram bio from og:description: "${bio.substring(0, 50)}..."`);
-      return bio;
-    }
-  }
-
-  console.log(`[API/SCRAPE-BIO] Could not extract Instagram bio from HTML`);
-  return null;
-}
-
-/**
- * Extract bio text from Instagram's meta description format.
- * Format: "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
- * The bio is quoted at the end after "on Instagram: "
- */
-function extractBioFromInstagramDescription(desc: string): string | null {
-  // Look for quoted bio after "on Instagram:" pattern
-  // The bio is wrapped in &quot; (decoded to ") at the end of the description
-  const bioMatch = desc.match(/on Instagram:\s*"(.+)"$/);
-  if (bioMatch?.[1]) {
-    const bio = bioMatch[1].trim();
-    if (bio.length > 0) return bio;
-  }
-
-  // Also try with escaped quotes that might not have been fully decoded
-  const bioMatch2 = desc.match(/on Instagram:\s*(?:&quot;|"|")(.+?)(?:&quot;|"|")$/);
-  if (bioMatch2?.[1]) {
-    const bio = bioMatch2[1].trim();
-    if (bio.length > 0) return bio;
-  }
-
-  return null;
 }
 
 function extractLinkedInBio(html: string): string | null {
