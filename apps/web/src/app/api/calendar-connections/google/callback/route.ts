@@ -38,10 +38,11 @@ export async function GET(request: NextRequest) {
     }
 
     // iOS app: handle all responses by redirecting back to the app via custom URL scheme.
-    // Use an HTML page with JS redirect instead of a bare 302 — ASWebAuthenticationSession
-    // can miss a 302 to a custom scheme if the redirect happens before the session's view
-    // controller is fully presented (e.g. when Google auto-approves without showing consent).
+    // Small delay before the 302: ASWebAuthenticationSession can miss instant redirects
+    // when Google auto-approves (no consent screen) because the redirect chain completes
+    // before the session's URL scheme interception is fully initialized.
     if (stateData?.platform === 'ios' && stateData?.appCallbackUrl) {
+      await new Promise(resolve => setTimeout(resolve, 500));
       let appRedirect: string;
       if (error) {
         console.error(`[Google OAuth] iOS error: ${error}`);
@@ -53,10 +54,7 @@ export async function GET(request: NextRequest) {
         console.error(`[Google OAuth] iOS: no code or error in callback`);
         appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=google`;
       }
-      return new Response(
-        `<html><head><meta http-equiv="refresh" content="0;url=${appRedirect}"></head><body><script>window.location.href="${appRedirect}";</script></body></html>`,
-        { status: 200, headers: { 'Content-Type': 'text/html' } }
-      );
+      return new Response(null, { status: 302, headers: { Location: appRedirect } });
     }
 
     // Silent auth fallback: if client sent prompt=none and Google needs interaction,

@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     }
 
     // iOS app: handle all responses by redirecting back to the app via custom URL scheme.
-    // Use an HTML page with JS redirect instead of a bare 302 — ASWebAuthenticationSession
-    // can miss a 302 to a custom scheme if the redirect happens before the session is ready.
+    // Small delay before the 302 (see Google callback for explanation).
     if (stateData?.platform === 'ios' && stateData?.appCallbackUrl) {
+      await new Promise(resolve => setTimeout(resolve, 500));
       let appRedirect: string;
       if (error) {
         console.error(`[Microsoft OAuth] iOS error: ${error}`);
@@ -48,10 +48,7 @@ export async function GET(request: NextRequest) {
         console.error(`[Microsoft OAuth] iOS: no code or error in callback`);
         appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=microsoft`;
       }
-      return new Response(
-        `<html><head><meta http-equiv="refresh" content="0;url=${appRedirect}"></head><body><script>window.location.href="${appRedirect}";</script></body></html>`,
-        { status: 200, headers: { 'Content-Type': 'text/html' } }
-      );
+      return new Response(null, { status: 302, headers: { Location: appRedirect } });
     }
 
     const session = await getServerSession(authOptions);
