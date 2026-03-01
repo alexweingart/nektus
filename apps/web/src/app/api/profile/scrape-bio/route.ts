@@ -31,16 +31,14 @@ async function getUserId(req: NextRequest): Promise<string | null> {
 
 /**
  * Scrape bio from Instagram or LinkedIn public profile page.
- * Instagram: DDG search (Instagram blocks cloud IPs like Vercel).
+ * Instagram: Facebook bot UA (Instagram serves meta tags to its parent company's crawler).
  * LinkedIn: direct scrape with browser UA.
  */
 async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
   if (platform === 'instagram') {
-    // Instagram blocks cloud IPs (Vercel) — use DDG search which caches the meta description
-    return scrapeInstagramBioViaSearch(username);
+    return scrapeInstagramBio(username);
   }
 
-  // LinkedIn: direct scrape still works from Vercel
   return scrapeLinkedInBio(username);
 }
 
@@ -87,81 +85,58 @@ async function scrapeLinkedInBio(username: string): Promise<string | null> {
 }
 
 /**
- * Fallback: fetch Instagram bio from DuckDuckGo search snippet.
- * DDG caches Instagram's meta description which contains the bio in the format:
- *   "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
+ * Scrape Instagram bio using Facebook's bot UA.
+ * Instagram never blocks Facebook's crawler (same company) — it must serve
+ * proper OpenGraph meta tags for link previews on Facebook/Messenger.
+ * Meta description format: "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
  */
-async function scrapeInstagramBioViaSearch(username: string): Promise<string | null> {
+async function scrapeInstagramBio(username: string): Promise<string | null> {
+  const url = `https://www.instagram.com/${username}/`;
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-    const searchUrl = `https://html.duckduckgo.com/html/?q=site:instagram.com/${encodeURIComponent(username)}`;
-    const response = await fetch(searchUrl, {
+    const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
         'Accept': 'text/html',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       signal: controller.signal,
+      redirect: 'follow',
     });
 
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.log(`[API/SCRAPE-BIO] DDG search returned ${response.status}`);
+      console.log(`[API/SCRAPE-BIO] Instagram returned ${response.status} for ${username}`);
       return null;
     }
 
     const html = await response.text();
+    console.log(`[API/SCRAPE-BIO] Got ${html.length} chars from instagram/${username}`);
 
-    // Check for bot detection
-    if (html.includes('anomaly') || html.includes('botnet')) {
-      console.log(`[API/SCRAPE-BIO] DDG bot detection triggered`);
-      return null;
-    }
-
-    // Decode HTML entities, then strip all HTML tags to get plain text
-    const decoded = decodeHtmlEntities(html);
-    const plainText = decoded.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-
-    console.log(`[API/SCRAPE-BIO] DDG plain text length: ${plainText.length}, searching for bio...`);
-
-    // Look for the Instagram description pattern in the plain text
+    // Extract bio from meta description
     // Format: "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
-    const snippetMatch = plainText.match(/on Instagram:\s*"(.+?)"/);
-    if (snippetMatch?.[1]) {
-      const bio = snippetMatch[1].trim();
-      if (bio.length > 0) {
-        console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG search: "${bio.substring(0, 50)}..."`);
-        return bio;
+    const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]*?)"/i)
+      || html.match(/<meta\s+content="([^"]*?)"\s+name="description"/i);
+    if (descMatch?.[1]) {
+      const desc = decodeHtmlEntities(descMatch[1]);
+      const bioMatch = desc.match(/on Instagram:\s*"(.+)"$/);
+      if (bioMatch?.[1]?.trim()) {
+        console.log(`[API/SCRAPE-BIO] Found Instagram bio: "${bioMatch[1].trim().substring(0, 50)}..."`);
+        return bioMatch[1].trim();
       }
     }
 
-    // Fallback: DDG sometimes shows the snippet as "N Followers...N Following...Bio text"
-    // without the "on Instagram:" wrapper. Look for text after the follower/following/posts pattern.
-    const fallbackMatch = plainText.match(/\d+\s+Posts?\s*[-–—]\s*[^"]*?on Instagram:\s*"(.+?)"/i);
-    if (fallbackMatch?.[1]) {
-      const bio = fallbackMatch[1].trim();
-      if (bio.length > 0) {
-        console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG fallback pattern: "${bio.substring(0, 50)}..."`);
-        return bio;
-      }
-    }
-
-    // Log a snippet of what we got for debugging
-    const igMention = plainText.indexOf('Instagram');
-    if (igMention >= 0) {
-      console.log(`[API/SCRAPE-BIO] DDG text around 'Instagram': "${plainText.substring(Math.max(0, igMention - 50), igMention + 200).trim()}"`);
-    }
-
-    console.log(`[API/SCRAPE-BIO] DDG search returned no bio for ${username}`);
+    console.log(`[API/SCRAPE-BIO] No bio found in Instagram meta for ${username}`);
     return null;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.log(`[API/SCRAPE-BIO] DDG search timeout for ${username}`);
+      console.log(`[API/SCRAPE-BIO] Timeout scraping Instagram for ${username}`);
     } else {
-      console.error(`[API/SCRAPE-BIO] DDG search error:`, error);
+      console.error(`[API/SCRAPE-BIO] Error scraping Instagram:`, error);
     }
     return null;
   }
