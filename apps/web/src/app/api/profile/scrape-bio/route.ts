@@ -121,18 +121,38 @@ async function scrapeInstagramBioViaSearch(username: string): Promise<string | n
       return null;
     }
 
-    // DDG snippets contain the Instagram meta description with HTML entities
+    // Decode HTML entities, then strip all HTML tags to get plain text
     const decoded = decodeHtmlEntities(html);
+    const plainText = decoded.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 
-    // Look for the Instagram description pattern anywhere in the DDG results
+    console.log(`[API/SCRAPE-BIO] DDG plain text length: ${plainText.length}, searching for bio...`);
+
+    // Look for the Instagram description pattern in the plain text
     // Format: "X Followers, Y Following, Z Posts - Name (@user) on Instagram: "Bio text""
-    const snippetMatch = decoded.match(/on Instagram:\s*"(.+?)"/);
+    const snippetMatch = plainText.match(/on Instagram:\s*"(.+?)"/);
     if (snippetMatch?.[1]) {
       const bio = snippetMatch[1].trim();
       if (bio.length > 0) {
         console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG search: "${bio.substring(0, 50)}..."`);
         return bio;
       }
+    }
+
+    // Fallback: DDG sometimes shows the snippet as "N Followers...N Following...Bio text"
+    // without the "on Instagram:" wrapper. Look for text after the follower/following/posts pattern.
+    const fallbackMatch = plainText.match(/\d+\s+Posts?\s*[-–—]\s*[^"]*?on Instagram:\s*"(.+?)"/i);
+    if (fallbackMatch?.[1]) {
+      const bio = fallbackMatch[1].trim();
+      if (bio.length > 0) {
+        console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG fallback pattern: "${bio.substring(0, 50)}..."`);
+        return bio;
+      }
+    }
+
+    // Log a snippet of what we got for debugging
+    const igMention = plainText.indexOf('Instagram');
+    if (igMention >= 0) {
+      console.log(`[API/SCRAPE-BIO] DDG text around 'Instagram': "${plainText.substring(Math.max(0, igMention - 50), igMention + 200).trim()}"`);
     }
 
     console.log(`[API/SCRAPE-BIO] DDG search returned no bio for ${username}`);
