@@ -19,24 +19,35 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error');
 
     // Parse state to get section, returnUrl, and redirectTo
-    const stateData = state ? JSON.parse(decodeURIComponent(state)) as {
+    let stateData: {
       userEmail: string;
       section: 'personal' | 'work';
       returnUrl?: string;
       redirectTo?: string;
       platform?: string;
       appCallbackUrl?: string;
-    } : null;
+    } | null = null;
+    try {
+      stateData = state ? JSON.parse(decodeURIComponent(state)) : null;
+    } catch (e) {
+      console.error('[Microsoft OAuth] Failed to parse state:', state, e);
+    }
 
-    // iOS app: redirect the auth code back to the app via custom URL scheme
-    // The app will exchange the code via /api/calendar-connections/mobile-token
-    // MUST use 302 (not 307): 302 converts POST to GET, required for custom scheme navigation.
-    if (stateData?.platform === 'ios' && stateData?.appCallbackUrl && code) {
-      const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
-      return new Response(null, {
-        status: 302,
-        headers: { Location: appRedirect },
-      });
+    // iOS app: handle all responses by redirecting back to the app via custom URL scheme
+    if (stateData?.platform === 'ios' && stateData?.appCallbackUrl) {
+      if (error) {
+        console.error(`[Microsoft OAuth] iOS error: ${error}`);
+        const appRedirect = `${stateData.appCallbackUrl}?error=${encodeURIComponent(error)}&provider=microsoft`;
+        return new Response(null, { status: 302, headers: { Location: appRedirect } });
+      }
+      if (code) {
+        console.log(`[Microsoft OAuth] iOS redirect: sending code back to app`);
+        const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
+        return new Response(null, { status: 302, headers: { Location: appRedirect } });
+      }
+      console.error(`[Microsoft OAuth] iOS: no code or error in callback`);
+      const appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=microsoft`;
+      return new Response(null, { status: 302, headers: { Location: appRedirect } });
     }
 
     const session = await getServerSession(authOptions);

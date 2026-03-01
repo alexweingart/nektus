@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error');
 
     // Parse state to get section, returnUrl, redirectTo, and retry flag
-    const stateData = state ? JSON.parse(decodeURIComponent(state)) as {
+    let stateData: {
       userEmail: string;
       section: 'personal' | 'work';
       returnUrl?: string;
@@ -30,7 +30,30 @@ export async function GET(request: NextRequest) {
       retry?: boolean;
       platform?: string;
       appCallbackUrl?: string;
-    } : null;
+    } | null = null;
+    try {
+      stateData = state ? JSON.parse(decodeURIComponent(state)) : null;
+    } catch (e) {
+      console.error('[Google OAuth] Failed to parse state:', state, e);
+    }
+
+    // iOS app: handle all responses by redirecting back to the app via custom URL scheme
+    if (stateData?.platform === 'ios' && stateData?.appCallbackUrl) {
+      if (error) {
+        console.error(`[Google OAuth] iOS error: ${error}`);
+        const appRedirect = `${stateData.appCallbackUrl}?error=${encodeURIComponent(error)}&provider=google`;
+        return new Response(null, { status: 302, headers: { Location: appRedirect } });
+      }
+      if (code) {
+        console.log(`[Google OAuth] iOS redirect: sending code back to app`);
+        const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=google`;
+        return new Response(null, { status: 302, headers: { Location: appRedirect } });
+      }
+      // No code and no error — shouldn't happen, but redirect error to app
+      console.error(`[Google OAuth] iOS: no code or error in callback`);
+      const appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=google`;
+      return new Response(null, { status: 302, headers: { Location: appRedirect } });
+    }
 
     // Silent auth fallback: if client sent prompt=none and Google needs interaction,
     // redirect back to Google without prompt param (normal interactive flow)
@@ -45,28 +68,16 @@ export async function GET(request: NextRequest) {
         access_type: 'offline',
         include_granted_scopes: 'true',
         login_hint: stateData.userEmail,
-        // No prompt param: login_hint auto-selects account, Google shows
-        // minimal incremental scope consent instead of full account picker.
         state: encodeURIComponent(JSON.stringify({
           userEmail: stateData.userEmail,
           section: stateData.section,
           returnUrl: stateData.returnUrl,
           redirectTo: stateData.redirectTo,
+          platform: stateData.platform,
+          appCallbackUrl: stateData.appCallbackUrl,
         }))
       });
       return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${fallbackParams.toString()}`);
-    }
-
-    // iOS app: redirect the auth code back to the app via custom URL scheme
-    // The app will exchange the code via /api/calendar-connections/mobile-token
-    // MUST use 302 (not 307): Google's consent is a POST, and 307 preserves POST
-    // method which breaks custom scheme navigation. 302 converts to GET.
-    if (stateData?.platform === 'ios' && stateData?.appCallbackUrl && code) {
-      const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=google`;
-      return new Response(null, {
-        status: 302,
-        headers: { Location: appRedirect },
-      });
     }
 
     const session = await getServerSession(authOptions);
@@ -166,7 +177,9 @@ export async function GET(request: NextRequest) {
           section,
           returnUrl,
           redirectTo,
-          retry: true // Mark this as a retry
+          retry: true, // Mark this as a retry
+          platform: stateData.platform,
+          appCallbackUrl: stateData.appCallbackUrl,
         }))
       });
 

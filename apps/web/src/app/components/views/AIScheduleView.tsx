@@ -411,22 +411,30 @@ export default function AIScheduleView() {
   }, []);
 
   // Resize layout container to match the visual viewport when keyboard opens.
-  // With page scroll locked, offsetTop is always 0 — we only track height.
+  // Debounced so we apply the final height after the keyboard animation (~300ms),
+  // instead of tracking every frame (which causes a visible sliding effect).
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const container = layoutContainerRef.current;
     if (!container) return;
 
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     const handleViewportChange = () => {
-      const vv = window.visualViewport!;
-      container.style.height = `${vv.height}px`;
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const vv = window.visualViewport;
+        if (vv) container.style.height = `${vv.height}px`;
+      }, 150);
     };
 
-    handleViewportChange();
+    // Set initial height immediately (no debounce needed)
+    container.style.height = `${window.visualViewport.height}px`;
 
     window.visualViewport.addEventListener('resize', handleViewportChange);
 
     return () => {
+      clearTimeout(timeoutId);
       window.visualViewport?.removeEventListener('resize', handleViewportChange);
     };
   }, []);

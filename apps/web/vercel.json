@@ -15,6 +15,15 @@
     },
     "src/app/api/scheduling/ai/route.ts": {
       "maxDuration": 120
+    },
+    "src/app/api/calendar-connections/mobile-token/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/calendar-connections/google/callback/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/calendar-connections/microsoft/callback/route.ts": {
+      "maxDuration": 30
     }
   },
   "crons": [

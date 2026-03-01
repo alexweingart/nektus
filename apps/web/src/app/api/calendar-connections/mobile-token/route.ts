@@ -13,7 +13,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/server/config/firebase';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
 import { encryptCalendarTokens } from '@/client/calendar/providers/tokens';
-import { testAppleConnection } from '@/client/calendar/providers/apple';
 import { Calendar } from '@/types/profile';
 import { WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@/shared/constants';
 
@@ -90,6 +89,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const { testAppleConnection } = await import('@/client/calendar/providers/apple');
       const connectionTest = await testAppleConnection(appleId, appSpecificPassword);
       if (!connectionTest) {
         return NextResponse.json(
