@@ -128,16 +128,6 @@ export function useCalendarLocationManagement({
       setIsDeletingCalendar((prev) => ({ ...prev, [section]: true }));
 
       try {
-        if (calendar.accessMethod === 'eventkit') {
-          // EventKit calendars are local-only — just remove from profile
-          if (saveProfile && profile) {
-            const updatedCalendars =
-              profile.calendars?.filter((cal: Calendar) => cal.id !== calendar.id) ||
-              [];
-            await saveProfile({ calendars: updatedCalendars });
-          }
-        } else {
-          // Server-managed calendars need a DELETE call
           const apiBaseUrl = getApiBaseUrl();
           const idToken = await getIdToken();
 
@@ -160,7 +150,6 @@ export function useCalendarLocationManagement({
               [];
             await saveProfile({ calendars: updatedCalendars });
           }
-        }
       } catch (error) {
         console.error('[useCalendarLocationManagement] Failed to delete calendar:', error);
       } finally {

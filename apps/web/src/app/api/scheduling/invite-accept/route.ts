@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/server/config/firebase';
 import { AdminProfileService } from '@/server/profile/firebase-admin';
-import { updateGoogleCalendarEvent, updateMicrosoftCalendarEvent } from '@/server/calendar/create-event';
+import { updateGoogleCalendarEvent, updateMicrosoftCalendarEvent, updateAppleCalDavEvent } from '@/server/calendar/create-event';
 import { refreshGoogleToken } from '@/client/calendar/providers/google';
 import { refreshMicrosoftToken } from '@/client/calendar/providers/microsoft';
 import { adminUpdateCalendarTokens } from '@/server/calendar/firebase-admin';
@@ -73,8 +73,16 @@ export async function POST(request: NextRequest) {
       await updateGoogleCalendarEvent(accessToken, calendarEventId, attendeeEmail);
     } else if (calendarProvider === 'microsoft') {
       await updateMicrosoftCalendarEvent(accessToken, calendarEventId, attendeeEmail);
+    } else if (calendarProvider === 'apple') {
+      // CalDAV: accessToken = appSpecificPassword, refreshToken = appleId
+      await updateAppleCalDavEvent(
+        calendar.refreshToken || '',
+        accessToken,
+        calendarEventId,
+        attendeeEmail
+      );
     } else {
-      return NextResponse.json({ error: 'Cannot PATCH CalDAV events remotely' }, { status: 400 });
+      return NextResponse.json({ error: `Unsupported calendar provider: ${calendarProvider}` }, { status: 400 });
     }
 
     // Update invite record

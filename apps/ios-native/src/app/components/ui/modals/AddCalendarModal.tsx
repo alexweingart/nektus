@@ -1,41 +1,25 @@
 /**
  * AddCalendarModal - Modal for selecting and connecting a calendar provider
  *
- * Primary: iPhone Calendar (EventKit) - reads all device-synced calendars with one permission prompt
- * Secondary: Google/Microsoft OAuth for accounts not synced to the device
- *
- * App Clip fallback: EventKit unavailable, shows Google/Microsoft/Apple CalDAV
+ * Shows Google, Microsoft, and Apple CalDAV options.
  */
 
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Alert,
   Linking,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as ExpoLinking from 'expo-linking';
-import { textSizes, fontStyles } from '../Typography';
 import { StandardModal } from './StandardModal';
 import { AppleCalendarSetupModal } from './AppleCalendarSetupModal';
 import { Button } from '../buttons/Button';
-import type { FieldSection, Calendar } from '@nektus/shared-types';
-import { getApiBaseUrl, WORK_SCHEDULABLE_HOURS, PERSONAL_SCHEDULABLE_HOURS } from '@nektus/shared-client';
+import type { FieldSection } from '@nektus/shared-types';
+import { getApiBaseUrl } from '@nektus/shared-client';
 import { getIdToken } from '../../../../client/auth/firebase';
-import { useProfile } from '../../../context/ProfileContext';
 import { useSession } from '../../../providers/SessionProvider';
-import {
-  isEventKitAvailable,
-  requestCalendarPermission,
-} from '../../../../client/calendar/eventkit-service';
-import {
-  configureCalendarSync,
-  syncDeviceBusyTimesNow,
-  scheduleBackgroundCalendarSync,
-  startCalendarChangeListener,
-} from '../../../../client/calendar/calendar-sync';
 
 // Try to load expo-web-browser, fall back gracefully in App Clip where native module is excluded
 let WebBrowser: typeof import('expo-web-browser') | null = null;
@@ -96,19 +80,6 @@ const AppleIcon = () => (
   </Svg>
 );
 
-// iPhone icon
-const IPhoneIcon = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24">
-    <Path
-      fill="#000000"
-      d="M15.5 1h-8C6.12 1 5 2.12 5 3.5v17C5 21.88 6.12 23 7.5 23h8c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z"
-    />
-  </Svg>
-);
-
-const eventKitAvailable = isEventKitAvailable();
-console.log('[AddCalendarModal] EventKit available:', eventKitAvailable);
-
 export function AddCalendarModal({
   isOpen,
   onClose,
@@ -119,7 +90,6 @@ export function AddCalendarModal({
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [showAppleModal, setShowAppleModal] = useState(false);
   const apiBaseUrl = getApiBaseUrl();
-  const { profile, saveProfile } = useProfile();
   const { data: session } = useSession();
 
   /**
@@ -132,23 +102,35 @@ export function AddCalendarModal({
       throw new Error('Not authenticated. Please sign in again.');
     }
 
-    const response = await fetch(`${apiBaseUrl}/api/calendar-connections/mobile-token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
 
-    const data = await response.json();
-    if (!response.ok) {
-      // Throw with the error code so callers can check for specific errors
-      const err = new Error(data.message || data.error || 'Failed to connect calendar');
-      (err as Error & { code?: string }).code = data.error;
-      throw err;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/calendar-connections/mobile-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const err = new Error(data.message || data.error || 'Failed to connect calendar');
+        (err as Error & { code?: string }).code = data.error;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Connection timed out. Please try again.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    return data;
   };
 
   const handleAppleConnect = async (appleId: string, appPassword: string) => {
@@ -164,75 +146,6 @@ export function AddCalendarModal({
       onClose();
     } catch (error) {
       throw error; // Re-throw so AppleCalendarSetupModal can show the error
-    }
-  };
-
-  /**
-   * Handle EventKit (iPhone Calendar) connection.
-   * Requests permission, then saves a calendar entry client-side.
-   */
-  const handleEventKitConnect = async () => {
-    if (isConnecting) return;
-
-    try {
-      setIsConnecting('eventkit');
-
-      const granted = await requestCalendarPermission();
-      if (!granted) {
-        Alert.alert(
-          'We need calendar access',
-          'Head to Settings → Nekt and flip on calendar access',
-          [
-            { text: 'Never mind', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
-        return;
-      }
-
-      // Save calendar entry client-side (no server round-trip needed)
-      const schedulableHours = section === 'work'
-        ? WORK_SCHEDULABLE_HOURS
-        : PERSONAL_SCHEDULABLE_HOURS;
-
-      const newCalendar: Calendar = {
-        id: `eventkit-${section}-${Date.now()}`,
-        userId: session?.user?.id || '',
-        provider: 'apple',
-        accessMethod: 'eventkit',
-        email: userEmail,
-        section,
-        schedulableHours,
-        connectionStatus: 'connected',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const updatedCalendars = [
-        ...(profile?.calendars?.filter((cal) => cal.section !== section) || []),
-        newCalendar,
-      ];
-
-      await saveProfile({ calendars: updatedCalendars });
-
-      // Initial sync: upload device busy times to server for cross-user scheduling
-      const idToken = await getIdToken();
-      if (idToken && session?.user?.id) {
-        configureCalendarSync(session.user.id, idToken, getApiBaseUrl());
-        startCalendarChangeListener();
-        scheduleBackgroundCalendarSync();
-        syncDeviceBusyTimesNow().then((synced) => {
-          if (synced !== null) console.log(`[CalendarSync] Initial sync: ${synced} busy times`);
-        });
-      }
-
-      onCalendarAdded();
-      onClose();
-    } catch (error) {
-      console.error('[AddCalendarModal] EventKit connection error:', error);
-      Alert.alert('That didn\'t work', 'Calendar connection failed — give it another shot?');
-    } finally {
-      setIsConnecting(null);
     }
   };
 
@@ -260,8 +173,8 @@ export function AddCalendarModal({
     const callbackUrl = ExpoLinking.createURL('calendar-callback');
 
     const scope = provider === 'google'
-      ? 'https://www.googleapis.com/auth/calendar.readonly'
-      : 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/User.Read openid profile email offline_access';
+      ? 'https://www.googleapis.com/auth/calendar.events'
+      : 'https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access';
 
     const state = encodeURIComponent(JSON.stringify({
       userEmail,
@@ -280,6 +193,7 @@ export function AddCalendarModal({
       ...(provider === 'google' ? {
         access_type: 'offline',
         include_granted_scopes: 'true',
+        prompt: 'select_account',
       } : {}),
     });
 
@@ -302,8 +216,13 @@ export function AddCalendarModal({
       if (result.type === 'success' && result.url) {
         const queryString = result.url.split('?')[1] || '';
         const urlParams = new URLSearchParams(queryString);
-        const code = urlParams.get('code');
 
+        const oauthError = urlParams.get('error');
+        if (oauthError) {
+          throw new Error(`${provider} authorization failed: ${oauthError}`);
+        }
+
+        const code = urlParams.get('code');
         if (!code) {
           throw new Error('No authorization code received');
         }
@@ -366,31 +285,6 @@ export function AddCalendarModal({
         showCloseButton={false}
       >
         <View style={styles.buttonsContainer}>
-          {/* iPhone Calendar (EventKit) - primary option when available */}
-          {eventKitAvailable && (
-            <>
-              <Button
-                variant="white"
-                size="lg"
-                onPress={handleEventKitConnect}
-                disabled={isConnecting === 'eventkit'}
-                loading={isConnecting === 'eventkit'}
-                loadingText="Syncing up..."
-                icon={<IPhoneIcon />}
-                style={styles.providerButton}
-              >
-                iPhone Calendar
-              </Button>
-
-              {/* "or" divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-            </>
-          )}
-
           {/* Google Calendar */}
           <Button
             variant="white"
@@ -419,32 +313,27 @@ export function AddCalendarModal({
             Microsoft Calendar
           </Button>
 
-          {/* Apple CalDAV - only show in App Clip where EventKit is not available */}
-          {!eventKitAvailable && (
-            <Button
-              variant="white"
-              size="lg"
-              onPress={() => handleAddCalendar('apple')}
-              disabled={isConnecting === 'apple'}
-              loading={isConnecting === 'apple'}
-              loadingText="Connecting..."
-              icon={<AppleIcon />}
-              style={styles.providerButton}
-            >
-              Apple Calendar
-            </Button>
-          )}
+          {/* Apple CalDAV */}
+          <Button
+            variant="white"
+            size="lg"
+            onPress={() => handleAddCalendar('apple')}
+            disabled={isConnecting === 'apple'}
+            loading={isConnecting === 'apple'}
+            loadingText="Connecting..."
+            icon={<AppleIcon />}
+            style={styles.providerButton}
+          >
+            Apple Calendar
+          </Button>
         </View>
       </StandardModal>
 
-      {/* AppleCalendarSetupModal only needed for App Clip CalDAV fallback */}
-      {!eventKitAvailable && (
-        <AppleCalendarSetupModal
-          isOpen={showAppleModal}
-          onClose={() => setShowAppleModal(false)}
-          onConnect={handleAppleConnect}
-        />
-      )}
+      <AppleCalendarSetupModal
+        isOpen={showAppleModal}
+        onClose={() => setShowAppleModal(false)}
+        onConnect={handleAppleConnect}
+      />
     </>
   );
 }
@@ -455,22 +344,6 @@ const styles = StyleSheet.create({
   },
   providerButton: {
     width: '100%',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  dividerText: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    ...textSizes.sm,
-    ...fontStyles.regular,
-    marginHorizontal: 12,
   },
 });
 

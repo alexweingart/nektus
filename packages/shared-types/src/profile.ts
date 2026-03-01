@@ -43,7 +43,6 @@ export interface UserProfile {
   calendars?: Calendar[];       // Max 2: one personal, one work
   locations?: UserLocation[];   // Max 2: one personal, one work
   timezone?: string;            // User's timezone for scheduling
-  deviceBusyTimes?: DeviceBusyTimesCache;  // Cached EventKit busy times (synced from device)
 }
 
 // Unified bio and social generation types
@@ -76,13 +75,6 @@ export interface TimeSlot {
   end: string;
 }
 
-export interface DeviceBusyTimesCache {
-  slots: TimeSlot[];       // Busy time slots synced from device (EventKit)
-  updatedAt: number;       // Timestamp of last sync (ms since epoch)
-  windowStart: string;     // ISO date — start of the cached window
-  windowEnd: string;       // ISO date — end of the cached window
-}
-
 export interface SchedulableHours {
   monday: TimeSlot[];
   tuesday: TimeSlot[];
@@ -101,7 +93,7 @@ export interface Calendar {
   section: FieldSection;  // Changed from 'state' to match Nekt naming (no 'universal' for calendars)
   schedulableHours: SchedulableHours;
   connectionStatus?: 'connecting' | 'connected' | 'failed';
-  accessMethod?: 'oauth' | 'ics' | 'caldav' | 'eventkit';  // How we access this calendar (caldav for Apple, eventkit for iOS device calendars)
+  accessMethod?: 'oauth' | 'ics' | 'caldav';  // How we access this calendar (caldav for Apple)
   icsUrl?: string;  // ICS feed URL if using ICS access
   lastError?: string;  // Track ICS fetch errors
   selectedCalendarIds?: string[];  // For Google: which specific calendars to include

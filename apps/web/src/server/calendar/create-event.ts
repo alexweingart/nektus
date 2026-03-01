@@ -228,6 +228,7 @@ export async function createAppleCalDavEvent(
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Nekt//Calendar//EN',
+    'METHOD:REQUEST',
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${dtstart}`,
@@ -236,6 +237,8 @@ export async function createAppleCalDavEvent(
     `SUMMARY:${params.title}`,
     params.description ? `DESCRIPTION:${params.description.replace(/\n/g, '\\n')}` : '',
     params.location ? `LOCATION:${params.location}` : '',
+    `ORGANIZER;CN=${appleId}:mailto:${appleId}`,
+    params.attendeeEmail ? `ATTENDEE;CN=${params.attendeeEmail};RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:${params.attendeeEmail}` : '',
     'END:VEVENT',
     'END:VCALENDAR',
   ].filter(Boolean).join('\r\n');
@@ -335,6 +338,46 @@ export async function updateMicrosoftCalendarEvent(
     const text = await response.text();
     throw new Error(`Microsoft PATCH error ${response.status}: ${text}`);
   }
+}
+
+export async function updateAppleCalDavEvent(
+  appleId: string,
+  appSpecificPassword: string,
+  eventId: string,
+  attendeeEmail: string
+): Promise<void> {
+  const { DAVClient } = await import('tsdav');
+
+  const client = new DAVClient({
+    serverUrl: 'https://caldav.icloud.com',
+    credentials: { username: appleId, password: appSpecificPassword },
+    authMethod: 'Basic',
+    defaultAccountType: 'caldav',
+  });
+
+  await client.login();
+  const calendars = await client.fetchCalendars();
+
+  // Search all calendars for the event
+  for (const calendar of calendars) {
+    const objects = await client.fetchCalendarObjects({ calendar });
+    const match = objects.find(obj => obj.data?.includes(eventId));
+    if (!match || !match.data) continue;
+
+    // Add ATTENDEE line before END:VEVENT
+    const attendeeLine = `ATTENDEE;CN=${attendeeEmail};RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:${attendeeEmail}`;
+    const updatedData = match.data.replace(
+      'END:VEVENT',
+      `${attendeeLine}\r\nEND:VEVENT`
+    );
+
+    await client.updateCalendarObject({
+      calendarObject: { ...match, data: updatedData },
+    });
+    return;
+  }
+
+  throw new Error('CalDAV event not found');
 }
 
 // ============================================================================
@@ -535,11 +578,11 @@ export async function createScheduledEvent(
       const emailResult = await sendEventNotification({
         toEmail: attendeeEmail,
         organizerName,
+        organizerShortCode: organizerProfile.shortCode,
         eventTitle,
         dateString,
-        timeString: `${startTimeStr} - ${endTimeStr}`,
+        timeString: startTimeStr,
         locationName: location?.split(',')[0],
-        locationAddress,
         inviteCode,
       });
 

@@ -28,7 +28,8 @@ import { CalendarView } from "./src/app/components/views/CalendarView";
 import { LocationView } from "./src/app/components/views/LocationView";
 import { SmartScheduleView } from "./src/app/components/views/SmartScheduleView";
 import { AIScheduleView } from "./src/app/components/views/AIScheduleView";
-import { useCalendarSync } from "./src/client/hooks/use-calendar-sync";
+import { InviteView } from "./src/app/components/views/InviteView";
+
 
 // Keep the splash screen visible while we fetch resources
 SplashScreenModule.preventAutoHideAsync();
@@ -49,8 +50,9 @@ export type RootStackParamList = {
   // Phase 2: Scheduling
   Calendar: { section: 'personal' | 'work' };
   Location: { section: 'personal' | 'work' };
-  SmartSchedule: { contactUserId: string; backgroundColors?: string[]; contactProfile?: any };
+  SmartSchedule: { contactUserId: string; backgroundColors?: string[]; contactProfile?: any; freshCalendar?: boolean };
   AISchedule: { contactUserId: string; backgroundColors?: string[]; savedContact?: any; autoFocus?: boolean };
+  Invite: { code: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -87,6 +89,7 @@ const linking: LinkingOptions<RootStackParamList> = {
       Location: 'location/:section',
       SmartSchedule: 'schedule/:contactUserId',
       AISchedule: 'ai-schedule/:contactUserId',
+      Invite: 'i/:code',
     },
   },
 };
@@ -96,9 +99,6 @@ function AppContent() {
   const { status } = useSession();
   const { needsSetup, isLoading: profileLoading } = useProfile();
   const [appIsReady, setAppIsReady] = useState(false);
-
-  // Sync EventKit busy times to server for cross-user scheduling
-  useCalendarSync();
 
   // Determine if loading
   const isLoading = status === "loading" || (status === "authenticated" && profileLoading);
@@ -171,6 +171,7 @@ function AppContent() {
                     <Stack.Screen name="Location" component={LocationView} />
                     <Stack.Screen name="SmartSchedule" component={SmartScheduleView} />
                     <Stack.Screen name="AISchedule" component={AIScheduleView} />
+                    <Stack.Screen name="Invite" component={InviteView} />
                     <Stack.Screen name="Privacy" component={PrivacyView} />
                     <Stack.Screen name="Terms" component={TermsView} />
                   </>

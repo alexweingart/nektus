@@ -27,8 +27,7 @@ import {
   buildCalendarEventDescription,
 } from '@nektus/shared-client';
 import { getIdToken } from '../../../client/auth/firebase';
-import { createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
-import { getEventKitBusyTimesForProfile } from '../../../client/calendar/eventkit-helpers';
+import { openMessagingApp } from '../../../client/contacts/messaging';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { useSession } from '../../providers/SessionProvider';
 import { useProfile } from '../../context/ProfileContext';
@@ -150,6 +149,7 @@ export function SmartScheduleView() {
 
   const isColdStart = useRef(true);
   const skipCacheOnRefresh = useRef(false);
+  const isFetchingRef = useRef(false);
   const [contactProfile, setContactProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'personal' | 'work'>('personal');
@@ -162,6 +162,10 @@ export function SmartScheduleView() {
     subtitle: string;
     eventId: string;
     startDate: Date;
+    contactName?: string;
+    contactPhone?: string;
+    inviteCode?: string;
+    calendarEventUrl?: string;
   } | null>(null);
 
   // Emit background colors immediately from nav params
@@ -220,17 +224,20 @@ export function SmartScheduleView() {
 
   // Fetch suggested times
   const fetchSuggestedTimes = useCallback(async () => {
-    if (!session?.user?.id || !contactProfile || !currentUserProfile) return;
+    if (!session?.user?.id || !contactProfile || !currentUserProfile) {
+      console.log(`[SmartSchedule] ⏭️ Skipping fetch — session=${!!session?.user?.id} contact=${!!contactProfile} profile=${!!currentUserProfile}`);
+      return;
+    }
+    if (isFetchingRef.current) return; // Prevent concurrent fetches
+    isFetchingRef.current = true;
 
     setLoadingTimes(true);
+    const t0 = Date.now();
+    console.log(`[SmartSchedule] 🚀 Starting fetch → ${apiBaseUrl}/api/scheduling/common-times`);
 
     try {
       const idToken = await getIdToken();
       if (!idToken) throw new Error('No auth token');
-
-      // Timeout after 30s to avoid stuck loading state (calendar API can be slow on cold start)
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(`${apiBaseUrl}/api/scheduling/common-times`, {
         method: 'POST',
@@ -244,20 +251,18 @@ export function SmartScheduleView() {
           calendarType: section,
           duration: 30,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
           ...(isColdStart.current || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
-        signal: controller.signal,
       });
-      clearTimeout(timeout);
 
+      console.log(`[SmartSchedule] Response: ${response.status} (${Date.now() - t0}ms)`);
       isColdStart.current = false;
       skipCacheOnRefresh.current = false;
 
       if (response.ok) {
         const data = await response.json();
         const commonSlots: TimeSlot[] = data.slots || [];
-        console.log(`[SmartScheduleView] API returned ${commonSlots.length} common slots`);
+        console.log(`[SmartSchedule] ✅ ${commonSlots.length} common slots (${Date.now() - t0}ms)`);
 
         // Process slots using template-aware scheduling (preferred hours, middle-time, travel buffers)
         const templateIds = SUGGESTION_CHIPS.map(chip => chip.eventId);
@@ -269,14 +274,18 @@ export function SmartScheduleView() {
           times[chip.id] = templateTimes[chip.eventId] || null;
         });
 
+        // Log which chips got times vs null
+        const withTime = Object.values(times).filter(t => t !== null).length;
+        console.log(`[SmartSchedule] Chips: ${withTime}/${Object.keys(times).length} have suggested times`);
+
         setSuggestedTimes(times);
       } else {
         const errorBody = await response.text().catch(() => 'unknown');
-        console.warn(`[SmartScheduleView] API returned ${response.status}: ${errorBody}`);
+        console.warn(`[SmartSchedule] ❌ API ${response.status}: ${errorBody} (${Date.now() - t0}ms)`);
         throw new Error(`API call failed: ${response.status}`);
       }
     } catch (error) {
-      console.warn('[SmartScheduleView] Error fetching suggested times:', error);
+      console.warn(`[SmartSchedule] ❌ Error (${Date.now() - t0}ms):`, error);
       const errorTimes: Record<string, TimeSlot | null> = {};
       SUGGESTION_CHIPS.forEach(chip => {
         errorTimes[chip.id] = null;
@@ -284,6 +293,7 @@ export function SmartScheduleView() {
       setSuggestedTimes(errorTimes);
     } finally {
       setLoadingTimes(false);
+      isFetchingRef.current = false;
     }
   }, [session, contactProfile, currentUserProfile, section, SUGGESTION_CHIPS, apiBaseUrl]);
 
@@ -292,6 +302,7 @@ export function SmartScheduleView() {
     onRefresh: async () => {
       if (currentUserProfile && contactProfile) {
         skipCacheOnRefresh.current = true;
+        isFetchingRef.current = false; // Allow refresh to re-fetch
         setSuggestedTimes({});
         await fetchSuggestedTimes();
       }
@@ -390,7 +401,7 @@ export function SmartScheduleView() {
     }
   }, [suggestedTimes, fetchPlaces]);
 
-  // Handle chip click - open calendar event composer
+  // Handle chip click - create calendar event
   const handleChipClick = useCallback(async (chip: SuggestionChip) => {
     if (!currentUserProfile || !contactProfile || !session?.user) return;
 
@@ -400,102 +411,117 @@ export function SmartScheduleView() {
     const existingTime = suggestedTimes[chip.id];
     const hasCheckedChip = chip.id in suggestedTimes;
 
-    if (hasCheckedChip) {
-      if (existingTime) {
-        const contactName = getFieldValue(contactProfile.contactEntries, 'name');
-        const contactEmail = getFieldValue(contactProfile.contactEntries, 'email');
-        const startDate = new Date(existingTime.start);
-        const endDate = new Date(existingTime.end);
-        const place = chipPlaces[chip.id];
+    if (!hasCheckedChip || !existingTime) return; // Still loading or no time
 
-        const title = `${eventTemplate.title} with ${contactName}`;
-        const location = (eventTemplate.eventType === 'in-person' && place) ? place.name : '';
-        const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
+    const contactName = getFieldValue(contactProfile.contactEntries, 'name');
+    const contactEmail = getFieldValue(contactProfile.contactEntries, 'email');
+    const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
+    const startDate = new Date(existingTime.start);
+    const endDate = new Date(existingTime.end);
+    const place = chipPlaces[chip.id];
 
-        // Generate standardized description with Nekt branding
-        const description = buildCalendarEventDescription({
-          eventType: eventTemplate.eventType,
-          contactName,
-          travelBuffer: eventTemplate.travelBuffer,
-          actualStart: startDate,
-          actualEnd: endDate,
-          placeName: place?.name,
-          organizerName: currentUserName || undefined,
-          shortCode: currentUserProfile.shortCode,
+    const title = `${eventTemplate.title} with ${contactName}`;
+    const location = (eventTemplate.eventType === 'in-person' && place) ? place.name : '';
+    const currentUserName = getFieldValue(currentUserProfile.contactEntries, 'name');
+
+    const description = buildCalendarEventDescription({
+      eventType: eventTemplate.eventType,
+      contactName,
+      placeName: place?.name,
+      organizerName: currentUserName || undefined,
+      shortCode: currentUserProfile.shortCode,
+    });
+
+    const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
+    const provider = userCalendar?.provider || 'google';
+
+    // Google/Microsoft/Apple with write scope: use API
+    if (userCalendar?.calendarWriteScope) {
+      try {
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('Not authenticated');
+
+        const response = await fetch(`${apiBaseUrl}/api/scheduling/create-event`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            attendeeId: contactProfile.userId,
+            eventTitle: title,
+            eventDescription: description,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            location: place ? `${place.name}${place.address ? `, ${place.address}` : ''}` : undefined,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            calendarSection: section,
+            travelBuffer: eventTemplate.travelBuffer,
+          }),
         });
 
-        // Determine user's calendar access method for this section
-        const userCalendar = currentUserProfile.calendars?.find(cal => cal.section === section);
-        const accessMethod = userCalendar?.accessMethod;
-        const provider = userCalendar?.provider || 'google';
+        if (response.ok) {
+          const result = await response.json();
 
-        // EventKit: create event directly on device
-        if (accessMethod === 'eventkit') {
-          try {
-            const eventId = await createCalendarEvent({
-              title,
-              startDate,
-              endDate,
-              location: location || undefined,
-              notes: description,
-            });
-            setCreatedEventModal({
-              visible: true,
-              title: 'Added to Calendar',
-              subtitle: `${title} — ${formatTimeSlot(existingTime, eventTemplate.duration)}`,
-              eventId,
-              startDate,
-            });
-          } catch (error) {
-            console.error('[SmartSchedule] EventKit create failed:', error);
-            Alert.alert('Error', 'Failed to create calendar event. Please try again.');
-          }
-          return;
-        }
+          let subtitle = `${title} — ${formatTimeSlot(existingTime, eventTemplate.duration)}`;
+          if (result.addedToRecipient) subtitle += `\nInvite sent to ${contactName}!`;
+          else if (result.notificationSent) subtitle += `\nNotification sent to ${contactName}!`;
 
-        const formatDateForGoogle = (d: Date) =>
-          d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
-        let calendarUrl: string;
-        if (provider === 'microsoft') {
-          const params = new URLSearchParams({
-            subject: title,
-            startdt: startDate.toISOString(),
-            enddt: endDate.toISOString(),
-            location,
-            body: description,
-            path: '/calendar/action/compose',
-            rru: 'addevent',
+          setCreatedEventModal({
+            visible: true,
+            title: 'Added to Calendar',
+            subtitle,
+            eventId: result.calendarEventId,
+            startDate,
+            contactName: contactName || undefined,
+            contactPhone: contactPhone || undefined,
+            inviteCode: result.inviteCode,
+            calendarEventUrl: result.calendarEventUrl,
           });
-          if (contactEmail) params.append('to', contactEmail);
-          calendarUrl = `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
-        } else {
-          // Google (default fallback for all providers including apple)
-          const params = new URLSearchParams({
-            action: 'TEMPLATE',
-            text: title,
-            dates: `${formatDateForGoogle(startDate)}/${formatDateForGoogle(endDate)}`,
-            location,
-            details: description,
-          });
-          if (contactEmail) params.append('add', contactEmail);
-          calendarUrl = `https://calendar.google.com/calendar/render?${params.toString()}`;
+          return; // Success
         }
-
-        Linking.openURL(calendarUrl).catch(() => {
-          Alert.alert(
-            'Add to Calendar',
-            `${eventTemplate.title} with ${contactName}\n${formatTimeSlot(existingTime, eventTemplate.duration)}`,
-            [{ text: 'OK' }]
-          );
-        });
-      } else {
-        // No available time — chip subtitle already shows the state, no-op
+      } catch (err) {
+        console.warn('[SmartSchedule] API creation failed, falling back to URL:', err);
       }
-    } else {
-      // Data still loading — ignore tap
     }
-  }, [currentUserProfile, contactProfile, session, suggestedTimes, chipPlaces, section]);
+
+    // Fallback: open calendar URL
+    const formatDateForGoogle = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+    let calendarUrl: string;
+    if (provider === 'microsoft') {
+      const params = new URLSearchParams({
+        subject: title,
+        startdt: startDate.toISOString(),
+        enddt: endDate.toISOString(),
+        location,
+        body: description,
+        path: '/calendar/action/compose',
+        rru: 'addevent',
+      });
+      if (contactEmail) params.append('to', contactEmail);
+      calendarUrl = `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+    } else {
+      const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: title,
+        dates: `${formatDateForGoogle(startDate)}/${formatDateForGoogle(endDate)}`,
+        location,
+        details: description,
+      });
+      if (contactEmail) params.append('add', contactEmail);
+      calendarUrl = `https://calendar.google.com/calendar/render?${params.toString()}`;
+    }
+
+    Linking.openURL(calendarUrl).catch(() => {
+      Alert.alert(
+        'Add to Calendar',
+        `${eventTemplate.title} with ${contactName}\n${formatTimeSlot(existingTime, eventTemplate.duration)}`,
+        [{ text: 'OK' }]
+      );
+    });
+  }, [currentUserProfile, contactProfile, session, suggestedTimes, chipPlaces, section, apiBaseUrl]);
 
   // Navigate to AI Schedule view
   const handleCustomTimePlace = useCallback(() => {
@@ -582,21 +608,38 @@ export function SmartScheduleView() {
           </Button>
         </ScrollView>
 
-        {/* EventKit success modal */}
+        {/* Success modal */}
         {createdEventModal && (
           <StandardModal
             isOpen={createdEventModal.visible}
             onClose={() => setCreatedEventModal(null)}
-            title="You're on the books ✓"
+            title="Added to Calendar \u2713"
             subtitle={createdEventModal.subtitle}
-            primaryButtonText="See it in my calendar"
+            primaryButtonText={createdEventModal.contactPhone
+              ? `Text invite to ${createdEventModal.contactName || 'contact'}`
+              : 'View Event'}
             onPrimaryButtonClick={async () => {
-              await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
+              if (createdEventModal.contactPhone) {
+                const inviteUrl = createdEventModal.inviteCode ? `nekt.us/i/${createdEventModal.inviteCode}` : '';
+                const message = `Hey ${createdEventModal.contactName || ''}! Here are the details for our hangout: ${inviteUrl}`;
+                await openMessagingApp(message, createdEventModal.contactPhone);
+              } else if (createdEventModal.calendarEventUrl) {
+                Linking.openURL(createdEventModal.calendarEventUrl);
+              } else {
+                // No web URL available — just close the modal
+              }
               setCreatedEventModal(null);
             }}
-            secondaryButtonText="Nice"
-            onSecondaryButtonClick={() => setCreatedEventModal(null)}
-            showCloseButton={false}
+            secondaryButtonText={createdEventModal.contactPhone ? 'View Event' : 'Done'}
+            onSecondaryButtonClick={async () => {
+              if (createdEventModal.contactPhone && createdEventModal.calendarEventUrl) {
+                Linking.openURL(createdEventModal.calendarEventUrl);
+              } else if (createdEventModal.contactPhone) {
+                // No web URL available — just close the modal
+              }
+              setCreatedEventModal(null);
+            }}
+            showCloseButton={true}
           />
         )}
       </View>

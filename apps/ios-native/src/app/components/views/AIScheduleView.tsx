@@ -33,8 +33,7 @@ import { ClientProfileService } from '../../../client/firebase/firebase-save';
 import { getApiBaseUrl, getIdToken, getCurrentUser } from '../../../client/auth/firebase';
 import { getFieldValue, formatLocationString } from '@nektus/shared-client';
 import type { Event, TimeSlot } from '@nektus/shared-types';
-import { createCalendarEvent, openEventInCalendar } from '../../../client/calendar/eventkit-service';
-import { getEventKitBusyTimesForProfile } from '../../../client/calendar/eventkit-helpers';
+import { openMessagingApp } from '../../../client/contacts/messaging';
 import { StandardModal } from '../ui/modals/StandardModal';
 import { PageHeader } from '../ui/layout/PageHeader';
 import { ScreenTransition, useGoBackWithFade } from '../ui/layout/ScreenTransition';
@@ -79,6 +78,10 @@ export function AIScheduleView() {
     subtitle: string;
     eventId: string;
     startDate: Date;
+    contactName?: string;
+    contactPhone?: string;
+    inviteCode?: string;
+    calendarEventUrl?: string;
   } | null>(null);
 
   // Emit background colors immediately from nav params
@@ -154,7 +157,6 @@ export function AIScheduleView() {
           user2Id: contactUserId,
           duration: 30,
           calendarType: contactType,
-          ...(await getEventKitBusyTimesForProfile(currentUserProfile)),
           ...(isColdStart.current || skipCacheOnRefresh.current ? { skipCache: true } : {}),
         }),
       });
@@ -377,46 +379,71 @@ export function AIScheduleView() {
   }, [input, currentUserProfile, contactProfile, session, conversationHistory, contactUserId, contactType, sendStreamingRequest, apiBaseUrl]);
 
   const handleScheduleEvent = useCallback(async (event: Event) => {
-    // Determine user's calendar access method for this section
     const userCalendar = currentUserProfile?.calendars?.find(cal => cal.section === contactType);
-    const accessMethod = userCalendar?.accessMethod;
 
-    // EventKit: create event directly on device
-    if (accessMethod === 'eventkit') {
-      const startDate = event.startTime ? new Date(event.startTime) : null;
-      const endDate = event.endTime ? new Date(event.endTime) : null;
-      if (!startDate || !endDate) {
-        Alert.alert('Error', 'Event is missing start or end time.');
-        return;
-      }
-
+    // Google / Microsoft / Apple with write scope: use API
+    if (userCalendar?.calendarWriteScope && contactProfile) {
       try {
-        const eventId = await createCalendarEvent({
-          title: event.title,
-          startDate,
-          endDate,
-          location: event.location || undefined,
-          notes: event.description || undefined,
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('Not authenticated');
+
+        const response = await fetch(`${apiBaseUrl}/api/scheduling/create-event`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            attendeeId: contactProfile.userId,
+            eventTitle: event.title,
+            eventDescription: event.description || '',
+            startTime: event.startTime,
+            endTime: event.endTime,
+            location: event.location,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            calendarSection: contactType,
+            travelBuffer: event.travelBuffer,
+          }),
         });
 
-        const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const dayStr = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+        if (response.ok) {
+          const result = await response.json();
 
-        setCreatedEventModal({
-          visible: true,
-          title: 'Added to Calendar',
-          subtitle: `${event.title} — ${dayStr} • ${timeStr} (${event.duration} min)`,
-          eventId,
-          startDate,
-        });
-      } catch (error) {
-        console.error('[AISchedule] EventKit create failed:', error);
-        Alert.alert('Error', 'Failed to create calendar event. Please try again.');
+          // Update event with API result
+          event.calendarEventUrl = result.calendarEventUrl;
+          event.calendarEventId = result.calendarEventId;
+          event.inviteCode = result.inviteCode;
+          event.addedToRecipient = result.addedToRecipient;
+
+          const startDate = new Date(event.startTime!);
+          const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const dayStr = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
+          const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
+
+          let subtitle = `${event.title} — ${dayStr} \u2022 ${timeStr} (${event.duration} min)`;
+          if (result.addedToRecipient) subtitle += `\nInvite sent to ${contactName}!`;
+          else if (result.notificationSent) subtitle += `\nNotification sent to ${contactName}!`;
+
+          setCreatedEventModal({
+            visible: true,
+            title: 'Added to Calendar',
+            subtitle,
+            eventId: result.calendarEventId,
+            startDate,
+            contactName: contactName || undefined,
+            contactPhone: contactPhone || undefined,
+            inviteCode: result.inviteCode,
+            calendarEventUrl: result.calendarEventUrl,
+          });
+          return; // Success
+        }
+      } catch (err) {
+        console.warn('[AISchedule] API creation failed, falling back to URL:', err);
       }
-      return;
     }
 
-    // Google / Microsoft: open web URL
+    // Fallback: open calendar URL
     if (!event.calendar_urls) return;
 
     const provider = userCalendar?.provider || 'google';
@@ -426,7 +453,7 @@ export function AIScheduleView() {
 
     if (!calendarUrl) return;
     Linking.openURL(calendarUrl);
-  }, [currentUserProfile, contactType]);
+  }, [currentUserProfile, contactProfile, contactType, apiBaseUrl]);
 
   if (loading || !contactProfile || !currentUserProfile) {
     return (
@@ -474,21 +501,38 @@ export function AIScheduleView() {
           keyboardHeight={keyboardHeight}
         />
 
-        {/* EventKit success modal */}
+        {/* Success modal */}
         {createdEventModal && (
           <StandardModal
             isOpen={createdEventModal.visible}
             onClose={() => setCreatedEventModal(null)}
-            title="Added to Calendar ✓"
+            title="Added to Calendar \u2713"
             subtitle={createdEventModal.subtitle}
-            primaryButtonText="View Event"
+            primaryButtonText={createdEventModal.contactPhone
+              ? `Text invite to ${createdEventModal.contactName || 'contact'}`
+              : 'View Event'}
             onPrimaryButtonClick={async () => {
-              await openEventInCalendar(createdEventModal.eventId, createdEventModal.startDate);
+              if (createdEventModal.contactPhone) {
+                const inviteUrl = createdEventModal.inviteCode ? `nekt.us/i/${createdEventModal.inviteCode}` : '';
+                const message = `Hey ${createdEventModal.contactName || ''}! Here are the details for our hangout: ${inviteUrl}`;
+                await openMessagingApp(message, createdEventModal.contactPhone);
+              } else if (createdEventModal.calendarEventUrl) {
+                Linking.openURL(createdEventModal.calendarEventUrl);
+              } else {
+                // No web URL available — just close the modal
+              }
               setCreatedEventModal(null);
             }}
-            secondaryButtonText="Done"
-            onSecondaryButtonClick={() => setCreatedEventModal(null)}
-            showCloseButton={false}
+            secondaryButtonText={createdEventModal.contactPhone ? 'View Event' : 'Done'}
+            onSecondaryButtonClick={async () => {
+              if (createdEventModal.contactPhone && createdEventModal.calendarEventUrl) {
+                Linking.openURL(createdEventModal.calendarEventUrl);
+              } else if (createdEventModal.contactPhone) {
+                // No web URL available — just close the modal
+              }
+              setCreatedEventModal(null);
+            }}
+            showCloseButton={true}
           />
         )}
       </View>

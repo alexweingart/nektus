@@ -29,7 +29,6 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Nekt needs access to your photos to set your profile picture",
-        "NSCalendarsUsageDescription": "Nekt reads your calendar to find available meeting times. No event details are stored.",
         "NSBluetoothAlwaysUsageDescription": "Nekt uses Bluetooth to discover nearby friends for contact exchange",
         "NSBluetoothPeripheralUsageDescription": "Nekt uses Bluetooth to share your contact info with nearby friends",
         "CFBundleURLTypes": [
@@ -39,8 +38,6 @@
             ]
           }
         ],
-        "UIBackgroundModes": ["fetch"],
-        "BGTaskSchedulerPermittedIdentifiers": ["com.nektus.app.calendar-sync"],
         "LSApplicationQueriesSchemes": [
           "tel",
           "mailto",
@@ -77,12 +74,6 @@
         }
       ],
       "expo-apple-authentication",
-      [
-        "expo-calendar",
-        {
-          "calendarPermission": "Nekt reads your calendar to find available meeting times. No event details are stored."
-        }
-      ],
       [
         "expo-image-picker",
         {
@@ -123,7 +114,6 @@
             "expo-keep-awake",
             "react-native-qrcode-svg",
             "react-native-markdown-display",
-            "expo-calendar",
             "react-native-ble-plx"
           ]
         }

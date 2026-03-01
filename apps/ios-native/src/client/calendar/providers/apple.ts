@@ -2,10 +2,7 @@
  * Apple Calendar Provider for iOS
  * Adapted from: apps/web/src/client/calendar/providers/apple.ts
  *
- * Changes from web:
- * - iOS can use EventKit for native calendar access (future enhancement)
- * - For now, uses backend CalDAV API for iCloud calendar
- * - Generates ICS files for calendar event creation
+ * Uses backend CalDAV API for iCloud calendar read/write.
  */
 
 import { getApiBaseUrl } from '../../auth/firebase';

@@ -183,8 +183,8 @@ export function SelectedSections({
             {calendar ? (
               <ItemChip
                 icon={<CalendarIcon />}
-                title={calendar.accessMethod === 'eventkit' ? 'iPhone Calendar' : `${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
-                subtitle={calendar.accessMethod === 'eventkit' ? 'All calendars on your iPhone' : calendar.email}
+                title={`${calendar.provider.charAt(0).toUpperCase() + calendar.provider.slice(1)} Calendar`}
+                subtitle={calendar.email}
                 onPress={handleCalendarPress}
                 onActionClick={() => handleDeleteCalendar(sectionName)}
                 actionIcon="trash"
