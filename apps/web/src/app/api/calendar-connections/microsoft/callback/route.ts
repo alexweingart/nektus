@@ -33,21 +33,25 @@ export async function GET(request: NextRequest) {
       console.error('[Microsoft OAuth] Failed to parse state:', state, e);
     }
 
-    // iOS app: handle all responses by redirecting back to the app via custom URL scheme
+    // iOS app: handle all responses by redirecting back to the app via custom URL scheme.
+    // Use an HTML page with JS redirect instead of a bare 302 — ASWebAuthenticationSession
+    // can miss a 302 to a custom scheme if the redirect happens before the session is ready.
     if (stateData?.platform === 'ios' && stateData?.appCallbackUrl) {
+      let appRedirect: string;
       if (error) {
         console.error(`[Microsoft OAuth] iOS error: ${error}`);
-        const appRedirect = `${stateData.appCallbackUrl}?error=${encodeURIComponent(error)}&provider=microsoft`;
-        return new Response(null, { status: 302, headers: { Location: appRedirect } });
-      }
-      if (code) {
+        appRedirect = `${stateData.appCallbackUrl}?error=${encodeURIComponent(error)}&provider=microsoft`;
+      } else if (code) {
         console.log(`[Microsoft OAuth] iOS redirect: sending code back to app`);
-        const appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
-        return new Response(null, { status: 302, headers: { Location: appRedirect } });
+        appRedirect = `${stateData.appCallbackUrl}?code=${encodeURIComponent(code)}&provider=microsoft`;
+      } else {
+        console.error(`[Microsoft OAuth] iOS: no code or error in callback`);
+        appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=microsoft`;
       }
-      console.error(`[Microsoft OAuth] iOS: no code or error in callback`);
-      const appRedirect = `${stateData.appCallbackUrl}?error=missing_code&provider=microsoft`;
-      return new Response(null, { status: 302, headers: { Location: appRedirect } });
+      return new Response(
+        `<html><head><meta http-equiv="refresh" content="0;url=${appRedirect}"></head><body><script>window.location.href="${appRedirect}";</script></body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      );
     }
 
     const session = await getServerSession(authOptions);

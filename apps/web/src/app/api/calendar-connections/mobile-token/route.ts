@@ -174,14 +174,14 @@ export async function POST(request: NextRequest) {
           console.warn('[mobile-token] Google: no refresh token received (re-authorization). Calendar will work until token expires.');
         }
 
-        // Get user email from Google userinfo
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        // Get user email from Calendar API (primary calendar ID = email)
+        const calResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
 
-        if (userInfoResponse.ok) {
-          const userInfo = await userInfoResponse.json();
-          calendarEmail = userInfo.email || calendarEmail;
+        if (calResponse.ok) {
+          const calData = await calResponse.json();
+          calendarEmail = calData.id || calendarEmail;
         }
       } else {
         // Microsoft
