@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		028938C2D56BA672C87BB1E3 /* NektWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DADAF0987C12BD37CBF42864 /* NektWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		08499DD75B478F087313B699 /* CalendarSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 3712FAAB227834D671F66140 /* CalendarSyncBridge.m */; };
+
 		0E67DA430BB342B287AC9199 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FFB31CCB5D409082F3ED3D /* AppDelegate.swift */; };
 		1227CAB069ABDB2903D87013 /* BLEPeripheralModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCF253C0A81D090B4CC8807 /* BLEPeripheralModule.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
@@ -28,11 +28,10 @@
 		C422021100BE4AD7A7DBC199 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7FDE4945E3F14DC1ABB1A05A /* Expo.plist */; };
 		C5AC8D80859FE6A05768FFA6 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94654EB843C251BC941E989 /* ExpoModulesProvider.swift */; };
 		DA1205FE35CADCAB0408F93E /* libPods-Nekt.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 259EE502C4C1B1AA44333CE6 /* libPods-Nekt.a */; };
-		F0366564E448368AEDBFD8B8 /* CalendarSyncModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A8974946767F98FB8F91C0 /* CalendarSyncModule.swift */; };
+
 		F06D88A7786DA3F627678E41 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CD2A9E77C3DFEA8DC71BC972 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		F11748502E0000010044C1D9 /* EventKitViewerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748512E0000010044C1D9 /* EventKitViewerModule.swift */; };
-		F11748522E0000020044C1D9 /* EventKitViewerBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11748532E0000020044C1D9 /* EventKitViewerBridge.m */; };
+
 		F11748602E0100010044C1D9 /* MeCardModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748612E0100010044C1D9 /* MeCardModule.swift */; };
 		F11748622E0100020044C1D9 /* MeCardBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11748632E0100020044C1D9 /* MeCardBridge.m */; };
 /* End PBXBuildFile section */
@@ -89,7 +88,7 @@
 		259EE502C4C1B1AA44333CE6 /* libPods-Nekt.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Nekt.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B3A58FB87DC15E02256148A /* NektWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NektWidget.swift; path = NektWidget.swift; sourceTree = "<group>"; };
 		2D032BA9EBFD4077000D1992 /* BLEPeripheralBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BLEPeripheralBridge.m; path = Nekt/BLEPeripheralBridge.m; sourceTree = "<group>"; };
-		3712FAAB227834D671F66140 /* CalendarSyncBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CalendarSyncBridge.m; path = Nekt/CalendarSyncBridge.m; sourceTree = "<group>"; };
+
 		45E0CA310B8D8C1EAC6FFEDD /* NektWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = NektWidget.entitlements; path = NektWidget.entitlements; sourceTree = "<group>"; };
 		4B1D1684243EB9788FFEA21A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Assets.xcassets; sourceTree = "<group>"; };
 		61FFB31CCB5D409082F3ED3D /* AppDelegate.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -115,11 +114,10 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Nekt/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Nekt-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Nekt-Bridging-Header.h"; path = "Nekt/Nekt-Bridging-Header.h"; sourceTree = "<group>"; };
-		F11748512E0000010044C1D9 /* EventKitViewerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitViewerModule.swift; path = Nekt/EventKitViewerModule.swift; sourceTree = "<group>"; };
-		F11748532E0000020044C1D9 /* EventKitViewerBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = EventKitViewerBridge.m; path = Nekt/EventKitViewerBridge.m; sourceTree = "<group>"; };
+
 		F11748612E0100010044C1D9 /* MeCardModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeCardModule.swift; path = Nekt/MeCardModule.swift; sourceTree = "<group>"; };
 		F11748632E0100020044C1D9 /* MeCardBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = MeCardBridge.m; path = Nekt/MeCardBridge.m; sourceTree = "<group>"; };
-		F3A8974946767F98FB8F91C0 /* CalendarSyncModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarSyncModule.swift; path = Nekt/CalendarSyncModule.swift; sourceTree = "<group>"; };
+
 		F519C527F9AF4931CB559F1F /* Pods-Nekt.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nekt.release.xcconfig"; path = "Target Support Files/Pods-Nekt/Pods-Nekt.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -166,8 +164,7 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-				F11748512E0000010044C1D9 /* EventKitViewerModule.swift */,
-				F11748532E0000020044C1D9 /* EventKitViewerBridge.m */,
+
 				F11748612E0100010044C1D9 /* MeCardModule.swift */,
 				F11748632E0100020044C1D9 /* MeCardBridge.m */,
 				F11748442D0722820044C1D9 /* Nekt-Bridging-Header.h */,
@@ -177,8 +174,7 @@
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				D15AB5A4D1B0490FAD83F2B0 /* GoogleService-Info.plist */,
 				CD2A9E77C3DFEA8DC71BC972 /* PrivacyInfo.xcprivacy */,
-				3712FAAB227834D671F66140 /* CalendarSyncBridge.m */,
-				F3A8974946767F98FB8F91C0 /* CalendarSyncModule.swift */,
+
 				2D032BA9EBFD4077000D1992 /* BLEPeripheralBridge.m */,
 				7CCF253C0A81D090B4CC8807 /* BLEPeripheralModule.swift */,
 			);
@@ -700,13 +696,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				F11748502E0000010044C1D9 /* EventKitViewerModule.swift in Sources */,
-				F11748522E0000020044C1D9 /* EventKitViewerBridge.m in Sources */,
+
 				F11748602E0100010044C1D9 /* MeCardModule.swift in Sources */,
 				F11748622E0100020044C1D9 /* MeCardBridge.m in Sources */,
 				311C41919805AD810E2001F8 /* ExpoModulesProvider.swift in Sources */,
-				08499DD75B478F087313B699 /* CalendarSyncBridge.m in Sources */,
-				F0366564E448368AEDBFD8B8 /* CalendarSyncModule.swift in Sources */,
+
 				67C466469A68D8D81FA262FE /* BLEPeripheralBridge.m in Sources */,
 				1227CAB069ABDB2903D87013 /* BLEPeripheralModule.swift in Sources */,
 			);
