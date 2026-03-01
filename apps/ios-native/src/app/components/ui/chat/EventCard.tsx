@@ -1,16 +1,10 @@
 /**
  * EventCard component for iOS
  * Adapted from: apps/web/src/app/components/ui/chat/EventCard.tsx
- *
- * Changes from web:
- * - Replaced 'use client' with React Native imports
- * - Replaced div/className with View/StyleSheet
- * - Replaced web Button with iOS Button component
- * - Replaced Tailwind classes with StyleSheet
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Button } from '../buttons/Button';
 import type { Event } from '@nektus/shared-types';
@@ -40,6 +34,27 @@ const formatEventSubtitle = (event: Event): string => {
 };
 
 export function EventCard({ event, showCreateButton = false, onCreateEvent }: EventCardProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [isCreated, setIsCreated] = useState(!!event.calendarEventUrl);
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    try {
+      await onCreateEvent(event);
+      setIsCreated(true);
+    } catch {
+      // Fallback handled by parent
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleViewEvent = () => {
+    if (event.calendarEventUrl) {
+      Linking.openURL(event.calendarEventUrl);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <BlurView
@@ -53,14 +68,30 @@ export function EventCard({ event, showCreateButton = false, onCreateEvent }: Ev
           <Text style={styles.subtitle}>{formatEventSubtitle(event)}</Text>
         </View>
 
-        {showCreateButton && (
+        {showCreateButton && !isCreated && (
           <Button
             variant="white"
             size="md"
-            onPress={() => onCreateEvent(event)}
+            onPress={handleCreate}
+            style={styles.button}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <ActivityIndicator size="small" color="#374151" />
+            ) : (
+              <Text style={styles.buttonText}>Create Event</Text>
+            )}
+          </Button>
+        )}
+
+        {isCreated && event.calendarEventUrl && (
+          <Button
+            variant="white"
+            size="md"
+            onPress={handleViewEvent}
             style={styles.button}
           >
-            <Text style={styles.buttonText}>Create Event</Text>
+            <Text style={styles.buttonText}>View Event</Text>
           </Button>
         )}
       </View>

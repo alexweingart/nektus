@@ -181,7 +181,11 @@ export async function POST(request: NextRequest) {
 
         if (calResponse.ok) {
           const calData = await calResponse.json();
+          console.log('[mobile-token] Google calendars/primary response:', JSON.stringify({ id: calData.id, summary: calData.summary }));
           calendarEmail = calData.id || calendarEmail;
+        } else {
+          const errorText = await calResponse.text();
+          console.error('[mobile-token] Google calendars/primary failed:', calResponse.status, errorText.substring(0, 200));
         }
       } else {
         // Microsoft

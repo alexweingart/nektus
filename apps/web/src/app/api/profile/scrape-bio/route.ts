@@ -31,15 +31,67 @@ async function getUserId(req: NextRequest): Promise<string | null> {
 
 /**
  * Scrape bio from Instagram or LinkedIn public profile page.
- * Instagram: DuckDuckGo search (Instagram 429s all cloud IPs regardless of UA).
- * LinkedIn: direct scrape with browser UA.
+ * Instagram: Cloudflare Worker proxy (Instagram blocks all Vercel/AWS/GCP IPs).
+ * LinkedIn: direct scrape (cloud IPs aren't blocked).
  */
 async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: string): Promise<string | null> {
   if (platform === 'instagram') {
-    return scrapeInstagramBioViaSearch(username);
+    return scrapeInstagramBioViaWorker(username);
   }
 
   return scrapeLinkedInBio(username);
+}
+
+/**
+ * Scrape Instagram bio via Cloudflare Worker proxy.
+ * Instagram blocks ALL cloud provider IPs (Vercel, AWS, GCP) regardless of User-Agent.
+ * Cloudflare Workers run on CF's edge network which uses different IPs that aren't blocked.
+ */
+async function scrapeInstagramBioViaWorker(username: string): Promise<string | null> {
+  const workerUrl = process.env.CF_INSTAGRAM_WORKER_URL;
+  const workerKey = process.env.CF_INSTAGRAM_WORKER_KEY;
+
+  if (!workerUrl || !workerKey) {
+    console.error('[API/SCRAPE-BIO] Missing CF_INSTAGRAM_WORKER_URL or CF_INSTAGRAM_WORKER_KEY env vars');
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': workerKey,
+      },
+      body: JSON.stringify({ username }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.log(`[API/SCRAPE-BIO] CF Worker returned ${response.status} for ${username}`);
+      return null;
+    }
+
+    const result = await response.json() as { bio: string | null; success: boolean };
+    if (result.bio) {
+      console.log(`[API/SCRAPE-BIO] Got Instagram bio via CF Worker: "${result.bio.substring(0, 50)}..."`);
+    } else {
+      console.log(`[API/SCRAPE-BIO] CF Worker: no bio found for ${username}`);
+    }
+    return result.bio || null;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log(`[API/SCRAPE-BIO] CF Worker timeout for ${username}`);
+    } else {
+      console.error(`[API/SCRAPE-BIO] CF Worker error:`, error);
+    }
+    return null;
+  }
 }
 
 /**
@@ -79,65 +131,6 @@ async function scrapeLinkedInBio(username: string): Promise<string | null> {
       console.log(`[API/SCRAPE-BIO] Timeout scraping LinkedIn for ${username}`);
     } else {
       console.error(`[API/SCRAPE-BIO] Error scraping LinkedIn:`, error);
-    }
-    return null;
-  }
-}
-
-/**
- * Scrape Instagram bio via DuckDuckGo HTML lite search.
- * Instagram 429s ALL cloud IPs (Vercel/AWS/GCP) regardless of User-Agent.
- * DDG caches Instagram's meta description which contains the bio.
- */
-async function scrapeInstagramBioViaSearch(username: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const searchUrl = `https://html.duckduckgo.com/html/?q=site:instagram.com/${encodeURIComponent(username)}`;
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.log(`[API/SCRAPE-BIO] DDG returned ${response.status}`);
-      return null;
-    }
-
-    const html = await response.text();
-
-    // Check for bot detection
-    if (html.includes('anomaly') || html.includes('botnet')) {
-      console.log(`[API/SCRAPE-BIO] DDG bot detection triggered`);
-      return null;
-    }
-
-    // Decode HTML entities and strip all tags to get clean plain text
-    const plainText = decodeHtmlEntities(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-    console.log(`[API/SCRAPE-BIO] DDG plain text: ${plainText.length} chars`);
-
-    // Look for Instagram meta description pattern in the plain text
-    // Format: "Name (@user) on Instagram: "Bio text""
-    const bioMatch = plainText.match(/on Instagram:\s*"(.+?)"/);
-    if (bioMatch?.[1]?.trim()) {
-      console.log(`[API/SCRAPE-BIO] Found Instagram bio via DDG: "${bioMatch[1].trim().substring(0, 50)}..."`);
-      return bioMatch[1].trim();
-    }
-
-    console.log(`[API/SCRAPE-BIO] DDG: no bio found for ${username}`);
-    return null;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.log(`[API/SCRAPE-BIO] DDG timeout for ${username}`);
-    } else {
-      console.error(`[API/SCRAPE-BIO] DDG error:`, error);
     }
     return null;
   }
@@ -193,53 +186,6 @@ function extractLinkedInBio(html: string): string | null {
   }
 
   return null;
-}
-
-// TODO: Remove this debug endpoint after fixing Instagram scraping
-export async function GET(req: NextRequest) {
-  const username = req.nextUrl.searchParams.get('u') || 'ajweingart';
-
-  // Test DDG search from Vercel
-  const searchUrl = `https://html.duckduckgo.com/html/?q=site:instagram.com/${encodeURIComponent(username)}`;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    const html = await response.text();
-    const isBot = html.includes('anomaly') || html.includes('botnet');
-    const plainText = decodeHtmlEntities(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-    const bioMatch = plainText.match(/on Instagram:\s*"(.+?)"/);
-
-    // Find any Instagram-related context
-    const igIdx = plainText.indexOf('Instagram');
-    const igContext = igIdx >= 0 ? plainText.substring(Math.max(0, igIdx - 80), igIdx + 200).trim() : null;
-
-    return NextResponse.json({
-      debug: true,
-      source: 'ddg',
-      httpStatus: response.status,
-      htmlLength: html.length,
-      botDetected: isBot,
-      plainTextLength: plainText.length,
-      extractedBio: bioMatch?.[1]?.trim() || null,
-      instagramContext: igContext,
-      plainTextSnippet: plainText.substring(0, 500),
-    });
-  } catch (error) {
-    return NextResponse.json({ debug: true, error: String(error) });
-  }
 }
 
 export async function POST(req: NextRequest) {

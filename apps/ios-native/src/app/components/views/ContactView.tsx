@@ -30,6 +30,7 @@ import { saveContactFlow, MeCardData } from '../../../client/contacts/save';
 import { showAppStoreOverlay } from '../../../client/native/SKOverlayWrapper';
 import { generateMessageText } from '../../../client/contacts/messaging';
 import { useContactEnterAnimation } from '../../../client/hooks/use-exchange-animations';
+import { useSchedulingPreFetch } from '../../../client/hooks/use-scheduling-pre-fetch';
 import { emitMatchFound } from '../../utils/animationEvents';
 import { textSizes, fontStyles } from '../ui/Typography';
 
@@ -468,14 +469,24 @@ export function ContactView(props: ContactViewProps = {}) {
   }, [session?.user?.id, userProfile?.calendars, navigation, userId, profile]);
 
   // Handle calendar added from modal - navigate to smart schedule
+  // freshCalendar=true ensures SmartScheduleView skips Redis cache on first fetch
   const handleCalendarAdded = useCallback(() => {
     setShowAddCalendarModal(false);
     navigation?.navigate('SmartSchedule', {
       contactUserId: userId || profile?.userId || '',
       backgroundColors: profile?.backgroundColors,
       contactProfile: profile,
+      freshCalendar: true,
     });
   }, [navigation, userId, profile]);
+
+  // Pre-fetch common time slots for historical contacts (proactive caching for scheduling)
+  useSchedulingPreFetch({
+    isHistoricalMode,
+    sessionUserId: session?.user?.id,
+    profile: profile ?? undefined,
+    userCalendars: userProfile?.calendars,
+  });
 
   // Loading state
   if (isLoading) {

@@ -1,68 +1,54 @@
+import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { ServerProfileService } from '@/server/profile/create';
 
-function getResend() {
+export async function POST() {
+  // Only allow in development
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Dev only' }, { status: 403 });
+  }
+
   const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error('RESEND_API_KEY not configured');
-  return new Resend(key);
-}
+  if (!key) {
+    return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 });
+  }
 
-interface EventNotificationParams {
-  toEmail: string;
-  organizerName: string;
-  organizerShortCode?: string;
-  eventTitle: string;
-  dateString: string;        // e.g. "Tuesday, Mar 4"
-  timeString: string;        // e.g. "2:00 PM"
-  locationName?: string;
-  inviteCode: string;
-}
+  // Fetch real profile
+  const result = await ServerProfileService.findProfileByEmail("ajweingart@gmail.com");
+  const profile = result?.profile || null;
 
-export async function sendEventNotification(params: EventNotificationParams): Promise<{ success: boolean; error?: string }> {
-  const {
-    toEmail,
-    organizerName,
-    organizerShortCode,
-    eventTitle,
-    dateString,
-    timeString,
-    locationName,
-    inviteCode,
-  } = params;
+  const organizerFullName = profile?.contactEntries?.find(e => e.fieldType === 'name')?.value || "Alex Weingart";
+  const organizerFirstName = organizerFullName.split(' ')[0];
+  const organizerShortCode = profile?.shortCode || "demo";
 
-  const organizerFirstName = organizerName.split(' ')[0];
-  const inviteUrl = `https://nekt.us/i/${inviteCode}`;
-  const profileUrl = organizerShortCode ? `https://nekt.us/c/${organizerShortCode}` : 'https://nekt.us';
+  const eventTitle = "Coffee Chat";
+  const dateString = "Tuesday, Mar 4";
+  const timeString = "2:00 PM";
+  const locationName = "Blue Bottle Coffee";
+  const inviteUrl = "https://nekt.us/i/abc123";
+  const profileUrl = `https://nekt.us/c/${organizerShortCode}`;
 
-  // Compact date for preview text (e.g. "Tue 3/4")
-  const shortDate = (() => {
-    try {
-      // dateString is like "Tuesday, Mar 4" — extract abbreviated version
-      const parts = dateString.split(',');
-      const day = parts[0]?.substring(0, 3) || '';
-      const rest = parts[1]?.trim() || '';
-      // Convert "Mar 4" to "3/4"
-      const months: Record<string, string> = { Jan: '1', Feb: '2', Mar: '3', Apr: '4', May: '5', Jun: '6', Jul: '7', Aug: '8', Sep: '9', Oct: '10', Nov: '11', Dec: '12' };
-      const [month, date] = rest.split(' ');
-      const monthNum = months[month];
-      return monthNum ? `${day} ${monthNum}/${date}` : dateString;
-    } catch {
-      return dateString;
-    }
-  })();
+  // Inline SVG icons as data URIs (white, 16x16)
+  const icons = {
+    people: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 16 16"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/></svg>')}`,
+    calendar: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>')}`,
+    mapPin: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>')}`,
+  };
+  const iconImg = (src: string) => `<img src="${src}" width="16" height="16" style="vertical-align: middle; margin-right: 6px; display: inline-block;">`;
+
+  const mapsQuery = encodeURIComponent(locationName);
+  const mapsUrl = `https://maps.google.com/?q=${mapsQuery}`;
 
   const locationHtml = locationName
-    ? (() => {
-        const mapsQuery = encodeURIComponent(locationName);
-        const mapsUrl = `https://maps.google.com/?q=${mapsQuery}`;
-        return `
+    ? `
         <tr>
-          <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">📍 <a href="${mapsUrl}" style="color: #71E454; text-decoration: underline;">${locationName}</a></td>
-        </tr>`;
-      })()
+          <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">${iconImg(icons.mapPin)}<a href="${mapsUrl}" style="color: #71E454; text-decoration: underline;">${locationName}</a></td>
+        </tr>
+      `
     : '';
 
   const subject = `${eventTitle} with ${organizerFirstName} 🤝`;
-  const previewText = `${shortDate} at ${timeString}${locationName ? ` · ${locationName}` : ''}`;
+  const previewText = `Tue 3/4 at ${timeString} · ${locationName}`;
 
   const html = `
 <!DOCTYPE html>
@@ -112,10 +98,10 @@ export async function sendEventNotification(params: EventNotificationParams): Pr
                         <td style="padding-bottom: 4px; color: #ffffff; font-size: 24px; font-weight: 700;">${eventTitle}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">✨ <a href="${profileUrl}" style="color: #d1d5db; text-decoration: none;">${organizerName}</a> &amp; you</td>
+                        <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">${iconImg(icons.people)}<a href="${profileUrl}" style="color: #d1d5db; text-decoration: none;">${organizerFullName}</a> &amp; you</td>
                       </tr>
                       <tr>
-                        <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">📅 ${dateString} at ${timeString}</td>
+                        <td style="padding: 4px 0; color: #d1d5db; font-size: 16px;">${iconImg(icons.calendar)}${dateString} at ${timeString}</td>
                       </tr>
                       ${locationHtml}
                     </table>
@@ -155,22 +141,20 @@ export async function sendEventNotification(params: EventNotificationParams): Pr
   `.trim();
 
   try {
-    const { error } = await getResend().emails.send({
+    const resend = new Resend(key);
+    const { error } = await resend.emails.send({
       from: 'Nektbot <nektbot@nekt.us>',
-      to: toEmail,
+      to: 'ajweingart@gmail.com',
       subject,
       html,
     });
 
     if (error) {
-      console.error('[Notification Email] Resend error:', error);
-      return { success: false, error: error.message };
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`[Notification Email] Sent to ${toEmail} for event "${eventTitle}"`);
-    return { success: true };
+    return NextResponse.json({ success: true, subject });
   } catch (err) {
-    console.error('[Notification Email] Failed to send:', err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

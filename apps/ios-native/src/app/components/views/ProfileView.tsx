@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Animated, StyleSheet, TouchableOpacity, DeviceEventEmitter } from "react-native";
+import { View, Animated, StyleSheet, TouchableOpacity, DeviceEventEmitter, Alert } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useNavigation, useFocusEffect, useIsFocused, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -382,7 +382,10 @@ export function ProfileView() {
             saveProfile({ contactEntries: entries });
           }}
           onScrapeStarted={() => setIsBioLoading(true)}
-          onScrapeFailed={() => setIsBioLoading(false)}
+          onScrapeFailed={() => {
+            setIsBioLoading(false);
+            Alert.alert('No bio found', 'We couldn\'t find a bio on your profile. It may be private or empty — try writing your own!');
+          }}
         />
       )}
 

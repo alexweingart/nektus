@@ -34,3 +34,18 @@ export function getApiBaseUrl(): string {
 
   return PROD_API_URL;
 }
+
+// In dev mode, ping the dev server on startup so we get an early warning
+// if Tailscale / dev server isn't running (instead of silent 75s timeouts).
+if (__DEV__) {
+  fetch(`${DEV_API_URL}/api/health`, { method: 'HEAD' })
+    .then(() => console.log(`[config] ✅ Dev server reachable at ${DEV_API_URL}`))
+    .catch(() =>
+      console.warn(
+        `[config] ⚠️  Dev server UNREACHABLE at ${DEV_API_URL}\n` +
+        `         API calls will hang! Run:\n` +
+        `           npm run dev:tailscale\n` +
+        `           tailscale serve http://localhost:3000`
+      )
+    );
+}

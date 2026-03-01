@@ -152,52 +152,64 @@ export function AddCalendarModal({
   /**
    * Run the OAuth browser flow for Google/Microsoft and exchange the code.
    *
-   * Both providers use the same server-redirect pattern:
-   * 1. Open OAuth provider in WebBrowser
-   * 2. Provider redirects to server callback with auth code
-   * 3. Server sees platform=ios and 302-redirects code back to app via custom URL scheme
-   * 4. WebBrowser catches the custom URL and returns the code
-   * 5. App exchanges the code via /api/calendar-connections/mobile-token
+   * Google: Direct redirect using iOS client ID + reversed scheme.
+   *   Google → app directly (no server hop). ASWebAuthenticationSession intercepts reliably.
+   * Microsoft: Server redirect (Google → server → nekt://) since MS supports custom schemes
+   *   differently.
    */
   const runOAuthFlow = async (provider: 'google' | 'microsoft'): Promise<boolean> => {
-    const oauthEndpoint = provider === 'google'
-      ? 'https://accounts.google.com/o/oauth2/v2/auth'
-      : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
+    let authUrl: string;
+    let callbackUrl: string;
+    let redirectUri: string;
+    let isIosGoogle = false;
 
-    const clientId = (provider === 'google'
-      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-      : process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID) || '';
-    if (!clientId) throw new Error(`${provider} client ID not configured`);
+    if (provider === 'google') {
+      // Direct redirect: Google → app (no server hop)
+      // Uses the iOS client ID whose reversed form is already a registered URL scheme
+      const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+      if (!iosClientId) throw new Error('Google iOS client ID not configured');
 
-    const redirectUri = `${apiBaseUrl}/api/calendar-connections/${provider}/callback`;
-    const callbackUrl = ExpoLinking.createURL('calendar-callback');
+      // Reversed client ID scheme (matches CFBundleURLSchemes in Info.plist)
+      const reversedClientId = 'com.googleusercontent.apps.' + iosClientId.replace('.apps.googleusercontent.com', '');
+      redirectUri = `${reversedClientId}:/oauthredirect`;
+      callbackUrl = redirectUri;
+      isIosGoogle = true;
 
-    const scope = provider === 'google'
-      ? 'https://www.googleapis.com/auth/calendar.events'
-      : 'https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access';
-
-    const state = encodeURIComponent(JSON.stringify({
-      userEmail,
-      section,
-      platform: 'ios',
-      appCallbackUrl: callbackUrl,
-    }));
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope,
-      state,
-      login_hint: userEmail,
-      ...(provider === 'google' ? {
+      const params = new URLSearchParams({
+        client_id: iosClientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/calendar',
         access_type: 'offline',
         include_granted_scopes: 'true',
-        prompt: 'select_account',
-      } : {}),
-    });
+        login_hint: userEmail,
+      });
+      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    } else {
+      // Microsoft: server redirect approach
+      const clientId = process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID || '';
+      if (!clientId) throw new Error('Microsoft client ID not configured');
 
-    const authUrl = `${oauthEndpoint}?${params.toString()}`;
+      redirectUri = `${apiBaseUrl}/api/calendar-connections/microsoft/callback`;
+      callbackUrl = ExpoLinking.createURL('calendar-callback');
+
+      const state = encodeURIComponent(JSON.stringify({
+        userEmail,
+        section,
+        platform: 'ios',
+        appCallbackUrl: callbackUrl,
+      }));
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read openid profile email offline_access',
+        state,
+        login_hint: userEmail,
+      });
+      authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+    }
 
     console.log('[AddCalendarModal] provider:', provider);
     console.log('[AddCalendarModal] callbackUrl:', callbackUrl);
@@ -235,6 +247,7 @@ export function AddCalendarModal({
           redirectUri,
           section,
           userEmail,
+          ...(isIosGoogle && { useIosClientId: 'true' }),
         });
 
         return true;

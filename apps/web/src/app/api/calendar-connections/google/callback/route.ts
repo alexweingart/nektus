@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: 'https://www.googleapis.com/auth/calendar.events',
+        scope: 'https://www.googleapis.com/auth/calendar',
         access_type: 'offline',
         include_granted_scopes: 'true',
         login_hint: stateData.userEmail,
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
         redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || request.url.split('/api')[0]}/api/calendar-connections/google/callback`,
         response_type: 'code',
-        scope: 'https://www.googleapis.com/auth/calendar.events',
+        scope: 'https://www.googleapis.com/auth/calendar',
         access_type: 'offline',
         prompt: 'consent', // Force consent to get refresh token
         include_granted_scopes: 'true', // Keep existing permissions

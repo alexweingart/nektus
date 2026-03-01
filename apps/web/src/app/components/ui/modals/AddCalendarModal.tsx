@@ -84,7 +84,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID!,
           redirect_uri: `${baseUrl}/api/calendar-connections/google/callback`,
           response_type: 'code',
-          scope: 'https://www.googleapis.com/auth/calendar.events',
+          scope: 'https://www.googleapis.com/auth/calendar',
           access_type: 'offline',
           include_granted_scopes: 'true', // Key for incremental auth - keeps existing permissions
           login_hint: userEmail, // Suggest the correct account

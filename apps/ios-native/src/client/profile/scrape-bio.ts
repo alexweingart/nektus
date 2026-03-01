@@ -30,7 +30,9 @@ export async function scrapeBio(
       return { bio: null, success: false };
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`[scrapeBio] ${platform}/${username} → success=${result.success}, bio=${result.bio ? `"${result.bio.substring(0, 50)}..."` : 'null'}`);
+    return result;
   } catch (error) {
     console.error('[scrapeBio] Failed:', error);
     return { bio: null, success: false };
