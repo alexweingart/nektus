@@ -64,6 +64,12 @@ async function scrapeBioFromUrl(platform: 'instagram' | 'linkedin', username: st
       return null;
     }
 
+    // Detect if we were redirected to a login page (common with cloud IPs)
+    const finalUrl = response.url;
+    if (finalUrl && !finalUrl.includes(username)) {
+      console.log(`[API/SCRAPE-BIO] Redirected away from profile: ${url} → ${finalUrl}`);
+    }
+
     const html = await response.text();
     console.log(`[API/SCRAPE-BIO] Got ${html.length} chars from ${platform}/${username}`);
 
@@ -253,9 +259,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Platform must be instagram or linkedin' }, { status: 400 });
     }
 
-    console.log(`[API/SCRAPE-BIO] Scraping ${platform} bio for user ${userId}, handle: ${username}`);
+    // Clean username: strip URL prefixes, @, and trailing slashes
+    let cleanUsername = username.replace(/^@/, '').trim();
+    cleanUsername = cleanUsername.replace(/^https?:\/\/(www\.)?(instagram\.com|linkedin\.com(\/in)?)\/?/i, '');
+    cleanUsername = cleanUsername.replace(/\/+$/, '');
 
-    const bio = await scrapeBioFromUrl(platform, username.replace(/^@/, ''));
+    console.log(`[API/SCRAPE-BIO] Scraping ${platform} bio for user ${userId}, handle: ${username} → clean: ${cleanUsername}`);
+
+    const bio = await scrapeBioFromUrl(platform, cleanUsername);
 
     // Return scraped bio to client — client handles saving to avoid race conditions
     return NextResponse.json({ bio: bio || null, success: !!bio });

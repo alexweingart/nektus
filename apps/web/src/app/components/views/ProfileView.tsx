@@ -446,7 +446,10 @@ const ProfileView: React.FC = () => {
             saveProfile({ contactEntries: entries });
           }}
           onScrapeStarted={() => setIsBioLoading(true)}
-          onScrapeFailed={() => setIsBioLoading(false)}
+          onScrapeFailed={() => {
+            setIsBioLoading(false);
+            alert('We couldn\'t find a bio on your profile. It may be private or empty — try writing your own!');
+          }}
         />
       )}
     </div>
