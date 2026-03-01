@@ -148,6 +148,16 @@ Save behavior differs by platform. Firebase save always happens. Native contact 
 
 These sub-cases apply within any exchange variant at the scheduling steps.
 
+### Calendar Provider Connection
+
+| # | Case | Platform | Steps | Expected |
+|---|------|----------|-------|----------|
+| 3.0a | Connect Google Calendar | iOS / Web | Settings > Add Calendar > Google > authorize | OAuth flow completes; calendar shows as connected; busy times available |
+| 3.0b | Connect Apple Calendar (CalDAV) | iOS / Web | Settings > Add Calendar > Apple > enter Apple ID + app-specific password | Credentials validated via CalDAV; calendar shows as connected; busy times available |
+| 3.0c | Apple CalDAV — invalid credentials | iOS / Web | Enter wrong Apple ID or password | Error message shown; calendar not connected |
+| 3.0d | Switch providers | iOS / Web | Disconnect Google > connect Apple (or vice versa) | Old provider removed; new provider's availability reflected immediately (cache invalidated) |
+| 3.0e | Both providers connected | iOS / Web | Connect Google (work) + Apple (personal) | Both calendars contribute to availability; Smart Schedule shows merged busy times |
+
 ### Smart Schedule
 
 | # | Case | Precondition | Steps | Expected |
@@ -211,6 +221,18 @@ Tests the `suggest_activities` intent path where the AI recommends ideas and sea
 | 3.7b | Specific venue | Send "Dinner at Rich Table next Friday" | AI searches for that specific place; event card includes venue address + Google Maps link |
 | 3.7c | Time conflict | Request a time when both users are busy | Conflict message with alternatives near the requested time |
 
+### Scheduling Notification Email
+
+When an event is created with someone who has a relay email (@privaterelay.appleid.com) or no direct calendar integration, a notification email is sent via Resend instead of a calendar invite.
+
+| # | Case | Precondition | Steps | Expected |
+|---|------|-------------|-------|----------|
+| 3.8a | Email sent (relay address) | Attendee signed in with Apple (relay email) | Create event via AI Schedule | Email sent from `nektbot@nekt.us`; subject: `"{title}" with {name}`; body has event details + "Lock it in" CTA linking to `nekt.us/i/{inviteCode}` |
+| 3.8b | Email sent (no attendee email) | Attendee has no email in profile | Create event | Same notification email sent |
+| 3.8c | Direct invite (valid email) | Attendee has real email + Google Calendar | Create event | Google Calendar invite sent directly (no Resend email); attendee gets native calendar notification |
+| 3.8d | Email content verification | Relay email scenario | Create event with location | Email includes formatted date/time in user's timezone, location with Google Maps link, organizer name |
+| 3.8e | Email send failure | Resend API down or invalid email | Create event | Event still created on organizer's calendar; email failure handled gracefully (no crash, error logged) |
+
 ---
 
 ## 4. Deep Link Entry Points
@@ -223,7 +245,8 @@ Test these at the start of relevant flows to verify links resolve correctly.
 | 4.2 | QR deep link > Web | Scan QR → `nekt.us/x/{token}` on Android without app | Web AnonContact View loads | 1.3, 1.4 |
 | 4.3 | QR deep link > In-app | Scan QR → `nekt.us/x/{token}` on device with app installed | App opens; match created directly | 1.6 |
 | 4.4 | Shortcode link | Open `nekt.us/c/{code}` in browser | Contact profile loads on web | Standalone |
-| 4.5 | Widget deep link | Tap iOS lock screen widget | App opens to Profile; auto-starts exchange | Standalone |
+| 4.5 | Widget deep link | Tap iOS lock screen widget | App opens via `nekt://profile?autoNekt=true`; Profile loads; exchange auto-starts | Standalone |
+| 4.6 | Widget deep link (app not running) | Kill app > tap widget | App cold-launches to Profile; autoNekt param triggers exchange | Standalone |
 
 ---
 
@@ -234,6 +257,9 @@ Test these at the start of relevant flows to verify links resolve correctly.
 | 5.1 | **Edit profile** | Profile > Edit > change name, phone, add social link > save | Changes persist after app restart |
 | 5.2 | **Profile photo upload** | Edit > tap photo > pick from gallery | Photo uploaded; background color extracted |
 | 5.3 | **Delete contact from History** | History > swipe/delete a contact | Contact removed from list and Firebase |
+| 5.4 | **App Clip > SKOverlay** | Complete App Clip save flow | Save contact in App Clip | SKOverlay (install banner) appears ~600ms after contact save; tapping installs full app |
+| 5.5 | **App Clip > Say hi** | After contact save in App Clip | Tap "Say hi" on success modal | SMS opens pre-filled with message including Nekt profile link |
+| 5.6 | **Widget CTA** | First launch via widget deep link | Tap widget > complete exchange | "Add to Lock Screen" CTA hidden permanently after first widget-initiated exchange (AsyncStorage flag) |
 
 ---
 
@@ -241,24 +267,27 @@ Test these at the start of relevant flows to verify links resolve correctly.
 
 For a full regression pass:
 
-1. **1.1** — Bump (golden path: both existing users, full flow including history)
-2. **1.2** — QR > App Clip (deep link + sign-up + calendar connect + scheduling + history)
-3. **1.5** — QR iOS > iOS Clip (same platform Clip variant)
-4. **1.3** — QR Android > Android new (web flow + calendar connect)
-5. **1.6** — QR iOS > iOS app (existing-to-existing QR)
-6. **1.7** — Bluetooth
-7. **1.4** — QR iOS > Android new (web cross-platform)
-8. **2.1–2.3** — Save flow variants (if not already covered above)
-9. **3.1–3.8** — Scheduling edge cases (if not already covered above)
-10. **4.4–4.5** — Standalone deep links
-11. **5.1–5.3** — Profile edit, photo, delete contact
+1. **3.0a–3.0e** — Calendar provider connection (Google, Apple CalDAV, switching, both)
+2. **1.1** — Bump (golden path: both existing users, full flow including history)
+3. **1.2** — QR > App Clip (deep link + sign-up + calendar connect + scheduling + history)
+4. **1.5** — QR iOS > iOS Clip (same platform Clip variant)
+5. **1.3** — QR Android > Android new (web flow + calendar connect)
+6. **1.6** — QR iOS > iOS app (existing-to-existing QR)
+7. **1.7** — Bluetooth
+8. **1.4** — QR iOS > Android new (web cross-platform)
+9. **2.1–2.9** — Save flow variants (if not already covered above)
+10. **3.1–3.7** — Scheduling edge cases (if not already covered above)
+11. **3.8a–3.8e** — Scheduling notification email (relay vs direct, failure handling)
+12. **4.4–4.6** — Standalone deep links + widget deep links
+13. **5.1–5.6** — Profile edit, photo, delete contact, App Clip SKOverlay, widget CTA
 
 ---
 
 ## Notes
 
 - **Test devices needed**: minimum 2 iOS devices (one with app, one without for Clip), 1 Android device
-- **Test accounts**: at least 2 existing accounts with Google Calendar connected; ability to create fresh accounts for "new user" variants
+- **Test accounts**: at least 2 existing accounts with calendars connected (one Google, one Apple CalDAV); ability to create fresh accounts for "new user" variants
+- **Apple CalDAV**: test account needs an app-specific password generated at appleid.apple.com/account/security
 - **Network**: devices must be on same network for bump; BLE requires physical proximity
 - **App Clip reset**: delete App Clip data between runs to test fresh Clip experience
 - **Simulator limitations**: bump and BLE cannot be tested on simulators; use physical devices
