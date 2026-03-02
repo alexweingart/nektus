@@ -29,7 +29,7 @@ export function generateMessageText(
     : `Hey, it's ${senderFirstName}!`;
 
   if (senderShortCode) {
-    return `${baseMessage} Find time to hang: nekt.us/c/${senderShortCode}`;
+    return `${baseMessage} Let's meet again soon? nekt.us/c/${senderShortCode}`;
   }
 
   return baseMessage;
@@ -49,14 +49,22 @@ export async function openMessagingApp(
 
     if (phoneNumber) {
       const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-      // iOS uses & for body parameter
-      smsUrl = Platform.OS === 'ios'
-        ? `sms:${cleanPhone}&body=${encodedMessage}`
-        : `sms:${cleanPhone}?body=${encodedMessage}`;
+      // Only include body parameter when there's actual message text
+      if (encodedMessage) {
+        smsUrl = Platform.OS === 'ios'
+          ? `sms:${cleanPhone}&body=${encodedMessage}`
+          : `sms:${cleanPhone}?body=${encodedMessage}`;
+      } else {
+        smsUrl = `sms:${cleanPhone}`;
+      }
     } else {
-      smsUrl = Platform.OS === 'ios'
-        ? `sms:&body=${encodedMessage}`
-        : `sms:?body=${encodedMessage}`;
+      if (encodedMessage) {
+        smsUrl = Platform.OS === 'ios'
+          ? `sms:&body=${encodedMessage}`
+          : `sms:?body=${encodedMessage}`;
+      } else {
+        smsUrl = `sms:`;
+      }
     }
 
     const canOpen = await Linking.canOpenURL(smsUrl);

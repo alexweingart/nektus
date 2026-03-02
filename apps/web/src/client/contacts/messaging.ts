@@ -21,7 +21,7 @@ export function generateMessageText(
     : `Hey, it's ${senderFirstName}!`;
 
   if (senderShortCode) {
-    return `${baseMessage} Find time to hang: nekt.us/c/${senderShortCode}`;
+    return `${baseMessage} Let's meet again soon? nekt.us/c/${senderShortCode}`;
   }
 
   return baseMessage;
@@ -67,18 +67,22 @@ export function openMessagingApp(messageText: string, phoneNumber?: string): voi
       if (phoneNumber) {
         // If we have a phone number, open Messages with specific contact
         const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-        navigateToProtocolScheme(`sms:${cleanPhone}?&body=${encodedMessage}`);
+        const bodySuffix = encodedMessage ? `?&body=${encodedMessage}` : '';
+        navigateToProtocolScheme(`sms:${cleanPhone}${bodySuffix}`);
       } else {
         // Open Messages app to compose new message
-        navigateToProtocolScheme(`sms:?&body=${encodedMessage}`);
+        const bodySuffix = encodedMessage ? `?&body=${encodedMessage}` : '';
+        navigateToProtocolScheme(`sms:${bodySuffix}`);
       }
     } else if (platform === 'android') {
       // Use SMS app on Android - consistent approach with iOS
       if (phoneNumber) {
         const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-        navigateToProtocolScheme(`sms:${cleanPhone}?body=${encodedMessage}`);
+        const bodySuffix = encodedMessage ? `?body=${encodedMessage}` : '';
+        navigateToProtocolScheme(`sms:${cleanPhone}${bodySuffix}`);
       } else {
-        navigateToProtocolScheme(`sms:?body=${encodedMessage}`);
+        const bodySuffix = encodedMessage ? `?body=${encodedMessage}` : '';
+        navigateToProtocolScheme(`sms:${bodySuffix}`);
       }
     } else {
       // Web fallback - copy to clipboard and show instructions
