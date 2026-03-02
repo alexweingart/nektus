@@ -174,11 +174,9 @@ export async function GET(
         );
       }
 
-      // Strip Google default avatar — asset generation will replace it with initials/AI,
-      // but it may not have completed yet for new users
-      if ((scannerProfile.profileImage as string | undefined)?.includes('googleusercontent.com')) {
-        scannerProfile.profileImage = '';
-      }
+      // Note: Previously stripped all googleusercontent.com profile images,
+      // but this incorrectly removed real Google profile photos.
+      // The avatar generation pipeline handles users without photos separately.
 
       const scannerSharingCategory = 'All'; // Default for QR scan
 
