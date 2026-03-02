@@ -199,8 +199,8 @@ export const ExchangeButton: React.FC<ExchangeButtonProps> = ({
         permissionGranted = false;
       }
     } else {
-      // For non-iOS, permission will be handled by the service
-      permissionGranted = false;
+      // Android and other browsers auto-grant accelerometer access — no permission API needed
+      permissionGranted = true;
     }
 
     // Now we can do async operations after getting permission
