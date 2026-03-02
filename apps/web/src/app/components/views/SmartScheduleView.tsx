@@ -65,6 +65,7 @@ export default function SmartScheduleView() {
     inviteCode?: string;
     attendeePhone?: string;
     attendeeName?: string;
+    addedToRecipient?: boolean;
   }>({ visible: false, title: '', subtitle: '' });
 
   // Load contact profile
@@ -275,18 +276,23 @@ export default function SmartScheduleView() {
           const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
           const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
 
+          const firstName = contactName.split(' ')[0];
           let subtitle = `${eventTemplate.title} — ${dayStr} \u2022 ${timeStr} (${eventTemplate.duration} min)`;
-          if (result.addedToRecipient) subtitle += `\nInvite sent to ${contactName}!`;
-          else if (result.notificationSent) subtitle += `\nNotification sent to ${contactName}!`;
+          if (result.addedToRecipient) {
+            subtitle += `\n${firstName} has been added to the event, but needs to accept`;
+          } else {
+            subtitle += `\n${firstName} needs to add their calendar to get added to the event — let them know!`;
+          }
 
           setConfirmModal({
             visible: true,
-            title: 'Added to Calendar \u2713',
+            title: "You're all set!",
             subtitle,
             calendarEventUrl: result.calendarEventUrl,
             inviteCode: result.inviteCode,
             attendeePhone: contactPhone,
             attendeeName: contactName,
+            addedToRecipient: result.addedToRecipient,
           });
           return; // Success
         }
@@ -409,8 +415,8 @@ export default function SmartScheduleView() {
         title={confirmModal.title}
         subtitle={confirmModal.subtitle}
         primaryButtonText={confirmModal.attendeePhone
-          ? `Text invite to ${confirmModal.attendeeName || 'contact'}`
-          : 'View Event'}
+          ? 'Send the deets'
+          : 'See the event'}
         onPrimaryButtonClick={() => {
           if (confirmModal.attendeePhone) {
             const inviteUrl = confirmModal.inviteCode ? `nekt.us/i/${confirmModal.inviteCode}` : '';
@@ -421,7 +427,7 @@ export default function SmartScheduleView() {
           }
           setConfirmModal(prev => ({ ...prev, visible: false }));
         }}
-        secondaryButtonText={confirmModal.attendeePhone ? 'View Event' : undefined}
+        secondaryButtonText={confirmModal.attendeePhone ? 'See the event' : undefined}
         showSecondaryButton={!!confirmModal.attendeePhone && !!confirmModal.calendarEventUrl}
         onSecondaryButtonClick={() => {
           if (confirmModal.calendarEventUrl) {

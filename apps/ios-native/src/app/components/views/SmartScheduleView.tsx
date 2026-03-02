@@ -166,6 +166,7 @@ export function SmartScheduleView() {
     contactPhone?: string;
     inviteCode?: string;
     calendarEventUrl?: string;
+    addedToRecipient?: boolean;
   } | null>(null);
 
   // Emit background colors immediately from nav params
@@ -463,13 +464,17 @@ export function SmartScheduleView() {
         if (response.ok) {
           const result = await response.json();
 
+          const firstName = (contactName || 'contact').split(' ')[0];
           let subtitle = `${title} — ${formatTimeSlot(existingTime, eventTemplate.duration)}`;
-          if (result.addedToRecipient) subtitle += `\nInvite sent to ${contactName}!`;
-          else if (result.notificationSent) subtitle += `\nNotification sent to ${contactName}!`;
+          if (result.addedToRecipient) {
+            subtitle += `\n${firstName} has been added to the event, but needs to accept`;
+          } else {
+            subtitle += `\n${firstName} needs to add their calendar to get added to the event — let them know!`;
+          }
 
           setCreatedEventModal({
             visible: true,
-            title: 'Added to Calendar',
+            title: "You're all set!",
             subtitle,
             eventId: result.calendarEventId,
             startDate,
@@ -477,6 +482,7 @@ export function SmartScheduleView() {
             contactPhone: contactPhone || undefined,
             inviteCode: result.inviteCode,
             calendarEventUrl: result.calendarEventUrl,
+            addedToRecipient: result.addedToRecipient,
           });
           return; // Success
         }
@@ -613,11 +619,11 @@ export function SmartScheduleView() {
           <StandardModal
             isOpen={createdEventModal.visible}
             onClose={() => setCreatedEventModal(null)}
-            title="Added to Calendar \u2713"
+            title="You're all set!"
             subtitle={createdEventModal.subtitle}
             primaryButtonText={createdEventModal.contactPhone
-              ? `Text invite to ${createdEventModal.contactName || 'contact'}`
-              : 'View Event'}
+              ? 'Send the deets'
+              : 'See the event'}
             onPrimaryButtonClick={async () => {
               if (createdEventModal.contactPhone) {
                 const inviteUrl = createdEventModal.inviteCode ? `nekt.us/i/${createdEventModal.inviteCode}` : '';
@@ -630,7 +636,7 @@ export function SmartScheduleView() {
               }
               setCreatedEventModal(null);
             }}
-            secondaryButtonText={createdEventModal.contactPhone ? 'View Event' : 'Done'}
+            secondaryButtonText={createdEventModal.contactPhone ? 'See the event' : 'Done'}
             onSecondaryButtonClick={async () => {
               if (createdEventModal.contactPhone && createdEventModal.calendarEventUrl) {
                 Linking.openURL(createdEventModal.calendarEventUrl);
