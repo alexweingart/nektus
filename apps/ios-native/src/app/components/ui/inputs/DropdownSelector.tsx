@@ -134,11 +134,13 @@ export function DropdownSelector({
         animationType="none"
         onRequestClose={handleOverlayPress}
       >
-        {/* Invisible overlay to capture taps outside */}
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={handleOverlayPress}
-        >
+        {/* Overlay and dropdown are siblings so the overlay doesn't intercept scroll gestures */}
+        <View style={styles.modalOverlay} pointerEvents="box-none">
+          {/* Invisible overlay to capture taps outside */}
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={handleOverlayPress}
+          />
           {/* Dropdown menu positioned below button - only show when position is measured */}
           {isPositionReady && (
             <View
@@ -181,7 +183,7 @@ export function DropdownSelector({
               </ScrollView>
             </View>
           )}
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );
