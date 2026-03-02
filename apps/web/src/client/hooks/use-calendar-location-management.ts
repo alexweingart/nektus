@@ -80,9 +80,12 @@ export function useCalendarLocationManagement({
     // Calendar added via API in modal, close modal first
     setIsCalendarModalOpen(false);
 
+    // Preserve the active section across reload so the user stays on the tab they were editing
+    sessionStorage.setItem('nekt-active-section', modalSection);
+
     // Reload page to show newly added calendar (matches Google/Microsoft OAuth flow)
     window.location.reload();
-  }, []);
+  }, [modalSection]);
 
   const handleLocationAdded = useCallback(async (locations: UserLocation[]) => {
     setIsLocationModalOpen(false);

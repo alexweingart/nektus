@@ -2,12 +2,12 @@
 
 ## E2E Testing
 - [ ] Run full E2E regression pass (docs/e2e-test-cases.md)
-- [ ] Update E2E doc: add Apple CalDAV calendar provider test cases
-- [ ] Update E2E doc: add calendar provider switching tests (Google <> Apple)
-- [ ] Update E2E doc: add scheduling notification email flow (Resend)
-- [ ] Update E2E doc: edge case for email send failure
-- [ ] Update E2E doc: add SKOverlay / App Clip-to-full-app conversion check
-- [ ] Update E2E doc: add widget deep link test cases
+- [x] Update E2E doc: add Apple CalDAV calendar provider test cases
+- [x] Update E2E doc: add calendar provider switching tests (Google <> Apple)
+- [x] Update E2E doc: add scheduling notification email flow (Resend)
+- [x] Update E2E doc: edge case for email send failure
+- [x] Update E2E doc: add SKOverlay / App Clip-to-full-app conversion check
+- [x] Update E2E doc: add widget deep link test cases
 - [ ] Fix bugs found during E2E pass (track here as discovered)
 
 ## Multi-Person / Groups

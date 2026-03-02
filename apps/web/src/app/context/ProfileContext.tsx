@@ -79,7 +79,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [contactsLoading, setContactsLoading] = useState(true);
 
   // Sharing category state (replaces localStorage 'nekt-sharing-category')
-  const [sharingCategory, setSharingCategory] = useState<SharingCategory>('Personal');
+  const [sharingCategory, setSharingCategory] = useState<SharingCategory>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('nekt-active-section');
+      if (saved === 'personal' || saved === 'work') {
+        sessionStorage.removeItem('nekt-active-section');
+        return saved === 'work' ? 'Work' : 'Personal';
+      }
+    }
+    return 'Personal';
+  });
 
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
