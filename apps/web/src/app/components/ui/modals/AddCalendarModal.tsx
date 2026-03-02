@@ -98,6 +98,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           }))
         });
 
+        sessionStorage.setItem('nekt-active-section', section);
         window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
       } else if (provider === 'microsoft') {
         // Redirect to Microsoft OAuth
@@ -119,6 +120,7 @@ export const AddCalendarModal: React.FC<AddCalendarModalProps> = ({
           }))
         });
 
+        sessionStorage.setItem('nekt-active-section', section);
         window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
       } else if (provider === 'apple') {
         // For Apple, we'll need a separate modal for CalDAV credentials
