@@ -153,10 +153,12 @@ These sub-cases apply within any exchange variant at the scheduling steps.
 | # | Case | Platform | Steps | Expected |
 |---|------|----------|-------|----------|
 | 3.0a | Connect Google Calendar | iOS / Web | Settings > Add Calendar > Google > authorize | OAuth flow completes; calendar shows as connected; busy times available |
-| 3.0b | Connect Apple Calendar (CalDAV) | iOS / Web | Settings > Add Calendar > Apple > enter Apple ID + app-specific password | Credentials validated via CalDAV; calendar shows as connected; busy times available |
-| 3.0c | Apple CalDAV — invalid credentials | iOS / Web | Enter wrong Apple ID or password | Error message shown; calendar not connected |
-| 3.0d | Switch providers | iOS / Web | Disconnect Google > connect Apple (or vice versa) | Old provider removed; new provider's availability reflected immediately (cache invalidated) |
-| 3.0e | Both providers connected | iOS / Web | Connect Google (work) + Apple (personal) | Both calendars contribute to availability; Smart Schedule shows merged busy times |
+| 3.0b | Connect Microsoft Calendar | iOS / Web | Settings > Add Calendar > Microsoft > authorize | OAuth flow completes (Calendars.ReadWrite + User.Read); calendar connected; busy times from all Outlook calendars |
+| 3.0c | Connect Apple Calendar (CalDAV) | iOS / Web | Settings > Add Calendar > Apple > enter Apple ID + app-specific password | Credentials validated via CalDAV; calendar shows as connected; busy times available |
+| 3.0d | Apple CalDAV — invalid credentials | iOS / Web | Enter wrong Apple ID or password | Error message shown; calendar not connected |
+| 3.0e | Microsoft — admin consent required | Web | User from org that requires admin consent | Redirect to edit page with `admin_consent_required` error; user informed |
+| 3.0f | Switch providers | iOS / Web | Disconnect one provider > connect a different one | Old provider removed; new provider's availability reflected immediately (cache invalidated) |
+| 3.0g | Multiple providers connected | iOS / Web | Connect two providers (e.g., Google work + Apple personal) | Both calendars contribute to availability; Smart Schedule shows merged busy times |
 
 ### Smart Schedule
 
@@ -286,8 +288,9 @@ For a full regression pass:
 ## Notes
 
 - **Test devices needed**: minimum 2 iOS devices (one with app, one without for Clip), 1 Android device
-- **Test accounts**: at least 2 existing accounts with calendars connected (one Google, one Apple CalDAV); ability to create fresh accounts for "new user" variants
+- **Test accounts**: at least 2 existing accounts with calendars connected (mix of Google, Microsoft, Apple CalDAV); ability to create fresh accounts for "new user" variants
 - **Apple CalDAV**: test account needs an app-specific password generated at appleid.apple.com/account/security
+- **Microsoft**: if testing with a work/org account, admin consent may be required for calendar permissions
 - **Network**: devices must be on same network for bump; BLE requires physical proximity
 - **App Clip reset**: delete App Clip data between runs to test fresh Clip experience
 - **Simulator limitations**: bump and BLE cannot be tested on simulators; use physical devices
