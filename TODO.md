@@ -8,6 +8,9 @@
 - [x] Update E2E doc: edge case for email send failure
 - [x] Update E2E doc: add SKOverlay / App Clip-to-full-app conversion check
 - [x] Update E2E doc: add widget deep link test cases
+- [x] Fix: Android motion detection disabled by iOS QR-fallback regression
+- [x] Fix: Purple color flash on profile refresh (generateProfileColors fallback)
+- [x] Fix: Calendar add resets to Personal tab instead of staying on Work
 - [ ] Fix bugs found during E2E pass (track here as discovered)
 
 ## Multi-Person / Groups
