@@ -233,11 +233,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
       applySafeAreaColor(dominant);
       sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
     } else if (!isOnContactPage && profile) {
-      // Profile loaded with no colors — generate from name (matches particle fallback)
-      const name = profile.contactEntries?.find(e => e.fieldType === 'name')?.value;
-      const dominant = name ? generateProfileColors(name)[0] : COLORS.themeDark;
-      applySafeAreaColor(dominant);
-      sessionStorage.setItem(STORAGE_KEYS.safeAreaColor, dominant);
+      // Profile loaded but no backgroundColors yet — keep current color (cached or black).
+      // Don't use generateProfileColors(name) here because it causes a purple flash
+      // when the immediateProfile loads before the Firestore profile.
+      const lastColor = sessionStorage.getItem(STORAGE_KEYS.safeAreaColor);
+      applySafeAreaColor(lastColor || COLORS.themeDark);
     } else if (status === 'authenticated') {
       // Fallback while profile is loading
       applySafeAreaColor(COLORS.themeDark);
@@ -382,16 +382,11 @@ export function LayoutBackground({ children }: { children: React.ReactNode }) {
           context: 'profile'
         };
       } else {
-        // Generate personalized colors from the user's name (same as iOS fallback)
-        const name = profile?.contactEntries?.find(e => e.fieldType === 'name')?.value;
-        if (name) {
-          return {
-            colors: convertToParticleColors(generateProfileColors(name)),
-            context: 'profile-default'
-          };
-        }
+        // Profile loaded but no backgroundColors yet — use cached or black.
+        // Don't use generateProfileColors(name) here because it causes a color flash
+        // when the immediateProfile (no colors) loads before the Firestore profile (real colors).
         return {
-          colors: DEFAULT_COLORS,
+          colors: cachedParticleColors || BLACK_COLORS,
           context: 'profile-default'
         };
       }

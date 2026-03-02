@@ -142,22 +142,10 @@ export function LayoutBackground({
       };
     }
 
-    // Default for profile contexts without custom colors — generate from name
+    // Default for profile contexts without custom colors — stay dark until real colors arrive.
+    // Don't use generateProfileColors(name) here because it causes a color flash
+    // when the immediateProfile (no colors) loads before the Firestore profile (real colors).
     if (particleContext === "profile" || particleContext === "profile-default") {
-      if (profile) {
-        const name = profile.contactEntries?.find((e: any) => e.fieldType === 'name')?.value;
-        if (name) {
-          return convertToParticleColors(generateProfileColors(name));
-        }
-        // Profile exists but no name yet — use dark colors to avoid green flash
-        return {
-          gradientStart: THEME_DARK,
-          gradientEnd: THEME_DARK,
-          particle: 'rgba(0, 0, 0, 0)',
-          connection: 'rgba(0, 0, 0, 0)',
-        };
-      }
-      // Profile still loading — use dark colors, never flash green
       return {
         gradientStart: THEME_DARK,
         gradientEnd: THEME_DARK,
@@ -182,12 +170,9 @@ export function LayoutBackground({
         profile && profile.backgroundColors && profile.backgroundColors.length >= 3) {
       return profile.backgroundColors[0];
     }
-    // No backgroundColors but has a name — use generated dominant color
+    // No backgroundColors yet — stay on current background color until real colors arrive
     if ((particleContext === "profile" || particleContext === "profile-default") && profile) {
-      const name = profile.contactEntries?.find((e: any) => e.fieldType === 'name')?.value;
-      if (name) {
-        return generateProfileColors(name)[0];
-      }
+      return backgroundColor;
     }
     return backgroundColor;
   }, [particleContext, profile, backgroundColor, contactColors]);
