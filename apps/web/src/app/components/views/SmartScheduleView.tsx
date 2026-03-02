@@ -18,6 +18,7 @@ import { useProfile } from '@/app/context/ProfileContext';
 import PageHeader from '@/app/components/ui/layout/PageHeader';
 import { auth } from '@/client/config/firebase';
 import { getFieldValue, buildCalendarEventDescription } from '@nektus/shared-client';
+import { openMessagingAppDirectly } from '@/client/contacts/messaging';
 
 const PERSONAL_SUGGESTION_CHIPS: SuggestionChip[] = [
   { id: 'chip-1', eventId: 'video-30', icon: 'telephone-classic' },
@@ -271,18 +272,13 @@ export default function SmartScheduleView() {
 
         if (response.ok) {
           const result = await response.json();
-          const timeStr = actualStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          const dayStr = formatSmartDay(actualStart);
           const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
           const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
 
           const firstName = contactName.split(' ')[0];
-          let subtitle = `${eventTemplate.title} — ${dayStr} \u2022 ${timeStr} (${eventTemplate.duration} min)`;
-          if (result.addedToRecipient) {
-            subtitle += `\n${firstName} has been added to the event, but needs to accept`;
-          } else {
-            subtitle += `\n${firstName} needs to add their calendar to get added to the event — let them know!`;
-          }
+          const subtitle = result.addedToRecipient
+            ? `${firstName} has been added to the event, but needs to accept`
+            : `${firstName} needs to add their calendar to get added to the event — let them know!`;
 
           setConfirmModal({
             visible: true,
@@ -420,10 +416,13 @@ export default function SmartScheduleView() {
         onPrimaryButtonClick={() => {
           if (confirmModal.attendeePhone) {
             const inviteUrl = confirmModal.inviteCode ? `nekt.us/i/${confirmModal.inviteCode}` : '';
-            const message = `Hey ${confirmModal.attendeeName || ''}! Here are the details for our hangout: ${inviteUrl}`;
-            window.open(`sms:${confirmModal.attendeePhone}?body=${encodeURIComponent(message)}`, '_blank');
+            const firstName = (confirmModal.attendeeName || '').split(' ')[0];
+            const message = confirmModal.addedToRecipient
+              ? `Hey ${firstName}! I just sent you a calendar invite — accept it so we're locked in! ${inviteUrl}`
+              : `Hey ${firstName}! I just scheduled us to hang — link your calendar so you get the invite: ${inviteUrl}`;
+            openMessagingAppDirectly(message, confirmModal.attendeePhone);
           } else if (confirmModal.calendarEventUrl) {
-            window.open(confirmModal.calendarEventUrl, '_blank');
+            window.location.href = confirmModal.calendarEventUrl;
           }
           setConfirmModal(prev => ({ ...prev, visible: false }));
         }}
@@ -431,7 +430,7 @@ export default function SmartScheduleView() {
         showSecondaryButton={!!confirmModal.attendeePhone && !!confirmModal.calendarEventUrl}
         onSecondaryButtonClick={() => {
           if (confirmModal.calendarEventUrl) {
-            window.open(confirmModal.calendarEventUrl, '_blank');
+            window.location.href = confirmModal.calendarEventUrl;
           }
           setConfirmModal(prev => ({ ...prev, visible: false }));
         }}

@@ -462,72 +462,7 @@ export async function createScheduledEvent(
     throw new Error(`Unsupported calendar provider: ${provider}`);
   }
 
-  // Create travel buffer blocks as separate events
-  if (travelBuffer && (travelBuffer.beforeMinutes > 0 || travelBuffer.afterMinutes > 0)) {
-    const placeName = location?.split(',')[0] || 'venue';
-
-    try {
-      // Before travel block
-      if (travelBuffer.beforeMinutes > 0) {
-        const beforeParams: CalendarEventParams = {
-          title: `Travel to ${placeName}`,
-          description: `Travel time for ${eventTitle}`,
-          startTime: new Date(startTime.getTime() - travelBuffer.beforeMinutes * 60 * 1000),
-          endTime: startTime,
-          timeZone,
-        };
-
-        if (provider === 'google') {
-          await createGoogleCalendarEvent(accessToken, beforeParams, 'none');
-        } else if (provider === 'microsoft') {
-          await createMicrosoftCalendarEvent(accessToken, beforeParams, false);
-        } else if (provider === 'apple') {
-          await createAppleCalDavEvent(calendar.refreshToken || '', accessToken, beforeParams);
-        }
-      }
-
-      // After travel block
-      if (travelBuffer.afterMinutes > 0) {
-        const afterParams: CalendarEventParams = {
-          title: `Travel from ${placeName}`,
-          description: `Travel time for ${eventTitle}`,
-          startTime: endTime,
-          endTime: new Date(endTime.getTime() + travelBuffer.afterMinutes * 60 * 1000),
-          timeZone,
-        };
-
-        if (provider === 'google') {
-          await createGoogleCalendarEvent(accessToken, afterParams, 'none');
-        } else if (provider === 'microsoft') {
-          await createMicrosoftCalendarEvent(accessToken, afterParams, false);
-        } else if (provider === 'apple') {
-          await createAppleCalDavEvent(calendar.refreshToken || '', accessToken, afterParams);
-        }
-      }
-    } catch (err) {
-      // Travel buffer creation failure shouldn't block main event
-      console.error('[create-event] Travel buffer creation failed:', err);
-    }
-
-    // Path A: also create travel blocks on attendee's calendar if connected
-    if (isPathA && attendeeProfile?.calendars) {
-      const attendeeCal = attendeeProfile.calendars.find(c => c.section === calendarSection);
-      if (attendeeCal?.calendarWriteScope) {
-        try {
-          const attendeeToken = await getValidAccessToken(attendeeCal, attendeeId);
-          if (attendeeToken) {
-            await createTravelBlocks(attendeeCal.provider, attendeeToken, attendeeCal, {
-              eventTitle, placeName, startTime, endTime, travelBuffer, timeZone,
-            });
-          }
-        } catch (err) {
-          console.error('[create-event] Attendee travel buffer creation failed:', err);
-        }
-      }
-    }
-  }
-
-  // Generate invite code and persist to Firestore
+  // Generate invite code and persist to Firestore (must complete before returning)
   const inviteCode = generateInviteCode();
   const organizerName = getFieldValue(organizerProfile.contactEntries, 'name') || 'Someone';
 
@@ -554,52 +489,108 @@ export async function createScheduledEvent(
     console.error('[create-event] Failed to save invite to Firestore:', err);
   }
 
-  // Path B: send notification email to relay address
-  let notificationSent = false;
-  if (!isPathA && attendeeEmail) {
-    try {
-      const timeOptions: Intl.DateTimeFormatOptions = {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZone,
-      };
-      const dateOptions: Intl.DateTimeFormatOptions = {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-        timeZone,
-      };
-
-      const dateString = startTime.toLocaleDateString('en-US', dateOptions);
-      const startTimeStr = startTime.toLocaleTimeString('en-US', timeOptions);
-      const endTimeStr = endTime.toLocaleTimeString('en-US', timeOptions);
-
-      const emailResult = await sendEventNotification({
-        toEmail: attendeeEmail,
-        organizerName,
-        organizerShortCode: organizerProfile.shortCode,
-        eventTitle,
-        dateString,
-        timeString: startTimeStr,
-        locationName: location?.split(',')[0],
-        inviteCode,
-      });
-
-      notificationSent = emailResult.success;
-    } catch (err) {
-      console.error('[create-event] Notification email failed:', err);
-    }
-  }
-
   console.log(`[create-event] Event created: ${result.eventId} (${isPathA ? 'Path A' : 'Path B'}), invite: ${inviteCode}`);
+
+  // Fire-and-forget: travel buffers + notification email (don't block the response)
+  const deferredWork = async () => {
+    // Create travel buffer blocks as separate events
+    if (travelBuffer && (travelBuffer.beforeMinutes > 0 || travelBuffer.afterMinutes > 0)) {
+      const placeName = location?.split(',')[0] || 'venue';
+
+      try {
+        // Create organizer travel blocks in parallel
+        await Promise.all([
+          travelBuffer.beforeMinutes > 0 && (() => {
+            const beforeParams: CalendarEventParams = {
+              title: `Travel to ${placeName}`,
+              description: `Travel time for ${eventTitle}`,
+              startTime: new Date(startTime.getTime() - travelBuffer.beforeMinutes * 60 * 1000),
+              endTime: startTime,
+              timeZone,
+            };
+            if (provider === 'google') return createGoogleCalendarEvent(accessToken, beforeParams, 'none');
+            if (provider === 'microsoft') return createMicrosoftCalendarEvent(accessToken, beforeParams, false);
+            if (provider === 'apple') return createAppleCalDavEvent(calendar.refreshToken || '', accessToken, beforeParams);
+          })(),
+          travelBuffer.afterMinutes > 0 && (() => {
+            const afterParams: CalendarEventParams = {
+              title: `Travel from ${placeName}`,
+              description: `Travel time for ${eventTitle}`,
+              startTime: endTime,
+              endTime: new Date(endTime.getTime() + travelBuffer.afterMinutes * 60 * 1000),
+              timeZone,
+            };
+            if (provider === 'google') return createGoogleCalendarEvent(accessToken, afterParams, 'none');
+            if (provider === 'microsoft') return createMicrosoftCalendarEvent(accessToken, afterParams, false);
+            if (provider === 'apple') return createAppleCalDavEvent(calendar.refreshToken || '', accessToken, afterParams);
+          })(),
+        ].filter(Boolean));
+      } catch (err) {
+        console.error('[create-event] Travel buffer creation failed:', err);
+      }
+
+      // Path A: also create travel blocks on attendee's calendar if connected
+      if (isPathA && attendeeProfile?.calendars) {
+        const attendeeCal = attendeeProfile.calendars.find(c => c.section === calendarSection);
+        if (attendeeCal?.calendarWriteScope) {
+          try {
+            const attendeeToken = await getValidAccessToken(attendeeCal, attendeeId);
+            if (attendeeToken) {
+              await createTravelBlocks(attendeeCal.provider, attendeeToken, attendeeCal, {
+                eventTitle, placeName, startTime, endTime, travelBuffer, timeZone,
+              });
+            }
+          } catch (err) {
+            console.error('[create-event] Attendee travel buffer creation failed:', err);
+          }
+        }
+      }
+    }
+
+    // Path B: send notification email to relay address
+    if (!isPathA && attendeeEmail) {
+      try {
+        const timeOptions: Intl.DateTimeFormatOptions = {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone,
+        };
+        const dateOptions: Intl.DateTimeFormatOptions = {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+          timeZone,
+        };
+
+        const dateString = startTime.toLocaleDateString('en-US', dateOptions);
+        const startTimeStr = startTime.toLocaleTimeString('en-US', timeOptions);
+
+        await sendEventNotification({
+          toEmail: attendeeEmail,
+          organizerName,
+          organizerShortCode: organizerProfile.shortCode,
+          eventTitle,
+          dateString,
+          timeString: startTimeStr,
+          locationName: location?.split(',')[0],
+          inviteCode,
+        });
+      } catch (err) {
+        console.error('[create-event] Notification email failed:', err);
+      }
+    }
+  };
+
+  // Don't await — let it run in the background
+  deferredWork().catch(err => console.error('[create-event] Deferred work failed:', err));
 
   return {
     calendarEventId: result.eventId,
     calendarEventUrl: result.eventUrl,
     inviteCode,
     addedToRecipient: isPathA,
-    notificationSent,
+    notificationSent: false,
   };
 }
 

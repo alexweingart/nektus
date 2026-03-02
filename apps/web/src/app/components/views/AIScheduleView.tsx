@@ -15,6 +15,7 @@ import { StandardModal } from '@/app/components/ui/modals/StandardModal';
 import { useProfile } from '@/app/context/ProfileContext';
 import { formatLocationString, getFieldValue } from '@nektus/shared-client';
 import { auth } from '@/client/config/firebase';
+import { openMessagingAppDirectly } from '@/client/contacts/messaging';
 
 // Helper: Generate unique message IDs
 function generateMessageId(offset = 0): string {
@@ -332,20 +333,13 @@ export default function AIScheduleView() {
         event.addedToRecipient = result.addedToRecipient;
 
         // Build subtitle
-        const start = new Date(event.startTime!);
-        const timeStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const dayStr = start.toLocaleDateString('en-US', { weekday: 'long' });
-        const duration = event.duration || 30;
         const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
         const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
 
         const firstName = contactName.split(' ')[0];
-        let subtitle = `${event.title} — ${dayStr} \u2022 ${timeStr} (${duration} min)`;
-        if (result.addedToRecipient) {
-          subtitle += `\n${firstName} has been added to the event, but needs to accept`;
-        } else {
-          subtitle += `\n${firstName} needs to add their calendar to get added to the event — let them know!`;
-        }
+        const subtitle = result.addedToRecipient
+          ? `${firstName} has been added to the event, but needs to accept`
+          : `${firstName} needs to add their calendar to get added to the event — let them know!`;
 
         setConfirmModal({
           visible: true,
@@ -495,10 +489,13 @@ export default function AIScheduleView() {
         onPrimaryButtonClick={() => {
           if (confirmModal.attendeePhone) {
             const inviteUrl = confirmModal.inviteCode ? `nekt.us/i/${confirmModal.inviteCode}` : '';
-            const message = `Hey ${confirmModal.attendeeName || ''}! Here are the details for our hangout: ${inviteUrl}`;
-            window.open(`sms:${confirmModal.attendeePhone}?body=${encodeURIComponent(message)}`, '_blank');
+            const firstName = (confirmModal.attendeeName || '').split(' ')[0];
+            const message = confirmModal.addedToRecipient
+              ? `Hey ${firstName}! I just sent you a calendar invite — accept it so we're locked in! ${inviteUrl}`
+              : `Hey ${firstName}! I just scheduled us to hang — link your calendar so you get the invite: ${inviteUrl}`;
+            openMessagingAppDirectly(message, confirmModal.attendeePhone);
           } else if (confirmModal.calendarEventUrl) {
-            window.open(confirmModal.calendarEventUrl, '_blank');
+            window.location.href = confirmModal.calendarEventUrl;
           }
           setConfirmModal(prev => ({ ...prev, visible: false }));
         }}
@@ -506,7 +503,7 @@ export default function AIScheduleView() {
         showSecondaryButton={!!confirmModal.attendeePhone && !!confirmModal.calendarEventUrl}
         onSecondaryButtonClick={() => {
           if (confirmModal.calendarEventUrl) {
-            window.open(confirmModal.calendarEventUrl, '_blank');
+            window.location.href = confirmModal.calendarEventUrl;
           }
           setConfirmModal(prev => ({ ...prev, visible: false }));
         }}

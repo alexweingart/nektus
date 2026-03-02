@@ -417,18 +417,13 @@ export function AIScheduleView() {
           event.addedToRecipient = result.addedToRecipient;
 
           const startDate = new Date(event.startTime!);
-          const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          const dayStr = startDate.toLocaleDateString('en-US', { weekday: 'long' });
           const contactName = getFieldValue(contactProfile.contactEntries, 'name') || 'contact';
           const contactPhone = getFieldValue(contactProfile.contactEntries, 'phone');
 
           const firstName = (contactName || 'contact').split(' ')[0];
-          let subtitle = `${event.title} — ${dayStr} \u2022 ${timeStr} (${event.duration} min)`;
-          if (result.addedToRecipient) {
-            subtitle += `\n${firstName} has been added to the event, but needs to accept`;
-          } else {
-            subtitle += `\n${firstName} needs to add their calendar to get added to the event — let them know!`;
-          }
+          const subtitle = result.addedToRecipient
+            ? `${firstName} has been added to the event, but needs to accept`
+            : `${firstName} needs to add their calendar to get added to the event — let them know!`;
 
           setCreatedEventModal({
             visible: true,
@@ -520,7 +515,10 @@ export function AIScheduleView() {
             onPrimaryButtonClick={async () => {
               if (createdEventModal.contactPhone) {
                 const inviteUrl = createdEventModal.inviteCode ? `nekt.us/i/${createdEventModal.inviteCode}` : '';
-                const message = `Hey ${createdEventModal.contactName || ''}! Here are the details for our hangout: ${inviteUrl}`;
+                const firstName = (createdEventModal.contactName || '').split(' ')[0];
+                const message = createdEventModal.addedToRecipient
+                  ? `Hey ${firstName}! I just sent you a calendar invite — accept it so we're locked in! ${inviteUrl}`
+                  : `Hey ${firstName}! I just scheduled us to hang — link your calendar so you get the invite: ${inviteUrl}`;
                 await openMessagingApp(message, createdEventModal.contactPhone);
               } else if (createdEventModal.calendarEventUrl) {
                 Linking.openURL(createdEventModal.calendarEventUrl);

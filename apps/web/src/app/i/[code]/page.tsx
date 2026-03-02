@@ -125,7 +125,8 @@ export default function InvitePage() {
     );
   }
 
-  const { eventDetails, addedToRecipient } = invite;
+  const { eventDetails, addedToRecipient, organizerId } = invite;
+  const isOrganizer = session?.user?.id === organizerId;
   const startDate = new Date(eventDetails.startTime);
   const endDate = new Date(eventDetails.endTime);
 
@@ -147,6 +148,27 @@ export default function InvitePage() {
     hour12: true,
     timeZone: eventDetails.timeZone,
   });
+
+  // Event details card (shared across all views)
+  const eventCard = (
+    <div className="p-6 bg-black/60 border border-white/10 rounded-2xl glass-tinted space-y-4">
+      <Heading as="h2">{eventDetails.title}</Heading>
+
+      <div className="space-y-2">
+        <Text variant="small" className="text-gray-300">
+          {dateStr}
+        </Text>
+        <Text variant="small" className="text-gray-300">
+          {startTimeStr} - {endTimeStr}
+        </Text>
+        {eventDetails.location && (
+          <Text variant="small" className="text-gray-300">
+            {eventDetails.location}
+          </Text>
+        )}
+      </div>
+    </div>
+  );
 
   // Signed out: minimal info
   if (!isSignedIn) {
@@ -170,28 +192,37 @@ export default function InvitePage() {
     );
   }
 
-  // Signed in: full experience
+  // Organizer view: show event details + status
+  if (isOrganizer) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md space-y-6">
+          {eventCard}
+
+          <div className="space-y-3">
+            <Text variant="small" className="text-center text-gray-400">
+              {addedToRecipient
+                ? "Your guest has been added to the event — waiting for them to accept."
+                : "Waiting for your guest to link their calendar and join the event."}
+            </Text>
+          </div>
+
+          {/* Nekt branding */}
+          <div className="text-center">
+            <Text variant="small" className="text-gray-600">
+              Scheduled via <a href="https://nekt.us" className="text-[#71E454] hover:underline">Nekt</a>
+            </Text>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Attendee view: full experience
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md space-y-6">
-        {/* Event Details Card */}
-        <div className="p-6 bg-black/60 border border-white/10 rounded-2xl glass-tinted space-y-4">
-          <Heading as="h2">{eventDetails.title}</Heading>
-
-          <div className="space-y-2">
-            <Text variant="small" className="text-gray-300">
-              {dateStr}
-            </Text>
-            <Text variant="small" className="text-gray-300">
-              {startTimeStr} - {endTimeStr}
-            </Text>
-            {eventDetails.location && (
-              <Text variant="small" className="text-gray-300">
-                {eventDetails.location}
-              </Text>
-            )}
-          </div>
-        </div>
+        {eventCard}
 
         {/* Actions */}
         {addedToRecipient ? (
